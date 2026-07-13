@@ -1,6 +1,11 @@
 class StorageKeys {
   StorageKeys._();
 
+  /// Set once on first launch. Lives in SharedPreferences (wiped on iOS/Android
+  /// uninstall), so its ABSENCE means a fresh install — used to wipe Keychain
+  /// secure credentials that survive uninstall on iOS.
+  static const String appInstalledMarker = 'app_installed_marker_v1';
+
   // Storage Keys
   static const String accessToken = 'accessToken';
   static const String refreshToken = 'refreshToken';
@@ -8,13 +13,25 @@ class StorageKeys {
   static const String refreshExpiresIn = 'refreshExpiresIn';
   static const String tokenType = 'tokenType';
   static const String userCode = 'userCode';
+
+  /// JWT `sub` claim extracted from the access token at login time.
+  /// NOTE: the messaging backend stores the USR-/STF-... [userCode] as
+  /// `senderUserCode`, not this UUID. Use [userCode] for chat ownership checks.
+  static const String authUserId = 'authUserId';
+
   static const String email = 'email';
   static const String displayName = 'displayName';
   static const String firstLogin = 'firstLogin';
   static const String roles = 'roles';
+  /// Backend role for the active org+school when the user has multiple (e.g. STAFF + GUARDIAN).
+  static const String activeSchoolRole = 'activeSchoolRole';
   static const String rememberMe = 'rememberMe';
   static const String username = 'username';
-  static const String password = 'password';
+
+  /// SECURITY: the password is NEVER persisted. This key exists only so that
+  /// any plaintext value written by an old app version can be located and
+  /// purged on login/logout (see AuthLocalDataSource). Do not write to it.
+  static const String legacyPasswordPurgeKey = 'password';
   static const String loginCacheKey = 'login_cache';
   static const String loginCacheTimestamp = 'login_cache_timestamp';
   /// Currently selected org/school (used for API calls).
@@ -30,6 +47,8 @@ class StorageKeys {
   static const String staffCode = 'staffCode';
   /// Cached staffType from staff profile API (e.g. ORGANIZATION_ADMIN → shown as role).
   static const String staffType = 'staffType';
+  /// Cached designation from staff profile API (e.g. ASSOCIATE_TEACHER → shown as role).
+  static const String staffDesignation = 'staffDesignation';
   /// JSON array string of classroom codes from staff profile (`allowedClassroomCodes`).
   /// Used to scope attendance APIs for teacher/staff personas.
   static const String staffAllowedClassroomCodes = 'staffAllowedClassroomCodes';
@@ -48,6 +67,12 @@ class StorageKeys {
   static const String guardianCodeUser = 'guardianCodeUser';
   static const String guardianCodeSchool = 'guardianCodeSchool';
   static const String guardianCodeOrganization = 'guardianCodeOrganization';
+
+  /// Last `GET /api/v1/guardian/profile` snapshot (persisted alongside [guardianCode]).
+  static const String guardianProfileFirstName = 'guardianProfileFirstName';
+  static const String guardianProfileLastName = 'guardianProfileLastName';
+  static const String guardianProfilePhotoUrl = 'guardianProfilePhotoUrl';
+  static const String guardianProfileAssetCode = 'guardianProfileAssetCode';
 
   /// JSON list of {organizationCode, schoolCode, schoolName} - all org+school combos user has access to.
   static const String organizationsAndSchools = 'organizationsAndSchools';
@@ -71,9 +96,7 @@ class StorageKeys {
   /// snapshots are ignored until refetched.
   static const String activityFeedCacheRevision = 'activity_feed_cache_revision';
 
-  // Temporary default until school selection is fully wired
-  // static const String defaultOrganizationCode = 'ORG_FA144927-1';
-  // static const String defaultSchoolCode = 'SCH_8A889124-7';
+
 }
 
 

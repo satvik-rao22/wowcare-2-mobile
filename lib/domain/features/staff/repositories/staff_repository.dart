@@ -5,7 +5,6 @@ import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
 import '../entities/school_regular_schedule_day.dart';
-
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
     required String organizationCode,
@@ -24,6 +23,19 @@ abstract class StaffRepository {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
+  });
+
+  /// Fetches the full staff list (single-page; [size] caps how many records
+  /// are returned, default 200) with support for multiple `status` values
+  /// sent as repeated query keys (e.g. `status=ACTIVE&status=UPCOMING`).
+  /// Intended for the scheduling feature, which needs every active/upcoming
+  /// staff member at once.
+  Future<List<StaffMember>> getAllStaff({
+    required String organizationCode,
+    required String schoolCode,
+    List<String>? statuses,
+    int size = 200,
   });
 
   Future<String> addStaffDocument({
@@ -81,6 +93,20 @@ abstract class StaffRepository {
     required Map<String, dynamic> fields,
   });
 
+  /// Updates a staff member's allowed classrooms via
+  /// `PATCH /api/v1/staff-classrooms/{staffCode}/allowed-classrooms`.
+  Future<String> updateStaffAllowedClassrooms({
+    required String staffCode,
+    required List<String> classroomCodes,
+  });
+
+  /// Updates a staff member's primary classroom via
+  /// `PATCH /api/v1/staff-classrooms/{staffCode}/primary-classroom`.
+  Future<String> updateStaffPrimaryClassroom({
+    required String staffCode,
+    required String classroomCode,
+  });
+
   /// Updates the *logged-in* staff member's basic profile + address via
   /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}`.
   ///
@@ -133,6 +159,11 @@ abstract class StaffRepository {
     required List<Map<String, String>> dates,
   });
 
+  /// Fetches the staff member's work and break schedules from the dedicated
+  /// schedule API: `GET /api/v1/staff-schedules/{staffCode}`.
+  Future<({List<StaffProfileWorkSchedule> workSchedules, List<StaffProfileBreakSchedule> breakSchedules})>
+      getStaffSchedules({required String staffCode});
+
   /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
   ///
   /// [workSchedules] and [breakSchedules] should already be shaped according to
@@ -143,8 +174,8 @@ abstract class StaffRepository {
     required List<Map<String, dynamic>> breakSchedules,
   });
 
-  /// School regular schedules (operating hours per weekday) for validation on
-  /// the staff schedule editor.
+  /// School operating hours per weekday from school settings
+  /// (`GET /api/v1/organization/schools/{schoolCode}`).
   Future<List<SchoolRegularScheduleDay>> getSchoolRegularSchedules({
     required String schoolCode,
   });
@@ -185,6 +216,14 @@ abstract class StaffRepository {
     required String role,
   });
 
+  /// Permanently deletes a school user via `DELETE /api/v1/school-users`.
+  Future<String> deleteSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  });
+
   /// Deactivates an organization admin via
   /// `POST /api/v1/organization-admins/deactivate`.
   Future<String> deactivateOrganizationAdmin({
@@ -205,6 +244,23 @@ abstract class StaffRepository {
     required String schoolCode,
     required String role,
   });
+
+  /// Clears in-flight / dedupe maps. Disk caches use [StorageService] (cleared by auth logout).
+  void clearSessionVolatileCaches();
+
+  Future<({int expiredDocumentCount, int expiringWithinWeekCount})>
+      getStaffDocumentExpirySummary({required String schoolCode});
+
+  Future<({int overduePhysicalCheckupCount, int staffWithoutActivePhysicalCheckupCount})>
+      getPhysicalCheckupSummary({required String schoolCode});
+
+  /// Updates work break reminder preference via PATCH API.
+  ///
+  /// Returns true if the reminder was enabled, false if disabled.
+  Future<bool> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  });
 }
 
 /// Optional mixin-style interface for repositories that expose cached data.
@@ -217,10 +273,28 @@ abstract class StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
+  });
+  Future<void> invalidateCachedStaffPage(
+    String schoolCode, {
+    String? status,
+    String? designation,
+    String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
+    List<String>? attendanceStatuses,
   });
   Future<StaffDocumentsPage?> loadCachedStaffDocuments(String staffCode);
-  Future<StaffProfile?> loadCachedStaffProfile(String staffCode);
+  Future<StaffProfile?> loadCachedStaffProfile(
+    String staffCode, {
+    bool forEditStaff = false,
+  });
   Future<List<Map<String, String>>?> loadCachedImportantDates(String staffCode);
+  Future<StaffCount?> loadCachedStaffCount({
+    required String organizationCode,
+    required String schoolCode,
+  });
 }
 
 

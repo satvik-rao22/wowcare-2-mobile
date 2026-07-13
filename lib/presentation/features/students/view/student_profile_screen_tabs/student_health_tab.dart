@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_health_tab_cards/student_health_tab_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -21,6 +21,7 @@ class StudentHealthTab extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.canEdit = false,
     this.onHealthChanged,
   });
 
@@ -29,6 +30,10 @@ class StudentHealthTab extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
+
+  /// Whether the current persona may edit health records (resolved from the
+  /// school's student-settings by the parent screen).
+  final bool canEdit;
   final VoidCallback? onHealthChanged;
 
 
@@ -101,7 +106,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
+    final role = context.watch<RoleCubit>();
     final canEditStudentData =
         ModuleAccess.mayWrite(role, AppAccessModules.student);
     final bool isImmunizationTab = _tabController.index == 3;
@@ -121,11 +126,9 @@ class _StudentHealthTabState extends State<StudentHealthTab>
         ),
         Column(
           children: [
-        if (isImmunizationTab) ...[
+        if (isImmunizationTab && canEditStudentData) ...[
           SizedBox(height: 10,),
-          Opacity(
-            opacity: canEditStudentData ? 1 : 0.45,
-            child: CustomSectionCard(
+          CustomSectionCard(
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.center,
@@ -139,10 +142,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                         label: '',
                         isToggled: _isImmunizationExempt,
                         onToggle: (v) {
-                          if (!canEditStudentData) {
-                            ModuleAccess.showWriteRestricted(context);
-                            return;
-                          }
                           setState(() => _isImmunizationExempt = v);
                         },
                       ),
@@ -182,10 +181,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                       onPressed: _isImmunizationExempt
                           ? null
                           : () {
-                              if (!canEditStudentData) {
-                                ModuleAccess.showWriteRestricted(context);
-                                return;
-                              }
                             },
                       style: TextButton.styleFrom(
                         padding: EdgeInsets.zero,
@@ -209,7 +204,6 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               ],
             ),
             ),
-          ),
           const SizedBox(height: 20),
         ],
 
@@ -294,6 +288,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
               StudentHealthTabCard(
                 scrollController: _healthScrollController,
                 studentCode: widget.studentCode,
+                canEdit: widget.canEdit,
                 onHealthChanged: widget.onHealthChanged,
               ),
               StudentPhysicianTabCard(
@@ -301,18 +296,21 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                 name: widget.name,
                 classroom: widget.classroom,
                 studentCode: widget.studentCode,
+                canEdit: widget.canEdit,
               ),
               StudentDatesTabCard(
                 scrollController: _datesScrollController,
                 name: widget.name,
                 classroom: widget.classroom,
                 studentCode: widget.studentCode,
+                canEdit: widget.canEdit,
               ),
               StudentImmunizationTabCard(
                 scrollController: _immunizationScrollController,
                 name: widget.name,
                 classroom: widget.classroom,
                 studentCode: widget.studentCode,
+                canEdit: widget.canEdit,
               ),
             ],
           ),

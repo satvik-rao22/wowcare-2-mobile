@@ -1,14 +1,22 @@
+import 'dart:async';
+import 'dart:io';
+
+import 'package:wowcare/core/util/logger_service.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
@@ -16,15 +24,22 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentProfileScreen extends StatefulWidget {
+  static const String routeName = '/dashboard/student-profile';
+
   const StudentProfileScreen({
     super.key,
     required this.name,
@@ -33,9 +48,14 @@ class StudentProfileScreen extends StatefulWidget {
     required this.schedule,
     required this.sibling,
     this.studentCode,
+
     /// Raw API status (e.g. ACTIVE, UPCOMING) so the header dot is correct before the profile tab loads.
     this.initialEnrollmentStatus,
     this.syncWithParentChildSelection = false,
+    this.initialTabIndex = 0,
+    this.initialProfileSubTabIndex = 0,
+    this.initialHealthSubTabIndex = 0,
+    this.highlightCode,
   });
 
   final String name;
@@ -46,6 +66,26 @@ class StudentProfileScreen extends StatefulWidget {
   final String? studentCode;
 
   final String? initialEnrollmentStatus;
+
+  /// Tab to open on entry (0 Profile, 1 Health, 2 Dates, 3 Documents) — set by
+  /// notification deep-links so e.g. an immunization alert lands on Health.
+  final int initialTabIndex;
+
+  /// Sub-tab to open inside the Profile tab (0 About, 1 Family, 2 Pickup) — set
+  /// by notification deep-links so e.g. a "parent not added" alert lands on
+  /// Family. Only applies when [initialTabIndex] is 0 (Profile).
+  final int initialProfileSubTabIndex;
+
+  /// Sub-tab to open inside the Health tab (0 Health, 1 Physician,
+  /// 2 Physical Examination Dates, 3 Immunization) — set by notification
+  /// deep-links so e.g. a "physical overdue" alert lands on Physical Exam Dates
+  /// and an immunization alert lands on Immunization. Only applies when
+  /// [initialTabIndex] is 1 (Health).
+  final int initialHealthSubTabIndex;
+
+  /// Row code to highlight inside the opened tab (e.g. documentCode on the
+  /// Documents tab). Null for normal navigation.
+  final String? highlightCode;
 
   /// When true (e.g. parent opens My Child from drawer), child dropdown updates this screen.
   final bool syncWithParentChildSelection;
@@ -61,22 +101,42 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   final ScrollController _healthScrollController = ScrollController();
   final ScrollController _importantDatesScrollController = ScrollController();
   final ScrollController _documentsScrollController = ScrollController();
-  final ImagePicker _picker = ImagePicker();
+  late final CacheManager _cacheManager;
   late Future<StudentHealthModel?> _healthFuture;
   late String _displayName;
   late String _displayClassroom;
+
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
+
+  /// Raw FTE from the API (e.g. "1.0", "0.5"); set when the profile loads.
+  /// Displayed ×100 on the front end only (1.0 → 100, 0.5 → 50).
+  String? _profileFte;
   String? _activeStudentCode;
   late List<String> _profileTags;
   late List<String> _profileSchedule;
   late Map<String, dynamic> _profileSibling;
-  ParentChildProvider? _parentChildProvider;
+  ParentChildCubit? _parentChildProvider;
+  StreamSubscription<ParentChildState>? _parentChildSub;
+  String? _profilePhotoUrl;
+  String? _schoolCode;
+  String? _organizationCode;
+  bool _isUploadingProfilePhoto = false;
+  double _profilePhotoUploadPercent = 0;
+
+  /// School-level student settings; gates Health/Documents editing for the
+  /// guardian and staff personas. Null until loaded (edit stays off meanwhile).
+  StudentSettings? _studentSettings;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _cacheManager = CacheManager(serviceLocator<StorageService>());
+    _tabController = TabController(
+      length: 4,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 3),
+    );
     _activeStudentCode = widget.studentCode;
     _profileTags = List<String>.from(widget.tags);
     _profileSchedule = List<String>.from(widget.schedule);
@@ -84,8 +144,14 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _healthFuture = _buildHealthFuture();
     _displayName = widget.name;
     _displayClassroom = widget.classroom;
-    _profileStatusUpper =
-        widget.initialEnrollmentStatus?.trim().toUpperCase();
+    _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
+    _loadUploadContext();
+    _loadStudentSettings();
+    // Deep-link case: opened by code straight to a non-Profile tab. The profile
+    // fetch that fills the header (name/classroom) lives inside the Profile tab,
+    // which TabBarView builds lazily — so it never runs when we land on another
+    // tab. Fetch here too so the header loads regardless of the initial tab.
+    _ensureHeaderProfileLoaded();
 
     // Cache-first classroom load (won't refetch if already loaded).
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -98,15 +164,102 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     });
   }
 
+  /// Loads school-level student settings so the Health/Documents tabs know
+  /// whether the current persona may edit. Best-effort: on failure editing
+  /// stays disabled for guardian/staff (admins keep their module-access default).
+  Future<void> _loadStudentSettings() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (school.isEmpty) return;
+      final settings = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentSettings(schoolCode: school);
+      if (!mounted) return;
+      setState(() => _studentSettings = settings);
+    } catch (e) {
+      AppLogger.d('[StudentProfile] student settings load failed: $e');
+    }
+  }
+
+  /// Whether the current persona may edit the Health tab and Documents:
+  /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords], admin → module access.
+  bool _canEditHealthAndDocuments(RoleCubit role) {
+    if (role.isParent) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    if (role.isStaff) {
+      return _studentSettings?.canStaffEditTheirOwnHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
+  }
+
+  /// Loads the student's profile at the screen level so the header (name,
+  /// classroom, status, photo) populates even when the user deep-links straight
+  /// to a tab other than Profile. Only runs when we were opened by code without
+  /// a pre-supplied name (i.e. the notification-redirect path).
+  Future<void> _ensureHeaderProfileLoaded() async {
+    final code = (_activeStudentCode ?? '').trim();
+    if (code.isEmpty || _displayName.trim().isNotEmpty) return;
+    try {
+      final profile = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentProfile(code);
+      _onProfileChanged(profile);
+    } catch (_) {
+      // Profile tab's FutureBuilder still surfaces load errors when visited.
+    }
+  }
+
   void _onProfileChanged(StudentProfileModel profile) {
     if (!mounted) return;
+    AppLogger.d(
+      '[ProfileHeader] student=${profile.code} name="${profile.fullName}" '
+      'classroom="${profile.classroom}"',
+    );
     setState(() {
       final nextName = profile.fullName.trim();
       _displayName = nextName.isEmpty ? _displayName : nextName;
       final nextClassroom = (profile.classroom ?? '').trim();
-      _displayClassroom =
-          nextClassroom.isEmpty ? _displayClassroom : nextClassroom;
-      _profileStatusUpper = profile.status.trim().toUpperCase();
+      _displayClassroom = nextClassroom.isEmpty
+          ? _displayClassroom
+          : nextClassroom;
+      final nextStatus = profile.status.trim().toUpperCase();
+      if (nextStatus.isNotEmpty) {
+        _profileStatusUpper = nextStatus;
+      }
+      _profileFte = profile.fte;
+      _profilePhotoUrl = (profile.profilePhotoUrl ?? '').trim().isEmpty
+          ? null
+          : profile.profilePhotoUrl!.trim();
+    });
+  }
+
+  /// FTE for display: the API value multiplied by 100 (front end only) and shown
+  /// as a percentage, with a trailing `.0` dropped for whole numbers.
+  /// Null/blank/non-numeric → null so the field is hidden.
+  String? get _fteDisplay {
+    final raw = (_profileFte ?? '').trim();
+    if (raw.isEmpty) return null;
+    final value = double.tryParse(raw);
+    if (value == null) return null;
+    final scaled = value * 100;
+    final number = scaled == scaled.roundToDouble()
+        ? scaled.toStringAsFixed(0)
+        : scaled.toString();
+    return '$number%';
+  }
+
+  Future<void> _loadUploadContext() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
+    final organizationCode =
+        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    if (!mounted) return;
+    setState(() {
+      _schoolCode = schoolCode.isEmpty ? null : schoolCode;
+      _organizationCode = organizationCode.isEmpty ? null : organizationCode;
     });
   }
 
@@ -144,43 +297,24 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (med.isNotEmpty) {
       addLine(
         med,
-        SvgPicture.asset(
-          MediaRes.healthIcon,
-          height: 22,
-          width: 22,
-        ),
+        SvgPicture.asset(MediaRes.healthIcon, height: 22, width: 22),
       );
     }
     final allergy = (health.allergy ?? '').trim();
     if (allergy.isNotEmpty) {
       addLine(
         allergy,
-        SvgPicture.asset(
-          MediaRes.alertIcon,
-          height: 22,
-          width: 22,
-        ),
+        SvgPicture.asset(MediaRes.alertIcon, height: 22, width: 22),
       );
     }
     final diet = (health.dietRestrictions ?? '').trim();
     if (diet.isNotEmpty) {
-      addLine(
-        diet,
-        Image.asset(
-          MediaRes.foodIcon2,
-          height: 22,
-          width: 22,
-        ),
-      );
+      addLine(diet, Image.asset(MediaRes.foodIcon2, height: 22, width: 22));
     }
     if (health.photoPermission == false) {
       addLine(
         'Photo permission not granted',
-        SvgPicture.asset(
-          MediaRes.cameraIcon,
-          height: 22,
-          width: 22,
-        ),
+        SvgPicture.asset(MediaRes.cameraIcon, height: 22, width: 22),
       );
     }
 
@@ -190,7 +324,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       context: context,
       builder: (ctx) {
         return Dialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(20, 16, 20, 12),
             child: Column(
@@ -235,9 +371,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (code == null || code.isEmpty) {
       return null;
     }
-    final repo = serviceLocator<StudentRepository>() as StudentRepositoryImpl;
+    final dataSource = serviceLocator<StudentRemoteDataSource>();
     try {
-      return await repo.getStudentHealth(studentCode: code);
+      return await dataSource.getStudentHealth(code: code);
     } catch (e) {
       CoreUtils.logApiError(e.toString());
       return null;
@@ -257,9 +393,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (!widget.syncWithParentChildSelection || _parentChildProvider != null) {
       return;
     }
-    final p = context.read<ParentChildProvider>();
+    final p = context.read<ParentChildCubit>();
     _parentChildProvider = p;
-    p.addListener(_onParentChildSelectionChanged);
+    _parentChildSub = p.stream.listen((_) => _onParentChildSelectionChanged());
   }
 
   void _onParentChildSelectionChanged() {
@@ -285,7 +421,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   @override
   void dispose() {
-    _parentChildProvider?.removeListener(_onParentChildSelectionChanged);
+    _parentChildSub?.cancel();
     _tabController.dispose();
     _profileScrollController.dispose();
     _healthScrollController.dispose();
@@ -295,26 +431,147 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Future<void> _pickProfileImage() async {
-    final role = context.read<RoleProvider>();
+    final role = context.read<RoleCubit>();
     if (!ModuleAccess.mayWrite(role, AppAccessModules.student)) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
     try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
-      // TODO: wire this to upload/update avatar in your backend/state
+      // Shared file picker → every allowed image format is selectable.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
+      );
+      final imagePath = picked?.path;
+      if (imagePath == null || imagePath.isEmpty) return;
+      final studentCode = (_activeStudentCode ?? '').trim();
+      final schoolCode = (_schoolCode ?? '').trim();
+      final organizationCode = (_organizationCode ?? '').trim();
+      if (studentCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Student code is required to upload profile photo.',
+          isError: true,
+        );
+        return;
+      }
+      if (schoolCode.isEmpty || organizationCode.isEmpty) {
+        await _loadUploadContext();
+      }
+      final resolvedSchoolCode = (_schoolCode ?? '').trim();
+      final resolvedOrganizationCode = (_organizationCode ?? '').trim();
+      if (resolvedSchoolCode.isEmpty || resolvedOrganizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing school context for photo upload.',
+          isError: true,
+        );
+        return;
+      }
+
+      setState(() {
+        _isUploadingProfilePhoto = true;
+        _profilePhotoUploadPercent = 5;
+      });
+      final uploadService = serviceLocator<ImageUploadService>();
+      final file = File(imagePath);
+      final sessionCode = await uploadService
+          .createStudentProfilePhotoUploadSession(
+            studentCode: studentCode,
+            schoolCode: resolvedSchoolCode,
+            organizationCode: resolvedOrganizationCode,
+          );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 15);
+      final lowerPath = imagePath.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final mime = FilePickerUtils.getMimeType(
+        fileName.contains('.') ? fileName.split('.').last : '',
+      );
+      final contentType = mime.startsWith('image/') ? mime : 'image/jpeg';
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: '/api/v1',
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'student-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'STUDENT',
+        ownerCode: studentCode,
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 25);
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+        onSendProgress: (int sent, int total) {
+          if (!mounted || total <= 0) return;
+          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
+          setState(() {
+            _profilePhotoUploadPercent = 25 + (uploadPhasePercent * 55);
+          });
+        },
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 84);
+      await uploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: '/api/v1',
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 90);
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+      if (mounted) setState(() => _profilePhotoUploadPercent = 100);
+      final finalizedUrl = await uploadService.finalizeStudentProfilePhoto(
+        studentCode: studentCode,
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        schoolCode: resolvedSchoolCode,
+      );
+      if (mounted) {
+        setState(() => _profilePhotoUploadPercent = 100);
+      }
+
+      DocumentImageWidget.clearProfilePhotoCache(studentCode: studentCode);
+
+      final dataSource = serviceLocator<StudentRemoteDataSource>();
+      final refreshed = await dataSource.getStudentProfile(studentCode);
+      await _cacheManager.saveCache(
+        CacheManager.buildCacheKey(
+          feature: 'student',
+          resource: 'profile',
+          identifier: studentCode.trim(),
+        ),
+        refreshed.toJson(),
+      );
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected profile image',
+        message: 'Profile photo updated successfully',
         isSuccess: true,
       );
+      if (!mounted) return;
+      setState(() {
+        _profilePhotoUrl = (refreshed.profilePhotoUrl ?? '').trim().isNotEmpty
+            ? refreshed.profilePhotoUrl!.trim()
+            : finalizedUrl;
+      });
     } catch (e) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Failed to pick image: $e',
+        message: 'Failed to update profile photo: $e',
         isError: true,
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingProfilePhoto = false;
+          _profilePhotoUploadPercent = 0;
+        });
+      }
     }
   }
 
@@ -335,9 +592,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     if (!hasClassroomCubit) {
       return BlocProvider<ClassroomCubit>(
         create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
-        child: Builder(
-          builder: (context) => _buildScreen(context),
-        ),
+        child: Builder(builder: (context) => _buildScreen(context)),
       );
     }
 
@@ -345,9 +600,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   }
 
   Widget _buildScreen(BuildContext context) {
-    final role = context.watch<RoleProvider>();
-    final canChangePhoto =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final role = context.watch<RoleCubit>();
+    final canChangePhoto = ModuleAccess.mayWrite(
+      role,
+      AppAccessModules.student,
+    );
+    final canEditHealthDocs = _canEditHealthAndDocuments(role);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -372,13 +630,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 fontWeight: FontWeight.w500,
               ),
               unselectedLabelStyle: TextStyle(
-                color: AppColors.primaryColor.withOpacity(0.5),
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
                 fontFamily: 'Manrope',
                 fontSize: 16,
               ),
               //labelColor: Colors.black,
               labelColor: const Color(0xFF241631),
-              unselectedLabelColor: AppColors.primaryColor.withOpacity(0.5),
+              unselectedLabelColor: AppColors.primaryColor.withValues(
+                alpha: 0.5,
+              ),
               tabAlignment: TabAlignment.center,
               tabs: const [
                 Tab(text: 'Profile'),
@@ -406,16 +666,19 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   schedule: _profileSchedule,
                   sibling: _profileSibling,
                   studentCode: _activeStudentCode,
+                  initialTabIndex: widget.initialProfileSubTabIndex.clamp(0, 2),
                   onProfileChanged: _onProfileChanged,
                 ),
                 StudentHealthTab(
                   key: ValueKey<String>(
                     'health_tab_${_activeStudentCode ?? 'none'}',
                   ),
+                  initialTabIndex: widget.initialHealthSubTabIndex.clamp(0, 3),
                   scrollController: _healthScrollController,
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  canEdit: canEditHealthDocs,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
@@ -435,8 +698,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
-                )
-
+                  canEdit: canEditHealthDocs,
+                  highlightCode: widget.highlightCode,
+                ),
               ],
             ),
           ),
@@ -447,7 +711,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
 
   Widget _buildStudentProfileCard(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     bool canChangePhoto,
   ) {
     return Card(
@@ -468,12 +732,104 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                       children: [
                         DocumentImageWidget(
                           fileUuid: _activeStudentCode ?? _displayName,
+                          imageUrl: _profilePhotoUrl,
                           name: _displayName,
                           studentCode: _activeStudentCode,
                           studentEnrollmentStatus: _profileStatusUpper,
                           size: 90,
                           fontSize: 24,
                         ),
+                        if (_isUploadingProfilePhoto)
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xB3241631),
+                                borderRadius: BorderRadius.circular(45),
+                              ),
+                              child: Center(
+                                child: Container(
+                                  width: 72,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.primaryColor.withValues(
+                                      alpha: 0.25,
+                                    ),
+                                    borderRadius: BorderRadius.circular(14),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(
+                                        alpha: 0.22,
+                                      ),
+                                    ),
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Text(
+                                        '${_profilePhotoUploadPercent.clamp(0, 100)}%',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        child: LinearProgressIndicator(
+                                          value:
+                                              (_profilePhotoUploadPercent / 100)
+                                                  .clamp(0.0, 1.0),
+                                          minHeight: 4,
+                                          backgroundColor: Colors.white
+                                              .withValues(alpha: 0.22),
+                                          valueColor:
+                                              const AlwaysStoppedAnimation<
+                                                Color
+                                              >(AppColors.themeColor),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          SvgPicture.asset(
+                                            MediaRes.uploadIcon,
+                                            height: 10,
+                                            width: 10,
+                                            colorFilter: ColorFilter.mode(
+                                              Colors.white.withValues(
+                                                alpha: 0.92,
+                                              ),
+                                              BlendMode.srcIn,
+                                            ),
+                                          ),
+                                          const SizedBox(width: 3),
+                                          Text(
+                                            _profilePhotoUploadPercent >= 100
+                                                ? 'Finalizing'
+                                                : 'Uploading',
+                                            style: TextStyle(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.92,
+                                              ),
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
                         if (canChangePhoto)
                           Positioned(
                             right: -2,
@@ -485,7 +841,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(16),
                                 boxShadow: [
-                                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 6, offset: const Offset(0, 2)),
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.08),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 2),
+                                  ),
                                 ],
                               ),
                               child: Container(
@@ -494,7 +854,11 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                                   gradient: AppColors.buildPrimaryGradient(),
                                   borderRadius: BorderRadius.circular(14),
                                 ),
-                                child: const Icon(Icons.camera_alt, color: Colors.white, size: 16),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
                               ),
                             ),
                           ),
@@ -541,12 +905,16 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                         future: _healthFuture,
                         builder: (context, snapshot) {
                           final health = snapshot.data;
-                          final hasAllergy =
-                              (health?.allergy ?? '').trim().isNotEmpty;
-                          final hasMedication =
-                              (health?.medications ?? '').trim().isNotEmpty;
+                          final hasAllergy = (health?.allergy ?? '')
+                              .trim()
+                              .isNotEmpty;
+                          final hasMedication = (health?.medications ?? '')
+                              .trim()
+                              .isNotEmpty;
                           final hasDietRestrictions =
-                              (health?.dietRestrictions ?? '').trim().isNotEmpty;
+                              (health?.dietRestrictions ?? '')
+                                  .trim()
+                                  .isNotEmpty;
                           final isPhotoPermissionOff =
                               (health?.photoPermission ?? true) == false;
 
@@ -620,10 +988,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     );
   }
 
-  Widget _buildStudentActionButtons(
-    BuildContext context,
-    RoleProvider role,
-  ) {
+  Widget _buildStudentActionButtons(BuildContext context, RoleCubit role) {
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -722,53 +1087,159 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 AppAccessModules.parentMessaging,
                 AppAccessModules.staffMessaging,
               ]);
-              if (messagingOk) {
+              if (!messagingOk) {
+                ModuleAccess.showFeatureRestricted(context);
+                return;
+              }
+              final code = (_activeStudentCode ?? '').trim();
+              if (code.isEmpty) {
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Messaging is available from the Messages section.',
-                  isError: false,
+                  message: 'Student details not loaded yet. Please try again.',
+                  isError: true,
                 );
-              } else {
-                ModuleAccess.showFeatureRestricted(context);
+                return;
               }
+              openMessagingShortcut(
+                context,
+                recipients: [
+                  SelectedRecipient(
+                    code: code,
+                    name: _displayName,
+                    isStaff: false,
+                  ),
+                ],
+              );
             },
           ),
-          _buildActionIcon(
-            context,
-            role,
-            MediaRes.billing_drawer_icon,
-            enabled: role.canAccessAny([
-              AppAccessModules.transaction,
-              AppAccessModules.invoices,
-              AppAccessModules.recurringPlans,
-              AppAccessModules.billingSettings,
-            ]),
-            onTap: () {
-              final billingOk = role.canAccessAny([
+          // Billing is hidden for the staff persona; admins open the student's
+          // family billing profile, other personas see the info hint.
+          if (!role.isStaff)
+            _buildActionIcon(
+              context,
+              role,
+              MediaRes.billing_drawer_icon,
+              enabled: role.canAccessAny([
                 AppAccessModules.transaction,
                 AppAccessModules.invoices,
                 AppAccessModules.recurringPlans,
                 AppAccessModules.billingSettings,
-              ]);
-              if (billingOk) {
+              ]),
+              onTap: () {
+                final billingOk = role.canAccessAny([
+                  AppAccessModules.transaction,
+                  AppAccessModules.invoices,
+                  AppAccessModules.recurringPlans,
+                  AppAccessModules.billingSettings,
+                ]);
+                if (!billingOk) {
+                  ModuleAccess.showFeatureRestricted(context);
+                  return;
+                }
+                // Admin persona (role == 'admin', i.e. isAdmin but not staff):
+                // open this student's family billing profile.
+                if (role.isAdmin && !role.isStaff) {
+                  final code = (_activeStudentCode ?? '').trim();
+                  if (code.isEmpty) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message:
+                          'Student details not loaded yet. Please try again.',
+                      isError: true,
+                    );
+                    return;
+                  }
+                  _openStudentFamilyBilling(context, code);
+                  return;
+                }
                 CoreUtils.showTopSnackBar(
                   context: context,
-                  message: 'Billing is available from the Transactions section.',
+                  message:
+                      'Billing is available from the Transactions section.',
                   isError: false,
                 );
-              } else {
-                ModuleAccess.showFeatureRestricted(context);
-              }
-            },
-          ),
+              },
+            ),
         ],
       ),
     );
   }
 
+  /// Resolves the student's family (`FAM_…`) from the billing family-summary —
+  /// the family-ledger API is keyed by the FAMILY owner code, not the student
+  /// code — then opens that family's billing profile. Mirrors how the admin
+  /// billing screen navigates.
+  Future<void> _openStudentFamilyBilling(
+    BuildContext context,
+    String studentCode,
+  ) async {
+    final storage = serviceLocator<StorageService>();
+    final org =
+        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final school =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (!context.mounted) return;
+    if (org.isEmpty || school.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Missing school context. Please try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    CoreUtils.showLoadingDialog(context);
+    try {
+      final families = await serviceLocator<GetFamilySummaryUseCase>()(
+        organizationCode: org,
+        school: school,
+      );
+      FamilySummaryEntity? family;
+      for (final f in families) {
+        if (f.studentCodes.contains(studentCode)) {
+          family = f;
+          break;
+        }
+      }
+      if (!context.mounted) return;
+      // showLoadingDialog uses the root navigator, so dismiss it there.
+      Navigator.of(context, rootNavigator: true).pop();
+      if (family == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'No billing profile found for this student.',
+          isError: true,
+        );
+        return;
+      }
+      final resolved = family;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TransactionDetailsScreen(
+            ownerType:
+                resolved.ownerType.isNotEmpty ? resolved.ownerType : 'FAMILY',
+            ownerCode: resolved.ownerCode,
+            familyName: resolved.familyName.isNotEmpty
+                ? resolved.familyName
+                : _displayName,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      // showLoadingDialog uses the root navigator, so dismiss it there.
+      Navigator.of(context, rootNavigator: true).pop();
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to open billing. Please try again.',
+        isError: true,
+      );
+    }
+  }
+
   Widget _buildActionIcon(
     BuildContext context,
-    RoleProvider role,
+    RoleCubit role,
     String asset, {
     required VoidCallback onTap,
     required bool enabled,

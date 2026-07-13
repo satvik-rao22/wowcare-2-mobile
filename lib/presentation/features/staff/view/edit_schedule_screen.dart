@@ -11,6 +11,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 
 class EditScheduleScreen extends StatefulWidget {
   const EditScheduleScreen({
@@ -29,13 +30,34 @@ class EditScheduleScreen extends StatefulWidget {
 }
 
 class _EditScheduleScreenState extends State<EditScheduleScreen> {
-  final List<String> _allDays = [
-    'Monday',
-    'Tuesday',
-    'Wednesday',
-    'Thursday',
-    'Friday',
-  ];
+  static const Map<String, String> _dayNameByApiKey = <String, String>{
+    'MONDAY': 'Monday',
+    'TUESDAY': 'Tuesday',
+    'WEDNESDAY': 'Wednesday',
+    'THURSDAY': 'Thursday',
+    'FRIDAY': 'Friday',
+    'SATURDAY': 'Saturday',
+    'SUNDAY': 'Sunday',
+  };
+
+  /// Days the school is open, derived strictly from the regular-schedule API
+  /// response (`_schoolMinutesByDay`). Empty until the API loads — the UI
+  /// fills in once the resolver is populated.
+  List<String> get _allDays {
+    const order = <String>[
+      'MONDAY',
+      'TUESDAY',
+      'WEDNESDAY',
+      'THURSDAY',
+      'FRIDAY',
+      'SATURDAY',
+      'SUNDAY',
+    ];
+    return order
+        .where(_schoolMinutesByDay.containsKey)
+        .map((k) => _dayNameByApiKey[k]!)
+        .toList(growable: false);
+  }
 
   // Store schedule data for each day
   final Map<String, DaySchedule> _schedules = {};
@@ -51,17 +73,20 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
   @override
   void initState() {
     super.initState();
-    _initializeSchedules();
+    // School schedule must load before we can derive _allDays — _initializeSchedules
+    // is invoked from the resolver completion handler.
     _loadSchoolRegularSchedules();
   }
 
   Future<void> _loadSchoolRegularSchedules() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) {
       if (mounted) {
         setState(() {
-          _schoolHoursLoadError = 'No school selected; school-hour limits are disabled.';
+          _schoolHoursLoadError =
+              'No school selected; school-hour limits are disabled.';
         });
       }
       return;
@@ -81,6 +106,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       setState(() {
         _schoolMinutesByDay = map;
         _schoolHoursLoadError = null;
+        _initializeSchedules();
       });
     } catch (e) {
       if (!mounted) return;
@@ -206,7 +232,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       if (_schedules.containsKey(day)) {
         final workStart = _parseTime(schedule.startTime);
         final workEnd = _parseTime(schedule.endTime);
-        
+
         if (!schedule.isBreakTime) {
           _schedules[day] = _schedules[day]!.copyWith(
             isEnabled: true,
@@ -270,55 +296,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     return TimeOfDay(hour: hour, minute: clampedMinute);
   }
 
-  String _capitalizeFirst(String s) => s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
-
-  Future<void> _selectTime(BuildContext context, String day, TimeType timeType) async {
-    final currentSchedule = _schedules[day]!;
-    TimeOfDay initialTime = const TimeOfDay(hour: 9, minute: 0);
-    
-    switch (timeType) {
-      case TimeType.workStart:
-        initialTime = currentSchedule.workStartTime ?? initialTime;
-        break;
-      case TimeType.workEnd:
-        initialTime = currentSchedule.workEndTime ?? initialTime;
-        break;
-      case TimeType.breakStart:
-        initialTime = currentSchedule.breakStartTime ?? initialTime;
-        break;
-      case TimeType.breakEnd:
-        initialTime = currentSchedule.breakEndTime ?? initialTime;
-        break;
-    }
-
-    try {
-      final picked = await showTimePicker(
-        context: context,
-        initialTime: initialTime,
-        builder: (context, child) {
-          final theme = Theme.of(context);
-          return Theme(
-            data: theme.copyWith(
-              timePickerTheme: const TimePickerThemeData(
-                dialHandColor: Colors.white,
-              ),
-              colorScheme: theme.colorScheme.copyWith(
-                primary: AppColors.primaryColor,
-                secondary: AppColors.primaryColor,
-              ),
-            ),
-            child: child!,
-          );
-        },
-      );
-
-      if (picked != null) {
-        _onTimePicked(day, timeType, picked);
-      }
-    } catch (e) {
-      print('Error opening time picker: $e');
-    }
-  }
+  String _capitalizeFirst(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
 
   void _onTimePicked(String day, TimeType timeType, TimeOfDay selectedTime) {
     final currentSchedule = _schedules[day]!;
@@ -377,11 +356,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
     final err = _validateDaySchedule(day, next);
     if (err != null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: err,
-        isError: true,
-      );
+      CoreUtils.showTopSnackBar(context: context, message: err, isError: true);
       return;
     }
 
@@ -406,7 +381,8 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
     for (final day in _allDays) {
       final schedule = _schedules[day]!;
-      if (!schedule.isEnabled) continue; // Crossed days: omit from payload so they are removed on backend
+      if (!schedule.isEnabled)
+        continue; // Crossed days: omit from payload so they are removed on backend
 
       final dayOfWeek = day.toUpperCase(); // MONDAY, TUESDAY, ...
 
@@ -464,6 +440,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
 
       if (!mounted) return;
 
+      // Schedule mutation — poke the scheduling screens so they silently
+      // re-pull the staff list on the next visit.
+      SchedulingCacheGate.invalidate();
+
       CoreUtils.showTopSnackBar(
         context: context,
         message: message,
@@ -516,7 +496,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               ),
             ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+            padding: EdgeInsets.symmetric(
+              horizontal: responsive.horizontalSpacing,
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -575,13 +557,16 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       ),
       bottomBar: Container(
         padding: EdgeInsets.only(
-          bottom: safeAreaBottom, left: 16, right: 16, top: 8,
+          bottom: safeAreaBottom,
+          left: 16,
+          right: 16,
+          top: 8,
         ),
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha:0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -595,7 +580,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
           height: responsive.buttonHeight,
           decoration: BoxDecoration(
             gradient: AppColors.buildPrimaryGradient(),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 16.0 : 8.0,
+            ),
           ),
           child: TextButton(
             onPressed: _isSubmitting ? null : _saveSchedule,
@@ -626,12 +613,12 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isEnabled
-            ? AppColors.primaryColor.withOpacity(0.05)
+            ? AppColors.primaryColor.withValues(alpha:0.05)
             : Colors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isEnabled
-              ? AppColors.primaryColor.withOpacity(0.3)
+              ? AppColors.primaryColor.withValues(alpha:0.3)
               : Colors.grey.shade300,
         ),
       ),
@@ -648,8 +635,9 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
                   color: const Color(0xff573353),
-                  decoration:
-                      isEnabled ? TextDecoration.none : TextDecoration.lineThrough,
+                  decoration: isEnabled
+                      ? TextDecoration.none
+                      : TextDecoration.lineThrough,
                 ),
               ),
               isEnabled
@@ -678,14 +666,14 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                       },
                       child: const Text(
                         'Enable',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
                           color: AppColors.primaryColor,
-                  ),
-                ),
-              ),
+                        ),
+                      ),
+                    ),
             ],
           ),
           if (!isEnabled)
@@ -717,7 +705,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
             'Work Time',
             schedule.workStartTime,
             schedule.workEndTime,
-            (timeType) => _selectTime(context, day, timeType),
             responsive,
             day,
             enabled: isEnabled,
@@ -727,7 +714,6 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
             'Break Time',
             schedule.breakStartTime,
             schedule.breakEndTime,
-            (timeType) => _selectTime(context, day, timeType),
             responsive,
             day,
             enabled: isEnabled,
@@ -741,48 +727,61 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
     String title,
     TimeOfDay? startTime,
     TimeOfDay? endTime,
-    Function(TimeType) onTimeSelected,
     ResponsiveHelper responsive,
-    String day,
-    {bool enabled = true}
-  ) {
+    String day, {
+    bool enabled = true,
+  }) {
     return Opacity(
       opacity: enabled ? 1.0 : 0.5,
       child: AbsorbPointer(
         absorbing: !enabled,
         child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: GradientTimePickerField(
-                label: 'Start',
-                time: startTime,
-                onTimeSelected: (t) => _onTimePicked(day, title == 'Work Time' ? TimeType.workStart : TimeType.breakStart, t),
+            Text(
+              title,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Color(0xff573353),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: GradientTimePickerField(
-                label: 'End',
-                time: endTime,
-                onTimeSelected: (t) => _onTimePicked(day, title == 'Work Time' ? TimeType.workEnd : TimeType.breakEnd, t),
-              ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: GradientTimePickerField(
+                    label: 'Start',
+                    minuteInterval: 15,
+                    time: startTime,
+                    onTimeSelected: (t) => _onTimePicked(
+                      day,
+                      title == 'Work Time'
+                          ? TimeType.workStart
+                          : TimeType.breakStart,
+                      t,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GradientTimePickerField(
+                    label: 'End',
+                    minuteInterval: 15,
+                    time: endTime,
+                    onTimeSelected: (t) => _onTimePicked(
+                      day,
+                      title == 'Work Time'
+                          ? TimeType.workEnd
+                          : TimeType.breakEnd,
+                      t,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
-        ),
-      ],
         ),
       ),
     );
@@ -821,9 +820,4 @@ class DaySchedule {
   }
 }
 
-enum TimeType {
-  workStart,
-  workEnd,
-  breakStart,
-  breakEnd,
-}
+enum TimeType { workStart, workEnd, breakStart, breakEnd }

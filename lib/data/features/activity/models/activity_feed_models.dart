@@ -32,8 +32,7 @@ class ActivityFeedPageModel {
     if (rawContent is List<dynamic>) {
       for (final e in rawContent) {
         if (e is Map<String, dynamic>) {
-          final row = _rowFromJson(e);
-          if (row != null) list.add(row);
+          list.addAll(_rowsFromJson(e));
         }
       }
     }
@@ -55,8 +54,36 @@ class ActivityFeedPageModel {
         last: last,
       );
 
-  static ActivityFeedRow? _rowFromJson(Map<String, dynamic> json) {
+  static List<ActivityFeedRow> _rowsFromJson(Map<String, dynamic> json) {
     try {
+      bool? asNullableBool(dynamic raw) {
+        if (raw is bool) return raw;
+        final v = (raw ?? '').toString().trim().toLowerCase();
+        if (v == 'true') return true;
+        if (v == 'false') return false;
+        return null;
+      }
+
+      bool? aggregateNapFlagFromStudents(
+        List<Map<String, String>> students,
+        String flagKey,
+      ) {
+        if (students.isEmpty) return null;
+        var sawTrue = false;
+        var sawFalse = false;
+        for (final s in students) {
+          final v = asNullableBool(s[flagKey]);
+          if (v == true) {
+            sawTrue = true;
+          } else if (v == false) {
+            sawFalse = true;
+          }
+        }
+        if (sawTrue && !sawFalse) return true;
+        if (!sawTrue && sawFalse) return false;
+        return sawTrue ? true : null;
+      }
+
       final params = <Map<String, dynamic>>[];
       final rawPv = json['parameterValues'];
       if (rawPv is List<dynamic>) {
@@ -71,37 +98,120 @@ class ActivityFeedPageModel {
           if (a is Map<String, dynamic>) atts.add(a);
         }
       }
+      final singleAttachment = json['attachment'];
+      if (singleAttachment is Map<String, dynamic>) {
+        atts.add(singleAttachment);
+      }
 
       final activityDate = (json['activityDate'] ?? '').toString();
       if (activityDate.isEmpty) {
-        return null;
+        return const [];
       }
-      final first = (json['studentFirstName'] ?? '').toString();
-      final last = (json['studentLastName'] ?? '').toString();
 
-      final code = (json['code'] ?? json['activityCode'] ?? '')
+      final code = (json['cardGroupCode'] ??
+              json['code'] ??
+              json['batchGroupCode'] ??
+              json['activityCode'] ??
+              '')
           .toString()
           .trim();
-      final stu = (json['studentCode'] ?? '').toString().trim();
       final room = (json['classroomCode'] ?? '').toString().trim();
+      final activityTypeCode = (json['activityTypeCode'] ?? '').toString();
+      final activityTypeName = (json['activityTypeName'] ?? '').toString();
+      final description = (json['description'] ?? '').toString();
+      final createdBy = (json['createdBy'] ?? '').toString();
+      final staffCode = (json['staffCode'] ?? '').toString().trim();
+      final approvalStatus =
+          (json['approvalStatus'] ?? json['status'] ?? '').toString().trim();
+      final napStart = asNullableBool(json['napStart']);
+      final napEnd = asNullableBool(json['napEnd']);
 
-      return ActivityFeedRow(
-        activityCode: code.isEmpty ? null : code,
-        studentCode: stu.isEmpty ? null : stu,
-        classroomCode: room.isEmpty ? null : room,
-        activityTypeCode: (json['activityTypeCode'] ?? '').toString(),
-        activityTypeName: (json['activityTypeName'] ?? '').toString(),
-        activityDateIso: activityDate,
-        description: (json['description'] ?? '').toString(),
-        studentFirstName: first,
-        studentMiddleName: (json['studentMiddleName'] as String?)?.trim(),
-        studentLastName: last,
-        createdBy: (json['createdBy'] ?? '').toString(),
-        parameterValues: params,
-        attachments: atts,
-      );
+      final students = <Map<String, String>>[];
+      final rawStudents = json['students'];
+      if (rawStudents is List<dynamic> && rawStudents.isNotEmpty) {
+        for (final s in rawStudents) {
+          if (s is! Map<String, dynamic>) continue;
+          final first = (s['firstName'] ?? '').toString().trim();
+          final middle = (s['middleName'] ?? '').toString().trim();
+          final last = (s['lastName'] ?? '').toString().trim();
+          final name = [first, middle, last].where((p) => p.isNotEmpty).join(' ');
+          final stu = (s['studentCode'] ?? '').toString().trim();
+          final napStartRaw = s['napStart'];
+          final napEndRaw = s['napEnd'];
+          final napStartText = napStartRaw == null
+              ? ''
+              : napStartRaw.toString().trim();
+          final napEndText = napEndRaw == null ? '' : napEndRaw.toString().trim();
+          if (name.isNotEmpty || stu.isNotEmpty) {
+            students.add({
+              if (name.isNotEmpty) 'name': name,
+              if (stu.isNotEmpty) 'studentCode': stu,
+              if (napStartText.isNotEmpty) 'napStart': napStartText,
+              if (napEndText.isNotEmpty) 'napEnd': napEndText,
+            });
+          }
+        }
+      }
+      final studentNapStart = aggregateNapFlagFromStudents(students, 'napStart');
+      final studentNapEnd = aggregateNapFlagFromStudents(students, 'napEnd');
+      final effectiveNapStart = napStart ?? studentNapStart;
+      final effectiveNapEnd = napEnd ?? studentNapEnd;
+      if (students.isNotEmpty) {
+        final first = students.first;
+        final firstName = (first['name'] ?? '').trim();
+        final firstCode = (first['studentCode'] ?? '').trim();
+        return [
+          ActivityFeedRow(
+            activityCode: code.isEmpty ? null : code,
+            studentCode: firstCode.isEmpty ? null : firstCode,
+            classroomCode: room.isEmpty ? null : room,
+            activityTypeCode: activityTypeCode,
+            activityTypeName: activityTypeName,
+            activityDateIso: activityDate,
+            description: description,
+            studentFirstName: firstName,
+            studentMiddleName: null,
+            studentLastName: '',
+            createdBy: createdBy,
+            staffCode: staffCode.isEmpty ? null : staffCode,
+            parameterValues: params,
+            attachments: atts,
+            students: students,
+            napStart: effectiveNapStart,
+            napEnd: effectiveNapEnd,
+            approvalStatus:
+                approvalStatus.isEmpty ? null : approvalStatus.toUpperCase(),
+          ),
+        ];
+      }
+
+      // Fallback for old feed response shape.
+      final stu = (json['studentCode'] ?? '').toString().trim();
+      return [
+        ActivityFeedRow(
+          activityCode: code.isEmpty ? null : code,
+          studentCode: stu.isEmpty ? null : stu,
+          classroomCode: room.isEmpty ? null : room,
+          activityTypeCode: activityTypeCode,
+          activityTypeName: activityTypeName,
+          activityDateIso: activityDate,
+          description: description,
+          studentFirstName: (json['studentFirstName'] ?? '').toString(),
+          studentMiddleName: (json['studentMiddleName'] as String?)?.trim(),
+          studentLastName: (json['studentLastName'] ?? '').toString(),
+          createdBy: createdBy,
+          staffCode: staffCode.isEmpty ? null : staffCode,
+          parameterValues: params,
+          attachments: atts,
+          students: const [],
+          napStart: effectiveNapStart,
+          napEnd: effectiveNapEnd,
+          approvalStatus:
+              approvalStatus.isEmpty ? null : approvalStatus.toUpperCase(),
+        ),
+      ];
     } catch (_) {
-      return null;
+      return const [];
     }
   }
 

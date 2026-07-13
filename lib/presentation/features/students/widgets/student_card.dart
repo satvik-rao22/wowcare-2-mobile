@@ -1,6 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -11,8 +20,9 @@ class StudentCard extends StatefulWidget {
     super.key,
     required this.studentCode,
     required this.name,
+    this.profileImage,
+    this.profilePhotoAssetCode,
     required this.classroom,
-    this.avatarUrl,
     required this.tags,
     required this.sibling,
     required this.schedule,
@@ -26,12 +36,15 @@ class StudentCard extends StatefulWidget {
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
+    this.isNapping = false,
+    this.initiallyExpanded = false,
   });
 
   final String studentCode;
   final String name;
+  final String? profileImage;
+  final String? profilePhotoAssetCode;
   final String classroom;
-  final String? avatarUrl;
   final List<String> tags;
   final Map<String, dynamic> sibling;
   final List<String> schedule;
@@ -45,15 +58,88 @@ class StudentCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
+  /// From nap-start API (current classroom roster); shown on avatar like classroom list.
+  final bool isNapping;
+
+  /// Opens the card pre-expanded — used when a notification deep-link targets
+  /// this student so the details are visible without a manual tap.
+  final bool initiallyExpanded;
 
   @override
   State<StudentCard> createState() => _StudentCardState();
 }
 
 class _StudentCardState extends State<StudentCard> {
-  bool isExpanded = false;
+  late bool isExpanded = widget.initiallyExpanded;
 
-  String _formatBirthDate(String raw) {
+  /// Shared across all StudentCard instances — every card in a list shares
+  /// the same school, so we only hit `/regular-schedule` once per app load.
+  static List<String>? _cachedSchoolDayShortLabels;
+  static Future<List<String>>? _inFlightLoad;
+
+  static const Map<String, String> _enumToShort = <String, String>{
+    'MONDAY': 'Mon',
+    'TUESDAY': 'Tue',
+    'WEDNESDAY': 'Wed',
+    'THURSDAY': 'Thu',
+    'FRIDAY': 'Fri',
+    'SATURDAY': 'Sat',
+    'SUNDAY': 'Sun',
+  };
+
+  static const List<String> _weekOrder = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
+  List<String> _schoolOpenShortDays = const <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final cached = _cachedSchoolDayShortLabels;
+    if (cached != null) {
+      _schoolOpenShortDays = cached;
+    } else {
+      _loadSchoolOpenDays();
+    }
+  }
+
+  Future<void> _loadSchoolOpenDays() async {
+    try {
+      final future = _inFlightLoad ??= _fetchSchoolOpenDays();
+      final result = await future;
+      if (!mounted) return;
+      setState(() => _schoolOpenShortDays = result);
+    } catch (_) {
+      // Leave fallback in place if the API fails.
+    }
+  }
+
+  static Future<List<String>> _fetchSchoolOpenDays() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return const <String>[];
+    final repo = serviceLocator<StaffRepository>();
+    final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+    final open = <String>{
+      for (final d in days) d.dayOfWeek.toUpperCase(),
+    };
+    final ordered = _weekOrder
+        .where(open.contains)
+        .map((k) => _enumToShort[k]!)
+        .toList(growable: false);
+    _cachedSchoolDayShortLabels = ordered;
+    return ordered;
+  }
+
+  String _formatDate(String raw) {
     if (raw.isEmpty) return '-';
 
     try {
@@ -72,9 +158,18 @@ class _StudentCardState extends State<StudentCard> {
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleCubit>();
+    // Staff persona (teachers/floaters) can't deactivate/reactivate or edit a
+    // student from the card — those actions are admin-only.
+    final canStudentWrite =
+        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isStaff;
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final tags = widget.tags;
+    // Upcoming students get the same actions as active ones (Deactivate + Edit),
+    // not the inactive set (Reactivate + Delete + Edit).
+    final bool showActiveActions =
+        widget.isActive || widget.status.trim().toUpperCase() == 'UPCOMING';
     String _toEnumDay(String shortDay) {
       switch (shortDay) {
         case 'Mon':
@@ -137,14 +232,33 @@ class _StudentCardState extends State<StudentCard> {
                               label: null,
                             ),
                           Stack(
+                            clipBehavior: Clip.none,
                             children: [
                               DocumentImageWidget(
                                 fileUuid: widget.studentCode,
+                                imageUrl: widget.profileImage,
+                                mediaAssetCode: widget.profilePhotoAssetCode,
                                 name: widget.name,
                                 size: 45,
                                 studentCode: widget.studentCode,
                                 studentEnrollmentStatus: widget.status,
+                                disableProfileLookupFallback: true,
                               ),
+                              if (widget.isNapping)
+                                Positioned(
+                                  right: 0,
+                                  top: 0,
+                                  child: Tooltip(
+                                    message: 'Student is currently napping',
+                                    child: SvgPicture.asset(
+                                      MediaRes.napIcon.isNotEmpty
+                                          ? MediaRes.napIcon
+                                          : MediaRes.sleepIcon,
+                                      height: 18,
+                                      width: 18,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -195,7 +309,7 @@ class _StudentCardState extends State<StudentCard> {
                         color: Color(0xFFE9ECEF),
                       ),
                       Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -314,9 +428,8 @@ class _StudentCardState extends State<StudentCard> {
                             const SizedBox(height: 10),
                             Align(
                               alignment: Alignment.centerLeft,
-                              child: Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   const Text(
                                     'Schedule',
@@ -334,13 +447,23 @@ class _StudentCardState extends State<StudentCard> {
                                     runSpacing: 4,
                                     alignment: WrapAlignment.start,
                                     children: [
-                                      ...[
-                                        'Mon',
-                                        'Tue',
-                                        'Wed',
-                                        'Thu',
-                                        'Fri',
-                                      ].map((day) {
+                                      ...(() {
+                                        // Days the school is open, sourced
+                                        // from the regular-schedule API.
+                                        // Render a chip for every open day so
+                                        // Sat/Sun show up too — even if the
+                                        // student has no schedule for them.
+                                        if (_schoolOpenShortDays.isNotEmpty) {
+                                          return _schoolOpenShortDays;
+                                        }
+                                        return const <String>[
+                                          'Mon',
+                                          'Tue',
+                                          'Wed',
+                                          'Thu',
+                                          'Fri',
+                                        ];
+                                      })().map((day) {
                                         final enumDay = _toEnumDay(day);
                                         final scheduleText =
                                             widget.scheduleByDay[enumDay];
@@ -360,9 +483,7 @@ class _StudentCardState extends State<StudentCard> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(
-                                                    0xFF6C7FD8,
-                                                  ).withOpacity(0.12)
+                                                ? const Color(0x4DB1AFE9)
                                                 : const Color(0xFFF3F4FB),
                                             borderRadius: BorderRadius.circular(
                                               8,
@@ -375,12 +496,17 @@ class _StudentCardState extends State<StudentCard> {
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
-                                                  ? const Color(0xFF6C7FD8)
+                                                  ? const Color(0xFF4B5B7A)
                                                   : const Color(0xFFB1AFC9),
                                             ),
                                           ),
                                         );
-                                        if (!isActive) return dayChip;
+                                        if (!isActive) {
+                                          return Opacity(
+                                            opacity: 0.4,
+                                            child: dayChip,
+                                          );
+                                        }
                                         final tooltipText =
                                             (scheduleText != null &&
                                                 scheduleText.trim().isNotEmpty)
@@ -388,6 +514,11 @@ class _StudentCardState extends State<StudentCard> {
                                             : '$day: Scheduled';
                                         return Tooltip(
                                           message: tooltipText,
+                                          triggerMode:
+                                              TooltipTriggerMode.longPress,
+                                          showDuration:
+                                              const Duration(seconds: 3),
+                                          preferBelow: true,
                                           child: dayChip,
                                         );
                                       }),
@@ -412,7 +543,7 @@ class _StudentCardState extends State<StudentCard> {
                                   ),
                                 ),
                                 Text(
-                                  _formatBirthDate(widget.birthDate),
+                                  _formatDate(widget.birthDate),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -439,7 +570,7 @@ class _StudentCardState extends State<StudentCard> {
                                   ),
                                 ),
                                 Text(
-                                  widget.movementDate,
+                                  _formatDate(widget.movementDate),
                                   style: const TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
@@ -450,9 +581,10 @@ class _StudentCardState extends State<StudentCard> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 20),
-                            Row(
-                              children: [
+                            if (canStudentWrite) ...[
+                              const SizedBox(height: 20),
+                              Row(
+                                children: [
                                 Expanded(
                                   child: SizedBox(
                                     height: 40,
@@ -465,7 +597,7 @@ class _StudentCardState extends State<StudentCard> {
                                           builder: (ctx) {
                                             return DeleteConfirmationBottomSheet(
                                               name: widget.name,
-                                              type: widget.isActive
+                                              type: showActiveActions
                                                   ? 'student_deactivate'
                                                   : 'student_reactivate',
                                               onDelete: () {
@@ -491,7 +623,7 @@ class _StudentCardState extends State<StudentCard> {
                                         padding: EdgeInsets.zero,
                                       ),
                                       child: Text(
-                                        widget.isActive
+                                        showActiveActions
                                             ? 'Deactivate'
                                             : 'Reactivate',
                                         style: const TextStyle(
@@ -505,7 +637,7 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ),
-                                if (!widget.isActive) ...[
+                                if (!showActiveActions) ...[
                                   const SizedBox(width: 16),
                                   Expanded(
                                     child: SizedBox(
@@ -581,8 +713,9 @@ class _StudentCardState extends State<StudentCard> {
                                     ),
                                   ),
                                 ),
-                              ],
-                            ),
+                                ],
+                              ),
+                            ],
                           ],
                         ),
                       ),
@@ -596,4 +729,5 @@ class _StudentCardState extends State<StudentCard> {
       },
     );
   }
+
 }

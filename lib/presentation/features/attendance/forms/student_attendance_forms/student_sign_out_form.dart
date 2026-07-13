@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -7,27 +6,32 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/domain/features/attendance/usecases/validate_qr_code_usecase.dart';
 
 // Student entity for Sign-Out UI & API payload
 class StudentEntity {
@@ -64,11 +68,40 @@ class StudentSignOutForm extends StatefulWidget {
   const StudentSignOutForm({
     required this.students,
     this.refreshCallback,
+    this.popOnSuccess = false,
+    this.isQrScan = false,
+    this.qrToken = '',
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
     super.key,
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
+  // When true, pops back to the caller after a successful submission instead of
+  // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
+  // outside the Attendance tab (e.g. the Classroom Students card).
+  final bool popOnSuccess;
+
+  /// True when triggered from a QR code scan.
+  /// Sets method=QR and withinGeofence=true in the API payload.
+  final bool isQrScan;
+
+  /// QR token from the scanned code (only set when isQrScan=true).
+  /// Included in the API payload when method=QR.
+  final String qrToken;
+
+  /// True when called from kiosk flow (guardian persona).
+  /// When true, skips staff code resolution.
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  /// Only set when isKiosk=true.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Included in API payload for kiosk sign-out.
+  final String? pin;
 
   static const String routeName = '/student-sign-out-form';
 
@@ -116,17 +149,21 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       } catch (_) {}
 
       final storage = serviceLocator<StorageService>();
-      final staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-      bool isAdmin = staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
+      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+          .trim()
+          .toUpperCase();
+      bool isAdmin =
+          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
       if (!isAdmin) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
           for (final r in roles) {
-            final roleCode =
-                ((r as Map<String, dynamic>)['role'] ?? '').toString().toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+            final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
+                .toString()
+                .toUpperCase();
+            if (roleCode == 'SCHOOL_ADMIN' ||
+                roleCode == 'ORGANIZATION_ADMIN') {
               isAdmin = true;
               break;
             }
@@ -137,27 +174,26 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       setState(() {
         _schoolIana = iana;
         _isStaffAdminPersona = isAdmin;
-        if (!isAdmin) {
-          if (iana != null && iana.isNotEmpty) {
-            final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-            selectedDate = dt.$1;
-            selectedTime = dt.$2;
-          } else {
-            final now = DateTime.now();
-            selectedDate = now;
-            selectedTime = TimeOfDay.fromDateTime(now);
-          }
+        if (iana != null && iana.isNotEmpty) {
+          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
+          selectedDate = dt.$1;
+          selectedTime = dt.$2;
+        } else {
+          final now = DateTime.now();
+          selectedDate = now;
+          selectedTime = TimeOfDay.fromDateTime(now);
         }
       });
     } catch (_) {}
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleProvider>().isParent) return true;
+    if (context.read<RoleCubit>().isParent) return true;
 
     try {
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (rolesJson.isNotEmpty) {
         final decoded = jsonDecode(rolesJson);
         if (decoded is List) {
@@ -175,8 +211,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       }
 
       final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final contextRaw = jsonEncode(loginContext ?? const <String, dynamic>{})
-          .toUpperCase();
+      final contextRaw = jsonEncode(
+        loginContext ?? const <String, dynamic>{},
+      ).toUpperCase();
       if (contextRaw.contains('PARENT') || contextRaw.contains('GUARDIAN')) {
         return true;
       }
@@ -192,8 +229,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     if (currentStudents.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('No students selected to sign out'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -205,14 +241,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       _isSubmitting = true;
     });
 
-    final client = serviceLocator<ApiClient>().client;
     final isParent = await _resolveIsParentSession();
-    final endpoint = ApiPaths.urlWithBase(
-      isParent
-          ? ApiPaths.studentAttendanceRecordsParentSignOut
-          : ApiPaths.studentAttendanceRecordsSignOut,
-      ApiConstants.attendanceBaseUrl,
-    );
 
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
@@ -233,14 +262,20 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           )
         : SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
 
-    final attendanceDate =
-        SchoolZoneDateTime.yyyyMmDdFromUtcInstant(occurredAt, schoolTimeZone);
+    final attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+      occurredAt,
+      schoolTimeZone,
+    );
 
     if (isParent) {
-      final selectedDay =
-          DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
-      final schoolToday =
-          SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+      final selectedDay = DateTime(
+        selectedDate.year,
+        selectedDate.month,
+        selectedDate.day,
+      );
+      final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
+        schoolTimeZone,
+      );
       if (selectedDay.isAfter(schoolToday)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -273,8 +308,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     if (studentCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Student code missing for selected students'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -282,24 +316,95 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       return;
     }
 
+    // QR pre-check: validate token with GUARDIAN_SIGN_OUT before calling write API
+    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
+      try {
+        final storage = serviceLocator<StorageService>();
+        final schoolCode =
+            (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
+        final result = await serviceLocator<ValidateQrCodeUseCase>()(
+          schoolCode: schoolCode,
+          qrToken: widget.qrToken,
+          useCase: QrAttendanceUseCase.guardianSignOut,
+        );
+        if (!mounted) return;
+        if (!result.valid) {
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: SnackBar(
+              content: Text(result.reason ?? 'QR code is not valid'),
+              backgroundColor: AppColors.warningColor,
+            ),
+          );
+          return;
+        }
+      } catch (_) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Failed to validate QR code'),
+            backgroundColor: AppColors.warningColor,
+          ),
+        );
+        return;
+      }
+    }
+
     final classroomCodeByStudentCode = <String, String>{
       for (final s in currentStudents)
-        if (s.studentCode.trim().isNotEmpty && s.classroomCode.trim().isNotEmpty)
+        if (s.studentCode.trim().isNotEmpty &&
+            s.classroomCode.trim().isNotEmpty)
           s.studentCode.trim(): s.classroomCode.trim(),
     };
     final defaultClassroomCode = classroomCodeByStudentCode.values.isNotEmpty
         ? classroomCodeByStudentCode.values.first
         : '';
 
+    GeofenceState? geofenceState;
+    try {
+      geofenceState = context.read<GeofenceCubit>().state;
+    } catch (_) {
+      geofenceState = null;
+    }
+    // QR and GPS sign-outs are physical-presence methods — withinGeofence is
+    // always true. APP (staff/admin manual) derives it from the geofence state.
+    final String signOutMethod;
+    final bool withinGeofence;
+    if (isParent) {
+      signOutMethod = widget.isQrScan ? 'QR' : 'GPS';
+      withinGeofence = true; // physical presence proven by QR scan or GPS
+    } else {
+      signOutMethod = 'APP';
+      withinGeofence = geofenceState?.isWithinGeofence ?? false;
+    }
+
+    Position? position;
+    try {
+      position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+    } catch (_) {
+      try {
+        position = await Geolocator.getLastKnownPosition();
+      } catch (_) {}
+    }
+
     final payload = <String, dynamic>{
       'studentCodes': studentCodes,
-      'method': isParent ? 'GPS' : 'APP',
-      'latitude': 0,
-      'longitude': 0,
-      'withinGeofence': true,
-      'isGeofence': true,
+      'method': signOutMethod,
+      'latitude': position?.latitude ?? 0,
+      'longitude': position?.longitude ?? 0,
+      'withinGeofence': withinGeofence,
       'timeZone': schoolTimeZone,
     };
+    // Include QR token if this is a QR scan
+    if (widget.isQrScan && widget.qrToken.isNotEmpty) {
+      payload['qrToken'] = widget.qrToken;
+    }
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
       if (!mounted) return;
@@ -314,6 +419,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         return;
       }
       payload['guardianCode'] = guardianCode;
+      payload['pin'] = widget.pin ?? '';
     } else {
       if (defaultClassroomCode.isEmpty) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -325,98 +431,95 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-      final staffCode = await _resolveStaffCode();
-      if (!mounted) return;
-      if (staffCode.isEmpty) {
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('Unable to resolve staffCode. Please re-login.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
+      // For kiosk flow (guardian), skip staff code resolution
+      if (!widget.isKiosk) {
+        final staffCode = await _resolveStaffCode();
+        if (!mounted) return;
+        if (staffCode.isEmpty) {
+          CoreUtils.showTopSnackBarFromSnackBar(
+            context: context,
+            snackBar: const SnackBar(
+              content: Text('Unable to resolve staffCode. Please re-login.'),
+              backgroundColor: AppColors.warningColor,
+            ),
+          );
+          return;
+        }
+        payload.addAll(<String, dynamic>{
+          'attendanceDate': attendanceDate,
+          'staffCode': staffCode,
+          'classroomCode': defaultClassroomCode,
+          'classroomCodeByStudentCode': classroomCodeByStudentCode,
+          'occurredAt': occurredAt.toUtc().toIso8601String(),
+        });
+      } else {
+        // KIOSK MODE: Use guardian code directly, no staff code needed
+        payload['method'] = 'PIN';
+        payload.addAll(<String, dynamic>{
+          'guardianCode': widget.guardianCode,
+          'pin': widget.pin,
+          'isExpected': true,
+        });
       }
-      payload.addAll(<String, dynamic>{
-        'attendanceDate': attendanceDate,
-        'staffCode': staffCode,
-        'classroomCode': defaultClassroomCode,
-        'classroomCodeByStudentCode': classroomCodeByStudentCode,
-        'occurredAt': occurredAt.toUtc().toIso8601String(),
-      });
     }
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      Map<String, dynamic>? queryParameters;
-      if (isParent) {
-        final g = body.remove('guardianCode');
-        if (g != null && g.toString().trim().isNotEmpty) {
-          queryParameters = {'guardianCode': g.toString().trim()};
-        }
-      }
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(
-        endpoint,
-        queryParameters: queryParameters,
-        data: body,
-      );
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Signed-Out successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStudentSignOut(
+            payload: payload,
+            isParent: isParent || widget.isKiosk || widget.isQrScan,
+          );
+      final success = result.success;
+      var message = result.message;
 
       if (!mounted) return;
 
+      // Normalize success messages for better UX
+      if (success &&
+          (message.toLowerCase().contains('sign out') ||
+              message.toLowerCase().contains('sign-out') ||
+              message.toLowerCase().contains('signed out'))) {
+        message = 'Sign out successfully';
+      }
+
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
+          backgroundColor: success
+              ? AppColors.successColor
+              : AppColors.errorColor,
         ),
       );
 
       if (success) {
-        if (isParent) {
+        serviceLocator<ParentChildCubit>().forceRefresh();
+        if (widget.popOnSuccess) {
+          widget.refreshCallback?.call();
+          Navigator.of(context).pop();
+        } else if (widget.isKiosk) {
+          context.go('/kiosk');
+        } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {
-            context.read<ParentChildProvider>().selectByCode(s.studentCode);
+            context.read<ParentChildCubit>().selectByCode(s.studentCode);
           }
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute<void>(
-              settings: const RouteSettings(
-                name: StudentAttendanceProfile.routeName,
-              ),
-              builder: (_) => StudentAttendanceProfile(
-                studentCode: s.studentCode,
-                studentId: s.id,
-                studentName: s.fullName,
-                studentPhotoUuid: s.photoUuid,
-                roomName: s.roomName,
-                isSignedIn: false,
-                syncWithParentChildSelection: true,
-              ),
-            ),
-            (route) => false,
+          context.go(
+            StudentAttendanceProfile.routeName,
+            extra: <String, dynamic>{
+              'studentCode': s.studentCode,
+              'studentId': s.id,
+              'studentName': s.fullName,
+              'studentPhotoUuid': s.photoUuid,
+              'roomName': s.roomName,
+              'isSignedIn': false,
+              'syncWithParentChildSelection': true,
+            },
           );
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
+          redirectToAttendanceDaily(
+            context,
+            StudentAttendanceTabbedView.routeName,
           );
         }
       }
@@ -425,8 +528,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
@@ -442,11 +544,34 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
   @override
   Widget build(BuildContext context) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+      context,
+    )) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     if (currentStudents.isEmpty && widget.students.isNotEmpty) {
       currentStudents = List.from(widget.students);
     }
 
     return StaffFormLayout(
+      isKiosk: widget.isKiosk,
+      showKioskBackButton: widget.isKiosk,
       title: 'Sign-Out',
       child: SingleChildScrollView(
         child: Column(
@@ -465,9 +590,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
               itemCount: currentStudents.length,
               itemBuilder: (context, index) => RemoveStudentTile(
                 student: currentStudents[index],
-                onRemove: () => _removeStudent(
-                  currentStudents[index],
-                ),
+                onRemove: () => _removeStudent(currentStudents[index]),
               ),
             ),
             const SizedBox(height: 20),
@@ -490,13 +613,22 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                           setState(() {
                             final iana = _schoolIana;
                             final today = iana != null && iana.isNotEmpty
-                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-                                : DateTime(DateTime.now().year, DateTime.now().month,
-                                    DateTime.now().day);
-                            final pickedDay =
-                                DateTime(date.year, date.month, date.day);
-                            selectedDate =
-                                pickedDay.isAfter(today) ? today : date;
+                                ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                    iana,
+                                  )
+                                : DateTime(
+                                    DateTime.now().year,
+                                    DateTime.now().month,
+                                    DateTime.now().day,
+                                  );
+                            final pickedDay = DateTime(
+                              date.year,
+                              date.month,
+                              date.day,
+                            );
+                            selectedDate = pickedDay.isAfter(today)
+                                ? today
+                                : date;
                           });
                         },
                       ),
@@ -512,7 +644,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                       const SizedBox(height: 8),
                       IgnorePointer(
                         ignoring: !(_isStaffAdminPersona ?? false),
-                        child: SimpleTimePickerField(
+                        child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {
                             setState(() {
@@ -552,14 +684,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -578,7 +705,7 @@ class RemoveStudentTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    student.fullName.split(' ').first,
+                    student.fullName,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
@@ -599,7 +726,7 @@ class RemoveStudentTile extends StatelessWidget {
               height: 18,
               width: 18,
             ),
-          )
+          ),
         ],
       ),
     );

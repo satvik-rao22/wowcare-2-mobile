@@ -1,0 +1,94 @@
+# iOS Production Podfile with CocoaPods Hardening
+# Deploy this as: mv ios/Podfile.production ios/Podfile
+
+platform :ios, '15.0'
+
+# CocoaPods analytics sends network stats synchronously affecting flutter build latency.
+ENV['COCOAPODS_DISABLE_STATS'] = 'true'
+
+# ✅ FIX 1: Reduce network calls during pod install
+ENV['COCOAPODS_SKIP_UPDATE_CHECK'] = 'true'
+
+project 'Runner', {
+  'Debug' => :debug,
+  'Profile' => :release,
+  'Release' => :release,
+}
+
+def flutter_root
+  generated_xcode_build_settings_path = File.expand_path(File.join('..', 'Flutter', 'Generated.xcconfig'), __FILE__)
+  unless File.exist?(generated_xcode_build_settings_path)
+    raise "#{generated_xcode_build_settings_path} must exist. If you're running pod install manually, make sure flutter pub get is executed first"
+  end
+
+  File.foreach(generated_xcode_build_settings_path) do |line|
+    matches = line.match(/FLUTTER_ROOT\=(.*)/)
+    return matches[1].strip if matches
+  end
+  raise "FLUTTER_ROOT not found in #{generated_xcode_build_settings_path}. Try deleting Generated.xcconfig, then run flutter pub get"
+end
+
+require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelper'), flutter_root)
+
+flutter_ios_podfile_setup
+
+target 'Runner' do
+  use_frameworks!
+
+  # ✅ FIX 2: Firebase version pinning to avoid conflicts
+  # All Firebase pods must be same version to avoid dependency conflicts
+  pod 'Firebase/Core', '~> 12.13.0'
+  pod 'Firebase/Firestore', '~> 12.13.0'
+  pod 'Firebase/Storage', '~> 12.13.0'
+  pod 'Firebase/Analytics', '~> 12.13.0'
+  pod 'Firebase/Messaging', '~> 12.13.0'
+
+  flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
+
+  target 'RunnerTests' do
+    inherit! :search_paths
+  end
+end
+
+post_install do |installer|
+  installer.pods_project.targets.each do |target|
+    flutter_additional_ios_build_settings(target)
+
+    # ✅ FIX 3: Exclude arm64 from iOS simulator builds
+    # ffmpeg_kit_flutter_new_https doesn't support arm64 simulator on Apple Silicon
+    # Keep arm64 for physical devices, use x86_64 for Intel simulators
+    installer.pods_project.build_configurations.each do |config|
+      config.build_settings['ARCHS[sdk=iphonesimulator*]'] = 'x86_64'
+      config.build_settings['VALID_ARCHS'] = 'arm64 armv7 armv7s x86_64'
+    end
+
+    # ✅ Production Optimization: Strip unused code
+    target.build_configurations.each do |config|
+      config.build_settings['GCC_OPTIMIZATION_LEVEL'] = '3'
+      config.build_settings['STRIP_INSTALLED_PRODUCT'] = 'YES'
+      config.build_settings['COPY_PHASE_STRIP'] = 'YES'
+
+      # ✅ Disable bitcode for faster builds
+      config.build_settings['ENABLE_BITCODE'] = 'NO'
+
+      # ✅ Optimization for Release builds
+      if config.name == 'Release'
+        config.build_settings['SWIFT_OPTIMIZATION_LEVEL'] = '-Osize'
+        config.build_settings['GCC_OPTIMIZATION_LEVEL'] = '-Os'
+      end
+    end
+
+    # ✅ Fix: Prevent warnings from old pods
+    if target.respond_to?(:product_type) && target.product_type == 'com.apple.product-type.bundle'
+      target.build_configurations.each do |config|
+        config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
+      end
+    end
+  end
+
+  # ✅ Performance: Reduce warnings
+  installer.pods_project.build_configurations.each do |config|
+    config.build_settings['GCC_WARN_INHIBIT_ALL_WARNINGS'] = 'YES'
+    config.build_settings['CLANG_WARN_DOCUMENTATION_COMMENTS'] = 'NO'
+  end
+end

@@ -1,3 +1,5 @@
+import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
+
 class TransactionItem {
   TransactionItem({
     required this.id,
@@ -8,6 +10,11 @@ class TransactionItem {
     required this.description,
     required this.studentName,
     required this.classroom,
+    this.paidAmount = 0,
+    this.refundedAmount = 0,
+    this.studentNames,
+    this.familyCode,
+    this.invoiceCode,
     this.studentId,
     this.studentPhotoUuid,
     this.refTable,
@@ -20,12 +27,39 @@ class TransactionItem {
   });
 
   final int id;
+
+  /// Backend invoice code (the real identifier). `id` is only a display/list
+  /// key — invoices are addressed by [invoiceCode] in API calls.
+  final String? invoiceCode;
   final String transactionType;
   final DateTime date;
   final double amount;
+
+  /// Amount already paid against this invoice. A non-zero value hides the Cancel
+  /// action, since a paid (or part-paid) invoice can no longer be cancelled.
+  final double paidAmount;
+
+  /// Amount already refunded against this invoice. When it equals [amount] the
+  /// invoice is fully refunded, so the Issue Refund action is hidden.
+  final double refundedAmount;
+
+  /// Remaining amount that can still be refunded (never negative).
+  double get maxRefundable {
+    final double remaining = amount - refundedAmount;
+    return remaining > 0 ? remaining : 0;
+  }
+
   final String status;
   final String description;
   final String studentName;
+
+  /// All family student names for family-level transactions (Credit / Refund /
+  /// Payment), shown in the expanded "Student Name" row. Null for single-student
+  /// rows (invoices), which fall back to [studentName].
+  final String? studentNames;
+
+  /// Owning family code — used to open the family Billing profile from a row.
+  final String? familyCode;
   final String classroom;
   final int? studentId;
   final String? studentPhotoUuid;
@@ -63,6 +97,39 @@ class TransactionItem {
       paymentMode: map['paymentMode'] as String?,
       studentOpenBalance:
           (firstStudent?['balance'] as num?)?.toDouble(),
+    );
+  }
+
+  /// Maps an invoice row from the list API onto the card model. [id] is the
+  /// invoice's absolute position in the loaded list (a stable display key);
+  /// the real identifier travels in [invoiceCode].
+  factory TransactionItem.fromInvoice(
+    InvoiceListItemEntity invoice, {
+    required int id,
+  }) {
+    final firstItemDesc =
+        invoice.items.isNotEmpty ? invoice.items.first.description : '';
+    final ownerLabel = invoice.studentCode.isNotEmpty
+        ? invoice.studentCode
+        : invoice.subjectOwnerCode;
+    final status =
+        invoice.invoiceStatus.isNotEmpty ? invoice.invoiceStatus : invoice.status;
+
+    return TransactionItem(
+      id: id,
+      invoiceCode: invoice.code,
+      transactionType: 'Invoice',
+      date: invoice.issueDate ?? invoice.createdDate ?? DateTime.now(),
+      amount: invoice.total,
+      status: status,
+      description:
+          firstItemDesc.isNotEmpty ? firstItemDesc : 'Invoice ${invoice.code}',
+      studentName: ownerLabel.isNotEmpty ? ownerLabel : 'Unknown',
+      classroom: '',
+      refTable: 'Invoice',
+      balance: invoice.balance,
+      endDate: invoice.dueDate?.toIso8601String(),
+      studentOpenBalance: invoice.balance,
     );
   }
 

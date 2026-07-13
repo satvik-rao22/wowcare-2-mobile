@@ -1,5 +1,8 @@
+import 'dart:convert';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
@@ -42,6 +45,44 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
   final StorageService _storageService;
   _MovementFilters _lastFilters = const _MovementFilters();
 
+  Future<Set<String>> _resolveAllowedClassroomsForStaff() async {
+    try {
+      final raw =
+          (await _storageService.getString(StorageKeys.staffAllowedClassroomCodes) ?? '')
+              .trim();
+      if (raw.isEmpty) return const <String>{};
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((e) => e.toString().trim())
+            .where((e) => e.isNotEmpty)
+            .toSet();
+      }
+    } catch (_) {}
+    return const <String>{};
+  }
+
+  IndividualMovementBoard _filterBoardForAllowedClassrooms(
+    IndividualMovementBoard board,
+    Set<String> allowed,
+  ) {
+    if (allowed.isEmpty) return board;
+
+    bool touchesAllowed(IndividualMovement m) {
+      final from = m.fromClassroomCode.trim();
+      final to = m.toClassroomCode.trim();
+      return (from.isNotEmpty && allowed.contains(from)) ||
+          (to.isNotEmpty && allowed.contains(to));
+    }
+
+    return IndividualMovementBoard(
+      overdue: board.overdue.where(touchesAllowed).toList(growable: false),
+      upcoming: board.upcoming.where(touchesAllowed).toList(growable: false),
+      confirmed: board.confirmed.where(touchesAllowed).toList(growable: false),
+      rejected: board.rejected.where(touchesAllowed).toList(growable: false),
+    );
+  }
+
   Future<void> loadInitial({
     List<String>? studentCodes,
     List<String>? fromClassroomCodes,
@@ -58,6 +99,9 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       dateTo: dateTo,
       status: status,
     );
+    if (state.board == null) {
+      emit(state.copyWith(isLoading: true, clearError: true));
+    }
     final schoolCode = await _resolveSchoolCode();
     final cached = await (_repository is AvailabilityRepositoryWithCache
         ? (_repository as AvailabilityRepositoryWithCache).loadCachedIndividualMovements(
@@ -72,15 +116,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
         : Future.value(null));
 
     if (cached != null && !isClosed) {
-      emit(IndividualMovementsState.loaded(board: cached, isFromCache: true));
-      // ignore: unawaited_futures
-      refresh(
-        studentCodes: studentCodes,
-        fromClassroomCodes: fromClassroomCodes,
-        toClassroomCodes: toClassroomCodes,
-        dateFrom: dateFrom,
-        dateTo: dateTo,
-        status: status,
+      final allowed = await _resolveAllowedClassroomsForStaff();
+      emit(
+        IndividualMovementsState.loaded(
+          board: _filterBoardForAllowedClassrooms(cached, allowed),
+          isFromCache: true,
+        ),
       );
       return;
     }
@@ -126,11 +167,17 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
         dateTo: dateTo,
         status: status,
       );
+      final allowed = await _resolveAllowedClassroomsForStaff();
       if (isClosed) return;
-      emit(IndividualMovementsState.loaded(board: board, isFromCache: false));
+      emit(
+        IndividualMovementsState.loaded(
+          board: _filterBoardForAllowedClassrooms(board, allowed),
+          isFromCache: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(isLoading: false, isRefreshing: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoading: false, isRefreshing: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -145,6 +192,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
     }
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _transitionIndividualMovementStatusUseCase(
         id: id,
         status: status,
@@ -165,15 +218,46 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }
   }
 
   Future<String> _resolveSchoolCode() async {
-    final schoolCode = (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
-    if (schoolCode.isEmpty) {
+    final schoolCode =
+        (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isNotEmpty && schoolCode != '-') {
+      return schoolCode;
+    }
+
+    // Recover a valid school from saved org/school selections when stale '-'
+    // exists in storage.
+    final organizationCode =
+        (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+            .trim();
+    final rawList =
+        (await _storageService.getString(StorageKeys.organizationsAndSchools) ??
+                '')
+            .trim();
+    if (organizationCode.isNotEmpty && rawList.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(rawList);
+        if (decoded is List) {
+          for (final item in decoded) {
+            if (item is Map) {
+              final org = (item['organizationCode'] ?? '').toString().trim();
+              final school = (item['schoolCode'] ?? '').toString().trim();
+              if (org == organizationCode && school.isNotEmpty && school != '-') {
+                return school;
+              }
+            }
+          }
+        }
+      } catch (_) {}
+    }
+
+    if (schoolCode.isEmpty || schoolCode == '-') {
       throw Exception('School code is missing. Please re-login and try again.');
     }
     return schoolCode;
@@ -204,6 +288,11 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
     try {
       final schoolCode = await _resolveSchoolCode();
       final organizationCode = await _resolveOrganizationCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _createIndividualMovementUseCase(
         schoolCode: schoolCode,
         organizationCode: organizationCode,
@@ -228,7 +317,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }
@@ -248,6 +337,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
 
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _updateIndividualMovementUseCase(
         id: id,
         movementType: movementType,
@@ -270,7 +365,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }
@@ -285,6 +380,12 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
 
     emit(state.copyWith(isTransitioning: true, clearError: true));
     try {
+      final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache).invalidateAvailabilityCache(
+          schoolCode: schoolCode,
+        );
+      }
       final message = await _deleteIndividualMovementUseCase(id: id);
       await refresh(
         studentCodes: _lastFilters.studentCodes,
@@ -300,7 +401,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }

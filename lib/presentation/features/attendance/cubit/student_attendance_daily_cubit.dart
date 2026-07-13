@@ -28,6 +28,12 @@ class StudentAttendanceDailyCubit
 
   static const int _pageSize = 10;
 
+  String? _classroomCodeForSummary(List<String>? classroomCodes) {
+    if (classroomCodes == null || classroomCodes.isEmpty) return null;
+    final code = classroomCodes.first.trim();
+    return code.isEmpty ? null : code;
+  }
+
   // Initial load: Try cache first, then API
   Future<void> loadInitial({
     required DateTime attendanceDate,
@@ -35,20 +41,24 @@ class StudentAttendanceDailyCubit
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     final dateString = _formatDate(attendanceDate);
     final hasServerTimeFilter = (signInAtFilter != null &&
             signInAtFilter.trim().isNotEmpty) ||
         (signOutAtFilter != null && signOutAtFilter.trim().isNotEmpty);
+    final hasServerLegendFilter =
+        hasServerTimeFilter || isExpectedNotMarked == true;
 
-    if (hasServerTimeFilter) {
+    if (hasServerLegendFilter) {
       await refresh(
         attendanceDate: attendanceDate,
         classroomCodes: classroomCodes,
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
       );
       return;
@@ -68,7 +78,13 @@ class StudentAttendanceDailyCubit
     if (cached != null && !isClosed) {
       try {
         final summary =
-            await _getStudentAttendanceExpectedSummaryUseCase();
+            await _getStudentAttendanceExpectedSummaryUseCase(
+          classroomCode: _classroomCodeForSummary(classroomCodes),
+          // Even when the list comes from cache, the summary counts must be
+          // live — otherwise a cached load re-emits stale counts and reverts
+          // the numbers the refresh() path just fetched.
+          forceRefresh: true,
+        );
         if (isClosed) return;
         emit(StudentAttendanceDailyState.loaded(
           items: cached.items,
@@ -108,6 +124,7 @@ class StudentAttendanceDailyCubit
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
     );
   }
@@ -119,6 +136,7 @@ class StudentAttendanceDailyCubit
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     if (state.isRefreshing) return;
@@ -134,6 +152,7 @@ class StudentAttendanceDailyCubit
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
       isSummaryLoading: true,
     ));
@@ -145,12 +164,19 @@ class StudentAttendanceDailyCubit
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         page: 0,
         size: _pageSize,
       );
       final summary =
-          await _getStudentAttendanceExpectedSummaryUseCase();
+          await _getStudentAttendanceExpectedSummaryUseCase(
+        classroomCode: _classroomCodeForSummary(classroomCodes),
+        // refresh() is the explicit-reload path (pull-to-refresh, after an
+        // attendance action, filter change), so bypass the cached summary —
+        // otherwise the counts never change from their first cached value.
+        forceRefresh: true,
+      );
 
       if (isClosed) return;
 
@@ -164,6 +190,7 @@ class StudentAttendanceDailyCubit
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         expectedCount: summary.expected,
         presentCount: summary.present,
@@ -201,6 +228,7 @@ class StudentAttendanceDailyCubit
         tagCodes: state.tagCodes,
         signInAtFilter: state.signInAtFilter,
         signOutAtFilter: state.signOutAtFilter,
+        isExpectedNotMarked: state.isExpectedNotMarked,
         search: state.search,
         page: nextPageIndex,
         size: _pageSize,

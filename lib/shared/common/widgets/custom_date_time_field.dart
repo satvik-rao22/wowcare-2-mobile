@@ -2,7 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 
@@ -10,6 +15,7 @@ class CustomDateTimeField extends StatefulWidget {
   const CustomDateTimeField({
     this.label,
     this.hasLabel = true,
+    this.labelStyle,
     this.isTime = false,
     this.isRangePicker = false,
     this.onDateSelected,
@@ -22,11 +28,16 @@ class CustomDateTimeField extends StatefulWidget {
     this.onRangeSelected,
     this.fetchInitialTime = true, // New property to control fetch behavior
     this.isDisabled = false,
+    this.isRequired = false, // ✅ ADD THIS
+    this.firstDate,
+    this.lastDate,
     super.key,
   });
 
   final String? label;
   final bool hasLabel;
+  final TextStyle? labelStyle;
+  final bool isRequired;
   final bool isTime;
   final bool isRangePicker;
   final ValueChanged<DateTime>? onDateSelected;
@@ -35,6 +46,8 @@ class CustomDateTimeField extends StatefulWidget {
   final TimeOfDay? initialTime;
   final bool fetchInitialTime; // Control whether to fetch current time
   final bool isDisabled;
+  final DateTime? firstDate;
+  final DateTime? lastDate;
 
   // Add callbacks for individual time components
   final ValueChanged<String>? onHourChanged;
@@ -109,12 +122,27 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     }
   }
 
-// Modified to return Future so we can await it
+  // Modified to return Future so we can await it
 
   Future<void> setCurrentDateTime() async {
-    // WowCare app does not rely on the legacy timezone helper from `schoolerp`.
-    // Use local device time as a safe default.
-    final DateTime dateTime = DateTime.now();
+    DateTime dateTime = DateTime.now();
+    try {
+      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
+      dateTime = DateTime(
+        dt.$1.year,
+        dt.$1.month,
+        dt.$1.day,
+        dt.$2.hour,
+        dt.$2.minute,
+      );
+    } catch (_) {
+      // Fallback to local device time.
+    }
+    if (!mounted) return;
     setState(() {
       selectedDate = dateTime; // Store the entire dateTime object
       selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
@@ -186,15 +214,29 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (widget.hasLabel && widget.label != null)
-          Text(
-            widget.label!,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.5),
-              fontSize: calHelper.headerFontSize * 0.7,
-              fontWeight: FontWeight.w400,
+          RichText(
+            text: TextSpan(
+              text: widget.label!,
+              style: widget.labelStyle ??
+                  TextStyle(
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontSize: calHelper.headerFontSize * 0.7,
+                    fontWeight: FontWeight.w400,
+                  ),
+              children: [
+                if (widget.isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+              ],
             ),
           ),
-        if (widget.hasLabel && widget.label != null) SizedBox(height: calHelper.calendarPadding * 0.75),
+        if (widget.hasLabel && widget.label != null)
+          SizedBox(height: calHelper.calendarPadding * 0.75),
         GestureDetector(
           onTap: () async {
             if (widget.isDisabled == true) {
@@ -208,15 +250,20 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
                 initialDate: selectedDate,
                 initialTime: selectedTime,
                 initialEndDate: rangeEndDate,
+                firstDate: widget.firstDate,
+                lastDate: widget.lastDate,
               ),
             );
             if (result != null) {
               setState(() {
                 if (widget.isRangePicker) {
                   // Handle range selection
-                  if (result['startDate'] != null && result['startDate'] is DateTime) {
+                  if (result['startDate'] != null &&
+                      result['startDate'] is DateTime) {
                     selectedDate = result['startDate'];
-                    rangeEndDate = result['endDate'] is DateTime ? result['endDate'] : null;
+                    rangeEndDate = result['endDate'] is DateTime
+                        ? result['endDate']
+                        : null;
                     widget.onRangeSelected?.call(selectedDate!, rangeEndDate);
                   }
                 } else if (widget.isTime) {
@@ -242,7 +289,9 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
           },
           child: Container(
             constraints: BoxConstraints(minHeight: calHelper.dayCellSize * 1.2),
-            padding: EdgeInsets.symmetric(horizontal: calHelper.calendarPadding),
+            padding: EdgeInsets.symmetric(
+              horizontal: calHelper.calendarPadding,
+            ),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               color: widget.isDisabled == true
@@ -258,8 +307,8 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
                         (widget.isTime
                             ? 'Select Time'
                             : widget.isRangePicker
-                                ? 'Select Date Range'
-                                : 'Select Date'),
+                            ? 'Select Date Range'
+                            : 'Select Date'),
                     style: TextStyle(
                       color: AppColors.primaryColor,
                       fontSize: calHelper.dayFontSize,

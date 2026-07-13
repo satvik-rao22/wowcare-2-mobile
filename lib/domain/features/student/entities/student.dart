@@ -6,6 +6,9 @@ class Student extends Equatable {
     required this.firstName,
     required this.lastName,
     required this.status,
+    this.profileImage,
+    this.profilePhotoAssetCode,
+    this.primaryClassroomName,
     this.classroom = '',
     this.dob = '',
     this.movementDate = '',
@@ -18,6 +21,9 @@ class Student extends Equatable {
   final String firstName;
   final String lastName;
   final String status;
+  final String? profileImage;
+  final String? profilePhotoAssetCode;
+  final String? primaryClassroomName;
   final String classroom;
   final String dob;
   final String movementDate;

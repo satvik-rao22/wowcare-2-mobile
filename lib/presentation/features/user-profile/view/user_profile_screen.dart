@@ -1,23 +1,30 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/storage_keys.dart';
 import '../../../../core/util/string_utils.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import 'edit_user_profile_screen.dart';
+import '../view_model/user_profile_cubit.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
+import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class UserProfileScreen extends StatefulWidget {
   const UserProfileScreen({
@@ -38,19 +45,54 @@ class UserProfileScreen extends StatefulWidget {
   /// this screen will load profile details via GET `/api/v1/staff/{staffCode}/profile`.
   final String? staffCode;
 
-  static const String routeName = '/userProfile';
+  static const String routeName = '/dashboard/userProfile';
 
   @override
   State<UserProfileScreen> createState() => _UserProfileScreenState();
 }
 
 class _UserProfileScreenState extends State<UserProfileScreen> {
+  /// Formats a [StaffProfileTime] as `h:mm AM/PM` (space before period).
+  static String _fmtTime(StaffProfileTime t) {
+    final period = t.hour >= 12 ? 'PM' : 'AM';
+    final h = t.hour > 12 ? t.hour - 12 : (t.hour == 0 ? 12 : t.hour);
+    return '$h:${t.minute.toString().padLeft(2, '0')} $period';
+  }
+
+  /// Returns the 3-letter uppercase day abbreviation from a full day name.
+  static String _dayAbbr(String day) =>
+      day.length >= 3 ? day.substring(0, 3).toUpperCase() : day.toUpperCase();
+
   final ImagePicker _picker = ImagePicker();
-  StaffProfile? _profile;
-  String _loginDisplayName = '';
-  String _loginEmail = '';
-  String _loginPersona = '';
-  bool _hasShownProfileLoadError = false;
+  late final UserProfileCubit _cubit;
+  // Dedupes the one-time "failed to load profile" snackbar.
+  bool _shownLoadError = false;
+
+  /// Guards the "View Profile" button against multiple taps: it stays true from
+  /// the first tap until the pushed profile screen is popped, so rapid taps
+  /// can't open several instances.
+  bool _openingProfile = false;
+
+  // Read-only proxies onto the cubit's state so the (large) build + helper
+  // methods below keep reading the same names while the cubit owns the data.
+  StaffProfile? get _profile => _cubit.state.profile;
+  String get _loginDisplayName => _cubit.state.loginDisplayName;
+  String get _loginEmail => _cubit.state.loginEmail;
+  String get _loginPersona => _cubit.state.loginPersona;
+  String? get _schoolCode => _cubit.state.schoolCode;
+  String? get _organizationCode => _cubit.state.organizationCode;
+  bool get _isUploadingProfilePhoto => _cubit.state.isUploadingProfilePhoto;
+  double get _profilePhotoUploadPercent =>
+      _cubit.state.profilePhotoUploadPercent;
+  List<String> get _distinctRolesForCurrentSchool =>
+      _cubit.state.distinctRolesForCurrentSchool;
+  bool get _switchPersonasLoading => _cubit.state.switchPersonasLoading;
+  String? get _cachedActiveSchoolRole => _cubit.state.cachedActiveSchoolRole;
+  String get _guardianPhone => _cubit.state.guardianPhone;
+  String get _guardianAddress => _cubit.state.guardianAddress;
+  String get _guardianCode => _cubit.state.guardianCode;
+  String get _guardianPhotoAssetCode => _cubit.state.guardianPhotoAssetCode;
+  String get _guardianPhotoUrl => _cubit.state.guardianPhotoUrl;
 
   String _formatPhoneForDisplay(String raw) {
     final digits = raw.replaceAll(RegExp(r'\D'), '');
@@ -63,194 +105,153 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Load profile for logged-in user.
-    // If staffCode is provided, use it; otherwise resolve staffCode from cached login info.
+    _cubit = serviceLocator<UserProfileCubit>();
+    // Seed from navigation arguments so we don't render '-' while storage loads.
+    _cubit.seed(
+      name: widget.userName,
+      email: widget.userEmail,
+      persona: widget.userPersona,
+      directStaffCode: widget.staffCode,
+    );
+    // Load profile for logged-in user. If staffCode is provided it's used;
+    // otherwise the cubit resolves staffCode from cached login info.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initProfileLoad();
+      if (!mounted) return;
+      _cubit.load(isParent: context.read<RoleCubit>().isParent);
     });
   }
 
-  Future<void> _initProfileLoad() async {
-    // Preload login-based user summary (name, email, persona) from storage
-    try {
-      final storage = serviceLocator<StorageService>();
-      _loginDisplayName =
-          (await storage.getString(StorageKeys.displayName) ?? '').trim();
-      _loginEmail = (await storage.getString(StorageKeys.email) ?? '').trim();
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
+  }
 
-      final rolesJson =
-          await storage.getString(StorageKeys.roles); // JSON array from login
-      String persona = '';
-      if (rolesJson != null && rolesJson.isNotEmpty) {
+  String _effectiveActiveBackendRoleForSwitch() {
+    final cached = (_cachedActiveSchoolRole ?? '').trim();
+    if (cached.isNotEmpty) return cached;
+    if (_distinctRolesForCurrentSchool.length == 1) {
+      return _distinctRolesForCurrentSchool.first;
+    }
+    return '';
+  }
+
+  Future<void> _onSwitchProfilePressed() async {
+    final org = (_organizationCode ?? '').trim();
+    final school = (_schoolCode ?? '').trim();
+    if (org.isEmpty || school.isEmpty) return;
+
+    if (_distinctRolesForCurrentSchool.length <= 1) return;
+
+    final roles = _distinctRolesForCurrentSchool
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+    if (roles.length <= 1) return;
+
+    final current = _effectiveActiveBackendRoleForSwitch().trim().toUpperCase();
+    var currentIndex = -1;
+    if (current.isNotEmpty) {
+      for (var i = 0; i < roles.length; i++) {
+        if (roles[i].toUpperCase() == current) {
+          currentIndex = i;
+          break;
+        }
+      }
+    }
+    final nextIndex = (currentIndex < 0) ? 0 : ((currentIndex + 1) % roles.length);
+    final nextRole = roles[nextIndex];
+    await _applyPersonaSwitch(nextRole);
+  }
+
+  Future<void> _applyPersonaSwitch(String backendRole) async {
+    if (backendRole.isEmpty) return;
+    _cubit.setSwitching(true);
+    try {
+      // IMPORTANT: do not change visible persona/profile until required
+      // APIs are done. Only show the button loader.
+      await _cubit.persistPersonaSwitch(backendRole);
+      if (!mounted) return;
+      context.read<ParentChildCubit>().invalidate();
+      // Preload guardian data BEFORE RoleCubit flips to parent so the global
+      // dropdown doesn't show a loading state.
+      final targetIsGuardian = roleStringIsGuardianPersona(backendRole);
+      if (targetIsGuardian) {
+        // Also fetch guardian profile so phone/address appear immediately.
+        await _cubit.loadGuardianProfileForParent();
+        if (!mounted) return;
+        await context.read<ParentChildCubit>().ensureLoaded(force: true);
+      }
+      if (!mounted) return;
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
+      final org = (_organizationCode ?? '').trim();
+      final school = (_schoolCode ?? '').trim();
+      if (org.isNotEmpty && school.isNotEmpty) {
         try {
-          final List<dynamic> roles =
-              (jsonDecode(rolesJson) as List<dynamic>);
-          if (roles.isNotEmpty) {
-            final first = roles.first as Map<String, dynamic>;
-            final roleCode = (first['role'] ?? '').toString();
-            persona = StringUtils.staffTypeToDisplayRole(roleCode);
-          }
+          await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
+                organizationCode: org,
+                schoolCode: school,
+              );
         } catch (_) {}
       }
-      _loginPersona = persona;
-    } catch (_) {}
-
-    final direct = (widget.staffCode ?? '').trim();
-    if (direct.isNotEmpty) {
-      await _loadStaffProfile(direct);
-      return;
-    }
-
-    final resolved = await _resolveLoggedInStaffCode();
-    if (!mounted) return;
-    if (resolved.isNotEmpty) {
-      await _loadStaffProfile(resolved);
-    }
-  }
-
-  /// Attempts to resolve staffCode for the logged-in user from local cache.
-  /// Falls back to any cached staffCode to keep my-profile fetch non-blocking.
-  Future<String> _resolveLoggedInStaffCode() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-
-      // Ensure cached staffCode, if any, belongs to the currently logged-in user.
-      final currentUserCode =
-          (await storage.getString(StorageKeys.userCode) ?? '').trim();
-      final cachedStaffCode =
-          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-      final cachedStaffUser =
-          (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-
-      if (cachedStaffCode.isNotEmpty &&
-          cachedStaffUser.isNotEmpty &&
-          currentUserCode.isNotEmpty &&
-          cachedStaffUser == currentUserCode) {
-        // Cache is valid for this user.
-        return cachedStaffCode;
-      }
-      if (cachedStaffCode.isNotEmpty) {
-        // Fallback: still use cached staffCode so my-profile API can run.
-        return cachedStaffCode;
-      }
-      return '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  Future<void> _loadStaffProfile(String staffCode) async {
-    try {
-      final repo = serviceLocator<StaffRepository>();
-      // 1) Try cached profile first (fast, no loader).
-      if (repo is StaffRepositoryWithCache) {
-        final cached =
-            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
-          staffCode,
-        );
-        if (!mounted) return;
-        if (cached != null) {
-          _profile = cached;
-          // Persist staffType for ProfileMenuHeader.
-          if (cached.staffType.isNotEmpty) {
-            final storage = serviceLocator<StorageService>();
-            await storage.saveString(StorageKeys.staffType, cached.staffType);
-          }
-          setState(() {});
-        }
-      }
-
-      // 2) Prefetch latest profile in the background (no loader shown).
-      try {
-        final fresh = await repo.getStaffProfile(staffCode: staffCode);
-        if (!mounted) return;
-        // Persist staffType for ProfileMenuHeader (overwrite with latest).
-        if (fresh.staffType.isNotEmpty) {
-          final storage = serviceLocator<StorageService>();
-          await storage.saveString(StorageKeys.staffType, fresh.staffType);
-        }
-        setState(() {
-          _profile = fresh;
-        });
-      } catch (e) {
-        CoreUtils.logApiError(e.toString());
-        if (_profile == null && !_hasShownProfileLoadError) {
-          _hasShownProfileLoadError = true;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Failed to load profile. Please try again.',
-            isError: true,
-          );
-        }
-      }
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      if (_profile == null && !_hasShownProfileLoadError) {
-        _hasShownProfileLoadError = true;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Failed to load profile. Please try again.',
-          isError: true,
-        );
-      }
-    }
-  }
-
-  Future<void> _pickProfileImage() async {
-    try {
-      final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
-      if (image == null) return;
-      // TODO: wire this to upload/update avatar in your backend/state
+      if (!mounted) return;
+      // Now that prefetch is complete, apply the persona to UI.
+      _cubit.applySwitchedPersona(backendRole);
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Selected profile image',
+        message:
+            'Switched to ${StringUtils.staffTypeToDisplayRole(backendRole)}',
         isSuccess: true,
       );
+      await _cubit.refreshSwitchProfileAvailability();
+      if (!mounted) return;
+      await _cubit.load(isParent: context.read<RoleCubit>().isParent);
+      if (!mounted) return;
+
+      // Land on the new persona's dashboard. DashboardScreen branches on
+      // RoleCubit, so this shows the correct (admin/staff/parent) dashboard and
+      // rebuilds it fresh — otherwise a stale screen lingers after the switch.
+      context.go(DashboardScreen.routeName);
     } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Failed to pick image: $e',
+        message: 'Could not switch profile: $e',
         isError: true,
       );
+    } finally {
+      _cubit.setSwitching(false);
     }
   }
 
-  Future<String> _resolveClassroomNameForStaff(StaffProfile profile) async {
-    final code = profile.primaryClassroomCode.trim().isNotEmpty
-        ? profile.primaryClassroomCode.trim()
-        : (profile.allowedClassroomCodes.isNotEmpty
-            ? profile.allowedClassroomCodes.first.trim()
-            : '');
-    if (code.isEmpty) return '-';
+  String _effectiveStaffCode() => _cubit.effectiveStaffCode();
 
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-      if (schoolCode.isEmpty) return code;
-
-      final getActiveClassrooms = serviceLocator<GetActiveClassroomsUseCase>();
-      final classrooms = await getActiveClassrooms(
-        schoolCode: schoolCode,
-        onlyTypeClassroom: false,
-      );
-      for (final c in classrooms) {
-        if (c.code.trim() == code) {
-          final name = c.name.trim();
-          return name.isNotEmpty ? name : code;
-        }
-      }
-      return code;
-    } catch (_) {
-      return code;
-    }
+  Future<void> _pickProfileImage() async {
+    final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
+    if (image == null) return;
+    if (!mounted) return;
+    // The cubit branches staff vs guardian based on persona and streams upload
+    // progress into state; we just surface the resulting snackbar.
+    final isParent = context.read<RoleCubit>().isParent;
+    final result = await _cubit.uploadProfilePhoto(
+      imagePath: image.path,
+      isParent: isParent,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: result.message,
+      isSuccess: result.isSuccess,
+      isError: !result.isSuccess,
+    );
   }
 
   Future<void> _openStaffProfile() async {
     // Ensure we have a profile to open.
     final staffCode = (_profile?.staffCode ?? widget.staffCode ?? '').trim();
     if (staffCode.isEmpty) {
-      final resolved = await _resolveLoggedInStaffCode();
+      final resolved = await _cubit.resolveLoggedInStaffCode();
       if (!mounted) return;
       if (resolved.isEmpty) {
         CoreUtils.showTopSnackBar(
@@ -260,7 +261,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         );
         return;
       }
-      await _loadStaffProfile(resolved);
+      await _cubit.loadStaffProfile(resolved);
     }
 
     final profile = _profile;
@@ -273,14 +274,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       return;
     }
 
-    final classroom = await _resolveClassroomNameForStaff(profile);
+    final classroom = await _cubit.resolveClassroomNameForStaff(profile);
     if (!mounted) return;
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => StaffProfileScreen(
           staffCode: profile.staffCode,
+          userCode: profile.userCode,
           name: profile.fullName.trim().isNotEmpty ? profile.fullName.trim() : '-',
           classroom: classroom,
           designation: profile.designation,
@@ -291,11 +293,68 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
     );
   }
 
+  Future<void> _viewStudentProfileForParent() async {
+    final parentChild = context.read<ParentChildCubit>();
+    if (!parentChild.isLoaded && !parentChild.isLoading) {
+      await parentChild.ensureLoaded();
+    }
+    final selected = parentChild.selectedChild;
+    if (selected == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'No child selected. Choose a child from the menu first.',
+        isError: true,
+      );
+      return;
+    }
+
+    await context.read<RoleCubit>().refreshAccessFromServer(force: true);
+    if (!mounted) return;
+
+    final resolvedClassroom =
+        await _cubit.resolveClassroomNameForStudent(selected.classroom);
+    if (!mounted) return;
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => StudentProfileScreen(
+          name: selected.name,
+          classroom: resolvedClassroom,
+          tags: selected.tags,
+          schedule: selected.schedule,
+          sibling: const <String, dynamic>{
+            'name': [],
+            'relation': [],
+            'status': [],
+          },
+          studentCode: selected.code,
+          syncWithParentChildSelection: true,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<UserProfileCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<UserProfileCubit, UserProfileState>(
+        listener: (context, state) {
+          if (state.profileLoadFailed && !_shownLoadError) {
+            _shownLoadError = true;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Failed to load profile. Please try again.',
+              isError: true,
+            );
+          }
+        },
+        builder: (context, state) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
     final responsive = ResponsiveHelper(context);
+    final isParentPersona = context.watch<RoleCubit>().isParent;
     final String displayName =
         _profile?.fullName.isNotEmpty == true
             ? _profile!.fullName
@@ -304,27 +363,48 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
         _profile?.email.isNotEmpty == true
             ? _profile!.email
             : (_loginEmail.isNotEmpty ? _loginEmail : '-');
-    final String displayPhone =
-        _profile?.phoneNumber.isNotEmpty == true
-            ? _formatPhoneForDisplay(_profile!.phoneNumber)
-            : '-';
-    final String displayAddressRaw =
-        _profile?.address.formattedAddress.isNotEmpty == true
-            ? _profile!.address.formattedAddress
-            : '-';
+    final String displayPhone = _profile?.phoneNumber.isNotEmpty == true
+        ? _formatPhoneForDisplay(_profile!.phoneNumber)
+        : (isParentPersona && _guardianPhone.trim().isNotEmpty
+            ? _formatPhoneForDisplay(_guardianPhone.trim())
+            : '-');
+    final String displayAddressRaw = _profile?.address.formattedAddress.isNotEmpty == true
+        ? _profile!.address.formattedAddress
+        : (isParentPersona && _guardianAddress.trim().isNotEmpty
+            ? _guardianAddress.trim()
+            : '-');
     // Show address in a more readable multi-line format by breaking on commas.
     final String displayAddress =
         displayAddressRaw == '-' ? '-' : displayAddressRaw.replaceAll(', ', '\n');
-    final String roleDisplay = _profile != null
-        ? StringUtils.staffTypeToDisplayRole(_profile!.staffType)
-        : _loginPersona;
+    final activeRoleForDisplay =
+        _effectiveActiveBackendRoleForSwitch().trim().isNotEmpty
+            ? _effectiveActiveBackendRoleForSwitch().trim()
+            : (_cachedActiveSchoolRole ?? '').trim();
+    // Non-parent: show the job designation (e.g. Director / Lead Teacher),
+    // preferring the live profile, then the cached designation-first persona,
+    // and only falling back to the role/staffType when no designation exists.
+    final String _profileDesignation = (_profile?.designation ?? '').trim();
+    final String _profileStaffType = (_profile?.staffType ?? '').trim();
+    final String roleDisplay = isParentPersona
+        ? StringUtils.staffTypeToDisplayRole(
+            activeRoleForDisplay.isNotEmpty ? activeRoleForDisplay : 'GUARDIAN',
+          )
+        : _profileDesignation.isNotEmpty
+            ? StringUtils.staffTypeToDisplayRole(_profileDesignation)
+            : (_loginPersona.trim().isNotEmpty
+                ? _loginPersona.trim()
+                : (_profileStaffType.isNotEmpty
+                    ? StringUtils.staffTypeToDisplayRole(_profileStaffType)
+                    : (activeRoleForDisplay.isNotEmpty
+                        ? StringUtils.staffTypeToDisplayRole(activeRoleForDisplay)
+                        : '')));
     final String displayPersona =
         roleDisplay.isNotEmpty ? roleDisplay : '-';
 
     return GlobalScaffold(
         hasBackButton: true,
         body: CustomRefreshIndicator(
-          onRefresh: _initProfileLoad,
+          onRefresh: () => _cubit.load(isParent: isParentPersona),
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
@@ -358,12 +438,149 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     clipBehavior: Clip.none,
                                     children: [
                                       DocumentImageWidget(
-                                        fileUuid: displayName.isNotEmpty ? displayName : 'User',
+                                        fileUuid: isParentPersona
+                                            ? (_guardianCode.isNotEmpty
+                                                ? _guardianCode
+                                                : (displayName.isNotEmpty
+                                                    ? displayName
+                                                    : 'User'))
+                                            : (_effectiveStaffCode().isNotEmpty
+                                                ? _effectiveStaffCode()
+                                                : (displayName.isNotEmpty
+                                                    ? displayName
+                                                    : 'User')),
                                         name: displayName.isNotEmpty ? displayName : 'User',
+                                        imageUrl: isParentPersona
+                                            ? (_guardianPhotoUrl.trim().isNotEmpty
+                                                ? _guardianPhotoUrl.trim()
+                                                : null)
+                                            : ((_profile?.profilePhotoUrl ?? '')
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _profile!.profilePhotoUrl.trim()
+                                                : null),
+                                        mediaAssetCode: isParentPersona
+                                            ? (_guardianPhotoAssetCode
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _guardianPhotoAssetCode.trim()
+                                                : null)
+                                            : null,
+                                        staffCode: (!isParentPersona &&
+                                                _effectiveStaffCode().isNotEmpty)
+                                            ? _effectiveStaffCode()
+                                            : null,
+                                        staffEmploymentStatus:
+                                            isParentPersona ? null : _profile?.status,
+                                        disableAttendanceStatusLookup:
+                                            isParentPersona,
                                         size: 90,
                                         fontSize: 24,
-                                        statusColor: const Color(0xFF00B115),
                                       ),
+                                      if (_isUploadingProfilePhoto)
+                                        Positioned.fill(
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              color: const Color(0xB3241631),
+                                              borderRadius:
+                                                  BorderRadius.circular(45),
+                                            ),
+                                            child: Center(
+                                              child: Container(
+                                                width: 72,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                  horizontal: 8,
+                                                  vertical: 7,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: AppColors.primaryColor
+                                                      .withOpacity(0.25),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                    color: Colors.white
+                                                        .withOpacity(0.22),
+                                                  ),
+                                                ),
+                                                child: Column(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    Text(
+                                                      '${_profilePhotoUploadPercent.clamp(0, 100)}%',
+                                                      style: const TextStyle(
+                                                        color: Colors.white,
+                                                        fontSize: 14,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    ClipRRect(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                              999),
+                                                      child:
+                                                          LinearProgressIndicator(
+                                                        value:
+                                                            (_profilePhotoUploadPercent /
+                                                                    100)
+                                                                .clamp(
+                                                                    0.0,
+                                                                    1.0),
+                                                        minHeight: 4,
+                                                        backgroundColor: Colors
+                                                            .white
+                                                            .withOpacity(0.22),
+                                                        valueColor:
+                                                            const AlwaysStoppedAnimation<
+                                                                Color>(
+                                                          AppColors.themeColor,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 4),
+                                                    Row(
+                                                      mainAxisAlignment:
+                                                          MainAxisAlignment
+                                                              .center,
+                                                      children: [
+                                                        SvgPicture.asset(
+                                                          MediaRes.uploadIcon,
+                                                          height: 10,
+                                                          width: 10,
+                                                          colorFilter:
+                                                              ColorFilter.mode(
+                                                            Colors.white
+                                                                .withOpacity(
+                                                                    0.92),
+                                                            BlendMode.srcIn,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(
+                                                            width: 3),
+                                                        Text(
+                                                          _profilePhotoUploadPercent >=
+                                                                  100
+                                                              ? 'Finalizing'
+                                                              : 'Uploading',
+                                                          style: TextStyle(
+                                                            color: Colors.white
+                                                                .withOpacity(
+                                                                    0.92),
+                                                            fontSize: 10,
+                                                            fontWeight:
+                                                                FontWeight.w600,
+                                                          ),
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
                                       Positioned(
                                         right: -2,
                                         bottom: -2,
@@ -454,50 +671,23 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                           const SizedBox(height: 20),
                           Row(
                             children: [
-                              Expanded(
-                                child: SizedBox(
-                                  height: 48,
-                                  child: OutlinedButton(
-                                    onPressed: () {},
-                                    style: OutlinedButton.styleFrom(
-                                      side: const BorderSide(
-                                        color: Color(0xFF6C7FD8),
-                                      ),
-                                      alignment: Alignment.center,
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(
-                                          8,
-                                        ),
-                                      ),
-                                      padding: EdgeInsets.symmetric(horizontal: 8),
+                              if (_distinctRolesForCurrentSchool.length > 1) ...[
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: CustomButtonLayout(
+                                      confirmButtonLabel: 'Switch Profile',
+                                      onPressedConfirm: _switchPersonasLoading
+                                          ? null
+                                          : _onSwitchProfilePressed,
+                                      showCancelButton: false,
+                                      isForm: false,
+                                      isLoading: _switchPersonasLoading,
                                     ),
-                                    child: CustomTextWidget(
-                                      text: 'Switch Profile',
-                                      textStyle:  TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Color(0xFF6C7FD8),
-                                        height: 16 / 16,
-                                      ),
-                                      maxLines: 1,
-                                    ),
-                                    // child: const Text(
-                                    //   'Switch Profile',
-                                    //   style: TextStyle(
-                                    //     fontFamily: 'Manrope',
-                                    //     fontSize: 16,
-                                    //     fontWeight: FontWeight.w700,
-                                    //     color: Color(0xFF6C7FD8),
-                                    //     height: 16 / 16,
-                                    //   ),
-                                    //   maxLines: 1,
-                                    //   overflow: TextOverflow.ellipsis,
-                                    // ),
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 10),
+                                const SizedBox(width: 10),
+                              ],
                               Expanded(
                                 child: Container(
                                   height: 48,
@@ -507,32 +697,63 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                     AppColors.buildPrimaryGradient(),
                                   ),
                                   child: TextButton(
-                                    onPressed: () async {
-                                      // For staff persona, open StaffProfileScreen.
-                                      if (displayPersona != 'Admin' &&
-                                          displayPersona != 'Parent') {
-                                        await _openStaffProfile();
-                                      }
-                                    },
+                                    onPressed: _openingProfile
+                                        ? null
+                                        : () async {
+                                            // Block re-entry until the pushed
+                                            // profile screen is popped, so
+                                            // rapid taps open only one instance.
+                                            setState(
+                                              () => _openingProfile = true,
+                                            );
+                                            try {
+                                              if (isParentPersona) {
+                                                await _viewStudentProfileForParent();
+                                              } else {
+                                                // Staff and Admin both open the
+                                                // Staff Profile screen.
+                                                await _openStaffProfile();
+                                              }
+                                            } finally {
+                                              if (mounted) {
+                                                setState(
+                                                  () => _openingProfile = false,
+                                                );
+                                              }
+                                            }
+                                          },
                                     style: TextButton.styleFrom(
                                         padding: EdgeInsets.symmetric(horizontal: 8),
                                       alignment: Alignment.center
                                     ),
-                                    child: CustomTextWidget(
-                                      text: displayPersona == 'Admin'
-                                          ? 'View Admin Profile'
-                                          : displayPersona == 'Parent'
-                                              ? "View Child's Profile"
-                                              : 'View Staff Profile',
-                                      textStyle: TextStyle(
-                                        fontFamily: 'Manrope',
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
-                                        color: Colors.white,
-                                        height: 16 / 16,
-                                      ),
-                                      maxLines: 1,
-                                    ),
+                                    child: _openingProfile
+                                        // Loading feedback while the profile
+                                        // resolves/opens (mirrors
+                                        // CustomButtonLayout's white loader).
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                Colors.white,
+                                              ),
+                                            ),
+                                          )
+                                        : CustomTextWidget(
+                                            text: isParentPersona
+                                                ? 'View Student Profile'
+                                                : 'View Staff Profile',
+                                            textStyle: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Colors.white,
+                                              height: 16 / 16,
+                                            ),
+                                            maxLines: 1,
+                                          ),
                                     // child: Text(
                                     //   widget.userPersona == 'Admin' ?'View Admin Profile' :  widget.userPersona == 'Parent' ? "View Child's Profile" : 'View Staff Profile', // or view staff profile depending on persona
                                     //   style: const TextStyle(
@@ -631,6 +852,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                   final initialZip =
                                       (address?.zipCode ?? '').trim();
                                   final role = displayPersona;
+                                  final isParent =
+                                      context.read<RoleCubit>().isParent;
 
                                   final updated = await Navigator.push<bool>(
                                     context,
@@ -647,13 +870,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                         initialState: initialState,
                                         initialCountry: initialCountry,
                                         initialZipCode: initialZip,
+                                        isParent: isParent,
                                       ),
                                     ),
                                   );
                                   // If profile was updated, reload latest data so
                                   // the multiline address and other fields reflect changes.
                                   if (updated == true && mounted) {
-                                    await _initProfileLoad();
+                                    await _cubit.load(
+                                      isParent: context
+                                          .read<RoleCubit>()
+                                          .isParent,
+                                    );
                                   }
                                 },
                                 child: Container(
@@ -814,6 +1042,100 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                               ),
                             ],
                           ),
+
+                          // ── Schedule section (staff only) ──────────────────
+                          if (!isParentPersona &&
+                              _profile != null &&
+                              (_profile!.workSchedules.isNotEmpty ||
+                                  _profile!.breakSchedules.isNotEmpty)) ...[
+                            const SizedBox(height: 16),
+                            const Divider(height: 1, thickness: 1, color: Color(0xFFF0ECF4)),
+                            const SizedBox(height: 16),
+
+                            // Work Schedule
+                            if (_profile!.workSchedules.isNotEmpty) ...[
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  CustomTextWidget(
+                                    text: 'Work Schedule',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ..._profile!.workSchedules.map((ws) {
+                                final dayAbbr = _dayAbbr(ws.dayOfWeek);
+                                final value =
+                                    '${_fmtTime(ws.workStartTime)} - ${_fmtTime(ws.workEndTime)} ($dayAbbr)';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      CustomTextWidget(
+                                        text: dayAbbr,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        height: 16 / 13,
+                                      ),
+                                      CustomTextWidget(
+                                        text: value,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        height: 19 / 14,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+
+                            // Break Schedule
+                            if (_profile!.breakSchedules.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  CustomTextWidget(
+                                    text: 'Break Schedule',
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              ..._profile!.breakSchedules.map((bs) {
+                                final dayAbbr = _dayAbbr(bs.dayOfWeek);
+                                final value =
+                                    '${_fmtTime(bs.breakStartTime)} - ${_fmtTime(bs.breakEndTime)} ($dayAbbr)';
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 8),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      CustomTextWidget(
+                                        text: dayAbbr,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
+                                        height: 16 / 13,
+                                      ),
+                                      CustomTextWidget(
+                                        text: value,
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        height: 19 / 14,
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }),
+                            ],
+                          ],
+
                           SizedBox(height: responsive.verticalSpacing),
 
                           ],
@@ -827,6 +1149,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           ),
           ),
         ),
+    );
+        },
+      ),
     );
   }
 }

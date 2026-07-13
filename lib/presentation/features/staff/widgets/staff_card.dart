@@ -1,7 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
@@ -15,6 +21,7 @@ class StaffCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.avatarUrl,
+    this.profilePhotoAssetCode,
     required this.allowedClassrooms,
     required this.schedule,
     required this.designation,
@@ -23,6 +30,7 @@ class StaffCard extends StatefulWidget {
     required this.isActive,
     this.status,
     this.onPrimaryAction,
+    this.onDeleteAction,
     this.onEdit,
     this.isSelected = false,
     this.onSelected,
@@ -30,12 +38,14 @@ class StaffCard extends StatefulWidget {
     required this.classroomCodeByName,
     this.workScheduleByDay = const <String, String>{},
     this.breakScheduleByDay = const <String, String>{},
+    this.initiallyExpanded = false,
   });
 
   final String staffCode;
   final String name;
   final String classroom;
   final String? avatarUrl;
+  final String? profilePhotoAssetCode;
   final List<String> allowedClassrooms;
   final List<String> schedule;
   final String designation;
@@ -44,6 +54,8 @@ class StaffCard extends StatefulWidget {
   final bool isActive;
   final String? status;
   final VoidCallback? onPrimaryAction;
+  /// Permanently deletes the staff member. Only surfaced for deactivated staff.
+  final VoidCallback? onDeleteAction;
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
@@ -54,12 +66,93 @@ class StaffCard extends StatefulWidget {
   /// Day-of-week (MONDAY, TUESDAY, ...) → "start - end" break time.
   final Map<String, String> breakScheduleByDay;
 
+  /// Opens the card pre-expanded — used when a notification deep-link targets
+  /// this staff member.
+  final bool initiallyExpanded;
+
   @override
   State<StaffCard> createState() => _StaffCardState();
 }
 
 class _StaffCardState extends State<StaffCard> {
-  bool isExpanded = false;
+  late bool isExpanded = widget.initiallyExpanded;
+
+  /// Shared across all StaffCard instances — every card in a list is for the
+  /// same school, so we only call `/regular-schedule` once per app load.
+  static List<String>? _cachedSchoolDayShortLabels;
+  static Future<List<String>>? _inFlightLoad;
+
+  static const Map<String, String> _enumToShort = <String, String>{
+    'MONDAY': 'Mon',
+    'TUESDAY': 'Tue',
+    'WEDNESDAY': 'Wed',
+    'THURSDAY': 'Thu',
+    'FRIDAY': 'Fri',
+    'SATURDAY': 'Sat',
+    'SUNDAY': 'Sun',
+  };
+
+  static const Map<String, String> _shortToEnum = <String, String>{
+    'Mon': 'MONDAY',
+    'Tue': 'TUESDAY',
+    'Wed': 'WEDNESDAY',
+    'Thu': 'THURSDAY',
+    'Fri': 'FRIDAY',
+    'Sat': 'SATURDAY',
+    'Sun': 'SUNDAY',
+  };
+
+  static const List<String> _weekOrder = [
+    'MONDAY',
+    'TUESDAY',
+    'WEDNESDAY',
+    'THURSDAY',
+    'FRIDAY',
+    'SATURDAY',
+    'SUNDAY',
+  ];
+
+  List<String> _schoolOpenShortDays = const <String>[];
+
+  @override
+  void initState() {
+    super.initState();
+    final cached = _cachedSchoolDayShortLabels;
+    if (cached != null) {
+      _schoolOpenShortDays = cached;
+    } else {
+      _loadSchoolOpenDays();
+    }
+  }
+
+  Future<void> _loadSchoolOpenDays() async {
+    try {
+      final future = _inFlightLoad ??= _fetchSchoolOpenDays();
+      final result = await future;
+      if (!mounted) return;
+      setState(() => _schoolOpenShortDays = result);
+    } catch (_) {
+      // Leave fallback in place if the API fails.
+    }
+  }
+
+  static Future<List<String>> _fetchSchoolOpenDays() async {
+    final storage = serviceLocator<StorageService>();
+    final schoolCode =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return const <String>[];
+    final repo = serviceLocator<StaffRepository>();
+    final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
+    final open = <String>{
+      for (final d in days) d.dayOfWeek.toUpperCase(),
+    };
+    final ordered = _weekOrder
+        .where(open.contains)
+        .map((k) => _enumToShort[k]!)
+        .toList(growable: false);
+    _cachedSchoolDayShortLabels = ordered;
+    return ordered;
+  }
 
   /// Formats enum-style strings from the API into human readable labels.
   /// Examples:
@@ -88,6 +181,17 @@ class _StaffCardState extends State<StaffCard> {
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth > 600;
+    final primaryClassroomName = widget.classroom.trim();
+    final orderedAllowedClassrooms = <String>[
+      if (primaryClassroomName.isNotEmpty) primaryClassroomName,
+      ...widget.allowedClassrooms
+          .map((name) => name.trim())
+          .where(
+            (name) =>
+                name.isNotEmpty &&
+                name.toLowerCase() != primaryClassroomName.toLowerCase(),
+          ),
+    ];
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -162,9 +266,12 @@ class _StaffCardState extends State<StaffCard> {
                           */
                           DocumentImageWidget(
                             fileUuid: widget.staffCode,
+                            imageUrl: widget.avatarUrl,
+                            mediaAssetCode: widget.profilePhotoAssetCode,
                             name: widget.name,
                             staffCode: widget.staffCode,
                             staffEmploymentStatus: widget.status,
+                            disableProfileLookupFallback: true,
                             size: 50,
                           ),
                           SizedBox(width: isTablet ? 16 : 9),
@@ -239,7 +346,7 @@ class _StaffCardState extends State<StaffCard> {
                                       spacing: 4,
                                       runSpacing: 4,
                                       children: [
-                                        if (widget.allowedClassrooms.isNotEmpty)
+                                        if (orderedAllowedClassrooms.isNotEmpty)
                                           Container(
                                             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                             decoration: BoxDecoration(
@@ -247,7 +354,7 @@ class _StaffCardState extends State<StaffCard> {
                                               borderRadius: BorderRadius.circular(8),
                                             ),
                                             child: Text(
-                                              widget.allowedClassrooms[0],
+                                              orderedAllowedClassrooms[0],
                                               style: const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontWeight: FontWeight.w600,
@@ -256,9 +363,11 @@ class _StaffCardState extends State<StaffCard> {
                                               ),
                                             ),
                                           ),
-                                        if (widget.allowedClassrooms.length > 1)
+                                        if (orderedAllowedClassrooms.length > 1)
                                           Tooltip(
-                                            message: widget.allowedClassrooms.skip(1).join(', '),
+                                            message: orderedAllowedClassrooms
+                                                .skip(1)
+                                                .join(', '),
                                             child: Container(
                                               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                                               decoration: BoxDecoration(
@@ -266,7 +375,7 @@ class _StaffCardState extends State<StaffCard> {
                                                 borderRadius: BorderRadius.circular(8),
                                               ),
                                               child: Text(
-                                                '+${widget.allowedClassrooms.length - 1}',
+                                                '+${orderedAllowedClassrooms.length - 1}',
                                                 style: const TextStyle(
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,
@@ -305,27 +414,26 @@ class _StaffCardState extends State<StaffCard> {
                                   runSpacing: 4,
                                   alignment: WrapAlignment.start,
                                   children: [
-                                    ...['Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map(
+                                    ...(() {
+                                      // Days the school is open, sourced from
+                                      // the regular-schedule API. Render a
+                                      // chip for every open day so Sat/Sun
+                                      // appear too — even if the staff has
+                                      // no work/break entries for that day.
+                                      if (_schoolOpenShortDays.isNotEmpty) {
+                                        return _schoolOpenShortDays;
+                                      }
+                                      return const <String>[
+                                        'Mon',
+                                        'Tue',
+                                        'Wed',
+                                        'Thu',
+                                        'Fri',
+                                      ];
+                                    })().map(
                                       (shortDay) {
-                                        String enumDay;
-                                        switch (shortDay) {
-                                          case 'Mon':
-                                            enumDay = 'MONDAY';
-                                            break;
-                                          case 'Tue':
-                                            enumDay = 'TUESDAY';
-                                            break;
-                                          case 'Wed':
-                                            enumDay = 'WEDNESDAY';
-                                            break;
-                                          case 'Thu':
-                                            enumDay = 'THURSDAY';
-                                            break;
-                                          case 'Fri':
-                                          default:
-                                            enumDay = 'FRIDAY';
-                                            break;
-                                        }
+                                        final enumDay =
+                                            _shortToEnum[shortDay] ?? 'FRIDAY';
 
                                         final work =
                                             widget.workScheduleByDay[enumDay];
@@ -344,8 +452,7 @@ class _StaffCardState extends State<StaffCard> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0xFF6C7FD8)
-                                                    .withOpacity(0.12)
+                                                ? const Color(0x4DB1AFE9)
                                                 : const Color(0xFFF3F4FB),
                                             borderRadius:
                                                 BorderRadius.circular(8),
@@ -357,7 +464,7 @@ class _StaffCardState extends State<StaffCard> {
                                               fontWeight: FontWeight.w600,
                                               fontSize: 13,
                                               color: isActive
-                                                  ? const Color(0xFF6C7FD8)
+                                                  ? const Color(0xFF4B5B7A)
                                                   : const Color(0xFFB1AFC9),
                                             ),
                                           ),
@@ -384,6 +491,11 @@ class _StaffCardState extends State<StaffCard> {
 
                                         return Tooltip(
                                           message: tooltipText,
+                                          triggerMode:
+                                              TooltipTriggerMode.longPress,
+                                          showDuration:
+                                              const Duration(seconds: 3),
+                                          preferBelow: true,
                                           child: chip,
                                         );
                                       },
@@ -496,6 +608,11 @@ class _StaffCardState extends State<StaffCard> {
                               ],
                             ),
                             const SizedBox(height: 8),
+                            // Edit / Deactivate / Delete are all STAFF writes —
+                            // hide the whole action row for view-only personas.
+                            if (context
+                                .read<RoleCubit>()
+                                .canWriteModule(AppAccessModules.staff))
                             Row(
                               children: [
                                 Expanded(
@@ -545,6 +662,57 @@ class _StaffCardState extends State<StaffCard> {
                                   ),
                                 ),
                                 const SizedBox(width: 16),
+                                // Deactivated staff can be permanently deleted.
+                                if (!widget.isActive) ...[
+                                  Expanded(
+                                    child: SizedBox(
+                                      height: 40,
+                                      child: OutlinedButton(
+                                        onPressed: () {
+                                          showModalBottomSheet(
+                                            context: context,
+                                            isScrollControlled: true,
+                                            backgroundColor: Colors.transparent,
+                                            builder: (ctx) {
+                                              return DeleteConfirmationBottomSheet(
+                                                name: widget.name,
+                                                type: 'staff_delete',
+                                                onDelete: () {
+                                                  widget.onDeleteAction?.call();
+                                                  return Future.value();
+                                                },
+                                                onCancel: () {
+                                                  Navigator.of(ctx).pop();
+                                                },
+                                              );
+                                            },
+                                          );
+                                        },
+                                        style: OutlinedButton.styleFrom(
+                                          side: const BorderSide(
+                                            color: Color(0xFF6C7FD8),
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          'Delete',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Color(0xFF6C7FD8),
+                                            height: 16 / 16,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 16),
+                                ],
                                 Expanded(
                                   child: Container(
                                     height: 40,
@@ -651,6 +819,7 @@ class _StaffCardState extends State<StaffCard> {
       await launchUrl(uri);
     }
   }
+
 }
 
 

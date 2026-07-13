@@ -35,7 +35,7 @@ class SelectDropdownCard extends StatelessWidget {
         ],
       ),
       child: DropdownButtonFormField<String>(
-        value: initialValue,
+        initialValue: initialValue,
         isExpanded: true,
         icon: const Icon(
           Icons.keyboard_arrow_down_rounded,

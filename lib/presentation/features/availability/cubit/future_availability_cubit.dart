@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
@@ -24,17 +25,22 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
     required DateTime date,
     required bool isTwoShifts,
   }) async {
-    final shift = isTwoShifts ? FutureAvailabilityShift.all : FutureAvailabilityShift.fullDay;
     final normalizedDate = DateTime(date.year, date.month, date.day);
     final schoolCode = await _resolveSchoolCode();
 
+    // Try cache first.
+    final shift = isTwoShifts
+        ? FutureAvailabilityShift.morning
+        : FutureAvailabilityShift.fullDay;
+
     final cached = await (_repository is AvailabilityRepositoryWithCache
-        ? (_repository as AvailabilityRepositoryWithCache).loadCachedFutureAvailability(
-            schoolCode: schoolCode,
-            startDate: normalizedDate,
-            endDate: normalizedDate,
-            shift: shift,
-          )
+        ? (_repository as AvailabilityRepositoryWithCache)
+            .loadCachedFutureAvailability(
+              schoolCode: schoolCode,
+              startDate: normalizedDate,
+              endDate: normalizedDate,
+              shift: shift,
+            )
         : Future.value(null));
 
     if (cached != null && !isClosed) {
@@ -44,8 +50,6 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
         isTwoShifts: isTwoShifts,
         isFromCache: true,
       ));
-      // ignore: unawaited_futures
-      refresh(date: normalizedDate, isTwoShifts: isTwoShifts);
       return;
     }
 
@@ -59,11 +63,27 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
     if (state.isRefreshing) return;
 
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    final shift = isTwoShifts ? FutureAvailabilityShift.all : FutureAvailabilityShift.fullDay;
+    // isTwoShifts=true → MORNING; isTwoShifts=false → FULL_DAY
+    final shift = isTwoShifts
+        ? FutureAvailabilityShift.morning
+        : FutureAvailabilityShift.fullDay;
+
     emit(state.copyWith(isLoading: state.grid == null, isRefreshing: true, clearError: true));
 
     try {
       final schoolCode = await _resolveSchoolCode();
+      if (_repository is AvailabilityRepositoryWithCache) {
+        await (_repository as AvailabilityRepositoryWithCache)
+            .invalidateAvailabilityCache(schoolCode: schoolCode);
+      }
+
+      // POST recompute first, then GET snapshots.
+      await _repository.recomputeFutureAvailability(
+        schoolCode: schoolCode,
+        startDate: normalizedDate,
+        endDate: normalizedDate,
+      );
+
       final grid = await _getFutureAvailabilityUseCase(
         schoolCode: schoolCode,
         startDate: normalizedDate,
@@ -84,7 +104,7 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
         isRefreshing: false,
         selectedDate: normalizedDate,
         isTwoShifts: isTwoShifts,
-        errorMessage: e.toString(),
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
   }

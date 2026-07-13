@@ -1,36 +1,27 @@
+import 'package:flutter/material.dart';
+
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../../../../app/theme/colors.dart';
-
-class ChatAttachment{
-  final String? localPath;
-  final String? remoteUrl;
-  final String name;
-  final String type;
-  final int sizeBytes;
-  final String? mimeType;
-
-  ChatAttachment({ required this.name, required this.type, required this.sizeBytes, this.mimeType, this.localPath, this.remoteUrl,});
-  bool get isImage => type == "image";
-
-  bool get hasLocalFile => localPath != null;
-  bool get isUploaded => remoteUrl != null;
-
-  String? get displaySource => remoteUrl ?? localPath;
-}
+import '../../../../../../domain/features/communication/entities/message.dart';
 
 class AttachmentWidget extends StatefulWidget {
   final Widget iconWidget;
   final Function(List<ChatAttachment>) onAttachmentsSelected;
   final double? size;
-  const AttachmentWidget({super.key, required this.iconWidget, required this.onAttachmentsSelected, this.size = 28});
+  const AttachmentWidget({
+    super.key,
+    required this.iconWidget,
+    required this.onAttachmentsSelected,
+    this.size = 28,
+  });
 
   @override
   State<AttachmentWidget> createState() => _AttachmentWidgetState();
@@ -40,8 +31,8 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   final ImagePicker _picker = ImagePicker();
 
   void _showWarningMessage(String message) {
-    WidgetsBinding.instance.addPostFrameCallback((_){
-      if(!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).removeCurrentSnackBar();
       final snackBar = SnackBar(
         content: Row(
@@ -71,124 +62,87 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   }
 
   Future<void> _showAttachmentOptions() async {
-    // final result = await showModalBottomSheet<String>(
-    //     context: context,
-    //     shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-    //     builder: (context) {
-    //       return SafeArea(
-    //           child: Column(
-    //             mainAxisSize: MainAxisSize.min,
-    //             children: [
-    //               ListTile(
-    //                 leading: const Icon(Icons.photo_library, color: AppColors.primaryColor,),
-    //                 title: CustomTextWidget(text: 'Photos',),
-    //                 onTap: () => Navigator.pop(context, 'photos'),
-    //               ),
-    //               ListTile(
-    //                 leading: const Icon(Icons.camera_alt, color: AppColors.primaryColor,),
-    //                 title: CustomTextWidget(text: 'Take Photo',),
-    //                 onTap: () => Navigator.pop(context, 'camera'),
-    //               ),
-    //               ListTile(
-    //                 leading: const Icon(Icons.picture_as_pdf, color: AppColors.primaryColor,),
-    //                 title: CustomTextWidget(text: 'Document',),
-    //                 onTap: () => Navigator.pop(context, 'document'),
-    //               ),
-    //             ],
-    //           )
-    //       );
-    //     }
-    // );
-
-    final result = await showDialog<String>(
+    final result = await showModalBottomSheet<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        contentPadding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
-        title: Container(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      backgroundColor: Colors.white,
+      isScrollControlled: true,
+      builder: (context) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.45,
+        minChildSize: 0.35,
+        maxChildSize: 0.6,
+        builder: (context, scrollController) => SingleChildScrollView(
+          controller: scrollController,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
             children: [
-              const CustomTextWidget(
-                text: 'Add Attachment',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
+              // Handle indicator
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey[300],
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
               ),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.primaryColor),
-                onPressed: () => Navigator.pop(context),
+              // Title
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const CustomTextWidget(
+                      text: 'Add Attachment',
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                    GestureDetector(
+                      onTap: () => Navigator.pop(context),
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryColor.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.close,
+                          size: 18,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
+              // Options
+              _buildAttachmentOption(
+                icon: Icons.photo_library_rounded,
+                title: 'Photos (multiple allowed)',
+                subtitle: 'JPEG, PNG, WEBP, HEIC, HEIF, AVIF, GIF, BMP, TIFF',
+                onTap: () => Navigator.pop(context, 'photos'),
+              ),
+              _buildAttachmentOption(
+                icon: Icons.camera_alt_rounded,
+                title: 'Take Photo',
+                subtitle: 'Capture a photo with your camera',
+                onTap: () => Navigator.pop(context, 'camera'),
+              ),
+              _buildAttachmentOption(
+                icon: Icons.upload_file_rounded,
+                title: 'Document (one file)',
+                subtitle: 'PDF, DOC, DOCX, XLS, XLSX • max 10 MB',
+                onTap: () => Navigator.pop(context, 'document'),
+              ),
+              const SizedBox(height: 12),
             ],
           ),
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.photo_library, color: AppColors.primaryColor),
-              title: const CustomTextWidget(text: 'Photos (multiple allowed)'),
-              subtitle: const CustomTextWidget(
-                text: 'JPEG, PNG, HEIC',
-                fontSize: 12,
-                fontColor: Colors.grey,
-              ),
-              onTap: () => Navigator.pop(context, 'photos'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.camera_alt, color: AppColors.primaryColor),
-              title: const CustomTextWidget(text: 'Take Photo'),
-              onTap: () => Navigator.pop(context, 'camera'),
-            ),
-            ListTile(
-              leading: const Icon(Icons.upload_file, color: AppColors.primaryColor),
-              title: const CustomTextWidget(text: 'Document (one file)'),
-              subtitle: const CustomTextWidget(
-                text: 'PDF, DOC, DOCX • max 10 MB',
-                fontSize: 12,
-                fontColor: Colors.grey,
-              ),
-              onTap: () => Navigator.pop(context, 'document'),
-            ),
-          ],
-        ),
-        actionsPadding: const EdgeInsets.fromLTRB(20, 5, 20, 20),
-        actions: [
-          // Container(
-          //   width: double.infinity,
-          //   height: 60,
-          //   decoration: BoxDecoration(
-          //     gradient: AppColors.buildPrimaryGradient(),
-          //     borderRadius: BorderRadius.circular(16.0),
-          //   ),
-          //   child: TextButton(
-          //     onPressed: () => Navigator.pop(context),
-          //     child: const CustomTextWidget(
-          //       text: 'Cancel',
-          //       fontColor: Colors.white,
-          //     ),
-          //   ),
-          // ),
-          // TextButton(
-          //   onPressed: () => Navigator.pop(context),
-          //   child: const CustomTextWidget(
-          //     text: 'Cancel',
-          //     fontColor: AppColors.primaryColor,
-          //   ),
-          // ),
-        ],
       ),
     );
 
@@ -208,59 +162,139 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   }
 
   Future<void> _pickPhotos() async {
-    final List<XFile>? files = await _picker.pickMultiImage(imageQuality: 85);
-    if(files == null ||  files.isEmpty) return;
-    await _processFiles(files.map((file) => File(file.path)).toList(), isPhoto: true);
+    final result = await FilePicker.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+      allowMultiple: true,
+    );
+    if (result == null || result.files.isEmpty) return;
+    final files = result.files
+        .map((pf) => pf.path)
+        .whereType<String>()
+        .where((p) => p.trim().isNotEmpty)
+        .map((p) => File(p))
+        .toList();
+    if (files.isEmpty) return;
+    await _processFiles(files, isPhoto: true);
   }
 
-  Future<void> _pickSinglePhotoFromCamera() async{
+  Future<void> _pickSinglePhotoFromCamera() async {
     final XFile? file = await _picker.pickImage(source: ImageSource.camera);
-    if(file == null ) return;
+    if (file == null) return;
     await _processFiles([File(file.path)], isPhoto: true);
   }
 
-  Future<void> _pickSingleDocument() async{
-    FilePickerResult? result = await FilePicker.platform.pickFiles(
+  Future<void> _pickSingleDocument() async {
+    FilePickerResult? result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: ['pdf', 'doc', 'docx'],
-      allowMultiple: false
+      allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+      allowMultiple: false,
     );
-    if(result == null || result.files.isEmpty) return;
+    if (result == null || result.files.isEmpty) return;
 
     final path = result.files.single.path;
-    if(path == null) return;
+    if (path == null) return;
     await _processFiles([File(path)], isPhoto: false);
   }
 
-  Future<void> _processFiles(List<File> files, {required bool isPhoto}) async{
+  Future<void> _processFiles(List<File> files, {required bool isPhoto}) async {
     List<ChatAttachment> valid = [];
     for (var file in files) {
       final size = await file.length();
-      if (size > 10 * 1024 * 1024){
-        if(!mounted) return;
+      if (size > 10 * 1024 * 1024) {
+        if (!mounted) return;
         _showWarningMessage('Please do not exceed the 10 MB limit');
         continue;
       }
       final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
       final ext = p.extension(file.path).toLowerCase();
 
-      if(isPhoto && !['.jpg', '.jpeg', '.png', '.heic'].contains(ext)) continue;
-      if(!isPhoto && !['.pdf', '.doc', '.docx'].contains(ext)) continue;
+      if (isPhoto &&
+          !FilePickerUtils.allowedImageExtensions
+              .map((e) => '.$e')
+              .contains(ext)) {
+        continue;
+      }
+      if (!isPhoto &&
+          !FilePickerUtils.allowedDocumentExtensions
+              .map((e) => '.$e')
+              .contains(ext)) {
+        continue;
+      }
 
-      valid.add(ChatAttachment(
-        localPath: file.path,
-        name: p.basename(file.path),
-        type: isPhoto ? 'image' : 'document',
-        sizeBytes: size,
-        mimeType: mime,
-      ));
+      valid.add(
+        ChatAttachment(
+          localPath: file.path,
+          name: p.basename(file.path),
+          type: isPhoto ? 'image' : 'document',
+          sizeBytes: size,
+          mimeType: mime,
+          remoteUrl: '', // Will be updated after upload
+        ),
+      );
     }
 
     if (valid.isEmpty) return;
     widget.onAttachmentsSelected(valid);
+  }
 
-    }
-
+  Widget _buildAttachmentOption({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.primaryColor.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: AppColors.primaryColor,
+                    size: 24,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CustomTextWidget(
+                        text: title,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        fontColor: Colors.black87,
+                      ),
+                      const SizedBox(height: 4),
+                      CustomTextWidget(
+                        text: subtitle,
+                        fontSize: 12,
+                        fontColor: Colors.grey[600],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

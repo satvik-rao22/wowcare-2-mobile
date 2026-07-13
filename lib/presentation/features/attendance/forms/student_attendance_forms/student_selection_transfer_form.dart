@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
@@ -13,6 +15,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'student_transfer_form.dart';
 
@@ -39,7 +43,7 @@ class _StudentSelectionTransferFormState
   String? _errorMessage;
 
   late final GetStudentTransferFormListUseCase
-      _getStudentTransferFormListUseCase;
+  _getStudentTransferFormListUseCase;
 
   // Backing list populated from the Transfer form API.
   List<StudentEntity> _allStudents = [];
@@ -79,7 +83,15 @@ class _StudentSelectionTransferFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms();
+    // Cross-class enabled → list ALL classrooms (like an admin); else scope to
+    // the teacher's allowed classrooms.
+    final crossClass =
+        await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+    );
+    _classroomCubit.loadActiveClassrooms(
+      applyAttendanceStaffScope: !crossClass,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -127,19 +139,21 @@ class _StudentSelectionTransferFormState
     });
 
     try {
-      final today = DateTime.now();
+      await bootstrapAttendanceSchoolTimezone();
+      final today = attendanceSchoolToday();
       final dateString = _formatDate(today);
 
       final selectedClassroomCode = _selectedClassroomCode?.trim();
-      final classroomCodes = (selectedClassroomCode != null &&
-              selectedClassroomCode.isNotEmpty)
+      final classroomCodes =
+          (selectedClassroomCode != null && selectedClassroomCode.isNotEmpty)
           ? <String>[selectedClassroomCode]
           : null;
 
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
-      final searchText =
-          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+      final searchText = _searchController.text.trim().isNotEmpty
+          ? _searchController.text.trim()
+          : null;
 
       final page = await _getStudentTransferFormListUseCase(
         fromAttendanceDate: dateString,
@@ -148,7 +162,7 @@ class _StudentSelectionTransferFormState
         tagCodes: tagCodes,
         search: searchText,
         page: 0,
-        size: 100,
+        size: 200,
       );
 
       final students = page.items.asMap().entries.map((entry) {
@@ -162,9 +176,7 @@ class _StudentSelectionTransferFormState
           roomName: item.classroomName,
           classroomCode: item.classroomCode,
           photoUuid: '',
-          tags: item.tagNames
-              .map((name) => TagEntity(name: name))
-              .toList(),
+          tags: item.tagNames.map((name) => TagEntity(name: name)).toList(),
         );
       }).toList();
 
@@ -196,9 +208,9 @@ class _StudentSelectionTransferFormState
         bool matchesTag = true;
 
         if (_searchController.text.isNotEmpty) {
-          matchesSearch = student.fullName
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase());
+          matchesSearch = student.fullName.toLowerCase().contains(
+            _searchController.text.toLowerCase(),
+          );
         }
 
         if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
@@ -206,8 +218,9 @@ class _StudentSelectionTransferFormState
         }
 
         if (_selectedTag.isNotEmpty) {
-          matchesTag =
-              student.tags.any((tag) => _selectedTag.contains(tag.name));
+          matchesTag = student.tags.any(
+            (tag) => _selectedTag.contains(tag.name),
+          );
         }
 
         return matchesSearch && matchesRoom && matchesTag;
@@ -255,9 +268,9 @@ class _StudentSelectionTransferFormState
       bool matchesTag = true;
 
       if (_searchController.text.isNotEmpty) {
-        matchesSearch = student.fullName
-            .toLowerCase()
-            .contains(_searchController.text.toLowerCase());
+        matchesSearch = student.fullName.toLowerCase().contains(
+          _searchController.text.toLowerCase(),
+        );
       }
 
       if (_selectedClassroom != null && _selectedClassroom!.isNotEmpty) {
@@ -281,9 +294,8 @@ class _StudentSelectionTransferFormState
         mainAxisExtent: 69,
       ),
       itemCount: 8,
-      itemBuilder: (context, index) => const ShimmerLoaderCard(
-        child: SizedBox(),
-      ),
+      itemBuilder: (context, index) =>
+          const ShimmerLoaderCard(child: SizedBox()),
     );
   }
 
@@ -302,7 +314,7 @@ class _StudentSelectionTransferFormState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: Colors.grey),
             ),
@@ -310,9 +322,7 @@ class _StudentSelectionTransferFormState
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search Students',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
-                ),
+                hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
@@ -329,8 +339,8 @@ class _StudentSelectionTransferFormState
                     final items = _classroomList.isNotEmpty
                         ? _classroomList
                         : classroomState.classrooms
-                            .map((c) => c.name)
-                            .toList(growable: false);
+                              .map((c) => c.name)
+                              .toList(growable: false);
                     final isLoading =
                         classroomState.isLoading || !_isClassroomDataReady;
 
@@ -396,50 +406,49 @@ class _StudentSelectionTransferFormState
             child: _isLoading
                 ? _buildShimmerGrid()
                 : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              _errorMessage ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _loadStudents,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppText.body(
+                          _errorMessage ?? 'Failed to load students',
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : _filteredStudents.isEmpty
-                        ? const Center(child: AppText.body('No students found'))
-                        : GridView.builder(
-                            shrinkWrap: false,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              mainAxisExtent: 52,
-                            ),
-                            itemCount: _filteredStudents.length,
-                            itemBuilder: (context, index) {
-                              final student = _filteredStudents[index];
-                              final isSelected =
-                                  selectedStudents.contains(student);
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _loadStudents,
+                          child: const AppText.body('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _filteredStudents.isEmpty
+                ? const Center(child: AppText.body('No students found'))
+                : GridView.builder(
+                    shrinkWrap: false,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: 72,
+                        ),
+                    itemCount: _filteredStudents.length,
+                    itemBuilder: (context, index) {
+                      final student = _filteredStudents[index];
+                      final isSelected = selectedStudents.contains(student);
 
-                              return StudentListItem(
-                                student: student,
-                                isSelected: isSelected,
-                                onSelectionChanged: (value) {
-                                  _toggleStudentSelection(student, value);
-                                },
-                              );
-                            },
-                          ),
+                      return StudentListItem(
+                        student: student,
+                        isSelected: isSelected,
+                        onSelectionChanged: (value) {
+                          _toggleStudentSelection(student, value);
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -451,8 +460,7 @@ class _StudentSelectionTransferFormState
             if (selectedStudents.isEmpty) {
               CoreUtils.showTopSnackBarFromSnackBar(
                 context: context,
-                snackBar: 
-                const SnackBar(
+                snackBar: const SnackBar(
                   content: Text('Please select at least one student'),
                   backgroundColor: AppColors.warningColor,
                 ),
@@ -464,6 +472,7 @@ class _StudentSelectionTransferFormState
                 MaterialPageRoute(
                   builder: (context) => StudentTransferForm(
                     students: selectedStudents.toSet().toList(),
+                    classroomNameToCode: _classroomNameToCode,
                   ),
                 ),
               );
@@ -495,9 +504,7 @@ class StudentListItem extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
@@ -524,9 +531,10 @@ class StudentListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  student.fullName.split(' ').first,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: student.fullName,
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 13,
@@ -629,10 +637,7 @@ class _CustomMultiSelectDropdownAssignStudentState
         icon: const Icon(Icons.keyboard_arrow_down),
         iconSize: 24,
         elevation: 2,
-        style: const TextStyle(
-          color: Colors.black87,
-          fontSize: 16,
-        ),
+        style: const TextStyle(color: Colors.black87, fontSize: 16),
         dropdownColor: Colors.white,
         items: widget.items.map((String item) {
           return DropdownMenuItem<String>(
@@ -655,27 +660,20 @@ class _CustomMultiSelectDropdownAssignStudentState
                   },
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: Checkbox(
-                          value: isSelected,
-                          onChanged: (bool? checked) {
-                            setMenuItemState(() {
-                              if (checked == true) {
-                                _localSelectedItems.add(item);
-                              } else {
-                                _localSelectedItems.remove(item);
-                              }
-                            });
-                            setState(() {});
-                            widget.onChanged(_localSelectedItems);
-                          },
-                          activeColor: Theme.of(context).primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
+                      CustomCheckbox(
+                        value: isSelected,
+                        borderColor: AppColors.themeColor,
+                        onChanged: (bool? checked) {
+                          setMenuItemState(() {
+                            if (checked == true) {
+                              _localSelectedItems.add(item);
+                            } else {
+                              _localSelectedItems.remove(item);
+                            }
+                          });
+                          setState(() {});
+                          widget.onChanged(_localSelectedItems);
+                        },
                       ),
                       const SizedBox(width: 8),
                       Flexible(
@@ -700,8 +698,9 @@ class _CustomMultiSelectDropdownAssignStudentState
         hint: Text(
           displayText,
           style: TextStyle(
-            color:
-                _localSelectedItems.isEmpty ? Colors.grey[600] : Colors.black87,
+            color: _localSelectedItems.isEmpty
+                ? Colors.grey[600]
+                : Colors.black87,
             fontSize: 15,
           ),
         ),

@@ -17,15 +17,14 @@ class StudentAttendanceGate {
 
   /// Enablement rules driven by today's attendance status:
   /// - SIGNED_IN  -> enable Sign-Out + Transfer only
-  /// - SIGNED_OUT -> disable all actions for the day
+  /// - SIGNED_OUT -> enable Sign-In only (student can be re-signed-in)
   /// - ABSENT     -> enable Sign-In only
   /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
   ///   -> enable **Sign-In** + **Mark Absent** only
   bool get canSignIn {
     if (!isActiveProfile) return false;
-    if (hasSignedOutToday) return false; // once signed out, no actions allowed
     if (isSignedInToday) return false;
-    // Absent can be "recovered" by signing in.
+    // SIGNED_OUT / ABSENT / NOT_MARKED can all be "recovered" by signing in.
     return true;
   }
 
@@ -55,19 +54,19 @@ class StudentAttendanceActionAvailability {
 
   static const StudentAttendanceActionAvailability allDisabled =
       StudentAttendanceActionAvailability(
-    signInEnabled: false,
-    signOutEnabled: false,
-    transferEnabled: false,
-    absentEnabled: false,
-  );
+        signInEnabled: false,
+        signOutEnabled: false,
+        transferEnabled: false,
+        absentEnabled: false,
+      );
 
   static const StudentAttendanceActionAvailability allEnabled =
       StudentAttendanceActionAvailability(
-    signInEnabled: true,
-    signOutEnabled: true,
-    transferEnabled: true,
-    absentEnabled: true,
-  );
+        signInEnabled: true,
+        signOutEnabled: true,
+        transferEnabled: true,
+        absentEnabled: true,
+      );
 
   final bool signInEnabled;
   final bool signOutEnabled;
@@ -90,6 +89,26 @@ class StudentAttendanceActionAvailability {
   }
 }
 
+/// Standard tooltip messages explaining why a student attendance action is
+/// unavailable for the given [gate] (today's status). Keyed by the action
+/// labels used in the attendance pop-up: 'Sign-in', 'Sign-Out', 'Transfer',
+/// 'Absent'. Only disabled actions are included.
+Map<String, String> studentAttendanceDisabledReasons(
+  StudentAttendanceGate gate,
+) {
+  return <String, String>{
+    if (!gate.canSignIn)
+      'Sign-in': 'Sign-In can only be done for Students/Staff not signed in.',
+    if (!gate.canSignOut)
+      'Sign-Out':
+          'Sign-Out can only be done for Students/Staff already signed in.',
+    if (!gate.canTransfer)
+      'Transfer':
+          'Transfer can only be done for Students/Staff already signed in.',
+    if (!gate.canMarkAbsent) 'Absent': 'Already marked absent for today.',
+  };
+}
+
 /// Parses today's status string from [GetStudentTodaySignInStatusMapUseCase] / API.
 StudentAttendanceGate studentAttendanceGateFromTodayStatus({
   required bool isActiveProfile,
@@ -98,7 +117,8 @@ StudentAttendanceGate studentAttendanceGateFromTodayStatus({
   final su = (todayStatusRaw ?? '').trim().toUpperCase();
   final isSignedIn = su == 'SIGNED_IN';
   final isAbsent = su == 'ABSENT';
-  final hasSignedOut = su == 'SIGNED_OUT' ||
+  final hasSignedOut =
+      su == 'SIGNED_OUT' ||
       su == 'SIGN_OUT' ||
       su == 'COMPLETED' ||
       su == 'SIGNED_OUT_TODAY' ||

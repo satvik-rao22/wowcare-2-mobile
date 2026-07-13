@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
-import '../../../../shared/common/widgets/custom_checkbox.dart';
+import '../view_model/notification_settings_cubit.dart';
 import '../widgets/notification_setting_row.dart';
 
 enum UserPersona {
@@ -26,10 +30,13 @@ enum UserPersona {
 }
 
 class NotificationSettingsScreen extends StatefulWidget {
-  const NotificationSettingsScreen({super.key, this.persona = UserPersona.staff});
-  final UserPersona persona;
+  const NotificationSettingsScreen({super.key, this.persona});
 
-  static const String routeName = '/notificationSettings';
+  /// Persona whose rows to show. When null it's derived from the logged-in role
+  /// ([RoleCubit]) so the correct Admin / Staff / Parent rows appear.
+  final UserPersona? persona;
+
+  static const String routeName = '/dashboard/notificationSettings';
 
   @override
   State<NotificationSettingsScreen> createState() => _NotificationSettingsScreenState();
@@ -37,53 +44,61 @@ class NotificationSettingsScreen extends StatefulWidget {
 
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
   late UserPersona persona;
+  late final NotificationSettingsCubit _cubit;
 
-  static final Map<String, List<bool>> notificationSettings = { // first bool = in-app, second bool = push, third bool = email
-    'Receive a message from staff': [true, true, false],
-    'Receive a message from parents': [true, true, false],
-    'Ratio is breached': [true, true, false],
-    'Student is signed‑in / signed‑out (or marked absent)': [true, true, false],
-    'Newsletter is received': [true, true,true],
-    'Student’s birthday': [true, true, false],
-    'Sign‑in alert just after shift start time (if not already done)': [true, true, false],
-    'Sign‑out alert just after shift end time (if not already done)': [true, true, false],
-    'My schedule when published/updated': [true, true, true],
-    'Students – Immunization (not added, upcoming, expiry/overdue)': [true, true, true],
-    'Students & Staff – Physical examination (not added, upcoming, expiry/overdue)': [true, true,true],
-    'Students & Staff – Documents (expiry/overdue)': [true, true, true],
-    'Students & Staff – Other details (not added, edits)' : [true, true, true],
-    'Payment refunded / Failed' : [true, true, true],
-    'Upcoming student starting the school' : [true, true, true],
-    'Upcoming room movements' : [true, true, true],
-    'Overdue room movements' : [true, true, true],
-    'Classroom shifts/schedule needs attention' : [true, true, true],
-    'Today’s attendance is not marked for Students & Staff' : [false, false, true],
-    'Incident is approved/rejected/acknowledged' : [true, true, true],
-    'My child is signed‑in/signed‑out or marked absent' : [true, true, false],
-    'New activity is recorded for my child' : [true,true, false],
-    'Invoice is received' : [true, true, true],
-    'Payment is successful / failed' : [true,true, true],
-    'My child’s profile/details are updated' : [true, true, false],
-    'Sign‑in alert just after start time (if not already done)' : [true, true, false],
-    'Sign‑out alert just after end time (if not already done)' : [true, true, false]
-
-  };
+  /// Role to send only when no active-school role is stored.
+  String get _roleFallback => switch (persona) {
+        UserPersona.parent => 'GUARDIAN',
+        UserPersona.admin => 'ADMIN',
+        UserPersona.staff => 'STAFF',
+      };
 
   @override
   void initState(){
     super.initState();
-    persona = widget.persona;
+    persona = widget.persona ?? _personaFromRole();
+    _cubit = serviceLocator<NotificationSettingsCubit>()
+      ..load(roleFallback: _roleFallback);
   }
 
-  void _updateSetting(String key, int index, bool? value) {
-    if (value == null) return;
-    setState(() {
-      notificationSettings[key]![index] = value;
-    });
+  /// Maps the resolved [RoleCubit] role to a [UserPersona].
+  /// RoleCubit.role is one of: 'parent' (GUARDIAN), 'admin' (SCHOOL/ORG admin),
+  /// 'staff', 'kiosk'. Anything that isn't parent/admin falls back to staff.
+  UserPersona _personaFromRole() {
+    final role = context.read<RoleCubit>().role;
+    return switch (role) {
+      'parent' => UserPersona.parent,
+      'admin' => UserPersona.admin,
+      _ => UserPersona.staff,
+    };
+  }
+
+  @override
+  void dispose() {
+    _cubit.close();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<NotificationSettingsCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<NotificationSettingsCubit, NotificationSettingsState>(
+        listenWhen: (prev, curr) =>
+            prev.errorMessage != curr.errorMessage && curr.errorMessage != null,
+        listener: (context, state) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage ?? 'Something went wrong',
+            isError: true,
+          );
+        },
+        builder: (context, state) => _buildContent(context, state),
+      ),
+    );
+  }
+
+  Widget _buildContent(BuildContext context, NotificationSettingsState state) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(
       backgroundColor: Colors.white,
@@ -215,287 +230,297 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                                 ),
                               ),
                               NotificationSettingRow(
-                                title: 'Receive a message from staff',
-                                inAppValue: notificationSettings['Receive a message from staff']![0],
-                                emailValue: notificationSettings['Receive a message from staff']![1],
-                                pushValue: notificationSettings['Receive a message from staff']![2],
-                                onInAppChanged: (v) => _updateSetting('Receive a message from staff', 0, v),
-                                onEmailChanged: (v) => _updateSetting('Receive a message from staff', 1, v),
-                                onPushChanged: (v) => _updateSetting('Receive a message from staff', 2, v),
+                                title: 'Receive a message from the staff',
+                                inAppValue: state.settings['Receive a message from staff']![0],
+                                emailValue: state.settings['Receive a message from staff']![1],
+                                pushValue: state.settings['Receive a message from staff']![2],
+                                onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Receive a message from staff', 0, v),
+                                onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Receive a message from staff', 1, v),
+                                onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Receive a message from staff', 2, v),
                               ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Receive a message from parents',
-                                  inAppValue: notificationSettings['Receive a message from parents']![0],
-                                  emailValue: notificationSettings['Receive a message from parents']![1],
-                                  pushValue: notificationSettings['Receive a message from parents']![2],
-                                  onInAppChanged: (v) => _updateSetting('Receive a message from parents', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Receive a message from parents', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Receive a message from parents', 2, v),
+                                  title: 'Received a message from parent',
+                                  inAppValue: state.settings['Receive a message from parents']![0],
+                                  emailValue: state.settings['Receive a message from parents']![1],
+                                  pushValue: state.settings['Receive a message from parents']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Receive a message from parents', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Receive a message from parents', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Receive a message from parents', 2, v),
                                 ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Ratio is breached',
-                                  inAppValue: notificationSettings['Ratio is breached']![0],
-                                  emailValue: notificationSettings['Ratio is breached']![1],
-                                  pushValue: notificationSettings['Ratio is breached']![2],
-                                  onInAppChanged: (v) => _updateSetting('Ratio is breached', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Ratio is breached', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Ratio is breached', 2, v),
+                                  title: 'Ratio breached',
+                                  inAppValue: state.settings['Ratio is breached']![0],
+                                  emailValue: state.settings['Ratio is breached']![1],
+                                  pushValue: state.settings['Ratio is breached']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Ratio is breached', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Ratio is breached', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Ratio is breached', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
-                                  title: 'Student is signed‑in / signed‑out (or marked absent)',
-                                  inAppValue: notificationSettings['Student is signed‑in / signed‑out (or marked absent)']![0],
-                                  emailValue: notificationSettings['Student is signed‑in / signed‑out (or marked absent)']![1],
-                                  pushValue: notificationSettings['Student is signed‑in / signed‑out (or marked absent)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Student is signed‑in / signed‑out (or marked absent)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Student is signed‑in / signed‑out (or marked absent)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Student is signed‑in / signed‑out (or marked absent)', 2, v),
+                                  title: 'Student is signed in/Signed out',
+                                  inAppValue: state.settings['Student is signed‑in / signed‑out (or marked absent)']![0],
+                                  emailValue: state.settings['Student is signed‑in / signed‑out (or marked absent)']![1],
+                                  pushValue: state.settings['Student is signed‑in / signed‑out (or marked absent)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student is signed‑in / signed‑out (or marked absent)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student is signed‑in / signed‑out (or marked absent)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student is signed‑in / signed‑out (or marked absent)', 2, v),
                                 ),
                               if(!persona.isParent)
                                 NotificationSettingRow(
                                   title: 'Newsletter is received',
-                                  inAppValue: notificationSettings['Newsletter is received']![0],
-                                  emailValue: notificationSettings['Newsletter is received']![1],
-                                  pushValue: notificationSettings['Newsletter is received']![2],
-                                  onInAppChanged: (v) => _updateSetting('Newsletter is received', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Newsletter is received', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Newsletter is received', 2, v),
+                                  inAppValue: state.settings['Newsletter is received']![0],
+                                  emailValue: state.settings['Newsletter is received']![1],
+                                  pushValue: state.settings['Newsletter is received']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
-                                  title: 'Student’s birthday',
-                                  inAppValue: notificationSettings['Student’s birthday']![0],
-                                  emailValue: notificationSettings['Student’s birthday']![1],
-                                  pushValue: notificationSettings['Student’s birthday']![2],
-                                  onInAppChanged: (v) => _updateSetting('Student’s birthday', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Student’s birthday', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Student’s birthday', 2, v),
+                                  title: 'Student’s Birthday',
+                                  inAppValue: state.settings['Student’s birthday']![0],
+                                  emailValue: state.settings['Student’s birthday']![1],
+                                  pushValue: state.settings['Student’s birthday']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student’s birthday', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student’s birthday', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Student’s birthday', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
-                                  title: 'Sign‑in alert just after shift start time (if not already done)',
-                                  inAppValue: notificationSettings['Sign‑in alert just after shift start time (if not already done)']![0],
-                                  emailValue: notificationSettings['Sign‑in alert just after shift start time (if not already done)']![1],
-                                  pushValue: notificationSettings['Sign‑in alert just after shift start time (if not already done)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Sign‑in alert just after shift start time (if not already done)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Sign‑in alert just after shift start time (if not already done)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Sign‑in alert just after shift start time (if not already done)', 2, v),
+                                  title: 'Sign in alert just after shift start (if not done already)',
+                                  inAppValue: state.settings['Sign‑in alert just after shift start time (if not already done)']![0],
+                                  emailValue: state.settings['Sign‑in alert just after shift start time (if not already done)']![1],
+                                  pushValue: state.settings['Sign‑in alert just after shift start time (if not already done)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after shift start time (if not already done)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after shift start time (if not already done)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after shift start time (if not already done)', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
-                                  title: 'Sign‑out alert just after shift end time (if not already done)',
-                                  inAppValue: notificationSettings['Sign‑out alert just after shift end time (if not already done)']![0],
-                                  emailValue: notificationSettings['Sign‑out alert just after shift end time (if not already done)']![1],
-                                  pushValue: notificationSettings['Sign‑out alert just after shift end time (if not already done)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Sign‑out alert just after shift end time (if not already done)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Sign‑out alert just after shift end time (if not already done)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Sign‑out alert just after shift end time (if not already done)', 2, v),
+                                  title: 'Sign out alert just after shift end (if not done already)',
+                                  inAppValue: state.settings['Sign‑out alert just after shift end time (if not already done)']![0],
+                                  emailValue: state.settings['Sign‑out alert just after shift end time (if not already done)']![1],
+                                  pushValue: state.settings['Sign‑out alert just after shift end time (if not already done)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after shift end time (if not already done)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after shift end time (if not already done)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after shift end time (if not already done)', 2, v),
                                 ),
-                              if(!persona.isParent)
+                              if(persona.isStaff)
                                 NotificationSettingRow(
                                   title: 'My schedule when published/updated',
-                                  inAppValue: notificationSettings['My schedule when published/updated']![0],
-                                  emailValue: notificationSettings['My schedule when published/updated']![1],
-                                  pushValue: notificationSettings['My schedule when published/updated']![2],
-                                  onInAppChanged: (v) => _updateSetting('My schedule when published/updated', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('My schedule when published/updated', 1, v),
-                                  onPushChanged: (v) => _updateSetting('My schedule when published/updated', 2, v),
+                                  inAppValue: state.settings['My schedule when published/updated']![0],
+                                  emailValue: state.settings['My schedule when published/updated']![1],
+                                  pushValue: state.settings['My schedule when published/updated']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My schedule when published/updated', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My schedule when published/updated', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My schedule when published/updated', 2, v),
                                 ),
                               // extended settings for admin only
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Students – Immunization (not added, upcoming, expiry/overdue)',
-                                  inAppValue: notificationSettings['Students – Immunization (not added, upcoming, expiry/overdue)']![0],
-                                  emailValue: notificationSettings['Students – Immunization (not added, upcoming, expiry/overdue)']![1],
-                                  pushValue: notificationSettings['Students – Immunization (not added, upcoming, expiry/overdue)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Students – Immunization (not added, upcoming, expiry/overdue)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Students – Immunization (not added, upcoming, expiry/overdue)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Students – Immunization (not added, upcoming, expiry/overdue)', 2, v),
+                                  inAppValue: state.settings['Students – Immunization (not added, upcoming, expiry/overdue)']![0],
+                                  emailValue: state.settings['Students – Immunization (not added, upcoming, expiry/overdue)']![1],
+                                  pushValue: state.settings['Students – Immunization (not added, upcoming, expiry/overdue)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students – Immunization (not added, upcoming, expiry/overdue)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students – Immunization (not added, upcoming, expiry/overdue)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students – Immunization (not added, upcoming, expiry/overdue)', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Students & Staff – Physical examination (not added, upcoming, expiry/overdue)',
-                                  inAppValue: notificationSettings['Students & Staff – Physical examination (not added, upcoming, expiry/overdue)']![0],
-                                  emailValue: notificationSettings['Students & Staff – Physical examination (not added, upcoming, expiry/overdue)']![1],
-                                  pushValue: notificationSettings['Students & Staff – Physical examination (not added, upcoming, expiry/overdue)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Students & Staff – Physical examination (not added, upcoming, expiry/overdue)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Students & Staff – Physical examination (not added, upcoming, expiry/overdue)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Students & Staff – Physical examination (not added, upcoming, expiry/overdue)', 2, v),
+                                  inAppValue: state.settings['Students & Staff – Physical examination (not added, upcoming, expiry/overdue)']![0],
+                                  emailValue: state.settings['Students & Staff – Physical examination (not added, upcoming, expiry/overdue)']![1],
+                                  pushValue: state.settings['Students & Staff – Physical examination (not added, upcoming, expiry/overdue)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Physical examination (not added, upcoming, expiry/overdue)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Physical examination (not added, upcoming, expiry/overdue)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Physical examination (not added, upcoming, expiry/overdue)', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Students & Staff – Documents (expiry/overdue)',
-                                  inAppValue: notificationSettings['Students & Staff – Documents (expiry/overdue)']![0],
-                                  emailValue: notificationSettings['Students & Staff – Documents (expiry/overdue)']![1],
-                                  pushValue: notificationSettings['Students & Staff – Documents (expiry/overdue)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Students & Staff – Documents (expiry/overdue)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Students & Staff – Documents (expiry/overdue)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Students & Staff – Documents (expiry/overdue)', 2, v),
+                                  inAppValue: state.settings['Students & Staff – Documents (expiry/overdue)']![0],
+                                  emailValue: state.settings['Students & Staff – Documents (expiry/overdue)']![1],
+                                  pushValue: state.settings['Students & Staff – Documents (expiry/overdue)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Documents (expiry/overdue)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Documents (expiry/overdue)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Documents (expiry/overdue)', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Students & Staff – Other details (not added, edits)',
-                                  inAppValue: notificationSettings['Students & Staff – Other details (not added, edits)']![0],
-                                  emailValue: notificationSettings['Students & Staff – Other details (not added, edits)']![1],
-                                  pushValue: notificationSettings['Students & Staff – Other details (not added, edits)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Students & Staff – Other details (not added, edits)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Students & Staff – Other details (not added, edits)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Students & Staff – Other details (not added, edits)', 2, v),
+                                  inAppValue: state.settings['Students & Staff – Other details (not added, edits)']![0],
+                                  emailValue: state.settings['Students & Staff – Other details (not added, edits)']![1],
+                                  pushValue: state.settings['Students & Staff – Other details (not added, edits)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Other details (not added, edits)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Other details (not added, edits)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Students & Staff – Other details (not added, edits)', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Payment refunded / Failed',
-                                  inAppValue: notificationSettings['Payment refunded / Failed']![0],
-                                  emailValue: notificationSettings['Payment refunded / Failed']![1],
-                                  pushValue: notificationSettings['Payment refunded / Failed']![2],
-                                  onInAppChanged: (v) => _updateSetting('Payment refunded / Failed', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Payment refunded / Failed', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Payment refunded / Failed', 2, v),
+                                  inAppValue: state.settings['Payment refunded / Failed']![0],
+                                  emailValue: state.settings['Payment refunded / Failed']![1],
+                                  pushValue: state.settings['Payment refunded / Failed']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment refunded / Failed', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment refunded / Failed', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment refunded / Failed', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Upcoming student starting the school',
-                                  inAppValue: notificationSettings['Upcoming student starting the school']![0],
-                                  emailValue: notificationSettings['Upcoming student starting the school']![1],
-                                  pushValue: notificationSettings['Upcoming student starting the school']![2],
-                                  onInAppChanged: (v) => _updateSetting('Upcoming student starting the school', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Upcoming student starting the school', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Upcoming student starting the school', 2, v),
+                                  inAppValue: state.settings['Upcoming student starting the school']![0],
+                                  emailValue: state.settings['Upcoming student starting the school']![1],
+                                  pushValue: state.settings['Upcoming student starting the school']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Upcoming student starting the school', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Upcoming student starting the school', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Upcoming student starting the school', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Upcoming room movements',
-                                  inAppValue: notificationSettings['Upcoming room movements']![0],
-                                  emailValue: notificationSettings['Upcoming room movements']![1],
-                                  pushValue: notificationSettings['Upcoming room movements']![2],
-                                  onInAppChanged: (v) => _updateSetting('Upcoming room movements', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Upcoming room movements', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Upcoming room movements', 2, v),
+                                  inAppValue: state.settings['Upcoming room movements']![0],
+                                  emailValue: state.settings['Upcoming room movements']![1],
+                                  pushValue: state.settings['Upcoming room movements']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Upcoming room movements', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Upcoming room movements', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Upcoming room movements', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Overdue room movements',
-                                  inAppValue: notificationSettings['Overdue room movements']![0],
-                                  emailValue: notificationSettings['Overdue room movements']![1],
-                                  pushValue: notificationSettings['Overdue room movements']![2],
-                                  onInAppChanged: (v) => _updateSetting('Overdue room movements', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Overdue room movements', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Overdue room movements', 2, v),
+                                  inAppValue: state.settings['Overdue room movements']![0],
+                                  emailValue: state.settings['Overdue room movements']![1],
+                                  pushValue: state.settings['Overdue room movements']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Overdue room movements', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Overdue room movements', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Overdue room movements', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Classroom shifts/schedule needs attention',
-                                  inAppValue: notificationSettings['Classroom shifts/schedule needs attention']![0],
-                                  emailValue: notificationSettings['Classroom shifts/schedule needs attention']![1],
-                                  pushValue: notificationSettings['Classroom shifts/schedule needs attention']![2],
-                                  onInAppChanged: (v) => _updateSetting('Classroom shifts/schedule needs attention', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Classroom shifts/schedule needs attention', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Classroom shifts/schedule needs attention', 2, v),
+                                  inAppValue: state.settings['Classroom shifts/schedule needs attention']![0],
+                                  emailValue: state.settings['Classroom shifts/schedule needs attention']![1],
+                                  pushValue: state.settings['Classroom shifts/schedule needs attention']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Classroom shifts/schedule needs attention', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Classroom shifts/schedule needs attention', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Classroom shifts/schedule needs attention', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Today’s attendance is not marked for Students & Staff',
-                                  inAppValue: notificationSettings['Today’s attendance is not marked for Students & Staff']![0],
-                                  emailValue: notificationSettings['Today’s attendance is not marked for Students & Staff']![1],
-                                  pushValue: notificationSettings['Today’s attendance is not marked for Students & Staff']![2],
-                                  onInAppChanged: (v) => _updateSetting('Today’s attendance is not marked for Students & Staff', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Today’s attendance is not marked for Students & Staff', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Today’s attendance is not marked for Students & Staff', 2, v),
+                                  inAppValue: state.settings['Today’s attendance is not marked for Students & Staff']![0],
+                                  emailValue: state.settings['Today’s attendance is not marked for Students & Staff']![1],
+                                  pushValue: state.settings['Today’s attendance is not marked for Students & Staff']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Today’s attendance is not marked for Students & Staff', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Today’s attendance is not marked for Students & Staff', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Today’s attendance is not marked for Students & Staff', 2, v),
                                 ),
                               if(persona.isAdmin)
                                 NotificationSettingRow(
                                   title: 'Incident is approved/rejected/acknowledged',
-                                  inAppValue: notificationSettings['Incident is approved/rejected/acknowledged']![0],
-                                  emailValue: notificationSettings['Incident is approved/rejected/acknowledged']![1],
-                                  pushValue: notificationSettings['Incident is approved/rejected/acknowledged']![2],
-                                  onInAppChanged: (v) => _updateSetting('Incident is approved/rejected/acknowledged', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Incident is approved/rejected/acknowledged', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Incident is approved/rejected/acknowledged', 2, v),
+                                  inAppValue: state.settings['Incident is approved/rejected/acknowledged']![0],
+                                  emailValue: state.settings['Incident is approved/rejected/acknowledged']![1],
+                                  pushValue: state.settings['Incident is approved/rejected/acknowledged']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Incident is approved/rejected/acknowledged', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Incident is approved/rejected/acknowledged', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Incident is approved/rejected/acknowledged', 2, v),
                                 ),
 
                               // settings for parents only
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'My child is signed‑in/signed‑out or marked absent',
-                                  inAppValue: notificationSettings['My child is signed‑in/signed‑out or marked absent']![0],
-                                  emailValue: notificationSettings['My child is signed‑in/signed‑out or marked absent']![1],
-                                  pushValue: notificationSettings['My child is signed‑in/signed‑out or marked absent']![2],
-                                  onInAppChanged: (v) => _updateSetting('My child is signed‑in/signed‑out or marked absent', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('My child is signed‑in/signed‑out or marked absent', 1, v),
-                                  onPushChanged: (v) => _updateSetting('My child is signed‑in/signed‑out or marked absent', 2, v),
+                                  title: 'My child sign-in/out or marked absent',
+                                  inAppValue: state.settings['My child is signed‑in/signed‑out or marked absent']![0],
+                                  emailValue: state.settings['My child is signed‑in/signed‑out or marked absent']![1],
+                                  pushValue: state.settings['My child is signed‑in/signed‑out or marked absent']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My child is signed‑in/signed‑out or marked absent', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My child is signed‑in/signed‑out or marked absent', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My child is signed‑in/signed‑out or marked absent', 2, v),
                                 ),
 
                               if(persona.isParent)
                                 NotificationSettingRow(
                                   title: 'Newsletter is received',
-                                  inAppValue: notificationSettings['Newsletter is received']![0],
-                                  emailValue: notificationSettings['Newsletter is received']![1],
-                                  pushValue: notificationSettings['Newsletter is received']![2],
-                                  onInAppChanged: (v) => _updateSetting('Newsletter is received', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Newsletter is received', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Newsletter is received', 2, v),
+                                  inAppValue: state.settings['Newsletter is received']![0],
+                                  emailValue: state.settings['Newsletter is received']![1],
+                                  pushValue: state.settings['Newsletter is received']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Newsletter is received', 2, v),
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'New activity is recorded for my child',
-                                  inAppValue: notificationSettings['New activity is recorded for my child']![0],
-                                  emailValue: notificationSettings['New activity is recorded for my child']![1],
-                                  pushValue: notificationSettings['New activity is recorded for my child']![2],
-                                  onInAppChanged: (v) => _updateSetting('New activity is recorded for my child', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('New activity is recorded for my child', 1, v),
-                                  onPushChanged: (v) => _updateSetting('New activity is recorded for my child', 2, v),
+                                  title: 'New activity recorded for my child',
+                                  inAppValue: state.settings['New activity is recorded for my child']![0],
+                                  emailValue: state.settings['New activity is recorded for my child']![1],
+                                  pushValue: state.settings['New activity is recorded for my child']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('New activity is recorded for my child', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('New activity is recorded for my child', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('New activity is recorded for my child', 2, v),
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
                                   title: 'Invoice is received',
-                                  inAppValue: notificationSettings['Invoice is received']![0],
-                                  emailValue: notificationSettings['Invoice is received']![1],
-                                  pushValue: notificationSettings['Invoice is received']![2],
-                                  onInAppChanged: (v) => _updateSetting('Invoice is received', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Invoice is received', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Invoice is received', 2, v),
+                                  inAppValue: state.settings['Invoice is received']![0],
+                                  emailValue: state.settings['Invoice is received']![1],
+                                  pushValue: state.settings['Invoice is received']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Invoice is received', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Invoice is received', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Invoice is received', 2, v),
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Payment is successful / failed',
-                                  inAppValue: notificationSettings['Payment is successful / failed']![0],
-                                  emailValue: notificationSettings['Payment is successful / failed']![1],
-                                  pushValue: notificationSettings['Payment is successful / failed']![2],
-                                  onInAppChanged: (v) => _updateSetting('Payment is successful / failed', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Payment is successful / failed', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Payment is successful / failed', 2, v),
+                                  title: 'Payment is successful/failed',
+                                  inAppValue: state.settings['Payment is successful / failed']![0],
+                                  emailValue: state.settings['Payment is successful / failed']![1],
+                                  pushValue: state.settings['Payment is successful / failed']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment is successful / failed', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment is successful / failed', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Payment is successful / failed', 2, v),
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'My child’s profile/details are updated',
-                                  inAppValue: notificationSettings['My child’s profile/details are updated']![0],
-                                  emailValue: notificationSettings['My child’s profile/details are updated']![1],
-                                  pushValue: notificationSettings['My child’s profile/details are updated']![2],
-                                  onInAppChanged: (v) => _updateSetting('My child’s profile/details are updated', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('My child’s profile/details are updated', 1, v),
-                                  onPushChanged: (v) => _updateSetting('My child’s profile/details are updated', 2, v),
+                                  title: 'Refund is initiated/successful/failed',
+                                  inAppValue: state.settings['Refund is initiated/successful/failed']![0],
+                                  emailValue: state.settings['Refund is initiated/successful/failed']![1],
+                                  pushValue: state.settings['Refund is initiated/successful/failed']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Refund is initiated/successful/failed', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Refund is initiated/successful/failed', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Refund is initiated/successful/failed', 2, v),
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Sign‑in alert just after start time (if not already done)',
-                                  inAppValue: notificationSettings['Sign‑in alert just after start time (if not already done)']![0],
-                                  emailValue: notificationSettings['Sign‑in alert just after start time (if not already done)']![1],
-                                  pushValue: notificationSettings['Sign‑in alert just after start time (if not already done)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Sign‑in alert just after start time (if not already done)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Sign‑in alert just after start time (if not already done)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Sign‑in alert just after start time (if not already done)', 2, v),
+                                  title: 'My child’s profile details are updated',
+                                  inAppValue: state.settings['My child’s profile/details are updated']![0],
+                                  emailValue: state.settings['My child’s profile/details are updated']![1],
+                                  pushValue: state.settings['My child’s profile/details are updated']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My child’s profile/details are updated', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My child’s profile/details are updated', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('My child’s profile/details are updated', 2, v),
                                 ),
                               if(persona.isParent)
                                 NotificationSettingRow(
-                                  title: 'Sign‑out alert just after end time (if not already done)',
-                                  inAppValue: notificationSettings['Sign‑out alert just after end time (if not already done)']![0],
-                                  emailValue: notificationSettings['Sign‑out alert just after end time (if not already done)']![1],
-                                  pushValue: notificationSettings['Sign‑out alert just after end time (if not already done)']![2],
-                                  onInAppChanged: (v) => _updateSetting('Sign‑out alert just after end time (if not already done)', 0, v),
-                                  onEmailChanged: (v) => _updateSetting('Sign‑out alert just after end time (if not already done)', 1, v),
-                                  onPushChanged: (v) => _updateSetting('Sign‑out alert just after end time (if not already done)', 2, v),
+                                  title: 'Sign in alert just after shift start (if not done already)',
+                                  inAppValue: state.settings['Sign‑in alert just after start time (if not already done)']![0],
+                                  emailValue: state.settings['Sign‑in alert just after start time (if not already done)']![1],
+                                  pushValue: state.settings['Sign‑in alert just after start time (if not already done)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after start time (if not already done)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after start time (if not already done)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑in alert just after start time (if not already done)', 2, v),
+                                ),
+                              if(persona.isParent)
+                                NotificationSettingRow(
+                                  title: 'Sign out alert just after shift end (if not done already)',
+                                  inAppValue: state.settings['Sign‑out alert just after end time (if not already done)']![0],
+                                  emailValue: state.settings['Sign‑out alert just after end time (if not already done)']![1],
+                                  pushValue: state.settings['Sign‑out alert just after end time (if not already done)']![2],
+                                  onInAppChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after end time (if not already done)', 0, v),
+                                  onEmailChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after end time (if not already done)', 1, v),
+                                  onPushChanged: (v) => context.read<NotificationSettingsCubit>().updateSetting('Sign‑out alert just after end time (if not already done)', 2, v),
                                 ),
 
                               // Container(
@@ -533,12 +558,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               //             width: 60,
                               //             child: Center(
                               //               child: CustomCheckbox(
-                              //                 value: notificationSettings['Receive a message from staff']![0],
+                              //                 value: state.settings['Receive a message from staff']![0],
                               //                 borderColor: AppColors.themeColor,
                               //                 onChanged: (v) {
                               //                   final newVal = v ?? false;
                               //                   setState(() {
-                              //                     notificationSettings['Receive a message from staff']![0] = newVal;
+                              //                     state.settings['Receive a message from staff']![0] = newVal;
                               //                   });
                               //
                               //                 },
@@ -550,12 +575,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               //             width: 60,
                               //             child: Center(
                               //               child: CustomCheckbox(
-                              //                 value: notificationSettings['Receive a message from staff']![1],
+                              //                 value: state.settings['Receive a message from staff']![1],
                               //                 borderColor: AppColors.themeColor,
                               //                 onChanged: (v) {
                               //                   final newVal = v ?? false;
                               //                   setState(() {
-                              //                     notificationSettings['Receive a message from staff']![1] = newVal;
+                              //                     state.settings['Receive a message from staff']![1] = newVal;
                               //                   });
                               //
                               //                 },
@@ -567,12 +592,12 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                               //             width: 60,
                               //             child: Center(
                               //               child: CustomCheckbox(
-                              //                 value: notificationSettings['Receive a message from staff']![2],
+                              //                 value: state.settings['Receive a message from staff']![2],
                               //                 borderColor: AppColors.themeColor,
                               //                 onChanged: (v) {
                               //                   final newVal = v ?? false;
                               //                   setState(() {
-                              //                     notificationSettings['Receive a message from staff']![2] = newVal;
+                              //                     state.settings['Receive a message from staff']![2] = newVal;
                               //                   });
                               //
                               //                 },
@@ -599,12 +624,16 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
           )
         ],
       ),
-      bottomNavigationBar: _buildBottomBar(context, responsive),
+      bottomNavigationBar: _buildBottomBar(context, responsive, state),
     );
   }
 
 
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
+  Widget _buildBottomBar(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    NotificationSettingsState state,
+  ) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
@@ -687,17 +716,41 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                 ),
               ),
               child: TextButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: state.isSaving
+                    ? null
+                    : () async {
+                        final navigator = Navigator.of(context);
+                        final ok =
+                            await _cubit.save(roleFallback: _roleFallback);
+                        if (!mounted) return;
+                        if (ok) {
+                          CoreUtils.showTopSnackBar(
+                            context: context,
+                            message: 'Notification settings saved',
+                            isSuccess: true,
+                          );
+                          navigator.pop();
+                        }
+                      },
                 style: TextButton.styleFrom(overlayColor: Colors.transparent),
-                child: Text(
-                  'Save',
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: responsive.buttonFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
-                  ),
-                ),
+                child: state.isSaving
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        'Save',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: responsive.buttonFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
               ),
             ),
           ),

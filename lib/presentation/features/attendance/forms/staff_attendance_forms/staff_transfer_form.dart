@@ -1,8 +1,9 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -10,29 +11,25 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 class StaffTransferForm extends StatefulWidget {
-  const StaffTransferForm({
-    super.key,
-    this.staff,
-    this.staffList,
-  });
+  const StaffTransferForm({super.key, this.staff, this.staffList});
 
   final StaffEntity? staff;
   final List<StaffEntity>? staffList;
@@ -46,11 +43,20 @@ class StaffTransferForm extends StatefulWidget {
 class _StaffTransferFormState extends State<StaffTransferForm> {
   DateTime _selectedTransferDate = DateTime.now();
   TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  String? _schoolIana;
   String? _selectedToClassroomCode;
   final Map<String, String> _classroomNameToCode = <String, String>{};
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
+  // The staff member's latest/current classroom code. Seeded from the
+  // entity (transfer-list API) for an instant first paint, then overridden
+  // by the staff's attendance/transfer history (the `isLastSequenceEntry`
+  // record — see [_hydrateSelfStaffClassroomDataIfNeeded]), which is the
+  // actually-dynamic source of truth. Re-hydrated after every successful
+  // transfer so this never goes stale.
+  String? _currentClassroomCode;
+  bool _hasTransferTargets = true;
   late final ClassroomCubit _classroomCubit;
 
   @override
@@ -62,15 +68,14 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       _selectedStaff = <StaffEntity>[widget.staff!];
     } else {
       _selectedStaff = <StaffEntity>[
-        StaffEntity(
-          id: 1,
-          name: 'Staff Member',
-          primaryRoomId: 1,
-        ),
+        StaffEntity(id: 1, name: 'Staff Member', primaryRoomId: 1),
       ];
     }
     _classroomCubit = serviceLocator<ClassroomCubit>()
-      ..loadActiveClassrooms(onlyTypeClassroom: false);
+      ..loadActiveClassrooms(
+        onlyTypeClassroom: false,
+        applyAttendanceStaffScope: true,
+      );
     _loadPersonaFlags();
   }
 
@@ -80,21 +85,139 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   }
 
   Future<void> _loadPersonaFlags() async {
+    String? schoolIana;
+    try {
+      schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+    } catch (_) {}
+
     final isAdmin = await _resolveIsStaffAdminPersona();
     if (!mounted) return;
     setState(() {
+      _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
-      if (!isAdmin) {
+      if (schoolIana != null && schoolIana.isNotEmpty) {
+        final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolIana);
+        _selectedTransferDate = dt.$1;
+        _selectedTransferTime = dt.$2;
+      } else {
         _selectedTransferDate = DateTime.now();
         _selectedTransferTime = TimeOfDay.now();
+      }
+    });
+    await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isAdmin);
+  }
+
+  /// Resolves the staff member's LATEST current classroom and stores it in
+  /// [_currentClassroomCode]. Called on load and again after every
+  /// successful transfer so the displayed "Current Classroom" — and the
+  /// dropdown's exclusion filter — never goes stale.
+  ///
+  /// `StaffProfile.primaryClassroomCode` looked like the right source but
+  /// is actually a STATIC default assignment that does NOT change when a
+  /// staff member is transferred — using it showed the staff's permanent
+  /// "home" classroom instead of where they currently are. The real source
+  /// of truth is the staff's attendance/transfer history: the daily
+  /// attendance API record where `isLastSequenceEntry == true` is the
+  /// backend's own marker for "this is the staff's current placement."
+  /// Only falls back to the (static) profile field if that history can't
+  /// be resolved at all.
+  Future<void> _hydrateSelfStaffClassroomDataIfNeeded({
+    required bool isAdmin,
+  }) async {
+    // Run for all roles (including admins) when a single staff member is
+    // selected. Admins can be assigned to a classroom too — skipping them
+    // caused 'N/A' in the Current Classroom field for every admin-initiated
+    // transfer.
+    if (_selectedStaff.length != 1) return;
+    final selected = _selectedStaff.first;
+    final selectedStaffCode = (selected.staffCode ?? '').trim();
+    if (selectedStaffCode.isEmpty) return;
+
+    // Seed from the entity immediately so the field isn't blank while the
+    // network round-trip below is in flight.
+    final existingCode = (selected.classroomCode ?? '').trim();
+    if (existingCode.isNotEmpty && (_currentClassroomCode ?? '').isEmpty) {
+      if (!mounted) return;
+      setState(() => _currentClassroomCode = existingCode);
+    }
+
+    String fmt(DateTime d) =>
+        '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+    var resolved = '';
+    try {
+      final now = DateTime.now();
+      final attendanceRepo = serviceLocator<AttendanceRepository>();
+      final dailyPage = await attendanceRepo.getStaffAttendanceDaily(
+        // A wide lookback, not just "today" — the most recent transfer may
+        // have happened on an earlier date with no attendance event today.
+        fromAttendanceDate: fmt(now.subtract(const Duration(days: 365))),
+        toAttendanceDate: fmt(now),
+        search: selectedStaffCode,
+        page: 0,
+        size: 100,
+      );
+
+      final staffItems = dailyPage.items
+          .where((i) => i.staffCode.trim() == selectedStaffCode)
+          .toList();
+
+      if (staffItems.isNotEmpty) {
+        final latest = staffItems.firstWhere(
+          (i) => i.isLastSequenceEntry == true,
+          orElse: () {
+            staffItems.sort(
+              (a, b) =>
+                  (b.sequenceNumber ?? 0).compareTo(a.sequenceNumber ?? 0),
+            );
+            return staffItems.first;
+          },
+        );
+        final toCode = (latest.toClassroomCode ?? '').trim();
+        resolved = (latest.isTransfer == true && toCode.isNotEmpty)
+            ? toCode
+            : latest.classroomCode.trim();
+      }
+    } catch (_) {
+      // Fall through to the static profile fallback below.
+    }
+
+    if (resolved.isEmpty) {
+      // Last resort only — this is the staff's static default classroom,
+      // not necessarily where they currently are.
+      try {
+        final repo = serviceLocator<StaffRepository>();
+        final profile = await repo.getStaffProfile(
+          staffCode: selectedStaffCode,
+          forEditStaff: true,
+        );
+        resolved = profile.primaryClassroomCode.trim();
+      } catch (_) {
+        // Keep whatever was already seeded from the entity above.
+      }
+    }
+
+    if (resolved.isEmpty || !mounted) return;
+    setState(() {
+      _currentClassroomCode = resolved;
+      // If the dropdown selection now matches the freshly-resolved current
+      // classroom (e.g. the user picked a target before this async
+      // resolution caught up), it's no longer a valid transfer target —
+      // clear it rather than leaving a stale, now-invalid selection.
+      if (_selectedToClassroomCode == resolved) {
+        _selectedToClassroomCode = null;
       }
     });
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim()
+        .toUpperCase();
 
     if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
       return true;
@@ -115,32 +238,68 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     }
   }
 
-  /// Resolves display name from API [classroomName] / [classroomCode], matching daily attendance behavior.
-  String _resolveCurrentClassroomDisplay(StaffEntity? staff, List<Classroom> classrooms) {
-    if (staff == null) return 'N/A';
-    final apiName = (staff.classroomName ?? '').trim();
-    final code = (staff.classroomCode ?? '').trim();
-    final apiNameLooksLikeCode = apiName.isNotEmpty &&
-        (apiName == code || apiName.startsWith('CLS_'));
-    if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
+  /// Resolves the human-readable name of the staff member's LATEST current
+  /// classroom for display.
+  ///
+  /// Resolution order:
+  ///   1. [_currentClassroomCode] — the hydrated/authoritative code (from
+  ///      the staff profile, or the entity seed while that's loading). This
+  ///      always wins when present, since it reflects the most recent
+  ///      transfer.
+  ///   2. [staff.classroomCode]/[staff.classroomName] — entity-level
+  ///      fallback when nothing has been hydrated yet.
+  ///   3. Raw code — shown while the classrooms list is still loading.
+  ///   4. 'N/A' — only when nothing is known at all.
+  String _resolveCurrentClassroomDisplay(
+    StaffEntity? staff,
+    List<Classroom> classrooms,
+  ) {
+    final hydratedCode = (_currentClassroomCode ?? '').trim();
+    final entityCode = (staff?.classroomCode ?? '').trim();
+    final apiName = (staff?.classroomName ?? '').trim();
+
+    // The hydrated/profile code is authoritative; only fall back to the
+    // entity's code while nothing has been hydrated yet.
+    final code = hydratedCode.isNotEmpty ? hydratedCode : entityCode;
     if (code.isEmpty) {
       return apiName.isNotEmpty ? apiName : 'N/A';
     }
+
+    // Only trust the entity's display name when it actually matches the
+    // classroom we're showing — otherwise it's a stale name for a
+    // classroom the staff has since been transferred out of.
+    final apiNameLooksLikeCode =
+        apiName.isNotEmpty && (apiName == code || apiName.startsWith('CLS_'));
+    if (code == entityCode && apiName.isNotEmpty && !apiNameLooksLikeCode) {
+      return apiName;
+    }
+
     for (final c in classrooms) {
       if (c.code.trim() == code) {
         final n = c.name.trim();
         return n.isNotEmpty ? n : code;
       }
     }
+    // Classrooms list may still be loading — show the raw code as a
+    // fallback so the field is never blank/N/A while waiting.
     return code;
   }
 
   void _handleSubmit() {
+    if (!_hasTransferTargets) {
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('No other classroom available for transfer.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      return;
+    }
     if (_selectedToClassroomCode == null || _selectedToClassroomCode!.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Please select a classroom to transfer to'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -151,8 +310,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     _submitTransfer();
   }
 
-  Future<String> _resolveStaffCode() =>
-      resolveStaffCodeForLoggedInUser();
+  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
 
   Future<void> _submitTransfer() async {
     if (_isSubmitting) return;
@@ -161,8 +319,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         _selectedToClassroomCode!.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('No staff/classroom selected to transfer'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -174,19 +331,12 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       _isSubmitting = true;
     });
 
-    final client = serviceLocator<ApiClient>().client;
-    final endpoint = ApiPaths.urlWithBase(
-      ApiPaths.staffAttendanceRecordsTransfer,
-      ApiConstants.attendanceBaseUrl,
-    );
-
     final staffCode = await _resolveStaffCode();
     if (!mounted) return;
     if (staffCode.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Unable to resolve staffCode. Please re-login.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -206,8 +356,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     if (targetStaffCodes.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Target staff code is missing. Please refresh list.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -226,8 +375,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Teachers can only transfer themselves.'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -251,8 +399,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final schoolToday =
-        SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+    final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
+      schoolTimeZone,
+    );
 
     final DateTime transferredAt;
     if (isStaffAdmin) {
@@ -261,8 +410,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         _selectedTransferDate.month,
         _selectedTransferDate.day,
       );
-      final safeDay =
-          pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
+      final safeDay = pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
       transferredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
         schoolTimeZone,
         year: safeDay.year,
@@ -286,58 +434,51 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     };
 
     try {
-      final body = Map<String, dynamic>.from(payload);
-      await applyAllowedClassroomCodesToAttendanceBody(
-        body,
-        serviceLocator<StorageService>(),
-      );
-      final response = await client.post<dynamic>(
-        endpoint,
-        data: body,
-      );
-
-      final data = response.data;
-      bool success = false;
-      String message = 'Transferred successfully';
-
-      if (data is Map<String, dynamic>) {
-        success = data['success'] as bool? ?? false;
-        if (data['message'] != null) {
-          message = data['message'].toString();
-        }
-      }
+      final result = await serviceLocator<AttendanceRepository>()
+          .submitStaffTransfer(payload: payload);
+      final success = result.success;
+      final message = result.message;
 
       if (!mounted) return;
 
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(message),
-          backgroundColor:
-              success ? AppColors.successColor : AppColors.errorColor,
+          backgroundColor: success
+              ? AppColors.successColor
+              : AppColors.errorColor,
         ),
       );
 
       if (success) {
-        if (isStaffAdmin) {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StaffAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
-        } else {
-          Navigator.pop(context);
-        }
+        // Read the staff's post-transfer classroom straight from the
+        // backend response when it's echoed back (never inferred from a
+        // static field). `primaryClassroomCode` is deliberately NOT used
+        // here — it's the staff's static default classroom and doesn't
+        // change on transfer. Falls back to the submitted target, which we
+        // know is correct immediately after a successful transfer.
+        final responseClassroomCode = (result.currentClassroomCode ?? '')
+            .trim();
+        setState(() {
+          _currentClassroomCode = responseClassroomCode.isNotEmpty
+              ? responseClassroomCode
+              : toClassroomCode;
+        });
+        // Re-hydrate from the attendance/transfer history too, so the form
+        // (and any other open instance) is fully in sync rather than
+        // relying solely on the single transfer response or on navigating
+        // away.
+        await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isStaffAdmin);
+        if (!mounted) return;
+        redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
       }
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
+        snackBar: SnackBar(
           content: Text(errorMessage),
           backgroundColor: AppColors.errorColor,
         ),
@@ -349,6 +490,15 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         });
       }
     }
+  }
+
+  void _removeStaff(StaffEntity staff) {
+    setState(() {
+      _selectedStaff.remove(staff);
+      if (_selectedStaff.isEmpty) {
+        Navigator.pop(context);
+      }
+    });
   }
 
   @override
@@ -367,6 +517,23 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
             _selectedStaff.isNotEmpty ? _selectedStaff.first : null,
             classroomState.classrooms,
           );
+          // Code to exclude from the "Transfer to Classroom" dropdown: the
+          // staff's LATEST current classroom. Falls back to the first
+          // selected staff's own code for a bulk transfer (multiple staff
+          // picked at once), where per-staff hydration isn't run.
+          final currentClassroomCode =
+              (_currentClassroomCode ?? '').trim().isNotEmpty
+              ? _currentClassroomCode!.trim()
+              : ((_selectedStaff.isNotEmpty
+                        ? (_selectedStaff.first.classroomCode ?? '')
+                        : '')
+                    .trim());
+          final transferOptions = classroomState.classrooms
+              .where((c) => c.name.trim().isNotEmpty)
+              .where((c) => c.code.trim() != currentClassroomCode)
+              .map((c) => c.name)
+              .toList(growable: false);
+          _hasTransferTargets = transferOptions.isNotEmpty;
           String? selectedToClassroomName;
           for (final entry in _classroomNameToCode.entries) {
             if (entry.value == _selectedToClassroomCode) {
@@ -375,174 +542,189 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
             }
           }
           return StaffFormLayout(
-      title: 'Transfer',
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (_selectedStaff.isNotEmpty)
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  crossAxisSpacing: 14,
-                  mainAxisSpacing: 14,
-                  childAspectRatio: 3.5,
-                ),
-                itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    RemoveStaffTile(staff: _selectedStaff[index]),
-              ),
-            const SizedBox(height: 20),
-            // Date + Time (50/50 split) - match StudentTransferForm alignment
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Date'),
-                      const SizedBox(height: 8),
-                      CustomDateTimeField(
-                        hasLabel: false,
-                        isRangePicker: false,
-                        isTime: false,
-                        fetchInitialTime: false,
-                        initialDate: _selectedTransferDate,
-                        isDisabled: _isStaffAdminPersona == false,
-                        onDateSelected: (date) {
-                          setState(() {
-                            final now = DateTime.now();
-                            final today = DateTime(now.year, now.month, now.day);
-                            final picked =
-                                DateTime(date.year, date.month, date.day);
-                            _selectedTransferDate =
-                                picked.isAfter(today) ? today : date;
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Time'),
-                      const SizedBox(height: 8),
-                      IgnorePointer(
-                        ignoring: _isStaffAdminPersona == false,
-                        child: SimpleTimePickerField(
-                          time: _selectedTransferTime,
-                          onTimeSelected: (t) {
-                            setState(() {
-                              _selectedTransferTime = t;
-                            });
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            // Current classroom + Transfer to classroom (50/50 split) - match StudentTransferForm alignment
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const AppText.label('Current Classroom'),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 14,
-                        ),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
-                          borderRadius: BorderRadius.circular(8),
-                          color: const Color.fromRGBO(177, 175, 233, 0.1),
-                        ),
-                        child: AppText.value(
-                          currentClassroom,
-                          style: TextStyle(
-                            color:
-                                AppColors.primaryColor.withValues(alpha: 0.5),
+            title: 'Transfer',
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_selectedStaff.isNotEmpty)
+                    GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            crossAxisSpacing: 14,
+                            mainAxisSpacing: 14,
+                            childAspectRatio: 3.5,
                           ),
+                      itemCount: _selectedStaff.length,
+                      itemBuilder: (context, index) => RemoveStaffTile(
+                        staff: _selectedStaff[index],
+                        canRemove: _selectedStaff.length > 1,
+                        onRemove: () => _removeStaff(_selectedStaff[index]),
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  // Date + Time (50/50 split) - match StudentTransferForm alignment
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Date'),
+                            const SizedBox(height: 8),
+                            CustomDateTimeField(
+                              hasLabel: false,
+                              isRangePicker: false,
+                              isTime: false,
+                              fetchInitialTime: false,
+                              initialDate: _selectedTransferDate,
+                              isDisabled: _isStaffAdminPersona == false,
+                              onDateSelected: (date) {
+                                setState(() {
+                                  final iana = _schoolIana;
+                                  final today = iana != null && iana.isNotEmpty
+                                      ? SchoolZoneDateTime.schoolCalendarTodayOnly(
+                                          iana,
+                                        )
+                                      : DateTime(
+                                          DateTime.now().year,
+                                          DateTime.now().month,
+                                          DateTime.now().day,
+                                        );
+                                  final picked = DateTime(
+                                    date.year,
+                                    date.month,
+                                    date.day,
+                                  );
+                                  _selectedTransferDate = picked.isAfter(today)
+                                      ? today
+                                      : date;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Time'),
+                            const SizedBox(height: 8),
+                            IgnorePointer(
+                              ignoring: _isStaffAdminPersona == false,
+                              child: GradientTimePickerField(
+                                time: _selectedTransferTime,
+                                onTimeSelected: (t) {
+                                  setState(() {
+                                    _selectedTransferTime = t;
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
                   ),
-                ),
-                const SizedBox(width: 20),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  const SizedBox(height: 20),
+                  // Current classroom + Transfer to classroom (50/50 split) - match StudentTransferForm alignment
+                  Row(
                     children: [
-                      const AppText.label('Transfer to Classroom'),
-                      const SizedBox(height: 8),
-                      CustomDropdown(
-                        hintText: 'Select classroom',
-                        items: classroomState.classrooms
-                            .where((c) => c.name != currentClassroom)
-                            .map((c) => c.name)
-                            .toList(),
-                        selectedItem: selectedToClassroomName,
-                        onSelect: (value) {
-                          setState(() {
-                            _selectedToClassroomCode = value == null
-                                ? null
-                                : _classroomNameToCode[value];
-                          });
-                        },
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Current Classroom'),
+                            const SizedBox(height: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 14,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey.shade300),
+                                borderRadius: BorderRadius.circular(8),
+                                color: const Color.fromRGBO(177, 175, 233, 0.1),
+                              ),
+                              child: AppText.value(
+                                currentClassroom,
+                                style: TextStyle(
+                                  color: AppColors.primaryColor.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 20),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const AppText.label('Transfer to Classroom'),
+                            const SizedBox(height: 8),
+                            CustomDropdown(
+                              hintText: _hasTransferTargets
+                                  ? 'Select classroom'
+                                  : 'No classroom available',
+                              items: transferOptions,
+                              selectedItem: selectedToClassroomName,
+                              isEnabled: _hasTransferTargets,
+                              onSelect: (value) {
+                                setState(() {
+                                  _selectedToClassroomCode = value == null
+                                      ? null
+                                      : _classroomNameToCode[value];
+                                });
+                              },
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 80),
+                ],
+              ),
             ),
-            const SizedBox(height: 80),
-          ],
-        ),
-      ),
-      bottomBar: CustomButtonLayout(
-        confirmButtonLabel: 'Submit',
-        onPressedConfirm: _isSubmitting ? null : _handleSubmit,
-        showCancelButton: false,
-      ),
-    );
+            bottomBar: CustomButtonLayout(
+              confirmButtonLabel: 'Submit',
+              onPressedConfirm: _isSubmitting ? null : _handleSubmit,
+              showCancelButton: false,
+            ),
+          );
         },
       ),
     );
   }
-
 }
 
 class RemoveStaffTile extends StatelessWidget {
   final StaffEntity staff;
+  final bool canRemove;
+  final VoidCallback onRemove;
 
   const RemoveStaffTile({
     super.key,
     required this.staff,
+    required this.canRemove,
+    required this.onRemove,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -561,7 +743,7 @@ class RemoveStaffTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    staff.name.split(' ').first,
+                    staff.name,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
@@ -575,9 +757,13 @@ class RemoveStaffTile extends StatelessWidget {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: onRemove,
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );
   }
 }
-

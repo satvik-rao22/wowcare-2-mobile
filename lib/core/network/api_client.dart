@@ -6,8 +6,11 @@ class ApiClient {
   ApiClient({
     required String baseUrl,
     List<Interceptor>? interceptors,
-    Duration connectTimeout = const Duration(minutes: 1),
-    Duration receiveTimeout = const Duration(minutes: 1),
+    // Long enough to tolerate slow dev tunnels / cold-started local
+    // backends, but still bounded so the UI shows an error instead of a
+    // frozen spinner forever when the server is genuinely unreachable.
+    Duration connectTimeout = const Duration(seconds: 20),
+    Duration receiveTimeout = const Duration(seconds: 30),
   }) {
     _dio = Dio(
       BaseOptions(

@@ -7,6 +7,7 @@ import '../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../domain/features/activity/entities/activity_type_details.dart';
+import '../../../../domain/features/activity/entities/activity_type_summary.dart';
 import '../../../../domain/features/activity/entities/activity_upload_session.dart';
 import '../../../../domain/features/activity/repositories/activity_repository.dart';
 import '../datasources/activity_remote_datasource.dart';
@@ -30,6 +31,53 @@ class ActivityRepositoryImpl implements ActivityRepository {
       resource: 'settings',
       identifier: classroomCode,
     );
+  }
+
+  static String _activityTypesCacheKey(String schoolCode) {
+    return CacheManager.buildCacheKey(
+      feature: 'activity',
+      resource: 'activity_types',
+      identifier: schoolCode,
+    );
+  }
+
+  @override
+  Future<List<ActivityTypeSummary>> getActiveActivityTypesForSchool({
+    required String schoolCode,
+  }) async {
+    final sc = schoolCode.trim();
+    if (sc.isEmpty) return const [];
+
+    // Try cache first.
+    final cached = await _cacheManager.loadCache(_activityTypesCacheKey(sc));
+    if (cached != null && cached['items'] is List) {
+      final out = <ActivityTypeSummary>[];
+      for (final raw in (cached['items'] as List).whereType<Map>()) {
+        final code = (raw['code'] ?? '').toString().trim();
+        final name = (raw['name'] ?? '').toString().trim();
+        if (code.isEmpty || name.isEmpty) continue;
+        out.add(ActivityTypeSummary(code: code, name: name));
+      }
+      if (out.isNotEmpty) return out;
+    }
+
+    // Fetch remote.
+    final rows = await _remoteDataSource.getActiveActivityTypesForSchool(
+      schoolCode: sc,
+    );
+    final items = rows
+        .map((e) {
+          final code = (e['code'] ?? '').toString().trim();
+          final name = (e['name'] ?? '').toString().trim();
+          return ActivityTypeSummary(code: code, name: name);
+        })
+        .where((e) => e.code.isNotEmpty && e.name.isNotEmpty)
+        .toList();
+
+    await _cacheManager.saveCache(_activityTypesCacheKey(sc), {
+      'items': items.map((e) => {'code': e.code, 'name': e.name}).toList(),
+    });
+    return items;
   }
 
   @override
@@ -91,15 +139,23 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String classroomCode,
     required String date,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
+    bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final model = await _remoteDataSource.getDailyActivityFeed(
       classroomCode: classroomCode,
       date: date,
       studentCode: studentCode,
-      activityTypeCode: activityTypeCode,
+      classroomCodes: classroomCodes,
+      studentCodes: studentCodes,
+      activityTypeCodes: activityTypeCodes,
+      approvalStatuses: approvalStatuses,
+      guardianPersona: guardianPersona,
       page: page,
       size: size,
     );
@@ -112,16 +168,24 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String startDate,
     required String endDate,
     String? studentCode,
-    String? activityTypeCode,
+    List<String>? classroomCodes,
+    List<String>? studentCodes,
+    List<String>? activityTypeCodes,
+    List<String>? approvalStatuses,
+    bool guardianPersona = false,
     int page = 0,
-    int size = 100,
+    int size = 200,
   }) async {
     final model = await _remoteDataSource.getRangeActivityFeed(
       classroomCode: classroomCode,
       startDate: startDate,
       endDate: endDate,
       studentCode: studentCode,
-      activityTypeCode: activityTypeCode,
+      classroomCodes: classroomCodes,
+      studentCodes: studentCodes,
+      activityTypeCodes: activityTypeCodes,
+      approvalStatuses: approvalStatuses,
+      guardianPersona: guardianPersona,
       page: page,
       size: size,
     );
@@ -137,14 +201,27 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
-  Future<ActivityDetail> getActivity({required String code}) async {
-    final data = await _remoteDataSource.getActivityByCode(code: code);
+  Future<List<String>> getNapStartStudents({
+    required String classroomCode,
+  }) {
+    return _remoteDataSource.getNapStartStudents(classroomCode: classroomCode);
+  }
+
+  @override
+  Future<ActivityDetail> getActivity({
+    required String code,
+  }) async {
+    final data = await _remoteDataSource.getActivityByCode(
+      cardGroupCode: code,
+    );
     return ActivityDetail.fromApiData(data);
   }
 
   @override
   Future<String> updateActivity({
     required String code,
+    List<String> studentCodes = const [],
+    List<String> applyToStudentCodes = const [],
     required String staffCode,
     required String activityDate,
     required String description,
@@ -152,7 +229,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
     List<Map<String, dynamic>> attachments = const [],
   }) async {
     final message = await _remoteDataSource.updateActivity(
-      code: code,
+      cardGroupCode: code,
+      studentCodes: studentCodes,
+      applyToStudentCodes: applyToStudentCodes,
       staffCode: staffCode,
       activityDate: activityDate,
       description: description,
@@ -171,6 +250,50 @@ class ActivityRepositoryImpl implements ActivityRepository {
   }
 
   @override
+  Future<String> approveActivity({required String code}) async {
+    final message = await _remoteDataSource.approveActivity(
+      cardGroupCode: code,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
+  Future<String> rejectActivity({required String code}) async {
+    final message = await _remoteDataSource.rejectActivity(
+      cardGroupCode: code,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
+  Future<String> acknowledgeActivity({required String code}) async {
+    final message = await _remoteDataSource.acknowledgeActivity(
+      cardGroupCode: code,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
+  Future<String> guardianParentSignature({
+    required String code,
+    required String parameterCode,
+    required String guardianCode,
+    String? signatureValue,
+  }) async {
+    final message = await _remoteDataSource.guardianParentSignature(
+      cardGroupCode: code,
+      parameterCode: parameterCode,
+      guardianCode: guardianCode,
+      signatureValue: signatureValue,
+    );
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return message;
+  }
+
+  @override
   Future<String> createActivity({
     required String activityTypeCode,
     required String classroomCode,
@@ -180,6 +303,9 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String organizationCode,
     required String activityDate,
     required String description,
+    bool? napStart,
+    bool? napEnd,
+    bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
   }) async {
@@ -192,6 +318,11 @@ class ActivityRepositoryImpl implements ActivityRepository {
       organizationCode: organizationCode,
       activityDate: activityDate,
       description: description,
+      napStart: napStart,
+      napEnd: napEnd,
+      requireAdminApproval: requireAdminApproval,
+      // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple).
+      bindingMode: studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
       parameterValues: parameterValues,
       attachments: attachments,
     );
@@ -199,6 +330,44 @@ class ActivityRepositoryImpl implements ActivityRepository {
     final message = await _remoteDataSource.createActivity(request: request);
     await ActivityFeedInvalidation.invalidate(_storageService);
     return message;
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> createSharedActivities({
+    required String activityTypeCode,
+    required String classroomCode,
+    required List<String> studentCodes,
+    required String staffCode,
+    required String schoolCode,
+    required String organizationCode,
+    required String activityDate,
+    required String description,
+    bool? requireAdminApproval,
+    required List<Map<String, dynamic>> attachments,
+    List<Map<String, dynamic>> parameterValues = const [],
+  }) async {
+    final payload = <String, dynamic>{
+      'activityTypeCode': activityTypeCode,
+      'classroomCode': classroomCode,
+      'studentCodes': studentCodes,
+      'staffCode': staffCode,
+      'schoolCode': schoolCode,
+      'organizationCode': organizationCode,
+      'activityDate': activityDate,
+      'description': description,
+      // v2 binding mode enum: PER_STUDENT (single), SHARED (multiple) — must
+      // match the asset owner the photo screen presigned (STUDENT vs CLASSROOM).
+      // Previously hardcoded 'SHARED', which mismatched a single-student asset.
+      'bindingMode': studentCodes.length > 1 ? 'SHARED' : 'PER_STUDENT',
+      if (requireAdminApproval != null)
+        'requireAdminApproval': requireAdminApproval,
+      if (parameterValues.isNotEmpty) 'parameterValues': parameterValues,
+      'attachments': attachments,
+    };
+
+    final cards = await _remoteDataSource.createSharedActivities(payload: payload);
+    await ActivityFeedInvalidation.invalidate(_storageService);
+    return cards;
   }
 
   @override
@@ -227,6 +396,7 @@ class ActivityRepositoryImpl implements ActivityRepository {
     required String fileName,
     required String contentType,
     required int contentLengthBytes,
+    required String checksumSha256,
     required String mediaType,
     required String ownerType,
     required String ownerCode,
@@ -237,10 +407,16 @@ class ActivityRepositoryImpl implements ActivityRepository {
       fileName: fileName,
       contentType: contentType,
       contentLengthBytes: contentLengthBytes,
+      checksumSha256: checksumSha256,
       mediaType: mediaType,
       ownerType: ownerType,
       ownerCode: ownerCode,
     );
+  }
+
+  @override
+  Future<int> getPendingIncidentCount() {
+    return _remoteDataSource.getPendingIncidentCount();
   }
 }
 

@@ -1,20 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/utils/responsive_helper.dart';
 import '../../../../shared/constants/location_constants.dart';
 import '../../staff/widgets/staff_form_layout.dart';
+import '../view_model/edit_user_profile_cubit.dart';
 
-class EditUserProfileScreen extends StatefulWidget {
-  const EditUserProfileScreen({super.key, this.initialFirstName, this.initialLastName, this.initialEmail, this.initialPhoneNo, this.initialStreet, this.initialCity, this.initialState, this.initialCountry, this.initialZipCode, this.role, this.signInPin, this.initialAddressLine2});
+/// Thin wrapper that provides the [EditUserProfileCubit] (and kicks off the
+/// profile load) so the form below stays focused on rendering + input.
+class EditUserProfileScreen extends StatelessWidget {
+  const EditUserProfileScreen({
+    super.key,
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhoneNo,
+    this.initialStreet,
+    this.initialCity,
+    this.initialState,
+    this.initialCountry,
+    this.initialZipCode,
+    this.role,
+    this.signInPin,
+    this.initialAddressLine2,
+    this.isParent = false,
+  });
   static const String routeName = '/edit-user-profile-details-screen';
 
   final String? initialFirstName;
@@ -30,12 +46,70 @@ class EditUserProfileScreen extends StatefulWidget {
   final String? signInPin;
   final String? initialAddressLine2;
 
+  /// When true the screen edits the logged-in guardian's profile (guardian
+  /// endpoints) instead of the staff profile.
+  final bool isParent;
 
   @override
-  State<EditUserProfileScreen> createState() => _EditUserProfileScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider(
+      create: (_) =>
+          serviceLocator<EditUserProfileCubit>()..loadProfile(isParent: isParent),
+      child: _EditUserProfileForm(
+        initialFirstName: initialFirstName,
+        initialLastName: initialLastName,
+        initialEmail: initialEmail,
+        initialPhoneNo: initialPhoneNo,
+        initialStreet: initialStreet,
+        initialCity: initialCity,
+        initialState: initialState,
+        initialCountry: initialCountry,
+        initialZipCode: initialZipCode,
+        role: role,
+        signInPin: signInPin,
+        initialAddressLine2: initialAddressLine2,
+        isParent: isParent,
+      ),
+    );
+  }
 }
 
-class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
+class _EditUserProfileForm extends StatefulWidget {
+  const _EditUserProfileForm({
+    this.initialFirstName,
+    this.initialLastName,
+    this.initialEmail,
+    this.initialPhoneNo,
+    this.initialStreet,
+    this.initialCity,
+    this.initialState,
+    this.initialCountry,
+    this.initialZipCode,
+    this.role,
+    this.signInPin,
+    this.initialAddressLine2,
+    this.isParent = false,
+  });
+
+  final String? initialFirstName;
+  final String? initialLastName;
+  final String? initialEmail;
+  final String? initialPhoneNo;
+  final String? initialStreet;
+  final String? initialCity;
+  final String? initialState;
+  final String? initialCountry;
+  final String? initialZipCode;
+  final String? role;
+  final String? signInPin;
+  final String? initialAddressLine2;
+  final bool isParent;
+
+  @override
+  State<_EditUserProfileForm> createState() => _EditUserProfileFormState();
+}
+
+class _EditUserProfileFormState extends State<_EditUserProfileForm> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
@@ -47,12 +121,13 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
 
   String? _selectedState;
   String? _selectedCountry;
-  bool _isSubmitting = false;
   bool _hasShownProfileLoadError = false;
+  int _appliedRevision = 0;
 
   // Full lists sourced from shared `location_constants.dart`
-  final List<String> _stateOptions =
-      US_STATES.map((state) => state.name).toList();
+  final List<String> _stateOptions = US_STATES
+      .map((state) => state.name)
+      .toList();
 
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
@@ -72,20 +147,18 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     _cityController.text = widget.initialCity ?? '';
     _selectedState =
         (widget.initialState != null && widget.initialState!.trim().isNotEmpty)
-            ? widget.initialState
-            : null;
-    _selectedCountry = (widget.initialCountry != null &&
+        ? widget.initialState
+        : null;
+    _selectedCountry =
+        (widget.initialCountry != null &&
             widget.initialCountry!.trim().isNotEmpty)
         ? widget.initialCountry
         : null;
     _zipCodeController.text = widget.initialZipCode ?? '';
     // Country is fixed to United States in this form.
     _selectedCountry = 'United States';
-
-    // Prefetch latest profile from my-profile API and hydrate controllers.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _prefillFromStaffProfile();
-    });
+    // The cubit (provided by the wrapper) prefetches the latest profile; this
+    // form hydrates its controllers from the emitted state via BlocListener.
   }
 
   @override
@@ -101,81 +174,21 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     super.dispose();
   }
 
-  /// Resolves staffCode for the currently logged-in user from local cache.
-  Future<String> _resolveLoggedInStaffCode() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-
-      final currentUserCode =
-          (await storage.getString(StorageKeys.userCode) ?? '').trim();
-      final cachedStaffCode =
-          (await storage.getString(StorageKeys.staffCode) ?? '').trim();
-      final cachedStaffUser =
-          (await storage.getString(StorageKeys.staffCodeUser) ?? '').trim();
-
-      if (cachedStaffCode.isNotEmpty &&
-          cachedStaffUser.isNotEmpty &&
-          currentUserCode.isNotEmpty &&
-          cachedStaffUser == currentUserCode) {
-        return cachedStaffCode;
-      }
-      return '';
-    } catch (_) {
-      return '';
+  /// Hydrates the form when the cubit emits a freshly loaded profile, and
+  /// surfaces a one-time error if the load failed with no cached fallback.
+  void _onCubitState(BuildContext context, EditUserProfileState state) {
+    if (state.profile != null && state.profileRevision != _appliedRevision) {
+      _appliedRevision = state.profileRevision;
+      _applyProfileToControllers(state.profile!);
+      setState(() {});
     }
-  }
-
-  /// Prefills controllers using the staff profile fetched from the my-profile API.
-  /// Cache-first, then background refresh; no explicit loader is shown.
-  Future<void> _prefillFromStaffProfile() async {
-    final staffCode = await _resolveLoggedInStaffCode();
-    if (!mounted || staffCode.isEmpty) return;
-
-    try {
-      final repo = serviceLocator<StaffRepository>();
-      var hadCached = false;
-
-      // 1) Try cached profile first for instant UI.
-      if (repo is StaffRepositoryWithCache) {
-        final cached =
-            await (repo as StaffRepositoryWithCache).loadCachedStaffProfile(
-          staffCode,
-        );
-        if (!mounted) return;
-        if (cached != null) {
-          hadCached = true;
-          _applyProfileToControllers(cached);
-          setState(() {});
-        }
-      }
-
-      // 2) Always prefetch latest via my-profile controller in background.
-      try {
-        final fresh = await repo.getStaffProfile(staffCode: staffCode);
-        if (!mounted) return;
-        _applyProfileToControllers(fresh);
-        setState(() {});
-      } catch (e) {
-        CoreUtils.logApiError(e.toString());
-        if (!hadCached && !_hasShownProfileLoadError) {
-          _hasShownProfileLoadError = true;
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Failed to load profile. Please try again.',
-            isError: true,
-          );
-        }
-      }
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      if (!_hasShownProfileLoadError) {
-        _hasShownProfileLoadError = true;
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Failed to load profile. Please try again.',
-          isError: true,
-        );
-      }
+    if (state.loadFailed && !_hasShownProfileLoadError) {
+      _hasShownProfileLoadError = true;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Failed to load profile. Please try again.',
+        isError: true,
+      );
     }
   }
 
@@ -233,35 +246,51 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final address2 = _toTitleCase(_addressLine2Controller.text.trim());
 
     if (first.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'First Name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'First Name is required',
+        isError: true,
+      );
       return;
     }
     if (first.length > 50 || !_nameRegex.hasMatch(first)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:'First Name must be letters only and max 50 characters',
+        message: 'First Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
     }
     if (last.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Last Name is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Last Name is required',
+        isError: true,
+      );
       return;
     }
     if (last.length > 50 || !_nameRegex.hasMatch(last)) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:'Last Name must be letters only and max 50 characters',
+        message: 'Last Name must be letters only and max 50 characters',
         isError: true,
       );
       return;
     }
     if (email.isEmpty || !_emailRegex.hasMatch(email)) {
-      CoreUtils.showTopSnackBar(context: context, message:'Email is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Email is required',
+        isError: true,
+      );
       return;
     }
     if (phoneDigits.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Phone Number is required', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Phone Number is required',
+        isError: true,
+      );
       return;
     }
     if (phoneDigits.length != 10) {
@@ -272,7 +301,9 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       );
       return;
     }
-    if (!_e164Regex.hasMatch('+$phoneDigits')) {
+    // Staff keep the original E.164 check; guardians only need 10 digits (their
+    // numbers may legitimately start with 0, which E.164 would reject).
+    if (!widget.isParent && !_e164Regex.hasMatch('+$phoneDigits')) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter a valid 10-digit phone number',
@@ -280,28 +311,48 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       );
       return;
     }
-    if (_streetController.text.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Street is required', isError: true);
+    if (!widget.isParent && _streetController.text.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street is required',
+        isError: true,
+      );
       return;
     }
     if (street.length > 150) {
-      CoreUtils.showTopSnackBar(context: context, message:'Street address cannot exceed 150 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Street address cannot exceed 150 characters',
+        isError: true,
+      );
       return;
     }
-    if (_cityController.text.isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'City is required', isError: true);
+    if (!widget.isParent && _cityController.text.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City is required',
+        isError: true,
+      );
       return;
     }
     if (city.length > 50) {
-      CoreUtils.showTopSnackBar(context: context, message:'City name cannot exceed 50 characters', isError: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'City name cannot exceed 50 characters',
+        isError: true,
+      );
       return;
     }
-    if (_zipCodeController.text.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Zip Code is required', isError: true);
+    if (!widget.isParent && _zipCodeController.text.trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Zip Code is required',
+        isError: true,
+      );
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
-    if (!RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+    if (zipDigits.isNotEmpty && !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
@@ -309,109 +360,78 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
       );
       return;
     }
-    if ((_selectedState ?? '').trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'State is required', isError: true);
+    if (!widget.isParent && (_selectedState ?? '').trim().isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'State is required',
+        isError: true,
+      );
       return;
     }
     if ((_selectedCountry ?? '').trim().isEmpty) {
-      CoreUtils.showTopSnackBar(context: context, message:'Country is required', isError: true);
-      return;
-    }
-
-
-
-    if (address2.length > 150) {
-      CoreUtils.showTopSnackBar(context: context, message:'Address Line 2 cannot exceed 150 characters', isError: true);
-      return;
-    }
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      final staffCode = await _resolveLoggedInStaffCode();
-      if (staffCode.isEmpty) {
-        setState(() {
-          _isSubmitting = false;
-        });
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Unable to resolve staff profile. Please try again.',
-          isError: true,
-        );
-        return;
-      }
-
-      final repo = serviceLocator<StaffRepository>();
-
-      // Build request body matching my-profile PATCH contract.
-      final body = <String, dynamic>{
-        'firstName': first,
-        'lastName': last,
-        'phoneNumber': '+$phoneDigits',
-        'addressStreet': street,
-        'addressLine2': address2,
-        'addressCity': city,
-        'addressState': _selectedState ?? '',
-        'addressZipCode': zipDigits,
-        'addressCountry': 'United States',
-      };
-
-      // If email changed, call email-change API before updating profile.
-      try {
-        final storage = serviceLocator<StorageService>();
-        final userCode =
-            (await storage.getString(StorageKeys.userCode) ?? '').trim();
-        final oldEmail =
-            (await storage.getString(StorageKeys.email) ?? '').trim();
-        final organizationCode =
-            (await storage.getString(StorageKeys.organizationCode) ?? '')
-                .trim();
-        final schoolCode =
-            (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-
-        if (userCode.isNotEmpty &&
-            oldEmail.isNotEmpty &&
-            oldEmail.toLowerCase() != email &&
-            organizationCode.isNotEmpty &&
-            schoolCode.isNotEmpty) {
-          await repo.changeUserEmail(
-            userCode: userCode,
-            oldEmail: oldEmail,
-            newEmail: email,
-            organizationCode: organizationCode,
-            schoolCode: schoolCode,
-          );
-          // Keep local storage in sync with new email.
-          await storage.saveString(StorageKeys.email, email);
-        }
-      } catch (_) {
-        // Non-blocking: email-change failure should not block profile save.
-      }
-
-      await repo.updateMyProfile(
-        staffCode: staffCode,
-        fields: body,
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
-      // Pop with result so caller can refresh profile details.
-      Navigator.pop(context, true);
-    } catch (e) {
-      CoreUtils.logApiError(e.toString());
-      if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Failed to save profile. Please try again.',
+        message: 'Country is required',
         isError: true,
       );
+      return;
+    }
+
+    if (address2.length > 150) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Address Line 2 cannot exceed 150 characters',
+        isError: true,
+      );
+      return;
+    }
+
+    // Build request body matching my-profile PATCH contract.
+    final body = <String, dynamic>{
+      'firstName': first,
+      'lastName': last,
+      'phoneNumber': '+$phoneDigits',
+      'addressStreet': street,
+      'addressLine2': address2,
+      'addressCity': city,
+      'addressState': _selectedState ?? '',
+      'addressZipCode': zipDigits,
+      'addressCountry': 'United States',
+    };
+
+    final cubit = context.read<EditUserProfileCubit>();
+    final result = await cubit.saveProfile(
+      fields: body,
+      email: email,
+      isParent: widget.isParent,
+    );
+    if (!mounted) return;
+
+    switch (result) {
+      case EditProfileSaveResult.success:
+        final message = (cubit.lastSaveMessage ?? '').trim();
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              message.isNotEmpty ? message : 'Profile updated successfully',
+          isSuccess: true,
+        );
+        // Pop with result so caller can refresh profile details.
+        Navigator.pop(context, true);
+      case EditProfileSaveResult.unresolvedStaff:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: widget.isParent
+              ? 'Unable to resolve your profile. Please try again.'
+              : 'Unable to resolve staff profile. Please try again.',
+          isError: true,
+        );
+      case EditProfileSaveResult.failed:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to save profile. Please try again.',
+          isError: true,
+        );
     }
   }
 
@@ -421,8 +441,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     return input
         .toLowerCase()
         .split(RegExp(r'\s+'))
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -431,162 +454,170 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
     final responsive = ResponsiveHelper(context);
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
-    return StaffFormLayout(
-      title: 'Edit My Profile',
-      child: SingleChildScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _buildInputField(
-                    "First Name",
-                    "E.g. John",
-                    _firstNameController,
-                    isRequired: true,
+    final isSubmitting = context
+        .watch<EditUserProfileCubit>()
+        .state
+        .isSubmitting;
+    return BlocListener<EditUserProfileCubit, EditUserProfileState>(
+      listener: _onCubitState,
+      child: StaffFormLayout(
+        title: 'Edit My Profile',
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: _buildInputField(
+                      "First Name",
+                      "E.g. John",
+                      _firstNameController,
+                      isRequired: true,
+                    ),
                   ),
-                ),
-                SizedBox(width: responsive.horizontalSpacing),
-                Expanded(
-                  child: _buildInputField(
-                    "Last Name",
-                    "E.g. Smith",
-                    _lastNameController,
-                    isRequired: true,
+                  SizedBox(width: responsive.horizontalSpacing),
+                  Expanded(
+                    child: _buildInputField(
+                      "Last Name",
+                      "E.g. Smith",
+                      _lastNameController,
+                      isRequired: true,
+                    ),
                   ),
+                ],
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Email",
+                "E.g. Jessica@wowcare.com",
+                _emailController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Phone Number",
+                "E.g. (000) 000-0000",
+                _phoneNoController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Street",
+                "Eg. Street no",
+                _streetController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Address line 2",
+                "E.g. Address line 2",
+                _addressLine2Controller,
+                isRequired: false,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "City",
+                "Eg. Nashua",
+                _cityController,
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildCustomDropdown(
+                "State",
+                "Select",
+                _stateOptions,
+                _selectedState,
+                (v) => setState(() => _selectedState = v),
+                isRequired: true,
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              Opacity(
+                opacity: 0.8,
+                child: CustomDropdown(
+                  label: "Country",
+                  hintText: 'United States',
+                  items: const <String>['United States'],
+                  selectedItem: 'United States',
+                  isEnabled: false,
+                  showAsterisk: true,
+                  labelStyle: TextStyle(
+                    fontSize: responsive.labelFontSize + 1,
+                    fontFamily: "Manrope",
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xff573353),
+                  ),
+                  selectedTextStyle: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.inputFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey.shade700,
+                    height: 19 / 14,
+                  ),
+                  popupItemTextStyle: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.inputFontSize,
+                    fontWeight: FontWeight.w400,
+                    color: const Color(0xff573353),
+                  ),
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: responsive.isTablet ? 16.0 : 12.0,
+                    vertical: responsive.isTablet ? 16.0 : 12.0,
+                  ),
+                  onSelect: null,
                 ),
-              ],
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+              _buildInputField(
+                "Zip Code",
+                "E.g. 12345 or 12345-6789",
+                _zipCodeController,
+                isRequired: true,
+              ),
+            ],
+          ),
+        ),
+        bottomBar: Container(
+          padding: EdgeInsets.only(
+            bottom: safeAreaBottom,
+            left: 16,
+            right: 16,
+            top: 8,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                offset: const Offset(0, -4),
+                blurRadius: 16,
+              ),
+            ],
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+              topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
             ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Email",
-              "E.g. Jessica@wowcare.com",
-              _emailController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Phone Number",
-              "E.g. (000) 000-0000",
-              _phoneNoController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Street",
-              "Eg. Street no",
-              _streetController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Address line 2",
-              "E.g. Address line 2",
-              _addressLine2Controller,
-              isRequired: false,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "City",
-              "Eg. Nashua",
-              _cityController,
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildCustomDropdown(
-              "State",
-              "Select",
-              _stateOptions,
-              _selectedState,
-              (v) => setState(() => _selectedState = v),
-              isRequired: true,
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            Opacity(
-              opacity: 0.8,
-              child: CustomDropdown(
-                label: "Country",
-                hintText: 'United States',
-                items: const <String>['United States'],
-                selectedItem: 'United States',
-                isEnabled: false,
-                showAsterisk: true,
-                labelStyle: TextStyle(
-                  fontSize: responsive.labelFontSize + 1,
-                  fontFamily: "Manrope",
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xff573353),
-                ),
-                selectedTextStyle: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.inputFontSize,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade700,
-                  height: 19 / 14,
-                ),
-                popupItemTextStyle: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: responsive.inputFontSize,
-                  fontWeight: FontWeight.w400,
-                  color: const Color(0xff573353),
-                ),
-                contentPadding: EdgeInsets.symmetric(
-                  horizontal: responsive.isTablet ? 16.0 : 12.0,
-                  vertical: responsive.isTablet ? 16.0 : 12.0,
-                ),
-                onSelect: null,
+          ),
+          child: Container(
+            height: responsive.buttonHeight,
+            decoration: BoxDecoration(
+              gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
+              color: isSubmitting ? Colors.grey[300] : null,
+              borderRadius: BorderRadius.circular(
+                responsive.isTablet ? 16.0 : 8.0,
               ),
             ),
-            SizedBox(height: responsive.verticalSpacing),
-            _buildInputField(
-              "Zip Code",
-              "E.g. 12345 or 12345-6789",
-              _zipCodeController,
-              isRequired: true,
-            ),
-          ],
-        ),
-      ),
-      bottomBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
-            ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: Container(
-          height: responsive.buttonHeight,
-          decoration: BoxDecoration(
-            gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-            color: _isSubmitting ? Colors.grey[300] : null,
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
-          ),
-          child: TextButton(
-            onPressed: _isSubmitting ? null : () => _saveProfileDetails(),
-            child: Text(
-              'Save',
-              style: TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: responsive.buttonFontSize,
-                fontWeight: FontWeight.w600,
-                color: Colors.white,
+            child: TextButton(
+              onPressed: isSubmitting ? null : () => _saveProfileDetails(),
+              child: Text(
+                'Save',
+                style: TextStyle(
+                  fontFamily: 'Manrope',
+                  fontSize: responsive.buttonFontSize,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -596,11 +627,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   }
 
   Widget _buildInputField(
-      String label,
-      String hint,
-      TextEditingController controller, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hint,
+    TextEditingController controller, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
       fontSize: responsive.labelFontSize + 1,
@@ -617,7 +648,11 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              if (isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -627,15 +662,17 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
             keyboardType: label == 'Zip Code'
                 ? TextInputType.number
                 : (label == 'Phone Number'
-                    ? TextInputType.phone
-                    : TextInputType.text),
+                      ? TextInputType.phone
+                      : TextInputType.text),
             inputFormatters: label == 'Zip Code'
                 ? <TextInputFormatter>[
                     FilteringTextInputFormatter.digitsOnly,
@@ -643,12 +680,12 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
                     _ZipCodeFormatter(),
                   ]
                 : (label == 'Phone Number'
-                    ? <TextInputFormatter>[
-                        FilteringTextInputFormatter.digitsOnly,
-                        LengthLimitingTextInputFormatter(10),
-                        _UserPhoneNumberFormatter(),
-                      ]
-                    : const <TextInputFormatter>[]),
+                      ? <TextInputFormatter>[
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(10),
+                          _UserPhoneNumberFormatter(),
+                        ]
+                      : const <TextInputFormatter>[]),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),
@@ -672,13 +709,13 @@ class _EditUserProfileScreenState extends State<EditUserProfileScreen> {
   }
 
   Widget _buildCustomDropdown(
-      String label,
-      String hintText,
-      List<String> items,
-      String? selectedItem,
-      ValueChanged<String?> onSelect, {
-        bool isRequired = false,
-      }) {
+    String label,
+    String hintText,
+    List<String> items,
+    String? selectedItem,
+    ValueChanged<String?> onSelect, {
+    bool isRequired = false,
+  }) {
     final responsive = ResponsiveHelper(context);
     return CustomDropdown(
       label: label,

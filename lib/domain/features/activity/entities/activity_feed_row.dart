@@ -16,8 +16,13 @@ class ActivityFeedRow extends Equatable {
     this.studentMiddleName,
     required this.studentLastName,
     required this.createdBy,
+    this.staffCode,
     required this.parameterValues,
     required this.attachments,
+    this.students = const [],
+    this.napStart,
+    this.napEnd,
+    this.approvalStatus,
   });
 
   /// Present on feed rows and on `GET /api/v1/activities/code/{code}` — used for edit/PATCH.
@@ -32,10 +37,22 @@ class ActivityFeedRow extends Equatable {
   final String? studentMiddleName;
   final String studentLastName;
   final String createdBy;
+  final String? staffCode;
   final List<Map<String, dynamic>> parameterValues;
   final List<Map<String, dynamic>> attachments;
+  final List<Map<String, String>> students;
+  final bool? napStart;
+  final bool? napEnd;
+  final String? approvalStatus;
 
   factory ActivityFeedRow.fromActivityDetail(ActivityDetail d) {
+    final firstName = d.studentFirstName.trim();
+    final middleName = (d.studentMiddleName ?? '').trim();
+    final lastName = d.studentLastName.trim();
+    final fullName = [firstName, middleName, lastName]
+        .where((p) => p.isNotEmpty)
+        .join(' ')
+        .trim();
     return ActivityFeedRow(
       activityCode: d.code,
       studentCode: d.studentCode,
@@ -48,12 +65,32 @@ class ActivityFeedRow extends Equatable {
       studentMiddleName: d.studentMiddleName,
       studentLastName: d.studentLastName,
       createdBy: d.createdBy,
+      staffCode: d.staffCode.trim().isEmpty ? null : d.staffCode.trim(),
       parameterValues: d.parameterValues,
       attachments: d.attachments,
+      napStart: null,
+      napEnd: null,
+      approvalStatus: d.approvalStatus,
+      students: fullName.isEmpty
+          ? const []
+          : [
+              {
+                'name': fullName,
+                if ((d.studentCode ?? '').trim().isNotEmpty)
+                  'studentCode': d.studentCode!.trim(),
+              },
+            ],
     );
   }
 
   String get studentDisplayName {
+    if (students.isNotEmpty) {
+      final names = students
+          .map((s) => (s['name'] ?? '').trim())
+          .where((s) => s.isNotEmpty)
+          .toList();
+      if (names.isNotEmpty) return names.join(', ');
+    }
     final parts = [
       studentFirstName.trim(),
       (studentMiddleName ?? '').trim(),
@@ -75,8 +112,13 @@ class ActivityFeedRow extends Equatable {
         studentMiddleName,
         studentLastName,
         createdBy,
+        staffCode,
         parameterValues,
         attachments,
+        students,
+        napStart,
+        napEnd,
+        approvalStatus,
       ];
 }
 

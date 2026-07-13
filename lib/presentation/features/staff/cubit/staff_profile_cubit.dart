@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -19,8 +20,10 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
   Future<void> loadInitial(String staffCode) async {
     // Try cache first
     final cached = await (_repository is StaffRepositoryWithCache
-        ? (_repository as StaffRepositoryWithCache)
-            .loadCachedStaffProfile(staffCode)
+        ? (_repository as StaffRepositoryWithCache).loadCachedStaffProfile(
+            staffCode,
+            forEditStaff: true,
+          )
         : Future.value(null));
 
     if (cached != null && !isClosed) {
@@ -71,7 +74,7 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }

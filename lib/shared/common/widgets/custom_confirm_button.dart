@@ -41,18 +41,22 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isEnabled = widget.onPressed != null;
+
     return Container(
       width: double.infinity,
       height: 48,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
-        gradient: AppColors.buildPrimaryGradient(),
+        gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
+        color: isEnabled ? null : Colors.grey[300],
       ),
       child: TextButton(
-        onPressed: _isLoading ? null : _handlePress,
+        onPressed: (isEnabled && !_isLoading) ? _handlePress : null,
         style: TextButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: Colors.white,
+          foregroundColor: isEnabled ? Colors.white : Colors.grey[600],
+          disabledForegroundColor: Colors.grey[600],
           padding: const EdgeInsets.symmetric(vertical: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(8),
@@ -70,10 +74,10 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
             : widget.widget ??
                 Text(
                   widget.label,
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: isEnabled ? Colors.white : Colors.grey[600],
                   ),
                 ),
       ),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter/foundation.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -12,14 +13,10 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'dart:convert';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
-enum StudentFilterSection {
-  classroom,
-  status,
-  tags,
-  parents,
-  attendance,
-}
+enum StudentFilterSection { classroom, status, tags, parents, attendance }
 
 class StudentFilterScreen extends StatefulWidget {
   const StudentFilterScreen({
@@ -66,7 +63,12 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   final List<String> _statusList = const ['Active', 'Inactive', 'Upcoming'];
   List<String> _tagsList = const [];
   List<String> _parentsList = const [];
-  final List<String> _attendanceList = const ['Expected', 'Present', 'Absent'];
+  final List<String> _attendanceList = const [
+    'Sign In',
+    'Sign Out',
+    'Not Marked',
+    'Absent',
+  ];
 
   // Selected
   List<String> _selectedClassroomList = [];
@@ -78,6 +80,15 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   late final GetGuardianNamesForSchoolUseCase _getGuardianNamesForSchoolUseCase;
   late final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase;
   late final StorageService _storageService;
+  String _staffDesignationLower = '';
+  Set<String> _allowedClassroomCodes = <String>{};
+
+  static const Set<String> _restrictedDesignationLabelsLower = <String>{
+    'associate teacher',
+    'assistant teacher',
+    'floater',
+    'lead teacher',
+  };
 
   @override
   void initState() {
@@ -88,13 +99,20 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     _getTagNamesForSchoolUseCase =
         serviceLocator<GetTagNamesForSchoolUseCase>();
     _storageService = serviceLocator<StorageService>();
+    _preloadStaffScope();
 
     final initial = widget.initialFilters ?? const {};
-    _selectedClassroomList = List<String>.from(initial['Classroom'] ?? const []);
-    _selectedStatusList = List<String>.from(initial['Status'] ?? const ['Active']);
+    _selectedClassroomList = List<String>.from(
+      initial['Classroom'] ?? const [],
+    );
+    _selectedStatusList = List<String>.from(
+      initial['Status'] ?? const ['Active'],
+    );
     _selectedTagsList = List<String>.from(initial['Tags'] ?? const []);
     _selectedParentsList = List<String>.from(initial['Parents'] ?? const []);
-    _selectedAttendanceList = List<String>.from(initial['Attendance'] ?? const []);
+    _selectedAttendanceList = List<String>.from(
+      initial['Attendance'] ?? const [],
+    );
 
     if (widget.sections.contains(StudentFilterSection.status)) {
       if (_selectedStatusList.isEmpty) {
@@ -115,8 +133,54 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     }
   }
 
+  Future<void> _preloadStaffScope() async {
+    try {
+      final d =
+          (await _storageService.getString(StorageKeys.staffDesignation) ?? '')
+              .trim()
+              .toLowerCase()
+              .replaceAll('_', ' ');
+      final raw =
+          (await _storageService.getString(
+                    StorageKeys.staffAllowedClassroomCodes,
+                  ) ??
+                  '')
+              .trim();
+      final codes = <String>{};
+      if (raw.isNotEmpty) {
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is List) {
+            for (final e in decoded) {
+              if (e is String) {
+                final c = e.trim();
+                if (c.isNotEmpty) codes.add(c);
+              } else if (e is Map) {
+                final m = Map<String, dynamic>.from(e);
+                final c = (m['code'] ?? m['classroomCode'] ?? '')
+                    .toString()
+                    .trim();
+                if (c.isNotEmpty) codes.add(c);
+              }
+            }
+          }
+        } catch (_) {}
+      }
+      if (!mounted) return;
+      setState(() {
+        _staffDesignationLower = d;
+        _allowedClassroomCodes = codes;
+      });
+    } catch (_) {
+      // Non-blocking
+    }
+  }
+
   void _fetchFilterData() {
-    context.read<ClassroomCubit>().loadActiveClassrooms();
+    context.read<ClassroomCubit>().loadActiveClassrooms(
+      force: true,
+      applyAttendanceStaffScope: true,
+    );
   }
 
   Future<void> _loadTags() async {
@@ -125,16 +189,14 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           await _storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final names =
-          await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
+      final names = await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
       if (!mounted) return;
 
       // Names list is enough for UI; codes are resolved when applying filters
       // by using the same names and a separate codes lookup if needed.
       setState(() {
         _tagsList = names;
-        _selectedTagsList
-            .removeWhere((tag) => !_tagsList.contains(tag));
+        _selectedTagsList.removeWhere((tag) => !_tagsList.contains(tag));
       });
     } catch (_) {
       // Non-critical for filters; ignore errors.
@@ -147,14 +209,16 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
           await _storageService.getString(StorageKeys.schoolCode) ?? '';
       if (schoolCode.isEmpty) return;
 
-      final names =
-          await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      final names = await _getGuardianNamesForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
       if (!mounted) return;
 
       setState(() {
         _parentsList = names;
-        _selectedParentsList
-            .removeWhere((parent) => !_parentsList.contains(parent));
+        _selectedParentsList.removeWhere(
+          (parent) => !_parentsList.contains(parent),
+        );
       });
     } catch (_) {
       // For filter dropdowns this is non-critical; ignore errors silently.
@@ -179,9 +243,7 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
       result['Attendance'] = List<String>.from(_selectedAttendanceList);
     }
 
-    Navigator.pop<Map<String, List<String>>>(context, {
-      ...result,
-    });
+    Navigator.pop<Map<String, List<String>>>(context, {...result});
   }
 
   @override
@@ -217,16 +279,32 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   Widget _buildFilterContent() {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
-        final classroomNames = classroomState.classrooms.map((c) => c.name).toList();
+        final role = context.watch<RoleCubit>();
+        final restrictToAllowed =
+            role.isStaff &&
+            _restrictedDesignationLabelsLower.contains(
+              _staffDesignationLower,
+            ) &&
+            _allowedClassroomCodes.isNotEmpty;
 
-        // Update classroom list once we have data.
-        if (classroomNames.isNotEmpty && _classroomList.isEmpty) {
+        final classroomNames = restrictToAllowed
+            ? classroomState.classrooms
+                  .where((c) => _allowedClassroomCodes.contains(c.code.trim()))
+                  .map((c) => c.name)
+                  .toList()
+            : classroomState.classrooms.map((c) => c.name).toList();
+
+        // Keep classroom list in sync with the current scope (all vs allowed-only).
+        // Previously we only set it once, which caused "all classrooms" to stick.
+        final nextClassroomList = List<String>.from(classroomNames);
+        if (!listEquals(nextClassroomList, _classroomList)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             setState(() {
-              _classroomList = List<String>.from(classroomNames);
-              _selectedClassroomList
-                  .removeWhere((item) => !_classroomList.contains(item));
+              _classroomList = nextClassroomList;
+              _selectedClassroomList.removeWhere(
+                (item) => !_classroomList.contains(item),
+              );
             });
           });
         }
@@ -263,7 +341,10 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
 
         // Consider API-driven data (classrooms, tags, parents) independently.
         // Even if one API fails, the others can still populate their dropdowns.
+        // Status options are always available; allow rendering when only Status/Tags are shown
+        // even if tag names are still loading (tags dropdown can populate after).
         final hasAnyApiData =
+            widget.sections.contains(StudentFilterSection.status) ||
             (widget.sections.contains(StudentFilterSection.classroom) &&
                 _classroomList.isNotEmpty) ||
             (widget.sections.contains(StudentFilterSection.tags) &&
@@ -287,23 +368,29 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
               final items = _optionsFor(section);
               final selected = _selectedFor(section);
 
+              // Select All on every multi-select filter (Classroom, Tags,
+              // Parents, Attendance). Status is single-select, so it doesn't
+              // get a Select All row.
+              final showSelectAll = section != StudentFilterSection.status;
+
               return CustomMultiSelectDropdown(
                 label: label,
                 hintText: 'Select',
+                showSelectAll: showSelectAll,
                 items: items,
                 selectedItems: selected,
                 onChanged: (selectedItems) {
                   setState(() {
-                    final isSingleSelect = section == StudentFilterSection.status ||
-                        section == StudentFilterSection.attendance;
+                    final isSingleSelect =
+                        section == StudentFilterSection.status;
 
                     selected
                       ..clear()
                       ..addAll(
                         isSingleSelect
                             ? (selectedItems.isEmpty
-                                ? const <String>[]
-                                : <String>[selectedItems.last])
+                                  ? const <String>[]
+                                  : <String>[selectedItems.last])
                             : selectedItems,
                       );
 
@@ -351,4 +438,3 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     );
   }
 }
-

@@ -10,6 +10,7 @@ class InputWidget extends StatefulWidget {
     this.hint,
     this.height,
     this.readOnly = false,
+    this.maxLength,
   });
   final String label;
   final String? hint;
@@ -17,6 +18,8 @@ class InputWidget extends StatefulWidget {
   final bool isRequired;
   final double? height;
   final bool readOnly;
+  /// When set, enforces character limit and shows a counter (e.g. 500 for activities).
+  final int? maxLength;
 
   @override
   State<InputWidget> createState() => _InputWidgetState();
@@ -56,6 +59,38 @@ class _InputWidgetState extends State<InputWidget> {
             controller: widget.controller,
             readOnly: widget.readOnly,
             enableInteractiveSelection: !widget.readOnly,
+            keyboardType: (widget.height != null && widget.height! > 48)
+                ? TextInputType.multiline
+                : TextInputType.text,
+            textInputAction: (widget.height != null && widget.height! > 48)
+                ? TextInputAction.newline
+                : TextInputAction.done,
+            minLines: (widget.height != null && widget.height! > 48) ? 3 : 1,
+            maxLines: (widget.height != null && widget.height! > 48) ? 8 : 1,
+            textAlignVertical: (widget.height != null && widget.height! > 48)
+                ? TextAlignVertical.top
+                : TextAlignVertical.center,
+            maxLength: widget.maxLength,
+            buildCounter: widget.maxLength == null
+                ? null
+                : (
+                    BuildContext context, {
+                    required int currentLength,
+                    required bool isFocused,
+                    required int? maxLength,
+                  }) {
+                    if (maxLength == null) return null;
+                    return Padding(
+                      padding: const EdgeInsets.only(right: 12, bottom: 6),
+                      child: Text(
+                        '$currentLength / $maxLength',
+                        style: labelStyle.copyWith(
+                          fontSize: 11,
+                          color: const Color(0xff573353).withValues(alpha: 0.55),
+                        ),
+                      ),
+                    );
+                  },
             decoration: InputDecoration(
               hintText: widget.hint,
               hintStyle: labelStyle.copyWith(color: Colors.grey),

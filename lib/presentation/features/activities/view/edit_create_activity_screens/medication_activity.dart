@@ -1,29 +1,31 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
 import '../../../../../app/di/di.dart';
-import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/storage_keys.dart';
-import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/activity/usecases/create_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_activity_usecase.dart';
-import '../../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../../domain/features/activity/usecases/update_activity_usecase.dart';
+import '../../cubit/medication_activity_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
+import '../../widgets/activity_edit_student_scope_checkboxes.dart';
 import '../../widgets/activity_student_display_tile.dart';
-import '../../utils/resolve_logged_in_staff_code.dart';
+import '../../utils/activity_description_limits.dart';
+import '../../utils/activity_selected_date_prefill.dart';
+import '../utils/activity_attendance_window_validator.dart';
+import '../../utils/activity_staff_display.dart';
 import '../activity_daily_tab.dart';
-import '../activity_feed_screen.dart';
+import '../widgets/activity_admin_approve_reject_bar.dart';
 
-class MedicationActivityScreen extends StatefulWidget {
+/// Medication activity create/edit/view form. All form state and the
+/// create/update/approve/reject flow live in [MedicationActivityCubit]; this
+/// widget is a pure view over that state with no `setState`. It stays a
+/// `StatefulWidget` only to own the description `TextEditingController`.
+class MedicationActivityScreen extends StatelessWidget {
   const MedicationActivityScreen({
     super.key,
     this.selectedStudents,
@@ -37,635 +39,344 @@ class MedicationActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<MedicationActivityScreen> createState() => _MedicationActivityScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<MedicationActivityCubit>(
+      create: (_) => serviceLocator<MedicationActivityCubit>()
+        ..init(
+          isEdit: isEdit,
+          readOnly: readOnly,
+          activityData: activityData,
+          selectedStudents: selectedStudents,
+        ),
+      child: _MedicationActivityView(
+        isEdit: isEdit,
+        readOnly: readOnly,
+        activityData: activityData,
+      ),
+    );
+  }
 }
 
-class _MedicationActivityScreenState extends State<MedicationActivityScreen> {
+class _MedicationActivityView extends StatefulWidget {
+  const _MedicationActivityView({
+    required this.isEdit,
+    required this.readOnly,
+    required this.activityData,
+  });
+
+  final bool isEdit;
+  final bool readOnly;
+  final ActivityItem? activityData;
+
+  @override
+  State<_MedicationActivityView> createState() =>
+      _MedicationActivityViewState();
+}
+
+class _MedicationActivityViewState extends State<_MedicationActivityView> {
+  late final TextEditingController _descriptionController =
+      TextEditingController(
+    text: (widget.isEdit || widget.readOnly)
+        ? (widget.activityData?.description ?? '')
+        : '',
+  );
+
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
 
-  List<Map<String, dynamic>> _selectedStudentsData = [];
-  late final List<String> _selectedStudents;
-  final TextEditingController _descriptionController = TextEditingController();
-  DateTime? _activityDate;
-  TimeOfDay? _activityTime;
-  String? _activityTypeCode;
-  String _staffName = '';
-  String? _staffCode;
-  String? _schoolCode;
-  String? _organizationCode;
-  bool _isSubmitting = false;
-  bool _loadingActivityDetail = false;
-  ActivityItem? _liveActivity;
-
-  late final GetClassroomActivitySettingsUseCase _getActivitySettingsUseCase;
-  late final GetActivityTypeDetailsUseCase _getActivityTypeDetailsUseCase;
-  late final CreateActivityUseCase _createActivityUseCase;
-  late final GetActivityUseCase _getActivityUseCase;
-  late final UpdateActivityUseCase _updateActivityUseCase;
-
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
-
-  @override
-  void initState() {
-    super.initState();
-    _getActivitySettingsUseCase =
-        serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _getActivityTypeDetailsUseCase =
-        serviceLocator<GetActivityTypeDetailsUseCase>();
-    _createActivityUseCase = serviceLocator<CreateActivityUseCase>();
-    _getActivityUseCase = serviceLocator<GetActivityUseCase>();
-    _updateActivityUseCase = serviceLocator<UpdateActivityUseCase>();
-
-    if(widget.selectedStudents != null){
-      _selectedStudentsData = List.from(widget.selectedStudents!);
-      _selectedStudents = _selectedStudentsData.map((student) => student['name'] as String).toList();
-      _loadActivityContextForCreate();
-    } else if (_layoutAsEdit) {
-      final activity = widget.activityData!;
-      _liveActivity = activity;
-      _selectedStudents = List<String>.from(activity.studentList);
-      _selectedStudentsData = studentDataMapsForActivityEdit(activity);
-      _descriptionController.text = activity.description ?? '';
-      _activityTypeCode = activity.activityTypeCode;
-      final iso = activity.activityDateIso;
-      if (iso != null && iso.trim().isNotEmpty) {
-        try {
-          final dt = DateTime.parse(iso.trim()).toLocal();
-          _activityDate = DateTime(dt.year, dt.month, dt.day);
-          _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-        } catch (_) {}
-      }
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        await _prefetchActivityForEdit();
-      });
-    }
-    _loadStaffContext();
-  }
-
-  Future<void> _prefetchActivityForEdit() async {
-    if (!_layoutAsEdit || !mounted) return;
-    final code = widget.activityData?.activityCode?.trim();
-    if (code == null || code.isEmpty) return;
-    setState(() => _loadingActivityDetail = true);
-    try {
-      final detail = await _getActivityUseCase(code: code);
-      if (!mounted) return;
-      final item = activityItemFromActivityDetail(detail);
-      setState(() {
-        _liveActivity = item;
-        _selectedStudents = List<String>.from(item.studentList);
-        _selectedStudentsData = studentDataMapsForActivityEdit(item);
-        _descriptionController.text = item.description ?? '';
-        _activityTypeCode = item.activityTypeCode;
-        final nextIso = item.activityDateIso;
-        if (nextIso != null && nextIso.trim().isNotEmpty) {
-          try {
-            final dt = DateTime.parse(nextIso.trim()).toLocal();
-            _activityDate = DateTime(dt.year, dt.month, dt.day);
-            _activityTime = TimeOfDay(hour: dt.hour, minute: dt.minute);
-          } catch (_) {}
-        }
-      });
-    } catch (e) {
-      CoreUtils.logApiError('Prefetch activity for edit: $e');
-    } finally {
-      if (mounted) setState(() => _loadingActivityDetail = false);
-    }
-  }
-
-  void _removeStudent(String name) {
-    setState(() {
-      _selectedStudents.remove(name);
-
-      // If no students left, go back to previous screen
-      if (_selectedStudents.isEmpty) {
-        Navigator.of(context).pop();
-      }
-    });
-  }
   @override
   void dispose() {
     _descriptionController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final displayName =
-        (await storage.getString(StorageKeys.displayName) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final staffCode = await resolveLoggedInStaffCode();
+  MedicationActivityCubit get _cubit => context.read<MedicationActivityCubit>();
 
-    if (!mounted) return;
-    setState(() {
-      _staffName = displayName.isNotEmpty ? displayName : 'Staff';
-      _staffCode = staffCode;
-      _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
-    });
-  }
-
-  Future<void> _loadActivityContextForCreate() async {
-    if (widget.selectedStudents == null || widget.selectedStudents!.isEmpty) {
-      return;
-    }
-    final first = widget.selectedStudents!.first;
-    final dynamic classroomCodeDynamic =
-        first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
-    if (classroomCode.isEmpty) return;
-
-    try {
-      final List<ActivitySetting> settings =
-          await _getActivitySettingsUseCase(classroomCode: classroomCode);
-      ActivitySetting? medicationSetting;
-      for (final s in settings) {
-        final name = s.activityTypeName.toLowerCase();
-        if (name.contains('medication')) {
-          medicationSetting = s;
-          break;
-        }
-      }
-      if (medicationSetting != null && mounted) {
-        setState(() {
-          _activityTypeCode = medicationSetting!.activityTypeCode;
-        });
-      }
-    } catch (e) {
-      CoreUtils.logApiError('Failed to load activity settings for Medication: $e');
-    }
-  }
-
-  Future<void> _submitCreateActivity() async {
-    if (_isSubmitting) return;
-    if (_layoutAsEdit) return;
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final studentCodes = _selectedStudentsData
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Medication. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
+  Future<bool> _validateAttendanceWindow() {
+    return validateStudentsWithinAttendanceWindow(
+      context: context,
+      students: _cubit.state.selectedStudentsData,
+      selectedDate: _cubit.activityDate,
+      selectedTime: _cubit.activityTime,
     );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      // Build parameterValues in backend-required shape:
-      // [{ "parameterCode": "...", "value": ... }, ...]
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
-
-      String? findParamCode(String contains) {
-        final target = contains.toLowerCase();
-        for (final p in details.parameters) {
-          final name = p.parameterName.toLowerCase();
-          if (name.contains(target)) return p.code;
-        }
-        return null;
-      }
-
-      final dateParamCode = findParamCode('date');
-      final timeParamCode = findParamCode('time');
-      final staffParamCode = findParamCode('staff');
-      final descParamCode = findParamCode('description');
-
-      String two(int v) => v.toString().padLeft(2, '0');
-      final localDate =
-          '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
-
-      final parameterValues = <Map<String, dynamic>>[
-        if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
-        if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
-        if (staffParamCode != null &&
-            staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
-        if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
-      ];
-
-      final message = await _createActivityUseCase(
-        activityTypeCode: activityTypeCode,
-        classroomCode: classroomCode,
-        studentCodes: studentCodes,
-        staffCode: staffCode,
-        schoolCode: schoolCode,
-        organizationCode: organizationCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: const [],
-      );
-
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: e.toString(),
-        isError: true,
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-    }
-  }
-
-  Future<void> _submitUpdateActivity() async {
-    if (_isSubmitting) return;
-    if (widget.readOnly) return;
-    final activityCode = _effectiveActivity.activityCode?.trim();
-    if (activityCode == null || activityCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing activity reference. Refresh the activity list and try again.',
-        isError: true,
-      );
-      return;
-    }
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final description = _descriptionController.text.trim();
-    if (description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    if (staffCode == null || staffCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Medication. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final combinedDateTime = DateTime(
-      _activityDate!.year,
-      _activityDate!.month,
-      _activityDate!.day,
-      _activityTime!.hour,
-      _activityTime!.minute,
-    );
-    final activityDateIso = combinedDateTime.toUtc().toIso8601String();
-
-    setState(() => _isSubmitting = true);
-    try {
-      final details =
-          await _getActivityTypeDetailsUseCase(code: activityTypeCode);
-
-      String? findParamCode(String contains) {
-        final target = contains.toLowerCase();
-        for (final p in details.parameters) {
-          final name = p.parameterName.toLowerCase();
-          if (name.contains(target)) return p.code;
-        }
-        return null;
-      }
-
-      final dateParamCode = findParamCode('date');
-      final timeParamCode = findParamCode('time');
-      final staffParamCode = findParamCode('staff');
-      final descParamCode = findParamCode('description');
-
-      String two(int v) => v.toString().padLeft(2, '0');
-      final localDate =
-          '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
-
-      final parameterValues = <Map<String, dynamic>>[
-        if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
-          {'parameterCode': dateParamCode, 'value': localDate},
-        if (timeParamCode != null && timeParamCode.trim().isNotEmpty)
-          {'parameterCode': timeParamCode, 'value': localTime},
-        if (staffParamCode != null &&
-            staffParamCode.trim().isNotEmpty &&
-            staffCode.trim().isNotEmpty)
-          {'parameterCode': staffParamCode, 'value': staffCode},
-        if (descParamCode != null && descParamCode.trim().isNotEmpty)
-          {'parameterCode': descParamCode, 'value': description},
-      ];
-
-      final message = await _updateActivityUseCase(
-        code: activityCode,
-        staffCode: staffCode,
-        activityDate: activityDateIso,
-        description: description,
-        parameterValues: parameterValues,
-        attachments: const [],
-      );
-
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-      Navigator.of(context).popUntil((route) {
-        return route.settings.name == ActivityFeedScreen.routeName;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: e.toString(),
-        isError: true,
-      );
-    } finally {
-      if (mounted) setState(() => _isSubmitting = false);
-    }
   }
 
   Future<void> _onSaveOrAddPressed() async {
-    if (_isSubmitting) return;
-    if (widget.readOnly) return;
+    if (_cubit.state.isSubmitting || widget.readOnly) return;
+    final outcome = widget.isEdit
+        ? await _cubit.submitUpdate(
+            description: _descriptionController.text,
+            onValidateAttendanceWindow: _validateAttendanceWindow,
+          )
+        : await _cubit.submitCreate(
+            description: _descriptionController.text,
+            onValidateAttendanceWindow: _validateAttendanceWindow,
+          );
+    _handleOutcome(outcome);
+  }
 
-    if (widget.isEdit) {
-      await _submitUpdateActivity();
-      return;
+  Future<void> _approve() async {
+    final outcome = await _cubit.approve(
+      description: _descriptionController.text,
+      onValidateAttendanceWindow: _validateAttendanceWindow,
+    );
+    _handleOutcome(outcome);
+  }
+
+  Future<void> _reject() async {
+    _handleOutcome(await _cubit.reject());
+  }
+
+  void _handleOutcome(ActivityFormOutcome outcome) {
+    if (!mounted) return;
+    switch (outcome.type) {
+      case ActivityFormResultType.warning:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: outcome.message,
+          isWarning: true,
+        );
+      case ActivityFormResultType.error:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: outcome.message,
+          isError: true,
+        );
+      case ActivityFormResultType.successExit:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: outcome.message,
+          isSuccess: true,
+        );
+        CoreUtils.exitActivityFlow(context);
+      case ActivityFormResultType.successPop:
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: outcome.message,
+          isSuccess: true,
+        );
+        Navigator.of(context).pop(true);
+      case ActivityFormResultType.noop:
+        break;
     }
+  }
 
-    await _submitCreateActivity();
+  void _removeStudent(String name) {
+    _cubit.removeStudent(name);
+    if (_cubit.state.selectedStudents.isEmpty) {
+      Navigator.of(context).pop();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    return StaffFormLayout(
-      title: 'Medication',
-      child: SingleChildScrollView(
-        physics: AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10,),
-            if (_layoutAsEdit)
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 50,
-                ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  return ActivityStudentDisplayTile(
-                    name: _selectedStudents[index],
-                  );
-                },
-              )
-            else
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
-                ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  final String name = _selectedStudents[index];
-                  return SelectedStudentTile(
-                    name: name,
-                    onTap: () => _removeStudent(name),
-                  );
-                },
+    return BlocListener<MedicationActivityCubit, MedicationActivityState>(
+      // Sync the description controller when the activity detail is (re)loaded.
+      listenWhen: (prev, curr) => prev.liveActivity != curr.liveActivity,
+      listener: (context, state) {
+        final desc = state.liveActivity?.description ?? '';
+        if (_descriptionController.text != desc) {
+          _descriptionController.text = desc;
+        }
+      },
+      child: BlocBuilder<MedicationActivityCubit, MedicationActivityState>(
+        builder: (context, state) {
+          final cubit = context.read<MedicationActivityCubit>();
+          final selectedStudents = state.selectedStudents;
+          final effectiveActivity = cubit.effectiveActivity;
+
+          return StaffFormLayout(
+            title: 'Medication',
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const SizedBox(height: 10),
+                  if (_layoutAsEdit &&
+                      !(widget.isEdit &&
+                          !widget.readOnly &&
+                          selectedStudents.length > 1))
+                    GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: responsive.isTablet ? 3 : 2,
+                        crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                        mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                        mainAxisExtent: 64,
+                      ),
+                      itemCount: selectedStudents.length,
+                      itemBuilder: (context, index) {
+                        return ActivityStudentDisplayTile(
+                          name: selectedStudents[index],
+                          studentCode: index < state.selectedStudentsData.length
+                              ? state.selectedStudentsData[index]['studentCode']
+                                  as String?
+                              : null,
+                        );
+                      },
+                    )
+                  else if (!_layoutAsEdit)
+                    GridView.builder(
+                      physics: const NeverScrollableScrollPhysics(),
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.all(10),
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: responsive.isTablet ? 3 : 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        mainAxisExtent: 64,
+                      ),
+                      itemCount: selectedStudents.length,
+                      itemBuilder: (context, index) {
+                        final String name = selectedStudents[index];
+                        return ActivityStudentDisplayTile(
+                          name: name,
+                          studentCode: index < state.selectedStudentsData.length
+                              ? state.selectedStudentsData[index]['studentCode']
+                                  as String?
+                              : null,
+                          onRemove: () => _removeStudent(name),
+                        );
+                      },
+                    ),
+                  if (widget.isEdit &&
+                      !widget.readOnly &&
+                      selectedStudents.length > 1) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                      child: ActivityEditStudentScopeCheckboxes(
+                        studentNames: selectedStudents,
+                        checkedIndices: state.scopedEditStudentIndices,
+                        onChanged: cubit.setScopedEditStudentIndices,
+                      ),
+                    ),
+                  ],
+                  SizedBox(height: responsive.verticalSpacing),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: _layoutAsEdit
+                            ? DateWidget(
+                                isEditable: false,
+                                isRequired: true,
+                                initialDate: effectiveActivity.date,
+                                onDateChanged: cubit.setActivityDate,
+                              )
+                            : DateWidget(
+                                isEditable: false,
+                                isRequired: true,
+                                initialDate: formatSelectedDateForDateWidget(
+                                  cubit.activityDate,
+                                ),
+                                onDateChanged: cubit.setActivityDate,
+                              ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: _layoutAsEdit
+                            ? TimeWidget(
+                                isEditable: _canInteract,
+                                isRequired: true,
+                                prefilledTime: effectiveActivity.time,
+                                onTimeChanged: cubit.setActivityTime,
+                              )
+                            : TimeWidget(
+                                isRequired: true,
+                                isEditable: true,
+                                onTimeChanged: cubit.setActivityTime,
+                              ),
+                      ),
+                    ],
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  Builder(
+                    builder: (context) {
+                      final isAdminPersona = state.isAdminDesignation;
+                      final lockToLoggedInStaff =
+                          _canInteract && !isAdminPersona;
+                      return StaffPresentWidget(
+                        staffName: staffPresentLabelForActivity(
+                          layoutAsEdit: _layoutAsEdit,
+                          activityCreatedBy: '',
+                          loggedInDisplayName: state.staffName,
+                          staffLabelFromParameters: _layoutAsEdit
+                              ? (((cubit.staffPresentCode ?? '')
+                                          .trim()
+                                          .isNotEmpty)
+                                      ? cubit.staffPresentCode
+                                      : effectiveActivity.staffPresent)
+                              : null,
+                        ),
+                        isEditable:
+                            lockToLoggedInStaff ? false : _canInteract,
+                        onStaffChanged: (_, selectedCode) {
+                          cubit.setStaffPresentCode(selectedCode);
+                        },
+                      );
+                    },
+                  ),
+                  SizedBox(height: responsive.verticalSpacing),
+                  InputWidget(
+                    controller: _descriptionController,
+                    height: 100,
+                    hint: 'Enter Description',
+                    isRequired: true,
+                    readOnly: !_canInteract,
+                    maxLength: ActivityDescriptionLimits.maxLength,
+                  ),
+                  if (state.showRequireAdminApprovalToggle)
+                    const SizedBox(height: 4),
+                  if (state.showRequireAdminApprovalToggle)
+                    CustomToggle(
+                      label: 'Requires Admin Approval',
+                      isToggled: state.requireAdminApproval,
+                      labelOnLeftSide: true,
+                      enabled: !_layoutAsEdit,
+                      onToggle: cubit.setRequireAdminApproval,
+                    ),
+                  SizedBox(height: responsive.verticalSpacing),
+                ],
               ),
-            SizedBox(height: responsive.verticalSpacing,),
-            Row(
-              children: [
-                Flexible(
-                  child: _layoutAsEdit
-                      ? DateWidget(
-                          isEditable: _canInteract,
-                          isRequired: true,
-                          initialDate: _effectiveActivity.date,
-                          onDateChanged: (d) => _activityDate = d,
-                        )
-                      : DateWidget(
-                          isEditable: true,
-                          isRequired: true,
-                          onDateChanged: (d) => _activityDate = d,
-                        ),
-                ),
-                const SizedBox(width: 10,),
-                Flexible(
-                  child: _layoutAsEdit
-                      ? TimeWidget(
-                          isEditable: _canInteract,
-                          isRequired: true,
-                          prefilledTime: _effectiveActivity.time,
-                          onTimeChanged: (t) => _activityTime = t,
-                        )
-                      : TimeWidget(
-                          isRequired: true,
-                          isEditable: true,
-                          onTimeChanged: (t) => _activityTime = t,
-                        ),
-                ),
-              ],
             ),
-            SizedBox(height: responsive.verticalSpacing,),
-            StaffPresentWidget(
-              staffName: _layoutAsEdit
-                  ? _effectiveActivity.createdBy
-                  : _staffName,
-              isEditable: _canInteract,
-            ),
-            SizedBox(height: responsive.verticalSpacing,),
-            InputWidget(
-              controller: _descriptionController,
-              height: 100,
-              hint: 'Enter Description',
-              isRequired: true,
-              readOnly: !_canInteract,
-            ),
-            SizedBox(height: responsive.verticalSpacing,),
-          ],
-        ),
+            bottomBar: widget.readOnly
+                ? const SafeArea(child: SizedBox.shrink())
+                : SafeArea(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ActivityAdminApproveRejectBar(
+                            visible: cubit.showAdminApproveRejectActions,
+                            isLoading: state.isApprovingOrRejecting ||
+                                state.isSubmitting ||
+                                state.loadingActivityDetail,
+                            onApprove: _approve,
+                            onReject: _reject,
+                          ),
+                          if (!cubit.showAdminApproveRejectActions)
+                            CustomButtonLayout(
+                              confirmButtonLabel:
+                                  widget.isEdit ? 'Save' : 'Add',
+                              onPressedConfirm: _onSaveOrAddPressed,
+                              showCancelButton: false,
+                              isForm: false,
+                              isLoading: state.isSubmitting ||
+                                  state.isApprovingOrRejecting ||
+                                  state.loadingActivityDetail,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+          );
+        },
       ),
-      bottomBar: widget.readOnly
-          ? const SafeArea(child: SizedBox.shrink())
-          : SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                child: CustomButtonLayout(
-                  confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                  onPressedConfirm: _onSaveOrAddPressed,
-                  showCancelButton: false,
-                  isForm: false,
-                  isLoading: _isSubmitting || _loadingActivityDetail,
-                ),
-              ),
-            ),
     );
   }
 }

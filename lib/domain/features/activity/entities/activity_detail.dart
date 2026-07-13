@@ -1,6 +1,6 @@
 import 'package:equatable/equatable.dart';
 
-/// One activity from `GET /api/v1/activities/code/{code}` (`data` object).
+/// One grouped activity card from `GET /api/v2/activities/{cardGroupCode}`.
 class ActivityDetail extends Equatable {
   const ActivityDetail({
     required this.code,
@@ -19,6 +19,7 @@ class ActivityDetail extends Equatable {
     this.studentFirstName = '',
     this.studentMiddleName,
     this.studentLastName = '',
+    this.approvalStatus,
   });
 
   final String code;
@@ -37,6 +38,7 @@ class ActivityDetail extends Equatable {
   final String studentFirstName;
   final String? studentMiddleName;
   final String studentLastName;
+  final String? approvalStatus;
 
   factory ActivityDetail.fromApiData(Map<String, dynamic> json) {
     final params = <Map<String, dynamic>>[];
@@ -53,6 +55,31 @@ class ActivityDetail extends Equatable {
         if (a is Map<String, dynamic>) atts.add(a);
       }
     }
+    final singleAttachment = json['attachment'];
+    if (singleAttachment is Map<String, dynamic>) {
+      atts.add(singleAttachment);
+    }
+
+    String? studentCode;
+    String studentFirstName = '';
+    String? studentMiddleName;
+    String studentLastName = '';
+    final rawStudents = json['students'];
+    if (rawStudents is List && rawStudents.isNotEmpty) {
+      final first = rawStudents.first;
+      if (first is Map<String, dynamic>) {
+        studentCode = (first['studentCode'] as String?)?.trim().isEmpty == true
+            ? null
+            : first['studentCode']?.toString();
+        studentFirstName = (first['firstName'] ?? '').toString();
+        studentMiddleName = first['middleName']?.toString();
+        studentLastName = (first['lastName'] ?? '').toString();
+      }
+    }
+
+    final rawApprovalStatus = (json['approvalStatus'] ?? json['status'])
+        ?.toString()
+        .trim();
 
     return ActivityDetail(
       code: (json['code'] ?? '').toString(),
@@ -64,17 +91,25 @@ class ActivityDetail extends Equatable {
       attachments: atts,
       createdBy: (json['createdBy'] ?? '').toString(),
       staffCode: (json['staffCode'] ?? '').toString(),
-      studentCode: (json['studentCode'] as String?)?.trim().isEmpty == true
-          ? null
-          : json['studentCode']?.toString(),
+      studentCode: studentCode ??
+          ((json['studentCode'] as String?)?.trim().isEmpty == true
+              ? null
+              : json['studentCode']?.toString()),
       classroomCode: (json['classroomCode'] as String?)?.trim().isEmpty == true
           ? null
           : json['classroomCode']?.toString(),
       schoolCode: json['schoolCode']?.toString(),
       organizationCode: json['organizationCode']?.toString(),
-      studentFirstName: (json['studentFirstName'] ?? '').toString(),
-      studentMiddleName: json['studentMiddleName']?.toString(),
-      studentLastName: (json['studentLastName'] ?? '').toString(),
+      studentFirstName: studentFirstName.isNotEmpty
+          ? studentFirstName
+          : (json['studentFirstName'] ?? '').toString(),
+      studentMiddleName: studentMiddleName ?? json['studentMiddleName']?.toString(),
+      studentLastName: studentLastName.isNotEmpty
+          ? studentLastName
+          : (json['studentLastName'] ?? '').toString(),
+      approvalStatus: (rawApprovalStatus == null || rawApprovalStatus.isEmpty)
+          ? null
+          : rawApprovalStatus.toUpperCase(),
     );
   }
 
@@ -91,5 +126,6 @@ class ActivityDetail extends Equatable {
         staffCode,
         studentCode,
         classroomCode,
+        approvalStatus,
       ];
 }

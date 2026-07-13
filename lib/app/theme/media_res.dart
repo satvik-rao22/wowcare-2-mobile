@@ -7,14 +7,15 @@ class MediaRes {
   static const _baseVectors = 'assets/vectors';
   static const napIcon = "";
   static const String sleepIcon = 'assets/icons/sleep.svg';
+  static const String sleepStatusIcon = 'assets/images/icons/sleep.png';
   static const _baseBackgroundImage = 'assets/bgImages';
 
   // static const loginLottie = '$_baseLottie/login_lottie.json';
   static const loginLottie = '$_baseLottie/wow_care.gif';
 
-  static const onboardingimage1 = '$_baseVectors/onboarding_1.jpg';
-  static const onboardingimage2 = '$_baseVectors/onboarding_2.jpg';
-  static const onboardingimage3 = '$_baseVectors/onboarding_3.jpg';
+  static const onboardingimage1 = '$_baseVectors/onboarding_1.webp';
+  static const onboardingimage2 = '$_baseVectors/onboarding_2.webp';
+  static const onboardingimage3 = '$_baseVectors/onboarding_3.webp';
   static const onboardingimage4 = '$_baseVectors/onboarding_4.png';
   static const onboardingimage5 = '$_baseVectors/onboarding_5.jpg';
   static const onboardingimage6 = '$_baseVectors/onboarding_6.jpg';
@@ -22,16 +23,16 @@ class MediaRes {
   static const onboardingimage8 = '$_baseVectors/onboarding_8.jpg';
   static const onboardingimage9 = '$_baseVectors/onboarding_9.jpg';
   static const onboardingimage10 = '$_baseVectors/onboarding_10.jpg';
-  static const onboardingimage11 = '$_baseVectors/onboarding_11.jpg';
-  static const onboardingimage12 = '$_baseVectors/onboarding_12.jpg';
-  static const onboardingimage13 = '$_baseVectors/onboarding_13.jpg';
-  static const onboardingimage14 = '$_baseVectors/onboarding_14.jpg';
-  static const onboardingimage15 = '$_baseVectors/onboarding_15.jpg';
-  static const onboardingimage16 = '$_baseVectors/onboarding_16.jpg';
+  static const onboardingimage11 = '$_baseVectors/onboarding_11.webp';
+  static const onboardingimage12 = '$_baseVectors/onboarding_12.webp';
+  static const onboardingimage13 = '$_baseVectors/onboarding_13.webp';
+  static const onboardingimage14 = '$_baseVectors/onboarding_14.webp';
+  static const onboardingimage15 = '$_baseVectors/onboarding_15.webp';
+  static const onboardingimage16 = '$_baseVectors/onboarding_16.webp';
 
   static const backgroundImage1 = '$_baseBackgroundImage/abc.jpeg';
   static const backgroundImage2 = '$_baseBackgroundImage/def.jpeg';
-  static const backgroundImage3 = '$_baseBackgroundImage/ghi.jpg';
+  static const backgroundImage3 = '$_baseBackgroundImage/ghi.webp';
   static const backgroundImage4 = '$_baseBackgroundImage/1.jpg';
   static const backgroundImage5 = '$_baseBackgroundImage/2.jpg';
   static const backgroundImage6 = '$_baseBackgroundImage/3.jpg';
@@ -83,7 +84,7 @@ class MediaRes {
   static const pageUnderConstructionImage = '$_baseVectors/cityscape.png';
 
   static const newletterPreviewImage =
-      '$_baseImages/newsletter_preview_image.png';
+      '$_baseImages/newsletter_preview_image.webp';
   static const newletterImage1 = '$_baseImages/newsletter_image_1.png';
   static const newletterImage2 = '$_baseImages/newsletter_image_2.png';
   static const String classroomInfoIcon = '$_baseIcons/classroom_info_icon.svg';
@@ -112,9 +113,9 @@ class MediaRes {
   static const signInLottie17 = '$_baseLottie/17.json';
   static const signInLottie18 = '$_baseLottie/18.json';
 
-  static const vectorImage1 = '$_baseVectors/vectorstock_47331293.png';
-  static const vectorImage2 = '$_baseVectors/Soccer 06.jpg';
-  static const vectorImage3 = '$_baseVectors/vectorstock_27704938.png';
+  static const vectorImage1 = '$_baseVectors/vectorstock_47331293.webp';
+  static const vectorImage2 = '$_baseVectors/Soccer 06.webp';
+  static const vectorImage3 = '$_baseVectors/vectorstock_27704938.webp';
   static const vectorImage4 = '$_baseVectors/cityscape.png';
   static const vectorImageA = '$_baseVectors/a.jpg';
   static const vectorImageB = '$_baseVectors/b.png';
@@ -263,6 +264,8 @@ class MediaRes {
       '$_baseIcons/DailyActivitySignInIcon.svg';
   static const String dailyActivitySignOutIcon =
       '$_baseIcons/DailyActivitySignOutIcon.svg';
+  static const String dailyActivityTransferIcon =
+      '$_baseIcons/DailyActivityTransferIcon.svg';
   static const String dailyActivityAbsentIcon =
       '$_baseIcons/DailyActivityAbsentIcon.svg';
 
@@ -296,12 +299,26 @@ class MediaRes {
 
   static const String greenCheckCircleIcon =
       '$_baseIcons/green-check-circle.svg';
+  static const String redCrossCircleIcon = '$_baseIcons/red-cross-circle.svg';
   static const String homeIcon = '$_baseIcons/Home.svg';
 
   // Attendance sign-in/out method icons
   static const String gpsMethodIcon = '$_baseIcons/Gps_fixed.svg';
   static const String pinMethodIcon = '$_baseIcons/pin.svg';
-  static const String qrAttendanceIcon = '$_baseIcons/qr_attendance.svg';
+  // static const String qrAttendanceIcon = '$_baseIcons/qr_attendance.svg';
+  static const String kioskAttendenceIcons = '$_baseIcons/kiosk-attendance.svg';
   static const String webMethodIcon = '$_baseIcons/desktop-icon.svg';
   static const String appMethodIcon = '$_baseIcons/mobile-icon.svg';
+  // Attendance sign-in/out method icons
+  // static const String gpsMethodIcon = '$_baseIcons/map.svg';
+  // static const String pinMethodIcon = '$_baseIcons/pin.svg';
+  static const String qrAttendanceIcon = '$_baseIcons/qrcode.svg';
+  // static const String kioskAttendenceIcons = '$_baseIcons/desktop.svg';
+  // static const String webMethodIcon = '$_baseIcons/desktop.svg';
+  // static const String appMethodIcon = '$_baseIcons/mobile.svg';
+  static const String transferMethodIcon =
+      '$_baseIcons/arrow-right-arrow-left.svg';
+  static const String nfcMethodIcon = '$_baseIcons/id-card.svg';
+  static const String biometricMethodIcon = '$_baseIcons/user.svg';
+  static const String systemMethodIcon = '$_baseIcons/cog.svg';
 }

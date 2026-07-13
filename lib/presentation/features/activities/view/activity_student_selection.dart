@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_error_handler.dart';
+import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
-import '../../../../core/util/storage_keys.dart';
-import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student_classroom/entities/student_classroom_item.dart';
-import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../core/util/school_zone_datetime.dart';
+import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
 import '../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../../../shared/common/widgets/custom_date_time_field.dart';
 import '../../../../shared/common/widgets/ellipsis_tooltip_text.dart';
 import '../../../../shared/common/widgets/custom_refresh_indicator.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
@@ -21,6 +19,7 @@ import '../../../../shared/common/widgets/custom_dropdown.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
+import 'package:wowcare/presentation/features/activities/cubit/activity_student_selection_cubit.dart';
 
 class ActivityStudentSelection extends StatefulWidget {
   const ActivityStudentSelection({super.key});
@@ -35,84 +34,44 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   final TextEditingController _searchController = TextEditingController();
   final Set<Map<String, dynamic>> _selectedStudents = <Map<String, dynamic>>{};
 
-  // Filters & options
+  // Filter / interaction state (UI-owned).
   String? _selectedClassroom;
   bool _selectAll = false;
   List<String> _selectedTags = [];
+  DateTime _selectedAttendanceDate = DateTime.now();
+  bool _filtersAdopted = false;
 
-  // Options loaded from backend
-  List<String> _classroomOptions = [];
-  final Map<String, String> _classroomCodeByName = {};
+  late final ActivityStudentSelectionCubit _cubit;
 
-  List<String> _tagOptions = [];
-  final Map<String, String> _tagCodeByName = {};
-
-  // API + storage
-  late final StorageService _storageService;
-  late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
-  late final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
-  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
-  String? _schoolCode;
-
-  // Students from /api/v1/student-classroom for current filters
-  List<StudentClassroomItem> _studentsForCurrentFilters = [];
-  bool _isLoadingFilters = false;
-  bool _isLoadingStudents = false;
-  String? _studentsError;
-
-  List<StudentClassroomItem> get _filteredStudents {
-    final query = _searchController.text.trim().toLowerCase();
-    if (query.isEmpty) return _studentsForCurrentFilters;
-
-    return _studentsForCurrentFilters.where((student) {
-      final fullName = student.fullName.toLowerCase();
-      return fullName.contains(query);
-    }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _cubit = serviceLocator<ActivityStudentSelectionCubit>()..initFilters();
   }
 
-  // List<MapEntry<String, List<String>>> get _filteredStudents {
-  //   // 1. Start with all students
-  //   Map<String, List<String>> allStudents = {};
-  //
-  //   // If no classroom selected → show all
-  //   if (_selectedClassroom == null) {
-  //     return [];
-  //   } else {
-  //     // Only selected classroom
-  //     final selected = _studentsInSelectedClassroom[_selectedClassroom];
-  //     if (selected != null) {
-  //       allStudents = Map<String, List<String>>.from(selected);
-  //     } else {
-  //       return [];
-  //     }
-  //   }
-  //
-  //   // 2. Apply tag filtering if any tags selected
-  //   if (_selectedTags.isNotEmpty) {
-  //     allStudents.removeWhere((name, tags) {
-  //       // Keep student only if they have ALL selected tags
-  //       return !_selectedTags.every((tag) => tags.contains(tag));
-  //     });
-  //   }
-  //
-  //   // 3. Apply search filter
-  //   final query = _searchController.text.trim().toLowerCase();
-  //   if (query.isNotEmpty) {
-  //     allStudents.removeWhere((name, tags) =>
-  //     !name.toLowerCase().contains(query));
-  //   }
-  //
-  //   return allStudents.entries.toList();
-  // }
+  @override
+  void dispose() {
+    _searchController.dispose();
+    _cubit.close();
+    super.dispose();
+  }
 
-  void _updateSelectAllState() {
-    final students = _filteredStudents;
-    if (students.isEmpty) {
+  List<StudentAttendanceCustomItem> _filteredStudents(
+    List<StudentAttendanceCustomItem> students,
+  ) {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query.isEmpty) return students;
+    return students
+        .where((student) => student.studentName.toLowerCase().contains(query))
+        .toList();
+  }
+
+  void _updateSelectAllState(List<StudentAttendanceCustomItem> filtered) {
+    if (filtered.isEmpty) {
       _selectAll = false;
       return;
     }
-
-    _selectAll = students.every((student) {
+    _selectAll = filtered.every((student) {
       final code = student.studentCode;
       return _selectedStudents.any((s) => s['studentCode'] == code);
     });
@@ -129,208 +88,140 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
     });
   }
 
-
-  @override
-  void initState() {
-    super.initState();
-    _storageService = serviceLocator<StorageService>();
-    _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
-    _getTagNameCodeMapForSchoolUseCase =
-        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _getStudentClassroomListUseCase =
-        serviceLocator<GetStudentClassroomListUseCase>();
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _initFiltersAndLoad();
-    });
+  String _formatAttendanceDate(DateTime date) {
+    final normalized = DateTime(date.year, date.month, date.day);
+    final yyyy = normalized.year.toString().padLeft(4, '0');
+    final mm = normalized.month.toString().padLeft(2, '0');
+    final dd = normalized.day.toString().padLeft(2, '0');
+    return '$yyyy-$mm-$dd';
   }
 
-  Future<void> _initFiltersAndLoad() async {
+  String _classroomLabelForStudent(
+    StudentAttendanceCustomItem student,
+    Map<String, String> classroomNameByCode,
+  ) {
+    final fromApi = student.classroomName.trim();
+    if (fromApi.isNotEmpty) return fromApi;
+    final mapped = classroomNameByCode[student.classroomCode.trim()] ?? '';
+    return mapped.trim().isEmpty ? 'Classroom' : mapped.trim();
+  }
+
+  Map<String, dynamic> _buildSelectedStudentMap(
+    StudentAttendanceCustomItem student, {
+    required bool isNapping,
+    required Map<String, String> classroomNameByCode,
+  }) {
+    return {
+      'name': student.studentName,
+      'classroom': _classroomLabelForStudent(student, classroomNameByCode),
+      'classroomCode': student.classroomCode,
+      'studentCode': student.studentCode,
+      'profilePictureUrl': '',
+      'status': '',
+      'expectedToday': student.isExpectedToday,
+      'signedIn': student.hasSignIn,
+      'absent': false,
+      'notMarked': false,
+      'nappingStatus': isNapping,
+      'photoPermission': true,
+      'notes': '',
+      'medication': '',
+      'allergies': '',
+      'dietaryRestriction': '',
+      'signedInBy': student.signedInBy,
+      'signedInTime': student.signedInTime,
+      'signedOutBy': student.signedOutBy,
+      'signedOutTime': student.signedOutTime,
+      'attendanceDate': _formatAttendanceDate(_selectedAttendanceDate),
+    };
+  }
+
+  void _loadStudents() {
+    _cubit.loadStudents(
+      selectedClassroomName: _selectedClassroom,
+      selectedTagNames: _selectedTags,
+      date: _selectedAttendanceDate,
+    );
+  }
+
+  /// Adopt default classroom + school-today date once metadata is ready, then
+  /// load students (mirrors the original post-load behaviour).
+  void _onFiltersReady(ActivityStudentSelectionState state) {
+    final schoolNow =
+        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(state.schoolTimeZone).$1;
     setState(() {
-      _isLoadingFilters = true;
+      _selectedAttendanceDate =
+          DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
+      if (_selectedClassroom == null ||
+          !state.classroomOptions.contains(_selectedClassroom)) {
+        _selectedClassroom = state.defaultClassroomName;
+      }
     });
-
-    try {
-      _schoolCode =
-          await _storageService.getString(StorageKeys.schoolCode) ?? '';
-
-      if (_schoolCode == null || _schoolCode!.trim().isEmpty) {
-        _showWarningMessage(
-          'School code is not set. Please ensure you are logged in and a school is selected.',
-        );
-        setState(() {
-          _isLoadingFilters = false;
-        });
-        return;
-      }
-
-      await Future.wait([
-        _loadClassrooms(),
-        _loadTags(),
-      ]);
-
-      if (_selectedClassroom != null) {
-        await _loadStudentsForCurrentFilters();
-      }
-    } catch (error) {
-      final message = ApiErrorHandler.extractErrorMessage(error);
-      CoreUtils.logApiError('Failed to load activity filters: $message');
-      _showWarningMessage(message);
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoadingFilters = false;
-        });
-      }
+    if (_selectedClassroom != null) {
+      _loadStudents();
     }
   }
-
-  Future<void> _loadClassrooms() async {
-    if (_schoolCode == null || _schoolCode!.trim().isEmpty) return;
-
-    try {
-      final classrooms = await _getActiveClassroomsUseCase(
-        schoolCode: _schoolCode!,
-        onlyTypeClassroom: true,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _classroomOptions = classrooms.map((c) => c.name).toList();
-        _classroomCodeByName
-          ..clear()
-          ..addEntries(
-            classrooms.map(
-              (c) => MapEntry(c.name, c.code),
-            ),
-          );
-
-        _selectedClassroom ??=
-            _classroomOptions.isNotEmpty ? _classroomOptions.first : null;
-      });
-    } catch (error) {
-      final message = ApiErrorHandler.extractErrorMessage(error);
-      CoreUtils.logApiError('Failed to load classrooms: $message');
-      _showWarningMessage(message);
-    }
-  }
-
-  Future<void> _loadTags() async {
-    if (_schoolCode == null || _schoolCode!.trim().isEmpty) return;
-
-    try {
-      final nameCodeMap =
-          await _getTagNameCodeMapForSchoolUseCase(schoolCode: _schoolCode!);
-      if (!mounted) return;
-      setState(() {
-        _tagCodeByName
-          ..clear()
-          ..addAll(nameCodeMap);
-        _tagOptions = nameCodeMap.keys.toList()..sort();
-      });
-    } catch (error) {
-      final message = ApiErrorHandler.extractErrorMessage(error);
-      CoreUtils.logApiError('Failed to load tags: $message');
-      // Tags are non-critical, but still show backend message once.
-      _showWarningMessage(message);
-    }
-  }
-
-  Future<void> _loadStudentsForCurrentFilters({bool refresh = false}) async {
-    if (_schoolCode == null ||
-        _schoolCode!.trim().isEmpty ||
-        _selectedClassroom == null) {
-      return;
-    }
-
-    final classroomCode = _classroomCodeByName[_selectedClassroom!];
-    if (classroomCode == null || classroomCode.trim().isEmpty) return;
-
-    final tagCodes = _selectedTags
-        .map((name) => _tagCodeByName[name])
-        .whereType<String>()
-        .toList();
-
-    setState(() {
-      _isLoadingStudents = true;
-      _studentsError = null;
-    });
-
-    try {
-      final students = await _getStudentClassroomListUseCase(
-        schoolCode: _schoolCode!,
-        classroomCode: classroomCode,
-        tagCodes: tagCodes,
-        status: const ['ACTIVE'],
-        attendanceStatus: 'SIGNED_IN',
-        refresh: refresh,
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _studentsForCurrentFilters = students;
-        _isLoadingStudents = false;
-        _studentsError = null;
-      });
-      _updateSelectAllState();
-    } catch (error) {
-      if (!mounted) return;
-      final message = ApiErrorHandler.extractErrorMessage(error);
-      CoreUtils.logApiError('Failed to load students: $message');
-      setState(() {
-        _isLoadingStudents = false;
-        _studentsError = message;
-      });
-      _showWarningMessage(message);
-    }
-  }
-
-  void _applyFilters() => setState(() {});
 
   Future<void> _onPullRefresh() async {
-    if (_schoolCode == null || _schoolCode!.trim().isEmpty) {
-      _showWarningMessage(
-        'School code is not set. Please ensure you are logged in and a school is selected.',
-      );
-      return;
-    }
-    await Future.wait([
-      _loadClassrooms(),
-      _loadTags(),
-    ]);
+    await _cubit.refreshFilters();
     if (!mounted) return;
     if (_selectedClassroom != null) {
-      await _loadStudentsForCurrentFilters(refresh: true);
+      _loadStudents();
     }
-  }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<ActivityStudentSelectionCubit>.value(
+      value: _cubit,
+      child: BlocConsumer<ActivityStudentSelectionCubit,
+          ActivityStudentSelectionState>(
+        listenWhen: (prev, curr) =>
+            (curr.filtersReady && !prev.filtersReady) ||
+            (curr.filtersMessage != null &&
+                curr.filtersMessage != prev.filtersMessage) ||
+            curr.students != prev.students,
+        listener: (context, state) {
+          if (state.filtersReady && !_filtersAdopted) {
+            _filtersAdopted = true;
+            _onFiltersReady(state);
+          }
+          if (state.filtersMessage != null) {
+            CoreUtils.logApiError(state.filtersMessage!);
+            _showWarningMessage(state.filtersMessage!);
+          }
+          // Recompute Select-All against the freshly loaded/filtered list,
+          // mirroring the original's post-load _updateSelectAllState().
+          setState(() => _updateSelectAllState(_filteredStudents(state.students)));
+        },
+        builder: (context, state) => _buildScaffold(context, state),
+      ),
+    );
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    ActivityStudentSelectionState state,
+  ) {
     final responsive = ResponsiveHelper(context);
     final safeAreaBottom = MediaQuery.of(context).padding.bottom;
+    final students = state.students;
+    final filtered = _filteredStudents(students);
 
     return StaffFormLayout(
       title: 'Add Activity',
-                  child: Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+        children: [
           Text(
-                                  'Select Students',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
-                                  ),
-                                ),
+            'Select Students',
+            style: TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: const Color(0xff573353),
+            ),
+          ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -340,9 +231,9 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               border: Border.all(color: Colors.grey),
             ),
             child: TextField(
-                                    controller: _searchController,
+              controller: _searchController,
               decoration: InputDecoration(
-                                    hintText: 'Search Students',
+                hintText: 'Search Students',
                 hintStyle: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 14,
@@ -355,93 +246,100 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                     ? null
                     : IconButton(
                         onPressed: () {
-                                          _searchController.clear();
-                          _applyFilters();
-                          _updateSelectAllState();
+                          setState(() {
+                            _searchController.clear();
+                            _updateSelectAllState(_filteredStudents(students));
+                          });
                         },
                         icon: const Icon(Icons.close, color: Colors.grey),
                       ),
               ),
               onChanged: (_) {
-                _applyFilters();
-                                          _updateSelectAllState();
-                                      },
-                                ),
-                            ),
+                setState(() {
+                  _updateSelectAllState(_filteredStudents(students));
+                });
+              },
+            ),
+          ),
           const SizedBox(height: 12),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: _buildCustomDropdown(
-                                    'Classroom',
-                                    _classroomOptions,
-                                    _selectedClassroom,
+          CustomDateTimeField(
+            hasLabel: false,
+            initialDate: _selectedAttendanceDate,
+            fetchInitialTime: false,
+            onDateSelected: (date) {
+              setState(() {
+                _selectedAttendanceDate =
+                    DateTime(date.year, date.month, date.day);
+                _selectedStudents.clear();
+                _selectAll = false;
+              });
+              _loadStudents();
+            },
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildCustomDropdown(
+                  'Classroom',
+                  state.classroomOptions,
+                  _selectedClassroom,
                   (v) {
                     setState(() {
-                                      _selectedClassroom = v;
+                      _selectedClassroom = v;
                       // Students across classrooms cannot be selected together
                       _selectedStudents.clear();
-                                      _selectAll = false;
+                      _selectAll = false;
                     });
-                    _loadStudentsForCurrentFilters();
+                    _loadStudents();
                   },
-                                  ),
-                                ),
+                ),
+              ),
               const SizedBox(width: 12),
-                                Expanded(
-                                  child: CustomMultiSelectDropdown(
-                                    hintText: 'Tags',
-                                    items: _tagOptions,
-                                    selectedItems: _selectedTags,
-                                    gapHeight: 40,
-                                    onChanged: (selectedItems) {
-                                      setState(() {
-                                        _selectedTags = selectedItems;
-                                      });
-                    _loadStudentsForCurrentFilters();
-                                    },
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
+              Expanded(
+                child: CustomMultiSelectDropdown(
+                  hintText: 'Tags',
+                  items: state.tagOptions,
+                  selectedItems: _selectedTags,
+                  gapHeight: 6,
+                  onChanged: (selectedItems) {
+                    setState(() {
+                      _selectedTags = selectedItems;
+                    });
+                    _loadStudents();
+                  },
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                              child: CustomCheckbox(
-                                value: _selectAll,
-                                onChanged: (v) {
-                                  final newVal = v ?? false;
-                                  setState(() {
-                                    _selectAll = newVal;
-                                    if (newVal) {
-                        for (final student in _filteredStudents) {
-                                        _selectedStudents.add({
-                            'name': student.fullName,
-                                          'classroom': _selectedClassroom!,
-                            'classroomCode': student.classroomCode,
-                            'studentCode': student.studentCode,
-                            'profilePictureUrl': student.profilePictureUrl,
-                            'status': student.status,
-                            'expectedToday': student.expectedToday,
-                            'signedIn': student.signedIn,
-                            'absent': student.absent,
-                            'notMarked': student.notMarked,
-                            'nappingStatus': student.nap,
-                            'photoPermission': student.photoPermission,
-                            'notes': student.notes,
-                            'medication': student.medication,
-                            'allergies': student.allergies,
-                            'dietaryRestriction': student.dietaryRestriction,
-                                        });
-                                      }
-                                    } else {
-                                      _selectedStudents.removeWhere(
-                          (s) => s['classroom'] == _selectedClassroom,
-                        );
-                                    }
-                                  });
+                child: CustomCheckbox(
+                  value: _selectAll,
+                  onChanged: (v) {
+                    final newVal = v ?? false;
+                    setState(() {
+                      _selectAll = newVal;
+                      if (newVal) {
+                        for (final student in filtered) {
+                          final isNapping = state.nappingStudentCodes
+                              .contains(student.studentCode);
+                          _selectedStudents.add(
+                            _buildSelectedStudentMap(
+                              student,
+                              isNapping: isNapping,
+                              classroomNameByCode: state.classroomNameByCode,
+                            ),
+                          );
+                        }
+                      } else {
+                        _selectedStudents.removeWhere((s) => filtered
+                            .any((st) => st.studentCode == s['studentCode']));
+                      }
+                    });
                   },
                   borderColor: AppColors.themeColor,
                 ),
@@ -459,20 +357,27 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               TextButton(
                 onPressed: () {
                   setState(() {
-                    if (_classroomOptions.isNotEmpty) {
-                      _selectedClassroom = _classroomOptions.first;
+                    if (state.classroomOptions.isNotEmpty) {
+                      _selectedClassroom = state.defaultClassroomName ??
+                          state.classroomOptions.first;
                     }
                     _selectedStudents.clear();
                     _searchController.clear();
                     _selectedTags = [];
+                    final schoolNow =
+                        SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+                                state.schoolTimeZone)
+                            .$1;
+                    _selectedAttendanceDate =
+                        DateTime(schoolNow.year, schoolNow.month, schoolNow.day);
                     _selectAll = false;
                   });
-                  _loadStudentsForCurrentFilters();
+                  _loadStudents();
                 },
                 child: const Text('Clear'),
-                              ),
+              ),
             ],
-                            ),
+          ),
           const SizedBox(height: 12),
           Expanded(
             child: CustomRefreshIndicator(
@@ -480,19 +385,19 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
               child: CustomScrollView(
                 physics: const AlwaysScrollableScrollPhysics(),
                 slivers: [
-                  if (_isLoadingFilters || _isLoadingStudents)
+                  if (state.isLoadingFilters || state.isLoadingStudents)
                     const SliverFillRemaining(
                       hasScrollBody: false,
                       child: Center(child: PrimaryCircularLoader()),
                     )
-                  else if (_filteredStudents.isEmpty)
+                  else if (filtered.isEmpty)
                     SliverFillRemaining(
                       hasScrollBody: false,
                       child: Center(
                         child: Text(
                           _selectedClassroom == null
                               ? 'Select a classroom to view students or use the search bar'
-                              : (_studentsError ??
+                              : (state.studentsError ??
                                   'No students match the selected filters'),
                           style: TextStyle(
                             color: Colors.grey[600],
@@ -505,8 +410,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                     )
                   else
                     SliverGrid(
-                      gridDelegate:
-                          SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: responsive.isTablet ? 3 : 2,
                         crossAxisSpacing: responsive.isTablet ? 16 : 12,
                         mainAxisSpacing: responsive.isTablet ? 16 : 12,
@@ -514,10 +418,11 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) {
-                          final student = _filteredStudents[index];
-                          final String name = student.fullName;
-                          final bool isNapping = student.nap;
+                          final student = filtered[index];
+                          final String name = student.studentName;
                           final String studentCode = student.studentCode;
+                          final bool isNapping =
+                              state.nappingStudentCodes.contains(studentCode);
 
                           final bool isSelected = _selectedStudents.any(
                             (s) => s['studentCode'] == studentCode,
@@ -525,52 +430,41 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
                           return _ActivityStudentListItem(
                             name: name,
+                            studentCode: studentCode,
+                            isNapping: isNapping,
                             isSelected: isSelected,
                             onSelectionChanged: (selected) {
                               ScaffoldMessenger.of(context)
                                   .removeCurrentSnackBar();
                               setState(() {
                                 if (selected == true) {
-                                  _selectedStudents.add({
-                                    'name': name,
-                                    'classroom': _selectedClassroom!,
-                                    'classroomCode': student.classroomCode,
-                                    'studentCode': student.studentCode,
-                                    'profilePictureUrl':
-                                        student.profilePictureUrl,
-                                    'status': student.status,
-                                    'expectedToday': student.expectedToday,
-                                    'signedIn': student.signedIn,
-                                    'absent': student.absent,
-                                    'notMarked': student.notMarked,
-                                    'nappingStatus': isNapping,
-                                    'photoPermission': student.photoPermission,
-                                    'notes': student.notes,
-                                    'medication': student.medication,
-                                    'allergies': student.allergies,
-                                    'dietaryRestriction':
-                                        student.dietaryRestriction,
-                                  });
+                                  _selectedStudents.add(
+                                    _buildSelectedStudentMap(
+                                      student,
+                                      isNapping: isNapping,
+                                      classroomNameByCode:
+                                          state.classroomNameByCode,
+                                    ),
+                                  );
                                 } else {
                                   _selectedStudents.removeWhere(
-                                    (s) =>
-                                        s['studentCode'] == studentCode,
+                                    (s) => s['studentCode'] == studentCode,
                                   );
                                 }
-                                _updateSelectAllState();
+                                _updateSelectAllState(filtered);
                               });
                             },
                           );
                         },
-                        childCount: _filteredStudents.length,
+                        childCount: filtered.length,
                       ),
                     ),
                 ],
               ),
             ),
           ),
-            ],
-          ),
+        ],
+      ),
       bottomBar: Padding(
         padding: EdgeInsets.only(bottom: safeAreaBottom),
         child: CustomButtonLayout(
@@ -579,11 +473,23 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           onPressedCancel: () => Navigator.of(context).pop(),
           onPressedConfirm: () {
             if (_selectedStudents.isNotEmpty) {
+              final selectedDate =
+                  _formatAttendanceDate(_selectedAttendanceDate);
+              final normalizedSelectedStudents = _selectedStudents
+                  .map((student) {
+                    final next = Map<String, dynamic>.from(student);
+                    next['attendanceDate'] = selectedDate;
+                    return next;
+                  })
+                  .toList(growable: false);
               Navigator.push(
                 context,
                 MaterialPageRoute(
+                  settings: const RouteSettings(
+                    name: CoreUtils.chooseActivityRouteName,
+                  ),
                   builder: (_) => ChooseActivity(
-                    selectedStudents: _selectedStudents.toList(),
+                    selectedStudents: normalizedSelectedStudents,
                   ),
                 ),
               );
@@ -620,7 +526,6 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         color: const Color(0xff573353),
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-      //fieldHeight: responsive.isTablet ? 64.0 : 56.0,
       fieldHeight: 40,
       selectedTextStyle: TextStyle(
         fontFamily: 'Manrope',
@@ -635,42 +540,21 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
         fontWeight: FontWeight.w400,
         color: const Color(0xff573353),
       ),
-      // contentPadding: EdgeInsets.symmetric(
-      //   horizontal: responsive.isTablet ? 16.0 : 12.0,
-      //   vertical: responsive.isTablet ? 16.0 : 12.0,
-      // ),
     );
   }
-
-  // Widget _buildShimmer() {
-  //   return GridView.builder(
-  //       padding: EdgeInsets.zero,
-  //       physics: const NeverScrollableScrollPhysics(),
-  //       shrinkWrap: true,
-  //       itemCount: widget.sections.length,
-  //       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, crossAxisSpacing: 16, mainAxisSpacing: 16, childAspectRatio: 1.6),
-  //       itemBuilder: (context, index) {
-  //         return Column(
-  //           crossAxisAlignment: CrossAxisAlignment.start,
-  //           children: [
-  //             Text(widget.sections[index].label, style: TextStyle(color: AppColors.primaryColor, fontSize: 13),),
-  //             const SizedBox(height: 8,),
-  //             const ShimmerLoader(height: 40,)
-  //           ],
-  //         );
-  //       }
-  //   );
-  // }
-
 }
 
 class _ActivityStudentListItem extends StatelessWidget {
   final String name;
+  final String? studentCode;
+  final bool isNapping;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
 
   const _ActivityStudentListItem({
     required this.name,
+    this.studentCode,
+    required this.isNapping,
     required this.isSelected,
     required this.onSelectionChanged,
   });
@@ -704,9 +588,21 @@ class _ActivityStudentListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: '',
                 name: name,
+                studentCode: (studentCode ?? '').trim().isEmpty
+                    ? null
+                    : studentCode!.trim(),
                 size: 32,
                 fontSize: 14,
               ),
+              if (isNapping) ...[
+                const SizedBox(width: 4),
+                Image.asset(
+                  MediaRes.sleepStatusIcon,
+                  width: 14,
+                  height: 14,
+                  fit: BoxFit.contain,
+                ),
+              ],
               const SizedBox(width: 8),
               Expanded(
                 child: EllipsisTooltipText(

@@ -50,14 +50,50 @@ const List<String> _attachmentUrlKeys = [
   'originalDownloadUrl',
 ];
 
-/// First non-empty URL on the row (same preference order as the activity feed card).
-String _attachmentPrimaryDeliveryUrl(Map<String, dynamic> row) {
+/// Best usable URL for an attachment row, including processed **variant**
+/// artifact URLs.
+///
+/// The backend can leave the top-level `deliveryUrl`/`thumbnailUrl` null while
+/// `status` is still `PROCESSING`, even though the processed variants are
+/// already servable (their `artifactUrl` is populated). We therefore fall back
+/// to the variants — preferring the default (primary) rendition — before
+/// treating the attachment as not-yet-ready.
+String attachmentUsableDeliveryUrl(Map<String, dynamic> row) {
   for (final key in _attachmentUrlKeys) {
     final d = (row[key] ?? '').toString().trim();
     if (d.isNotEmpty) return d;
   }
+  final variants = row['variants'];
+  if (variants is List) {
+    for (final v in variants) {
+      if (v is! Map) continue;
+      final isDefault =
+          (v['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+      if (!isDefault) continue;
+      for (final key in _attachmentUrlKeys) {
+        final u = (v[key] ?? '').toString().trim();
+        if (u.isNotEmpty) return u;
+      }
+    }
+    for (final v in variants) {
+      if (v is! Map) continue;
+      for (final key in _attachmentUrlKeys) {
+        final u = (v[key] ?? '').toString().trim();
+        if (u.isNotEmpty) return u;
+      }
+    }
+  }
   return '';
 }
+
+/// True when an attachment row already has a servable image/video URL (incl.
+/// processed variants), i.e. it is no longer effectively "processing".
+bool attachmentRowHasUsableMedia(Map<String, dynamic> row) =>
+    attachmentUsableDeliveryUrl(row).isNotEmpty;
+
+/// First non-empty URL on the row (same preference order as the activity feed card).
+String _attachmentPrimaryDeliveryUrl(Map<String, dynamic> row) =>
+    attachmentUsableDeliveryUrl(row);
 
 bool _attachmentRowUrlsIntersectRemaining(
   Map<String, dynamic> row,
@@ -146,15 +182,26 @@ List<Map<String, dynamic>> mergeAttachmentRowsForEditPatch({
     if (newAsset.isEmpty) continue;
 
     copy['assetCode'] = newAsset;
-    final prevStudent =
-        (copy['studentCode'] ?? copy['ownerCode'] ?? '').toString().trim();
     final nuStudent = (nu['studentCode'] ?? '').toString().trim();
-    if (prevStudent.isEmpty && nuStudent.isNotEmpty) {
+    final nuOwnerCode = (nu['ownerCode'] ?? '').toString().trim();
+    final nuBinding = (nu['bindingMode'] ?? '').toString().trim();
+
+    // When a removed slot is replaced by a newly uploaded asset, use the
+    // new asset ownership/binding metadata and do not carry stale values from
+    // the previous row (e.g. SHARED classroom rows replaced with PER_STUDENT).
+    if (nuStudent.isNotEmpty) {
       copy['studentCode'] = nuStudent;
+    } else {
+      copy.remove('studentCode');
     }
-    final bm = (copy['bindingMode'] ?? nu['bindingMode'] ?? 'PER_STUDENT')
-        .toString();
-    copy['bindingMode'] = bm.isNotEmpty ? bm : 'PER_STUDENT';
+    if (nuOwnerCode.isNotEmpty) {
+      copy['ownerCode'] = nuOwnerCode;
+    } else if (nuStudent.isNotEmpty) {
+      copy['ownerCode'] = nuStudent;
+    } else {
+      copy.remove('ownerCode');
+    }
+    copy['bindingMode'] = nuBinding.isNotEmpty ? nuBinding : 'PER_STUDENT';
     result.add(copy);
   }
 

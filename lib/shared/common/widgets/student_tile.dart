@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
@@ -11,14 +10,13 @@ class StudentTile extends StatelessWidget {
     required this.name,
     this.avatarUrl,
     this.isSelected = false,
-    this.onSelected
+    this.onSelected,
   });
 
   final String name;
   final String? avatarUrl;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
-
 
   @override
   Widget build(BuildContext context) {
@@ -27,25 +25,26 @@ class StudentTile extends StatelessWidget {
     return InkWell(
       borderRadius: BorderRadius.circular(12),
       onTap: () {
-        onSelected ?.call(!isSelected);
+        onSelected?.call(!isSelected);
       },
       child: Container(
         //height: 60,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
           //color: isSelected ? const Color(0xFFF8F7FA) : Colors.white,
-          color: isSelected ? const Color(0xFFB1AFE9).withOpacity(0.102): Colors.white,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: isSelected ? Colors.transparent : AppColors.themeColor, width: 1),
+          color: isSelected
+              ? const Color(0xFFB1AFE9).withValues(alpha: 0.102)
+              : Colors.white,
+          borderRadius: BorderRadius.circular(3),
+          border: Border.all(
+            color: isSelected ? Colors.transparent : AppColors.themeColor,
+            width: 1,
+          ),
         ),
         child: Row(
           children: [
-            DocumentImageWidget(
-              fileUuid: '',
-              name: name,
-              size: 35,
-            ),
-            const SizedBox(width: 4,),
+            DocumentImageWidget(fileUuid: '', name: name, size: 35),
+            const SizedBox(width: 4),
             Expanded(
               child: Text(
                 name,

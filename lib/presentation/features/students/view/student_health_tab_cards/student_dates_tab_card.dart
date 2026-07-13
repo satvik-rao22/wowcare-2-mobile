@@ -1,18 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/data/features/student/models/student_models.dart';
-import 'package:wowcare/data/features/student/repositories/student_repository_impl.dart';
+import 'package:wowcare/domain/features/student/entities/student_physical_exam.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_physical_exam_screen.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -25,6 +21,7 @@ class StudentDatesTabCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.canEdit = false,
     super.key,
   });
 
@@ -33,14 +30,20 @@ class StudentDatesTabCard extends StatefulWidget {
   final String classroom;
   final String? studentCode;
 
+  /// Whether the current persona may edit health records (from student-settings).
+  final bool canEdit;
+
   @override
   State<StudentDatesTabCard> createState() => _StudentDatesTabCardState();
 }
 
 class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
-  late Future<List<StudentPhysicalExamModel>> _physicalExamFuture;
+  late Future<List<StudentPhysicalExam>> _physicalExamFuture;
   bool _hasShownErrorSnackBar = false;
-  final DateFormat _apiFormatter = DateFormat('yyyy-MM-dd');
+
+  /// Display format for the checkup-date field in the add/edit dialog,
+  /// e.g. "Jun 02, 2027". The API payload is built from the raw DateTime.
+  final DateFormat _displayFormatter = DateFormat('MMM dd, yyyy');
   bool _disableAddPhysicalExam = false;
 
   @override
@@ -49,18 +52,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     _physicalExamFuture = _buildPhysicalExamFuture();
   }
 
-  Future<List<StudentPhysicalExamModel>> _buildPhysicalExamFuture({
+  Future<List<StudentPhysicalExam>> _buildPhysicalExamFuture({
     bool forceRefresh = false,
   }) async {
     final code = widget.studentCode;
     if (code == null || code.isEmpty) {
-      return const <StudentPhysicalExamModel>[];
+      return const <StudentPhysicalExam>[];
     }
 
     final repo = serviceLocator<StudentRepository>();
-    if (repo is! StudentRepositoryImpl) {
-      return const <StudentPhysicalExamModel>[];
-    }
     return repo.getStudentPhysicalExams(
       studentCode: code,
       forceRefresh: forceRefresh,
@@ -104,7 +104,9 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
         return 'Overdue';
       default:
         final lower = raw.toLowerCase();
-        return lower.isEmpty ? raw : lower[0].toUpperCase() + lower.substring(1);
+        return lower.isEmpty
+            ? raw
+            : lower[0].toUpperCase() + lower.substring(1);
     }
   }
 
@@ -132,12 +134,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
     DateTime? selectedDate = initialDate;
     final initialStatusTrim = (initialStatusUi ?? '').trim();
-    final initialIsOverdue = initialStatusTrim.toUpperCase() == 'OVERDUE' ||
+    final initialIsOverdue =
+        initialStatusTrim.toUpperCase() == 'OVERDUE' ||
         initialStatusTrim.toLowerCase() == 'overdue';
 
     // "Overdue" can be returned by API and should be displayed, but it should
     // not be a selectable option in the edit dropdown.
-    String statusUi = initialStatusTrim.isNotEmpty ? initialStatusTrim : 'Scheduled';
+    String statusUi = initialStatusTrim.isNotEmpty
+        ? initialStatusTrim
+        : 'Scheduled';
     bool didChangeStatus = false;
     if (initialIsOverdue) {
       statusUi = 'Due';
@@ -154,10 +159,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
         final isLargeTablet = screenWidth > 900;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-        final horizontalPadding =
-            isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-        final verticalPadding =
-            isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final horizontalPadding = isLargeTablet
+            ? 32.0
+            : (isTablet ? 24.0 : 16.0);
+        final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
         final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
         final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
 
@@ -220,9 +225,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                           children: [
                             Expanded(
                               child: _DialogField(
-                                label: 'Physical Checkup Date *',
+                                label: 'Physical Checkup Date',
+                                isRequired: true,
                                 value: selectedDate != null
-                                    ? _apiFormatter.format(selectedDate!)
+                                    ? _displayFormatter.format(selectedDate!)
                                     : '',
                                 suffix: SvgPicture.asset(
                                   MediaRes.calender_icon,
@@ -235,14 +241,15 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 onTap: () async {
                                   final result =
                                       await showDialog<Map<String, dynamic>>(
-                                    context: context,
-                                    builder: (context) => CalendarDialog(
-                                      isRangePicker: false,
-                                      isTimePicker: false,
-                                      initialDate: selectedDate,
-                                    ),
-                                  );
-                                  if (result == null || result['date'] == null) {
+                                        context: context,
+                                        builder: (context) => CalendarDialog(
+                                          isRangePicker: false,
+                                          isTimePicker: false,
+                                          initialDate: selectedDate,
+                                        ),
+                                      );
+                                  if (result == null ||
+                                      result['date'] == null) {
                                     return;
                                   }
                                   final picked = result['date'] as DateTime;
@@ -253,7 +260,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             const SizedBox(width: 16),
                             Expanded(
                               child: _DialogDropdown(
-                                label: 'Status *',
+                                label: 'Status',
+                                isRequired: true,
                                 value: statusUi,
                                 options: const [
                                   'Due',
@@ -272,9 +280,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         Column(
                           children: [
                             _DialogField(
-                              label: 'Physical Checkup Date *',
+                              label: 'Physical Checkup Date',
+                              isRequired: true,
                               value: selectedDate != null
-                                  ? _apiFormatter.format(selectedDate!)
+                                  ? _displayFormatter.format(selectedDate!)
                                   : '',
                               suffix: SvgPicture.asset(
                                 MediaRes.calender_icon,
@@ -287,13 +296,13 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               onTap: () async {
                                 final result =
                                     await showDialog<Map<String, dynamic>>(
-                                  context: context,
-                                  builder: (context) => CalendarDialog(
-                                    isRangePicker: false,
-                                    isTimePicker: false,
-                                    initialDate: selectedDate,
-                                  ),
-                                );
+                                      context: context,
+                                      builder: (context) => CalendarDialog(
+                                        isRangePicker: false,
+                                        isTimePicker: false,
+                                        initialDate: selectedDate,
+                                      ),
+                                    );
                                 if (result == null || result['date'] == null) {
                                   return;
                                 }
@@ -303,13 +312,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                             ),
                             const SizedBox(height: 16),
                             _DialogDropdown(
-                              label: 'Status *',
+                              label: 'Status',
+                              isRequired: true,
                               value: statusUi,
-                              options: const [
-                                'Due',
-                                'Scheduled',
-                                'Completed',
-                              ],
+                              options: const ['Due', 'Scheduled', 'Completed'],
                               onChanged: (v) => setLocalState(() {
                                 didChangeStatus = true;
                                 statusUi = v;
@@ -327,7 +333,8 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                         onPressedConfirm: canSave
                             ? () async {
                                 if (selectedDate == null) return;
-                                final statusApi = (!didChangeStatus && initialIsOverdue)
+                                final statusApi =
+                                    (!didChangeStatus && initialIsOverdue)
                                     ? 'OVERDUE'
                                     : switch (statusUi) {
                                         'Completed' => 'COMPLETED',
@@ -335,10 +342,47 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                         _ => 'DUE',
                                       };
 
+                                // Validate the date against the chosen status on
+                                // the client so we can show a friendly warning
+                                // instead of the raw backend error. Today is
+                                // always allowed for every status.
+                                final now = DateTime.now();
+                                final today = DateTime(
+                                  now.year,
+                                  now.month,
+                                  now.day,
+                                );
+                                final picked = DateTime(
+                                  selectedDate!.year,
+                                  selectedDate!.month,
+                                  selectedDate!.day,
+                                );
+                                if (statusApi == 'COMPLETED' &&
+                                    picked.isAfter(today)) {
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        'Completed date cannot be a future date. Please select today or a past date.',
+                                    isWarning: true,
+                                  );
+                                  return;
+                                }
+                                if ((statusApi == 'SCHEDULED' ||
+                                        statusApi == 'DUE') &&
+                                    picked.isBefore(today)) {
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message:
+                                        '$statusUi date cannot be a past date. Please select today or a future date.',
+                                    isWarning: true,
+                                  );
+                                  return;
+                                }
+
                                 setLocalState(() => isSaving = true);
                                 try {
-                                  final repo = serviceLocator<StudentRepository>()
-                                      as StudentRepositoryImpl;
+                                  final repo =
+                                      serviceLocator<StudentRepository>();
                                   if (examCode != null &&
                                       examCode.trim().isNotEmpty) {
                                     await repo.updateStudentPhysicalExam(
@@ -393,22 +437,20 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleProvider>();
-    final canMutateStudent =
-        ModuleAccess.mayWrite(role, AppAccessModules.student);
+    final canMutateStudent = widget.canEdit;
 
     return CustomRefreshIndicator(
       onRefresh: _reloadPhysicalExams,
       child: SingleChildScrollView(
         controller: widget.scrollController,
         physics: const AlwaysScrollableScrollPhysics(),
-        child: FutureBuilder<List<StudentPhysicalExamModel>>(
+        child: FutureBuilder<List<StudentPhysicalExam>>(
           future: _physicalExamFuture,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Padding(
-                padding: EdgeInsets.only(top: 24),
-                child: Center(child: PrimaryCircularLoader()),
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: StudentExamCardsShimmer(),
               );
             }
 
@@ -430,7 +472,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                   child: Text(
                     msg,
                     style: AppTextStyles.value.copyWith(
-                      color: AppColors.primaryColor.withOpacity(0.7),
+                      color: AppColors.primaryColor.withValues(alpha: 0.7),
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -438,9 +480,10 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
               );
             }
 
-            final exams = snapshot.data ?? const <StudentPhysicalExamModel>[];
-            final bool hasCompletedExam =
-                exams.any((e) => _isCompletedStatus(e.status));
+            final exams = snapshot.data ?? const <StudentPhysicalExam>[];
+            final bool hasCompletedExam = exams.any(
+              (e) => _isCompletedStatus(e.status),
+            );
             if (_disableAddPhysicalExam != hasCompletedExam) {
               WidgetsBinding.instance.addPostFrameCallback((_) {
                 if (!mounted) return;
@@ -448,99 +491,90 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
               });
             }
 
-              return Padding(
+            return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 0, vertical: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  GestureDetector(
-                    onTap: _disableAddPhysicalExam
-                        ? null
-                        : () async {
-                      if (!canMutateStudent) {
-                        ModuleAccess.showWriteRestricted(context);
-                        return;
-                      }
-                      final code = widget.studentCode;
-                      if (code == null || code.isEmpty) return;
-                      final result = await Navigator.of(context).push<bool>(
-                        MaterialPageRoute(
-                          builder: (_) => EditStudentPhysicalExamScreen(
-                            studentCode: code,
-                            // For now we don't prefill from a specific record.
-                          ),
+                  if (canMutateStudent)
+                    GestureDetector(
+                      onTap: _disableAddPhysicalExam
+                          ? null
+                          : () async {
+                              final code = widget.studentCode;
+                              if (code == null || code.isEmpty) return;
+                              final result = await Navigator.of(context)
+                                  .push<bool>(
+                                    MaterialPageRoute(
+                                      builder: (_) =>
+                                          EditStudentPhysicalExamScreen(
+                                            studentCode: code,
+                                          ),
+                                    ),
+                                  );
+                              if (!mounted || result != true) return;
+                              await _reloadPhysicalExams();
+                            },
+                      child: Opacity(
+                        opacity: !_disableAddPhysicalExam ? 1 : 0.45,
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text('Physical Exams', style: AppTextStyles.title),
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(
+                                gradient: _disableAddPhysicalExam
+                                    ? const LinearGradient(
+                                        colors: [
+                                          Color(0xFFC9C5CE),
+                                          Color(0xFFB8B3BE),
+                                        ],
+                                      )
+                                    : AppColors.buildPrimaryGradient(),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: const Icon(
+                                Icons.edit,
+                                size: 22,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
-                      );
-                      if (!mounted || result != true) return;
-                      await _reloadPhysicalExams();
-                    },
-                    child: Opacity(
-                      opacity:
-                          canMutateStudent && !_disableAddPhysicalExam ? 1 : 0.45,
-                      child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Physical Exams',
-                          style: AppTextStyles.title,
-                        ),
-                        Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            gradient: _disableAddPhysicalExam || !canMutateStudent
-                                ? const LinearGradient(
-                                    colors: [
-                                      Color(0xFFC9C5CE),
-                                      Color(0xFFB8B3BE),
-                                    ],
-                                  )
-                                : AppColors.buildPrimaryGradient(),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.edit,
-                            size: 22,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                    ),
-                  ),
                   const SizedBox(height: 16),
                   if (exams.isEmpty)
                     Text(
                       'No physical exams found',
                       style: AppTextStyles.value.copyWith(
-                        color: AppColors.primaryColor.withOpacity(0.6),
+                        color: AppColors.primaryColor.withValues(alpha: 0.6),
                       ),
                     )
                   else
-                for (final e in exams) ...[
-                  _PhysicalExamCard(
-                    status: _prettyStatus(e.status),
-                    checkupDate: _formatExamDate(e.examDate),
-                    notes: (e.notes ?? '').trim(),
-                        showMore: !_isCompletedStatus(e.status),
-                        onMore: _isCompletedStatus(e.status)
+                    for (final e in exams) ...[
+                      _PhysicalExamCard(
+                        status: _prettyStatus(e.status),
+                        checkupDate: _formatExamDate(e.examDate),
+                        showMore:
+                            canMutateStudent && !_isCompletedStatus(e.status),
+                        onMore:
+                            !canMutateStudent || _isCompletedStatus(e.status)
                             ? null
                             : () {
-                                if (!canMutateStudent) {
-                                  ModuleAccess.showWriteRestricted(context);
-                                  return;
-                                }
                                 _openEditPhysicalBottomSheet(
                                   initialDate: _parseIsoDate(e.examDate),
                                   initialStatusUi: _prettyStatus(e.status),
                                   examCode: e.code,
                                 );
                               },
-                  ),
-                  const SizedBox(height: 20),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                 ],
-              ],
               ),
             );
           },
@@ -555,12 +589,10 @@ class _PhysicalExamCard extends StatelessWidget {
     required this.status,
     required this.checkupDate,
     required this.onMore,
-    this.notes,
     this.showMore = true,
   });
   final String status;
   final String checkupDate;
-  final String? notes;
   final bool showMore;
   final VoidCallback? onMore;
 
@@ -572,9 +604,9 @@ class _PhysicalExamCard extends StatelessWidget {
     if (upper == 'OVERDUE') return const Color(0xFFC62828);
     // Due — yellow (design reference)
     if (upper == 'DUE') return const Color(0xFFEABA00);
-    // Scheduled — deeper purple on lavender
-    if (upper == 'SCHEDULED') return const Color(0xFF6A1B9A);
-    return AppColors.primaryColor.withOpacity(0.85);
+    // Scheduled — blue on light blue
+    if (upper == 'SCHEDULED') return const Color(0xFF3B82F6);
+    return AppColors.primaryColor.withValues(alpha: 0.85);
   }
 
   Color _statusBgColor() {
@@ -582,7 +614,7 @@ class _PhysicalExamCard extends StatelessWidget {
     if (upper == 'COMPLETED') return const Color(0xFFE8F5E9);
     if (upper == 'OVERDUE') return const Color(0xFFFFEBEE);
     if (upper == 'DUE') return const Color(0xFFFFF8E1);
-    if (upper == 'SCHEDULED') return const Color(0xFFF3E5F5);
+    if (upper == 'SCHEDULED') return const Color(0xFFE8F1FE);
     return const Color(0xFFF3F4FB);
   }
 
@@ -605,15 +637,15 @@ class _PhysicalExamCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 14),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Row(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _Chip(
-                          label: status,
+                children: [
+                  _Chip(
+                    label: status,
                     labelColor: _statusLabelColor(),
                     color: _statusBgColor(),
                   ),
@@ -626,50 +658,38 @@ class _PhysicalExamCard extends StatelessWidget {
                         color: Color(0xFF573353),
                       ),
                       visualDensity: VisualDensity.compact,
-                      constraints:
-                          const BoxConstraints(minWidth: 36, minHeight: 36),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
+                      ),
                     )
                   else
                     const SizedBox(width: 36, height: 36),
                 ],
               ),
               const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Text(
-                        'Checkup Date',
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    'Checkup Date',
                     style: AppTextStyles.value.copyWith(
-                      color: AppColors.primaryColor.withOpacity(0.7),
-                          fontSize: 14,
-                        ),
-                      ),
-                      Text(
-                    checkupDate.isEmpty ? '-' : checkupDate,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  if (notes != null && notes!.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                    Align(
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        notes!,
-                        style: AppTextStyles.value.copyWith(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w500,
-                          color: AppColors.primaryColor.withOpacity(0.65),
-                        ),
-                      ),
+                      color: AppColors.primaryColor.withValues(alpha: 0.7),
+                      fontSize: 14,
                     ),
-                  ],
+                  ),
+                  Text(
+                    checkupDate.isEmpty ? '-' : checkupDate,
+                    style: AppTextStyles.value.copyWith(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
+            ],
+          ),
         ),
       ),
     );
@@ -717,25 +737,37 @@ class _DialogField extends StatelessWidget {
     required this.value,
     required this.suffix,
     required this.onTap,
+    this.isRequired = false,
   });
 
   final String label;
   final String value;
   final Widget suffix;
   final VoidCallback onTap;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -778,25 +810,37 @@ class _DialogDropdown extends StatelessWidget {
     required this.value,
     required this.options,
     required this.onChanged,
+    this.isRequired = false,
   });
 
   final String label;
   final String value;
   final List<String> options;
   final ValueChanged<String> onChanged;
+  final bool isRequired;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
-            fontFamily: 'Manrope',
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
+        Text.rich(
+          TextSpan(
+            text: label,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
+            ),
+            children: [
+              if (isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
+            ],
           ),
         ),
         const SizedBox(height: 8),
@@ -842,5 +886,3 @@ class _DialogDropdown extends StatelessWidget {
     );
   }
 }
-
-

@@ -9,6 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_absent_card.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_shimmer.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -18,7 +19,9 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_absent_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -74,12 +77,14 @@ class StaffAttendanceAbsentView extends StatefulWidget {
   State<StaffAttendanceAbsentView> createState() => _StaffAttendanceAbsentViewState();
 }
 
-class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
+class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView>
+    implements AttendanceTabRefresh {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   String _searchQuery = '';
   Timer? _searchDebounceTimer;
   List<String> _selectedClassroomNames = <String>[];
+  List<String>? _selectedClassroomCodes;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
   int? _expandedStaffIndex;
@@ -116,18 +121,53 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadAbsentStaff(reset: true);
     });
+    // Resolve the school timezone, then re-seed the default range if it differs.
+    _initSchoolTimezone();
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _rangeStart;
+    final beforeEnd = _rangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    final schoolEnd = DateTime(now.year, now.month + 1, 0);
+    if (beforeStart == _rangeStart &&
+        beforeEnd == _rangeEnd &&
+        (_rangeStart != schoolStart || _rangeEnd != schoolEnd)) {
+      setState(() {
+        _rangeStart = schoolStart;
+        _rangeEnd = schoolEnd;
+      });
+      _loadAbsentStaff(reset: true);
+    }
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadAbsentStaff(reset: true);
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
       onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
     );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _syncClassroomFilterCodes();
+        if (_selectedClassroomCodes != null) {
+          _loadAbsentStaff(reset: true);
+        }
+      }
       return;
     }
 
@@ -142,6 +182,12 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
       _isClassroomDataReady = !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _syncClassroomFilterCodes();
+      if (_selectedClassroomCodes != null) {
+        _loadAbsentStaff(reset: true);
+      }
+    }
   }
 
   @override
@@ -201,22 +247,31 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     return code;
   }
 
-  List<String>? _resolveSelectedClassroomCodes() {
-    if (_selectedClassroomNames.isEmpty) return null;
-    if (_classroomCubit.state.classrooms.isEmpty) return null;
-    final nameToCode = <String, String>{
-      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-    };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
-    return codes.isEmpty ? null : codes;
+  void _syncClassroomFilterCodes() {
+    _selectedClassroomCodes = resolveClassroomNamesToCodes(
+      selectedNamesOrCodes: _selectedClassroomNames,
+      classrooms: _classroomCubit.state.classrooms,
+    );
+  }
+
+  List<String>? _effectiveClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) {
+      _selectedClassroomCodes = null;
+      return null;
+    }
+    _syncClassroomFilterCodes();
+    return _selectedClassroomCodes;
+  }
+
+  void _reloadIfPendingClassroomFilter() {
+    if (_selectedClassroomNames.isEmpty) return;
+    _syncClassroomFilterCodes();
+    if (_selectedClassroomCodes == null) return;
+    _loadAbsentStaff(reset: true);
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _rangeStart = DateTime(now.year, now.month, 1);
     _rangeEnd = DateTime(now.year, now.month + 1, 0);
   }
@@ -253,56 +308,27 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
     final from = _rangeStart!;
     final to = _rangeEnd!;
 
-    final classroomCodes = _resolveSelectedClassroomCodes();
+    final classroomCodes = _effectiveClassroomCodes();
+    if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
+      return;
+    }
 
     if (reset) {
       _expandedStaffIndex = null;
-      await _cubit.loadInitial(
-        fromDate: from,
-        toDate: to,
-        classroomCodes: classroomCodes,
-        tagCodes: null,
-        search: _searchQuery.isNotEmpty ? _searchQuery : null,
-      );
-    } else {
-      await _cubit.refresh(
-        fromDate: from,
-        toDate: to,
-        classroomCodes: classroomCodes,
-        tagCodes: null,
-        search: _searchQuery.isNotEmpty ? _searchQuery : null,
-      );
     }
+
+    await _cubit.refresh(
+      fromDate: from,
+      toDate: to,
+      classroomCodes: classroomCodes,
+      tagCodes: null,
+      search: _searchQuery.isNotEmpty ? _searchQuery : null,
+    );
   }
 
   List<_AbsentStaffModel> _getFilteredStaff() {
-    var filtered = _absentStaff;
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((staff) {
-        return staff.name.toLowerCase().contains(query) ||
-            staff.roomName.toLowerCase().contains(query);
-      }).toList();
-    }
-
-    // Apply classroom filter
-    if (_selectedClassroomNames.isNotEmpty) {
-      filtered = filtered.where((staff) {
-        return _selectedClassroomNames.contains(staff.roomName);
-      }).toList();
-    }
-
-    // Apply date range filter
-    if (_rangeStart != null && _rangeEnd != null) {
-      filtered = filtered.where((staff) {
-        return staff.startDate.isAfter(_rangeStart!.subtract(const Duration(days: 1))) &&
-            staff.startDate.isBefore(_rangeEnd!.add(const Duration(days: 1)));
-      }).toList();
-    }
-
-    return filtered;
+    // Classroom, date range, and search are applied server-side via classroomCodes.
+    return _absentStaff;
   }
 
   @override
@@ -327,7 +353,12 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
         BlocProvider<StaffAttendanceAbsentCubit>.value(value: _cubit),
         BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
       ],
-      child: BlocBuilder<StaffAttendanceAbsentCubit, StaffAttendanceAbsentState>(
+      child: BlocListener<ClassroomCubit, ClassroomState>(
+        bloc: _classroomCubit,
+        listenWhen: (previous, current) =>
+            previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
+        listener: (_, __) => _reloadIfPendingClassroomFilter(),
+        child: BlocBuilder<StaffAttendanceAbsentCubit, StaffAttendanceAbsentState>(
         builder: (context, state) {
           final isInitialLoading = state.isLoading && state.items.isEmpty;
 
@@ -337,8 +368,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
             ..addAll(
               state.items.map((it) {
                 final date = it.absenceDate.isNotEmpty
-                    ? DateTime.tryParse(it.absenceDate) ?? DateTime.now()
-                    : DateTime.now();
+                    ? DateTime.tryParse(it.absenceDate) ?? attendanceSchoolToday()
+                    : attendanceSchoolToday();
 
                 final absentTime = it.markedAbsentTime?.formatted12h ?? '';
 
@@ -418,11 +449,15 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                                     items: items,
                                     selectedItems: _selectedClassroomNames,
                                     onChanged: (values) {
-                                      if (isLoading) return;
                                       setState(() {
                                         _selectedClassroomNames =
                                             List<String>.from(values);
+                                        _syncClassroomFilterCodes();
                                       });
+                                      if (_selectedClassroomNames.isNotEmpty &&
+                                          _selectedClassroomCodes == null) {
+                                        return;
+                                      }
                                       _loadAbsentStaff(reset: true);
                                     },
                                   );
@@ -472,7 +507,8 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
                                 setState(() {
                                   _searchController.clear();
                                   _selectedClassroomNames = <String>[];
-                                  final now = DateTime.now();
+                                  _selectedClassroomCodes = null;
+                                  final now = attendanceSchoolToday();
                                   _rangeStart = DateTime(now.year, now.month, 1);
                                   _rangeEnd = DateTime(now.year, now.month + 1, 0);
                                 });
@@ -548,6 +584,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
           );
         },
       ),
+      ),
     );
   }
 
@@ -576,6 +613,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
       staff: cardData,
       index: index,
       isExpanded: isExpanded,
+      disableAttendanceStatusLookup: true,
       onTap: () {
         setState(() {
           if (_expandedStaffIndex == index) {
@@ -600,6 +638,7 @@ class _StaffAttendanceAbsentViewState extends State<StaffAttendanceAbsentView> {
               isExpectedToday: staff.expectedToday,
               isPresentToday: false,
               profileStatus: 'A',
+              initialShowAbsentDays: true,
             ),
           ),
         );

@@ -16,7 +16,13 @@ class ApiPathsUat {
     ApiMicroservices.classroom,
     ApiMicroservices.attendance,
     ApiMicroservices.activity,
+    'activities',
     ApiMicroservices.document,
+    // UAT gateway uses singular `newsletter` (constant value is `newslatter`).
+    'newsletter',
+    // Communication
+    // Billing MS — UAT segment is `accounts`.
+    'accounts',
   };
 
   static const Map<String, Set<String>> _resourceRootsByMicroservice = {
@@ -28,11 +34,7 @@ class ApiPathsUat {
       'guardian-user',
       'guardian',
     },
-    ApiMicroservices.organization: {
-      'schools',
-      'organizations',
-      'school',
-    },
+    ApiMicroservices.organization: {'schools', 'organizations', 'school'},
     ApiMicroservices.staff: {
       'staff',
       'staff-classrooms',
@@ -40,6 +42,7 @@ class ApiPathsUat {
       'staff-dates',
       'staff-address',
       'staff-schedules',
+      'staff-shifts',
     },
     ApiMicroservices.student: {
       'student',
@@ -59,30 +62,66 @@ class ApiPathsUat {
       'staff-attendance',
       'staff-absence-records',
       'staff-attendance-records',
+      'schools', // GPS sign-in settings: /api/v1/attendance/schools/{code}/attendance-settings
+      'kiosk', // Kiosk PIN verification: /api/v1/kiosk/verify-pin
     },
     ApiMicroservices.classroom: {
       'classroom',
+      'individual-movements',
+      'future-availability',
     },
-    ApiMicroservices.activity: {
-      'classrooms',
-      'activities',
-      'activity-types',
+    ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
+    ApiMicroservices.document: {'media-assets', 'upload-sessions'},
+
+    //. Communication
+    ApiMicroservices.communication: {},
+
+    // Newsletter MS — resource root is plural `newsletters`.
+    ApiMicroservices.newsLatter: {'newsletters'},
+    // Billing MS — UAT segment `accounts`, resource roots.
+    ApiMicroservices.billing: {
+      'ledgers',
+      'ledger-transactions',
+      'discount',
+      'subsidy',
+      'fee-structure',
+      'other-fees',
+      'invoices',
+      'school-forte-configs',
+      'payment-gateway',
     },
-    // Document endpoints in this app are handled separately via `/document-ms/...`.
-    ApiMicroservices.document: {},
   };
+
+  static String _uatSegmentForMicroservice(String microserviceKey) {
+    // UAT gateway expects plural `activities` as the microservice segment.
+    if (microserviceKey == ApiMicroservices.activity) return 'activities';
+    // UAT gateway uses singular `newsletter` (constant value is `newslatter`).
+    if (microserviceKey == ApiMicroservices.newsLatter) return 'newsletter';
+    // UAT gateway uses `accounts` for the billing microservice.
+    if (microserviceKey == ApiMicroservices.billing) return 'accounts';
+    return microserviceKey;
+  }
 
   static String microserviceKeyFromPath(String path) {
     final p = path.startsWith('/') ? path : '/$path';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') {
+    if (parts.length < 3 || parts[0] != 'api') {
+      return ApiMicroservices.user;
+    }
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') {
       return ApiMicroservices.user;
     }
     final seg = parts[2];
+    final nextSeg = parts.length > 3 ? parts[3] : '';
 
     // If the UAT path already includes the microservice segment
     // (/api/v1/<ms>/...), use it as-is.
-    if (_microservicePathSegments.contains(seg)) return seg;
+    if (_microservicePathSegments.contains(seg)) {
+      if (seg == 'activities') return ApiMicroservices.activity;
+      if (seg == 'newsletter') return ApiMicroservices.newsLatter;
+      return seg;
+    }
 
     switch (seg) {
       case 'auth':
@@ -101,15 +140,21 @@ class ApiPathsUat {
       case 'staff-dates':
       case 'staff-address':
       case 'staff-schedules':
+      case 'staff-shifts':
         return ApiMicroservices.staff;
       case 'student':
       case 'student-classroom':
       case 'student-documents':
+      case 'student-settings':
       case 'student-tags':
       case 'regular-schedules':
       case 'physicians':
       case 'tags':
       case 'guardian':
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.student;
       case 'pickup':
         return ApiMicroservices.student;
       case 'student-attendance':
@@ -118,13 +163,50 @@ class ApiPathsUat {
       case 'staff-attendance':
       case 'staff-absence-records':
       case 'staff-attendance-records':
+      case 'kiosk':
         return ApiMicroservices.attendance;
       case 'classroom':
+      case 'individual-movements':
+      case 'future-availability':
         return ApiMicroservices.classroom;
       case 'classrooms':
       case 'activities':
       case 'activity-types':
         return ApiMicroservices.activity;
+      // /api/v1/messaging/conversations
+      case 'messaging':
+      case 'conversations':
+      case 'messages':
+        return ApiMicroservices.communication;
+      case 'notification':
+        return ApiMicroservices.notification;
+      case 'newsletters':
+        return ApiMicroservices.newsLatter;
+      case 'billing':
+      case 'ledgers':
+      case 'accounts':
+      case 'ledger-transactions':
+      case 'discount':
+      case 'subsidy':
+      case 'fee-structure':
+      case 'other-fees':
+      case 'invoices':
+      case 'school-forte-configs':
+      case 'payment-gateway':
+      case 'payment':
+        return ApiMicroservices.billing;
+      case 'reports':
+        // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
+        if (nextSeg == 'billing') return ApiMicroservices.billing;
+        return ApiMicroservices.user;
+      case 'admin':
+        // v2 activity moderation endpoints:
+        // /api/v2/admin/activities/{cardGroupCode}/approve|reject
+        if (nextSeg == 'activities') {
+          return ApiMicroservices.activity;
+        }
+        return ApiMicroservices.user;
+
       default:
         return ApiMicroservices.user;
     }
@@ -154,25 +236,76 @@ class ApiPathsUat {
     // Special-case: document-ms endpoints are already namespaced differently.
     if (p.startsWith('/document-ms/')) return p;
 
+    // Firebase custom-token endpoint is owned by the messaging-service. In UAT
+    // it is reached under the /messaging/ gateway segment — mirrors the web
+    // frontend which calls /api/v1/messaging/firebase/token. Without this the
+    // 'firebase' segment falls through to the default (user) host, hitting
+    // /api/v1/user/firebase/token → 500 "No static resource", so Firebase
+    // sign-in never succeeds and every Firestore listener gets permission-denied
+    // (no live sync). See firebase_auth_service.dart.
+    if (p == '/api/v1/firebase/token') {
+      return '/api/v1/messaging/firebase/token';
+    }
+
+    // Communication/messaging endpoints in UAT are routed under /messaging/ prefix.
+    if (microserviceKeyFromPath(p) == ApiMicroservices.communication) {
+      if (p.startsWith('/api/v1/messaging/')) return p; // already prefixed
+      if (p.startsWith('/api/v1/conversations')) {
+        return p.replaceFirst('/api/v1/conversations', '/api/v1/messaging/conversations');
+      }
+      if (p.startsWith('/api/v1/messages')) {
+        return p.replaceFirst('/api/v1/messages', '/api/v1/messaging/messages');
+      }
+      return p;
+    }
+
+    // Notification endpoints are served under the newsletter gateway segment in
+    // UAT (same MS as newsletter), so prepend that segment (keeping the
+    // `notification/...` resource):
+    //   /api/v1/notification/...  →  /api/v1/newsletter/notification/...
+    final notificationSegment =
+        _uatSegmentForMicroservice(ApiMicroservices.newsLatter);
+    if (p.startsWith('/api/v1/$notificationSegment/notification/')) {
+      return p; // already done
+    }
+    if (p.startsWith('/api/v1/notification/')) {
+      return p.replaceFirst(
+        '/api/v1/notification/',
+        '/api/v1/$notificationSegment/notification/',
+      );
+    }
+    if (p == '/api/v1/notification') {
+      return '/api/v1/$notificationSegment/notification';
+    }
+
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
-    if (parts.length < 3 || parts[0] != 'api' || parts[1] != 'v1') return p;
+    if (parts.length < 3 || parts[0] != 'api') return p;
+    final version = parts[1];
+    if (version != 'v1' && version != 'v2') return p;
 
     final seg = parts[2];
+
     if (_microservicePathSegments.contains(seg)) {
       // Ambiguous case: some endpoints use the same word for both MS and resource
       // (e.g. local `/api/v1/staff/code` should become `/api/v1/staff/staff/code` in UAT).
-      final ms = seg;
+      final ms = seg == 'activities'
+          ? ApiMicroservices.activity
+          : seg == 'newsletter'
+          ? ApiMicroservices.newsLatter
+          : seg;
       final roots = _resourceRootsByMicroservice[ms];
       if (parts.length >= 4 && roots != null && roots.contains(parts[3])) {
-        return p; // already `/api/v1/<ms>/<resource>/...`
+        return p; // already `/api/<version>/<ms>/<resource>/...`
       }
       final rest = parts.sublist(2).join('/');
-      return '/api/v1/$ms/$rest';
+      final uatSegment = _uatSegmentForMicroservice(ms);
+      return '/api/$version/$uatSegment/$rest';
     }
 
     final ms = microserviceKeyFromPath(p);
     final rest = parts.sublist(2).join('/');
-    return '/api/v1/$ms/$rest';
+    final uatSegment = _uatSegmentForMicroservice(ms);
+    return '/api/$version/$uatSegment/$rest';
   }
 
   static String url(String path) {
@@ -194,7 +327,7 @@ class ApiPathsUat {
 
   static String urlWithBase(String path, String baseUrl) => url(path);
 
-  /// Document endpoints are special-cased under `/document-ms/...` in this app.
+  /// Document endpoints in UAT are rooted under `/api/v1/document`.
   /// This helper is added for parity with local [ApiPaths].
   static String documentAssetCompletePath({
     required String documentApiBasePath,
@@ -202,7 +335,7 @@ class ApiPathsUat {
     required String assetCode,
   }) {
     var base = documentApiBasePath.trim();
-    if (base.isEmpty) base = '/document-ms/api/v1';
+    if (base.isEmpty) base = '/api/v1/document';
     if (!base.startsWith('/')) base = '/$base';
     base = base.replaceAll(RegExp(r'/+$'), '');
     final s = sessionCode.trim();
@@ -210,4 +343,3 @@ class ApiPathsUat {
     return '$base/upload-sessions/$s/assets/$a/complete';
   }
 }
-

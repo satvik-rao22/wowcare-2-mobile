@@ -16,35 +16,39 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/presentation/features/attendance/cubit/staff_attendance_custom_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
+import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 
 class StaffAttendanceCustomView extends StatefulWidget {
-  const StaffAttendanceCustomView({
-    super.key,
-    this.contentOnly = false,
-  });
+  const StaffAttendanceCustomView({super.key, this.contentOnly = false});
 
   final bool contentOnly;
 
   @override
-  State<StaffAttendanceCustomView> createState() => _StaffAttendanceCustomViewState();
+  State<StaffAttendanceCustomView> createState() =>
+      _StaffAttendanceCustomViewState();
 }
 
-class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
+class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
+    implements AttendanceTabRefresh {
   final TextEditingController _customSearchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
 
   String _searchQuery = '';
   List<String> _selectedClassroomNames = <String>[];
+  List<String>? _selectedClassroomCodes;
   DateTime? _customRangeStart;
   DateTime? _customRangeEnd;
   int? _customExpandedStaffIndex;
   bool _isClassroomDataReady = false;
 
-  final List<_CustomStaffAttendanceRow> _attendanceList = <_CustomStaffAttendanceRow>[];
+  final List<_CustomStaffAttendanceRow> _attendanceList =
+      <_CustomStaffAttendanceRow>[];
 
   late final StaffAttendanceCustomCubit _cubit;
   late final ClassroomCubit _classroomCubit;
@@ -64,18 +68,54 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     // Guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
     _loadAttendanceData(reset: true);
+    // Resolve the school timezone, then re-seed the default range to the school
+    // month if it differs (handles a device in a different zone on cold start).
+    _initSchoolTimezone();
+  }
+
+  Future<void> _initSchoolTimezone() async {
+    final beforeStart = _customRangeStart;
+    final beforeEnd = _customRangeEnd;
+    await bootstrapAttendanceSchoolTimezone();
+    if (!mounted) return;
+    final now = attendanceSchoolToday();
+    final schoolStart = DateTime(now.year, now.month, 1);
+    // Re-seed only if the range is still the initial default (untouched).
+    if (beforeStart == _customRangeStart &&
+        beforeEnd == _customRangeEnd &&
+        (_customRangeStart != schoolStart || _customRangeEnd != now)) {
+      setState(() {
+        _customRangeStart = schoolStart;
+        _customRangeEnd = now;
+      });
+      _loadAttendanceData(reset: true);
+    }
+  }
+
+  @override
+  void refreshAfterReturningFromAttendanceFlow() {
+    if (!mounted) return;
+    _loadAttendanceData(reset: true);
   }
 
   Future<void> _loadClassroomData() async {
+    final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
       onlyTypeClassroom: false,
+      applyAttendanceStaffScope: true,
     );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
       if (!mounted) return;
       setState(() => _isClassroomDataReady = true);
+      if (hadClassroomSelection) {
+        _syncClassroomFilterCodes();
+        if (_selectedClassroomCodes != null) {
+          _loadAttendanceData(reset: true);
+        }
+      }
       return;
     }
 
@@ -87,9 +127,16 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
 
     if (!mounted) return;
     setState(() {
-      _isClassroomDataReady = !_classroomCubit.state.isLoading &&
+      _isClassroomDataReady =
+          !_classroomCubit.state.isLoading &&
           _classroomCubit.state.classrooms.isNotEmpty;
     });
+    if (hadClassroomSelection && _isClassroomDataReady) {
+      _syncClassroomFilterCodes();
+      if (_selectedClassroomCodes != null) {
+        _loadAttendanceData(reset: true);
+      }
+    }
   }
 
   @override
@@ -141,7 +188,8 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     if (apiName.isNotEmpty && !apiNameLooksLikeCode) return apiName;
     if (code.isEmpty) return '';
     final fromCubit = _resolveClassroomNameByCode(code);
-    if (fromCubit != null && fromCubit.trim().isNotEmpty) return fromCubit.trim();
+    if (fromCubit != null && fromCubit.trim().isNotEmpty)
+      return fromCubit.trim();
     if (!_classroomFetchInFlight.contains(code)) {
       _classroomFetchInFlight.add(code);
       // ignore: discarded_futures
@@ -151,7 +199,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
   }
 
   void _initializeDefaultRange() {
-    final now = DateTime.now();
+    final now = attendanceSchoolToday();
     _customRangeStart = DateTime(now.year, now.month, 1);
     _customRangeEnd = now;
   }
@@ -163,18 +211,27 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     _loadAttendanceData(reset: true);
   }
 
-  List<String>? _resolveSelectedClassroomCodes() {
-    if (_selectedClassroomNames.isEmpty) return null;
-    if (_classroomCubit.state.classrooms.isEmpty) return null;
-    final nameToCode = <String, String>{
-      for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-    };
-    final codes = _selectedClassroomNames
-        .map((n) => nameToCode[n])
-        .whereType<String>()
-        .where((c) => c.trim().isNotEmpty)
-        .toList();
-    return codes.isEmpty ? null : codes;
+  void _syncClassroomFilterCodes() {
+    _selectedClassroomCodes = resolveClassroomNamesToCodes(
+      selectedNamesOrCodes: _selectedClassroomNames,
+      classrooms: _classroomCubit.state.classrooms,
+    );
+  }
+
+  List<String>? _effectiveClassroomCodes() {
+    if (_selectedClassroomNames.isEmpty) {
+      _selectedClassroomCodes = null;
+      return null;
+    }
+    _syncClassroomFilterCodes();
+    return _selectedClassroomCodes;
+  }
+
+  void _reloadIfPendingClassroomFilter() {
+    if (_selectedClassroomNames.isEmpty) return;
+    _syncClassroomFilterCodes();
+    if (_selectedClassroomCodes == null) return;
+    _loadAttendanceData(reset: true);
   }
 
   // Method to load attendance data from backend
@@ -186,59 +243,37 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
     final from = _customRangeStart!;
     final to = _customRangeEnd!;
 
-    final classroomCodes = _resolveSelectedClassroomCodes();
-
-      if (reset) {
-        _customExpandedStaffIndex = null;
-      _cubit.loadInitial(
-        fromDate: from,
-        toDate: to,
-        classroomCodes: classroomCodes,
-        tagCodes: null,
-        search: _searchQuery.isEmpty ? null : _searchQuery,
-      );
-    } else {
-      _cubit.refresh(
-        fromDate: from,
-        toDate: to,
-        classroomCodes: classroomCodes,
-        tagCodes: null,
-        search: _searchQuery.isEmpty ? null : _searchQuery,
-      );
+    final classroomCodes = _effectiveClassroomCodes();
+    if (_selectedClassroomNames.isNotEmpty && classroomCodes == null) {
+      return;
     }
+
+    if (reset) {
+      _customExpandedStaffIndex = null;
+    }
+
+    _cubit.refresh(
+      fromDate: from,
+      toDate: to,
+      classroomCodes: classroomCodes,
+      tagCodes: null,
+      search: _searchQuery.isEmpty ? null : _searchQuery,
+    );
   }
 
   List<_CustomStaffAttendanceRow> _getFilteredAttendance() {
-    var filtered = _attendanceList;
-
-    // Apply search filter
-    if (_searchQuery.isNotEmpty) {
-      final query = _searchQuery.toLowerCase();
-      filtered = filtered.where((attendance) {
-        return attendance.staffName.toLowerCase().contains(query) ||
-            attendance.roomName.toLowerCase().contains(query);
-      }).toList();
-    }
-
-    // Apply classroom filter
-    if (_selectedClassroomNames.isNotEmpty) {
-      filtered = filtered.where((attendance) {
-        final display = _classroomDisplay(
-          classroomCode: attendance.classroomCode,
-          classroomName: attendance.classroomName,
-        );
-        return _selectedClassroomNames.contains(display);
-      }).toList();
-    }
-
-    return filtered;
+    // Classroom and search filters are applied server-side via classroomCodes/search.
+    return _attendanceList;
   }
 
   String? _formatDesignation(String? raw) {
     if (raw == null) return null;
     final cleaned = raw.trim().replaceAll('_', ' ').toLowerCase();
     if (cleaned.isEmpty) return null;
-    final words = cleaned.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    final words = cleaned
+        .split(RegExp(r'\s+'))
+        .where((w) => w.isNotEmpty)
+        .toList();
     final formatted = words
         .map((w) => w[0].toUpperCase() + (w.length > 1 ? w.substring(1) : ''))
         .join(' ');
@@ -267,228 +302,269 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
         BlocProvider<StaffAttendanceCustomCubit>.value(value: _cubit),
         BlocProvider<ClassroomCubit>.value(value: _classroomCubit),
       ],
-      child: BlocBuilder<StaffAttendanceCustomCubit, StaffAttendanceCustomState>(
-        builder: (context, state) {
-          final isLoading = state.isLoading;
+      child: BlocListener<ClassroomCubit, ClassroomState>(
+        bloc: _classroomCubit,
+        listenWhen: (previous, current) =>
+            previous.classrooms.isEmpty && current.classrooms.isNotEmpty,
+        listener: (_, __) => _reloadIfPendingClassroomFilter(),
+        child: BlocBuilder<StaffAttendanceCustomCubit, StaffAttendanceCustomState>(
+          builder: (context, state) {
+            final isLoading = state.isLoading;
 
-          final items = state.items;
-          _attendanceList
-            ..clear()
-            ..addAll(
-              items.map(
-                (item) => _CustomStaffAttendanceRow(
-                  id: item.staffCode,
-                  staffId: 0,
-                  staffName: item.staffName,
-                  designationName: _formatDesignation(
-                      item.designation.isNotEmpty ? item.designation.first : null),
-                  staffPhotoUuid: '',
-                  classroomCode: item.classroomCode,
-                  classroomName: item.classroomName,
-                  roomName: _classroomDisplay(
+            final items = state.items;
+            _attendanceList
+              ..clear()
+              ..addAll(
+                items.map(
+                  (item) => _CustomStaffAttendanceRow(
+                    id: item.staffCode,
+                    staffId: 0,
+                    staffName: item.staffName,
+                    designationName: _formatDesignation(
+                      item.designation.isNotEmpty
+                          ? item.designation.first
+                          : null,
+                    ),
+                    staffPhotoUuid: '',
                     classroomCode: item.classroomCode,
                     classroomName: item.classroomName,
+                    roomName: _classroomDisplay(
+                      classroomCode: item.classroomCode,
+                      classroomName: item.classroomName,
+                    ),
+                    daysAttended: item.attendedDays.toString(),
+                    totalHours: item.attendedTime ?? '',
+                    expectedToday: item.isExpectedToday,
+                    hasSignIn: item.hasSignIn,
+                    schoolId: 0,
+                    roomId: 0,
                   ),
-                  daysAttended: item.attendedDays.toString(),
-                  totalHours: item.attendedTime ?? '',
-                  expectedToday: item.isExpectedToday,
-                  hasSignIn: item.hasSignIn,
-                  schoolId: 0,
-                  roomId: 0,
+                ),
+              );
+
+            final filtered = _getFilteredAttendance();
+
+            return CustomRefreshIndicator(
+              onRefresh: () async {
+                _loadAttendanceData(reset: false);
+              },
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) {
+                  if (notification is ScrollUpdateNotification &&
+                      notification.metrics.pixels >=
+                          notification.metrics.maxScrollExtent - 200) {
+                    _cubit.loadNextPage();
+                  }
+                  return false;
+                },
+                child: SingleChildScrollView(
+                  controller: _scrollController,
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: contentPadding.left,
+                    vertical: responsive.verticalSpacing / 4,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const SizedBox(height: 8),
+                      // Filters Section
+                      CustomSectionCard(
+                        child: Column(
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  flex: responsive.isTablet ? 3 : 2,
+                                  child: CustomSearchBar(
+                                    controller: _customSearchController,
+                                    hintText: 'Search Staff',
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: responsive.horizontalSpacing / 2,
+                                ),
+                                Expanded(
+                                  flex: responsive.isTablet ? 2 : 1,
+                                  child:
+                                      BlocBuilder<
+                                        ClassroomCubit,
+                                        ClassroomState
+                                      >(
+                                        builder: (context, classroomState) {
+                                          final items = classroomState
+                                              .classrooms
+                                              .map((c) => c.name)
+                                              .toList();
+                                          final isLoading =
+                                              classroomState.isLoading ||
+                                              !_isClassroomDataReady;
+                                          if (isLoading && items.isEmpty) {
+                                            return ShimmerLoader(
+                                              height: 40,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            );
+                                          }
+
+                                          return CustomMultiSelectDropdown(
+                                            hintText: 'Classroom',
+                                            items: items,
+                                            selectedItems:
+                                                _selectedClassroomNames,
+                                            onChanged: (values) {
+                                              setState(() {
+                                                _selectedClassroomNames =
+                                                    List<String>.from(values);
+                                                _syncClassroomFilterCodes();
+                                              });
+                                              if (_selectedClassroomNames
+                                                      .isNotEmpty &&
+                                                  _selectedClassroomCodes ==
+                                                      null) {
+                                                return;
+                                              }
+                                              _loadAttendanceData(reset: true);
+                                            },
+                                          );
+                                        },
+                                      ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: responsive.verticalSpacing / 2),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: CustomDateTimeField(
+                                    hasLabel: false,
+                                    isRangePicker: true,
+                                    fetchInitialTime: true,
+                                    onRangeSelected: (start, end) {
+                                      if (end != null && start.isAfter(end)) {
+                                        CoreUtils.showTopSnackBarFromSnackBar(
+                                          context: context,
+                                          snackBar: SnackBar(
+                                            content: const Text(
+                                              'Start date cannot be after end date',
+                                            ),
+                                            backgroundColor:
+                                                AppColors.errorColor,
+                                          ),
+                                        );
+                                        return;
+                                      }
+                                      setState(() {
+                                        _customRangeStart = start;
+                                        _customRangeEnd = end;
+                                      });
+                                      _loadAttendanceData(reset: true);
+                                    },
+                                  ),
+                                ),
+                                SizedBox(
+                                  width: responsive.horizontalSpacing / 2,
+                                ),
+                                CustomClearAllChip(
+                                  onTap: () {
+                                    setState(() {
+                                      _customSearchController.clear();
+                                      _searchQuery = '';
+                                      _selectedClassroomNames = <String>[];
+                                      _selectedClassroomCodes = null;
+                                      final now = attendanceSchoolToday();
+                                      _customRangeStart = DateTime(
+                                        now.year,
+                                        now.month,
+                                        1,
+                                      );
+                                      _customRangeEnd = DateTime(
+                                        now.year,
+                                        now.month + 1,
+                                        0,
+                                      );
+                                    });
+                                    _loadAttendanceData(reset: true);
+                                  },
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      SizedBox(height: responsive.verticalSpacing),
+                      // Content area
+                      if (isLoading)
+                        Column(
+                          children: [
+                            ShimmerLoader(
+                              height: 100,
+                              margin: EdgeInsets.only(
+                                bottom: responsive.verticalSpacing / 2,
+                              ),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            ...List.generate(
+                              6,
+                              (index) => ShimmerLoader(
+                                height: 80,
+                                margin: EdgeInsets.only(
+                                  bottom: responsive.verticalSpacing / 2,
+                                ),
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ],
+                        )
+                      else if (filtered.isEmpty)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(32.0),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.people_outline,
+                                  size: 48,
+                                  color: Colors.grey[400],
+                                ),
+                                const SizedBox(height: 16),
+                                AppText.body(
+                                  'No staff attendance found',
+                                  style: TextStyle(color: Colors.grey[600]),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        )
+                      else
+                        Column(
+                          children: [
+                            ...filtered.asMap().entries.map((entry) {
+                              final index = entry.key;
+                              final attendance = entry.value;
+                              return _buildCustomStaffCard(attendance, index);
+                            }).toList(),
+                          ],
+                        ),
+                      // Add some bottom padding for better scrolling
+                      SizedBox(height: responsive.verticalSpacing),
+                    ],
+                  ),
                 ),
               ),
             );
-
-    final filtered = _getFilteredAttendance();
-
-    return CustomRefreshIndicator(
-      onRefresh: () async {
-              _loadAttendanceData(reset: false);
-            },
-            child: NotificationListener<ScrollNotification>(
-              onNotification: (notification) {
-                if (notification is ScrollUpdateNotification &&
-                    notification.metrics.pixels >=
-                        notification.metrics.maxScrollExtent - 200) {
-                  _cubit.loadNextPage();
-                }
-                return false;
-      },
-      child: SingleChildScrollView(
-        controller: _scrollController,
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: EdgeInsets.symmetric(
-          horizontal: contentPadding.left,
-          vertical: responsive.verticalSpacing / 4,
+          },
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 8),
-            // Filters Section
-            CustomSectionCard(
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        flex: responsive.isTablet ? 3 : 2,
-                        child: CustomSearchBar(
-                          controller: _customSearchController,
-                          hintText: 'Search Staff',
-                        ),
-                      ),
-                      SizedBox(width: responsive.horizontalSpacing / 2),
-                      Expanded(
-                        flex: responsive.isTablet ? 2 : 1,
-                        child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                          builder: (context, classroomState) {
-                            final items = classroomState.classrooms
-                                .map((c) => c.name)
-                                .toList();
-                            final isLoading =
-                                classroomState.isLoading || !_isClassroomDataReady;
-                            if (isLoading && items.isEmpty) {
-                              return ShimmerLoader(
-                                height: 40,
-                                borderRadius: BorderRadius.circular(12),
-                              );
-                            }
-
-                            return CustomMultiSelectDropdown(
-                              hintText: 'Classroom',
-                              items: items,
-                              selectedItems: _selectedClassroomNames,
-                              onChanged: (values) {
-                                if (isLoading) return;
-                                setState(() {
-                                  _selectedClassroomNames =
-                                      List<String>.from(values);
-                                });
-                                _loadAttendanceData(reset: true);
-                              },
-                            );
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: responsive.verticalSpacing / 2),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: CustomDateTimeField(
-                          hasLabel: false,
-                          isRangePicker: true,
-                          fetchInitialTime: true,
-                          onRangeSelected: (start, end) {
-                            if (end != null && start.isAfter(end)) {
-                              CoreUtils.showTopSnackBarFromSnackBar(
-                                context: context,
-                                snackBar: 
-                                SnackBar(
-                                  content: const Text('Start date cannot be after end date'),
-                                  backgroundColor: AppColors.errorColor,
-                                ),
-                              );
-                              return;
-                            }
-                            setState(() {
-                              _customRangeStart = start;
-                              _customRangeEnd = end;
-                            });
-                            _loadAttendanceData(reset: true);
-                          },
-                        ),
-                      ),
-                      SizedBox(width: responsive.horizontalSpacing / 2),
-                      CustomClearAllChip(
-                        onTap: () {
-                          setState(() {
-                            _customSearchController.clear();
-                            _searchQuery = '';
-                            _selectedClassroomNames = <String>[];
-                            final now = DateTime.now();
-                            _customRangeStart = DateTime(now.year, now.month, 1);
-                            _customRangeEnd = DateTime(now.year, now.month + 1, 0);
-                          });
-                          _loadAttendanceData(reset: true);
-                        },
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            // Content area
-                    if (isLoading)
-              Column(
-                children: [
-                  ShimmerLoader(
-                    height: 100,
-                            margin: EdgeInsets.only(
-                                bottom: responsive.verticalSpacing / 2),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  ...List.generate(
-                    6,
-                    (index) => ShimmerLoader(
-                      height: 80,
-                              margin: EdgeInsets.only(
-                                  bottom: responsive.verticalSpacing / 2),
-                      borderRadius: BorderRadius.circular(16),
-                    ),
-                  ),
-                ],
-              )
-            else if (filtered.isEmpty)
-              Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(32.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        Icons.people_outline,
-                        size: 48,
-                        color: Colors.grey[400],
-                      ),
-                      const SizedBox(height: 16),
-                      AppText.body(
-                        'No staff attendance found',
-                        style: TextStyle(
-                          color: Colors.grey[600],
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                ),
-              )
-            else
-              Column(
-                children: [
-                  ...filtered.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final attendance = entry.value;
-                    return _buildCustomStaffCard(attendance, index);
-                  }).toList(),
-                ],
-              ),
-            // Add some bottom padding for better scrolling
-            SizedBox(height: responsive.verticalSpacing),
-          ],
-        ),
-              ),
-            ),
-          );
-        },
       ),
     );
   }
 
-  Widget _buildCustomStaffCard(_CustomStaffAttendanceRow attendance, int index) {
+  Widget _buildCustomStaffCard(
+    _CustomStaffAttendanceRow attendance,
+    int index,
+  ) {
     final responsive = ResponsiveHelper(context);
     final bool isExpanded = _customExpandedStaffIndex == index;
 
@@ -530,7 +606,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.03),
+              color: Colors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -544,47 +620,48 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
                 // Profile photo
                 DocumentImageWidget(
                   fileUuid: attendance.staffPhotoUuid,
+                  staffCode: attendance.id,
                   name: staffName,
                   size: avatarSize,
                   fontSize: responsive.isTablet ? 18 : 16,
+                  disableAttendanceStatusLookup: true,
                 ),
                 SizedBox(width: responsive.horizontalSpacing / 2),
+                // Header matches staff_card.dart: name (left) + classroom (right).
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      AppText.body(
-                        staffName,
-                        style: TextStyle(
-                          fontSize: responsive.labelFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryColor,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (attendance.designationName != null &&
-                          attendance.designationName!.isNotEmpty) ...[
-                        SizedBox(height: responsive.verticalSpacing / 4),
-                        AppText.small(
-                          attendance.designationName!,
+                      Flexible(
+                        child: Text(
+                          staffName,
                           style: TextStyle(
-                            fontSize: responsive.isTablet ? 14 : 12,
-                            color: AppColors.secondaryColor.withOpacity(0.6),
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
                           ),
+                          overflow: TextOverflow.ellipsis,
                         ),
-                      ],
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(
+                          roomName,
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontSize: responsive.isTablet ? 16 : 14,
+                            fontWeight: FontWeight.w500,
+                            color: const Color(0xff573353),
+                            height: 19 / 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
                     ],
                   ),
-                ),
-                AppText.body(
-                  'Attended Days: $daysAttended',
-                  style: TextStyle(
-                    fontSize: responsive.isTablet ? 16 : 15,
-                    color: AppColors.primaryColor,
-                    fontWeight: FontWeight.w500,
-                  ),
-                  textAlign: TextAlign.end,
                 ),
               ],
             ),
@@ -592,17 +669,9 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
               SizedBox(height: responsive.verticalSpacing / 2),
               Divider(height: 1, color: AppColors.cardBorderColor),
               SizedBox(height: responsive.verticalSpacing / 2),
-              _buildDetailRow(
-                responsive,
-                'Classroom',
-                roomName,
-              ),
+              _buildDetailRow(responsive, 'Attended Time', totalHours),
               SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                responsive,
-                'Attended Time',
-                totalHours,
-              ),
+              _buildDetailRow(responsive, 'Attended Days', daysAttended),
               SizedBox(height: responsive.verticalSpacing / 2),
               Padding(
                 padding: EdgeInsets.symmetric(
@@ -653,21 +722,28 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView> {
       children: [
         Expanded(
           flex: responsive.isTablet ? 2 : 1,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 14 : 12,
-              color: AppColors.secondaryColor.withOpacity(0.6),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: Color(0xff573353),
+              height: 16 / 13,
             ),
           ),
         ),
         SizedBox(width: responsive.horizontalSpacing / 2),
         Expanded(
           flex: responsive.isTablet ? 3 : 2,
-          child: AppText.value(
+          child: Text(
             value,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 16 : 14,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: Color(0xff573353),
+              height: 19 / 14,
             ),
             textAlign: TextAlign.end,
             maxLines: 3,

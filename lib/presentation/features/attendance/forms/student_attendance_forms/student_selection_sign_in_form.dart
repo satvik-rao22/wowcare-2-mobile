@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -18,8 +21,9 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'guardian_student_selection_scope.dart';
 import 'student_sign_in_form.dart';
 
@@ -28,7 +32,37 @@ class StudentSelectionSignInForm extends StatefulWidget {
 
   const StudentSelectionSignInForm({
     super.key,
+    this.isQrScan = false,
+    this.qrToken = '',
+    this.preSelectedStudentCode,
+    this.allowedStudentCodes,
+    this.isKiosk = false,
+    this.guardianCode,
+    this.pin,
   });
+
+  /// True when opened after a QR code scan. Passed down to [StudentSignInForm]
+  /// so the API payload uses method=QR and withinGeofence=true.
+  final bool isQrScan;
+
+  /// QR token from the scanned code (only set when isQrScan=true).
+  /// Passed to StudentSignInForm for inclusion in the API payload.
+  final String qrToken;
+
+  /// When set (GPS flow), this student is pre-selected after the list loads.
+  final String? preSelectedStudentCode;
+
+  /// List of student codes that are allowed to be shown/selected.
+  final List<String>? allowedStudentCodes;
+
+  /// True when called from kiosk flow (guardian persona).
+  final bool isKiosk;
+
+  /// Guardian code from kiosk PIN verification.
+  final String? guardianCode;
+
+  /// PIN from kiosk access. Passed to StudentSignInForm for API payload.
+  final String? pin;
 
   @override
   State<StudentSelectionSignInForm> createState() =>
@@ -37,6 +71,7 @@ class StudentSelectionSignInForm extends StatefulWidget {
 
 class _StudentSelectionSignInFormState
     extends State<StudentSelectionSignInForm> {
+  bool _preSelectionApplied = false;
   bool isSelectAllChecked = false;
   String? _selectedClassroom = null;
   String? _selectedClassroomCode;
@@ -64,17 +99,19 @@ class _StudentSelectionSignInFormState
   /// Parent persona: only linked children; hide classroom/tag filters.
   late final bool _restrictToGuardianChildren;
 
-  late final GetStudentSignInFormListUseCase
-      _getStudentSignInFormListUseCase;
+  late final GetStudentSignInFormListUseCase _getStudentSignInFormListUseCase;
   late final ClassroomCubit _classroomCubit;
   late final StorageService _storageService;
   late final GetTagNameCodeMapForSchoolUseCase
-      _getTagNameCodeMapForSchoolUseCase;
+  _getTagNameCodeMapForSchoolUseCase;
 
   @override
   void initState() {
     super.initState();
-    _restrictToGuardianChildren = context.read<RoleProvider>().isParent;
+    AppLogger.d(
+      '[Kiosk] StudentSelectionSignInForm initState: pin=${widget.pin}, isKiosk=${widget.isKiosk}, guardianCode=${widget.guardianCode}',
+    );
+    _restrictToGuardianChildren = context.read<RoleCubit>().isParent;
     _getStudentSignInFormListUseCase =
         serviceLocator<GetStudentSignInFormListUseCase>();
     _classroomCubit = serviceLocator<ClassroomCubit>();
@@ -102,7 +139,16 @@ class _StudentSelectionSignInFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms();
+    // When the school allows teacher cross-class attendance, list ALL classrooms
+    // in the dropdown (like an admin); otherwise scope to the teacher's allowed
+    // classrooms.
+    final crossClass =
+        await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+      storage: _storageService,
+    );
+    _classroomCubit.loadActiveClassrooms(
+      applyAttendanceStaffScope: !crossClass,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -190,12 +236,13 @@ class _StudentSelectionSignInFormState
     });
 
     try {
-      final today = DateTime.now();
+      await bootstrapAttendanceSchoolTimezone();
+      final today = attendanceSchoolToday();
       final dateString = _formatDate(today);
 
       final selectedClassroomCode = _selectedClassroomCode?.trim();
-      final classroomCodes = (selectedClassroomCode != null &&
-              selectedClassroomCode.isNotEmpty)
+      final classroomCodes =
+          (selectedClassroomCode != null && selectedClassroomCode.isNotEmpty)
           ? <String>[selectedClassroomCode]
           : null;
 
@@ -212,8 +259,9 @@ class _StudentSelectionSignInFormState
         }
       }
 
-      final searchText =
-          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+      final searchText = _searchController.text.trim().isNotEmpty
+          ? _searchController.text.trim()
+          : null;
 
       final page = await _getStudentSignInFormListUseCase(
         fromAttendanceDate: dateString,
@@ -222,12 +270,14 @@ class _StudentSelectionSignInFormState
         tagCodes: tagCodes,
         search: searchText,
         page: 0,
-        size: 100,
+        size: 200,
       );
 
       if (!mounted) return;
 
-      final allowUpper = await loadGuardianStudentAllowlistForSelection(context);
+      final allowUpper = await loadGuardianStudentAllowlistForSelection(
+        context,
+      );
 
       var items = page.items;
       if (allowUpper != null) {
@@ -237,6 +287,19 @@ class _StudentSelectionSignInFormState
                 i.studentCode,
                 allowUpper,
               ),
+            )
+            .toList();
+      }
+
+      if (widget.allowedStudentCodes != null) {
+        final allowedUpper = widget.allowedStudentCodes!
+            .map((c) => c.trim().toUpperCase())
+            .toSet();
+        items = items
+            .where(
+              (i) =>
+                  i.studentCode.trim().isNotEmpty &&
+                  allowedUpper.contains(i.studentCode.trim().toUpperCase()),
             )
             .toList();
       }
@@ -260,14 +323,29 @@ class _StudentSelectionSignInFormState
         (s) => !students.any((e) => e.studentCode == s.studentCode),
       );
 
+      // GPS flow: pre-select the child the parent was viewing, but only on the
+      // first load so the user can de-select without it snapping back.
+      if (!_preSelectionApplied && widget.preSelectedStudentCode != null) {
+        _preSelectionApplied = true;
+        final code = widget.preSelectedStudentCode!.trim();
+        final match = students.where((s) => s.studentCode == code).firstOrNull;
+        if (match != null) selectedStudents.add(match);
+      }
+
+      // Kiosk/unified flow: auto-select all students on first load (matching sign-out behavior)
+      if (!_preSelectionApplied && widget.allowedStudentCodes != null) {
+        _preSelectionApplied = true;
+        selectedStudents.addAll(students);
+      }
+
       setState(() {
         _allStudents = students;
         _filteredStudents = List.from(students);
         _isLoading = false;
-        isSelectAllChecked = _filteredStudents.isNotEmpty &&
+        isSelectAllChecked =
+            _filteredStudents.isNotEmpty &&
             _filteredStudents.every((s) => selectedStudents.contains(s));
       });
-
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -322,8 +400,7 @@ class _StudentSelectionSignInFormState
     if (selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Please select at least one student'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -337,6 +414,11 @@ class _StudentSelectionSignInFormState
         builder: (context) => StudentSignInForm(
           students: selectedStudents.toList(),
           refreshCallback: refreshCallback,
+          isQrScan: widget.isQrScan,
+          qrToken: widget.qrToken,
+          isKiosk: widget.isKiosk,
+          guardianCode: widget.guardianCode,
+          pin: widget.pin,
         ),
       ),
     );
@@ -349,153 +431,154 @@ class _StudentSelectionSignInFormState
     final safeAreaBottom = mediaQuery.padding.bottom;
 
     return StaffFormLayout(
+      isKiosk: widget.isKiosk,
       title: 'Sign-In',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          AppText.subtitle(
-            _restrictToGuardianChildren
-                ? 'Select your children'
-                : 'Select Students',
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
+          if (!widget.isKiosk) ...[
+            AppText.subtitle(
+              _restrictToGuardianChildren
+                  ? 'Select your children'
+                  : 'Select Students',
             ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: _restrictToGuardianChildren
-                    ? 'Search your children'
-                    : 'Search Students',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
-                ),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(15),
+                border: Border.all(color: Colors.grey),
               ),
-              onChanged: (_) => _loadStudents(),
+              child: TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: _restrictToGuardianChildren
+                      ? 'Search your children'
+                      : 'Search Students',
+                  hintStyle: AppTextStyles.body.copyWith(
+                    color: Colors.grey[700],
+                  ),
+                  border: InputBorder.none,
+                  icon: const Icon(Icons.search, color: Colors.grey),
+                ),
+                onChanged: (_) => _loadStudents(),
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          if (!_restrictToGuardianChildren) ...[
+            const SizedBox(height: 12),
+            if (!_restrictToGuardianChildren) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: BlocBuilder<ClassroomCubit, ClassroomState>(
+                      bloc: _classroomCubit,
+                      builder: (context, classroomState) {
+                        final items = _classroomList.isNotEmpty
+                            ? _classroomList
+                            : classroomState.classrooms
+                                  .map((c) => c.name)
+                                  .toList(growable: false);
+                        final isLoading =
+                            classroomState.isLoading || !_isClassroomDataReady;
+
+                        if (isLoading && items.isEmpty) {
+                          return const ShimmerLoader(height: 40);
+                        }
+
+                        return CustomDropdown(
+                          hintText: 'Classroom',
+                          items: items,
+                          selectedItem: _selectedClassroom,
+                          onSelect: (value) {
+                            if (isLoading) return;
+                            setState(() {
+                              _selectedClassroom = value;
+                              _selectedClassroomCode = value == null
+                                  ? null
+                                  : _classroomNameToCode[value];
+                            });
+                            _loadStudents();
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: CustomMultiSelectDropdown(
+                      hintText: 'Tags',
+                      items: _tagsList,
+                      selectedItems: _selectedTag,
+                      onChanged: (selectedItems) {
+                        setState(() {
+                          _selectedTag = selectedItems;
+                        });
+                        _loadStudents();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             Row(
               children: [
-                Expanded(
-                  child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                    bloc: _classroomCubit,
-                    builder: (context, classroomState) {
-                      final items = _classroomList.isNotEmpty
-                          ? _classroomList
-                          : classroomState.classrooms
-                              .map((c) => c.name)
-                              .toList(growable: false);
-                      final isLoading =
-                          classroomState.isLoading || !_isClassroomDataReady;
-
-                      if (isLoading && items.isEmpty) {
-                        return const ShimmerLoader(height: 40);
-                      }
-
-                      return CustomDropdown(
-                        hintText: 'Classroom',
-                        items: items,
-                        selectedItem: _selectedClassroom,
-                        onSelect: (value) {
-                          if (isLoading) return;
-                          setState(() {
-                            _selectedClassroom = value;
-                            _selectedClassroomCode = value == null
-                                ? null
-                                : _classroomNameToCode[value];
-                          });
-                          _loadStudents();
-                        },
-                      );
-                    },
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                  child: CustomCheckbox(
+                    value: isSelectAllChecked,
+                    onChanged: _toggleSelectAll,
+                    borderColor: AppColors.themeColor,
                   ),
                 ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: CustomMultiSelectDropdown(
-                    hintText: 'Tags',
-                    items: _tagsList,
-                    selectedItems: _selectedTag,
-                    onChanged: (selectedItems) {
-                      setState(() {
-                        _selectedTag = selectedItems;
-                      });
-                      _loadStudents();
-                    },
-                  ),
-                ),
+                const AppText.body('Select All'),
               ],
             ),
             const SizedBox(height: 12),
           ],
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  value: isSelectAllChecked,
-                  onChanged: _toggleSelectAll,
-                  borderColor: AppColors.themeColor,
-                ),
-              ),
-              const AppText.body('Select All'),
-            ],
-          ),
-          const SizedBox(height: 12),
           Expanded(
             child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? const Center(child: PrimaryCircularLoader())
                 : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              _errorMessage ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _loadStudents,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppText.body(
+                          _errorMessage ?? 'Failed to load students',
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : _filteredStudents.isEmpty
-                        ? Center(
-                            child: AppText.body(
-                              _restrictToGuardianChildren
-                                  ? 'No linked children appear in today\'s sign-in list. If this looks wrong, check the child selector at the top of the app.'
-                                  : 'No students found',
-                              textAlign: TextAlign.center,
-                            ),
-                          )
-                        : GridView.builder(
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _loadStudents,
+                          child: const AppText.body('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _filteredStudents.isEmpty
+                ? Center(
+                    child: AppText.body(
+                      _restrictToGuardianChildren
+                          ? 'No linked children appear in today\'s sign-in list. If this looks wrong, check the child selector at the top of the app.'
+                          : 'No students found',
+                      textAlign: TextAlign.center,
+                    ),
+                  )
+                : GridView.builder(
                     shrinkWrap: false,
                     physics: const AlwaysScrollableScrollPhysics(),
-                    gridDelegate:
-                        SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       crossAxisSpacing: isTablet ? 16 : 12,
                       mainAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisExtent: 52,
+                      mainAxisExtent: 72,
                     ),
                     itemCount: _filteredStudents.length,
                     itemBuilder: (context, index) {
                       final student = _filteredStudents[index];
-                      final isSelected =
-                          selectedStudents.contains(student);
+                      final isSelected = selectedStudents.contains(student);
 
                       return StudentListItem(
                         student: student,
@@ -509,9 +592,7 @@ class _StudentSelectionSignInFormState
         ],
       ),
       bottomBar: Padding(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-        ),
+        padding: EdgeInsets.only(bottom: safeAreaBottom),
         child: CustomButtonLayout(
           confirmButtonLabel: 'Next',
           onPressedConfirm: _handleNext,
@@ -540,9 +621,7 @@ class StudentListItem extends StatelessWidget {
       onTap: () => onSelectionChanged(!isSelected),
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
@@ -570,9 +649,10 @@ class StudentListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  student.fullName.split(' ').first,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: student.fullName,
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 13,

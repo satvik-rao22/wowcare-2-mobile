@@ -1,0 +1,1066 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import 'package:wowcare/shared/common/widgets/selection_list_item.dart';
+import 'package:wowcare/shared/common/widgets/messaging_filter_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../../app/theme/colors.dart';
+import '../../../../../app/theme/media_res.dart';
+import '../../../../../core/storage/storage_service.dart';
+import '../../../../../core/util/safe_state_mixin.dart';
+import '../../../../../core/util/storage_keys.dart';
+import '../../../../../app/di/di.dart';
+import '../../../../../domain/features/classroom/entities/classroom.dart';
+import '../../../classrooom/views/filters/designation_display_utils.dart';
+import '../../../../../shared/common/widgets/custom_checkbox.dart';
+import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
+import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
+import '../../../../../shared/common/widgets/custom_search_bar.dart';
+import '../../../student/cubit/student_cubit.dart';
+import '../widgets/selection_shimmer.dart';
+import '../../../../../core/util/attendance_classroom_scope.dart';
+
+class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
+  const StaffOrStudentSelectionBulkMessaging({
+    super.key,
+    this.isStaffSelection = true,
+    this.conversationType = 'ROOM_CHAT',
+    this.restrictToDesignationCodes,
+    this.hideFilters = false,
+  });
+  final bool showLoading = false;
+  final bool isStaffSelection;
+  final String conversationType;
+
+  /// When set, only staff whose designation code is in this list are shown
+  /// — used for the Parent/Guardian "Admin Chat" compose flow, where the
+  /// only valid recipients are Admins/Directors, not the full staff roster.
+  final List<String>? restrictToDesignationCodes;
+
+  /// Hides the Classroom/Status/Designation/Tags filter UI entirely — paired
+  /// with [restrictToDesignationCodes] so the Parent/Guardian Admin Chat
+  /// compose screen shows a plain grid (search + select), not staff filters
+  /// that don't make sense for that flow.
+  final bool hideFilters;
+
+  @override
+  State<StaffOrStudentSelectionBulkMessaging> createState() =>
+      _StaffOrStudentSelectionBulkMessagingState();
+}
+
+class _StaffOrStudentSelectionBulkMessagingState
+    extends State<StaffOrStudentSelectionBulkMessaging>
+    with SafeStateMixin {
+  final TextEditingController _searchController = TextEditingController();
+  List<String> _selectedClassrooms = [];
+
+  /// The current user's primary classroom code (resolved for any persona,
+  /// admin included) — used to default the classroom dropdown instead of
+  /// whichever classroom happens to sort first alphabetically.
+  String? _primaryClassroomCode;
+  bool _primaryClassroomResolved = false;
+  // Default to Active-only (per spec); user can switch to Upcoming explicitly.
+  String? _selectedStatus = 'Active';
+  bool _selectAll = false;
+  bool _isSelectingAll = false;
+  List<String> _selectedDesignations = [];
+  List<String> _selectedTags = [];
+
+  /// The logged-in staff member's own code — excluded from the staff
+  /// recipient list so a user can't start a conversation with themselves.
+  String? _currentStaffCode;
+
+  Future<void> _loadCurrentStaffCode() async {
+    final storageService = serviceLocator<StorageService>();
+    final code = (await storageService.getString(StorageKeys.staffCode) ?? '')
+        .trim();
+    if (!mounted || code.isEmpty) return;
+    setState(() => _currentStaffCode = code);
+  }
+
+  // Safety cap on how many extra pages "Select All" will fetch before
+  // selecting, so a very large filtered result can't trigger unbounded
+  // network calls.
+  static const int _maxSelectAllPages = 50;
+
+  /// Pages in the remaining filtered set that haven't been loaded into the
+  /// cubit yet (StaffCubit/StudentCubit only auto-load the first couple of
+  /// pages), so "Select All" would otherwise silently only select what's
+  /// already in memory.
+  Future<void> _ensureAllMatchingPagesLoaded() async {
+    if (widget.isStaffSelection) {
+      final cubit = context.read<StaffCubit>();
+      var pages = 0;
+      while (cubit.state.hasMore && pages < _maxSelectAllPages) {
+        await cubit.loadNextPage();
+        pages++;
+      }
+      if (cubit.state.hasMore) {
+        _showWarningMessage(
+          'Showing first ${cubit.state.items.length} staff matching filters.',
+        );
+      }
+    } else {
+      final cubit = context.read<StudentCubit>();
+      var pages = 0;
+      while (cubit.state.hasMore && pages < _maxSelectAllPages) {
+        await cubit.loadNextPage();
+        pages++;
+      }
+      if (cubit.state.hasMore) {
+        _showWarningMessage(
+          'Showing first ${cubit.state.items.length} students matching filters.',
+        );
+      }
+    }
+  }
+
+  final List<String> _statusOptions = ['Active', 'Upcoming'];
+
+  List<String> get _classroomOptions => context
+      .read<ClassroomCubit>()
+      .state
+      .classrooms
+      .map((e) => e.name)
+      .toList();
+
+  List<Map<String, dynamic>> get staffList {
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final Map<String, String> classroomMap = {
+      for (var c in classrooms) c.code: c.name,
+    };
+    final staffMembers = context
+        .read<StaffCubit>()
+        .state
+        .items
+        .where((s) => s.code != _currentStaffCode)
+        .where(
+          (s) =>
+              widget.restrictToDesignationCodes == null ||
+              widget.restrictToDesignationCodes!.contains(s.designation),
+        );
+    return staffMembers
+        .map(
+          (s) => {
+            'code': s.code,
+            'userCode': s.userCode,
+            'name': '${s.name}',
+            // `profileImage` is never populated by the data layer for
+            // StaffMember (always null) — `profilePhotoAssetCode` is the
+            // field that's actually set.
+            'avatar': s.profilePhotoAssetCode ?? '',
+            'dateTime': null,
+            'message': '',
+            'isSigned': false,
+            'isFavorite': false,
+            'unreadCount': 0,
+            'classroom': classroomMap[s.primaryClassroomOrFirstAllowed] ?? '',
+            'designation': s.designation,
+            'status': s.status,
+          },
+        )
+        .toList();
+  }
+
+  List<Map<String, dynamic>> get parentList {
+    final students = context.read<StudentCubit>().state.items;
+    return students
+        .map(
+          (s) => {
+            'code': s.code,
+            'name': '${s.firstName} ${s.lastName}',
+            // Use the asset code (consistent with the rest of the avatar
+            // resolution chain) rather than the separately-cached resolved
+            // URL in `profileImage`.
+            'avatar': s.profilePhotoAssetCode ?? '',
+            'dateTime': null,
+            'message': '',
+            'isSigned': false,
+            'isFavorite': false,
+            'unreadCount': 0,
+            'classroom': s.primaryClassroomName ?? '',
+            'status': s.status,
+            'tags': s.tags,
+          },
+        )
+        .toList();
+  }
+
+  /// Backend designation codes (matches staff_filter_screen.dart /
+  /// staff_messaging_tab.dart) used to turn the Designation filter's
+  /// human-readable selections back into the API value.
+  static const List<String> _designationCodes = [
+    'OWNER',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'LEAD_TEACHER',
+    'ASSOCIATE_TEACHER',
+    'ASSISTANT_TEACHER',
+    'FLOATER',
+    'KIOSK_USER',
+  ];
+
+  Map<String, String> get _designationLabelToCode => {
+    for (final code in _designationCodes)
+      formatDesignationForDisplay(code): code,
+  };
+
+  List<String> get _designationOptions =>
+      _designationLabelToCode.keys.toList()..sort();
+  List<String> _tagOptions = [];
+  Map<String, String> _tagNameToCode = {};
+  late final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase =
+      serviceLocator<GetTagNamesForSchoolUseCase>();
+  late final GetTagNameCodeMapForSchoolUseCase
+  _getTagNameCodeMapForSchoolUseCase =
+      serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+
+  Future<void> _loadTags() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          await storageService.getString(StorageKeys.schoolCode) ?? '';
+      if (schoolCode.isEmpty) return;
+
+      final names = await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
+      final nameToCode = await _getTagNameCodeMapForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
+      if (!mounted) return;
+
+      setState(() {
+        _tagOptions = names;
+        _tagNameToCode = nameToCode;
+        _selectedTags.removeWhere((tag) => !_tagOptions.contains(tag));
+      });
+    } catch (_) {
+      // Non-critical for filters; ignore errors.
+    }
+  }
+
+  /// Pushes the current classroom/status/tag selections to [StudentCubit] as
+  /// server-side filters and refreshes. Without this, the cubit only ever
+  /// loads the first couple of unfiltered pages, so selecting a classroom
+  /// whose students aren't in that initial page shows an empty list even
+  /// though matching students exist on the server.
+  Future<void> _applyStudentFiltersToCubit() async {
+    if (widget.isStaffSelection) return;
+
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final nameToCode = {for (final c in classrooms) c.name: c.code};
+    final classroomCodes = _selectedClassrooms
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    final tagCodes = _selectedTags
+        .map((name) => _tagNameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    context.read<StudentCubit>().updateFilters(
+      status: _selectedStatus,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      tagCodes: tagCodes.isEmpty ? null : tagCodes,
+    );
+    await context.read<StudentCubit>().refreshWithCacheReset();
+  }
+
+  /// Pushes the current classroom/status/designation selections to
+  /// [StaffCubit] as server-side filters and refreshes — same reasoning as
+  /// [_applyStudentFiltersToCubit], but for the Staff selection mode.
+  Future<void> _applyStaffFiltersToCubit() async {
+    if (!widget.isStaffSelection) return;
+
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    final nameToCode = {for (final c in classrooms) c.name: c.code};
+    final classCodes = _selectedClassrooms
+        .map((name) => nameToCode[name])
+        .whereType<String>()
+        .where((c) => c.trim().isNotEmpty)
+        .toList();
+
+    final designation = _selectedDesignations.isEmpty
+        ? null
+        : _designationLabelToCode[_selectedDesignations.first];
+
+    context.read<StaffCubit>().updateFilters(
+      status: _selectedStatus?.toUpperCase(),
+      designation: designation,
+      classCodes: classCodes,
+    );
+    await context.read<StaffCubit>().refreshWithCacheReset();
+  }
+
+  /// Dispatches to whichever cubit backs the currently-shown list.
+  Future<void> _applyContactFiltersToCubit() async {
+    if (widget.isStaffSelection) {
+      await _applyStaffFiltersToCubit();
+    } else {
+      await _applyStudentFiltersToCubit();
+    }
+  }
+
+  Set<String> _selectedStaffCodes = <String>{};
+  Set<String> _selectedStudentCodes = <String>{};
+
+  List<MapEntry<String, Map<String, dynamic>>> get _filteredList {
+    final query = _searchController.text.trim().toLowerCase();
+    var filtered = widget.isStaffSelection
+        ? List<Map<String, dynamic>>.from(staffList)
+        : List<Map<String, dynamic>>.from(parentList);
+
+    if (_selectedStatus != null) {
+      filtered = filtered.where((person) {
+        final status = (person['status'] as String?)?.toLowerCase();
+        return status != null && _selectedStatus!.toLowerCase() == status;
+      }).toList();
+    }
+    // Classroom isn't re-filtered here: `person['classroom']` for students
+    // comes from `Student.primaryClassroomName`, which the data layer never
+    // populates (always null/empty) — re-applying it client-side as a name
+    // match against `_selectedClassrooms` silently emptied the whole grid
+    // the moment any classroom (single or "select all") was selected, since
+    // `''` never matches a real classroom name. StudentCubit/StaffCubit
+    // already filter by classroom server-side via `_applyStudentFiltersToCubit`
+    // / `_applyStaffFiltersToCubit`, so `parentList`/`staffList` are already
+    // pre-filtered correctly by the time they reach here.
+    // Designation isn't filtered here: `person['designation']` is the raw
+    // backend code (e.g. "LEAD_TEACHER") while `_selectedDesignations` holds
+    // display labels (e.g. "Lead Teacher"), so a direct match always misses.
+    // StaffCubit already filters by designation server-side via
+    // `_applyStaffFiltersToCubit`, so `staffList` is pre-filtered correctly.
+    if (_selectedTags.isNotEmpty && !widget.isStaffSelection) {
+      filtered = filtered.where((person) {
+        final tags = List<String>.from(person['tags']);
+        return tags.any((tag) => _selectedTags.contains(tag));
+      }).toList();
+    }
+
+    if (query.isNotEmpty) {
+      filtered = filtered.where((person) {
+        final name = (person['name'] as String?)?.toLowerCase() ?? '';
+        final message = (person['message'] as String?)?.toLowerCase() ?? '';
+        return name.contains(query) || message.contains(query);
+      }).toList();
+    }
+
+    return filtered.asMap().entries.map((entry) {
+      return MapEntry(entry.key.toString(), entry.value);
+    }).toList();
+  }
+
+  void _updateSelectAllState() {
+    if (_filteredList.isEmpty) {
+      _selectAll = false;
+    } else {
+      if (widget.isStaffSelection) {
+        _selectAll = _filteredList.every(
+          (entry) => _selectedStaffCodes.contains(entry.value['code']),
+        );
+      } else {
+        _selectAll = _filteredList.every(
+          (entry) => _selectedStudentCodes.contains(entry.value['code']),
+        );
+      }
+    }
+  }
+
+  void _showWarningMessage(String message) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).removeCurrentSnackBar();
+      final snackBar = SnackBar(
+        content: Row(
+          children: [
+            const Icon(Icons.warning, color: Colors.orange),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                message,
+                style: const TextStyle(
+                  color: Colors.orange,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: Colors.orange.shade50,
+        duration: const Duration(seconds: 2),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+          side: BorderSide(color: Colors.orange.shade100),
+        ),
+      );
+      ScaffoldMessenger.of(context).showSnackBar(snackBar);
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final classroomCubit = context.read<ClassroomCubit>();
+        // Non-admin staff only see the classrooms they're allowed to
+        // access when starting a new conversation; admins see all of them.
+        classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
+        context.read<StudentCubit>().loadInitial();
+        if (widget.isStaffSelection) {
+          unawaited(
+            context.read<StaffCubit>().loadInitial().then((_) {
+              // The Admin/Director-only flow needs the full roster client-side
+              // since StaffCubit's designation filter only supports one value
+              // at a time — loadInitial() alone only fetches the first couple
+              // of pages.
+              if (widget.restrictToDesignationCodes != null) {
+                return _ensureAllMatchingPagesLoaded();
+              }
+            }),
+          );
+          unawaited(_loadCurrentStaffCode());
+        } else {
+          unawaited(_loadTags());
+        }
+
+        // Resolve the current user's primary classroom (admin or staff) in
+        // parallel with classroom/student loading, so the dropdown can
+        // default to it instead of whichever classroom sorts first.
+        unawaited(_resolvePrimaryClassroomCode());
+        _applyDefaultClassroomSelectionIfNeeded();
+      }
+    });
+    _searchController.addListener(_applyFilters);
+  }
+
+  /// Resolves the logged-in user's primary classroom code for any persona
+  /// (admin included) and applies it as the default classroom selection once
+  /// known — reuses the same resolver already used elsewhere (e.g. the
+  /// Classroom screen) to default an admin/staff user onto their own room.
+  Future<void> _resolvePrimaryClassroomCode() async {
+    String? code;
+    try {
+      code = await resolveStaffPrimaryClassroomCodeAnyPersona();
+    } catch (_) {
+      code = null;
+    }
+    if (!mounted) return;
+    setState(() {
+      _primaryClassroomCode = code;
+      _primaryClassroomResolved = true;
+    });
+    _applyDefaultClassroomSelectionIfNeeded();
+  }
+
+  /// Defaults the classroom dropdown to the user's primary classroom (falling
+  /// back to the first classroom if no primary is resolved/matched). Skipped
+  /// when filters are hidden (e.g. Admin/Director-only picker — that flow
+  /// wants every matching staff member, not just one classroom's), once a
+  /// selection already exists, or before the primary-classroom lookup
+  /// finishes (avoids briefly defaulting to the wrong classroom and then
+  /// jumping to the real primary a moment later). Safe to call repeatedly —
+  /// from initState, from the primary-classroom resolver, and whenever the
+  /// classroom list itself updates — since whichever of "classrooms loaded"
+  /// or "primary resolved" finishes last is what actually applies it.
+  void _applyDefaultClassroomSelectionIfNeeded() {
+    if (widget.hideFilters || _selectedClassrooms.isNotEmpty) return;
+    if (!_primaryClassroomResolved) return;
+    // Admins are not classroom-bound, so don't pre-apply a default classroom filter
+    // when they compose a new message — they should see all recipients. This applies to
+    // both staff messaging and parent/room messaging (staff/parent keep their default).
+    if (context.read<RoleCubit>().role == 'admin') return;
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    if (classrooms.isEmpty) return;
+
+    final primaryCode = (_primaryClassroomCode ?? '').trim();
+    final primaryMatches = primaryCode.isEmpty
+        ? const <Classroom>[]
+        : classrooms.where((c) => c.code.trim() == primaryCode).toList();
+    final defaultName = primaryMatches.isNotEmpty
+        ? primaryMatches.first.name
+        : classrooms.first.name;
+
+    setState(() {
+      _selectedClassrooms = [defaultName];
+    });
+    unawaited(_applyContactFiltersToCubit());
+  }
+
+  void _applyFilters() {
+    setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_applyFilters);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+    return Scaffold(
+      backgroundColor: Colors.white,
+      resizeToAvoidBottomInset: true,
+      appBar: const CustomAppBar(hasBackButton: true),
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+        child: BlocListener<ClassroomCubit, ClassroomState>(
+          listener: (context, state) {
+            _applyDefaultClassroomSelectionIfNeeded();
+          },
+          child: BlocBuilder<ClassroomCubit, ClassroomState>(
+            builder: (context, classroomState) {
+              return BlocBuilder<StaffCubit, StaffState>(
+                builder: (context, staffState) {
+                  return BlocBuilder<StudentCubit, StudentState>(
+                    builder: (context, studentState) {
+                      final bool isDataEmpty = widget.isStaffSelection
+                          ? staffState.items.isEmpty
+                          : studentState.items.isEmpty;
+
+                      final bool isLoading =
+                          classroomState.isLoading ||
+                          (widget.isStaffSelection && staffState.isLoading) ||
+                          (!widget.isStaffSelection && studentState.isLoading);
+
+                      // Show full screen loader only if no cached data exists at all
+                      // if (isLoading && isDataEmpty && classroomState.isLoading) {
+                      //   return const Center(child: CircularProgressIndicator());
+                      // }
+                      if (isLoading && isDataEmpty) {
+                        return SelectionShimmer(isTablet: responsive.isTablet);
+                      }
+                      return Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: AppColors.buildScaffoldGradient(),
+                              ),
+                              child: Image.asset(
+                                MediaRes.wowcareMobileBg,
+                                fit: BoxFit.cover,
+                                alignment: Alignment.topCenter,
+                              ),
+                            ),
+                          ),
+                          Column(
+                            children: [
+                              const SizedBox(height: 16),
+                              Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: responsive.horizontalSpacing,
+                                ),
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    'New Message',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: responsive.titleFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xff573353),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                height: responsive.isTablet ? 32.0 : 20.0,
+                              ),
+                              Expanded(
+                                child: Container(
+                                  width: responsive.containerWidth,
+                                  margin: EdgeInsets.only(
+                                    left: responsive.horizontalSpacing,
+                                    right: responsive.horizontalSpacing,
+                                    bottom: 10,
+                                  ),
+                                  padding: EdgeInsets.all(
+                                    responsive.isTablet ? 32.0 : 16.0,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.all(
+                                      Radius.circular(
+                                        responsive.isTablet ? 30.0 : 20.0,
+                                      ),
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(
+                                          alpha: 0.05,
+                                        ),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Column(
+                                    children: [
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Padding(
+                                          padding: const EdgeInsets.only(
+                                            top: 10,
+                                          ),
+                                          child: Text(
+                                            widget.isStaffSelection
+                                                ? 'Select Staff'
+                                                : 'Select Students',
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 14,
+                                              fontWeight: FontWeight.w600,
+                                              color: const Color(0xff573353),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 10),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: CustomSearchBar(
+                                              controller: _searchController,
+                                              hintText: widget.isStaffSelection
+                                                  ? 'Search Staff'
+                                                  : 'Search Students',
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          SizedBox(
+                                            height: 38,
+                                            child: CustomClearAllChip(
+                                              onTap: () {
+                                                setState(() {
+                                                  _selectedClassrooms = [];
+                                                  _selectedStaffCodes.clear();
+                                                  _selectedStudentCodes.clear();
+                                                  _selectedTags = [];
+                                                  _searchController.clear();
+                                                  _selectedDesignations = [];
+                                                  // Reset to the
+                                                  // Active-only
+                                                  // default, not
+                                                  // "show everyone".
+                                                  _selectedStatus = 'Active';
+                                                  _updateSelectAllState();
+                                                });
+                                                unawaited(
+                                                  _applyContactFiltersToCubit(),
+                                                );
+                                              },
+                                              label: 'Clear All',
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      if (!widget.hideFilters) ...[
+                                        const SizedBox(height: 10),
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: CustomMultiSelectDropdown(
+                                                showSelectAll: true,
+                                                hintText: 'Select Classroom',
+                                                items: _classroomOptions,
+                                                selectedItems:
+                                                    _selectedClassrooms,
+                                                gapHeight: 40,
+                                                onChanged: (selectedItems) {
+                                                  setState(() {
+                                                    _selectedClassrooms =
+                                                        selectedItems;
+                                                    _updateSelectAllState();
+                                                  });
+                                                  unawaited(
+                                                    _applyContactFiltersToCubit(),
+                                                  );
+                                                },
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            if (widget.isStaffSelection)
+                                              Expanded(
+                                                child: CustomMultiSelectDropdown(
+                                                  showSelectAll: true,
+                                                  hintText:
+                                                      'Select Designation',
+                                                  items: _designationOptions,
+                                                  selectedItems:
+                                                      _selectedDesignations,
+                                                  gapHeight: 40,
+                                                  onChanged: (selectedItems) {
+                                                    setState(() {
+                                                      _selectedDesignations =
+                                                          selectedItems;
+                                                      _updateSelectAllState();
+                                                    });
+                                                    unawaited(
+                                                      _applyContactFiltersToCubit(),
+                                                    );
+                                                  },
+                                                ),
+                                              )
+                                            else
+                                              Expanded(
+                                                child: CustomMultiSelectDropdown(
+                                                  showSelectAll: true,
+                                                  hintText: 'Select Tags',
+                                                  items: _tagOptions,
+                                                  selectedItems: _selectedTags,
+                                                  gapHeight: 40,
+                                                  onChanged: (selectedItems) {
+                                                    setState(() {
+                                                      _selectedTags =
+                                                          selectedItems;
+                                                      _updateSelectAllState();
+                                                    });
+                                                    unawaited(
+                                                      _applyContactFiltersToCubit(),
+                                                    );
+                                                  },
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        MessagingFilterDropdown(
+                                          hintText: 'Status',
+                                          items: _statusOptions,
+                                          selectedItem: _selectedStatus,
+                                          onSelect: (v) {
+                                            setState(() {
+                                              _selectedStatus = v;
+                                              _selectedStaffCodes.clear();
+                                              _selectedStudentCodes.clear();
+                                              _selectAll = false;
+                                            });
+                                            unawaited(
+                                              _applyContactFiltersToCubit(),
+                                            );
+                                          },
+                                        ),
+                                        const SizedBox(height: 12),
+                                      ],
+                                      // Select All
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            CustomCheckbox(
+                                              label: 'Select All',
+                                              value: _selectAll,
+                                              borderColor: AppColors.themeColor,
+                                              onChanged: _isSelectingAll
+                                                  ? null
+                                                  : (v) async {
+                                                      final newVal = v ?? false;
+                                                      if (newVal) {
+                                                        setState(
+                                                          () =>
+                                                              _isSelectingAll =
+                                                                  true,
+                                                        );
+                                                        await _ensureAllMatchingPagesLoaded();
+                                                        if (!mounted) {
+                                                          return;
+                                                        }
+                                                      }
+                                                      setState(() {
+                                                        _isSelectingAll = false;
+                                                        _selectAll = newVal;
+                                                        if (newVal) {
+                                                          if (widget
+                                                              .isStaffSelection) {
+                                                            _selectedStaffCodes.addAll(
+                                                              _filteredList.map(
+                                                                (e) =>
+                                                                    e.value['code']
+                                                                        as String,
+                                                              ),
+                                                            );
+                                                          } else {
+                                                            _selectedStudentCodes.addAll(
+                                                              _filteredList.map(
+                                                                (e) =>
+                                                                    e.value['code']
+                                                                        as String,
+                                                              ),
+                                                            );
+                                                          }
+                                                        } else {
+                                                          if (widget
+                                                              .isStaffSelection) {
+                                                            _selectedStaffCodes
+                                                                .clear();
+                                                          } else {
+                                                            _selectedStudentCodes
+                                                                .clear();
+                                                          }
+                                                        }
+                                                      });
+                                                    },
+                                            ),
+                                            if (_isSelectingAll) ...[
+                                              const SizedBox(width: 8),
+                                              const SizedBox(
+                                                width: 14,
+                                                height: 14,
+                                                child:
+                                                    CircularProgressIndicator(
+                                                      strokeWidth: 2,
+                                                    ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      Expanded(
+                                        child: _filteredList.isEmpty
+                                            ? Center(
+                                                child: Text(
+                                                  widget.isStaffSelection
+                                                      ? 'No staff match the selected filters'
+                                                      : 'No student match the selected filters',
+                                                  style: TextStyle(
+                                                    color: Colors.grey[600],
+                                                    fontSize: 14,
+                                                  ),
+                                                ),
+                                              )
+                                            : GridView.builder(
+                                                itemCount: _filteredList.length,
+                                                gridDelegate:
+                                                    SliverGridDelegateWithFixedCrossAxisCount(
+                                                      crossAxisCount:
+                                                          responsive.isTablet
+                                                          ? 3
+                                                          : 2,
+                                                      crossAxisSpacing: 12,
+                                                      mainAxisSpacing: 12,
+                                                      mainAxisExtent: 52,
+                                                    ),
+                                                itemBuilder: (context, index) {
+                                                  final entry =
+                                                      _filteredList[index];
+                                                  final person = entry.value;
+
+                                                  final bool isSelected =
+                                                      widget.isStaffSelection
+                                                      ? _selectedStaffCodes
+                                                            .contains(
+                                                              person['code'],
+                                                            )
+                                                      : _selectedStudentCodes
+                                                            .contains(
+                                                              person['code'],
+                                                            );
+
+                                                  return CommonSelectionItem(
+                                                    key: ValueKey(
+                                                      person['code'],
+                                                    ),
+                                                    name: person['name'],
+                                                    avatarUuid:
+                                                        person['avatar'] ?? '',
+                                                    isSelected: isSelected,
+                                                    onSelectionChanged: (bool? selected) {
+                                                      setState(() {
+                                                        final code =
+                                                            person['code'];
+                                                        if (selected == true) {
+                                                          (widget.isStaffSelection
+                                                                  ? _selectedStaffCodes
+                                                                  : _selectedStudentCodes)
+                                                              .add(code);
+                                                        } else {
+                                                          (widget.isStaffSelection
+                                                                  ? _selectedStaffCodes
+                                                                  : _selectedStudentCodes)
+                                                              .remove(code);
+                                                        }
+                                                        _updateSelectAllState();
+                                                      });
+                                                    },
+                                                  );
+                                                },
+                                              ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              Container(),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ), // GestureDetector
+      bottomNavigationBar: _buildBottomBar(context, responsive),
+    );
+  }
+
+  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
+    final bottomPadding = MediaQuery.of(context).padding.bottom;
+    final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
+    return Container(
+      padding: EdgeInsets.only(
+        bottom: safeAreaBottom,
+        left: 16,
+        right: 16,
+        top: 16,
+      ),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            offset: const Offset(0, -4),
+            blurRadius: 16,
+          ),
+        ],
+        borderRadius: BorderRadius.only(
+          topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+          topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+        ),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+        children: [
+          Expanded(
+            child: Container(
+              height: responsive.buttonHeight,
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(
+                  responsive.isTablet ? 16.0 : 8.0,
+                ),
+              ),
+              child: Padding(
+                padding: EdgeInsets.all(1),
+                child: Container(
+                  //alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(
+                      responsive.isTablet ? 16.0 : 8.0,
+                    ),
+                  ),
+                  child: TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      overlayColor: Colors.transparent,
+                    ),
+                    child: ShaderMask(
+                      shaderCallback: (bounds) {
+                        return AppColors.buildPrimaryGradient().createShader(
+                          bounds,
+                        );
+                      },
+                      child: Text(
+                        'Cancel',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: responsive.buttonFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Container(
+              height: responsive.buttonHeight,
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(
+                  responsive.isTablet ? 16.0 : 8.0,
+                ),
+              ),
+              child: TextButton(
+                onPressed: () {
+                  if (widget.isStaffSelection) {
+                    if (_selectedStaffCodes.isNotEmpty) {
+                      final selectedStaffMaps = staffList
+                          .where((s) => _selectedStaffCodes.contains(s['code']))
+                          .toList();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MessageCompositionBulkMessaging(
+                            selectedRecipients: selectedStaffMaps,
+                            isStaff: true,
+                            conversationType: widget.conversationType,
+                          ),
+                        ),
+                      );
+                    } else {
+                      _showWarningMessage('Select at least one staff.');
+                    }
+                  } else {
+                    if (_selectedStudentCodes.isNotEmpty) {
+                      final selectedStudentMaps = parentList
+                          .where(
+                            (s) => _selectedStudentCodes.contains(s['code']),
+                          )
+                          .toList();
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => MessageCompositionBulkMessaging(
+                            selectedRecipients: selectedStudentMaps,
+                            isStaff: false,
+                            conversationType: widget.conversationType,
+                          ),
+                        ),
+                      );
+                    } else {
+                      _showWarningMessage('Select at least one student.');
+                    }
+                  }
+                },
+                style: TextButton.styleFrom(overlayColor: Colors.transparent),
+                child: Text(
+                  'Next',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: responsive.buttonFontSize,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

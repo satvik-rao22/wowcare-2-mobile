@@ -1,10 +1,12 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
@@ -13,6 +15,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'student_mark_absent_form.dart';
 
@@ -79,7 +83,15 @@ class _StudentSelectionMarkAbsentFormState
   }
 
   Future<void> _loadClassrooms() async {
-    _classroomCubit.loadActiveClassrooms();
+    // Cross-class enabled → list ALL classrooms (like an admin); else scope to
+    // the teacher's allowed classrooms.
+    final crossClass =
+        await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+    );
+    _classroomCubit.loadActiveClassrooms(
+      applyAttendanceStaffScope: !crossClass,
+    );
 
     if (!_classroomCubit.state.isLoading &&
         _classroomCubit.state.classrooms.isNotEmpty) {
@@ -127,7 +139,8 @@ class _StudentSelectionMarkAbsentFormState
     });
 
     try {
-      final today = DateTime.now();
+      await bootstrapAttendanceSchoolTimezone();
+      final today = attendanceSchoolToday();
       final dateString = _formatDate(today);
 
       final selectedClassroomCode = _selectedClassroomCode?.trim();
@@ -148,8 +161,10 @@ class _StudentSelectionMarkAbsentFormState
         tagCodes: tagCodes,
         search: searchText,
         page: 0,
-        size: 100,
+        size: 200,
       );
+
+      if (!mounted) return;
 
       final students = page.items.asMap().entries.map((entry) {
         final index = entry.key;
@@ -318,7 +333,7 @@ class _StudentSelectionMarkAbsentFormState
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(15),
               border: Border.all(color: Colors.grey),
             ),
@@ -438,7 +453,7 @@ class _StudentSelectionMarkAbsentFormState
                               crossAxisCount: 2,
                               crossAxisSpacing: 12,
                               mainAxisSpacing: 12,
-                              mainAxisExtent: 52,
+                              mainAxisExtent: 72,
                             ),
                             itemCount: _getVisibleStudents().length,
                             itemBuilder: (context, index) {
@@ -519,9 +534,10 @@ class StudentListItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  student.fullName.split(' ').first,
-                  overflow: TextOverflow.ellipsis,
+                child: EllipsisTooltipText(
+                  text: student.fullName,
+                  maxLines: 2,
+                  preferLongPress: true,
                   style: const TextStyle(
                     color: AppColors.primaryColor,
                     fontSize: 13,
@@ -650,27 +666,20 @@ class _CustomMultiSelectDropdownAssignStudentState
                   },
                   child: Row(
                     children: [
-                      SizedBox(
-                        width: 30,
-                        height: 30,
-                        child: Checkbox(
-                          value: isSelected,
-                          onChanged: (bool? checked) {
-                            setMenuItemState(() {
-                              if (checked == true) {
-                                _localSelectedItems.add(item);
-                              } else {
-                                _localSelectedItems.remove(item);
-                              }
-                            });
-                            setState(() {});
-                            widget.onChanged(_localSelectedItems);
-                          },
-                          activeColor: Theme.of(context).primaryColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
+                      CustomCheckbox(
+                        value: isSelected,
+                        borderColor: AppColors.themeColor,
+                        onChanged: (bool? checked) {
+                          setMenuItemState(() {
+                            if (checked == true) {
+                              _localSelectedItems.add(item);
+                            } else {
+                              _localSelectedItems.remove(item);
+                            }
+                          });
+                          setState(() {});
+                          widget.onChanged(_localSelectedItems);
+                        },
                       ),
                       const SizedBox(width: 8),
                       Flexible(

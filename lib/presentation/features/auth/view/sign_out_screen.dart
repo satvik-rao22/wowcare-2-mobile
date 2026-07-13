@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/reusable_log_out_model_sheet.dart';
 import 'package:wowcare/shared/common/widgets/rounded_button.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -41,7 +42,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
       await context.read<AuthCubit>().logoutSession();
 
       if (mounted) {
-        context.read<ParentChildProvider>().invalidate();
+        context.read<ParentChildCubit>().invalidate();
       }
 
       if (mounted) {
@@ -52,11 +53,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
           isSuccess: true,
         );
 
-        Navigator.pushNamedAndRemoveUntil(
-          context,
-          SignInScreen.routeName,
-          (route) => false,
-        );
+        context.go(SignInScreen.routeName);
       }
     } catch (e) {
       if (mounted) {

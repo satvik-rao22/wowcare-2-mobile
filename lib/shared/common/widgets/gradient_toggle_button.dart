@@ -1,53 +1,58 @@
 import 'package:flutter/material.dart';
-import 'package:schoolerp/core/res/colors.dart';
+import 'package:wowcare/app/theme/colors.dart';
 
+/// Gradient switch used across the app for compact toggles.
 class GradientToggleButton extends StatelessWidget {
-  final bool minimized;
-  final VoidCallback onTap;
-
   const GradientToggleButton({
-    Key? key,
-    required this.minimized,
-    required this.onTap,
-  }) : super(key: key);
+    super.key,
+    required this.value,
+    required this.onChanged,
+    this.width = 44,
+    this.height = 22,
+    this.disabled = false,
+  });
+
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final double width;
+  final double height;
+  final bool disabled;
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: SizedBox(
-        width: 20,
-        height: 20,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Gradient border
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(6),
-              ),
+    final trackGradient = value
+        ? AppColors.buildPrimaryGradient()
+        : AppColors.buildPrimaryGradient().withOpacity(0.45);
+
+    final knobSize = height - 6;
+
+    return IgnorePointer(
+      ignoring: disabled,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => onChanged(!value),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          width: width,
+          height: height,
+          padding: const EdgeInsets.all(3),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(999),
+            gradient: disabled ? null : trackGradient,
+            color: disabled ? Colors.grey.withValues(alpha: 0.25) : null,
+          ),
+          alignment: value ? Alignment.centerRight : Alignment.centerLeft,
+          child: Container(
+            width: knobSize,
+            height: knobSize,
+            decoration: const BoxDecoration(
+              color: AppColors.cardColor,
+              shape: BoxShape.circle,
             ),
-            // White inner background
-            Container(
-              width: 16,
-              height: 16,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-            ),
-            // Icon
-            Icon(
-              minimized ? Icons.add : Icons.remove,
-              color: AppColors.primaryGradientColors.first,
-              size: 14,
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
-} 
+}

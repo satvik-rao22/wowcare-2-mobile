@@ -1,152 +1,441 @@
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/notification_payload.dart';
+import 'package:wowcare/core/firebase/firebase_config_factory.dart';
 import 'dart:io';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
-import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/shared/common/app/providers/theme_providers.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
-import 'package:wowcare/shared/common/app/providers/parent_child_provider.dart';
-
-import 'package:timezone/data/latest.dart' as tzdata;
-
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
+// Geofence is handled via OS-level native geofencing (Android GeofencingClient, iOS region monitoring).
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
+import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
+import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'src/app_router.dart';
-import 'shared/common/app/providers/splash_screen.dart';
 
-// App starts from Splash and follows onboarding / login-context redirect flow.
-// Create a global instance of NotificationService that will be initialized later
-// final NotificationService notificationService = NotificationService();
+/// Handle FCM messages in background / terminated state.
+///
+/// Runs in a separate Dart isolate — no DI, no service locator available.
+/// For notification messages (FCM payload has a `notification` field) Android
+/// already shows the system tray notification automatically; we only need to
+/// act on data-only messages which Android silently drops without this handler.
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  await _ensureFirebaseInitialized();
 
-// // This function is required to handle background messages
-// @pragma('vm:entry-point')
-// Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-//   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-//   print("Handling a background message: ${message.messageId}");
-//   // You can do minimal processing here, but avoid heavy work
-// }
+  AppLogger.d('[FCM] ════════ Background notification received ════════');
+  AppLogger.d('[FCM] messageId : ${message.messageId}');
+  AppLogger.d('[FCM] from      : ${message.from}');
+  AppLogger.d('[FCM] title     : ${message.notification?.title}');
+  AppLogger.d('[FCM] body      : ${message.notification?.body}');
+  AppLogger.d('[FCM] android   : ${message.notification?.android}');
+  AppLogger.d('[FCM] data      : ${message.data}');
+  AppLogger.d('[FCM] ═══════════════════════════════════════════════════');
+
+  // Data-only messages: Android doesn't show anything automatically.
+  // Show a local notification so the user always sees the alert.
+  if (message.notification == null) {
+    final title = message.data['title']?.toString() ?? 'WowCare';
+    final body =
+        message.data['body']?.toString() ?? 'You have a new notification';
+    AppLogger.d('[FCM] Background data-only → showing local notif "$title"');
+
+    // Keep in sync with GeofenceNotificationService.pushChannelId / the
+    // AndroidManifest's default_notification_channel_id so every push uses one
+    // audible, high-importance channel.
+    const channelId = 'wowcare_alerts_v2';
+    const channelName = 'WowCare Notifications';
+
+    final plugin = FlutterLocalNotificationsPlugin();
+    await plugin.initialize(
+      settings: const InitializationSettings(
+        android: AndroidInitializationSettings('ic_launcher_foreground'),
+        iOS: DarwinInitializationSettings(),
+      ),
+    );
+    await plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >()
+        ?.createNotificationChannel(
+          const AndroidNotificationChannel(
+            channelId,
+            channelName,
+            importance: Importance.high,
+            enableVibration: true,
+            playSound: true,
+          ),
+        );
+    await plugin.show(
+      id: message.messageId.hashCode,
+      title: title,
+      body: body,
+      notificationDetails: const NotificationDetails(
+        android: AndroidNotificationDetails(
+          channelId,
+          channelName,
+          importance: Importance.high,
+          priority: Priority.high,
+          enableVibration: true,
+          playSound: true,
+        ),
+        iOS: DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: false,
+          presentSound: true,
+        ),
+      ),
+    );
+  }
+}
+
+/// Native bridge to read the FCM `data` payload of the notification that
+/// cold-launched the app (killed state) — a reliable fallback for
+/// FirebaseMessaging.getInitialMessage() returning null with our manual plugin
+/// registration. See MainActivity.consumeLaunchNotificationData().
+const MethodChannel _notificationChannel = MethodChannel(
+  'wowcare/notifications',
+);
+
+Future<Map<String, String>?> _readNativeLaunchNotification() async {
+  try {
+    final raw = await _notificationChannel.invokeMapMethod<String, dynamic>(
+      'getInitialNotificationData',
+    );
+    if (raw == null) return null;
+    return raw.map((k, v) => MapEntry(k, v?.toString() ?? ''));
+  } catch (_) {
+    return null;
+  }
+}
+
+/// iOS only: reads the action stored by AppDelegate when the user tapped a
+/// native geofence UNNotification from the killed/background state.
+/// Returns e.g. {'action': 'GEOFENCE_ENTER'}, or null.
+Future<Map<String, String>?> _readIosGeofenceTap() async {
+  if (!Platform.isIOS) return null;
+  try {
+    const ch = MethodChannel('wowcare/geofence_tap');
+    final action = await ch.invokeMethod<String>('getPendingAction');
+    if (action == null || action.isEmpty) return null;
+    return {'action': action};
+  } catch (_) {
+    return null;
+  }
+}
+
+/// On a fresh install, clears the Keychain-backed secure credential store so
+/// "Remember me" data from a previous install (which survives uninstall on iOS)
+/// doesn't leak into the new install. Detected via a SharedPreferences marker,
+/// which IS cleared on uninstall.
+Future<void> _resetSecureStoreOnFreshInstall() async {
+  try {
+    final storage = serviceLocator<StorageService>();
+    final alreadyInstalled =
+        await storage.getBool(StorageKeys.appInstalledMarker) ?? false;
+    if (!alreadyInstalled) {
+      await SecureCredentialStore().clear();
+      await storage.saveBool(StorageKeys.appInstalledMarker, true);
+      AppLogger.d('[FreshInstall] Wiped Keychain secure store on fresh install');
+    }
+  } catch (e) {
+    AppLogger.d('[FreshInstall] reset failed (non-fatal): $e');
+  }
+}
+
+/// Initializes Firebase idempotently.
+///
+/// Android auto-initializes the default `[DEFAULT]` app from
+/// `google-services.json` (via `FirebaseInitProvider`) before `main()` runs.
+/// The Dart-side `Firebase.apps` list is NOT synced with that native app until
+/// after the first `initializeApp` call, so an `isEmpty` guard isn't enough —
+/// calling `initializeApp(options:)` still throws `[core/duplicate-app]` when
+/// the native app already exists with different options. We catch that and
+/// reuse the existing default app instead of crashing.
+Future<void> _ensureFirebaseInitialized() async {
+  if (Firebase.apps.isNotEmpty) return;
+  try {
+    await Firebase.initializeApp(options: FirebaseConfigFactory.currentPlatform);
+  } on FirebaseException catch (e) {
+    if (e.code == 'duplicate-app') {
+      // Native already created [DEFAULT] from google-services.json — reuse it.
+      return;
+    }
+    rethrow;
+  }
+}
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tzdata.initializeTimeZones();
 
-  // Initialize dependency injection
   await configureDependencies();
 
-  // Only initialize if not already
+  // Fresh-install reset: iOS Keychain (flutter_secure_storage) SURVIVES app
+  // uninstall, so a reinstall could keep old "Remember me" credentials. The
+  // install marker lives in SharedPreferences (wiped on uninstall); if it's
+  // absent, this is a fresh install → wipe the Keychain so the app opens clean.
+  await _resetSecureStoreOnFreshInstall();
+
+  await _ensureFirebaseInitialized();
+
+  // iOS foreground notifications: without this call FCM messages received while
+  // the app is open show NO banner, sound, or badge — they only fire onMessage.
   if (Platform.isIOS) {
-    await Firebase.initializeApp(); // auto from GoogleService-Info.plist
-  } else {
-    // await Firebase.initializeApp(
-    //   options: DefaultFirebaseOptions.currentPlatform,
-    // );
+    await FirebaseMessaging.instance.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+    debugPrint('[iOS PUSH] ✅ Foreground notification presentation options set (alert/badge/sound)');
   }
 
-  // Set up background message handler
-  // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  // Touch FirebaseAnalytics so the analytics library is linked and registered —
+  // FCM otherwise logs "Unable to log event: analytics library is missing" on
+  // every push. Collection itself stays at the Firebase console's default.
+  try {
+    FirebaseAnalytics.instance;
+  } catch (_) {}
 
-  // await init();
-  // await initOld();
+  // Register the background/terminated isolate handler (must be a top-level
+  // function). Foreground messages, token and tap-navigation are owned by
+  // PushNotificationCubit, wired up via NotificationNavigator at the app root.
+  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+
+  // Create the default FCM notification channel up-front so it exists before any
+  // notification-type push arrives. The AndroidManifest references this id as
+  // `default_notification_channel_id`; without the channel existing, Android logs
+  // "Missing Default Notification Channel metadata".
+  if (Platform.isAndroid) {
+    try {
+      await FlutterLocalNotificationsPlugin()
+          .resolvePlatformSpecificImplementation<
+            AndroidFlutterLocalNotificationsPlugin
+          >()
+          ?.createNotificationChannel(
+            const AndroidNotificationChannel(
+              'wowcare_alerts_v2',
+              'WowCare Notifications',
+              importance: Importance.high,
+              enableVibration: true,
+              playSound: true,
+            ),
+          );
+    } catch (_) {
+      // Non-fatal: notifications still arrive on the system default channel.
+    }
+  }
 
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
     DeviceOrientation.landscapeLeft,
-    DeviceOrientation.landscapeRight
+    DeviceOrientation.landscapeRight,
   ]);
+
+  // Killed-state launch: if a notification tap cold-started the app, capture and
+  // resolve it to a deep-link NOW — before any UI builds — so the splash routes
+  // there instead of the dashboard. Doing this in main() (rather than in the
+  // cubit's post-frame init) removes any race with the splash's auth timer.
+  try {
+    final launchMessage = await FirebaseMessaging.instance.getInitialMessage();
+    AppLogger.d(
+      '[main] getInitialMessage → ${launchMessage == null ? "null" : launchMessage.data}',
+    );
+    Map<String, String>? launchData;
+    if (launchMessage != null) {
+      launchData = launchMessage.data.map(
+        (k, v) => MapEntry(k, v?.toString() ?? ''),
+      );
+    } else {
+      // getInitialMessage() returns null here (manual plugin registration in
+      // MainActivity doesn't feed the launch intent to the Firebase plugin), so
+      // read the killed-state tap's `data` payload natively from the intent.
+      launchData = await _readNativeLaunchNotification();
+      AppLogger.d('[main] native launch data → $launchData');
+    }
+    if (launchData != null && (launchData['action'] ?? '').isNotEmpty) {
+      final dest = NotificationRouteResolver.resolve(
+        PushNotificationModel(
+          title: null,
+          body: null,
+          action: launchData['action'],
+          type: launchData['type'],
+          data: launchData,
+        ),
+      );
+      if (dest != null) pendingNotificationDeepLink = dest.location;
+      AppLogger.d(
+        '[main] stashed pendingNotificationDeepLink=$pendingNotificationDeepLink',
+      );
+      // Capture the target org/school so the splash can switch the active school
+      // (multi-school user) before performing this deep-link redirect.
+      final launchOrg =
+          (launchData['organizationCode'] ??
+                  launchData['orgCode'] ??
+                  launchData['organization_code'] ??
+                  '')
+              .trim();
+      final launchSchool =
+          (launchData['schoolCode'] ?? launchData['school_code'] ?? '').trim();
+      if (launchOrg.isNotEmpty && launchSchool.isNotEmpty) {
+        pendingNotificationOrgSchool = {
+          'organizationCode': launchOrg,
+          'schoolCode': launchSchool,
+        };
+        AppLogger.d(
+          '[main] stashed pendingNotificationOrgSchool=$pendingNotificationOrgSchool',
+        );
+      }
+    }
+
+    // Killed-state tap of a LOCAL notification: when an FCM message arrives
+    // while the app is in the FOREGROUND, the OS shows no tray notification —
+    // our app shows a local one (geofence service) whose payload IS the resolved
+    // deep-link. If the user later kills the app and taps that local
+    // notification, this is the only way to recover it (getInitialMessage and
+    // the FCM intent extras are both empty for a local-notification launch).
+    if (pendingNotificationDeepLink == null) {
+      final launchDetails = await FlutterLocalNotificationsPlugin()
+          .getNotificationAppLaunchDetails();
+      final payload = launchDetails?.notificationResponse?.payload?.trim();
+      AppLogger.d(
+        '[main] localNotif launch: didLaunch=${launchDetails?.didNotificationLaunchApp} payload="$payload"',
+      );
+      if (launchDetails?.didNotificationLaunchApp == true &&
+          payload != null &&
+          payload.isNotEmpty) {
+        // Payload may carry the target org/school (foreground-shown local notif);
+        // split it out so the splash can switch school before redirecting.
+        final decoded = decodeNotificationPayload(payload);
+        pendingNotificationDeepLink = decoded.location;
+        if ((decoded.organizationCode ?? '').isNotEmpty &&
+            (decoded.schoolCode ?? '').isNotEmpty) {
+          pendingNotificationOrgSchool = {
+            'organizationCode': decoded.organizationCode!,
+            'schoolCode': decoded.schoolCode!,
+          };
+        }
+        AppLogger.d(
+          '[main] stashed (local notif) pendingNotificationDeepLink=$pendingNotificationDeepLink '
+          'orgSchool=$pendingNotificationOrgSchool',
+        );
+      }
+    }
+
+    // iOS: native geofence UNNotification tap (not shown via flutter_local_notifications,
+    // so getNotificationAppLaunchDetails() misses it). AppDelegate stores the action
+    // in UserDefaults; we read it here and resolve to /dashboard.
+    if (pendingNotificationDeepLink == null) {
+      final geofenceTapData = await _readIosGeofenceTap();
+      if (geofenceTapData != null &&
+          (geofenceTapData['action'] ?? '').isNotEmpty) {
+        final dest = NotificationRouteResolver.resolve(
+          PushNotificationModel(
+            title: null,
+            body: null,
+            action: geofenceTapData['action'],
+            type: null,
+            data: geofenceTapData,
+          ),
+        );
+        if (dest != null) pendingNotificationDeepLink = dest.location;
+        AppLogger.d(
+          '[main] stashed (iOS geofence tap) pendingNotificationDeepLink=$pendingNotificationDeepLink',
+        );
+      }
+    }
+  } catch (e) {
+    // Non-fatal: app still launches to its default destination.
+    AppLogger.d('[main] launch-notification capture failed: $e');
+  }
 
   runApp(const MyApp());
 }
 
-class MyApp extends StatefulWidget {
-  const MyApp({super.key});
+/// Initialises the sizer [Device] globals (width, height, screenType, etc.)
+/// during the BUILD phase — before screens call `.h` / `.w` / `.sp` —
+/// by reading from the ambient [MediaQuery] instead of a [LayoutBuilder].
+/// Rebuilds automatically when [MediaQuery] changes (e.g. device rotation),
+/// keeping [Device] in sync without nesting [MaterialApp.router] inside a
+/// [LayoutBuilder] buildScope.
+class _SizerInit extends StatelessWidget {
+  const _SizerInit({required this.child});
+  final Widget child;
 
   @override
-  State<MyApp> createState() => _MyAppState();
+  Widget build(BuildContext context) {
+    final mq = MediaQuery.of(context);
+    Device.setScreenSize(
+      context,
+      BoxConstraints(maxWidth: mq.size.width, maxHeight: mq.size.height),
+      mq.orientation,
+      599,
+    );
+    return child;
+  }
 }
 
-class _MyAppState extends State<MyApp> {
-  // final LocationService _locationService = LocationService();
-
-  @override
-  void initState() {
-    super.initState();
-
-    // setAccessToken();
-  }
-
-  // void setAccessToken() async {
-  //   if (AuthProvider.accessToken.isEmpty) {
-  //     SharedPreferences prefs = await SharedPreferences.getInstance();
-  //     if ((prefs.getBool('rememberMe') ?? false) &&
-  //         prefs.getString('accessToken').toString().isNotEmpty) {
-  //       String token = prefs.getString('accessToken') ?? '';
-  //       AuthProvider.setAccessToken(token);
-  //     }
-  //   }
-  // }
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // ChangeNotifierProvider(create: (_) => NotificationProvider()),
-        // ChangeNotifierProvider.value(value: _locationService),
-        // ChangeNotifierProvider(create: (_) => UserProviders()),
-        // ChangeNotifierProvider(create: (_) => StaffProviders()),
-        // ChangeNotifierProvider(create: (_) => GuardianProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
-        // Needed by GlobalScaffold/Drawer/NavBar to determine role-based UI
-        ChangeNotifierProvider(create: (_) => RoleProvider()),
-        ChangeNotifierProvider(create: (_) => ParentChildProvider()),
-        // ChangeNotifierProvider(create: (_) => AuthProvider()),
-        // ChangeNotifierProvider(create: (_) => NavBarHeightProvider()),
-        // ChangeNotifierProvider(create: (_) => ProfilePhotoProvider()),
-        // BlocProvider(create: (_) => sl<MasterLookupBloc>()),
-        // BlocProvider(create: (context) => sl<NappingStudentsCubit>()),
-        // BlocProvider(create: (_) => sl<FormValidatorBloc>()),
-        // BlocProvider(create: (_) => sl<AccessBloc>()),
-        // BlocProvider(create: (_) => sl<PhysicalTrackerBloc>()),
-        // BlocProvider(create: (_) => sl<AuthenticationBloc>()),
-        // BlocProvider(create: (_) => sl<DocumentBloc>()),
-        // BlocProvider(create: (_) => sl<DocumentCubit>()),
-        // BlocProvider(create: (_) => sl<StaffCubit>()),
-        // BlocProvider(create: (_) => sl<AddressCubit>()),
-        // BlocProvider(create: (_) => sl<GuardianCubit>()),
-        // BlocProvider(create: (_) => sl<PaymentGatewayMerchantSettingsCubit>()),
-        // BlocProvider(create: (_) => sl<TotalAttendanceCubit>()),
-        // BlocProvider(create: (_) => sl<AttendanceCubit>()),
-        // BlocProvider(create: (_) => sl<AttendanceReportCubit>()),
-        // BlocProvider(create: (_) => sl<RoomdataCubit>()),
+        BlocProvider<ThemeCubit>(create: (_) => ThemeCubit()),
+        BlocProvider<RoleCubit>(create: (_) => RoleCubit()),
+        BlocProvider<ParentChildCubit>(
+          create: (_) => serviceLocator<ParentChildCubit>(),
+        ),
+        // Provided at root so CustomAppBar's BlocBuilder<UnreadBadgeCubit>
+        // is satisfied on every route — including screens pushed onto the root
+        // navigator (AddStudentScreen, EditStudentProfileDetailsScreen, etc.)
+        // that are outside the GlobalScaffold subtree.
+        // startWatching() is called in GlobalScaffold.initState() after login.
+        BlocProvider<UnreadBadgeCubit>(
+          create: (_) => serviceLocator<UnreadBadgeCubit>(),
+        ),
+        // Same rationale as UnreadBadgeCubit: provided at root so CustomAppBar's
+        // notification bell badge is satisfied on every route. load() is called
+        // in GlobalScaffold.initState() after login.
+        BlocProvider<NotificationBadgeCubit>(
+          create: (_) => serviceLocator<NotificationBadgeCubit>(),
+        ),
       ],
-      child: Consumer<ThemeProvider>(
-        builder: (context, themeProvider, _) {
-          double customScaler;
-          double systemTextScaleFactor = MediaQuery.of(
+      child: BlocBuilder<ThemeCubit, ThemeData>(
+        builder: (context, currentTheme) {
+          final systemTextScaleFactor = MediaQuery.of(
             context,
           ).textScaler.scale(1);
 
+          double customScaler;
           if (systemTextScaleFactor < 0.85) {
             customScaler = 0.8;
-          } else if (systemTextScaleFactor >= 0.85 &&
-              systemTextScaleFactor < 1.0) {
+          } else if (systemTextScaleFactor < 1.0) {
             customScaler = 0.9;
-          } else if (systemTextScaleFactor >= 1.0 &&
-              systemTextScaleFactor < 1.2) {
+          } else if (systemTextScaleFactor < 1.2) {
             customScaler = 1.0;
-          } else if (systemTextScaleFactor >= 1.2 &&
-              systemTextScaleFactor < 1.5) {
+          } else if (systemTextScaleFactor < 1.5) {
             customScaler = 1.1;
           } else {
             customScaler = 1.2;
@@ -156,536 +445,68 @@ class _MyAppState extends State<MyApp> {
             data: MediaQuery.of(
               context,
             ).copyWith(textScaler: TextScaler.linear(customScaler)),
-            child: Sizer(
-              builder: (context, orientation, screenType) {
-                return MultiBlocProvider(
-                  providers: [
-                    BlocProvider<AuthCubit>(
-                      create: (_) {
-                        final cubit = serviceLocator<AuthCubit>();
-                        cubit.initialize();
-                        return cubit;
-                      },
-                    ),
-                  ],
-                  child: MaterialApp(
+            // _SizerInit initialises Device (sizer package globals) during the
+            // BUILD phase so .h / .w / .sp extensions work on the first screen
+            // build. Replacing the outer Sizer(LayoutBuilder) wrapper here
+            // prevents MaterialApp.router from being inflated inside a nested
+            // LayoutBuilder buildScope, which caused a GlobalKey conflict:
+            // go_router's navigator elements were created twice (once in each
+            // nested buildScope), triggering the "GlobalKey used multiple times"
+            // assertion at go_router/src/builder.dart:457.
+            child: _SizerInit(
+              child: MultiBlocProvider(
+                providers: [
+                  BlocProvider<AuthCubit>(
+                    create: (_) => serviceLocator<AuthCubit>()..initialize(),
+                  ),
+                  BlocProvider<PushNotificationCubit>(
+                    create: (_) => serviceLocator<PushNotificationCubit>(),
+                  ),
+                  BlocProvider<GeofenceCubit>(
+                    create: (_) => serviceLocator<GeofenceCubit>(),
+                  ),
+                  // Kiosk cubits provided at app root so all routes have access
+                  // This fixes ProviderNotFoundException in GoRouter nested routes
+                  BlocProvider<KioskDashboardCubit>(
+                    create: (_) => serviceLocator<KioskDashboardCubit>(),
+                  ),
+                  BlocProvider<KioskAttendanceCubitV2>(
+                    create: (_) => serviceLocator<KioskAttendanceCubitV2>(),
+                  ),
+                ],
+                child: NotificationNavigator(
+                  child: MaterialApp.router(
                     debugShowCheckedModeBanner: false,
                     title: 'WowCare',
-                    theme: themeProvider.currentTheme,
-                    home: const SplashScreenWrapper(),
-                    onGenerateRoute: generateRoute,
-                    navigatorKey: CoreUtils.rootNavigatorKey,
+                    theme: currentTheme,
+                    routerConfig: appRouter,
+                    // A single OrientationBuilder here keeps Device updated on
+                    // rotation. child (Router) has a stable GlobalObjectKey so
+                    // Flutter always updates the existing element — no navigator
+                    // key conflict — unlike the old Sizer that nested Router
+                    // inside two stacked LayoutBuilder buildScopes.
+                    builder: (context, child) => OrientationBuilder(
+                      builder: (context, orientation) {
+                        final mq = MediaQuery.of(context);
+                        Device.setScreenSize(
+                          context,
+                          BoxConstraints(
+                            maxWidth: mq.size.width,
+                            maxHeight: mq.size.height,
+                          ),
+                          orientation,
+                          599,
+                        );
+                        return child ?? const SizedBox.shrink();
+                      },
+                    ),
                   ),
-                );
-              },
+                ),
+              ),
             ),
           );
         },
       ),
     );
   }
-}
-
-class SplashScreenWrapper extends StatefulWidget {
-  const SplashScreenWrapper({super.key});
-
-  @override
-  State<SplashScreenWrapper> createState() => _SplashScreenWrapperState();
-}
-
-class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
-  @override
-  void initState() {
-    super.initState();
-    _initNotifications();
-    _navigateToHome();
-  }
-
-  // Initialize notifications now that we have a context
-  Future<void> _initNotifications() async {
-    // try {
-    //   await notificationService.init(context);
-    //   print('Notification service initialized successfully');
-    // } catch (e) {
-    //   print('Error initializing notification service: $e');
-    // }
-  }
-
-  _navigateToHome() async {
-    await Future.delayed(const Duration(seconds: 1));
-    if (mounted) {
-      final storage = serviceLocator<StorageService>();
-
-      final seenOnboarding =
-          await storage.getBool(StorageKeys.onboardingSeen) ?? false;
-
-      if (!seenOnboarding) {
-        // Very first app launch: always show onboarding once and clear any old auth.
-        await serviceLocator<AuthLocalDataSource>().clearCache();
-        Navigator.pushReplacementNamed(context, '/first-screen');
-      } else {
-        // After onboarding:
-        // - Always call login-context on app start whenever we have a cached login,
-        //   and always use its redirectUrl (if any) to decide navigation.
-        String? redirectUrl;
-        bool hasCachedLogin = false;
-        try {
-          final authLocal = serviceLocator<AuthLocalDataSource>();
-          final cachedLogin = await authLocal.getCachedLoginResponse();
-          if (cachedLogin != null) {
-            hasCachedLogin = true;
-            final authRemote = serviceLocator<AuthRemoteDataSource>();
-            final contextData = await authRemote.getLoginContext(
-              accessToken: cachedLogin.accessToken,
-            );
-            await authLocal.saveLoginContext(contextData);
-
-            // Sync org/school from login-context (LastLoginOrganizationCode,
-            // LastLoginSchoolCode) into storage so all APIs use them.
-            await authLocal.saveOrgAndSchoolFromContext(contextData);
-
-            // Backend may return redirectUrl to tell us where to go
-            // (select-school, select-organization, select-app, dashboard, etc).
-            final rawRedirect = contextData['redirectUrl'];
-            redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
-
-            final String orgCode =
-                (contextData['LastLoginOrganizationCode'] as String?)?.trim() ??
-                    '';
-            final String schoolCode =
-                (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
-
-            // Save org/school selection from login-context, but:
-            // - do NOT overwrite an existing local schoolCode with null/empty
-            // - if context schoolCode is empty, reuse the locally stored one
-            //   so APIs can continue to use the last known school.
-            if (orgCode.isNotEmpty) {
-              final existingSchoolCode =
-                  (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-              final effectiveSchoolCode =
-                  schoolCode.isNotEmpty ? schoolCode : existingSchoolCode;
-
-              if (effectiveSchoolCode.isNotEmpty) {
-                await authLocal.setSelectedOrgAndSchool(
-                  organizationCode: orgCode,
-                  schoolCode: effectiveSchoolCode,
-                  schoolName: '',
-                );
-              } else {
-                // We only know the organization; keep any existing school selection
-                // and just ensure organizationCode is stored.
-                await storage.saveString(StorageKeys.organizationCode, orgCode);
-              }
-            }
-          }
-        } catch (_) {
-          // Non-fatal: if context fetch fails, we still decide navigation below.
-        }
-
-        // If we have a cached login, navigation always follows login-context:
-        if (hasCachedLogin) {
-          await context.read<RoleProvider>().refreshAccessFromServer(force: true);
-          final orgCode =
-              (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-          final schoolCode =
-              (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-          if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
-            await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
-                  organizationCode: orgCode,
-                  schoolCode: schoolCode,
-                );
-          }
-          if (redirectUrl != null && redirectUrl.isNotEmpty) {
-            final url = redirectUrl.toLowerCase();
-            if (url.contains('select-school')) {
-              final orgCode = await storage.getString(StorageKeys.organizationCode);
-              if (orgCode != null && orgCode.isNotEmpty) {
-                if (!mounted) return;
-                await context.read<AuthCubit>().loadCachedData();
-                if (!mounted) return;
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => SchoolSelectionScreen(
-                      selectedOrg: orgCode,
-                      orgFromLoginContext: true,
-                    ),
-                  ),
-                );
-                return;
-              }
-              // Fallback: org not in storage, go to org selection first
-              if (!mounted) return;
-              await context.read<AuthCubit>().loadCachedData();
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const OrganizationSelectionScreen(),
-                ),
-              );
-              return;
-            }
-            if (url.contains('select-organization')) {
-              if (!mounted) return;
-              await context.read<AuthCubit>().loadCachedData();
-              if (!mounted) return;
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const OrganizationSelectionScreen(),
-                ),
-              );
-              return;
-            }
-            if (url.contains('dashboard') || url.contains('select-app')) {
-              // Backend explicitly says to go to dashboard/app selection.
-              Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-              return;
-            }
-          }
-
-          // No redirectUrl or unrecognized value: default to dashboard when logged in.
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-        } else {
-          // No cached login at all: go to Login, which will call login-context after success.
-          Navigator.pushReplacementNamed(context, SignInScreen.routeName);
-        }
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return const SplashScreen();
-  }
-
-// final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
-
-// // NOTE: Login bypass removed. App always starts from Splash and follows
-// // onboarding/login-context redirect flow.
-// // Create a global instance of NotificationService that will be initialized later
-// // final NotificationService notificationService = NotificationService();
-
-// // // This function is required to handle background messages
-// // @pragma('vm:entry-point')
-// // Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-// //   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-// //   print("Handling a background message: ${message.messageId}");
-// //   // You can do minimal processing here, but avoid heavy work
-// // }
-// const bool kBypassLogin = true;
-// const String kBypassOrganizationCode = 'ORG_49C7E2C8-8';
-// const String kBypassSchoolCode = 'SCH_EE387C14-9';
-// const String kBypassStaffCode = 'STF_C7899FBB-3';
-
-// Future<void> main() async {
-//   WidgetsFlutterBinding.ensureInitialized();
-  
-//   // Initialize dependency injection
-//   await configureDependencies();
-
-//   // Only initialize if not already
-//   if (Platform.isIOS) {
-//     await Firebase.initializeApp(); // auto from GoogleService-Info.plist
-//   } else {
-//     // await Firebase.initializeApp(
-//     //   options: DefaultFirebaseOptions.currentPlatform,
-//     // );
-//   }
-
-//   // Set up background message handler
-//   // FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
-
-//   // await init();
-//   // await initOld();
-
-//   SystemChrome.setPreferredOrientations([
-//     DeviceOrientation.portraitUp,
-//     DeviceOrientation.portraitDown,
-//     DeviceOrientation.landscapeLeft,
-//     DeviceOrientation.landscapeRight
-//   ]);
-
-//   runApp(const MyApp());
-// }
-
-// class MyApp extends StatefulWidget {
-//   const MyApp({super.key});
-
-//   @override
-//   State<MyApp> createState() => _MyAppState();
-// }
-
-// class _MyAppState extends State<MyApp> {
-//   // final LocationService _locationService = LocationService();
-
-//   @override
-//   void initState() {
-//     super.initState();
-
-//     // setAccessToken();
-//   }
-
-//   // void setAccessToken() async {
-//   //   if (AuthProvider.accessToken.isEmpty) {
-//   //     SharedPreferences prefs = await SharedPreferences.getInstance();
-//   //     if ((prefs.getBool('rememberMe') ?? false) &&
-//   //         prefs.getString('accessToken').toString().isNotEmpty) {
-//   //       String token = prefs.getString('accessToken') ?? '';
-//   //       AuthProvider.setAccessToken(token);
-//   //     }
-//   //   }
-//   // }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return MultiProvider(
-//       providers: [
-//         // ChangeNotifierProvider(create: (_) => NotificationProvider()),
-//         // ChangeNotifierProvider.value(value: _locationService),
-//         // ChangeNotifierProvider(create: (_) => UserProviders()),
-//         // ChangeNotifierProvider(create: (_) => StaffProviders()),
-//         // ChangeNotifierProvider(create: (_) => GuardianProvider()),
-//         ChangeNotifierProvider(create: (_) => ThemeProvider()),
-//         // Needed by GlobalScaffold/Drawer/NavBar to determine role-based UI
-//         ChangeNotifierProvider(create: (_) => RoleProvider()),
-//         // ChangeNotifierProvider(create: (_) => AuthProvider()),
-//         // ChangeNotifierProvider(create: (_) => NavBarHeightProvider()),
-//         // ChangeNotifierProvider(create: (_) => ProfilePhotoProvider()),
-//         // BlocProvider(create: (_) => sl<MasterLookupBloc>()),
-//         // BlocProvider(create: (context) => sl<NappingStudentsCubit>()),
-//         // BlocProvider(create: (_) => sl<FormValidatorBloc>()),
-//         // BlocProvider(create: (_) => sl<AccessBloc>()),
-//         // BlocProvider(create: (_) => sl<PhysicalTrackerBloc>()),
-//         // BlocProvider(create: (_) => sl<AuthenticationBloc>()),
-//         // BlocProvider(create: (_) => sl<DocumentBloc>()),
-//         // BlocProvider(create: (_) => sl<DocumentCubit>()),
-//         // BlocProvider(create: (_) => sl<StaffCubit>()),
-//         // BlocProvider(create: (_) => sl<AddressCubit>()),
-//         // BlocProvider(create: (_) => sl<GuardianCubit>()),
-//         // BlocProvider(create: (_) => sl<PaymentGatewayMerchantSettingsCubit>()),
-//         // BlocProvider(create: (_) => sl<TotalAttendanceCubit>()),
-//         // BlocProvider(create: (_) => sl<AttendanceCubit>()),
-//         // BlocProvider(create: (_) => sl<AttendanceReportCubit>()),
-//         // BlocProvider(create: (_) => sl<RoomdataCubit>()),
-//       ],
-//       child: Consumer<ThemeProvider>(
-//         builder: (context, themeProvider, _) {
-//           double customScaler;
-//           double systemTextScaleFactor = MediaQuery.of(
-//             context,
-//           ).textScaler.scale(1);
-
-//           if (systemTextScaleFactor < 0.85) {
-//             customScaler = 0.8;
-//           } else if (systemTextScaleFactor >= 0.85 &&
-//               systemTextScaleFactor < 1.0) {
-//             customScaler = 0.9;
-//           } else if (systemTextScaleFactor >= 1.0 &&
-//               systemTextScaleFactor < 1.2) {
-//             customScaler = 1.0;
-//           } else if (systemTextScaleFactor >= 1.2 &&
-//               systemTextScaleFactor < 1.5) {
-//             customScaler = 1.1;
-//           } else {
-//             customScaler = 1.2;
-//           }
-
-//           return MediaQuery(
-//             data: MediaQuery.of(
-//               context,
-//             ).copyWith(textScaler: TextScaler.linear(customScaler)),
-//             child: Sizer(
-//               builder: (context, orientation, screenType) {
-//                 return MultiBlocProvider(
-//                   providers: [
-//                     BlocProvider<AuthCubit>(
-//                       create: (_) {
-//                         final cubit = serviceLocator<AuthCubit>();
-//                         cubit.initialize();
-//                         return cubit;
-//                       },
-//                     ),
-//                   ],
-//                   child: MaterialApp(
-//                     debugShowCheckedModeBanner: false,
-//                     title: 'WowCare',
-//                     theme: themeProvider.currentTheme,
-//                     home: const SplashScreenWrapper(),
-//                     onGenerateRoute: generateRoute,
-//                     navigatorKey: navigatorKey,
-//                   ),
-//                 );
-//               },
-//             ),
-//           );
-//         },
-//       ),
-//     );
-//   }
-// }
-
-// class SplashScreenWrapper extends StatefulWidget {
-//   const SplashScreenWrapper({super.key});
-
-//   @override
-//   State<SplashScreenWrapper> createState() => _SplashScreenWrapperState();
-// }
-
-// class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
-//   @override
-//   void initState() {
-//     super.initState();
-//     _initNotifications();
-//     _navigateToHome();
-//   }
-
-//   // Initialize notifications now that we have a context
-//   Future<void> _initNotifications() async {
-//     // try {
-//     //   await notificationService.init(context);
-//     //   print('Notification service initialized successfully');
-//     // } catch (e) {
-//     //   print('Error initializing notification service: $e');
-//     // }
-//   }
-
-//   _navigateToHome() async {
-//     await Future.delayed(const Duration(seconds: 1));
-//     if (mounted) {
-//       final storage = serviceLocator<StorageService>();
-
-//       final seenOnboarding =
-//           await storage.getBool(StorageKeys.onboardingSeen) ?? false;
-
-//       if (!seenOnboarding) {
-//         // Very first app launch: always show onboarding once and clear any old auth.
-//         await serviceLocator<AuthLocalDataSource>().clearCache();
-//         Navigator.pushReplacementNamed(context, '/first-screen');
-//       } else {
-//         // After onboarding:
-//         // - Always call login-context on app start whenever we have a cached login,
-//         //   and always use its redirectUrl (if any) to decide navigation.
-//         String? redirectUrl;
-//         bool hasCachedLogin = false;
-//         try {
-//           final authLocal = serviceLocator<AuthLocalDataSource>();
-//           final cachedLogin = await authLocal.getCachedLoginResponse();
-//           if (cachedLogin != null) {
-//             hasCachedLogin = true;
-//             final authRemote = serviceLocator<AuthRemoteDataSource>();
-//             final contextData = await authRemote.getLoginContext(
-//               accessToken: cachedLogin.accessToken,
-//             );
-//             await authLocal.saveLoginContext(contextData);
-
-//             // Sync org/school from login-context (LastLoginOrganizationCode,
-//             // LastLoginSchoolCode) into storage so all APIs use them.
-//             await authLocal.saveOrgAndSchoolFromContext(contextData);
-
-//             // Backend may return redirectUrl to tell us where to go
-//             // (select-school, select-organization, select-app, dashboard, etc).
-//             final rawRedirect = contextData['redirectUrl'];
-//             redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
-
-//             final String orgCode =
-//                 (contextData['LastLoginOrganizationCode'] as String?)?.trim() ??
-//                     '';
-//             final String schoolCode =
-//                 (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
-
-//             // Save org/school selection from login-context, but:
-//             // - do NOT overwrite an existing local schoolCode with null/empty
-//             // - if context schoolCode is empty, reuse the locally stored one
-//             //   so APIs can continue to use the last known school.
-//             if (orgCode.isNotEmpty) {
-//               final existingSchoolCode =
-//                   (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-//               final effectiveSchoolCode =
-//                   schoolCode.isNotEmpty ? schoolCode : existingSchoolCode;
-
-//               if (effectiveSchoolCode.isNotEmpty) {
-//                 await authLocal.setSelectedOrgAndSchool(
-//                   organizationCode: orgCode,
-//                   schoolCode: effectiveSchoolCode,
-//                   schoolName: '',
-//                 );
-//               } else {
-//                 // We only know the organization; keep any existing school selection
-//                 // and just ensure organizationCode is stored.
-//                 await storage.saveString(StorageKeys.organizationCode, orgCode);
-//               }
-//             }
-//           }
-//         } catch (_) {
-//           // Non-fatal: if context fetch fails, we still decide navigation below.
-//         }
-
-//         // If we have a cached login, navigation always follows login-context:
-//         if (hasCachedLogin) {
-//           if (redirectUrl != null && redirectUrl.isNotEmpty) {
-//             final url = redirectUrl.toLowerCase();
-//             if (url.contains('select-school')) {
-//               final orgCode = await storage.getString(StorageKeys.organizationCode);
-//               if (orgCode != null && orgCode.isNotEmpty) {
-//                 if (!mounted) return;
-//                 await context.read<AuthCubit>().loadCachedData();
-//                 if (!mounted) return;
-//                 Navigator.pushReplacement(
-//                   context,
-//                   MaterialPageRoute(
-//                     builder: (_) => SchoolSelectionScreen(
-//                       selectedOrg: orgCode,
-//                       orgFromLoginContext: true,
-//                     ),
-//                   ),
-//                 );
-//                 return;
-//               }
-//               // Fallback: org not in storage, go to org selection first
-//               if (!mounted) return;
-//               await context.read<AuthCubit>().loadCachedData();
-//               if (!mounted) return;
-//               Navigator.pushReplacement(
-//                 context,
-//                 MaterialPageRoute(
-//                   builder: (_) => const OrganizationSelectionScreen(),
-//                 ),
-//               );
-//               return;
-//             }
-//             if (url.contains('select-organization')) {
-//               if (!mounted) return;
-//               await context.read<AuthCubit>().loadCachedData();
-//               if (!mounted) return;
-//               Navigator.pushReplacement(
-//                 context,
-//                 MaterialPageRoute(
-//                   builder: (_) => const OrganizationSelectionScreen(),
-//                 ),
-//               );
-//               return;
-//             }
-//             if (url.contains('dashboard') || url.contains('select-app')) {
-//               // Backend explicitly says to go to dashboard/app selection.
-//               Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-//               return;
-//             }
-//           }
-
-//           // No redirectUrl or unrecognized value: default to dashboard when logged in.
-//           Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
-//         } else {
-//           // No cached login at all: go to Login, which will call login-context after success.
-//           Navigator.pushReplacementNamed(context, SignInScreen.routeName);
-//         }
-//       }
-//     }
-//   }
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return const SplashScreen();
-//   }
 }

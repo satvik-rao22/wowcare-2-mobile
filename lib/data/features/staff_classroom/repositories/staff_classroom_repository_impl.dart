@@ -54,8 +54,8 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     if (q.isNotEmpty) parts.add('search=$q');
 
     return CacheManager.buildCacheKey(
-      feature: 'staff',
-      resource: 'classrooms',
+      feature: 'classroom',
+      resource: 'staff_roster',
       identifier: parts.join('|'),
     );
   }
@@ -114,6 +114,18 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
   }
 
   @override
+  Future<List<StaffClassroomItem>> getManageStaffList({
+    required String schoolCode,
+    required String excludeClassroomCode,
+  }) async {
+    final models = await _remoteDataSource.getManageStaffList(
+      schoolCode: schoolCode,
+      excludeClassroomCode: excludeClassroomCode,
+    );
+    return models.map(_mapModelToEntity).toList();
+  }
+
+  @override
   Future<String> assignStaffToClassroom({
     required String schoolCode,
     required String classroomCode,
@@ -124,12 +136,20 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
       staffCodes: staffCodes,
     );
 
-    // Invalidate the most common cache variant for this classroom listing.
-    final key = _cacheKey(
-      schoolCode: schoolCode,
-      classCodes: [classroomCode],
+    // Invalidate roster caches for this classroom (listing variants used by the app).
+    await _cacheManager.invalidateCache(
+      _cacheKey(schoolCode: schoolCode, classCodes: [classroomCode]),
     );
-    await _cacheManager.invalidateCache(key);
+    await _cacheManager.invalidateCache(
+      _cacheKey(schoolCode: schoolCode, primaryClassroomCodes: [classroomCode]),
+    );
+    await _cacheManager.invalidateCache(
+      _cacheKey(
+        schoolCode: schoolCode,
+        excludeClassroomCode: classroomCode,
+        status: const ['ACTIVE'],
+      ),
+    );
 
     return response.message;
   }
@@ -138,6 +158,7 @@ class StaffClassroomRepositoryImpl implements StaffClassroomRepository {
     return StaffClassroomItem(
       classroomCode: m.classroomCode,
       staffCode: m.staffCode,
+      userCode: m.userCode,
       firstName: m.firstName,
       lastName: m.lastName,
       profilePictureUrl: m.profilePictureUrl,

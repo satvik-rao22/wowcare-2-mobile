@@ -1,12 +1,14 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/shared/common/widgets/activity_status_panel.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
@@ -14,17 +16,25 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
+import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_student_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
@@ -33,16 +43,50 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as transfer_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
+import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+
+class _AttendanceCacheEntry {
+  const _AttendanceCacheEntry({
+    required this.fetchedAt,
+    required this.statusByCode,
+  });
+
+  final DateTime fetchedAt;
+  final Map<String, String> statusByCode;
+}
+
+/// Bumped by any screen/flow that mutates the classroom roster (e.g. the
+/// "Assign Students to Classroom" sheet). The Students-tab card listens and
+/// invalidates its cubit + attendance cache so the new student is visible
+/// immediately, without the user having to switch tabs to force a rebuild.
+final ValueNotifier<int> classroomStudentsRefreshTick = ValueNotifier<int>(0);
+
+void notifyClassroomStudentsChanged() {
+  classroomStudentsRefreshTick.value++;
+}
+
+/// Clears the process-wide today's-attendance cache shared by every Students
+/// tab instance. Called on school switch so a newly selected school never
+/// shows the previous school's cached attendance status.
+void clearClassroomStudentsAttendanceCache() {
+  _ClassroomStudentsTabCardState._attendanceCacheByKey.clear();
+}
 
 class ClassroomStudentsTabCard extends StatefulWidget {
   const ClassroomStudentsTabCard({
     required this.scrollController,
     required this.selectedRoom,
+    this.highlightCode,
     super.key,
   });
 
   final ScrollController scrollController;
   final Classroom? selectedRoom;
+
+  /// Student code from a notification deep-link; the matching row is scrolled
+  /// into view and briefly flashed.
+  final String? highlightCode;
 
   @override
   State<ClassroomStudentsTabCard> createState() =>
@@ -51,12 +95,27 @@ class ClassroomStudentsTabCard extends StatefulWidget {
 
 class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _searchDebounce;
+
+  /// Notification deep-link target row.
+  final GlobalKey _highlightRowKey = GlobalKey();
+  bool _isHighlightTarget(String code) {
+    final target = (widget.highlightCode ?? '').trim();
+    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+  }
+
   late final ClassroomStudentsCubit _cubit;
+  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
   bool isSelectAllChecked = false;
   Map<String, bool> studentSelections = {};
-  List<String> _selectedStatus = [];
+  // ACTIVE is the permanent baseline status — always sent to the API.
+  List<String> _selectedStatus = ['ACTIVE'];
+  List<String> _selectedTagCodes = [];
   bool _isNappingFilter = false; // Toggle for napping students
   bool _isPresentFilter = false; // Toggle for present students
+  Set<String> _nappingStudentCodes = <String>{};
+  int _napCodesFetchToken = 0;
+  bool _napCodesLoading = false;
   StudentPanelType _currentPanel = StudentPanelType.none;
   bool _showActivitiesPanel = false;
   bool _isAttendanceActionLoading = false;
@@ -69,6 +128,13 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
+  int _visibleAttendanceFetchToken = 0;
+  Set<String> _lastVisibleAttendanceCodes = <String>{};
+  bool _staffIsSignedIn = false;
+
+  static const Duration _attendanceCacheTtl = Duration(minutes: 10);
+  static final Map<String, _AttendanceCacheEntry> _attendanceCacheByKey =
+      <String, _AttendanceCacheEntry>{};
 
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> statuses = ['ACTIVE', 'UPCOMING'];
@@ -83,11 +149,108 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   void initState() {
     super.initState();
     _cubit = serviceLocator<ClassroomStudentsCubit>();
+    _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
+    _loadNapStartStudentCodes(refresh: false);
+    _loadStaffSignInStatus();
+    classroomStudentsRefreshTick.addListener(_handleExternalRefresh);
   }
 
-  void _loadForSelectedRoom({required bool refresh}) {
+  void _handleExternalRefresh() {
+    if (!mounted) return;
+    // Roster changed elsewhere (assign sheet, etc.) — drop the today's
+    // attendance status cache for this room so the new student shows up
+    // with fresh status, then refetch the student list.
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStudentCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    _loadForSelectedRoom(refresh: true);
+    _loadNapStartStudentCodes(refresh: true);
+    _loadStaffSignInStatus();
+  }
+
+  /// Pull-to-refresh: re-run every API this tab uses (student roster, today's
+  /// attendance status, nap-start codes), bypassing the repository and
+  /// attendance caches.
+  Future<void> _refreshAll() async {
+    if (!mounted) return;
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStudentCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    // Refresh the shared classroom dropdown list too, so a pull refreshes the
+    // whole page's data — not just this tab.
+    await _reloadClassroomList();
+    await _loadStaffSignInStatus();
+    if (_isNappingFilter) {
+      // Napping filter on: refresh nap-start codes + roster scoped to nappers.
+      await _applyNappingFilter(refresh: true);
+    } else {
+      _loadForSelectedRoom(refresh: true);
+      await _loadNapStartStudentCodes(refresh: true);
+    }
+  }
+
+  /// Force-reloads the classroom dropdown list (bypassing its cache) via the
+  /// shared [ClassroomCubit] provided by the Classroom screen. Non-fatal: if the
+  /// provider isn't in scope the pull-to-refresh still refreshes this tab.
+  Future<void> _reloadClassroomList() async {
+    try {
+      await context.read<ClassroomCubit>().loadActiveClassrooms(
+            force: true,
+            applyAttendanceStaffScope: true,
+          );
+    } catch (_) {
+      // Provider missing or reload failed — ignore.
+    }
+  }
+
+  /// Used as the `refreshCallback` for every sign-in / sign-out / transfer /
+  /// mark-absent form. The form just told us a student's attendance just
+  /// flipped — but `_attendanceCacheByKey` still holds the pre-action status
+  /// (it has a 10-minute TTL). Without dropping that cache, the next time
+  /// the user selects the same student the attendance gate computes against
+  /// stale data and "Sign In" stays disabled after a successful Sign Out
+  /// (and vice versa). Wiping the room's cache here forces a fresh fetch.
+  void _dismissSelectionPanel() {
+    if (!mounted) return;
+    setState(() {
+      isSelectAllChecked = false;
+      studentSelections.updateAll((key, val) => false);
+      _showActivitiesPanel = false;
+      _currentPanel = StudentPanelType.none;
+    });
+  }
+
+  void _refreshAfterAttendanceAction() {
+    _dismissSelectionPanel();
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStudentCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    _clearAttendanceEntityCaches();
+    _loadForSelectedRoom(refresh: true);
+    _loadStaffSignInStatus();
+  }
+
+  /// Called after an activity is recorded from the Activities panel. A new
+  /// activity can change a student's row state (nap, medication, notes, …),
+  /// so drop the roster + attendance + nap-start caches and refetch the list.
+  void _refreshAfterActivityRecorded() {
+    if (!mounted) return;
+    _dismissSelectionPanel();
+    _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
+    _attendanceStatusByStudentCode.clear();
+    _lastVisibleAttendanceCodes = <String>{};
+    _clearAttendanceEntityCaches();
+    _loadForSelectedRoom(refresh: true);
+    _loadNapStartStudentCodes(refresh: true);
+    _loadStaffSignInStatus();
+  }
+
+  void _loadForSelectedRoom({
+    required bool refresh,
+    List<String>? studentCodes,
+  }) {
     final classroomCode = widget.selectedRoom?.code ?? '';
     if (classroomCode.trim().isEmpty) return;
 
@@ -95,22 +258,79 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         ? null
         : _searchController.text.trim();
 
-    final status = _selectedStatus.isEmpty ? null : List<String>.from(_selectedStatus);
+    final status =
+        _selectedStatus.isEmpty ? null : List<String>.from(_selectedStatus);
+    final tagCodes =
+        _selectedTagCodes.isEmpty ? null : List<String>.from(_selectedTagCodes);
 
     if (refresh) {
       _cubit.refresh(
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
+        tagCodes: tagCodes,
       );
     } else {
       _cubit.loadInitial(
         classroomCode: classroomCode,
         search: search,
+        studentCodes: studentCodes,
         status: status,
+        tagCodes: tagCodes,
       );
     }
   }
+
+  Future<void> _loadNapStartStudentCodes({required bool refresh}) async {
+    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
+    if (classroomCode.isEmpty) return;
+
+    final token = ++_napCodesFetchToken;
+    if (mounted) {
+      setState(() => _napCodesLoading = true);
+    }
+    try {
+      final codes =
+          await _getNapStartStudentsUseCase(classroomCode: classroomCode);
+      final normalized = codes
+          .map((e) => e.trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toSet();
+
+      if (!mounted || token != _napCodesFetchToken) return;
+      setState(() {
+        _nappingStudentCodes = normalized;
+      });
+    } catch (_) {
+      if (!mounted || token != _napCodesFetchToken) return;
+      // Keep existing set on failure to avoid flicker.
+    } finally {
+      if (mounted && token == _napCodesFetchToken) {
+        setState(() => _napCodesLoading = false);
+      }
+    }
+  }
+
+  /// Refreshes nap-start codes (when [refresh]) and reloads the roster, optionally scoped to nappers.
+  Future<void> _applyNappingFilter({required bool refresh}) async {
+    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
+    if (classroomCode.isEmpty || !_isNappingFilter) return;
+
+    await _loadNapStartStudentCodes(refresh: refresh);
+    if (!mounted) return;
+
+    final codes = _nappingStudentCodes.isEmpty
+        ? null
+        : List<String>.from(_nappingStudentCodes);
+    _loadForSelectedRoom(refresh: refresh, studentCodes: codes);
+  }
+
+  bool get _isLoadingNapStudents => _napCodesLoading;
+
+  /// Nap-start returned no students while the napping filter is on (show empty / copy).
+  bool get _napFilterEmptyResult =>
+      _isNappingFilter && !_napCodesLoading && _nappingStudentCodes.isEmpty;
 
   @override
   void didUpdateWidget(ClassroomStudentsTabCard oldWidget) {
@@ -120,15 +340,21 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         isSelectAllChecked = false;
         studentSelections.updateAll((key, val) => false);
         _searchController.clear();
-        _selectedStatus = [];
+        _selectedStatus = ['ACTIVE'];
+        _selectedTagCodes = [];
         _isNappingFilter = false;
+        _isPresentFilter = false;
       });
       _loadForSelectedRoom(refresh: false);
+      _loadNapStartStudentCodes(refresh: true);
+      _loadStaffSignInStatus();
     }
   }
 
   @override
   void dispose() {
+    _searchDebounce?.cancel();
+    classroomStudentsRefreshTick.removeListener(_handleExternalRefresh);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _cubit.close();
@@ -136,8 +362,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   }
 
   void _onSearchChanged() {
-    // Debounce could be added later; for now refresh list from API as user types.
-    _loadForSelectedRoom(refresh: false);
+    // Debounce so fast typing collapses into a single API call once the user
+    // pauses, instead of firing (and dropping) a request per keystroke.
+    _searchDebounce?.cancel();
+    _searchDebounce = Timer(const Duration(milliseconds: 300), () {
+      if (!mounted) return;
+      if (_isNappingFilter) {
+        _applyNappingFilter(refresh: false);
+      } else {
+        _loadForSelectedRoom(refresh: false);
+      }
+    });
   }
 
   void _toggleSelectAll(
@@ -183,13 +418,86 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return studentSelections.values.any((selected) => selected);
   }
 
+  /// Display label for an API status value (e.g. `ACTIVE` -> `Active`).
+  String _statusChipLabel(String apiStatus) {
+    switch (apiStatus.trim().toUpperCase()) {
+      case 'ACTIVE':
+        return 'Active';
+      case 'UPCOMING':
+        return 'Upcoming';
+      default:
+        return apiStatus;
+    }
+  }
+
+  /// One chip per selected status (so both show when ACTIVE + UPCOMING are
+  /// picked). Tapping a chip opens the filter screen to change the selection.
+  Widget _buildStatusChip(String apiStatus) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(6),
+        color: const Color.fromRGBO(177, 175, 233, 0.3),
+      ),
+      child: TextButton(
+        style: TextButton.styleFrom(
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+          minimumSize: Size.zero,
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+          ),
+        ),
+        onPressed: _openClassroomStudentFilter,
+        child: Text(
+          _statusChipLabel(apiStatus),
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            color: Color.fromRGBO(27, 35, 126, 1),
+            fontSize: 12,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openClassroomStudentFilter() async {
+    final result = await Navigator.push<ClassroomStudentFilterResult>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => ClassroomStudentFilterScreen(
+          initialStatus: _selectedStatus,
+          initialTagCodes: _selectedTagCodes,
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+
+    setState(() {
+      // Respect the explicit filter-screen choice exactly (e.g. UPCOMING only
+      // drops ACTIVE). Only fall back to the ACTIVE default when nothing is
+      // selected.
+      final picked = result.status
+          .map((e) => e.trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toList();
+      _selectedStatus = picked.isEmpty ? ['ACTIVE'] : picked;
+      _selectedTagCodes = List<String>.from(result.tagCodes);
+    });
+    _loadForSelectedRoom(refresh: false);
+  }
+
   void _clearAllSelections() {
     setState(() {
       isSelectAllChecked = false;
       studentSelections.updateAll((key, val) => false);
       _searchController.clear();
       _selectedStatus = ['ACTIVE'];
+      _selectedTagCodes = [];
       _isNappingFilter = false;
+      _isPresentFilter = false;
       _currentPanel = StudentPanelType.none;
     });
     _clearAttendanceEntityCaches();
@@ -211,10 +519,37 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         .toList();
   }
 
+  /// Same shape as [ChooseActivity.selectedStudents] for class activity list + create flow.
+  List<Map<String, dynamic>> _activityStudentMaps(
+    List<StudentClassroomItem> selected,
+  ) {
+    final roomCode = widget.selectedRoom?.code.trim() ?? '';
+    return selected
+        .map(
+          (s) {
+            final norm = s.studentCode.trim().toUpperCase();
+            final napping =
+                s.nap || _nappingStudentCodes.contains(norm);
+            return <String, dynamic>{
+              'name': s.fullName,
+              'studentCode': s.studentCode,
+              'classroomCode': s.classroomCode.trim().isNotEmpty
+                  ? s.classroomCode.trim()
+                  : roomCode,
+              'nappingStatus': napping,
+              'isNapping': napping,
+            };
+          },
+        )
+        .toList();
+  }
+
   Map<String, dynamic> _getStudentIcons(StudentClassroomItem student) {
     final icons = <String, dynamic>{};
 
-    if (student.nap) {
+    final normalized = student.studentCode.trim().toUpperCase();
+    final isNapping = student.nap || _nappingStudentCodes.contains(normalized);
+    if (isNapping) {
       icons["napping"] = {
         "icon": 'assets/images/icons/sleep.png',
         "info": 'Student is napping',
@@ -251,16 +586,73 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     return icons;
   }
 
-  List<String> _getCombinedOngoingActivities(
-    List<StudentClassroomItem> selectedStudents,
-  ) {
-    // Current API entity doesn't expose activity list; keep empty for now.
-    return const [];
+  void _applyNappingToggle(bool enabled) {
+    setState(() {
+      _isNappingFilter = enabled;
+    });
+    if (enabled) {
+      Future.microtask(() => _applyNappingFilter(refresh: false));
+    } else {
+      _loadForSelectedRoom(refresh: false);
+    }
   }
 
+  /// Mirrors [ClassroomStudentListItem]: activities only when green signed-in
+  /// dot (today's status). Grey rows, absent (red), or missing/other status → off.
   bool _canShowActivitiesPanel(List<StudentClassroomItem> selectedStudents) {
     if (!hasSelectedStudents) return false;
-    return selectedStudents.every((student) => student.signedIn);
+    if (_attendanceStatusLoading || _attendanceStatusError) return false;
+
+    if (selectedStudents.length > 1) {
+      final roomFallback = (widget.selectedRoom?.code ?? '').trim();
+      final firstCc = selectedStudents.first.classroomCode.trim();
+      final canonical =
+          firstCc.isNotEmpty ? firstCc : roomFallback;
+      if (canonical.isEmpty) return false;
+      final sameRoom = selectedStudents.every((s) {
+        final c = s.classroomCode.trim().isNotEmpty
+            ? s.classroomCode.trim()
+            : roomFallback;
+        return c == canonical;
+      });
+      if (!sameRoom) return false;
+    }
+
+    return selectedStudents.every((s) {
+      final raw = _todayStatusForStudentCode(s.studentCode);
+      return (raw ?? '').trim().toUpperCase() == 'SIGNED_IN';
+    });
+  }
+
+  String? _activitiesDisabledHint(
+    List<StudentClassroomItem> selectedStudents,
+  ) {
+    if (!hasSelectedStudents) return null;
+    if (_attendanceStatusLoading) {
+      return 'Hang on—we are loading attendance. Try Activities again in a moment.';
+    }
+    if (_attendanceStatusError) {
+      return "Today's attendance could not be loaded. Pull to refresh, then try again.";
+    }
+    if (selectedStudents.length > 1) {
+      final roomFallback = (widget.selectedRoom?.code ?? '').trim();
+      final firstCc = selectedStudents.first.classroomCode.trim();
+      final canonical = firstCc.isNotEmpty ? firstCc : roomFallback;
+      if (canonical.isEmpty) {
+        return 'Select students in the same classroom to record activities together.';
+      }
+      final sameRoom = selectedStudents.every((s) {
+        final c = s.classroomCode.trim().isNotEmpty
+            ? s.classroomCode.trim()
+            : roomFallback;
+        return c == canonical;
+      });
+      if (!sameRoom) {
+        return 'Select students in the same classroom to record activities together.';
+      }
+    }
+    return 'You cannot record activities for absent, not marked, or not signed-in '
+        'students. Only students with green signed-in status today can be selected.';
   }
 
   // Backend disabled
@@ -271,6 +663,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+  }
+
+  String _attendanceCacheKeyForRoomToday() {
+    final classroomCode = (widget.selectedRoom?.code ?? '').trim();
+    final date = _formatDate(DateTime.now());
+    return 'students:$classroomCode:$date';
   }
 
   String _normalizeStudentCode(String code) => code.trim().toUpperCase();
@@ -286,6 +684,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       if (_normalizeStudentCode(e.key) == u) return e.value;
     }
     return null;
+  }
+
+  bool _isSignedInFromAttendanceStatus(StudentClassroomItem student) {
+    final raw = _todayStatusForStudentCode(student.studentCode);
+    final normalized = (raw ?? '').trim().toUpperCase();
+    if (normalized == 'SIGNED_IN') return true;
+    // Fallback to classroom list flag when map isn't loaded yet.
+    return student.signedIn;
   }
 
   Future<void> _refreshAttendanceStatusForSelection(
@@ -344,6 +750,84 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
   }
 
+  /// Fetches today's sign-in status for the **whole roster** for the room.
+  ///
+  /// This must be passed the unfiltered roster (`state.students`), never the
+  /// post-filter `visibleStudents`. The Sign-In (`_isPresentFilter`) filter
+  /// itself reads [_attendanceStatusByStudentCode]; if status were fetched
+  /// only for students already passing the filter, a signed-in student whose
+  /// status isn't in the map yet would be dropped before their status is ever
+  /// requested — and stay hidden permanently (e.g. after toggling Napping).
+  Future<void> _refreshAttendanceStatusForRoster(
+    List<StudentClassroomItem> rosterStudents,
+  ) async {
+    final codes = rosterStudents
+        .map((s) => s.studentCode.trim())
+        .where((c) => c.isNotEmpty)
+        .toSet();
+
+    final cacheKey = _attendanceCacheKeyForRoomToday();
+    final cached = _attendanceCacheByKey[cacheKey];
+    if (cached != null &&
+        DateTime.now().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode
+          ..clear()
+          ..addAll(cached.statusByCode);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+    }
+
+    if (codes.isEmpty) {
+      _lastVisibleAttendanceCodes = <String>{};
+      if (!mounted) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      return;
+    }
+
+    if (setEquals(codes, _lastVisibleAttendanceCodes)) return;
+    _lastVisibleAttendanceCodes = codes;
+
+    final token = ++_visibleAttendanceFetchToken;
+    if (!mounted) return;
+    setState(() {
+      _attendanceStatusLoading = true;
+      _attendanceStatusError = false;
+    });
+
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: codes.toList());
+      if (!mounted || token != _visibleAttendanceFetchToken) return;
+      setState(() {
+        _attendanceStatusByStudentCode
+          ..clear()
+          ..addAll(map);
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = false;
+      });
+      _attendanceCacheByKey[cacheKey] = _AttendanceCacheEntry(
+        fetchedAt: DateTime.now(),
+        statusByCode: Map<String, String>.from(map),
+      );
+    } catch (_) {
+      if (!mounted || token != _visibleAttendanceFetchToken) return;
+      setState(() {
+        _attendanceStatusByStudentCode.clear();
+        _attendanceStatusLoading = false;
+        _attendanceStatusError = true;
+      });
+    }
+  }
+
+  Future<void> _loadStaffSignInStatus() async {}
+
   StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
     List<StudentClassroomItem> selected,
   ) {
@@ -353,13 +837,23 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     if (_attendanceStatusLoading || _attendanceStatusError) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(context)) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
     final gates = selected.map((s) {
-      final isActive = s.status.trim().toUpperCase() == 'ACTIVE';
+      // The roster `status` field is frequently omitted/varies in the
+      // student-classroom API. An empty value must NOT be read as
+      // "inactive" — a student present in the roster is an attendee, so
+      // NOT_MARKED / SIGNED_OUT students must keep Sign-In enabled. Only an
+      // explicit non-ACTIVE enrollment status (e.g. UPCOMING) blocks it.
+      final rawStatus = s.status.trim().toUpperCase();
+      final isActive = rawStatus.isEmpty || rawStatus == 'ACTIVE';
       return studentAttendanceGateFromTodayStatus(
         isActiveProfile: isActive,
         todayStatusRaw: _todayStatusForStudentCode(s.studentCode),
       );
     });
+    
     return StudentAttendanceActionAvailability.fromGates(gates);
   }
 
@@ -368,6 +862,25 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _signOutEntitiesByCode = {};
     _transferEntitiesByCode = {};
     _absentEntitiesByCode = {};
+  }
+
+  /// Warms the row-icon details cache for every visible student whose list-API
+  /// flags say they have a health-backed icon (allergies / medication / diet /
+  /// photo). The details dialog reads from the same cache, so the first tap
+  /// after the roster loads shows the actual text immediately, no loader.
+  void _prefetchDetailsHealthForVisibleStudents(
+    List<StudentClassroomItem> visibleStudents,
+  ) {
+    for (final s in visibleStudents) {
+      final hasHealthIcon = s.allergies ||
+          s.medication ||
+          s.dietaryRestriction ||
+          !s.photoPermission;
+      if (!hasHealthIcon) continue;
+      // Fire-and-forget; the helper dedupes in-flight + cached entries.
+      // ignore: unawaited_futures
+      prefetchStudentDetailsHealth(s.studentCode);
+    }
   }
 
   Future<void> _prefetchAttendanceEntitiesForSelection(
@@ -528,6 +1041,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
   }
 
+  /// Classroom code for a roster student, falling back to the open room.
+  String _rosterClassroomCode(StudentClassroomItem s) {
+    final cc = s.classroomCode.trim();
+    return cc.isNotEmpty ? cc : (widget.selectedRoom?.code.trim() ?? '');
+  }
+
   Future<void> _openAttendanceActionFlow({
     required List<StudentClassroomItem> allStudents,
     required String actionName,
@@ -569,16 +1088,29 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     });
     try {
       if (actionName == 'sign_in') {
-        var entities = selectedCodes
-            .map((code) => _signInEntitiesByCode[code])
-            .whereType<sign_in_form.StudentEntity>()
-            .toList();
-        if (entities.isEmpty) {
+        // Eligibility was already gated by today's sign-in status in the
+        // action panel. Prefer the prefetched form-list entity; fall back to
+        // the selected roster student so a gate-enabled action is never
+        // blocked by the form-list API not returning that student.
+        if (selectedCodes.every((c) => _signInEntitiesByCode[c] == null)) {
           await _prefetchAttendanceEntitiesForSelection(allStudents);
-          entities = selectedCodes
-              .map((code) => _signInEntitiesByCode[code])
-              .whereType<sign_in_form.StudentEntity>()
-              .toList();
+        }
+        final entities = <sign_in_form.StudentEntity>[];
+        for (final s in selectedStudents) {
+          final prefetched =
+              _signInEntitiesByCode[_normalizeStudentCode(s.studentCode)];
+          entities.add(
+            prefetched ??
+                sign_in_form.StudentEntity(
+                  id: entities.length + 1,
+                  studentCode: s.studentCode,
+                  fullName: s.fullName,
+                  roomId: 0,
+                  roomName: widget.selectedRoom?.name ?? '',
+                  classroomCode: _rosterClassroomCode(s),
+                  isExpectedToday: s.expectedToday,
+                ),
+          );
         }
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Sign-In');
@@ -590,7 +1122,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           MaterialPageRoute(
             builder: (_) => sign_in_form.StudentSignInForm(
               students: entities,
-              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+              refreshCallback: _refreshAfterAttendanceAction,
+              popOnSuccess: true,
             ),
           ),
         );
@@ -598,16 +1131,28 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       }
 
       if (actionName == 'sign_out') {
-        var entities = selectedCodes
-            .map((code) => _signOutEntitiesByCode[code])
-            .whereType<sign_out_form.StudentEntity>()
-            .toList();
-        if (entities.isEmpty) {
+        // Eligibility was already gated by today's sign-in status in the
+        // action panel. Prefer the prefetched form-list entity; fall back to
+        // the selected roster student so a gate-enabled action is never
+        // blocked by the form-list API not returning that student.
+        if (selectedCodes.every((c) => _signOutEntitiesByCode[c] == null)) {
           await _prefetchAttendanceEntitiesForSelection(allStudents);
-          entities = selectedCodes
-              .map((code) => _signOutEntitiesByCode[code])
-              .whereType<sign_out_form.StudentEntity>()
-              .toList();
+        }
+        final entities = <sign_out_form.StudentEntity>[];
+        for (final s in selectedStudents) {
+          final prefetched =
+              _signOutEntitiesByCode[_normalizeStudentCode(s.studentCode)];
+          entities.add(
+            prefetched ??
+                sign_out_form.StudentEntity(
+                  id: entities.length + 1,
+                  studentCode: s.studentCode,
+                  fullName: s.fullName,
+                  roomId: 0,
+                  roomName: widget.selectedRoom?.name ?? '',
+                  classroomCode: _rosterClassroomCode(s),
+                ),
+          );
         }
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Sign-Out');
@@ -619,7 +1164,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           MaterialPageRoute(
             builder: (_) => sign_out_form.StudentSignOutForm(
               students: entities,
-              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+              refreshCallback: _refreshAfterAttendanceAction,
+              popOnSuccess: true,
             ),
           ),
         );
@@ -627,16 +1173,28 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       }
 
       if (actionName == 'transfer') {
-        var entities = selectedCodes
-            .map((code) => _transferEntitiesByCode[code])
-            .whereType<transfer_form.StudentEntity>()
-            .toList();
-        if (entities.isEmpty) {
+        // Eligibility was already gated by today's sign-in status in the
+        // action panel. Prefer the prefetched form-list entity; fall back to
+        // the selected roster student so a gate-enabled action is never
+        // blocked by the form-list API not returning that student.
+        if (selectedCodes.every((c) => _transferEntitiesByCode[c] == null)) {
           await _prefetchAttendanceEntitiesForSelection(allStudents);
-          entities = selectedCodes
-              .map((code) => _transferEntitiesByCode[code])
-              .whereType<transfer_form.StudentEntity>()
-              .toList();
+        }
+        final entities = <transfer_form.StudentEntity>[];
+        for (final s in selectedStudents) {
+          final prefetched =
+              _transferEntitiesByCode[_normalizeStudentCode(s.studentCode)];
+          entities.add(
+            prefetched ??
+                transfer_form.StudentEntity(
+                  id: entities.length + 1,
+                  studentCode: s.studentCode,
+                  fullName: s.fullName,
+                  roomId: 0,
+                  roomName: widget.selectedRoom?.name ?? '',
+                  classroomCode: _rosterClassroomCode(s),
+                ),
+          );
         }
         if (entities.isEmpty) {
           throw Exception('No selected students are eligible for Transfer');
@@ -660,23 +1218,36 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
             builder: (_) => transfer_form.StudentTransferForm(
               students: entities,
               classroomNameToCode: classroomNameToCode,
-              refreshCallback: () => _loadForSelectedRoom(refresh: true),
+              refreshCallback: _refreshAfterAttendanceAction,
+              popOnSuccess: true,
             ),
           ),
         );
         return;
       }
 
-      var entities = selectedCodes
-          .map((code) => _absentEntitiesByCode[code])
-          .whereType<absent_form.StudentEntity>()
-          .toList();
-      if (entities.isEmpty) {
+      // Eligibility was already gated by today's sign-in status in the
+      // action panel. Prefer the prefetched form-list entity; fall back to
+      // the selected roster student so a gate-enabled action is never
+      // blocked by the form-list API not returning that student.
+      if (selectedCodes.every((c) => _absentEntitiesByCode[c] == null)) {
         await _prefetchAttendanceEntitiesForSelection(allStudents);
-        entities = selectedCodes
-            .map((code) => _absentEntitiesByCode[code])
-            .whereType<absent_form.StudentEntity>()
-            .toList();
+      }
+      final entities = <absent_form.StudentEntity>[];
+      for (final s in selectedStudents) {
+        final prefetched =
+            _absentEntitiesByCode[_normalizeStudentCode(s.studentCode)];
+        entities.add(
+          prefetched ??
+              absent_form.StudentEntity(
+                id: entities.length + 1,
+                studentCode: s.studentCode,
+                fullName: s.fullName,
+                roomId: 0,
+                roomName: widget.selectedRoom?.name ?? '',
+                classroomCode: _rosterClassroomCode(s),
+              ),
+        );
       }
       if (entities.isEmpty) {
         throw Exception('No selected students are eligible for Mark Absent');
@@ -688,7 +1259,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         MaterialPageRoute(
           builder: (_) => absent_form.StudentMarkAbsentForm(
             students: entities,
-            refreshCallback: () => _loadForSelectedRoom(refresh: true),
+            refreshCallback: _refreshAfterAttendanceAction,
+            popOnSuccess: true,
           ),
         ),
       );
@@ -710,18 +1282,53 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<GeofenceCubit>();
     return BlocProvider.value(
       value: _cubit,
       child: BlocBuilder<ClassroomStudentsCubit, ClassroomStudentsState>(
         builder: (context, state) {
-          final visibleStudents = ClassroomStudentsCubit.applyClientFilters(
-            state.students,
-            presentOnly: _isPresentFilter,
-            nappingOnly: _isNappingFilter,
-            searchText: _searchController.text,
-          )..sort((a, b) => a.fullName.compareTo(b.fullName));
+          final q = _searchController.text.trim().toLowerCase();
+          final visibleStudents = state.students.where((s) {
+            if (_isPresentFilter && !_isSignedInFromAttendanceStatus(s)) {
+              return false;
+            }
+            if (_isNappingFilter) {
+              final code = s.studentCode.trim().toUpperCase();
+              final isNapping = s.nap || _nappingStudentCodes.contains(code);
+              if (!isNapping) return false;
+            }
+            if (q.isNotEmpty && !s.fullName.toLowerCase().contains(q)) {
+              return false;
+            }
+            return true;
+          }).toList()
+            ..sort((a, b) => a.fullName.compareTo(b.fullName));
 
-          final selectedStudents = _getSelectedStudents(visibleStudents);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            // Status is fetched for the full roster (not `visibleStudents`)
+            // so the Sign-In filter has every student's status available.
+            _refreshAttendanceStatusForRoster(state.students);
+            _prefetchDetailsHealthForVisibleStudents(visibleStudents);
+          });
+
+          final effectiveVisibleStudents =
+              _isNappingFilter && _napFilterEmptyResult
+                  ? <StudentClassroomItem>[]
+                  : visibleStudents;
+
+          final selectedStudents = _getSelectedStudents(effectiveVisibleStudents);
+          final canStudentActivities = _canShowActivitiesPanel(selectedStudents);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            if (!canStudentActivities &&
+                (_showActivitiesPanel ||
+                    _currentPanel == StudentPanelType.activities)) {
+              setState(() {
+                _showActivitiesPanel = false;
+                _currentPanel = StudentPanelType.none;
+              });
+            }
+          });
 
           return Stack(
             children: [
@@ -732,7 +1339,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   left: BorderSide(color: AppColors.themeColor),
                   top: BorderSide(color: AppColors.themeColor),
                   right: BorderSide(color: AppColors.themeColor),
+                  bottom: BorderSide(color: AppColors.themeColor),
                 ),
+                color: Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(
@@ -743,6 +1352,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             child: SearchBar(
                               controller: _searchController,
                               constraints: const BoxConstraints(minHeight: 36),
+                              backgroundColor:
+                                  const WidgetStatePropertyAll<Color>(
+                                Colors.white,
+                              ),
+                              surfaceTintColor:
+                                  const WidgetStatePropertyAll<Color>(
+                                Colors.white,
+                              ),
                               hintText: 'Search',
                               hintStyle: const WidgetStatePropertyAll(
                                 TextStyle(
@@ -772,9 +1389,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           ),
                           const SizedBox(width: 8),
                           IconButton(
-                            onPressed: () {
-                              // TODO: open filter modal
-                            },
+                            onPressed: _openClassroomStudentFilter,
                             icon: SvgPicture.asset(
                               MediaRes.filterIcon,
                               height: 22,
@@ -795,7 +1410,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                   AppColors.primaryColor.withValues(alpha: 0.2),
                               value: isSelectAllChecked,
                               onChanged: (val) =>
-                                  _toggleSelectAll(val, visibleStudents),
+                                  _toggleSelectAll(val, effectiveVisibleStudents),
                             ),
                           ),
                           const Text(
@@ -811,40 +1426,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 2),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  color:
-                                      const Color.fromRGBO(177, 175, 233, 0.3),
-                                ),
-                                child: TextButton(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 3,
-                                    ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  onPressed: () {},
-                                  child: const Text(
-                                    'Active',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      color: Color.fromRGBO(27, 35, 126, 1),
-                                      fontSize: 12,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
+                              for (final status in _selectedStatus) ...[
+                                _buildStatusChip(status),
+                                const SizedBox(width: 8),
+                              ],
                               Container(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 2),
@@ -942,7 +1527,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       Row(
                         children: [
                           CustomToggle(
-                            label: 'Present',
+                            label: 'Signed In',
                             isToggled: _isPresentFilter,
                             onToggle: (value) {
                               setState(() {
@@ -961,9 +1546,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             label: 'Napping',
                             isToggled: _isNappingFilter,
                             onToggle: (value) {
-                              setState(() {
-                                _isNappingFilter = value;
-                              });
+                              _applyNappingToggle(value);
                             },
                             labelStyle: const TextStyle(
                               fontFamily: 'Manrope',
@@ -980,17 +1563,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   Expanded(
                     child: Builder(
                       builder: (context) {
-                          if (state.isLoading && visibleStudents.isEmpty) {
-                            return const Center(
-                              child: CircularProgressIndicator(),
-                            );
+                          if ((state.isLoading || _isLoadingNapStudents) &&
+                              effectiveVisibleStudents.isEmpty) {
+                            return const ClassroomStudentsListShimmer();
                           }
 
-                          if (visibleStudents.isEmpty) {
+                          if (effectiveVisibleStudents.isEmpty) {
                             return CustomRefreshIndicator(
-                              onRefresh: () async {
-                                _loadForSelectedRoom(refresh: true);
-                              },
+                              onRefresh: _refreshAll,
                               child: LayoutBuilder(
                                 builder: (context, constraints) {
                                   return ListView(
@@ -999,7 +1579,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                         height: constraints.maxHeight,
                                         child: Center(
                                           child: Text(
-                                            _isNappingFilter
+                                            _isNappingFilter && _napFilterEmptyResult
+                                                ? 'No students are currently napping.'
+                                                : _isNappingFilter
                                                 ? 'No students are napping.'
                                                 : 'No students assigned.',
                                 style: TextStyle(
@@ -1018,32 +1600,63 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             );
                           }
 
+                          final upcomingOnlyFilter = _selectedStatus.length == 1 &&
+                              _selectedStatus.first.trim().toUpperCase() ==
+                                  'UPCOMING';
+
                           return CustomRefreshIndicator(
-                            onRefresh: () async {
-                              _loadForSelectedRoom(refresh: true);
-                            },
+                            onRefresh: _refreshAll,
                             child: ListView.builder(
-                              itemCount: visibleStudents.length,
+                              // Always scrollable so a short roster (too few
+                              // students to fill the viewport) can still be
+                              // pulled to refresh.
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: effectiveVisibleStudents.length,
                               itemBuilder: (context, index) {
-                                final student = visibleStudents[index];
-                              return ClassroomStudentListItem(
+                                final student = effectiveVisibleStudents[index];
+                                final isTarget =
+                                    _isHighlightTarget(student.studentCode);
+                              return HighlightableCard(
+                                key: isTarget ? _highlightRowKey : null,
+                                code: student.studentCode,
+                                highlightCode: widget.highlightCode,
+                                borderRadius: 12,
+                                onHighlighted: () {
+                                  final ctx = _highlightRowKey.currentContext;
+                                  if (ctx != null) {
+                                    Scrollable.ensureVisible(
+                                      ctx,
+                                      duration:
+                                          const Duration(milliseconds: 400),
+                                      alignment: 0.1,
+                                      curve: Curves.easeOut,
+                                    );
+                                  }
+                                },
+                                child: ClassroomStudentListItem(
                                     studentId: student.studentCode.hashCode,
+                                    studentCode: student.studentCode,
                                     isSignedIn: student.signedIn,
                                     isAbsent: student.absent,
                                     isExpectedToday: student.expectedToday,
                                     studentStatus: student.status,
+                                    todayAttendanceStatusRaw: _todayStatusForStudentCode(
+                                      student.studentCode,
+                                    ),
                                     name: student.fullName,
                                     imageUrl: student.profilePictureUrl ?? '',
                                     icons: _getStudentIcons(student),
+                                    forceUpcomingProfileStatusDot: upcomingOnlyFilter,
                                     isSelected:
                                     studentSelections[student.studentCode] ?? false,
                                     onSelectionChanged: (bool? value) {
                                       _toggleStudentSelection(
                                         student.studentCode,
                                         value,
-                                        visibleStudents,
+                                        effectiveVisibleStudents,
                                       );
                                     },
+                              ),
                               );
                             },
                           ),
@@ -1059,19 +1672,18 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           if (hasSelectedStudents)
             Positioned(
               right: 16,
-              bottom: 16,
-              child: Row(
-                children: [
-                  if (_showActivitiesPanel &&
-                      _canShowActivitiesPanel(selectedStudents))
-                    ActivityStatusPanel(
-                      onGoingActivities:
-                          _getCombinedOngoingActivities(selectedStudents),
-                      isSignedIN: true,
-                    ),
-                  const SizedBox(width: 10),
-                  StudentActionPanel(
+              top: 0,
+              bottom: 0,
+              child: Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    StudentActionPanel(
                     currentPanel: _currentPanel,
+                    activityStudentMaps: canStudentActivities
+                        ? _activityStudentMaps(selectedStudents)
+                        : null,
+                    onActivityRecorded: _refreshAfterActivityRecorded,
                     attendanceAvailability:
                         _attendanceAvailabilityForSelection(selectedStudents),
                     onAttendanceTap: () {
@@ -1083,8 +1695,20 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                         _showActivitiesPanel = false;
                       });
                     },
-                    onMessageTap: () {},
-                    onActivitiesTap: _canShowActivitiesPanel(selectedStudents)
+                    onMessageTap: () {
+                      final selected = selectedStudents
+                          .map(
+                            (s) => SelectedRecipient(
+                              code: s.studentCode,
+                              name: s.fullName,
+                              isStaff: false,
+                              avatar: s.profilePictureUrl ?? '',
+                            ),
+                          )
+                          .toList();
+                      openMessagingShortcut(context, recipients: selected);
+                    },
+                    onActivitiesTap: canStudentActivities
                         ? () {
                             setState(() {
                               _showActivitiesPanel = !_showActivitiesPanel;
@@ -1095,35 +1719,46 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           }
                         : null,
                     onProfileTap: _selectedCount == 1
-                        ? () {
-                            if (selectedStudents.isNotEmpty) {
-                              final student = selectedStudents.first;
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => StudentProfileScreen(
-                                    name: student.fullName,
-                                    classroom:
-                                        widget.selectedRoom?.name ?? 'Unknown Class',
-                                    tags: const [],
-                                    schedule: const [
-                                      'Monday',
-                                      'Tuesday',
-                                      'Wednesday',
-                                      'Thursday',
-                                      'Friday'
-                                    ],
-                                    sibling: const {
-                                      'name': [],
-                                      'relation': [],
-                                      'status': []
-                                    },
-                                    studentCode: student.studentCode,
-                                    initialEnrollmentStatus: student.status,
-                                  ),
+                        ? () async {
+                            if (selectedStudents.isEmpty) return;
+                            final student = selectedStudents.first;
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StudentProfileScreen(
+                                  name: student.fullName,
+                                  classroom:
+                                      widget.selectedRoom?.name ?? 'Unknown Class',
+                                  tags: const [],
+                                  schedule: const [
+                                    'Monday',
+                                    'Tuesday',
+                                    'Wednesday',
+                                    'Thursday',
+                                    'Friday'
+                                  ],
+                                  sibling: const {
+                                    'name': [],
+                                    'relation': [],
+                                    'status': []
+                                  },
+                                  studentCode: student.studentCode,
+                                  initialEnrollmentStatus: student.status,
                                 ),
-                              );
-                            }
+                              ),
+                            );
+                            if (!mounted) return;
+                            // Profile screen may have mutated student data
+                            // (status, schedule, photo, tags, health, ...).
+                            // Refresh the roster + cached attendance so the
+                            // list reflects the latest values, and drop the
+                            // row-icon details dialog cache for this student
+                            // so the next tap re-fetches their health.
+                            invalidateStudentDetailsHealthCache(
+                              student.studentCode,
+                            );
+                            _refreshAfterAttendanceAction();
+                            _loadNapStartStudentCodes(refresh: true);
                           }
                         : null,
                     onClearSelections: () {
@@ -1135,7 +1770,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       });
                     },
                     isProfileEnabled: _selectedCount == 1,
-                    activitiesEnabled: _canShowActivitiesPanel(selectedStudents),
+                    activitiesEnabled: canStudentActivities,
+                    activitiesDisabledHint:
+                        canStudentActivities
+                            ? null
+                            : _activitiesDisabledHint(selectedStudents),
                     showAttendanceActions:
                         _currentPanel == StudentPanelType.attendance,
                     isAttendanceActionLoading:
@@ -1158,7 +1797,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                       actionName: 'mark_absent',
                     ),
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
         ],
@@ -1221,25 +1861,25 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.primaryColor.withValues(alpha: 0.1),
+          fillColor: Colors.white,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: const BorderSide(
-              color: Colors.transparent,
+              color: Color.fromARGB(255, 188, 173, 186),
             ),
           ),
         ),

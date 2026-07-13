@@ -77,6 +77,7 @@ class IndividualMovementModel {
     required this.source,
     required this.comment,
     required this.bucket,
+    this.profilePhotoAssetCode,
     this.confirmedAt,
     this.confirmedBy,
     this.rejectedAt,
@@ -101,6 +102,7 @@ class IndividualMovementModel {
   final String source;
   final String comment;
   final String bucket;
+  final String? profilePhotoAssetCode;
   final DateTime? confirmedAt;
   final String? confirmedBy;
   final DateTime? rejectedAt;
@@ -126,6 +128,7 @@ class IndividualMovementModel {
       source: (json['source'] ?? '').toString(),
       comment: (json['comment'] ?? '').toString(),
       bucket: (json['bucket'] ?? '').toString(),
+      profilePhotoAssetCode: json['profilePhotoAssetCode']?.toString(),
       confirmedAt: _parseDateTime(json['confirmedAt']),
       confirmedBy: json['confirmedBy']?.toString(),
       rejectedAt: _parseDateTime(json['rejectedAt']),
@@ -153,6 +156,7 @@ class IndividualMovementModel {
       'source': source,
       'comment': comment,
       'bucket': bucket,
+      'profilePhotoAssetCode': profilePhotoAssetCode,
       'confirmedAt': confirmedAt?.toIso8601String(),
       'confirmedBy': confirmedBy,
       'rejectedAt': rejectedAt?.toIso8601String(),
@@ -180,6 +184,7 @@ class IndividualMovementModel {
       source: source,
       comment: comment,
       bucket: bucket,
+      profilePhotoAssetCode: profilePhotoAssetCode,
       confirmedAt: confirmedAt,
       confirmedBy: confirmedBy,
       rejectedAt: rejectedAt,
@@ -197,7 +202,8 @@ IndividualMovementType _parseMovementType(String value) {
       return IndividualMovementType.startSchool;
     case 'LEAVE_SCHOOL':
       return IndividualMovementType.leaveSchool;
-    case 'MOVE_TO_NEXT_CLASSROOM':
+    case 'CLASSROOM_PROMOTION':
+    case 'MOVE_TO_NEXT_CLASSROOM': // legacy backend value
     default:
       return IndividualMovementType.moveToNextClassroom;
   }
@@ -210,7 +216,8 @@ String _movementTypeToApi(IndividualMovementType value) {
     case IndividualMovementType.leaveSchool:
       return 'LEAVE_SCHOOL';
     case IndividualMovementType.moveToNextClassroom:
-      return 'MOVE_TO_NEXT_CLASSROOM';
+      // Backend enum uses CLASSROOM_PROMOTION for "move to next classroom".
+      return 'CLASSROOM_PROMOTION';
   }
 }
 
@@ -254,4 +261,22 @@ String _formatDateOnly(DateTime date) {
   final m = date.month.toString().padLeft(2, '0');
   final d = date.day.toString().padLeft(2, '0');
   return '$y-$m-$d';
+}
+
+class MovementStatusCountsModel {
+  const MovementStatusCountsModel({
+    required this.overdueCount,
+    required this.pendingCount,
+  });
+
+  final int overdueCount;
+  final int pendingCount;
+
+  factory MovementStatusCountsModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? const {};
+    return MovementStatusCountsModel(
+      overdueCount: (data['overdueCount'] as num?)?.toInt() ?? 0,
+      pendingCount: (data['pendingCount'] as num?)?.toInt() ?? 0,
+    );
+  }
 }

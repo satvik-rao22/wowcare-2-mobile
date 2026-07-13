@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/auth/secure_credential_store.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -14,9 +18,9 @@ import 'package:wowcare/presentation/features/auth/view/school_selection_screen.
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
-import 'package:wowcare/shared/common/app/providers/role_provider.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:provider/provider.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -36,26 +40,41 @@ class _SignInScreenState extends State<SignInScreen>
 
   late final AnimationController _bottomMenuHeightAnimationController =
       AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 300),
-  );
+        vsync: this,
+        duration: const Duration(milliseconds: 300),
+      );
 
   late final Animation<double> _bottomMenuHeightUpAnimation =
       Tween<double>(begin: 0.0, end: 1.0).animate(
-    CurvedAnimation(
-      parent: _bottomMenuHeightAnimationController,
-      curve: Curves.easeInOut,
-    ),
-  );
+        CurvedAnimation(
+          parent: _bottomMenuHeightAnimationController,
+          curve: Curves.easeInOut,
+        ),
+      );
 
   @override
   void initState() {
     super.initState();
     _bottomMenuHeightAnimationController.forward();
+    // Keep the Sign-In button's enabled state in sync with the fields so it
+    // stays disabled until both email and password have been entered.
+    emailController.addListener(_onCredentialsChanged);
+    passwordController.addListener(_onCredentialsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSavedCredentials();
     });
   }
+
+  /// Both fields must be non-empty before the user can submit.
+  bool get _canSubmit =>
+      emailController.text.trim().isNotEmpty &&
+      passwordController.text.trim().isNotEmpty;
+
+  void _onCredentialsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool _offeredBiometricPrefill = false;
 
   Future<void> _loadSavedCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
@@ -63,69 +82,137 @@ class _SignInScreenState extends State<SignInScreen>
     final storage = serviceLocator<StorageService>();
     final rememberMeValue =
         await storage.getBool(StorageKeys.rememberMe) ?? false;
-    
+
     if (mounted) {
       setState(() {
         emailController.text = credentials['username'] ?? '';
-        passwordController.text = credentials['password'] ?? '';
         rememberMe = rememberMeValue;
       });
+    }
+
+    // "Remember me" password pre-fill: the password lives only in the biometric-
+    // gated secure store. Offer a Face ID / fingerprint prompt to fill it in.
+    if (rememberMeValue) {
+      await _offerBiometricPrefill();
+    }
+  }
+
+  Future<void> _offerBiometricPrefill() async {
+    if (_offeredBiometricPrefill) return;
+    _offeredBiometricPrefill = true;
+    try {
+      final secureStore = serviceLocator<SecureCredentialStore>();
+      final has = await secureStore.hasSavedPassword();
+      AppLogger.d('[SignIn] biometric prefill: hasSavedPassword=$has');
+      if (!has) return;
+      final creds = await secureStore.revealWithBiometrics(
+        reason: 'Unlock your saved password to sign in',
+      );
+      AppLogger.d('[SignIn] biometric prefill: creds=${creds != null}');
+      if (creds == null || !mounted) return;
+      setState(() {
+        final user = creds['username'] ?? '';
+        if (user.isNotEmpty) emailController.text = user;
+        passwordController.text = creds['password'] ?? '';
+      });
+    } catch (e) {
+      AppLogger.d('[SignIn] biometric prefill error: $e');
+      // Biometric cancelled/unavailable — user just types the password.
     }
   }
 
   Future<void> _saveCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
-    
-    await localDataSource.saveCredentials(
-      emailController.text.trim(),
-      passwordController.text.trim(),
-      rememberMe,
+    final secureStore = serviceLocator<SecureCredentialStore>();
+    final username = emailController.text.trim().toLowerCase();
+    final password = passwordController.text.trim();
+
+    AppLogger.d(
+      '[SignIn] _saveCredentials rememberMe=$rememberMe user="$username" '
+      'pwLen=${password.length}',
     );
+    // Username + rememberMe flag stay in normal storage (non-sensitive).
+    await localDataSource.saveCredentials(username, password, rememberMe);
+
+    // Password goes ONLY into the biometric-gated secure store, and only while
+    // "Remember me" is on. Unchecking it wipes the saved password immediately.
+    if (rememberMe) {
+      await secureStore.save(username: username, password: password);
+    } else {
+      await secureStore.clear();
+    }
   }
 
   Future<void> _navigateToSchoolSelection(BuildContext context) async {
     // Get orgCode from storage (saved when schoolCode was null)
     final storage = serviceLocator<StorageService>();
     final orgCode = await storage.getString(StorageKeys.organizationCode);
-    
+
     if (orgCode != null && orgCode.isNotEmpty) {
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SchoolSelectionScreen(
-            selectedOrg: orgCode,
-            orgFromLoginContext: true,
-          ),
-        ),
+      context.go(
+        '/school-selection',
+        extra: <String, dynamic>{
+          'selectedOrg': orgCode,
+          'orgFromLoginContext': true,
+        },
       );
     } else {
       // Fallback: go to org selection if orgCode not found
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => const OrganizationSelectionScreen(),
-        ),
-      );
+      context.go('/org-selection');
     }
   }
 
   Future<void> _handleSignIn(BuildContext context) async {
     if (formKey.currentState!.validate()) {
+      // Emails are case-insensitive; normalise so an upper-case entry doesn't
+      // get rejected as invalid credentials.
       await _saveCredentials();
 
       final authCubit = context.read<AuthCubit>();
       await authCubit.login(
-        username: emailController.text.trim(),
+        username: emailController.text.trim().toLowerCase(),
         password: passwordController.text.trim(),
       );
     }
   }
 
-  void _handleAuthState(BuildContext context, AuthState state) {
+  Future<void> _preloadGuardianChildrenIfNeeded(BuildContext context) async {
+    try {
+      // Ensure RoleCubit resolved from /users/details first.
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
+      if (!context.mounted) return;
+      if (!context.read<RoleCubit>().isParent) return;
+
+      // Guardian only: prefetch children before opening dashboard so AppBar doesn't
+      // have to trigger loading later.
+      context.read<ParentChildCubit>().invalidate();
+      await context.read<ParentChildCubit>().ensureLoaded(force: true);
+    } catch (_) {
+      // Non-blocking: dashboard can still open; AppBar dropdown will show empty.
+    }
+  }
+
+  void _handleAuthState(BuildContext context, AuthState state) async {
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
-      context.read<RoleProvider>().refreshAccessFromServer(force: true);
+
+      // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
+      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      if (loginResponseIsKioskUser(state.loginResponse.roles)) {
+        AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
+        if (context.mounted) {
+          context.go('/kiosk');
+        }
+        return;
+      }
+      AppLogger.d('[SignIn] Not a kiosk user - continuing normal flow');
+
+      await _preloadGuardianChildrenIfNeeded(context);
+
+      // The await above can outlive this screen (e.g. a duplicate auth event
+      // already navigated away). Bail out before touching context/GoRouter.
+      if (!context.mounted) return;
 
       // Check redirectUrl when schoolCode is null
       if (state.redirectUrl != null && state.redirectUrl!.isNotEmpty) {
@@ -135,30 +222,26 @@ class _SignInScreenState extends State<SignInScreen>
           _navigateToSchoolSelection(context);
           return;
         } else if (url.contains('select-organization')) {
-          // Navigate to org selection
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(
-              builder: (_) => const OrganizationSelectionScreen(),
-            ),
-          );
+          context.go('/org-selection');
           return;
         } else if (url.contains('select-app')) {
-          // Navigate to dashboard
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          context.go(DashboardScreen.routeName);
           return;
         } else if (url.contains('dashboard')) {
           // Backend may return a dashboard redirect even when LastLoginSchoolCode is null.
           // In that case, do NOT force role selection — go straight to Dashboard.
-          Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+          context.go(DashboardScreen.routeName);
           return;
         }
       }
 
       // After login-context, always go straight to Dashboard.
       // Role selection screen is no longer part of the flow.
-      Navigator.pushReplacementNamed(context, DashboardScreen.routeName);
+      context.go(DashboardScreen.routeName);
     } else if (state is AuthError) {
+      // A failed login likely means the saved password is now wrong — wipe it
+      // from the secure store so we never pre-fill stale/incorrect credentials.
+      serviceLocator<SecureCredentialStore>().clear();
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(
         context: context,
@@ -171,6 +254,8 @@ class _SignInScreenState extends State<SignInScreen>
   @override
   void dispose() {
     _bottomMenuHeightAnimationController.dispose();
+    emailController.removeListener(_onCredentialsChanged);
+    passwordController.removeListener(_onCredentialsChanged);
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -208,7 +293,8 @@ class _SignInScreenState extends State<SignInScreen>
       child: Container(
         width: MediaQuery.of(context).size.width,
         margin: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top +
+          top:
+              MediaQuery.of(context).padding.top +
               MediaQuery.of(context).size.height * 0.01,
         ),
         height: MediaQuery.of(context).size.height * 0.4,
@@ -219,13 +305,14 @@ class _SignInScreenState extends State<SignInScreen>
 
   Widget _buildBottomMenu(BuildContext context, AuthState state) {
     final isLoading = state is AuthLoading;
-    
+
     return Align(
       alignment: Alignment.bottomCenter,
       child: AnimatedBuilder(
         animation: _bottomMenuHeightAnimationController,
         builder: (context, child) {
-          final height = MediaQuery.of(context).size.height *
+          final height =
+              MediaQuery.of(context).size.height *
               0.5 *
               _bottomMenuHeightUpAnimation.value;
           return Container(
@@ -239,19 +326,13 @@ class _SignInScreenState extends State<SignInScreen>
               ),
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 8,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               child: ListView(
                 shrinkWrap: true,
                 children: [
                   const Text(
                     '  Login with email',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
                   ),
                   const SizedBox(height: 20),
                   SignInForm(
@@ -260,9 +341,7 @@ class _SignInScreenState extends State<SignInScreen>
                     formKey: formKey,
                   ),
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      vertical: 20,
-                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 20),
                     child: GestureDetector(
                       onTap: () {
                         setState(() {
@@ -292,14 +371,9 @@ class _SignInScreenState extends State<SignInScreen>
                   ),
                   AnimatedSwitcher(
                     duration: const Duration(milliseconds: 200),
-                    transitionBuilder: (
-                      Widget child,
-                      Animation<double> animation,
-                    ) =>
-                        ScaleTransition(
-                      scale: animation,
-                      child: child,
-                    ),
+                    transitionBuilder:
+                        (Widget child, Animation<double> animation) =>
+                            ScaleTransition(scale: animation, child: child),
                     child: isLoading
                         ? Center(
                             key: const ValueKey('loading'),
@@ -322,6 +396,7 @@ class _SignInScreenState extends State<SignInScreen>
                             key: const ValueKey('button'),
                             label: 'Sign-In',
                             isLoading: isLoading,
+                            enabled: _canSubmit,
                             onPressed: () => _handleSignIn(context),
                             gradient: AppColors.buildPrimaryGradient(),
                             lableColor: Colors.white,
@@ -354,6 +429,7 @@ class _SignInScreenState extends State<SignInScreen>
 class RoundedButtonNew extends StatelessWidget {
   final String label;
   final bool isLoading;
+  final bool enabled;
   final VoidCallback onPressed;
   final Gradient gradient;
   final Color lableColor;
@@ -364,31 +440,36 @@ class RoundedButtonNew extends StatelessWidget {
     required this.onPressed,
     required this.gradient,
     required this.lableColor,
+    this.enabled = true,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isInteractive = enabled && !isLoading;
     return GestureDetector(
-      onTap: isLoading ? null : onPressed,
-      child: Container(
-        width: double.infinity,
-        height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
-          gradient: gradient,
-        ),
-        alignment: Alignment.center,
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Text(
-                label,
-                style: TextStyle(
-                  color: lableColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+      onTap: isInteractive ? onPressed : null,
+      child: Opacity(
+        opacity: isInteractive ? 1.0 : 0.5,
+        child: Container(
+          width: double.infinity,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            gradient: gradient,
+          ),
+          alignment: Alignment.center,
+          child: isLoading
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: lableColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

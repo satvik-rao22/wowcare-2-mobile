@@ -1,21 +1,20 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/staff_code_resolver.dart';
-import 'package:wowcare/domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
+import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 
 class StaffMarkAbsentForm extends StatefulWidget {
   const StaffMarkAbsentForm({super.key, this.staff, this.staffList});
@@ -30,281 +29,82 @@ class StaffMarkAbsentForm extends StatefulWidget {
 }
 
 class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
-  DateTime startDate = DateTime.now();
-  DateTime endDate = DateTime.now();
+  late final StaffMarkAbsentFormCubit _cubit;
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _typeController = TextEditingController();
-  List<StaffEntity> _selectedStaff = [];
-  bool _isSubmitting = false;
-  bool? _isStaffAdminPersona;
-
-  late final MarkStaffAbsentUseCase _markStaffAbsentUseCase;
 
   @override
   void initState() {
     super.initState();
-    _markStaffAbsentUseCase = serviceLocator<MarkStaffAbsentUseCase>();
-    if (widget.staffList != null && widget.staffList!.isNotEmpty) {
-      _selectedStaff = List<StaffEntity>.from(widget.staffList!);
-    } else if (widget.staff != null) {
-      _selectedStaff = <StaffEntity>[widget.staff!];
-    } else {
-      _selectedStaff = <StaffEntity>[];
-    }
-    _loadPersonaFlags();
-  }
-
-  Future<void> _loadPersonaFlags() async {
-    final isAdmin = await _resolveIsStaffAdminPersona();
-    if (!mounted) return;
-    setState(() {
-      _isStaffAdminPersona = isAdmin;
-    });
-  }
-
-  Future<bool> _resolveIsStaffAdminPersona() async {
-    final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-
-    if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-      return true;
-    }
-
-    final rolesJson = await storage.getString(StorageKeys.roles);
-    if (rolesJson == null || rolesJson.trim().isEmpty) return false;
-
-    try {
-      final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-      return roles.any((r) {
-        if (r is! Map<String, dynamic>) return false;
-        final roleCode = (r['role'] ?? '').toString().toUpperCase();
-        return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
-      });
-    } catch (_) {
-      return false;
-    }
+    _cubit = serviceLocator<StaffMarkAbsentFormCubit>()
+      ..init(staff: widget.staff, staffList: widget.staffList);
   }
 
   @override
   void dispose() {
     _notesController.dispose();
-    _reasonController.dispose();
     _typeController.dispose();
+    // ignore: discarded_futures
+    _cubit.close();
     super.dispose();
   }
 
-  String _formatDate(DateTime date) {
-    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
-  }
-
-  Future<String> _resolveStaffCode() => resolveStaffCodeForLoggedInUser();
-
   Future<void> _handleSubmit() async {
-    if (_isSubmitting) return;
-    if (_selectedStaff.isEmpty) return;
-
-    final markerStaffCode = await _resolveStaffCode();
+    final outcome = await _cubit.submit(
+      reason: '',
+      type: _typeController.text,
+      notes: _notesController.text,
+    );
     if (!mounted) return;
-    if (markerStaffCode.isEmpty) {
+    if (outcome.success) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
-          content: Text('Unable to resolve staffCode. Please re-login.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-    final targetStaffCodes = _selectedStaff
-        .map((s) => (s.staffCode ?? '').trim())
-        .where((c) => c.isNotEmpty)
-        .toList();
-    if (targetStaffCodes.isEmpty) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: 
-        const SnackBar(
-          content: Text('Target staff code is missing. Please refresh list.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    final isStaffAdmin =
-        _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
-    if (!isStaffAdmin &&
-        (targetStaffCodes.length != 1 || targetStaffCodes.first != markerStaffCode)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: 
-        const SnackBar(
-          content: Text('Teachers can only mark absent for themselves.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      return;
-    }
-
-    final absenceFromDate = _formatDate(startDate);
-    final absenceToDate = _formatDate(endDate);
-    final absenceReason = _reasonController.text.trim().isNotEmpty
-        ? _reasonController.text.trim()
-        : 'FEVER';
-    final absenceType = _typeController.text.trim().isNotEmpty
-        ? _typeController.text.trim()
-        : 'ABSENT';
-
-    final notes = _notesController.text.trim();
-    final absenceNotes = <String, String>{};
-    if (notes.isNotEmpty) {
-      for (final code in targetStaffCodes) {
-        absenceNotes[code] = notes;
-      }
-    }
-    final isExpectedTodayByStaffCode = <String, bool>{
-      for (final code in targetStaffCodes) code: true,
-    };
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
-      final message = await _markStaffAbsentUseCase(
-        staffCode: markerStaffCode,
-        staffCodes: targetStaffCodes,
-        absenceFromDate: absenceFromDate,
-        absenceToDate: absenceToDate,
-        absenceReason: absenceReason,
-        absenceType: absenceType,
-        absenceNotes: absenceNotes,
-        isExpectedTodayByStaffCode: isExpectedTodayByStaffCode,
-        markAbsentMethod: 'APP',
-      );
-
-      if (!mounted) return;
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: 
-        SnackBar(
-          content: Text(
-            message.isNotEmpty ? message : 'Marked Absent successfully',
-          ),
+        snackBar: SnackBar(
+          content: Text(outcome.message ?? 'Marked Absent successfully'),
           backgroundColor: AppColors.successColor,
         ),
       );
-      final isAdmin =
-          _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
-      if (isAdmin) {
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const StaffAttendanceTabbedView(),
-          ),
-          (route) => false,
-        );
-      } else {
-        Navigator.pop(context);
-      }
-    } catch (e) {
-      if (!mounted) return;
+      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+    } else {
+      final message = outcome.error != null
+          ? ApiErrorHandler.extractErrorMessage(outcome.error)
+          : outcome.message;
+      // `noop` (already submitting / empty selection) carries no message.
+      if (message == null) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        SnackBar(
-          content: Text(ApiErrorHandler.extractErrorMessage(e)),
+        snackBar: SnackBar(
+          content: Text(message),
           backgroundColor: AppColors.warningColor,
         ),
       );
-    } finally {
-      if (!mounted) return;
-      setState(() {
-        _isSubmitting = false;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    return BlocProvider<StaffMarkAbsentFormCubit>.value(
+      value: _cubit,
+      child: BlocListener<StaffMarkAbsentFormCubit, StaffMarkAbsentState>(
+        // Pop the form once the last staff member has been removed.
+        listenWhen: (prev, curr) =>
+            prev.selectedStaff.isNotEmpty && curr.selectedStaff.isEmpty,
+        listener: (context, _) => Navigator.pop(context),
+        child: BlocBuilder<StaffMarkAbsentFormCubit, StaffMarkAbsentState>(
+          builder: (context, state) => _buildForm(context, state),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForm(BuildContext context, StaffMarkAbsentState state) {
     return StaffFormLayout(
       title: 'Mark Absent',
       child: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppText.label('Reason'),
             const SizedBox(height: 8),
-            TextField(
-              controller: _reasonController,
-              decoration: InputDecoration(
-                hintText: 'Enter absence reason',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: const Color.fromRGBO(87, 51, 83, 0.5),
-                  fontSize: 15,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: AppColors.cardColor,
-              ),
-            ),
-            const SizedBox(height: 16),
-            const AppText.label('Absence Type'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _typeController,
-              decoration: InputDecoration(
-                hintText: 'Enter absence type (e.g. FULL_DAY, HALF_DAY)',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: const Color.fromRGBO(87, 51, 83, 0.5),
-                  fontSize: 15,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: AppColors.cardColor,
-              ),
-            ),
-            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(
@@ -318,17 +118,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isRangePicker: false,
                         isTime: false,
                         fetchInitialTime: false,
-                        initialDate: startDate,
-                        isDisabled: _isStaffAdminPersona == false,
-                        onDateSelected: (date) {
-                          setState(() {
-                            // Use the user's selected calendar date (no clamping).
-                            startDate = DateTime(date.year, date.month, date.day);
-                            if (endDate.isBefore(startDate)) {
-                              endDate = startDate;
-                            }
-                          });
-                        },
+                        initialDate: state.startDate,
+                        isDisabled: !(state.isStaffAdminPersona ?? false),
+                        onDateSelected: _cubit.selectStartDate,
                       ),
                     ],
                   ),
@@ -345,17 +137,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isRangePicker: false,
                         isTime: false,
                         fetchInitialTime: false,
-                        initialDate: endDate,
-                        isDisabled: _isStaffAdminPersona == false,
-                        onDateSelected: (date) {
-                          setState(() {
-                            // Use the user's selected calendar date (no clamping).
-                            endDate = DateTime(date.year, date.month, date.day);
-                            if (endDate.isBefore(startDate)) {
-                              endDate = startDate;
-                            }
-                          });
-                        },
+                        initialDate: state.endDate,
+                        isDisabled: !(state.isStaffAdminPersona ?? false),
+                        onDateSelected: _cubit.selectEndDate,
                       ),
                     ],
                   ),
@@ -363,7 +147,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
               ],
             ),
             const SizedBox(height: 28),
-            if (_selectedStaff.isNotEmpty) ...[
+            if (state.selectedStaff.isNotEmpty) ...[
               GridView.builder(
                 physics: const NeverScrollableScrollPhysics(),
                 shrinkWrap: true,
@@ -373,9 +157,13 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   mainAxisSpacing: 14,
                   childAspectRatio: 3.5,
                 ),
-                itemCount: _selectedStaff.length,
-                itemBuilder: (context, index) =>
-                    RemoveStaffTile(staff: _selectedStaff[index]),
+                itemCount: state.selectedStaff.length,
+                itemBuilder: (context, index) => RemoveStaffTile(
+                  staff: state.selectedStaff[index],
+                  canRemove: state.selectedStaff.length > 1,
+                  onRemove: () =>
+                      _cubit.removeStaff(state.selectedStaff[index]),
+                ),
               ),
               const SizedBox(height: 20),
               TextField(
@@ -408,17 +196,11 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 1,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 1),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(
-                      color: Colors.red,
-                      width: 2,
-                    ),
+                    borderSide: const BorderSide(color: Colors.red, width: 2),
                   ),
                   filled: true,
                   fillColor: AppColors.cardColor,
@@ -433,32 +215,30 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         confirmButtonLabel: 'Submit',
         onPressedConfirm: _handleSubmit,
         showCancelButton: false,
-        isLoading: _isSubmitting,
+        isLoading: state.isSubmitting,
       ),
     );
   }
-
 }
 
 class RemoveStaffTile extends StatelessWidget {
   final StaffEntity staff;
+  final bool canRemove;
+  final VoidCallback onRemove;
 
   const RemoveStaffTile({
     super.key,
     required this.staff,
+    required this.canRemove,
+    required this.onRemove,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -477,7 +257,7 @@ class RemoveStaffTile extends StatelessWidget {
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
-                    staff.name.split(' ').first,
+                    staff.name,
                     overflow: TextOverflow.ellipsis,
                     maxLines: 1,
                     softWrap: false,
@@ -491,9 +271,13 @@ class RemoveStaffTile extends StatelessWidget {
               ],
             ),
           ),
+          if (canRemove)
+            GestureDetector(
+              onTap: onRemove,
+              child: SvgPicture.asset(MediaRes.delete_icon),
+            ),
         ],
       ),
     );
   }
 }
-

@@ -65,3 +65,49 @@ class ImportantDatesResponseModel extends Equatable {
   List<Object?> get props => [success, message, data, timestamp];
 }
 
+class PhysicalCheckupSummaryModel {
+  const PhysicalCheckupSummaryModel({
+    required this.overduePhysicalCheckupCount,
+    required this.staffWithoutActivePhysicalCheckupCount,
+  });
+
+  final int overduePhysicalCheckupCount;
+  final int staffWithoutActivePhysicalCheckupCount;
+
+  factory PhysicalCheckupSummaryModel.fromJson(Map<String, dynamic> json) {
+    final data = json['data'] as Map<String, dynamic>? ?? const {};
+    return PhysicalCheckupSummaryModel(
+      overduePhysicalCheckupCount:
+          (data['overduePhysicalCheckupCount'] as num?)?.toInt() ?? 0,
+      staffWithoutActivePhysicalCheckupCount:
+          (data['staffWithoutActivePhysicalCheckupCount'] as num?)?.toInt() ??
+              0,
+    );
+  }
+}
+
+class WorkBreakReminderResponseModel extends Equatable {
+  const WorkBreakReminderResponseModel({
+    required this.success,
+    required this.message,
+    this.data,
+    this.timestamp = '',
+  });
+
+  final bool success;
+  final String message;
+  final Map<String, dynamic>? data;
+  final String timestamp;
+
+  factory WorkBreakReminderResponseModel.fromJson(Map<String, dynamic> json) {
+    return WorkBreakReminderResponseModel(
+      success: json['success'] as bool? ?? false,
+      message: json['message'] as String? ?? '',
+      data: json['data'] as Map<String, dynamic>?,
+      timestamp: json['timestamp'] as String? ?? '',
+    );
+  }
+
+  @override
+  List<Object?> get props => [success, message, data, timestamp];
+}

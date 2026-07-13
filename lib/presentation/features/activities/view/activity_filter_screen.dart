@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
-import 'package:wowcare/domain/features/activity/entities/activity_setting.dart';
-import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/activities/util/activity_filter_metadata_cache.dart';
+import 'package:wowcare/presentation/features/activities/cubit/activity_filter_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-/// Activity feed filters: **Tags** (school-wide) + **Activity Type** (per classroom).
-/// Loads tag name/code map and classroom activity settings with disk cache.
+/// Activity feed filters (tags + activity types), school-wide.
+///
+/// Data access (tag map + activity types) lives in [ActivityFilterCubit]; this
+/// View only renders state and owns the user's in-progress selections.
 class ActivityFilterScreen extends StatefulWidget {
   const ActivityFilterScreen({
     super.key,
@@ -34,101 +32,74 @@ class ActivityFilterScreen extends StatefulWidget {
 }
 
 class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
-  late final GetTagNameCodeMapForSchoolUseCase _tagMapUseCase;
-  late final GetClassroomActivitySettingsUseCase _settingsUseCase;
-  late final CacheManager _cacheManager;
-
-  List<String> _tagOptions = const [];
-  List<String> _activityTypeOptions = const [];
+  static const List<String> _approvalStatusOptions = <String>[
+    'Pending Admin Approval',
+    'Approved',
+    'Rejected',
+    'Parent Acknowledgement Pending',
+    'Acknowledged',
+  ];
 
   List<String> _selectedTags = [];
   List<String> _selectedActivityTypes = [];
-
-  bool _loading = true;
-  String? _loadError;
+  List<String> _selectedStatuses = [];
 
   @override
   void initState() {
     super.initState();
-    _tagMapUseCase = serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _settingsUseCase = serviceLocator<GetClassroomActivitySettingsUseCase>();
-    _cacheManager = CacheManager(serviceLocator<StorageService>());
-
     final initial = widget.initialFilters ?? const {};
     _selectedTags = List<String>.from(initial['Tags'] ?? const []);
     _selectedActivityTypes =
         List<String>.from(initial['Activity Type'] ?? const []);
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => _loadMetadata());
+    _selectedStatuses = List<String>.from(initial['Status'] ?? const []);
   }
 
-  Future<void> _loadMetadata() async {
+  /// Once options arrive, drop any pre-selected value that is no longer valid
+  /// (mirrors the previous post-load pruning).
+  void _pruneSelectionsToOptions(ActivityFilterState state) {
     setState(() {
-      _loading = true;
-      _loadError = null;
+      _selectedTags.removeWhere((t) => !state.tagOptions.contains(t));
+      _selectedActivityTypes
+          .removeWhere((t) => !state.activityTypeOptions.contains(t));
+      _selectedStatuses.removeWhere((s) => !_approvalStatusOptions.contains(s));
     });
-    try {
-      // Run tag map + classroom activity settings APIs concurrently.
-      final tagMapFuture = ActivityFilterMetadataCache.loadTagNameCodeMap(
-        cacheManager: _cacheManager,
-        useCase: _tagMapUseCase,
-        schoolCode: widget.schoolCode,
-      );
-      final settingsFuture = ActivityFilterMetadataCache.loadClassroomActivitySettings(
-        cacheManager: _cacheManager,
-        useCase: _settingsUseCase,
-        classroomCode: widget.classroomCode,
-      );
-      final tagMap = await tagMapFuture;
-      final settings = await settingsFuture;
-
-      if (!mounted) return;
-
-      final tagNames = tagMap.keys.toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-      final typeNames = settings
-          .map((ActivitySetting s) => s.activityTypeName.trim())
-          .where((n) => n.isNotEmpty)
-          .toSet()
-          .toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-      setState(() {
-        _tagOptions = tagNames;
-        _activityTypeOptions = typeNames;
-        _selectedTags.removeWhere((t) => !_tagOptions.contains(t));
-        _selectedActivityTypes
-            .removeWhere((t) => !_activityTypeOptions.contains(t));
-        _loading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _loadError = e.toString();
-      });
-    }
   }
 
   void _apply() {
     Navigator.pop<Map<String, List<String>>>(context, {
       'Tags': List<String>.from(_selectedTags),
       'Activity Type': List<String>.from(_selectedActivityTypes),
+      'Status': List<String>.from(_selectedStatuses),
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final responsive = ResponsiveHelper(context);
-
-    return StaffFormLayout(
-      title: 'Filter Activities',
-      child: _buildBody(),
-      bottomBar: _buildBottomBar(context, responsive),
+    return BlocProvider<ActivityFilterCubit>(
+      create: (_) => serviceLocator<ActivityFilterCubit>()
+        ..loadMetadata(schoolCode: widget.schoolCode),
+      child: BlocConsumer<ActivityFilterCubit, ActivityFilterState>(
+        listenWhen: (prev, curr) =>
+            curr.status == ActivityFilterStatus.loaded &&
+            prev.status != ActivityFilterStatus.loaded,
+        listener: (context, state) => _pruneSelectionsToOptions(state),
+        builder: (context, state) {
+          final responsive = ResponsiveHelper(context);
+          return StaffFormLayout(
+            title: 'Filter Activities',
+            child: _buildBody(context, state),
+            bottomBar: _buildBottomBar(context, responsive, state),
+          );
+        },
+      ),
     );
   }
 
-  Widget _buildBottomBar(BuildContext context, ResponsiveHelper responsive) {
+  Widget _buildBottomBar(
+    BuildContext context,
+    ResponsiveHelper responsive,
+    ActivityFilterState state,
+  ) {
     final bottomPadding = MediaQuery.of(context).padding.bottom;
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
@@ -143,16 +114,16 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
         onPressedConfirm: _apply,
         showCancelButton: false,
         isForm: false,
-        isLoading: _loading,
+        isLoading: state.isLoading,
       ),
     );
   }
 
-  Widget _buildBody() {
-    if (_loading) {
+  Widget _buildBody(BuildContext context, ActivityFilterState state) {
+    if (state.isLoading) {
       return GridView.builder(
         padding: EdgeInsets.zero,
-        itemCount: 2,
+        itemCount: 3,
         gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
           crossAxisCount: 2,
           crossAxisSpacing: 16,
@@ -160,7 +131,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
           childAspectRatio: 1.6,
         ),
         itemBuilder: (context, index) {
-          final label = index == 0 ? 'Tags' : 'Activity Type';
+          final label = index == 0
+              ? 'Tags'
+              : (index == 1 ? 'Activity Type' : 'Status');
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -180,7 +153,7 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
       );
     }
 
-    if (_loadError != null) {
+    if (state.status == ActivityFilterStatus.error) {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -197,7 +170,9 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
               ),
               const SizedBox(height: 16),
               TextButton(
-                onPressed: _loadMetadata,
+                onPressed: () => context
+                    .read<ActivityFilterCubit>()
+                    .loadMetadata(schoolCode: widget.schoolCode),
                 child: const Text('Retry'),
               ),
             ],
@@ -206,10 +181,12 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
       );
     }
 
+    final tagOptions = state.tagOptions;
+    final activityTypeOptions = state.activityTypeOptions;
     return GridView.builder(
       padding: EdgeInsets.zero,
       physics: const AlwaysScrollableScrollPhysics(),
-      itemCount: 2,
+      itemCount: 3,
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 2,
         crossAxisSpacing: 16,
@@ -221,20 +198,34 @@ class _ActivityFilterScreenState extends State<ActivityFilterScreen> {
           return CustomMultiSelectDropdown(
             label: 'Tags',
             hintText: 'Select tags',
-            items: _tagOptions,
+            items: tagOptions,
             selectedItems: _selectedTags,
+            labelBottomSpacing: 4,
             onChanged: (values) {
               setState(() => _selectedTags = List<String>.from(values));
             },
           );
         }
+        if (index == 1) {
+          return CustomMultiSelectDropdown(
+            label: 'Activity Type',
+            hintText: 'Select activity',
+            items: activityTypeOptions,
+            selectedItems: _selectedActivityTypes,
+            labelBottomSpacing: 4,
+            onChanged: (values) {
+              setState(() => _selectedActivityTypes = List<String>.from(values));
+            },
+          );
+        }
         return CustomMultiSelectDropdown(
-          label: 'Activity Type',
-          hintText: 'Select activity',
-          items: _activityTypeOptions,
-          selectedItems: _selectedActivityTypes,
+          label: 'Status',
+          hintText: 'Select status',
+          items: _approvalStatusOptions,
+          selectedItems: _selectedStatuses,
+          labelBottomSpacing: 4,
           onChanged: (values) {
-            setState(() => _selectedActivityTypes = List<String>.from(values));
+            setState(() => _selectedStatuses = List<String>.from(values));
           },
         );
       },

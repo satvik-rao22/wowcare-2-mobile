@@ -1,25 +1,50 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom_details.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/view/student_screen.dart';
+import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
-import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
+// import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_expected_summary.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_attendance_expected_summary_usecase.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 class ClassroomInfoScreen extends StatefulWidget {
-  const ClassroomInfoScreen({super.key});
+  const ClassroomInfoScreen({super.key, this.initialClassroomCode});
+
+  /// When opened from a notification deep-link (e.g. RATIO_BREACHED), the
+  /// classroom to pre-select by code. Takes precedence over the cached/first
+  /// selection.
+  final String? initialClassroomCode;
 
   static const String routeName = '/classroom-info-screen';
 
@@ -30,7 +55,9 @@ class ClassroomInfoScreen extends StatefulWidget {
 class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   Classroom? _selectedRoom;
   ClassroomDetails? _details;
-  bool _isDetailsLoading = false;
+  /// True while classroom details, enrolled counts, and attendance summaries
+  /// for the current selection are still loading (after [classroomCode] is known).
+  bool _isAllClassroomApisLoading = false;
   String? _detailsError;
   final GetClassroomByCodeUseCase _getClassroomByCodeUseCase =
       serviceLocator<GetClassroomByCodeUseCase>();
@@ -42,12 +69,30 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       serviceLocator<GetStaffAttendanceExpectedSummaryUseCase>();
   StudentAttendanceExpectedSummary? _studentSummary;
   StudentAttendanceExpectedSummary? _staffSummary;
-  bool _isSummaryLoading = false;
   String? _summaryError;
+
+  String _classroomLogoUrl = '';
+  bool _isLogoLoading = false;
+
+  late final CacheManager _cacheManager;
+  late final StorageService _storage;
+  int _enrolledCount = 0;
+  int _enrolledActiveCount = 0;
+  int _enrolledUpcomingCount = 0;
+  String? _enrolledFetchInFlightFor;
+  String? _cachedSelectedClassroomCode;
+  String? _cachedSelectedClassroomName;
+
+  late final IndividualMovementsCubit _movementsCubit;
 
   @override
   void initState() {
     super.initState();
+    _storage = serviceLocator<StorageService>();
+    _cacheManager = CacheManager(_storage);
+    _movementsCubit = serviceLocator<IndividualMovementsCubit>()
+      ..loadInitial();
+    _loadLastSelectedClassroomFromCache();
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
       final args = ModalRoute.of(context)?.settings.arguments;
@@ -55,60 +100,65 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         setState(() {
           _selectedRoom = args;
         });
+        _saveLastSelectedClassroomToCache(args.code, args.name);
         _loadDetails(args.code);
       }
     });
   }
 
-  Future<void> _loadSummaries() async {
-    setState(() {
-      _isSummaryLoading = true;
-      _summaryError = null;
-    });
-    try {
-      final student = await _getStudentAttendanceExpectedSummaryUseCase();
-      final staff = await _getStaffAttendanceExpectedSummaryUseCase();
-      if (!mounted) return;
-      setState(() {
-        _studentSummary = student;
-        _staffSummary = staff;
-        _isSummaryLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isSummaryLoading = false;
-        _summaryError = e.toString();
-      });
-    }
+  @override
+  void dispose() {
+    _movementsCubit.close();
+    super.dispose();
   }
 
-  Future<void> _loadDetails(String code) async {
+  String get _lastSelectedClassroomCacheKey => CacheManager.buildCacheKey(
+        feature: 'classroom',
+        resource: 'profile_selected',
+        identifier: 'last',
+      );
+
+  Future<void> _loadLastSelectedClassroomFromCache() async {
+    final cached = await _cacheManager.loadCache(_lastSelectedClassroomCacheKey);
+    if (cached == null || !mounted) return;
+    final code = (cached['classroomCode'] ?? '').toString().trim();
+    final name = (cached['classroomName'] ?? '').toString().trim();
+    if (code.isEmpty && name.isEmpty) return;
     setState(() {
-      _isDetailsLoading = true;
-      _detailsError = null;
+      _cachedSelectedClassroomCode = code.isEmpty ? null : code;
+      _cachedSelectedClassroomName = name.isEmpty ? null : name;
     });
-    try {
-      final details = await _getClassroomByCodeUseCase(code: code);
-      if (!mounted) return;
-      setState(() {
-        _details = details;
-        _isDetailsLoading = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isDetailsLoading = false;
-        _detailsError = e.toString();
-      });
-    }
   }
 
-  Widget _buildRoomDetailsCard(ClassroomDetails details) {
-    final isRatioGood = (details.status.toUpperCase() == 'ACTIVE');
+  Future<void> _saveLastSelectedClassroomToCache(
+    String classroomCode,
+    String classroomName,
+  ) async {
+    final code = classroomCode.trim();
+    final name = classroomName.trim();
+    if (code.isEmpty && name.isEmpty) return;
+    await _cacheManager.saveCache(_lastSelectedClassroomCacheKey, {
+      'classroomCode': code,
+      'classroomName': name,
+    });
+  }
 
+  String _displayClassroomName({
+    required List<Classroom> classrooms,
+  }) {
+    final fromSelected = _selectedRoom?.name.trim() ?? '';
+    if (fromSelected.isNotEmpty) return fromSelected;
+    final cachedName = (_cachedSelectedClassroomName ?? '').trim();
+    if (cachedName.isNotEmpty) return cachedName;
+    if (classrooms.isNotEmpty) return classrooms.first.name;
+    return 'Classroom';
+  }
+
+  Widget _buildRoomDetailsLoadingCard(String classroomName) {
     return Card(
       elevation: 0,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
         side: const BorderSide(
           width: 1.5,
@@ -117,16 +167,534 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
+        tileColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 10,
         ),
-        leading: DocumentImageWidget(
-          fileUuid: '',
-          name: details.name,
-          size: 60,
-          fontSize: 24,
+        leading: _buildClassroomLogoAvatar(name: classroomName),
+        title: Text(
+          classroomName.trim().isEmpty ? 'Classroom' : classroomName.trim(),
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
         ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ShimmerLoader(
+                height: 14,
+                width: 220,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ShimmerLoader(
+                      height: 14,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ShimmerLoader(
+                      height: 14,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _enrolledCountCacheKey(String classroomCode) {
+    return CacheManager.buildCacheKey(
+      feature: 'classroom',
+      resource: 'enrolled_count',
+      identifier: classroomCode.trim(),
+    );
+  }
+
+  Future<void> _hydrateEnrolledCountFromCache(String classroomCode) async {
+    final cached = await _cacheManager.loadCache(_enrolledCountCacheKey(classroomCode));
+    if (cached == null || !mounted) return;
+    final data = cached['data'];
+    if (data is! Map) return;
+    final map = Map<String, dynamic>.from(data);
+    setState(() {
+      _enrolledActiveCount = (map['activeCount'] as num?)?.toInt() ?? 0;
+      _enrolledUpcomingCount = (map['upcomingCount'] as num?)?.toInt() ?? 0;
+      _enrolledCount = (map['enrolledCount'] as num?)?.toInt() ?? 0;
+    });
+  }
+
+  Future<void> _refreshEnrolledCount(String classroomCode) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    final orgCode = (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+
+    final body = await serviceLocator<ClassroomRepository>()
+        .getStudentClassroomEnrolledCount(
+      classroomCode: code,
+      organizationCode: orgCode,
+      schoolCode: schoolCode,
+    );
+    if (body is! Map<String, dynamic>) return;
+    final data = body['data'];
+    if (data is! Map) return;
+    final map = Map<String, dynamic>.from(data);
+
+    final active = (map['activeCount'] as num?)?.toInt() ?? 0;
+    final upcoming = (map['upcomingCount'] as num?)?.toInt() ?? 0;
+    final enrolled = (map['enrolledCount'] as num?)?.toInt() ?? 0;
+
+    await _cacheManager.saveCache(_enrolledCountCacheKey(code), {
+      'data': {
+        'activeCount': active,
+        'upcomingCount': upcoming,
+        'enrolledCount': enrolled,
+      },
+    });
+
+    if (!mounted) return;
+    final currentSelection = (_selectedRoom?.code ?? '').trim();
+    if (currentSelection.isNotEmpty && currentSelection != code) {
+      return;
+    }
+    setState(() {
+      _enrolledActiveCount = active;
+      _enrolledUpcomingCount = upcoming;
+      _enrolledCount = enrolled;
+    });
+  }
+
+  Future<void> _ensureEnrolledCountLoaded(
+    String classroomCode, {
+    bool forceRefresh = false,
+  }) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    await _hydrateEnrolledCountFromCache(code);
+
+    if (!forceRefresh) {
+      final valid =
+          await _cacheManager.isCacheValid(_enrolledCountCacheKey(code));
+      if (valid) return;
+    }
+
+    if (_enrolledFetchInFlightFor == code) return;
+    _enrolledFetchInFlightFor = code;
+    try {
+      await _refreshEnrolledCount(code);
+    } catch (_) {
+      // Keep hydrated / last known values.
+    } finally {
+      if (_enrolledFetchInFlightFor == code) {
+        _enrolledFetchInFlightFor = null;
+      }
+    }
+  }
+
+  Future<void> _loadSummaries(String classroomCode) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    setState(() {
+      _summaryError = null;
+    });
+    try {
+      final student = await _getStudentAttendanceExpectedSummaryUseCase(
+        classroomCode: code,
+      );
+      final staff = await _getStaffAttendanceExpectedSummaryUseCase(
+        classroomCode: code,
+      );
+      if (!mounted) return;
+      setState(() {
+        _studentSummary = student;
+        _staffSummary = staff;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _summaryError = e.toString();
+      });
+    }
+  }
+
+  Future<void> _loadClassroomLogo(String classroomCode) async {
+    final code = classroomCode.trim();
+    if (code.isEmpty) return;
+
+    final schoolCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (schoolCode.isEmpty) return;
+
+    try {
+      setState(() {
+        _isLogoLoading = true;
+      });
+
+      final body = await serviceLocator<ClassroomRepository>()
+          .getClassroomLogoAssetCodes(classroomCode: code, schoolCode: schoolCode);
+      if (body is! Map<String, dynamic> || body['success'] == false) {
+        return;
+      }
+      final data = body['data'];
+      if (data is! List) return;
+
+      final matched = data.whereType<Map>().firstWhere(
+            (row) =>
+                (row['classroomCode'] ?? '').toString().trim().toUpperCase() ==
+                code.toUpperCase(),
+            orElse: () => <String, dynamic>{},
+          );
+      final assetCode =
+          (matched['logoAssetCode'] ?? '').toString().trim().toUpperCase();
+      if (!mounted) return;
+
+      if (assetCode.isEmpty) {
+        setState(() {
+          _classroomLogoUrl = '';
+        });
+        return;
+      }
+
+      final uploadService = serviceLocator<ImageUploadService>();
+      final url = await uploadService.getMediaAssetUrlByCode(assetCode: assetCode);
+      if (!mounted) return;
+      setState(() {
+        _classroomLogoUrl = url;
+      });
+    } catch (_) {
+      // Non-fatal: fall back to initials circle.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLogoLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadDetails(
+    String code, {
+    bool refreshEnrolledCounts = false,
+  }) async {
+    setState(() {
+      _details = null;
+      _isAllClassroomApisLoading = true;
+      _detailsError = null;
+      _studentSummary = null;
+      _staffSummary = null;
+      _summaryError = null;
+    });
+    try {
+      final details = await _getClassroomByCodeUseCase(code: code);
+      if (!mounted) return;
+      // Clear the page shimmer as soon as the core classroom details arrive.
+      // The enrolled-count / attendance-summary / logo loads each drive their
+      // own card state, so a slow or never-resolving one of those must not keep
+      // the whole screen stuck on shimmer.
+      setState(() {
+        _details = details;
+        _isAllClassroomApisLoading = false;
+      });
+      AppLogger.d('[ClassroomInfo] _loadDetails details ready for $code');
+      // Load secondary data in the background (own cards); don't block the UI.
+      Future.wait<void>([
+        _ensureEnrolledCountLoaded(
+          code,
+          forceRefresh: refreshEnrolledCounts,
+        ),
+        _loadSummaries(code),
+        _loadClassroomLogo(code),
+      ]).catchError((Object _) => <void>[]);
+    } catch (e) {
+      if (!mounted) return;
+      AppLogger.d('[ClassroomInfo] _loadDetails ERROR for $code: $e');
+      setState(() {
+        _details = null;
+        _isAllClassroomApisLoading = false;
+        _detailsError = e.toString();
+      });
+    }
+  }
+
+  Widget _buildClassroomLogoAvatar({required String name}) {
+    final trimmedName = name.trim();
+
+    final content = _classroomLogoUrl.trim().isNotEmpty
+        ? CircleAvatar(
+            radius: 30,
+            backgroundColor: const Color.fromARGB(255, 232, 234, 234),
+            backgroundImage: NetworkImage(_classroomLogoUrl.trim()),
+          )
+        : DocumentImageWidget(
+            fileUuid: '',
+            name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
+            size: 60,
+            fontSize: 24,
+          );
+
+    return GestureDetector(
+      onTap: _isLogoLoading ? null : _onPickAndUploadClassroomLogo,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          content,
+          Positioned(
+            right: -2,
+            bottom: -2,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: const Color.fromARGB(255, 232, 234, 234),
+                  width: 1,
+                ),
+              ),
+              child: Icon(
+                _classroomLogoUrl.trim().isNotEmpty
+                    ? Icons.edit_rounded
+                    : Icons.camera_alt_rounded,
+                size: 14,
+                color: AppColors.themeColor,
+              ),
+            ),
+          ),
+          if (_isLogoLoading)
+            const Positioned.fill(
+              child: Center(
+                child: SizedBox(
+                  height: 18,
+                  width: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _onPickAndUploadClassroomLogo() async {
+    final classroom = _selectedRoom;
+    final classroomCode = (classroom?.code ?? '').trim();
+    if (classroomCode.isEmpty) return;
+
+    final organizationCode =
+        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final schoolCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (organizationCode.isEmpty || schoolCode.isEmpty) return;
+
+    try {
+      // Shared file picker → every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: mounted ? context : null,
+      );
+      final pickedPath = picked?.path;
+      if (pickedPath == null || pickedPath.isEmpty) return;
+      final file = File(pickedPath);
+
+      if (!mounted) return;
+      // No full-screen loading dialog — the logo avatar shows its own
+      // localized spinner via [_isLogoLoading] while the upload runs.
+      setState(() {
+        _isLogoLoading = true;
+      });
+
+      final uploadService = serviceLocator<ImageUploadService>();
+
+      final sessionBody = await serviceLocator<ClassroomRepository>()
+          .createClassroomLogoUploadSession(
+        classroomCode: classroomCode,
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
+      if (sessionBody is! Map<String, dynamic> ||
+          sessionBody['success'] == false) {
+        final msg = (sessionBody?['message'] ?? '').toString().trim();
+        throw Exception(
+          msg.isNotEmpty ? msg : 'Unable to create upload session',
+        );
+      }
+      final sessionData = sessionBody['data'];
+      if (sessionData is! Map<String, dynamic>) {
+        throw Exception('Missing upload session data');
+      }
+      final sessionCode = (sessionData['sessionCode'] ?? '').toString().trim();
+      final documentApiBasePath =
+          (sessionData['documentApiBasePath'] ?? '/api/v1').toString().trim();
+      if (sessionCode.isEmpty) {
+        throw Exception('Upload session code is missing');
+      }
+
+      final lowerPath = file.path.toLowerCase();
+      final fileName = lowerPath.split(Platform.pathSeparator).last;
+      final contentType = lowerPath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+
+      final presign = await uploadService.createAssetPresign(
+        sessionCode: sessionCode,
+        documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+        fileName: fileName.isNotEmpty
+            ? fileName
+            : 'classroom-logo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+        contentType: contentType,
+        contentLengthBytes: await file.length(),
+        mediaType: 'IMAGE',
+        ownerType: 'CLASSROOM',
+        ownerCode: classroomCode,
+      );
+
+      await uploadService.uploadFileToPresignedUrl(
+        file: file,
+        presignedPutUrl: presign.presignedPutUrl,
+        requiredHeaders: presign.requiredHeaders,
+        fallbackContentType: contentType,
+      );
+
+      await uploadService.completeAssetUpload(
+        sessionCode: sessionCode,
+        assetCode: presign.assetCode,
+        documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+      );
+
+      await uploadService.waitUntilAssetsReady(
+        sessionCode: sessionCode,
+        expectedAssetCodes: <String>[presign.assetCode],
+      );
+
+      final finalizeBody = await serviceLocator<ClassroomRepository>()
+          .finalizeClassroomLogo(
+        classroomCode: classroomCode,
+        assetCode: presign.assetCode.trim(),
+      );
+      if (finalizeBody is! Map<String, dynamic> ||
+          finalizeBody['success'] == false) {
+        final msg = (finalizeBody?['message'] ?? '').toString().trim();
+        throw Exception(
+          msg.isNotEmpty ? msg : 'Unable to finalize classroom logo',
+        );
+      }
+      final finalizeData = finalizeBody['data'];
+      String resolvedUrl = '';
+      if (finalizeData is Map) {
+        resolvedUrl = (finalizeData['url'] ?? finalizeData['thumbnailUrl'] ?? '')
+            .toString()
+            .trim();
+      }
+      if (resolvedUrl.isEmpty) {
+        resolvedUrl = await uploadService.getMediaAssetUrlByCode(
+          assetCode: presign.assetCode,
+        );
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _classroomLogoUrl = resolvedUrl;
+      });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Classroom logo updated successfully',
+        isSuccess: true,
+      );
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Failed to update classroom logo: ${ApiErrorHandler.extractErrorMessage(e)}',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLogoLoading = false;
+        });
+      }
+    }
+  }
+
+  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher].
+  /// Returns null when ratio is not configured or attendance summaries are missing.
+  bool? _signedInStaffingMeetsConfiguredRatio(ClassroomDetails details) {
+    final maxStudentsPerStaff = details.studentsPerTeacher;
+    if (maxStudentsPerStaff <= 0) return null;
+
+    final students = _studentSummary;
+    final staff = _staffSummary;
+    if (students == null || staff == null) return null;
+
+    final signedInStudents = students.present;
+    final signedInStaff = staff.present;
+
+    if (signedInStaff <= 0) {
+      return signedInStudents <= 0;
+    }
+    return signedInStudents <= signedInStaff * maxStudentsPerStaff;
+  }
+
+  Widget _buildSignedInRatioStatusIcon(ClassroomDetails details) {
+    final ok = _signedInStaffingMeetsConfiguredRatio(details);
+    if (ok == null) {
+      final message = details.studentsPerTeacher <= 0
+          ? 'Classroom student–staff ratio is not set.'
+          : 'Signed-in attendance is not available to evaluate staffing.';
+      return Tooltip(
+        message: message,
+        child: const Icon(Icons.help_outline, color: Colors.grey),
+      );
+    }
+    final signedInStudents = _studentSummary?.present;
+    final signedInStaff = _staffSummary?.present;
+    return Tooltip(
+      message: ok
+          ? 'Signed-in staffing meets or exceeds ${details.studentTeacherRatioDisplay} ($signedInStudents students, $signedInStaff staff).'
+          : 'Not enough signed-in staff for $signedInStudents signed-in students at ${details.studentTeacherRatioDisplay}.',
+      child: Icon(
+        ok ? Icons.thumb_up : Icons.thumb_down,
+        color: ok ? Colors.green : Colors.red,
+      ),
+    );
+  }
+
+  Widget _buildRoomDetailsCard(ClassroomDetails details) {
+    return Card(
+      elevation: 0,
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        side: const BorderSide(
+          width: 1.5,
+          color: Color.fromARGB(255, 232, 234, 234),
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: ListTile(
+        tileColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 14,
+          vertical: 10,
+        ),
+        leading: _buildClassroomLogoAvatar(name: details.name),
         title: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -140,10 +708,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             ),
             Row(
               children: [
-                Icon(
-                  isRatioGood ? Icons.thumb_up : Icons.thumb_down,
-                  color: isRatioGood ? Colors.green : Colors.red,
-                ),
+                _buildSignedInRatioStatusIcon(details),
                 const SizedBox(width: 8),
                 // Uncomment the next line if you want to show the edit icon for admins or directors or when the functionality is implemented
                 // if (context.isAdminOrDirector) const Icon(Icons.edit_outlined),
@@ -157,9 +722,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                details.minAgeYear + details.minAgeMonths + details.maxAgeYear + details.maxAgeMonths > 0
-                    ? '${details.minAgeYear}-${details.maxAgeYear} Years'
-                    : 'No Age Limit',
+                details.ageRangeCompactDisplay,
                 style: const TextStyle(
                   fontFamily: 'Manrope',
                   color: Color(0xff573353),
@@ -201,7 +764,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       ),
                       children: [
                         TextSpan(
-                          text: '${details.studentsPerTeacher}:1',
+                          text: details.studentTeacherRatioDisplay,
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
@@ -224,12 +787,25 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      create: (_) => serviceLocator<ClassroomCubit>()
+        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
           if (classrooms.isNotEmpty && _selectedRoom == null) {
-            _selectedRoom = classrooms.first;
+            // A deep-link classroom code wins over the cached/first selection.
+            final deepLinkCode = (widget.initialClassroomCode ?? '').trim();
+            final cachedCode = (_cachedSelectedClassroomCode ?? '').trim();
+            final preferredCode =
+                deepLinkCode.isNotEmpty ? deepLinkCode : cachedCode;
+            final match = preferredCode.isEmpty
+                ? null
+                : classrooms
+                    .where((c) => c.code.trim() == preferredCode)
+                    .toList();
+            _selectedRoom = match != null && match.isNotEmpty
+                ? match.first
+                : classrooms.first;
             WidgetsBinding.instance.addPostFrameCallback((_) {
               _loadDetails(_selectedRoom!.code);
             });
@@ -237,170 +813,234 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
           final dropdownItems = classrooms.map((e) => e.name).toList();
           final isInitialLoading = state.isLoading && classrooms.isEmpty;
+          final showAllCardsShimmer = isInitialLoading ||
+              (_detailsError == null &&
+                  _selectedRoom != null &&
+                  (_isAllClassroomApisLoading || _details == null));
+          AppLogger.d(
+            '[ClassroomInfo] shimmer=$showAllCardsShimmer '
+            'isLoading=${state.isLoading} rooms=${classrooms.length} '
+            'selected=${_selectedRoom?.code} apisLoading=$_isAllClassroomApisLoading '
+            'details=${_details != null} err=${_detailsError != null}',
+          );
 
           return GlobalScaffold(
+            bodyPadding: EdgeInsets.zero,
             body: CustomRefreshIndicator(
               onRefresh: () async {
-                await context.read<ClassroomCubit>().loadActiveClassrooms(force: true);
+                await Future.wait<void>([
+                  context.read<ClassroomCubit>().loadActiveClassrooms(
+                        force: true,
+                        applyAttendanceStaffScope: true,
+                      ),
+                  _movementsCubit.refresh(),
+                ]);
                 if (_selectedRoom != null) {
-                  await _loadDetails(_selectedRoom!.code);
+                  await _loadDetails(
+                    _selectedRoom!.code,
+                    refreshEnrolledCounts: true,
+                  );
                 }
-                await _loadSummaries();
               },
               child: SingleChildScrollView(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisSize: MainAxisSize.max,
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                child: Padding(
+                  padding: const EdgeInsets.all(8),
+                  child: Column(
                       children: [
-                        Padding(
-                          padding: const EdgeInsets.only(left: 6),
-                          child: ClassroomDropdown(
-                            items: dropdownItems.isEmpty ? const ['Loading...'] : dropdownItems,
-                            value: dropdownItems.isEmpty
-                                ? 'Loading...'
-                                : (_selectedRoom?.name ?? dropdownItems.first),
-                            onChanged: (value) {
-                              if (dropdownItems.isEmpty) return;
-                              final selected = classrooms.firstWhere((c) => c.name == value);
-                              setState(() {
-                                _selectedRoom = selected;
-                              });
-                              _loadDetails(selected.code);
-                            },
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: () => Navigator.pop(context),
-                          icon: SvgPicture.asset(
-                            MediaRes.classroomInfoIcon,
-                            height: 28,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    if (isInitialLoading || _isDetailsLoading || _isSummaryLoading)
-                      const Center(child: PrimaryCircularLoader())
-                    else if (_detailsError != null)
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Text(
-                          'Failed to load classroom details',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red),
-                        ),
-                      )
-                    else if (_summaryError != null)
-                      Padding(
-                        padding: const EdgeInsets.all(12.0),
-                        child: Text(
-                          'Failed to load summary cards',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.red),
-                        ),
-                      )
-                    else if (_details != null)
-                      _buildRoomDetailsCard(_details!),
-                    const SizedBox(height: 16),
-                    _buildInfoCard(
-                      title: 'Enrolled\nStudents',
-                      number: '0',
-                      items: [
-                        _ProgressItem(
-                          label: 'Active (0)',
-                          value: 0,
-                          color: Colors.lightBlue,
-                        ),
-                        _ProgressItem(
-                          label: 'Upcoming (0)',
-                          value: 0,
-                          color: Colors.amber,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInfoCard(
-                      title: 'Expected\nStudents',
-                      number: (_studentSummary?.expected ?? 0).toString(),
-                      items: [
-                        _ProgressItem(
-                          label: 'Present (${_studentSummary?.present ?? 0})',
-                          value: (_studentSummary?.present ?? 0).toDouble(),
-                          color: Colors.green,
-                        ),
-                        _ProgressItem(
-                          label: 'Absent (${_studentSummary?.absent ?? 0})',
-                          value: (_studentSummary?.absent ?? 0).toDouble(),
-                          color: Colors.red,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    _buildInfoCard(
-                      title: 'Expected\nStaff',
-                      number: (_staffSummary?.expected ?? 0).toString(),
-                      items: [
-                        _ProgressItem(
-                          label: 'Present (${_staffSummary?.present ?? 0})',
-                          value: (_staffSummary?.present ?? 0).toDouble(),
-                          color: Colors.green,
-                        ),
-                        _ProgressItem(
-                          label: 'Absent (${_staffSummary?.absent ?? 0})',
-                          value: (_staffSummary?.absent ?? 0).toDouble(),
-                          color: Colors.red,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        side: const BorderSide(
-                          width: 1.5,
-                          color: Color.fromARGB(255, 232, 234, 234),
-                        ),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        Row(
+                          mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(
-                              'Events',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xff573353),
+                            Padding(
+                              padding: const EdgeInsets.only(left: 6),
+                              child: isInitialLoading
+                                  ? const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 4),
+                                      child: ShimmerLoader(
+                                        height: 24,
+                                        width: 160,
+                                        borderRadius: BorderRadius.all(
+                                          Radius.circular(6),
+                                        ),
+                                      ),
+                                    )
+                                  : ClassroomDropdown(
+                                      // Not loading here (isInitialLoading
+                                      // handles that above), so an empty list
+                                      // means the load finished with no rooms.
+                                      items: dropdownItems.isEmpty
+                                          ? const ['No classrooms available']
+                                          : dropdownItems,
+                                      value: dropdownItems.isEmpty
+                                          ? 'No classrooms available'
+                                          : (_selectedRoom?.name ??
+                                              dropdownItems.first),
+                                      onChanged: (value) {
+                                        if (dropdownItems.isEmpty) return;
+                                        final selected = classrooms
+                                            .firstWhere((c) => c.name == value);
+                                        setState(() {
+                                          _selectedRoom = selected;
+                                        });
+                                        _saveLastSelectedClassroomToCache(
+                                          selected.code,
+                                          selected.name,
+                                        );
+                                        _loadDetails(selected.code);
+                                      },
+                                    ),
+                            ),
+                            IconButton(
+                              tooltip: 'Back',
+                              onPressed: () => Navigator.pop(context),
+                              icon: SvgPicture.asset(
+                                MediaRes.classroomInfoIcon,
+                                height: 32,
                               ),
                             ),
-                            const SizedBox(height: 16),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: const [
-                                Icon(Icons.chevron_left, color: Colors.grey),
-                                Text(
-                                  'Nov 2025',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    color: Color(0xff573353),
-                                  ),
-                                ),
-                                Icon(Icons.chevron_right, color: Colors.grey),
-                              ],
-                            ),
-                            const SizedBox(height: 16),
-                            const EventsCard(),
-                            const SizedBox(height: 16),
                           ],
                         ),
-                      ),
+                        const SizedBox(height: 8),
+                        if (showAllCardsShimmer)
+                          Column(
+                            children: [
+                              _buildRoomDetailsLoadingCard(
+                                _displayClassroomName(classrooms: classrooms),
+                              ),
+                              const SizedBox(height: 16),
+                              const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              const MovementsCardShimmer(),
+                            ],
+                          )
+                        else if (_detailsError != null)
+                          Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Text(
+                              'Failed to load classroom details',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(color: Colors.red),
+                            ),
+                          )
+                        else if (_details != null) ...[
+                          if (_summaryError != null)
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 12),
+                              child: Text(
+                                'Failed to load summary cards',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(color: Colors.red),
+                              ),
+                            ),
+                          _buildRoomDetailsCard(_details!),
+                          const SizedBox(height: 16),
+                          CustomStatBarCard(
+                            title: 'Enrolled\nStudents',
+                            number: '$_enrolledCount',
+                            items: [
+                              ProgressItemHelper(
+                                label: 'Active ($_enrolledActiveCount)',
+                                value: _enrolledActiveCount.toDouble(),
+                                color: AppColors.lightBlueProgressBar,
+                                filterValue: 'ACTIVE',
+                              ),
+                              ProgressItemHelper(
+                                label: 'Upcoming ($_enrolledUpcomingCount)',
+                                value: _enrolledUpcomingCount.toDouble(),
+                                color: AppColors.mustardProgressBar,
+                                filterValue: 'UPCOMING',
+                              ),
+                            ],
+                            onLegendTap: (_, filterValue) {
+                              final v = (filterValue ?? '').trim().toUpperCase();
+                              if (v != 'ACTIVE' && v != 'UPCOMING') return;
+                              _openStudentListForClassroomStatus(v);
+                            },
+                          ),
+                          const SizedBox(height: 16),
+                          _buildExpectedAttendanceSummaryCard(
+                            title: 'Expected\nStudents',
+                            summary: _studentSummary,
+                            forStaff: false,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildExpectedAttendanceSummaryCard(
+                            title: 'Expected\nStaff',
+                            summary: _staffSummary,
+                            forStaff: true,
+                          ),
+                          const SizedBox(height: 16),
+                          BlocProvider<IndividualMovementsCubit>.value(
+                            value: _movementsCubit,
+                            child: MovementsCard(
+                              classroomCode: _selectedRoom?.code,
+                            ),
+                          ),
+                        ],
+                        // Events section (temporarily disabled)
+                        // Card(
+                        //   elevation: 0,
+                        //   color: Colors.white,
+                        //   surfaceTintColor: Colors.white,
+                        //   shape: RoundedRectangleBorder(
+                        //     side: const BorderSide(
+                        //       width: 1.5,
+                        //       color: Color.fromARGB(255, 232, 234, 234),
+                        //     ),
+                        //     borderRadius: BorderRadius.circular(12),
+                        //   ),
+                        //   child: Padding(
+                        //     padding: const EdgeInsets.all(16),
+                        //     child: Column(
+                        //       crossAxisAlignment: CrossAxisAlignment.start,
+                        //       children: [
+                        //         Text(
+                        //           'Events',
+                        //           style: TextStyle(
+                        //             fontFamily: 'Manrope',
+                        //             fontSize: 20,
+                        //             fontWeight: FontWeight.bold,
+                        //             color: const Color(0xff573353),
+                        //           ),
+                        //         ),
+                        //         const SizedBox(height: 16),
+                        //         Row(
+                        //           mainAxisAlignment:
+                        //               MainAxisAlignment.spaceBetween,
+                        //           children: const [
+                        //             Icon(Icons.chevron_left,
+                        //                 color: Colors.grey),
+                        //             Text(
+                        //               'Nov 2025',
+                        //               style: TextStyle(
+                        //                 fontFamily: 'Manrope',
+                        //                 color: Color(0xff573353),
+                        //               ),
+                        //             ),
+                        //             Icon(Icons.chevron_right,
+                        //                 color: Colors.grey),
+                        //           ],
+                        //         ),
+                        //         const SizedBox(height: 16),
+                        //         const EventsCard(),
+                        //         const SizedBox(height: 16),
+                        //       ],
+                        //     ),
+                        //   ),
+                        // ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
             ),
             hasBackButton: true,
           );
@@ -409,133 +1049,125 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     );
   }
 
-  Widget _buildInfoCard({
-    required String title,
-    required String number,
-    required List<_ProgressItem> items,
-  }) {
-    int total = int.tryParse(number) ?? 0;
-    double sumValues = items.fold(0, (sum, item) => sum + item.value);
-    bool hasValidTotal = total > 0;
+  FilterData? _classroomAttendanceFilter() {
+    final code = (_selectedRoom?.code ?? '').trim();
+    if (code.isEmpty) return null;
+    return FilterData(
+      classroomIds: const <int>[],
+      classrooms: [code],
+      statuses: const <String>[],
+      tags: const <String>[],
+    );
+  }
 
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        side: const BorderSide(
-          width: 1.5,
-          color: Color.fromARGB(255, 232, 234, 234),
-        ),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 12,
-        ),
-        child: Row(
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Text(
-                  number,
-                  style: const TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: 32,
-                    color: Colors.blue,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    color: const Color(0xff573353),
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+  void _openStudentListForClassroomStatus(String statusUpper) {
+    final room = _selectedRoom;
+    final code = (_selectedRoom?.code ?? '').trim();
+    if (room == null || code.isEmpty) return;
+
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) => MultiBlocProvider(
+          providers: [
+            BlocProvider<StudentCubit>(
+              create: (_) => serviceLocator<StudentCubit>()..loadInitial(),
             ),
-            const SizedBox(width: 28),
-            Expanded(
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: SizedBox(
-                      height: 24,
-                      child: Row(
-                        children: !hasValidTotal
-                            ? [
-                                Expanded(
-                                    child: Container(color: Colors.grey[300]))
-                              ]
-                            : [
-                                ...items.map((item) => Expanded(
-                                      flex: hasValidTotal
-                                          ? (item.value * 100 ~/ total)
-                                          : 1,
-                                      child: Container(color: item.color),
-                                    )),
-                                if (sumValues < total)
-                                  Expanded(
-                                    flex: hasValidTotal
-                                        ? ((total - sumValues) * 100 ~/ total)
-                                        : 1,
-                                    child: Container(color: Colors.grey[300]),
-                                  ),
-                              ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: items
-                        .map(
-                          (item) => Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: item.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                item.label,
-                                style: const TextStyle(fontFamily: 'Manrope', fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        )
-                        .toList(),
-                  ),
-                ],
-              ),
+            BlocProvider<ClassroomCubit>(
+              create: (_) => serviceLocator<ClassroomCubit>()
+                ..loadActiveClassrooms(
+                  onlyTypeClassroom: false,
+                  applyAttendanceStaffScope: true,
+                ),
             ),
           ],
+          child: StudentScreen(
+            incomingStatusFilter: statusUpper,
+            incomingClassroomSelections: [
+              room.name.trim(),
+              room.code.trim(),
+            ],
+          ),
         ),
       ),
     );
   }
-}
 
+  void _openAttendanceForClassroom({
+    required bool staff,
+    required String incomingFilter,
+  }) {
+    final filter = _classroomAttendanceFilter();
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute<void>(
+        builder: (_) {
+          if (staff) {
+            return StaffAttendanceTabbedView(
+              initialTabIndex: 0,
+              dailyIncomingFilter: incomingFilter,
+              classroomFilter: filter,
+            );
+          }
+          return StudentAttendanceTabbedView(
+            initialTabIndex: 0,
+            dailyIncomingFilter: incomingFilter,
+            classroomFilter: filter,
+          );
+        },
+      ),
+    );
+  }
 
-class _ProgressItem {
-  final String label;
-  final double value;
-  final Color color;
+  /// Same stat bar styling as student/staff daily attendance expected cards.
+  Widget _buildExpectedAttendanceSummaryCard({
+    required String title,
+    required StudentAttendanceExpectedSummary? summary,
+    required bool forStaff,
+  }) {
+    final expected = summary?.expected ?? 0;
+    final present = summary?.present ?? 0;
+    final absent = summary?.absent ?? 0;
+    final signedOut = summary?.signOut ?? 0;
+    final notMarked = summary?.notMarked ?? 0;
 
-  _ProgressItem({
-    required this.label,
-    required this.value,
-    required this.color,
-  });
+    return CustomStatBarCard(
+      title: title,
+      number: expected.toString(),
+      normalizeBarByItemSum: true,
+      items: [
+        ProgressItemHelper(
+          label: 'Signed-In ($present)',
+          value: present.toDouble(),
+          color: AppColors.lightGreenProgressBar,
+          filterValue: 'Signed-In',
+        ),
+        ProgressItemHelper(
+          label: 'Absent ($absent)',
+          value: absent.toDouble(),
+          color: AppColors.redProgressBar,
+          filterValue: 'Absent',
+        ),
+        ProgressItemHelper(
+          label: 'Signed Out ($signedOut)',
+          value: signedOut.toDouble(),
+          color: AppColors.lightBlueProgressBar,
+          filterValue: 'Signed Out',
+        ),
+        ProgressItemHelper(
+          label: 'Not Marked ($notMarked)',
+          value: notMarked.toDouble(),
+          color: AppColors.mustardProgressBar,
+          filterValue: 'Not Marked',
+        ),
+      ],
+      onLegendTap: (_, filterValue) {
+        final v = (filterValue ?? '').trim();
+        if (v.isEmpty) return;
+        _openAttendanceForClassroom(staff: forStaff, incomingFilter: v);
+      },
+    );
+  }
 }
 
 class ClassroomInfoShimmer extends StatelessWidget {

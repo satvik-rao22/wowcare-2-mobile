@@ -1,7 +1,9 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
@@ -11,7 +13,7 @@ part 'student_state.dart';
 
 /// List/pagination and mutations for the student roster.
 ///
-/// Permission-aware screens should use [RoleProvider] with
+/// Permission-aware screens should use [RoleCubit] with
 /// `package:wowcare/presentation/features/student/module_access.dart` ([ModuleAccess])
 /// so guardians, staff, and admins respect the same API module rows.
 class StudentCubit extends Cubit<StudentState> {
@@ -19,15 +21,17 @@ class StudentCubit extends Cubit<StudentState> {
     required GetStudentPageUseCase getStudentPageUseCase,
     required StudentRepository repository,
     required StorageService storageService,
-  })  : _getStudentPageUseCase = getStudentPageUseCase,
-        _repository = repository,
-        _storageService = storageService,
-        super(const StudentState.initial());
+  }) : _getStudentPageUseCase = getStudentPageUseCase,
+       _repository = repository,
+       _storageService = storageService,
+       super(const StudentState.initial());
 
   final GetStudentPageUseCase _getStudentPageUseCase;
   final StudentRepository _repository;
   final StorageService _storageService;
   String? _schoolCode;
+  bool? _isScopedStaffPersona;
+  List<String>? _allowedClassroomCodes;
 
   // How many student records to load per page from the API
   static const int _pageSize = 15;
@@ -48,24 +52,85 @@ class StudentCubit extends Cubit<StudentState> {
     return _schoolCode!;
   }
 
+  Future<void> _ensureClassroomScopeResolved() async {
+    if (_isScopedStaffPersona != null && _allowedClassroomCodes != null) return;
+    final scoped = await isAttendanceScopedStaffPersona(
+      storage: _storageService,
+    );
+    final allowed = await resolveAttendanceAllowedClassroomCodes(
+      storage: _storageService,
+    );
+    _isScopedStaffPersona = scoped;
+    _allowedClassroomCodes = allowed
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+  }
+
+  List<String>? _effectiveClassroomCodesForRequest() {
+    final scoped = _isScopedStaffPersona == true;
+    final allowed = _allowedClassroomCodes ?? const <String>[];
+    final selected =
+        state.classroomCodesFilter
+            ?.map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toSet()
+            .toList() ??
+        const <String>[];
+
+    if (!scoped) {
+      return selected.isEmpty ? null : selected;
+    }
+
+    final allowedSet = allowed.toSet();
+    if (selected.isEmpty) {
+      return List<String>.from(allowedSet);
+    }
+
+    return selected
+        .where((c) => allowedSet.contains(c))
+        .toList(growable: false);
+  }
+
   Future<void> loadInitial() async {
     final schoolCode = await _resolveSchoolCode();
+    await _ensureClassroomScopeResolved();
+    final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
 
-    // Try cache first
-    final cached =
-        await (_repository is StudentRepositoryWithCache
-            ? (_repository as StudentRepositoryWithCache).loadCachedStudentPage(
-                schoolCode,
-                status: state.statusFilter,
-                classroomCodes: state.classroomCodesFilter,
-                tagCodes: state.tagCodesFilter,
-                guardianCodes: state.guardianCodesFilter,
-                search: state.searchQuery,
-                code: state.codeFilter,
-                firstName: state.firstNameFilter,
-                lastName: state.lastNameFilter,
-              )
-            : Future.value(null));
+    if (_isScopedStaffPersona == true &&
+        (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          items: const <Student>[],
+          currentPage: 0,
+          hasMore: false,
+          isLoading: false,
+          isRefreshing: false,
+          isFromCache: false,
+          errorMessage: null,
+        ),
+      );
+      return;
+    }
+
+    // 1. Try cache first for immediate UI update
+    final cached = await (_repository is StudentRepositoryWithCache
+        ? (_repository as StudentRepositoryWithCache).loadCachedStudentPage(
+            schoolCode,
+            status: state.statusFilter,
+            classroomCodes: effectiveClassroomCodes,
+            tagCodes: state.tagCodesFilter,
+            guardianCodes: state.guardianCodesFilter,
+            attendanceStatuses: state.attendanceStatusesFilter,
+            search: state.searchQuery,
+            code: state.codeFilter,
+            firstName: state.firstNameFilter,
+            lastName: state.lastNameFilter,
+          )
+        : Future.value(null));
+
     if (cached != null && !isClosed) {
       emit(
         state.copyWith(
@@ -77,10 +142,10 @@ class StudentCubit extends Cubit<StudentState> {
           isFromCache: true,
         ),
       );
-      return;
+      // We don't return here anymore; we trigger a background refresh
     }
 
-    // No cache (or expired) – load from API.
+    // 2. Load from API (background refresh if cache was present, or full load if not)
     await refresh();
   }
 
@@ -88,6 +153,26 @@ class StudentCubit extends Cubit<StudentState> {
     if (state.isRefreshing && !ignoreRefreshingGuard) return;
 
     final schoolCode = await _resolveSchoolCode();
+    await _ensureClassroomScopeResolved();
+    final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
+
+    if (_isScopedStaffPersona == true &&
+        (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          items: const <Student>[],
+          currentPage: 0,
+          hasMore: false,
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          isFromCache: false,
+          errorMessage: null,
+        ),
+      );
+      return;
+    }
 
     emit(
       state.copyWith(
@@ -97,15 +182,22 @@ class StudentCubit extends Cubit<StudentState> {
       ),
     );
 
+    // Snapshot the status this load is fetching. If the filter changes while
+    // we're in flight (e.g. a deep-link resolves a deactivated student and flips
+    // to Inactive while the route's default Active load is still running), the
+    // older result must NOT clobber the newer one — drop it before emitting.
+    final requestedStatus = state.statusFilter;
+
     try {
       final firstPageFuture = _getStudentPageUseCase(
         schoolCode: schoolCode,
         page: 0,
         size: _pageSize,
-        status: state.statusFilter,
-        classroomCodes: state.classroomCodesFilter,
+        status: requestedStatus,
+        classroomCodes: effectiveClassroomCodes,
         tagCodes: state.tagCodesFilter,
         guardianCodes: state.guardianCodesFilter,
+        attendanceStatuses: state.attendanceStatusesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -126,10 +218,11 @@ class StudentCubit extends Cubit<StudentState> {
           schoolCode: schoolCode,
           page: 1,
           size: _pageSize,
-          status: state.statusFilter,
-          classroomCodes: state.classroomCodesFilter,
+          status: requestedStatus,
+          classroomCodes: effectiveClassroomCodes,
           tagCodes: state.tagCodesFilter,
           guardianCodes: state.guardianCodesFilter,
+          attendanceStatuses: state.attendanceStatusesFilter,
           search: state.searchQuery,
           firstName: state.firstNameFilter,
           lastName: state.lastNameFilter,
@@ -144,6 +237,9 @@ class StudentCubit extends Cubit<StudentState> {
       }
 
       if (isClosed) return;
+      // Drop a stale result: the filter changed while this load was in flight,
+      // so a newer refresh owns the list now.
+      if (state.statusFilter != requestedStatus) return;
 
       emit(
         state.copyWith(
@@ -161,7 +257,7 @@ class StudentCubit extends Cubit<StudentState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -173,18 +269,22 @@ class StudentCubit extends Cubit<StudentState> {
   /// re-hydrate stale cached results.
   Future<void> refreshWithCacheReset() async {
     final schoolCode = await _resolveSchoolCode();
+    await _ensureClassroomScopeResolved();
+    final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
     if (_repository is StudentRepositoryWithCache) {
-      await (_repository as StudentRepositoryWithCache).invalidateCachedStudentPage(
-        schoolCode,
-        status: state.statusFilter,
-        classroomCodes: state.classroomCodesFilter,
-        tagCodes: state.tagCodesFilter,
-        guardianCodes: state.guardianCodesFilter,
-        search: state.searchQuery,
-        code: state.codeFilter,
-        firstName: state.firstNameFilter,
-        lastName: state.lastNameFilter,
-      );
+      await (_repository as StudentRepositoryWithCache)
+          .invalidateCachedStudentPage(
+            schoolCode,
+            status: state.statusFilter,
+            classroomCodes: effectiveClassroomCodes,
+            tagCodes: state.tagCodesFilter,
+            guardianCodes: state.guardianCodesFilter,
+            attendanceStatuses: state.attendanceStatusesFilter,
+            search: state.searchQuery,
+            code: state.codeFilter,
+            firstName: state.firstNameFilter,
+            lastName: state.lastNameFilter,
+          );
     }
     // Force reload even if another refresh was triggered very recently.
     await refresh(ignoreRefreshingGuard: true);
@@ -194,6 +294,23 @@ class StudentCubit extends Cubit<StudentState> {
     if (state.isLoadingMore || !state.hasMore) return;
 
     final schoolCode = await _resolveSchoolCode();
+    await _ensureClassroomScopeResolved();
+    final effectiveClassroomCodes = _effectiveClassroomCodesForRequest();
+
+    if (_isScopedStaffPersona == true &&
+        (effectiveClassroomCodes == null || effectiveClassroomCodes.isEmpty)) {
+      if (isClosed) return;
+      emit(
+        state.copyWith(
+          items: const <Student>[],
+          currentPage: 0,
+          hasMore: false,
+          isLoadingMore: false,
+          errorMessage: null,
+        ),
+      );
+      return;
+    }
 
     emit(state.copyWith(isLoadingMore: true, errorMessage: null));
 
@@ -204,9 +321,10 @@ class StudentCubit extends Cubit<StudentState> {
         page: nextPageIndex,
         size: _pageSize,
         status: state.statusFilter,
-        classroomCodes: state.classroomCodesFilter,
+        classroomCodes: effectiveClassroomCodes,
         tagCodes: state.tagCodesFilter,
         guardianCodes: state.guardianCodesFilter,
+        attendanceStatuses: state.attendanceStatusesFilter,
         search: state.searchQuery,
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
@@ -225,21 +343,12 @@ class StudentCubit extends Cubit<StudentState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(
-        state.copyWith(
-          isLoadingMore: false,
-          errorMessage: e.toString(),
-        ),
-      );
+      emit(state.copyWith(isLoadingMore: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
   void updateSearch(String query) {
-    emit(
-      state.copyWith(
-        searchQuery: query,
-      ),
-    );
+    emit(state.copyWith(searchQuery: query));
   }
 
   void updateFilters({
@@ -250,6 +359,7 @@ class StudentCubit extends Cubit<StudentState> {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
   }) {
     emit(
       state.copyWith(
@@ -260,6 +370,7 @@ class StudentCubit extends Cubit<StudentState> {
         classroomCodesFilter: classroomCodes,
         tagCodesFilter: tagCodes,
         guardianCodesFilter: guardianCodes,
+        attendanceStatusesFilter: attendanceStatuses,
       ),
     );
   }
@@ -309,9 +420,9 @@ class StudentCubit extends Cubit<StudentState> {
   }
 
   void removeStudent(String code) {
-    final updated =
-        state.items.where((element) => element.code != code).toList();
+    final updated = state.items
+        .where((element) => element.code != code)
+        .toList();
     emit(state.copyWith(items: updated));
   }
 }
-

@@ -24,12 +24,19 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
 
   static const int _pageSize = 10;
 
+  String? _classroomCodeForSummary(List<String>? classroomCodes) {
+    if (classroomCodes == null || classroomCodes.isEmpty) return null;
+    final code = classroomCodes.first.trim();
+    return code.isEmpty ? null : code;
+  }
+
   Future<void> loadInitial({
     required DateTime attendanceDate,
     List<String>? classroomCodes,
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     await refresh(
@@ -38,6 +45,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
     );
   }
@@ -48,6 +56,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
     List<String>? tagCodes,
     String? signInAtFilter,
     String? signOutAtFilter,
+    bool? isExpectedNotMarked,
     String? search,
   }) async {
     if (state.isRefreshing) return;
@@ -63,6 +72,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
       tagCodes: tagCodes,
       signInAtFilter: signInAtFilter,
       signOutAtFilter: signOutAtFilter,
+      isExpectedNotMarked: isExpectedNotMarked,
       search: search,
       isSummaryLoading: true,
     ));
@@ -75,12 +85,19 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         page: 0,
         size: _pageSize,
       );
       final summary =
-          await _getStaffAttendanceExpectedSummaryUseCase();
+          await _getStaffAttendanceExpectedSummaryUseCase(
+        classroomCode: _classroomCodeForSummary(classroomCodes),
+        // refresh() is the explicit-reload path (pull-to-refresh, after an
+        // attendance action, filter change), so bypass the cached summary —
+        // otherwise the counts never change from their first cached value.
+        forceRefresh: true,
+      );
 
       if (isClosed) return;
 
@@ -94,6 +111,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         tagCodes: tagCodes,
         signInAtFilter: signInAtFilter,
         signOutAtFilter: signOutAtFilter,
+        isExpectedNotMarked: isExpectedNotMarked,
         search: search,
         expectedCount: summary.expected,
         presentCount: summary.present,
@@ -131,6 +149,7 @@ class StaffAttendanceDailyCubit extends Cubit<StaffAttendanceDailyState> {
         tagCodes: state.tagCodes,
         signInAtFilter: state.signInAtFilter,
         signOutAtFilter: state.signOutAtFilter,
+        isExpectedNotMarked: state.isExpectedNotMarked,
         search: state.search,
         page: nextPageIndex,
         size: _pageSize,

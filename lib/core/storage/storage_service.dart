@@ -1,7 +1,5 @@
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wowcare/core/util/debug_defaults.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 
 abstract class StorageService {
   Future<void> saveString(String key, String value);
@@ -14,6 +12,10 @@ abstract class StorageService {
   Future<Map<String, dynamic>?> getJson(String key);
   Future<void> remove(String key);
   Future<void> clear();
+
+  /// All keys currently stored. Used for prefix/pattern-based bulk clears
+  /// (e.g. wiping every `*_cache_*` entry on school switch).
+  Future<Set<String>> getKeys();
 }
 
 class StorageServiceImpl implements StorageService {
@@ -28,15 +30,7 @@ class StorageServiceImpl implements StorageService {
 
   @override
   Future<String?> getString(String key) {
-    final v = _prefs.getString(key);
-
-    // TEMP: While login is bypassed, ensure schoolCode is always available so
-    // screens and repositories don't early-return with empty schoolCode.
-    if (key == StorageKeys.schoolCode && (v == null || v.trim().isEmpty)) {
-      return Future.value(DebugDefaults.schoolCode);
-    }
-
-    return Future.value(v);
+    return Future.value(_prefs.getString(key));
   }
 
   @override
@@ -84,5 +78,10 @@ class StorageServiceImpl implements StorageService {
   @override
   Future<void> clear() async {
     await _prefs.clear();
+  }
+
+  @override
+  Future<Set<String>> getKeys() {
+    return Future.value(_prefs.getKeys());
   }
 }

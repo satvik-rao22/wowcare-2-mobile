@@ -1,5 +1,5 @@
 # Uncomment this line to define a global platform for your project
-# platform :ios, '13.0'
+platform :ios, '15.0'
 
 # CocoaPods analytics sends network stats synchronously affecting flutter build latency.
 ENV['COCOAPODS_DISABLE_STATS'] = 'true'
@@ -39,5 +39,44 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+
+    # permission_handler_apple compiles its LocationPermissionStrategy behind a
+    # preprocessor guard. Without PERMISSION_LOCATION=1 the entire class is an
+    # empty stub, so Permission.location.status always returns PermissionStatus.denied
+    # on iOS regardless of what the user has granted in Settings.
+    # This caused the geofence cubit to exit early with permissionDenied and
+    # never reach the school-location API — breaking GPS attendance on iOS.
+    target.build_configurations.each do |config|
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= ['$(inherited)']
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_LOCATION=1'
+    end
+  end
+
+  # ---------------------------------------------------------------------------
+  # Firebase multi-environment: inject a Run Script Build Phase into Runner that
+  # decodes $DART_DEFINES, extracts ENVIRONMENT, and copies the matching
+  # GoogleService-Info.plist into the built app bundle.
+  # Runs once on every `pod install`; skips if the phase already exists.
+  # ---------------------------------------------------------------------------
+  require 'xcodeproj'
+  runner_project_path = File.expand_path('../Runner.xcodeproj', __FILE__)
+  runner_project = Xcodeproj::Project.open(runner_project_path)
+  runner_target  = runner_project.targets.find { |t| t.name == 'Runner' }
+
+  if runner_target
+    phase_name = 'Copy Firebase GoogleService-Info.plist'
+    already_added = runner_target.build_phases.any? do |p|
+      p.respond_to?(:name) && p.name == phase_name
+    end
+
+    unless already_added
+      phase = runner_target.new_shell_script_build_phase(phase_name)
+      phase.shell_script = '"${SRCROOT}/scripts/copy_firebase_config.sh"'
+      # Input/output paths let Xcode skip the phase when nothing has changed.
+      phase.input_paths  = ['$(SRCROOT)/scripts/copy_firebase_config.sh']
+      phase.output_paths = ['$(BUILT_PRODUCTS_DIR)/$(PRODUCT_NAME).app/GoogleService-Info.plist']
+      runner_project.save
+      puts "✅ [Firebase] Added '#{phase_name}' build phase to Runner"
+    end
   end
 end

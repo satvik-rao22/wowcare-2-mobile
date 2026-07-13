@@ -18,6 +18,7 @@ class UpdateStudentDocumentUseCase {
     required String storagePath,
     required String mimeType,
     required int size,
+    String? assetCode,
     String? uploadedBy,
     String? notes,
   }) async {
@@ -31,6 +32,7 @@ class UpdateStudentDocumentUseCase {
         storagePath: storagePath,
         mimeType: mimeType,
         size: size,
+        assetCode: assetCode,
         uploadedBy: uploadedBy,
         notes: notes,
       );
