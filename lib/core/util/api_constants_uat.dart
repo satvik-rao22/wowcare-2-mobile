@@ -24,11 +24,16 @@ class ApiConstantsUat {
   ApiConstantsUat._();
 
   // ─── UAT gateway host ──────────────────────────────────────────────────────
-  // Single gateway for all microservices in UAT.
-  // Update this when the UAT hostname changes.
-  static const String _host = 'https://uat-wowcare.childcarewow.app';
-  // static const String _host = 'https://jl69j4pz-8090.inc1.devtunnels.ms';
-  // static const String _host = 'https://4hn0k1dg-8090.inc1.devtunnels.ms';
+  // Single gateway for all microservices in UAT (path holds the microservice
+  // segment: `<_host>/api/v1/<ms>/...`). Defaults to the real UAT gateway, but
+  // can be overridden at run time to point the same gateway-mode build at a
+  // local backend / devtunnel gateway without editing source, e.g.:
+  //   flutter run --dart-define=ENVIRONMENT=UAT \
+  //     --dart-define=API_HOST=https://jl69j4pz-8090.inc1.devtunnels.ms
+  static const String _host = String.fromEnvironment(
+    'API_HOST',
+    defaultValue: 'https://uat-wowcare.childcarewow.app',
+  );
 
   // Communication / Messaging MS runs on port 8086.
   // Must be updated alongside _host when the tunnel ID changes.

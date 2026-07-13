@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_card.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -1152,6 +1153,14 @@ class _StaffScreenState extends State<StaffScreen> {
                                             _refreshTriggeredByFilters = true;
                                           });
                                           await staffCubit.refresh();
+                                          // Filtered list loaded — force every
+                                          // visible attendance dot to re-fetch
+                                          // so the green indicator reflects the
+                                          // latest status for the new results.
+                                          if (mounted) {
+                                            DocumentImageWidget
+                                                .refreshAttendanceStatusDots();
+                                          }
                                         }
                                       },
                                       borderRadius: BorderRadius.circular(100),
@@ -1340,6 +1349,10 @@ class _StaffScreenState extends State<StaffScreen> {
                                           await staffCubit.refresh();
 
                                           if (!mounted) return;
+                                          // Re-sync attendance dots for the
+                                          // newly loaded (in)active list.
+                                          DocumentImageWidget
+                                              .refreshAttendanceStatusDots();
                                           final err =
                                               staffCubit.state.errorMessage;
                                           if (err != null && err.isNotEmpty) {

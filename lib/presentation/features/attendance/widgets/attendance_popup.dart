@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
@@ -13,6 +12,7 @@ import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.da
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -36,18 +36,33 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
 
 class AttendancePopupManager {
+  // Guards against the bottom-nav Attendance tab being tapped multiple times
+  // in quick succession: without this, each tap re-enters this method before
+  // the previous popup/profile push has finished, stacking duplicates.
+  // Cleared once the in-flight popup/navigation settles.
+  static bool _isOpening = false;
+
   static void showAttendancePopup(
     BuildContext context, {
     int initialTabIndex = 0,
   }) {
+    if (_isOpening) return;
+    _isOpening = true;
+
     // Parent / guardian: skip the bottom-sheet popup entirely and open the
     // child's attendance profile directly. The popup is only needed for
     // staff/admin who have both Student and Staff attendance tabs.
     final isParent = context.read<RoleCubit>().isParent;
     if (isParent) {
-      unawaited(openParentChildAttendance(context));
+      unawaited(
+        openParentChildAttendance(
+          context,
+        ).whenComplete(() => _isOpening = false),
+      );
       return;
     }
 
@@ -64,7 +79,7 @@ class AttendancePopupManager {
         ],
         child: AttendancePopupOverlay(initialTabIndex: initialTabIndex),
       ),
-    );
+    ).whenComplete(() => _isOpening = false);
   }
 
   /// Opens the selected child's attendance profile directly.
@@ -188,6 +203,17 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   String _loggedInStaffCode = '';
   String? _lastSeenRole;
 
+  // Today's self-attendance status for the logged-in staff persona, used
+  // (alongside geofencing) to gate Sign-In/Sign-Out/Transfer/Mark-Absent in
+  // the "My Attendance" tab. Not used for the admin staff-selection flow.
+  String? _todayStatusRaw;
+  bool _isTodayStatusLoading = false;
+
+  StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
+    isActiveProfile: true,
+    todayStatusRaw: _todayStatusRaw,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -199,6 +225,28 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     );
     _tabController.addListener(_onTabChanged);
     _syncPersonaFlags();
+    // The student-attendance actions are gated on the staff being signed in, so
+    // refresh that status when the popup opens (the shared GeofenceCubit may be
+    // stale, e.g. the user came straight here without the dashboard refreshing).
+    if (!context.read<RoleCubit>().isParent) {
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      _resolveCrossClassPermission();
+    }
+  }
+
+  /// Resolves the school's `allowTeacherCrossClassAttendance` flag so the
+  /// permission gate (which reads it synchronously) reflects the active school.
+  /// Rebuilds once resolved so the student-attendance actions enable when a
+  /// teacher is allowed cross-class access, exactly like an admin.
+  Future<void> _resolveCrossClassPermission() async {
+    try {
+      await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Non-critical: falls back to the signed-in gate.
+    }
   }
 
   @override
@@ -269,42 +317,61 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
   Future<void> _loadStaffPersonaFlags() async {
     try {
+      // "My Attendance" (self) vs "Staff Attendance" (manage all) follows the
+      // ACTIVE persona: only the staff (teacher) persona sees "My Attendance";
+      // the admin persona manages all staff and reaches its own record from the
+      // bottom-nav Staff Attendance instead.
+      //
+      // staffType was unreliable here — it is only written after a later
+      // profile/attendance refresh, so an admin whose staffType had not loaded
+      // yet fell through to `!isStaffAdmin == true` and was wrongly shown
+      // "My Attendance". RoleCubit's active persona ('staff' vs 'admin') is the
+      // canonical, persona-switch-aware signal, so key off it directly.
+      final isStaffPersona = context.read<RoleCubit>().isStaff;
+
       final storage = serviceLocator<StorageService>();
       var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
           .trim();
       if (staffCode.isEmpty) {
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       }
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-
-      bool isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
-      if (!isStaffAdmin) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-          isStaffAdmin = roles.any((r) {
-            if (r is! Map<String, dynamic>) return false;
-            final roleCode = (r['role'] ?? '').toString().toUpperCase();
-            return roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN';
-          });
-        }
-      }
 
       if (!mounted) return;
       setState(() {
         _loggedInStaffCode = staffCode;
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+        _isTeacherStaffPersona = isStaffPersona && staffCode.isNotEmpty;
       });
+
+      if (isStaffPersona && staffCode.isNotEmpty) {
+        unawaited(_loadTodayStatus(staffCode));
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
         _loggedInStaffCode = '';
         _isTeacherStaffPersona = false;
+      });
+    }
+  }
+
+  Future<void> _loadTodayStatus(String staffCode) async {
+    if (!mounted) return;
+    setState(() {
+      _isTodayStatusLoading = true;
+    });
+    try {
+      final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
+      final status = await useCase(staffCode: staffCode);
+      if (!mounted) return;
+      setState(() {
+        _todayStatusRaw = status;
+        _isTodayStatusLoading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _todayStatusRaw = null;
+        _isTodayStatusLoading = false;
       });
     }
   }
@@ -325,6 +392,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleCubit>();
+    // Watch the geofence cubit so the student-attendance buttons re-enable as
+    // soon as the staff sign-in status resolves (they gate on isStaffSignedIn).
+    context.watch<GeofenceCubit>();
     final isAdmin = roleProvider.isAdmin && !_isParentRole;
     final isParent = _isParentRole;
     final isTeacherPersona = _isTeacherStaffPersona == true;
@@ -716,11 +786,20 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final roleProvider = context.watch<RoleCubit>();
     final geofenceState = context.watch<GeofenceCubit>().state;
     final bool isStaff = roleProvider.isStaff;
-    final bool isSignInDisabled = isStaff && !geofenceState.isWithinGeofence;
-    final bool isSignOutDisabled = isStaff && !geofenceState.isWithinGeofence;
-    // Disable transfer button for staff when doing self-transfer (teacher persona)
+    // Self-service gating only applies to the staff persona's own
+    // Sign-In/Sign-Out/Transfer/Mark-Absent; the admin staff-selection flow
+    // (StaffSelectionSignInForm etc.) is unaffected.
+    final StaffAttendanceActionAvailability availability = _todayGate
+        .availabilityWithGeofence(geofenceState.isWithinGeofence);
+    final bool selfActionsLoading = isStaff && _isTodayStatusLoading;
+    final bool isSignInDisabled =
+        isStaff && (selfActionsLoading || !availability.signInEnabled);
+    final bool isSignOutDisabled =
+        isStaff && (selfActionsLoading || !availability.signOutEnabled);
     final bool isTransferDisabledForStaff =
-        isStaff && _isTeacherStaffPersona == true;
+        isStaff && (selfActionsLoading || !availability.transferEnabled);
+    final bool isAbsentDisabledForStaff =
+        isStaff && (selfActionsLoading || !availability.absentEnabled);
 
     final buttonSize = isTablet ? 40.0 : 36.0;
     final fontSize = isTablet ? 14.0 : 12.0;
@@ -896,43 +975,47 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                     label: 'Absent',
                     iconSize: buttonSize,
                     fontSize: fontSize,
-                    onTap: () async {
-                      final navigator = Navigator.of(
-                        context,
-                        rootNavigator: true,
-                      );
-                      navigator.pop();
-                      if (_isTeacherStaffPersona == true &&
-                          _loggedInStaffCode.isNotEmpty) {
-                        final display = await resolveLoggedInStaffDisplay();
-                        navigator.push(
-                          MaterialPageRoute(
-                            builder: (_) => StaffMarkAbsentForm(
-                              staff: StaffEntity(
-                                id: 0,
-                                name: display.fullName.isNotEmpty
-                                    ? display.fullName
-                                    : 'My Attendance',
-                                primaryRoomId: 0,
-                                photoUuid: display.profilePhotoUrl.isNotEmpty
-                                    ? display.profilePhotoUrl
-                                    : null,
-                                staffCode: display.staffCode.isNotEmpty
-                                    ? display.staffCode
-                                    : _loggedInStaffCode,
-                              ),
-                            ),
-                          ),
-                        );
-                      } else {
-                        navigator.push(
-                          MaterialPageRoute(
-                            builder: (_) =>
-                                const StaffSelectionMarkAbsentForm(),
-                          ),
-                        );
-                      }
-                    },
+                    onTap: isAbsentDisabledForStaff
+                        ? null
+                        : () async {
+                            final navigator = Navigator.of(
+                              context,
+                              rootNavigator: true,
+                            );
+                            navigator.pop();
+                            if (_isTeacherStaffPersona == true &&
+                                _loggedInStaffCode.isNotEmpty) {
+                              final display =
+                                  await resolveLoggedInStaffDisplay();
+                              navigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) => StaffMarkAbsentForm(
+                                    staff: StaffEntity(
+                                      id: 0,
+                                      name: display.fullName.isNotEmpty
+                                          ? display.fullName
+                                          : 'My Attendance',
+                                      primaryRoomId: 0,
+                                      photoUuid:
+                                          display.profilePhotoUrl.isNotEmpty
+                                          ? display.profilePhotoUrl
+                                          : null,
+                                      staffCode: display.staffCode.isNotEmpty
+                                          ? display.staffCode
+                                          : _loggedInStaffCode,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            } else {
+                              navigator.push(
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      const StaffSelectionMarkAbsentForm(),
+                                ),
+                              );
+                            }
+                          },
                     context: context,
                   ),
                 ],
@@ -1100,43 +1183,47 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                       label: 'Absent',
                       iconSize: buttonSize,
                       fontSize: fontSize,
-                      onTap: () async {
-                        final navigator = Navigator.of(
-                          context,
-                          rootNavigator: true,
-                        );
-                        navigator.pop();
-                        if (_isTeacherStaffPersona == true &&
-                            _loggedInStaffCode.isNotEmpty) {
-                          final display = await resolveLoggedInStaffDisplay();
-                          navigator.push(
-                            MaterialPageRoute(
-                              builder: (_) => StaffMarkAbsentForm(
-                                staff: StaffEntity(
-                                  id: 0,
-                                  name: display.fullName.isNotEmpty
-                                      ? display.fullName
-                                      : 'My Attendance',
-                                  primaryRoomId: 0,
-                                  photoUuid: display.profilePhotoUrl.isNotEmpty
-                                      ? display.profilePhotoUrl
-                                      : null,
-                                  staffCode: display.staffCode.isNotEmpty
-                                      ? display.staffCode
-                                      : _loggedInStaffCode,
-                                ),
-                              ),
-                            ),
-                          );
-                        } else {
-                          navigator.push(
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  const StaffSelectionMarkAbsentForm(),
-                            ),
-                          );
-                        }
-                      },
+                      onTap: isAbsentDisabledForStaff
+                          ? null
+                          : () async {
+                              final navigator = Navigator.of(
+                                context,
+                                rootNavigator: true,
+                              );
+                              navigator.pop();
+                              if (_isTeacherStaffPersona == true &&
+                                  _loggedInStaffCode.isNotEmpty) {
+                                final display =
+                                    await resolveLoggedInStaffDisplay();
+                                navigator.push(
+                                  MaterialPageRoute(
+                                    builder: (_) => StaffMarkAbsentForm(
+                                      staff: StaffEntity(
+                                        id: 0,
+                                        name: display.fullName.isNotEmpty
+                                            ? display.fullName
+                                            : 'My Attendance',
+                                        primaryRoomId: 0,
+                                        photoUuid:
+                                            display.profilePhotoUrl.isNotEmpty
+                                            ? display.profilePhotoUrl
+                                            : null,
+                                        staffCode: display.staffCode.isNotEmpty
+                                            ? display.staffCode
+                                            : _loggedInStaffCode,
+                                      ),
+                                    ),
+                                  ),
+                                );
+                              } else {
+                                navigator.push(
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        const StaffSelectionMarkAbsentForm(),
+                                  ),
+                                );
+                              }
+                            },
                       context: context,
                     ),
                   ),
@@ -1219,26 +1306,25 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         navigator.pop();
         if (isStaffTab) {
           if (_isTeacherStaffPersona == true) {
-            // Staff persona: only allow viewing own attendance profile.
+            // Staff persona: only allow viewing own attendance profile. Open it
+            // IN-PLACE inside the app shell via the router (the same way the
+            // admin case below does) so the bottom nav stays functional and
+            // tapping again while already on the page doesn't stack a duplicate
+            // detached page — `router.go` to the same location replaces rather
+            // than pushes.
             final display = await resolveLoggedInStaffDisplay();
-            if (display.staffCode.trim().isEmpty) {
+            final staffCode = display.staffCode.trim();
+            if (staffCode.isEmpty) {
               return;
             }
-            navigator.push(
-              MaterialPageRoute(
-                builder: (_) => StaffAttendanceProfile(
-                  staffCode: display.staffCode,
-                  staffId: 0,
-                  staffName: display.fullName.isNotEmpty
-                      ? display.fullName
-                      : '-',
-                  staffPhotoUuid: display.profilePhotoUrl.isNotEmpty
-                      ? display.profilePhotoUrl
-                      : null,
-                  roomName: '',
-                ),
-              ),
+            final uri = Uri(
+              path: '${StaffAttendanceProfile.routeName}-by-code',
+              queryParameters: {
+                'code': staffCode,
+                'name': display.fullName.isNotEmpty ? display.fullName : '-',
+              },
             );
+            router.go(uri.toString());
           } else {
             // Admin: open the staff attendance tabbed view inside the app
             // shell (via the router) so the bottom navigation bar stays

@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubi
 import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 
@@ -30,6 +31,7 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
   final StudentAttendanceProfileCubit studentAttendanceProfileCubit;
   final CommunicationCubit communicationCubit;
   final StudentNewslettersCubit studentNewslettersCubit;
+  final ParentBillingCubit parentBillingCubit;
   final GeofenceCubit geofenceCubit;
   final ParentChildCubit parentChildCubit;
 
@@ -41,9 +43,14 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
     required this.studentAttendanceProfileCubit,
     required this.communicationCubit,
     required this.studentNewslettersCubit,
+    required this.parentBillingCubit,
     required this.geofenceCubit,
     required this.parentChildCubit,
   }) : super(const DashboardState(status: DashboardStatus.initial)) {
+    // Billing is family/guardian-scoped (not per-child), so load it once here
+    // and keep it alive for the dashboard's lifetime. It has its own loading UI
+    // and is intentionally NOT folded into the aggregated dashboard state.
+    parentBillingCubit.load();
     // Subscribe to child cubits to aggregate their states reactively
     _subscriptions.add(myChildsDayCubit.stream.listen((_) => _updateState()));
     _subscriptions.add(
@@ -181,6 +188,7 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
 
     // Re-validate GPS position immediately on refresh
     unawaited(geofenceCubit.refreshSettings());
+    unawaited(parentBillingCubit.refresh());
 
     final now = DateTime.now();
     final fromDate = DateTime(now.year, now.month, 1);
@@ -217,6 +225,7 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
     studentAttendanceProfileCubit.close();
     communicationCubit.close();
     studentNewslettersCubit.close();
+    parentBillingCubit.close();
 
     // GeofenceCubit is a singleton — do NOT close it here
     return super.close();

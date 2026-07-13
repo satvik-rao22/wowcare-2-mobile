@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
@@ -246,6 +247,9 @@ abstract class StudentRemoteDataSource {
     required String userCode,
   });
 
+  /// School-level student settings via `GET /api/v1/student-settings`.
+  Future<StudentSettings> getStudentSettings({required String schoolCode});
+
   /// Fetches children linked to a guardian via
   /// `GET /api/v1/guardian/children`.
   ///
@@ -271,6 +275,13 @@ abstract class StudentRemoteDataSource {
   /// Updates a guardian via `PATCH /api/v1/guardian/{code}`.
   Future<String> updateGuardian({
     required String code,
+    required Map<String, dynamic> body,
+  });
+
+  /// Updates the logged-in guardian's own profile via
+  /// `PATCH /api/v1/guardian/my-profile`. The guardian is identified by the
+  /// `code` field inside [body].
+  Future<String> updateGuardianMyProfile({
     required Map<String, dynamic> body,
   });
 
@@ -1336,6 +1347,37 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   }
 
   @override
+  Future<StudentSettings> getStudentSettings({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentSettings,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+
+    final root = response.data;
+    final data = root is Map<String, dynamic> ? root['data'] : null;
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student settings API response format');
+    }
+    bool asBool(dynamic v) => v == true;
+    return StudentSettings(
+      code: (data['code'] ?? '').toString(),
+      schoolCode: (data['schoolCode'] ?? '').toString(),
+      organizationCode: (data['organizationCode'] ?? '').toString(),
+      canParentEditChildHealthRecords:
+          asBool(data['canParentEditChildHealthRecords']),
+      canStaffEditTheirOwnHealthRecords:
+          asBool(data['canStaffEditTheirOwnHealthRecords']),
+    );
+  }
+
+  @override
   Future<List<Map<String, dynamic>>> getGuardianChildren({
     required String guardianCode,
     required String schoolCode,
@@ -1421,6 +1463,25 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
 
     final data = response.data! as Map<String, dynamic>;
     return data['message']?.toString() ?? 'Guardian updated successfully';
+  }
+
+  @override
+  Future<String> updateGuardianMyProfile({
+    required Map<String, dynamic> body,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.guardianMyProfile,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(endpoint, data: body);
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected guardian my-profile update API response format');
+    }
+
+    final data = response.data! as Map<String, dynamic>;
+    return data['message']?.toString() ?? 'Profile updated successfully';
   }
 
   @override

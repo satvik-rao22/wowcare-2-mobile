@@ -26,6 +26,7 @@ import 'package:wowcare/presentation/features/notifications/cubit/push_notificat
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_navigator.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
@@ -413,6 +414,12 @@ class MyApp extends StatelessWidget {
         // startWatching() is called in GlobalScaffold.initState() after login.
         BlocProvider<UnreadBadgeCubit>(
           create: (_) => serviceLocator<UnreadBadgeCubit>(),
+        ),
+        // Same rationale as UnreadBadgeCubit: provided at root so CustomAppBar's
+        // notification bell badge is satisfied on every route. load() is called
+        // in GlobalScaffold.initState() after login.
+        BlocProvider<NotificationBadgeCubit>(
+          create: (_) => serviceLocator<NotificationBadgeCubit>(),
         ),
       ],
       child: BlocBuilder<ThemeCubit, ThemeData>(

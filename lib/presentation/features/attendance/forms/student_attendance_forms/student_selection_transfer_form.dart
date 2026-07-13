@@ -15,6 +15,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
 import 'student_transfer_form.dart';
 
@@ -81,8 +83,14 @@ class _StudentSelectionTransferFormState
   }
 
   Future<void> _loadClassrooms() async {
+    // Cross-class enabled → list ALL classrooms (like an admin); else scope to
+    // the teacher's allowed classrooms.
+    final crossClass =
+        await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+      storage: serviceLocator<StorageService>(),
+    );
     _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: true,
+      applyAttendanceStaffScope: !crossClass,
     );
 
     if (!_classroomCubit.state.isLoading &&

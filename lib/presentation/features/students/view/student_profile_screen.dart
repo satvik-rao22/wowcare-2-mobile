@@ -14,6 +14,9 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
+import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_documents_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_health_tab.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen_tabs/student_important_dates_tab.dart';
@@ -25,6 +28,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
@@ -120,6 +124,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   bool _isUploadingProfilePhoto = false;
   double _profilePhotoUploadPercent = 0;
 
+  /// School-level student settings; gates Health/Documents editing for the
+  /// guardian and staff personas. Null until loaded (edit stays off meanwhile).
+  StudentSettings? _studentSettings;
+
   @override
   void initState() {
     super.initState();
@@ -138,6 +146,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _displayClassroom = widget.classroom;
     _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
+    _loadStudentSettings();
     // Deep-link case: opened by code straight to a non-Profile tab. The profile
     // fetch that fills the header (name/classroom) lives inside the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on another
@@ -153,6 +162,37 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         // If no ClassroomCubit is provided above, build() will wrap with one.
       }
     });
+  }
+
+  /// Loads school-level student settings so the Health/Documents tabs know
+  /// whether the current persona may edit. Best-effort: on failure editing
+  /// stays disabled for guardian/staff (admins keep their module-access default).
+  Future<void> _loadStudentSettings() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (school.isEmpty) return;
+      final settings = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentSettings(schoolCode: school);
+      if (!mounted) return;
+      setState(() => _studentSettings = settings);
+    } catch (e) {
+      AppLogger.d('[StudentProfile] student settings load failed: $e');
+    }
+  }
+
+  /// Whether the current persona may edit the Health tab and Documents:
+  /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords], admin → module access.
+  bool _canEditHealthAndDocuments(RoleCubit role) {
+    if (role.isParent) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    if (role.isStaff) {
+      return _studentSettings?.canStaffEditTheirOwnHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
   }
 
   /// Loads the student's profile at the screen level so the header (name,
@@ -565,6 +605,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       role,
       AppAccessModules.student,
     );
+    final canEditHealthDocs = _canEditHealthAndDocuments(role);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -637,6 +678,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  canEdit: canEditHealthDocs,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
@@ -656,6 +698,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  canEdit: canEditHealthDocs,
                   highlightCode: widget.highlightCode,
                 ),
               ],
@@ -1069,38 +1112,129 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
               );
             },
           ),
-          _buildActionIcon(
-            context,
-            role,
-            MediaRes.billing_drawer_icon,
-            enabled: role.canAccessAny([
-              AppAccessModules.transaction,
-              AppAccessModules.invoices,
-              AppAccessModules.recurringPlans,
-              AppAccessModules.billingSettings,
-            ]),
-            onTap: () {
-              final billingOk = role.canAccessAny([
+          // Billing is hidden for the staff persona; admins open the student's
+          // family billing profile, other personas see the info hint.
+          if (!role.isStaff)
+            _buildActionIcon(
+              context,
+              role,
+              MediaRes.billing_drawer_icon,
+              enabled: role.canAccessAny([
                 AppAccessModules.transaction,
                 AppAccessModules.invoices,
                 AppAccessModules.recurringPlans,
                 AppAccessModules.billingSettings,
-              ]);
-              if (billingOk) {
+              ]),
+              onTap: () {
+                final billingOk = role.canAccessAny([
+                  AppAccessModules.transaction,
+                  AppAccessModules.invoices,
+                  AppAccessModules.recurringPlans,
+                  AppAccessModules.billingSettings,
+                ]);
+                if (!billingOk) {
+                  ModuleAccess.showFeatureRestricted(context);
+                  return;
+                }
+                // Admin persona (role == 'admin', i.e. isAdmin but not staff):
+                // open this student's family billing profile.
+                if (role.isAdmin && !role.isStaff) {
+                  final code = (_activeStudentCode ?? '').trim();
+                  if (code.isEmpty) {
+                    CoreUtils.showTopSnackBar(
+                      context: context,
+                      message:
+                          'Student details not loaded yet. Please try again.',
+                      isError: true,
+                    );
+                    return;
+                  }
+                  _openStudentFamilyBilling(context, code);
+                  return;
+                }
                 CoreUtils.showTopSnackBar(
                   context: context,
                   message:
                       'Billing is available from the Transactions section.',
                   isError: false,
                 );
-              } else {
-                ModuleAccess.showFeatureRestricted(context);
-              }
-            },
-          ),
+              },
+            ),
         ],
       ),
     );
+  }
+
+  /// Resolves the student's family (`FAM_…`) from the billing family-summary —
+  /// the family-ledger API is keyed by the FAMILY owner code, not the student
+  /// code — then opens that family's billing profile. Mirrors how the admin
+  /// billing screen navigates.
+  Future<void> _openStudentFamilyBilling(
+    BuildContext context,
+    String studentCode,
+  ) async {
+    final storage = serviceLocator<StorageService>();
+    final org =
+        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final school =
+        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    if (!context.mounted) return;
+    if (org.isEmpty || school.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Missing school context. Please try again.',
+        isError: true,
+      );
+      return;
+    }
+
+    CoreUtils.showLoadingDialog(context);
+    try {
+      final families = await serviceLocator<GetFamilySummaryUseCase>()(
+        organizationCode: org,
+        school: school,
+      );
+      FamilySummaryEntity? family;
+      for (final f in families) {
+        if (f.studentCodes.contains(studentCode)) {
+          family = f;
+          break;
+        }
+      }
+      if (!context.mounted) return;
+      // showLoadingDialog uses the root navigator, so dismiss it there.
+      Navigator.of(context, rootNavigator: true).pop();
+      if (family == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'No billing profile found for this student.',
+          isError: true,
+        );
+        return;
+      }
+      final resolved = family;
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => TransactionDetailsScreen(
+            ownerType:
+                resolved.ownerType.isNotEmpty ? resolved.ownerType : 'FAMILY',
+            ownerCode: resolved.ownerCode,
+            familyName: resolved.familyName.isNotEmpty
+                ? resolved.familyName
+                : _displayName,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+      // showLoadingDialog uses the root navigator, so dismiss it there.
+      Navigator.of(context, rootNavigator: true).pop();
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to open billing. Please try again.',
+        isError: true,
+      );
+    }
   }
 
   Widget _buildActionIcon(

@@ -362,11 +362,11 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   private func showLocalNotification(isInside: Bool) {
     let content = UNMutableNotificationContent()
     if isInside {
-      content.title = "Attendance Enabled"
-      content.body = "You are within the school radius. You can now sign in."
+      content.title = "Sign In/Out"
+      content.body = "Tap here to Sign In."
     } else {
-      content.title = "Attendance Disabled"
-      content.body = "You moved outside the allowed school radius."
+      content.title = "You have left the school"
+      content.body = "Tap here to Sign Out."
     }
     content.sound = .default
     content.userInfo = ["action": isInside ? "GEOFENCE_ENTER" : "GEOFENCE_EXIT"]

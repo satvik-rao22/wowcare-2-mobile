@@ -1,6 +1,7 @@
 import 'package:isar/isar.dart';
 import 'package:wowcare/core/util/isar_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 part 'message_collection.g.dart';
 
 @collection
@@ -63,11 +64,11 @@ class MessageCollection {
       ..attachments = message.attachments
           .map((e) => ChatAttachmentCollection.fromEntity(e))
           .toList()
-      ..reactions = message.reactions.entries
+      ..reactions = message.reactions
           .map(
-            (e) => MessageReactionCollection()
-              ..userId = e.key
-              ..emoji = e.value,
+            (r) => MessageReactionCollection()
+              ..userId = r.userCode
+              ..emoji = r.emoji,
           )
           .toList();
   }
@@ -112,7 +113,9 @@ class MessageCollection {
       deliveredTo: deliveredTo?.map((e) => e.toEntity()).toList() ?? [],
       readBy: readBy?.map((e) => e.toEntity()).toList() ?? [],
       attachments: attachments?.map((e) => e.toEntity()).toList() ?? [],
-      reactions: {for (var r in reactions ?? []) r.userId: r.emoji},
+      reactions: (reactions ?? [])
+          .map((r) => ReactionEntry(userCode: r.userId, emoji: r.emoji))
+          .toList(),
     );
   }
 }

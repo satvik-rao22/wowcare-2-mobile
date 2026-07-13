@@ -1,4 +1,3 @@
-import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -6,6 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -127,90 +127,55 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     }
   }
 
-  Future<void> _selectTime(String day, String timeType) async {
-    final currentSchedule = _schedule[day];
-    final bounds = _schoolBoundsForDay(day);
-    final defaultStart = bounds != null
-        ? _minutesToTimeOfDay(bounds.$1)
-        : _schoolStartTime;
-    final defaultEnd = bounds != null
-        ? _minutesToTimeOfDay(bounds.$2)
-        : _schoolEndTime;
-    final currentTime = timeType == 'start'
-        ? (currentSchedule?['start'] ?? defaultStart)
-        : (currentSchedule?['end'] ?? defaultEnd);
+  /// Applies a time picked by [GradientTimePickerField] (which opens the themed
+  /// picker itself) and runs the same working-hours / copy-to-all-days
+  /// validation the screen enforced before.
+  void _applyPickedTime(String day, String timeType, TimeOfDay picked) {
+    final nextDayTimes = Map<String, TimeOfDay>.from(_schedule[day] ?? {});
+    nextDayTimes[timeType] = picked;
 
-    try {
-      final picked = await showTimePicker(
+    final dayErr = _validateDaySchedule(day, nextDayTimes);
+    if (dayErr != null) {
+      CoreUtils.showTopSnackBar(
         context: context,
-        initialTime: currentTime,
-        builder: (context, child) {
-          final theme = Theme.of(context);
-          return Theme(
-            data: theme.copyWith(
-              timePickerTheme: const TimePickerThemeData(
-                dialHandColor: Colors.white,
-              ),
-              colorScheme: theme.colorScheme.copyWith(
-                primary: AppColors.primaryColor,
-                secondary: AppColors.primaryColor,
-              ),
-            ),
-            child: child!,
-          );
-        },
+        message: dayErr,
+        isError: true,
       );
+      return;
+    }
 
-      if (picked != null) {
-        final nextDayTimes = Map<String, TimeOfDay>.from(_schedule[day] ?? {});
-        nextDayTimes[timeType] = picked;
-
-        final dayErr = _validateDaySchedule(day, nextDayTimes);
-        if (dayErr != null) {
+    if (_copyToAllDays &&
+        nextDayTimes['start'] != null &&
+        nextDayTimes['end'] != null) {
+      final start = nextDayTimes['start']!;
+      final end = nextDayTimes['end']!;
+      final merged = <String, Map<String, TimeOfDay>>{};
+      for (final d in _workingDays) {
+        merged[d] = {
+          'start': TimeOfDay(hour: start.hour, minute: start.minute),
+          'end': TimeOfDay(hour: end.hour, minute: end.minute),
+        };
+      }
+      for (final d in _workingDays) {
+        final err = _validateDaySchedule(d, merged[d]);
+        if (err != null) {
           CoreUtils.showTopSnackBar(
             context: context,
-            message: dayErr,
+            message: err,
             isError: true,
           );
           return;
         }
-
-        if (_copyToAllDays &&
-            nextDayTimes['start'] != null &&
-            nextDayTimes['end'] != null) {
-          final start = nextDayTimes['start']!;
-          final end = nextDayTimes['end']!;
-          final merged = <String, Map<String, TimeOfDay>>{};
-          for (final d in _workingDays) {
-            merged[d] = {
-              'start': TimeOfDay(hour: start.hour, minute: start.minute),
-              'end': TimeOfDay(hour: end.hour, minute: end.minute),
-            };
-          }
-          for (final d in _workingDays) {
-            final err = _validateDaySchedule(d, merged[d]);
-            if (err != null) {
-              CoreUtils.showTopSnackBar(
-                context: context,
-                message: err,
-                isError: true,
-              );
-              return;
-            }
-          }
-          setState(() {
-            _schedule = merged;
-          });
-          return;
-        }
-
-        setState(() {
-          _schedule[day] = nextDayTimes;
-        });
       }
-    } catch (e) {
-      AppLogger.d('Error opening time picker: $e');
+      setState(() {
+        _schedule = merged;
+      });
+      return;
     }
+
+    setState(() {
+      _schedule[day] = nextDayTimes;
+    });
   }
 
   void _removeDay(String day) {
@@ -677,26 +642,28 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
             Row(
               children: [
                 Expanded(
-                  child: _buildTimeField(
-                    'Start Time',
-                    schedule!['start'] ??
+                  child: GradientTimePickerField(
+                    label: 'Start Time',
+                    minuteInterval: 15,
+                    time: schedule!['start'] ??
                         (_schoolBoundsForDay(day) != null
                             ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$1)
                             : _schoolStartTime),
-                    () => _selectTime(day, 'start'),
-                    responsive,
+                    onTimeSelected: (picked) =>
+                        _applyPickedTime(day, 'start', picked),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: _buildTimeField(
-                    'End Time',
-                    schedule['end'] ??
+                  child: GradientTimePickerField(
+                    label: 'End Time',
+                    minuteInterval: 15,
+                    time: schedule['end'] ??
                         (_schoolBoundsForDay(day) != null
                             ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$2)
                             : _schoolEndTime),
-                    () => _selectTime(day, 'end'),
-                    responsive,
+                    onTimeSelected: (picked) =>
+                        _applyPickedTime(day, 'end', picked),
                   ),
                 ),
               ],
@@ -736,51 +703,4 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     );
   }
 
-  Widget _buildTimeField(
-    String label,
-    TimeOfDay time,
-    VoidCallback onTap,
-    ResponsiveHelper responsive,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontFamily: 'Manrope',
-            color: Colors.grey.shade600,
-          ),
-        ),
-        const SizedBox(height: 4),
-        GestureDetector(
-          onTap: onTap,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0x66573353)),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  _formatTime(time),
-                  style: TextStyle(
-                    fontFamily: 'Manrope',
-                    fontSize: responsive.inputFontSize,
-                    fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
-                  ),
-                ),
-                Icon(Icons.access_time, size: 18, color: Colors.grey.shade600),
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }

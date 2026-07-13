@@ -618,8 +618,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           child: EmojiPicker(
             onEmojiSelected: (category, emoji) {
               Navigator.pop(sheetContext); // close picker
-              final myReaction = message.reactions[_currentUserCode ?? 'me'];
-              if (myReaction == emoji.emoji) {
+              if (message.userHasReaction(
+                _currentUserCode ?? '',
+                emoji.emoji,
+              )) {
                 cubit.removeReaction(
                   convCode,
                   message.code,
@@ -655,6 +657,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           ),
         );
       },
+    );
+  }
+
+  /// Delete a message and acknowledge the real outcome: a success toast, or the
+  /// server's reason (e.g. the delete window has passed) instead of a premature
+  /// "deleted" message that would be wrong when the server rejects it.
+  Future<void> _deleteMessageWithFeedback(String messageCode) async {
+    final failure = await context.read<CommunicationCubit>().deleteMessage(
+      widget.parentInfo['code'] as String,
+      messageCode,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: failure == null
+          ? 'Message deleted successfully'
+          : (failure.message ?? 'Failed to delete message.'),
+      isSuccess: failure == null,
     );
   }
 
@@ -784,17 +804,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         : () => _startEditing(message),
                     onDelete: message.isDeleted
                         ? null
-                        : () {
-                            context.read<CommunicationCubit>().deleteMessage(
-                              widget.parentInfo['code'] as String,
-                              message.code,
-                            );
-                            CoreUtils.showTopSnackBar(
-                              context: context,
-                              message: 'Message deleted successfully',
-                              isSuccess: true,
-                            );
-                          },
+                        : () => _deleteMessageWithFeedback(message.code),
                     onInfo: message.isDeleted
                         ? null
                         : () => _showMessageStatusDialog(context, message),
@@ -802,9 +812,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                       _scrollToMessage(quoteId);
                     },
                     onReactionAdded: (emoji) {
-                      final myReaction =
-                          message.reactions[_currentUserCode ?? 'me'];
-                      if (myReaction == emoji) {
+                      if (message.userHasReaction(
+                        _currentUserCode ?? '',
+                        emoji,
+                      )) {
                         context.read<CommunicationCubit>().removeReaction(
                           widget.parentInfo['code'] as String,
                           message.code,
@@ -1127,26 +1138,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () {
-                                                                context
-                                                                    .read<
-                                                                      CommunicationCubit
-                                                                    >()
-                                                                    .deleteMessage(
-                                                                      widget.parentInfo['code']
-                                                                          as String,
-                                                                      message
-                                                                          .code,
-                                                                    );
-                                                                CoreUtils.showTopSnackBar(
-                                                                  context:
-                                                                      context,
-                                                                  message:
-                                                                      'Message deleted successfully',
-                                                                  isSuccess:
-                                                                      true,
-                                                                );
-                                                              },
+                                                            : () =>
+                                                                  _deleteMessageWithFeedback(
+                                                                    message
+                                                                        .code,
+                                                                  ),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1162,12 +1158,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          final myReaction =
-                                                              message
-                                                                  .reactions[_currentUserCode ??
-                                                                  'me'];
-                                                          if (myReaction ==
-                                                              emoji) {
+                                                          if (message
+                                                              .userHasReaction(
+                                                                _currentUserCode ??
+                                                                    '',
+                                                                emoji,
+                                                              )) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -1440,26 +1436,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () {
-                                                                context
-                                                                    .read<
-                                                                      CommunicationCubit
-                                                                    >()
-                                                                    .deleteMessage(
-                                                                      widget.parentInfo['code']
-                                                                          as String,
-                                                                      message
-                                                                          .code,
-                                                                    );
-                                                                CoreUtils.showTopSnackBar(
-                                                                  context:
-                                                                      context,
-                                                                  message:
-                                                                      'Message deleted successfully',
-                                                                  isSuccess:
-                                                                      true,
-                                                                );
-                                                              },
+                                                            : () =>
+                                                                  _deleteMessageWithFeedback(
+                                                                    message
+                                                                        .code,
+                                                                  ),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1475,12 +1456,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          final myReaction =
-                                                              message
-                                                                  .reactions[_currentUserCode ??
-                                                                  'me'];
-                                                          if (myReaction ==
-                                                              emoji) {
+                                                          if (message
+                                                              .userHasReaction(
+                                                                _currentUserCode ??
+                                                                    '',
+                                                                emoji,
+                                                              )) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -1758,26 +1739,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         onDelete:
                                                             message.isDeleted
                                                             ? null
-                                                            : () {
-                                                                context
-                                                                    .read<
-                                                                      CommunicationCubit
-                                                                    >()
-                                                                    .deleteMessage(
-                                                                      widget.parentInfo['code']
-                                                                          as String,
-                                                                      message
-                                                                          .code,
-                                                                    );
-                                                                CoreUtils.showTopSnackBar(
-                                                                  context:
-                                                                      context,
-                                                                  message:
-                                                                      'Message deleted successfully',
-                                                                  isSuccess:
-                                                                      true,
-                                                                );
-                                                              },
+                                                            : () =>
+                                                                  _deleteMessageWithFeedback(
+                                                                    message
+                                                                        .code,
+                                                                  ),
                                                         onInfo:
                                                             message.isDeleted
                                                             ? null
@@ -1793,12 +1759,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                               );
                                                             },
                                                         onReactionAdded: (emoji) {
-                                                          final myReaction =
-                                                              message
-                                                                  .reactions[_currentUserCode ??
-                                                                  'me'];
-                                                          if (myReaction ==
-                                                              emoji) {
+                                                          if (message
+                                                              .userHasReaction(
+                                                                _currentUserCode ??
+                                                                    '',
+                                                                emoji,
+                                                              )) {
                                                             context
                                                                 .read<
                                                                   CommunicationCubit
@@ -2177,25 +2143,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () {
-                                                              context
-                                                                  .read<
-                                                                    CommunicationCubit
-                                                                  >()
-                                                                  .deleteMessage(
-                                                                    widget.parentInfo['code']
-                                                                        as String,
-                                                                    message
-                                                                        .code,
-                                                                  );
-                                                              CoreUtils.showTopSnackBar(
-                                                                context:
-                                                                    context,
-                                                                message:
-                                                                    'Message deleted',
-                                                                isSuccess: true,
-                                                              );
-                                                            },
+                                                            onDelete: () =>
+                                                                _deleteMessageWithFeedback(
+                                                                  message.code,
+                                                                ),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2207,12 +2158,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              final myReaction =
-                                                                  message
-                                                                      .reactions[_currentUserCode ??
-                                                                      'me'];
-                                                              if (myReaction ==
-                                                                  emoji) {
+                                                              if (message
+                                                                  .userHasReaction(
+                                                                    _currentUserCode ??
+                                                                        '',
+                                                                    emoji,
+                                                                  )) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit
@@ -2494,25 +2445,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () {
-                                                              context
-                                                                  .read<
-                                                                    CommunicationCubit
-                                                                  >()
-                                                                  .deleteMessage(
-                                                                    widget.parentInfo['code']
-                                                                        as String,
-                                                                    message
-                                                                        .code,
-                                                                  );
-                                                              CoreUtils.showTopSnackBar(
-                                                                context:
-                                                                    context,
-                                                                message:
-                                                                    'Message deleted',
-                                                                isSuccess: true,
-                                                              );
-                                                            },
+                                                            onDelete: () =>
+                                                                _deleteMessageWithFeedback(
+                                                                  message.code,
+                                                                ),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2524,12 +2460,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              final myReaction =
-                                                                  message
-                                                                      .reactions[_currentUserCode ??
-                                                                      'me'];
-                                                              if (myReaction ==
-                                                                  emoji) {
+                                                              if (message
+                                                                  .userHasReaction(
+                                                                    _currentUserCode ??
+                                                                        '',
+                                                                    emoji,
+                                                                  )) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit
@@ -2821,25 +2757,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     .requestFocus();
                                                               });
                                                             },
-                                                            onDelete: () {
-                                                              context
-                                                                  .read<
-                                                                    CommunicationCubit
-                                                                  >()
-                                                                  .deleteMessage(
-                                                                    widget.parentInfo['code']
-                                                                        as String,
-                                                                    message
-                                                                        .code,
-                                                                  );
-                                                              CoreUtils.showTopSnackBar(
-                                                                context:
-                                                                    context,
-                                                                message:
-                                                                    'Message deleted',
-                                                                isSuccess: true,
-                                                              );
-                                                            },
+                                                            onDelete: () =>
+                                                                _deleteMessageWithFeedback(
+                                                                  message.code,
+                                                                ),
                                                             onInfo: () =>
                                                                 _showMessageStatusDialog(
                                                                   context,
@@ -2851,12 +2772,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                       quoteId,
                                                                     ),
                                                             onReactionAdded: (emoji) {
-                                                              final myReaction =
-                                                                  message
-                                                                      .reactions[_currentUserCode ??
-                                                                      'me'];
-                                                              if (myReaction ==
-                                                                  emoji) {
+                                                              if (message
+                                                                  .userHasReaction(
+                                                                    _currentUserCode ??
+                                                                        '',
+                                                                    emoji,
+                                                                  )) {
                                                                 context
                                                                     .read<
                                                                       CommunicationCubit
@@ -3787,6 +3708,23 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
+  /// Resolves a receipt to a display name. Realtime receipts carry an empty
+  /// [RecipientStatus.name] (no display name at that layer), so fall back to
+  /// the conversation participant list keyed by user code, then a generic
+  /// label — never the raw user code.
+  String _resolveRecipientName(RecipientStatus r) {
+    if (r.name.trim().isNotEmpty) return r.name.trim();
+    final code = r.userId;
+    if (code != null && code.isNotEmpty) {
+      final match = _participants
+          .where((p) => p.userCode == code && p.userName.trim().isNotEmpty)
+          .firstOrNull;
+      if (match != null) return match.userName.trim();
+      if (code == _currentUserCode) return 'You';
+    }
+    return 'Participant';
+  }
+
   Widget _buildRecipientList({
     required String title,
     required IconData icon,
@@ -3835,9 +3773,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           Flexible(
                             fit: FlexFit.loose,
                             child: CustomTextWidget(
-                              text: r.name.trim().isNotEmpty
-                                  ? r.name
-                                  : 'Participant',
+                              text: _resolveRecipientName(r),
                               fontSize: 13,
                             ),
                           ),

@@ -31,7 +31,6 @@ class StaffMarkAbsentForm extends StatefulWidget {
 class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   late final StaffMarkAbsentFormCubit _cubit;
   final TextEditingController _notesController = TextEditingController();
-  final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _typeController = TextEditingController();
 
   @override
@@ -44,7 +43,6 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   @override
   void dispose() {
     _notesController.dispose();
-    _reasonController.dispose();
     _typeController.dispose();
     // ignore: discarded_futures
     _cubit.close();
@@ -53,7 +51,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
 
   Future<void> _handleSubmit() async {
     final outcome = await _cubit.submit(
-      reason: _reasonController.text,
+      reason: '',
       type: _typeController.text,
       notes: _notesController.text,
     );
@@ -106,76 +104,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppText.label('Reason'),
             const SizedBox(height: 8),
-            TextField(
-              controller: _reasonController,
-              decoration: InputDecoration(
-                hintText: 'Enter absence reason',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: const Color.fromRGBO(87, 51, 83, 0.5),
-                  fontSize: 15,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: AppColors.cardColor,
-              ),
-            ),
-            // const SizedBox(height: 16),
-            // const AppText.label('Absence Type'),
-            // const SizedBox(height: 8),
-            // TextField(
-            //   controller: _typeController,
-            //   decoration: InputDecoration(
-            //     hintText: 'Enter absence type',
-            //     hintStyle: AppTextStyles.body.copyWith(
-            //       color: const Color.fromRGBO(87, 51, 83, 0.5),
-            //       fontSize: 15,
-            //     ),
-            //     border: OutlineInputBorder(
-            //       borderRadius: BorderRadius.circular(10),
-            //       borderSide: const BorderSide(
-            //         color: Color.fromRGBO(87, 51, 83, 0.4),
-            //       ),
-            //     ),
-            //     enabledBorder: OutlineInputBorder(
-            //       borderRadius: BorderRadius.circular(10),
-            //       borderSide: const BorderSide(
-            //         color: Color.fromRGBO(87, 51, 83, 0.4),
-            //         width: 1,
-            //       ),
-            //     ),
-            //     focusedBorder: OutlineInputBorder(
-            //       borderRadius: BorderRadius.circular(10),
-            //       borderSide: const BorderSide(
-            //         color: Color.fromRGBO(87, 51, 83, 0.4),
-            //         width: 2,
-            //       ),
-            //     ),
-            //     filled: true,
-            //     fillColor: AppColors.cardColor,
-            //   ),
-            // ),
-            const SizedBox(height: 24),
             Row(
               children: [
                 Expanded(

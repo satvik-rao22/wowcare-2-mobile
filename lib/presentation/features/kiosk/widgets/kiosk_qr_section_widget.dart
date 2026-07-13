@@ -29,7 +29,9 @@ class KioskQrSectionWidget extends StatelessWidget {
     }
 
     if (state is KioskDashboardError) {
-      return _buildErrorState(state as KioskDashboardError);
+      // Always show QR even on error - the error snackbar handles the message
+      AppLogger.d('[Kiosk] Error state detected - keeping QR visible');
+      return _buildLoadingState();
     }
 
     if (state is KioskDashboardQrLoaded) {
@@ -81,54 +83,6 @@ class KioskQrSectionWidget extends StatelessWidget {
         const Text('Loading QR Code...', style: TextStyle(fontSize: 16)),
         const SizedBox(height: 40),
       ],
-    );
-  }
-
-  Widget _buildErrorState(KioskDashboardError errorState) {
-    // Ensure school name is NEVER blank - use fallback if empty
-    final displayName = schoolName.trim().isNotEmpty ? schoolName : 'School';
-    AppLogger.d('[Kiosk] Error state - displaying school name: $displayName');
-
-    return SingleChildScrollView(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Text(
-            displayName,
-            style: const TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          const Text(
-            'Scan the QR Code',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w500),
-          ),
-          const SizedBox(height: 20),
-          Container(
-            height: 250,
-            width: 250,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.black, width: 2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            padding: const EdgeInsets.all(12),
-            child: _buildQrUnavailable('Unable to load QR code', null),
-          ),
-          const SizedBox(height: 20),
-          Text(
-            errorState.message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-          const SizedBox(height: 40),
-        ],
-      ),
     );
   }
 
@@ -199,7 +153,7 @@ class KioskQrSectionWidget extends StatelessWidget {
           version: QrVersions.auto,
           size: 220,
           gapless: false,
-          errorCorrectionLevel: QrErrorCorrectLevel.H,
+          errorCorrectionLevel: QrErrorCorrectLevel.M,
           errorStateBuilder: (context, error) {
             AppLogger.w('[Kiosk] QR generation failed: $error');
             return _buildQrUnavailable('Failed to generate QR', null);

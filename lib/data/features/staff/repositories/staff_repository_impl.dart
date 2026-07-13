@@ -1239,6 +1239,29 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           model.staffWithoutActivePhysicalCheckupCount,
     );
   }
+
+  @override
+  Future<bool> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  }) async {
+    final response = await _remoteDataSource.updateWorkBreakReminder(
+      staffCode: staffCode,
+      enabled: enabled,
+    );
+
+    if (!response.success) {
+      throw Exception(response.message.isNotEmpty
+          ? response.message
+          : 'Failed to update work break reminder');
+    }
+
+    AppLogger.d(
+      '[WorkBreakReminder] Updated for staffCode=$staffCode, enabled=$enabled',
+    );
+
+    return enabled;
+  }
 }
 
 

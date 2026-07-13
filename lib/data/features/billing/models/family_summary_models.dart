@@ -3,6 +3,7 @@ class FamilySummaryModel {
   const FamilySummaryModel({
     required this.ownerType,
     required this.ownerCode,
+    required this.studentCodes,
     required this.familyName,
     required this.guardianName,
     required this.lastInvoiceAmount,
@@ -17,6 +18,7 @@ class FamilySummaryModel {
 
   final String ownerType;
   final String ownerCode;
+  final List<String> studentCodes;
   final String familyName;
   final String guardianName;
   final double lastInvoiceAmount;
@@ -38,6 +40,10 @@ class FamilySummaryModel {
     return FamilySummaryModel(
       ownerType: (json['ownerType'] as String?) ?? '',
       ownerCode: (json['ownerCode'] as String?) ?? '',
+      studentCodes: (json['studentCodes'] as List<dynamic>?)
+              ?.whereType<String>()
+              .toList() ??
+          const <String>[],
       familyName: (json['familyName'] as String?) ?? '',
       guardianName: (json['guardianName'] as String?) ?? '',
       lastInvoiceAmount: d('lastInvoiceAmount'),

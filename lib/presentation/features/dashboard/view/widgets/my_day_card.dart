@@ -8,6 +8,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/work_break_reminder_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/qr_scan_button.dart';
@@ -84,11 +85,24 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     todayStatusRaw: _todayStatusRaw,
   );
 
-  bool get _canTransfer => _todayGate.canTransfer;
-  bool get _canMarkAbsent => _todayGate.canMarkAbsent;
+  /// Geofencing is the first-class gate for every self-attendance action:
+  /// staff must be within the school's geofence before any of Sign-In,
+  /// Sign-Out, Transfer or Mark-Absent become available. Within range, the
+  /// day's status (via [_todayGate]) decides which of the four apply.
+  StaffAttendanceActionAvailability _availability(
+    GeofenceState geofenceState,
+  ) => _todayGate.availabilityWithGeofence(geofenceState.isWithinGeofence);
 
-  bool get _markAbsentDisabled =>
-      !_staffIdentityLoaded || _staffCode.isEmpty || !_canMarkAbsent;
+  Map<String, String> _disabledReasons(GeofenceState geofenceState) =>
+      staffAttendanceDisabledReasonsWithGeofence(
+        _todayGate,
+        isWithinGeofence: geofenceState.isWithinGeofence,
+      );
+
+  bool _markAbsentDisabled(GeofenceState geofenceState) =>
+      !_staffIdentityLoaded ||
+      _staffCode.isEmpty ||
+      !_availability(geofenceState).absentEnabled;
 
   // Cached staff identity — loaded once in initState so button taps never hit
   // a timing window where storage hasn't resolved yet.
@@ -411,9 +425,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   }
 
   void _handleMarkAbsentDisabledTap() {
+    final geofenceState = context.read<GeofenceCubit>().state;
     final message = _todayGate.isAbsentToday
         ? 'Already marked absent for today.'
-        : (staffAttendanceDisabledReasons(_todayGate)['Absent'] ??
+        : (_disabledReasons(geofenceState)['Absent'] ??
               'Mark Absent is currently unavailable.');
     CoreUtils.showTopSnackBar(
       context: context,
@@ -871,13 +886,15 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return BlocListener<GeofenceCubit, GeofenceState>(
       listenWhen: (prev, curr) {
-        // Reset popup guard whenever the user exits the geofence so it shows
-        // again on the next entry (e.g. after signing out and re-entering).
+        // Reset popup guard whenever we leave withinRange — covers both
+        // actual zone exit (→ outsideRange) and a dashboard refresh cycle
+        // (→ fetchingSchoolLocation → withinRange). Without this, the guard
+        // would stay true across a refresh and block the sheet from re-showing.
         if (prev.status == GeofenceCubitStatus.withinRange &&
-            curr.status == GeofenceCubitStatus.outsideRange) {
+            curr.status != GeofenceCubitStatus.withinRange) {
           _geofencePopupShownThisEntry = false;
         }
-        // Fire only on the first transition INTO withinRange per entry.
+        // Fire only on the transition INTO withinRange.
         return prev.status != GeofenceCubitStatus.withinRange &&
             curr.status == GeofenceCubitStatus.withinRange;
       },
@@ -968,50 +985,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                       if (_hasShifts) const SizedBox(height: 12),
 
                       // ── Reminder toggle ──────────────────────────────────────
-                      Material(
-                        color: Colors.transparent,
-                        child: InkWell(
-                          onTap: () {},
-                          borderRadius: BorderRadius.circular(100),
-                          splashColor: AppColors.primaryColor.withValues(
-                            alpha: 0.1,
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SvgPicture.asset(
-                                  MediaRes.notificationsGradientIcon,
-                                ),
-                                const SizedBox(width: 8),
-                                ShaderMask(
-                                  shaderCallback: (bounds) =>
-                                      AppColors.buildPrimaryGradient()
-                                          .createShader(
-                                            Rect.fromLTWH(
-                                              0,
-                                              0,
-                                              bounds.width,
-                                              bounds.height,
-                                            ),
-                                          ),
-                                  child: Text(
-                                    'Send reminder',
-                                    style: const TextStyle(
-                                      color: AppColors.cardColor,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
+                      _ReminderToggleButton(staffCode: _staffCode),
                       const SizedBox(height: 8),
 
                       // ── Work time chip ───────────────────────────────────────
@@ -1070,11 +1044,20 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                           final roleProvider = context.watch<RoleCubit>();
                           final bool isStaff = roleProvider.isStaff;
                           final bool isAdmin = roleProvider.isAdmin;
-                          final bool isWithinGeofence =
-                              geofenceState.isWithinGeofence;
-                          // Both staff and admin: button enabled only when within geofence.
+                          final StaffAttendanceActionAvailability
+                          availability = _availability(geofenceState);
+                          final Map<String, String> disabledReasons =
+                              _disabledReasons(geofenceState);
+                          final bool markAbsentDisabled = _markAbsentDisabled(
+                            geofenceState,
+                          );
+                          // Sign button toggles Sign-In/Sign-Out depending on
+                          // today's status; enable per the action it currently represents.
                           final bool signButtonEnabled =
-                              (isStaff || isAdmin) && isWithinGeofence;
+                              (isStaff || isAdmin) &&
+                              (_isSignedIn
+                                  ? availability.signOutEnabled
+                                  : availability.signInEnabled);
                           // Show attendance buttons for both staff and admin
                           final bool showSignButton = isStaff || isAdmin;
                           // Show Transfer/Mark-Absent for staff and admin equally.
@@ -1093,17 +1076,16 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                       if (showSecondaryButtons && _isSignedIn)
                                         Expanded(
                                           child: Tooltip(
-                                            message: _canTransfer
+                                            message: availability.transferEnabled
                                                 ? ''
-                                                : staffAttendanceDisabledReasons(
-                                                        _todayGate,
-                                                      )['Transfer'] ??
+                                                : disabledReasons['Transfer'] ??
                                                       '',
                                             child: OutlinedButton.icon(
                                               onPressed:
                                                   (!_staffIdentityLoaded ||
                                                       _staffCode.isEmpty ||
-                                                      !_canTransfer)
+                                                      !availability
+                                                          .transferEnabled)
                                                   ? null
                                                   : _openTransferForSelf,
                                               icon: !_staffIdentityLoaded
@@ -1148,18 +1130,16 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                           !_isSignedIn)
                                         Expanded(
                                           child: GestureDetector(
-                                            onTap: _markAbsentDisabled
+                                            onTap: markAbsentDisabled
                                                 ? _handleMarkAbsentDisabledTap
                                                 : null,
                                             child: Tooltip(
-                                              message: _canMarkAbsent
+                                              message: availability.absentEnabled
                                                   ? ''
-                                                  : staffAttendanceDisabledReasons(
-                                                          _todayGate,
-                                                        )['Absent'] ??
+                                                  : disabledReasons['Absent'] ??
                                                         '',
                                               child: OutlinedButton.icon(
-                                                onPressed: _markAbsentDisabled
+                                                onPressed: markAbsentDisabled
                                                     ? null
                                                     : _openMarkAbsentForSelf,
                                                 icon: !_staffIdentityLoaded
@@ -1181,11 +1161,11 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 ),
                                                 style: OutlinedButton.styleFrom(
                                                   foregroundColor:
-                                                      _markAbsentDisabled
+                                                      markAbsentDisabled
                                                       ? Colors.grey[600]
                                                       : AppColors.themeColor,
                                                   side: BorderSide(
-                                                    color: _markAbsentDisabled
+                                                    color: markAbsentDisabled
                                                         ? Colors.grey[400]!
                                                         : AppColors.themeColor,
                                                   ),
@@ -1264,11 +1244,17 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 }
                                               : null,
                                           disabledConfirmTooltip:
+                                              disabledReasons[_isSignedIn
+                                                  ? 'Sign-Out'
+                                                  : 'Sign-in'] ??
                                               'You are not within geofencing Range',
                                           onDisabledConfirmTap: () {
                                             CoreUtils.showTopSnackBar(
                                               isWarning: true,
                                               message:
+                                                  disabledReasons[_isSignedIn
+                                                      ? 'Sign-Out'
+                                                      : 'Sign-in'] ??
                                                   'You are not within geofencing Range',
                                               context: context,
                                             );
@@ -1545,8 +1531,8 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
   Future<void> _init() async {
     try {
-      final cached =
-          await serviceLocator<GetCachedConversationsEntityUseCase>().call();
+      final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
+          .call();
       cached.fold((_) {}, (list) {
         if (mounted && list.isNotEmpty) {
           setState(() {
@@ -1575,11 +1561,12 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   }
 
   List<ConversationEntity> _top2(List<ConversationEntity> list) {
-    final sorted = [...list]..sort((a, b) {
-      final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
-      final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
-      return bt.compareTo(at);
-    });
+    final sorted = [...list]
+      ..sort((a, b) {
+        final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
+        final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
+        return bt.compareTo(at);
+      });
     return sorted.take(2).toList(growable: false);
   }
 
@@ -1730,7 +1717,9 @@ class _RecentChatRow extends StatelessWidget {
                           timeLabel,
                           style: TextStyle(
                             fontSize: 11,
-                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                     ],
@@ -1747,7 +1736,9 @@ class _RecentChatRow extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 12,
-                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                       ),
@@ -1787,6 +1778,105 @@ class _RecentChatRow extends StatelessWidget {
 // Private helper widgets
 // ---------------------------------------------------------------------------
 
+class _ReminderToggleButton extends StatefulWidget {
+  const _ReminderToggleButton({required this.staffCode});
+
+  final String staffCode;
+
+  @override
+  State<_ReminderToggleButton> createState() => _ReminderToggleButtonState();
+}
+
+class _ReminderToggleButtonState extends State<_ReminderToggleButton> {
+  bool _isLoading = false;
+  bool _reminderEnabled = false;
+
+  Future<void> _toggleReminder() async {
+    if (_isLoading || widget.staffCode.isEmpty) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final cubit = serviceLocator<WorkBreakReminderCubit>();
+      await cubit.toggleReminder(
+        staffCode: widget.staffCode,
+        currentEnabled: _reminderEnabled,
+      );
+
+      if (mounted) {
+        final state = cubit.state;
+        if (state.isSuccess) {
+          setState(() => _reminderEnabled = state.enabled);
+          final message = state.enabled
+              ? 'Turn on Reminder'
+              : 'Turn off Reminder';
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isSuccess: true,
+          );
+        } else if (state.isFailure && state.message != null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message!,
+            isWarning: true,
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Error: ${e.toString()}',
+          isWarning: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: _toggleReminder,
+        borderRadius: BorderRadius.circular(100),
+        splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
+        child: Opacity(
+          opacity: _isLoading ? 0.6 : 1.0,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SvgPicture.asset(MediaRes.notificationsGradientIcon),
+                const SizedBox(width: 8),
+                ShaderMask(
+                  shaderCallback: (bounds) =>
+                      AppColors.buildPrimaryGradient().createShader(
+                        Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                      ),
+                  child: Text(
+                    _reminderEnabled ? 'Turn off Reminder' : 'Send reminder',
+                    style: const TextStyle(
+                      color: AppColors.cardColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _CustomChip extends StatelessWidget {
   const _CustomChip({
     required this.label,
@@ -1810,4 +1900,3 @@ class _CustomChip extends StatelessWidget {
     );
   }
 }
-

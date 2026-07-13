@@ -155,36 +155,24 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
   Future<void> _loadStaffPersonaFlags() async {
     try {
+      // Roles are per-school (a user can be SCHOOL_ADMIN in one school and STAFF
+      // in another), so scanning the global login roles/staffType mis-detects
+      // the persona. RoleCubit resolves the ACTIVE school's role, so key off it:
+      // only the staff (teacher) persona gets the self-scoped view; the admin
+      // persona manages all staff. staffCode is still loaded for self-scoping.
+      final isStaffPersona = context.read<RoleCubit>().isStaff;
+
       final storage = serviceLocator<StorageService>();
       var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
           .trim();
       if (staffCode.isEmpty) {
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       }
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-
-      bool isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
-      if (!isStaffAdmin) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-          isStaffAdmin = roles.any((r) {
-            if (r is! Map<String, dynamic>) return false;
-            final roleCode = (r['role'] ?? '').toString().toUpperCase();
-            return roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN';
-          });
-        }
-      }
 
       if (!mounted) return;
       setState(() {
         _loggedInStaffCode = staffCode;
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+        _isTeacherStaffPersona = isStaffPersona && staffCode.isNotEmpty;
       });
     } catch (_) {
       if (!mounted) return;

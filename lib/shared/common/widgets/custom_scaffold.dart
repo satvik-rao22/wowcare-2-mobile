@@ -168,6 +168,7 @@ import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -211,6 +212,7 @@ class GlobalScaffold extends StatefulWidget {
 class _GlobalScaffoldState extends State<GlobalScaffold> {
   bool _showBars = true;
   late final UnreadBadgeCubit _unreadBadgeCubit;
+  late final NotificationBadgeCubit _notificationBadgeCubit;
 
   @override
   void initState() {
@@ -220,6 +222,9 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
     // every mount keeps badges fresh after login/school-switch without ever
     // opening more than one set of Firestore listeners app-wide.
     _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    // Same shared-singleton pattern for the notification bell badge; load() is
+    // a cheap idempotent REST fetch that keeps the count fresh on every mount.
+    _notificationBadgeCubit = serviceLocator<NotificationBadgeCubit>()..load();
   }
 
   @override
@@ -257,8 +262,13 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       studentList: widget.studentList,
     );
 
-    return BlocProvider<UnreadBadgeCubit>.value(
-      value: _unreadBadgeCubit,
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<UnreadBadgeCubit>.value(value: _unreadBadgeCubit),
+        BlocProvider<NotificationBadgeCubit>.value(
+          value: _notificationBadgeCubit,
+        ),
+      ],
       child: GestureDetector(
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: Scaffold(

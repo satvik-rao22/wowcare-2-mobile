@@ -7,6 +7,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_remote_data_source.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/reaction_repository.dart';
 
@@ -48,9 +49,15 @@ class ReactionRepositoryImpl implements ReactionRepository {
 
     if (cached != null) {
       final entity = cached.toEntity();
-      final updatedReactions = Map<String, String>.from(entity.reactions);
-      updatedReactions[currentUser] = emoji;
-      await _local.saveMessage(entity.copyWith(reactions: updatedReactions));
+      // Append this (user, emoji) only if not already present — a user may
+      // hold multiple distinct emojis; adding one must not drop the others.
+      if (!entity.userHasReaction(currentUser, emoji)) {
+        final updatedReactions = [
+          ...entity.reactions,
+          ReactionEntry(userCode: currentUser, emoji: emoji),
+        ];
+        await _local.saveMessage(entity.copyWith(reactions: updatedReactions));
+      }
     }
 
     try {
@@ -80,8 +87,11 @@ class ReactionRepositoryImpl implements ReactionRepository {
 
     if (cached != null) {
       final entity = cached.toEntity();
-      final updatedReactions = Map<String, String>.from(entity.reactions);
-      updatedReactions.remove(currentUser);
+      // Remove only the matching (user, emoji) entry, leaving any other
+      // emojis this user placed intact.
+      final updatedReactions = entity.reactions
+          .where((r) => !(r.matchesUser(currentUser) && r.emoji == emoji))
+          .toList();
       await _local.saveMessage(entity.copyWith(reactions: updatedReactions));
     }
 

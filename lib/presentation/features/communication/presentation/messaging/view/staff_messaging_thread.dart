@@ -132,7 +132,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           ? storedUserCode
           : null;
 
-
       if (mounted) {
         final threadId = widget.staffInfo['code'] as String;
         await context.read<CommunicationCubit>().loadMessages(
@@ -693,8 +692,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                             quoteId,
                                                           );
                                                         },
-                                                    onReply:
-                                                        message.isDeleted
+                                                    onReply: message.isDeleted
                                                         ? null
                                                         : () {
                                                             setState(() {
@@ -1231,7 +1229,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               : () {
                                                                   setState(() {
                                                                     _quotedMessageCode =
-                                                                        message.id;
+                                                                        message
+                                                                            .id;
                                                                     _quotedMessage =
                                                                         message;
                                                                   });
@@ -1242,7 +1241,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               : () {
                                                                   setState(() {
                                                                     _quotedMessageCode =
-                                                                        message.id;
+                                                                        message
+                                                                            .id;
                                                                     _quotedMessage =
                                                                         message;
                                                                   });
@@ -1805,6 +1805,20 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     );
   }
 
+  /// Resolves a receipt to a display name. Realtime receipts carry an empty
+  /// [RecipientStatus.name], so fall back to the 1:1 counterpart's name from
+  /// [staffInfo] ('You' for the current user) — never the raw user code.
+  String _resolveRecipientName(RecipientStatus r) {
+    if (r.name.trim().isNotEmpty) return r.name.trim();
+    final code = r.userId;
+    if (code != null && code.isNotEmpty && code == _currentUserCode) {
+      return 'You';
+    }
+    final counterpart = (widget.staffInfo['name'] as String?)?.trim() ?? '';
+    if (counterpart.isNotEmpty) return counterpart;
+    return 'Participant';
+  }
+
   Widget _buildRecipientList({
     required String title,
     required IconData icon,
@@ -1853,9 +1867,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                           Flexible(
                             fit: FlexFit.loose,
                             child: CustomTextWidget(
-                              text: r.name.trim().isNotEmpty
-                                  ? r.name
-                                  : 'Participant',
+                              text: _resolveRecipientName(r),
                               fontSize: 13,
                             ),
                           ),
@@ -1913,9 +1925,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     );
   }
 
-  String _formatTimeShort(DateTime dt) =>
-      MessagingTimeFormatter.bubbleTime(dt);
+  String _formatTimeShort(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
 
-  String _formatFullTime(DateTime dt) =>
-      MessagingTimeFormatter.infoTime(dt);
+  String _formatFullTime(DateTime dt) => MessagingTimeFormatter.infoTime(dt);
 }

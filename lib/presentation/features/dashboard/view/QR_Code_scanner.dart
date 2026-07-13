@@ -35,13 +35,14 @@ class _QrScanView extends StatefulWidget {
 }
 
 class _QrScanViewState extends State<_QrScanView>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   Barcode? _result;
   QRViewController? _controller;
   final GlobalKey _qrKey = GlobalKey(debugLabel: 'QR');
   bool _isFlashOn = false;
   bool _isFrontCamera = false;
   bool _hasNavigated = false;
+  AppLifecycleState? _lastLifecycleState;
 
   // Animated scan line
   late final AnimationController _scanAnim;
@@ -53,6 +54,8 @@ class _QrScanViewState extends State<_QrScanView>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _lastLifecycleState = AppLifecycleState.resumed;
     _scanAnim = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -62,6 +65,17 @@ class _QrScanViewState extends State<_QrScanView>
       begin: 0,
       end: 1,
     ).animate(CurvedAnimation(parent: _scanAnim, curve: Curves.easeInOut));
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Reset scanner when returning from background or after navigating away
+    if (state == AppLifecycleState.resumed &&
+        (_lastLifecycleState == AppLifecycleState.paused ||
+            _lastLifecycleState == AppLifecycleState.detached)) {
+      _resetScan();
+    }
+    _lastLifecycleState = state;
   }
 
   @override
@@ -401,6 +415,7 @@ class _QrScanViewState extends State<_QrScanView>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _scanAnim.dispose();
     _scanSubscription?.cancel();
     super.dispose();

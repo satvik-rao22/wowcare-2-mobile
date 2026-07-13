@@ -73,11 +73,17 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
           ? ApiErrorHandler.extractErrorMessage(outcome.error)
           : outcome.message;
       if (message == null) return; // noop (already submitting)
+      // A future sign-in/out time is a correctable user mistake, not a system
+      // failure — surface it as a yellow warning rather than a red error.
+      final isFutureTimeWarning =
+          message.toLowerCase().contains('cannot be in the future');
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
           content: Text(message),
-          backgroundColor: AppColors.errorColor,
+          backgroundColor: isFutureTimeWarning
+              ? AppColors.warningColor
+              : AppColors.errorColor,
         ),
       );
     }

@@ -59,8 +59,28 @@ class PayNowState extends Equatable {
   double get amount =>
       mode == PayNowAmountMode.custom ? customTotal : currentAmount;
 
+  /// Custom mode: true if any per-child amount exceeds that child's own
+  /// outstanding balance (the `0.001` tolerance absorbs float rounding).
+  bool customExceedsOutstandingFor(FamilyLedgerPersonEntity student) =>
+      (customAmounts[student.code] ?? 0) > student.outstanding + 0.001;
+
+  /// True when any per-child custom amount is over that child's outstanding.
+  bool get customExceedsOutstanding =>
+      mode == PayNowAmountMode.custom &&
+      students.any(customExceedsOutstandingFor);
+
+  /// Current Outstanding mode: true if the typed amount exceeds the family's
+  /// unpaid balance (a guardian can only pay down what's owed).
+  bool get currentExceedsUnpaid =>
+      mode == PayNowAmountMode.currentOutstanding &&
+      currentAmount > unpaid + 0.001;
+
+  /// Any amount that exceeds what's actually owed — blocks Confirm.
+  bool get exceedsOutstanding => customExceedsOutstanding || currentExceedsUnpaid;
+
   bool get canConfirm {
     if (isLoading) return false;
+    if (exceedsOutstanding) return false;
     return amount > 0;
   }
 

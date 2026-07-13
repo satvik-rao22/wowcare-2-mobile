@@ -178,6 +178,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
+    // Refresh the shared classroom dropdown list too, so a pull refreshes the
+    // whole page's data — not just this tab.
+    await _reloadClassroomList();
     await _loadStaffSignInStatus();
     if (_isNappingFilter) {
       // Napping filter on: refresh nap-start codes + roster scoped to nappers.
@@ -185,6 +188,20 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     } else {
       _loadForSelectedRoom(refresh: true);
       await _loadNapStartStudentCodes(refresh: true);
+    }
+  }
+
+  /// Force-reloads the classroom dropdown list (bypassing its cache) via the
+  /// shared [ClassroomCubit] provided by the Classroom screen. Non-fatal: if the
+  /// provider isn't in scope the pull-to-refresh still refreshes this tab.
+  Future<void> _reloadClassroomList() async {
+    try {
+      await context.read<ClassroomCubit>().loadActiveClassrooms(
+            force: true,
+            applyAttendanceStaffScope: true,
+          );
+    } catch (_) {
+      // Provider missing or reload failed — ignore.
     }
   }
 
@@ -1590,6 +1607,10 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           return CustomRefreshIndicator(
                             onRefresh: _refreshAll,
                             child: ListView.builder(
+                              // Always scrollable so a short roster (too few
+                              // students to fill the viewport) can still be
+                              // pulled to refresh.
+                              physics: const AlwaysScrollableScrollPhysics(),
                               itemCount: effectiveVisibleStudents.length,
                               itemBuilder: (context, index) {
                                 final student = effectiveVisibleStudents[index];

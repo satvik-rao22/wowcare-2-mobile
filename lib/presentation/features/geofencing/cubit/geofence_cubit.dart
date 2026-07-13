@@ -17,6 +17,7 @@ import '../../../../domain/features/geofencing/usecases/watch_geofence_usecase.d
 import '../../../../shared/services/geofence_notification_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 part 'geofence_state.dart';
@@ -162,7 +163,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     AppLogger.d('[GeofenceCubit] refreshSettings called');
     stopMonitoring();
     emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
-    await _checkAndStartMonitoring(schoolCode: schoolCode);
+    await _checkAndStartMonitoring(schoolCode: schoolCode, isRefresh: true);
   }
 
   // ── Private helpers ────────────────────────────────────────────────────────
@@ -188,7 +189,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     } catch (_) {}
   }
 
-  Future<void> _checkAndStartMonitoring({required String schoolCode}) async {
+  Future<void> _checkAndStartMonitoring({
+    required String schoolCode,
+    bool isRefresh = false,
+  }) async {
     try {
       debugPrint('[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"');
 
@@ -354,7 +358,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         ),
       );
       if (immediateGeofenceStatus != null) {
-        _triggerNotificationIfNeeded(immediateGeofenceStatus);
+        _triggerNotificationIfNeeded(
+          immediateGeofenceStatus,
+          fireFlutterNotification: isRefresh,
+        );
       }
 
       _startNativeEvents();
@@ -418,7 +425,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       emit(
         state.copyWith(
           status: GeofenceCubitStatus.error,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -496,16 +503,23 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     );
   }
 
-  void _triggerNotificationIfNeeded(GeofenceStatus newStatus) {
+  void _triggerNotificationIfNeeded(
+    GeofenceStatus newStatus, {
+    bool fireFlutterNotification = false,
+  }) {
     if (_lastNotifiedStatus == newStatus) return;
     _lastNotifiedStatus = newStatus;
 
-    if (newStatus == GeofenceStatus.within) {
-      unawaited(
-        _notifications.showEnteredZoneNotification().catchError((_) {}),
-      );
-    } else if (newStatus == GeofenceStatus.outside) {
-      unawaited(_notifications.showExitedZoneNotification().catchError((_) {}));
+    // On an actual zone crossing the native layer fires the notification
+    // (Android → GeofenceBroadcastReceiver, iOS → GeofencePlugin). On a
+    // dashboard refresh there is no boundary crossing so native is silent —
+    // fire the Flutter-side notification instead to inform the user.
+    if (fireFlutterNotification) {
+      if (newStatus == GeofenceStatus.within) {
+        unawaited(_notifications.showEnteredZoneNotification());
+      } else {
+        unawaited(_notifications.showExitedZoneNotification());
+      }
     }
 
     unawaited(

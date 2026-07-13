@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../domain/features/communication/entities/enums.dart';
 import '../../../../domain/features/communication/entities/message.dart';
+import '../../../../domain/features/communication/entities/reaction_entry.dart';
 import '../../../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
@@ -26,6 +27,7 @@ import '../../../../domain/features/communication/usecases/watch_conversations_l
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'communication_state.dart';
@@ -804,8 +806,14 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
-        final newReactions = Map<String, String>.from(m.reactions);
-        newReactions[reactionKey] = emoji;
+        // Append this (user, emoji) only if not already present — a user may
+        // hold multiple distinct emojis; adding one must not drop the others.
+        final newReactions = m.userHasReaction(reactionKey, emoji)
+            ? m.reactions
+            : [
+                ...m.reactions,
+                ReactionEntry(userCode: reactionKey, emoji: emoji),
+              ];
         return Message(
           id: m.id,
           code: m.code,
@@ -901,8 +909,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     }, (_) {});
   }
 
-  Future<void> deleteMessage(String threadId, String messageCode) async {
-    if (state is! CommunicationLoaded) return;
+  /// Deletes a message. Returns `null` on success, or the [Failure] when the
+  /// server rejects it (e.g. the delete window has passed) so the UI can show
+  /// the reason instead of a false "deleted" acknowledgement.
+  Future<Failure?> deleteMessage(String threadId, String messageCode) async {
+    if (state is! CommunicationLoaded) return null;
     final currentState = state as CommunicationLoaded;
     final originalThreads = currentState.threads;
 
@@ -930,11 +941,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     _markRecentlyMutated(messageCode);
 
     final result = await deleteMessageUseCase(messageCode);
-    if (isClosed) return;
+    if (isClosed) return null;
 
-    result.fold((failure) {
+    return result.fold((failure) {
       emit(currentState.copyWith(threads: originalThreads));
-    }, (_) {});
+      return failure;
+    }, (_) => null);
   }
 
   /// Removes a single attachment from its message without deleting the
@@ -995,8 +1007,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
-        final newReactions = Map<String, String>.from(m.reactions)
-          ..remove(reactionKey);
+        // Drop only the matching (user, emoji) entry — the user's other
+        // emojis on this message stay put.
+        final newReactions = m.reactions
+            .where((r) => !(r.matchesUser(reactionKey) && r.emoji == emoji))
+            .toList();
         return Message(
           id: m.id,
           code: m.code,

@@ -37,7 +37,6 @@ class ApiPathsUat {
     ApiMicroservices.organization: {'schools', 'organizations', 'school'},
     ApiMicroservices.staff: {
       'staff',
-      'my-profile',
       'staff-classrooms',
       'staff-documents',
       'staff-dates',
@@ -146,6 +145,7 @@ class ApiPathsUat {
       case 'student':
       case 'student-classroom':
       case 'student-documents':
+      case 'student-settings':
       case 'student-tags':
       case 'regular-schedules':
       case 'physicians':

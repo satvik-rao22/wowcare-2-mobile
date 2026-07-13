@@ -17,7 +17,9 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
@@ -70,6 +72,10 @@ class _StudentAttendanceCustomViewState
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
+  /// When the school allows teacher cross-class attendance, teachers see every
+  /// classroom in the filter (like an admin) instead of just their own.
+  bool _allowCrossClass = false;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +95,7 @@ class _StudentAttendanceCustomViewState
     _customSearchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);
     _classroomCubit = serviceLocator<ClassroomCubit>();
+    _resolveCrossClassFlag();
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
@@ -128,14 +135,33 @@ class _StudentAttendanceCustomViewState
     _loadAttendanceData(reset: true);
   }
 
+  /// Resolves the school's teacher cross-class flag; when enabled, reloads the
+  /// classroom filter unscoped so teachers see every classroom.
+  Future<void> _resolveCrossClassFlag() async {
+    try {
+      final enabled =
+          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (!mounted || !enabled || _allowCrossClass) return;
+      setState(() => _allowCrossClass = true);
+      _loadClassroomData();
+    } catch (_) {
+      // Non-critical: default (scoped) behaviour stays in effect.
+    }
+  }
+
   Future<void> _loadClassroomData() async {
     final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      // Transfers / historical attendance can reference non-CLASSROOM locations.
-      // Load all types so classroomCode → name resolution and filters work reliably.
-      onlyTypeClassroom: false,
-      applyAttendanceStaffScope: true,
+      // The classroom filter must list only real classrooms (type=CLASSROOM) —
+      // Office / Admin locations must not appear as filter options. Names for
+      // non-CLASSROOM locations referenced by historical/transfer records are
+      // still resolved on demand via getClassroomByCode (see _fetchClassroomName).
+      onlyTypeClassroom: true,
+      // Cross-class teachers see every classroom in the filter, like an admin.
+      applyAttendanceStaffScope: !_allowCrossClass,
     );
 
     // Mark ready immediately if data already exists.

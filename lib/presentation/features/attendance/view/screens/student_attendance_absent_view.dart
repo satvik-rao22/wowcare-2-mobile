@@ -22,6 +22,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -122,6 +123,10 @@ class _StudentAttendanceAbsentViewState
   final Map<String, String> _classroomNameByCode = {};
   final Set<String> _classroomFetchInFlight = {};
 
+  /// When the school allows teacher cross-class attendance, teachers see every
+  /// classroom in the filter (like an admin) instead of just their own.
+  bool _allowCrossClass = false;
+
   @override
   void initState() {
     super.initState();
@@ -130,6 +135,7 @@ class _StudentAttendanceAbsentViewState
     _searchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onRefreshRequested);
     _classroomCubit = serviceLocator<ClassroomCubit>();
+    _resolveCrossClassFlag();
     // Classroom filter must be backed by the classroom(all) API (type=CLASSROOM).
     // We also guard for "data not loaded yet" so name->code resolution is reliable.
     _loadClassroomData();
@@ -154,13 +160,33 @@ class _StudentAttendanceAbsentViewState
     _loadInitialData(reset: true);
   }
 
+  /// Resolves the school's teacher cross-class flag; when enabled, reloads the
+  /// classroom filter unscoped so teachers see every classroom.
+  Future<void> _resolveCrossClassFlag() async {
+    try {
+      final enabled =
+          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (!mounted || !enabled || _allowCrossClass) return;
+      setState(() => _allowCrossClass = true);
+      _loadClassroomData();
+    } catch (_) {
+      // Non-critical: default (scoped) behaviour stays in effect.
+    }
+  }
+
   Future<void> _loadClassroomData() async {
     final hadClassroomSelection = _selectedClassroomNames.isNotEmpty;
     _classroomCubit.loadActiveClassrooms(
       force: true,
-      // Match custom/daily: include all location types for reliable name→code mapping.
-      onlyTypeClassroom: false,
-      applyAttendanceStaffScope: true,
+      // The classroom filter must list only real classrooms (type=CLASSROOM) —
+      // Office / Admin locations must not appear as filter options. Names for
+      // non-CLASSROOM location codes are still resolved on demand via
+      // getClassroomByCode (see _fetchClassroomName).
+      onlyTypeClassroom: true,
+      // Cross-class teachers see every classroom in the filter, like an admin.
+      applyAttendanceStaffScope: !_allowCrossClass,
     );
 
     if (!_classroomCubit.state.isLoading &&

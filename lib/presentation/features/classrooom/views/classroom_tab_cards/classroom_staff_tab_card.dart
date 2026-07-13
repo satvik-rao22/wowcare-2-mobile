@@ -26,6 +26,7 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_absent_for
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/cubit/classroom_staff_state.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
@@ -481,10 +482,27 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _lastVisibleAttendanceCodes = <String>{};
     _attendanceStatusByStaffCode.clear();
+    // Refresh the shared classroom dropdown list too, so a pull refreshes the
+    // whole page's data — not just this tab.
+    await _reloadClassroomList();
     // Reload the staff roster (bypasses the repository cache).
     _loadForSelectedRoom(refresh: true);
     // Re-fetch today's attendance status.
     await _refreshAttendanceStatusForVisibleStaff();
+  }
+
+  /// Force-reloads the classroom dropdown list (bypassing its cache) via the
+  /// shared [ClassroomCubit] provided by the Classroom screen. Non-fatal: if the
+  /// provider isn't in scope the pull-to-refresh still refreshes this tab.
+  Future<void> _reloadClassroomList() async {
+    try {
+      await context.read<ClassroomCubit>().loadActiveClassrooms(
+            force: true,
+            applyAttendanceStaffScope: true,
+          );
+    } catch (_) {
+      // Provider missing or reload failed — ignore.
+    }
   }
 
   void _dismissSelectionPanel() {
@@ -978,6 +996,11 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                         },
                                       )
                                     : ListView.builder(
+                                        // Always scrollable so a short roster
+                                        // (too few staff to fill the viewport)
+                                        // can still be pulled to refresh.
+                                        physics:
+                                            const AlwaysScrollableScrollPhysics(),
                                         padding: const EdgeInsets.only(
                                             left: 16, right: 16),
                                         itemCount: visible.length,

@@ -25,8 +25,10 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/core/util/string_utils.dart';
@@ -174,7 +176,19 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       width: 22,
                       height: 22,
                     ),
-                    onPressed: () => context.push(AppRoutes.messagingEntry),
+                    // Route directly by role to the user's primary messaging surface,
+                    // matching the role-based unread total shown on this icon (instead of
+                    // always opening the launcher/picker). isStaff is checked before the
+                    // admin fallback because isAdmin == (admin || staff).
+                    onPressed: () {
+                      if (role.isParent) {
+                        context.go(MessagingScreen.parentMessagingRoute); // Room Chats
+                      } else if (role.isStaff) {
+                        context.go(AppRoutes.messaging); // Staff Messaging
+                      } else {
+                        context.push(AppRoutes.adminChat); // Admin Chat
+                      }
+                    },
                   ),
                   if (unreadCount > 0)
                     Positioned(
@@ -204,46 +218,56 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
             },
           ),
         if (!isKiosk)
-          Stack(
-            children: [
-              IconButton(
-                icon: SvgPicture.asset(
-                  MediaRes.notificationsIcon,
-                  width: 22,
-                  height: 22,
-                ),
-                onPressed: () {
-                  // Don't stack a second notification page when the bell is
-                  // tapped again while already on it.
-                  if (currentRoute == NotificationCenterScreen.routeName)
-                    return;
-                  context.push(NotificationCenterScreen.routeName);
-                },
-              ),
-              if (notificationCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 5,
-                      vertical: 2,
+          BlocBuilder<NotificationBadgeCubit, NotificationBadgeState>(
+            builder: (context, badgeState) {
+              final int unreadCount = badgeState.unreadCount;
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: SvgPicture.asset(
+                      MediaRes.notificationsIcon,
+                      width: 22,
+                      height: 22,
                     ),
-                    decoration: BoxDecoration(
-                      color: const Color.fromRGBO(179, 38, 30, 1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      notificationCount > 99 ? '99+' : '$notificationCount',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
+                    onPressed: () async {
+                      // Don't stack a second notification page when the bell is
+                      // tapped again while already on it.
+                      if (currentRoute == NotificationCenterScreen.routeName)
+                        return;
+                      await context.push(NotificationCenterScreen.routeName);
+                      // The user may have read notifications in the center —
+                      // reconcile the badge with the server on return.
+                      if (context.mounted) {
+                        context.read<NotificationBadgeCubit>().refresh();
+                      }
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color.fromRGBO(179, 38, 30, 1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
                     ),
-                  ),
-                ),
-            ],
+                ],
+              );
+            },
           ),
         if (!isKiosk) const _AppBarKebabMenu(),
       ],
@@ -316,7 +340,9 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
     _profileHeaderCubit = ProfileMenuHeaderCubit(
       serviceLocator<StorageService>(),
     );
-    _profileHeaderCubit.loadSummary();
+    _profileHeaderCubit.loadSummary(
+      isGuardian: context.read<RoleCubit>().isParent,
+    );
     _loadSwitchProfileAvailability();
   }
 
@@ -634,7 +660,9 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
             await _switchToNextProfileFromAppBar(context);
             if (mounted) {
               await _loadSwitchProfileAvailability();
-              _profileHeaderCubit.loadSummary();
+              _profileHeaderCubit.loadSummary(
+                isGuardian: context.read<RoleCubit>().isParent,
+              );
             }
             break;
           case 5:

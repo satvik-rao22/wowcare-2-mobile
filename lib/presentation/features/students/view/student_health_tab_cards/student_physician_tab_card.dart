@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -23,6 +20,7 @@ class StudentPhysicianTabCard extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.canEdit = false,
     super.key,
   });
 
@@ -30,6 +28,9 @@ class StudentPhysicianTabCard extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
+
+  /// Whether the current persona may edit health records (from student-settings).
+  final bool canEdit;
 
   @override
   State<StudentPhysicianTabCard> createState() =>
@@ -86,11 +87,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleCubit>();
-    final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student) &&
-        !role.isStaff &&
-        !role.isParent;
+    final canStudentWrite = widget.canEdit;
 
     return CustomRefreshIndicator(
       onRefresh: _handleRefresh,

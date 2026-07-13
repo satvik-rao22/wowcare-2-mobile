@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -313,5 +314,55 @@ Future<void> applyAllowedClassroomCodesToAttendanceBody(
   StorageService storage,
 ) async {
   final codes = await resolveAttendanceAllowedClassroomCodes(storage: storage);
+  body['allowedClassroomCodes'] = List<String>.from(codes);
+}
+
+// —— STUDENT-attendance cross-class variants ————————————————————————————————
+//
+// These mirror the resolvers above but additionally relax a scoped teacher to
+// "unscoped" (all classrooms) when the active school has
+// `allowTeacherCrossClassAttendance` enabled — so teachers view and act on
+// students from any classroom, like an admin. The base resolvers are left
+// untouched so STAFF attendance, messaging, newsletter and classroom/student
+// lists keep their current scoping.
+
+/// STUDENT-attendance variant of [resolveAttendanceAllowedClassroomCodes].
+///
+/// Returns `[]` (no restriction) for admin/parent personas as usual, and also
+/// for scoped teachers when cross-class attendance is enabled for the active
+/// school. Otherwise returns the teacher's allowed classroom codes.
+Future<List<String>> resolveStudentAttendanceAllowedClassroomCodes({
+  required StorageService storage,
+}) async {
+  final base = await resolveAttendanceAllowedClassroomCodes(storage: storage);
+  // Admin/parent personas are already unscoped — nothing to relax.
+  if (base.isEmpty) return base;
+  final crossClass = await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+    storage: storage,
+  );
+  return crossClass ? <String>[] : base;
+}
+
+/// STUDENT-attendance variant of [isAttendanceScopedStaffPersona]: a scoped
+/// teacher is treated as unscoped when cross-class attendance is enabled.
+Future<bool> isStudentAttendanceScopedStaffPersona({
+  required StorageService storage,
+}) async {
+  final scoped = await isAttendanceScopedStaffPersona(storage: storage);
+  if (!scoped) return false;
+  final crossClass = await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+    storage: storage,
+  );
+  return !crossClass;
+}
+
+/// STUDENT-attendance variant of [applyAllowedClassroomCodesToAttendanceBody].
+Future<void> applyStudentAllowedClassroomCodesToAttendanceBody(
+  Map<String, dynamic> body,
+  StorageService storage,
+) async {
+  final codes = await resolveStudentAttendanceAllowedClassroomCodes(
+    storage: storage,
+  );
   body['allowedClassroomCodes'] = List<String>.from(codes);
 }

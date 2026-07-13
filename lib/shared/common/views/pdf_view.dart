@@ -166,7 +166,7 @@ class _PdfViewerPageState extends State<PdfViewerPage> {
       }
     } catch (e) {
       debugPrint("Error in download process: $e");
-      CoreUtils.showSnackBar(context, 'Error saving file: ${e.toString()}');
+      CoreUtils.showSnackBar(context, 'Could not save the file. Please try again.');
     }
   }
 

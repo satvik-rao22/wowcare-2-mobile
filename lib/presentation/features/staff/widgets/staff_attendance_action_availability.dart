@@ -1,7 +1,7 @@
 /// Rules aligned with [StaffAttendanceProfile] / staff attendance pop-up:
 /// - Sign-in: active profile, not currently signed in, not absent, not signed out for today
 /// - Sign-out / Transfer: currently signed in (and not absent)
-/// - Mark absent: active profile, not signed in, not already absent
+/// - Mark absent: active profile, not signed in, not already absent, not signed out
 class StaffAttendanceGate {
   const StaffAttendanceGate({
     required this.isActiveProfile,
@@ -17,20 +17,23 @@ class StaffAttendanceGate {
 
   /// Enablement rules driven by today's attendance status:
   /// - SIGNED_IN  -> enable Sign-Out + Transfer only
-  /// - SIGNED_OUT -> disable all actions for the day
-  /// - ABSENT     -> enable Sign-In only
+  /// - SIGNED_OUT -> disable all actions for the day (attendance is done)
+  /// - ABSENT     -> disable all actions for the day (no recovery sign-in)
   /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
   ///   -> enable **Sign-In** + **Mark Absent** only
   bool get canSignIn {
     if (!isActiveProfile) return false;
     if (hasSignedOutToday) return false;
     if (isSignedInToday) return false;
-    // Absent can be "recovered" by signing in.
+    // Once marked absent for the day, all self-attendance actions are
+    // locked out for that date — no recovery sign-in.
+    if (isAbsentToday) return false;
     return true;
   }
 
   bool get canSignOut {
     if (hasSignedOutToday) return false;
+    if (isAbsentToday) return false;
     return isSignedInToday;
   }
 
@@ -92,6 +95,29 @@ class StaffAttendanceActionAvailability {
   }
 }
 
+/// Combines a status-based [StaffAttendanceGate] with the self-service
+/// geofencing check. Geofencing only gates the two *entry* actions — Sign-In
+/// and Mark-Absent — since those are the actions that establish where the
+/// staff member is for the day. Once the staff member has signed in, they are
+/// no longer required to stay within range just to Sign-Out or Transfer: the
+/// initial geofence check already proved their presence, and requiring a
+/// live in-range check for every subsequent action would incorrectly lock
+/// out a staff member who has since moved (e.g. transferred rooms, stepped
+/// out). Sign-Out and Transfer therefore depend only on [StaffAttendanceGate]'s
+/// status rules.
+extension StaffAttendanceGateGeofence on StaffAttendanceGate {
+  StaffAttendanceActionAvailability availabilityWithGeofence(
+    bool isWithinGeofence,
+  ) {
+    return StaffAttendanceActionAvailability(
+      signInEnabled: isWithinGeofence && canSignIn,
+      signOutEnabled: canSignOut,
+      transferEnabled: canTransfer,
+      absentEnabled: isWithinGeofence && canMarkAbsent,
+    );
+  }
+}
+
 /// Standard tooltip messages explaining why a staff attendance action is
 /// unavailable for the given [gate] (today's status). Keyed by the action
 /// labels used in the attendance pop-up: 'Sign-in', 'Sign-Out', 'Transfer',
@@ -108,6 +134,25 @@ Map<String, String> staffAttendanceDisabledReasons(StaffAttendanceGate gate) {
           'Transfer can only be done for Students/Staff already signed in.',
     if (!gate.canMarkAbsent) 'Absent': 'Already marked absent for today.',
   };
+}
+
+/// Same as [staffAttendanceDisabledReasons] but also accounts for the
+/// self-service geofencing gate. Geofencing only blocks the two entry
+/// actions — Sign-In and Mark-Absent — so only those report the geofencing
+/// reason when the staff member is outside range; Sign-Out and Transfer keep
+/// reporting their normal status-based reason (see [availabilityWithGeofence]
+/// for why they are exempt from the live range check).
+Map<String, String> staffAttendanceDisabledReasonsWithGeofence(
+  StaffAttendanceGate gate, {
+  required bool isWithinGeofence,
+}) {
+  const geofenceReason = 'You are not within geofencing Range';
+  final reasons = Map<String, String>.from(staffAttendanceDisabledReasons(gate));
+  if (!isWithinGeofence) {
+    reasons['Sign-in'] = geofenceReason;
+    reasons['Absent'] = geofenceReason;
+  }
+  return reasons;
 }
 
 /// Parses today's status string from [GetStaffTodaySignInStatusMapUseCase] / API.

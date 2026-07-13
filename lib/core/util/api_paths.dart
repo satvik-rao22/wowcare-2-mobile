@@ -363,6 +363,10 @@ class ApiPaths {
   static String staffMyProfilePinPath(String staffCode) =>
       '$staffMyProfile/$staffCode/pin';
 
+  /// PATCH work break reminder — `/api/v1/staff/staff/my-profile/{staffCode}/work-break-reminder`.
+  static String staffWorkBreakReminderPath(String staffCode) =>
+      '$staffMyProfile/$staffCode/work-break-reminder';
+
   static const String staffCodeByUser = '/api/v1/staff/code';
   static const String staffDocuments = '/api/v1/staff-documents';
   static const String staffDocumentAdd = staffDocuments;
@@ -500,6 +504,12 @@ class ApiPaths {
   static const String guardian = '/api/v1/guardian';
   static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianProfile = '/api/v1/guardian/profile';
+  /// School-level student settings (health/documents edit permissions).
+  static const String studentSettings = '/api/v1/student-settings';
+  /// PATCH the logged-in guardian's own profile (resolves to
+  /// `/api/v1/student/guardian/my-profile`). Identified by schoolCode+userCode
+  /// query params, like [guardianProfile].
+  static const String guardianMyProfile = '/api/v1/guardian/my-profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
   static String guardianProfilePhotoUploadSessionPath(String guardianCode) =>
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
@@ -644,6 +654,13 @@ class ApiPaths {
   /// auto sign-out settings.
   static String attendanceSettings(String schoolCode) =>
       '/api/v1/attendance/schools/$schoolCode/attendance-settings';
+
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/allow-teacher-cross-class-attendance
+  /// Lightweight flag: whether teachers can sign in/out (and view) students
+  /// from any classroom. When true, non-admin staff behave like an admin for
+  /// student attendance.
+  static String allowTeacherCrossClassAttendance(String schoolCode) =>
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings/allow-teacher-cross-class-attendance';
 
   // —— Kiosk (attendance MS) ——
   /// POST /api/v1/kiosk/verify-pin — Verify PIN for guardian/staff access.
@@ -927,13 +944,17 @@ class ApiPaths {
       '/api/v1/notification/fcm/token/${Uri.encodeComponent(fcmToken.trim())}';
   static String notificationFcmUser(String userCode) =>
       '/api/v1/notification/fcm/user/${Uri.encodeComponent(userCode.trim())}';
-  static const String notificationLogs = '/api/v1/notification/logs';
-  static String notificationLogRead(String code) =>
-      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/read';
-  static String notificationLogClick(String code) =>
-      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/click';
-  static const String notificationLogsReadAll =
-      '/api/v1/notification/logs/read-all';
+  // In-app notification inbox (the app-bar bell list). Replaces the old
+  // `/notification/logs` endpoints. Notification MS.
+  static const String notificationInbox = '/api/v1/notification/inbox';
+  static String notificationInboxRead(String code) =>
+      '/api/v1/notification/inbox/${Uri.encodeComponent(code.trim())}/read';
+  static String notificationInboxClick(String code) =>
+      '/api/v1/notification/inbox/${Uri.encodeComponent(code.trim())}/click';
+  static const String notificationInboxReadAll =
+      '/api/v1/notification/inbox/read-all';
+  static const String notificationInboxUnreadCounts =
+      '/api/v1/notification/inbox/unread-counts';
 
   /// GET/PATCH user notification preferences (in-app / push / email per
   /// notification definition). Notification MS.

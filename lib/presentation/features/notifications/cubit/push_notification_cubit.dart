@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import '../../../../core/util/logger_service.dart';
@@ -100,11 +101,24 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
                 organizationCode: message.organizationCode,
                 schoolCode: message.schoolCode,
               );
-        _localNotifications.showCustomNotification(
-          title: message.title ?? 'School Alert',
-          body: message.body ?? 'You have a new notification',
-          payload: payload,
-        );
+        // Avoid showing the notification TWICE. A message that carries a
+        // notification payload (title/body non-null — see PushNotificationModel)
+        // is auto-displayed by iOS in the foreground via
+        // setForegroundNotificationPresentationOptions(alert:true). Showing our
+        // own local notification on top of that produced two banners. Only
+        // surface a local notification when the OS won't:
+        //   • Android foreground never auto-shows notification-payload messages,
+        //   • data-only messages (title == null) aren't shown by either OS.
+        final bool hasOsNotificationPayload =
+            message.title != null || message.body != null;
+        final bool osAlreadyShows = hasOsNotificationPayload && Platform.isIOS;
+        if (!osAlreadyShows) {
+          _localNotifications.showCustomNotification(
+            title: message.title ?? 'School Alert',
+            body: message.body ?? 'You have a new notification',
+            payload: payload,
+          );
+        }
 
         // Signal any open conversation thread to refresh when a new message
         // arrives for it. The seq counter ensures consecutive events on the

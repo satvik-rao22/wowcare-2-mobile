@@ -141,7 +141,12 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: 50,
-      constraints: const BoxConstraints(maxHeight: 400),
+      constraints: BoxConstraints(
+        // Upper bound only. The Column (mainAxisSize.min) sizes to its content,
+        // so this must stay ABOVE the 4 items' height or the last action
+        // ("Absent") gets cropped. The scroll view guards tiny screens.
+        maxHeight: MediaQuery.of(context).size.height * 0.9,
+      ),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
@@ -155,17 +160,19 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
           ),
         ],
       ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
-          const SizedBox(height: 5),
-          _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
-          const SizedBox(height: 5),
-          _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
-          const SizedBox(height: 5),
-          _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
-        ],
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildMenuItem(context, MediaRes.Sign_in, 'Sign-in'),
+            const SizedBox(height: 5),
+            _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
+            const SizedBox(height: 5),
+            _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+            const SizedBox(height: 5),
+            _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
+          ],
+        ),
       ),
     );
   }

@@ -1,200 +1,102 @@
-// ignore_for_file: use_string_in_part_of_directives
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
+import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/view/pay_now_amount_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
-// Local enums
+// StudentBillingCard (parent dashboard)
+//
+// Renders the guardian's family billing ledger — children, current balance and
+// the most-recent invoices / payments / refunds. The [ParentBillingCubit] is
+// provided (and kept alive) by the parent dashboard coordinator, so the card
+// loads once and doesn't re-fetch on every rebuild.
 // ---------------------------------------------------------------------------
 
-enum _PaymentType { invoice, transaction, refund }
-
-// ---------------------------------------------------------------------------
-// Local mock-data model classes (plain Dart – no entity imports)
-// ---------------------------------------------------------------------------
-
-class _MockStudent {
-  const _MockStudent({
-    required this.id,
-    required this.fullName,
-    required this.roomName,
-  });
-
-  final int id;
-  final String fullName;
-  final String roomName;
-}
-
-class _MockInvoice {
-  const _MockInvoice({
-    required this.id,
-    required this.date,
-    required this.invoiceAmount,
-    required this.openBalanceAmount,
-    required this.invoiceStatus,
-    required this.description,
-    required this.studentId,
-    this.invoiceNumber = '',
-  });
-
-  final int id;
-  final String date;
-  final double invoiceAmount;
-  final double openBalanceAmount;
-  final String invoiceStatus;
-  final String description;
-  final int studentId;
-  final String invoiceNumber;
-}
-
-class _MockTransaction {
-  const _MockTransaction({
-    required this.id,
-    required this.date,
-    required this.amount,
-    required this.transactionType,
-    required this.processStatus,
-    required this.paymentMode,
-    required this.displayDescription,
-    required this.localBalanceAmount,
-    required this.studentId,
-  });
-
-  final int id;
-  final String date;
-  final double amount;
-  final String transactionType;
-  final String processStatus;
-  final String paymentMode;
-  final String displayDescription;
-  final double localBalanceAmount;
-  final int studentId;
-}
-
-class _PaymentItem {
-  const _PaymentItem({
-    required this.date,
-    required this.type,
-    required this.data,
-  });
-
-  final DateTime date;
-  final _PaymentType type;
-  final Object data;
-}
-
-// ---------------------------------------------------------------------------
-// Hardcoded mock data
-// ---------------------------------------------------------------------------
-
-const _mockStudents = <_MockStudent>[
-  _MockStudent(id: 1, fullName: 'Emma Johnson', roomName: 'Sunshine Room'),
-  _MockStudent(id: 2, fullName: 'Liam Johnson', roomName: 'Rainbow Room'),
-];
-
-const _mockInvoices = <_MockInvoice>[
-  _MockInvoice(
-    id: 101,
-    date: '2026-05-01',
-    invoiceAmount: 850.00,
-    openBalanceAmount: 850.00,
-    invoiceStatus: 'Pending',
-    description: 'Monthly tuition – May 2026',
-    studentId: 1,
-    invoiceNumber: 'INV-2026-0501',
-  ),
-  _MockInvoice(
-    id: 102,
-    date: '2026-04-01',
-    invoiceAmount: 850.00,
-    openBalanceAmount: 0.00,
-    invoiceStatus: 'Paid',
-    description: 'Monthly tuition – Apr 2026',
-    studentId: 2,
-    invoiceNumber: 'INV-2026-0402',
-  ),
-];
-
-const _mockTransactions = <_MockTransaction>[
-  _MockTransaction(
-    id: 201,
-    date: '2026-04-15',
-    amount: 850.00,
-    transactionType: 'Payment',
-    processStatus: 'Completed',
-    paymentMode: 'Credit Card',
-    displayDescription: 'April tuition payment',
-    localBalanceAmount: 0.00,
-    studentId: 2,
-  ),
-];
-
-const _mockRefunds = <_MockTransaction>[
-  _MockTransaction(
-    id: 301,
-    date: '2026-03-20',
-    amount: 120.00,
-    transactionType: 'Refund',
-    processStatus: 'Completed',
-    paymentMode: 'Credit Card',
-    displayDescription: 'Refund – unused supply fee',
-    localBalanceAmount: 120.00,
-    studentId: 1,
-  ),
-];
-
-/// Total unpaid balance across all children (sum of open invoices).
-const double _mockCurrentBalance = 850.00;
-
-// ---------------------------------------------------------------------------
-// Helper: format DateTime to a readable string inline (no date_utils import)
-// ---------------------------------------------------------------------------
-
-String _formatDate(DateTime dt) {
-  const months = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
-  ];
-  return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
-}
-
-// ---------------------------------------------------------------------------
-// Widget
-// ---------------------------------------------------------------------------
-
-class StudentBillingCard extends StatefulWidget {
+class StudentBillingCard extends StatelessWidget {
   const StudentBillingCard({super.key});
 
   @override
-  State<StudentBillingCard> createState() => _StudentBillingCardState();
+  Widget build(BuildContext context) => const _StudentBillingCardBody();
 }
 
-class _StudentBillingCardState extends State<StudentBillingCard> {
+/// Opens the full parent billing screen (bottom-nav branch) where invoice
+/// details live.
+void _openBillingScreen(BuildContext context) {
+  context.go(ParentBillingScreen.routeName);
+}
+
+/// Opens the Pay Now flow directly (same screen the billing page uses) and
+/// refreshes the card's ledger if a payment was made.
+Future<void> _openPayNow(BuildContext context) async {
+  final cubit = context.read<ParentBillingCubit>();
+  final paid = await Navigator.of(context).push<bool>(
+    MaterialPageRoute(builder: (_) => const PayNowAmountScreen()),
+  );
+  if (paid == true) cubit.refresh();
+}
+
+class _StudentBillingCardBody extends StatefulWidget {
+  const _StudentBillingCardBody();
+
+  @override
+  State<_StudentBillingCardBody> createState() =>
+      _StudentBillingCardBodyState();
+}
+
+class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
   bool _isMinimized = false;
+
+  /// Number of most-recent transactions surfaced on the dashboard card.
+  static const int _maxVisibleTransactions = 3;
+
+  // ---------------------------------------------------------------------------
+  // Helpers
+  // ---------------------------------------------------------------------------
+
+  String _formatDate(DateTime? dt) {
+    if (dt == null) return '—';
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
+  }
+
+  bool _isRefund(FamilyLedgerTransactionEntity t) =>
+      t.transactionType.toLowerCase().contains('refund');
+
+  bool _isInvoice(FamilyLedgerTransactionEntity t) =>
+      t.transactionType.toLowerCase().contains('invoice');
 
   // ---------------------------------------------------------------------------
   // Student avatar row item
   // ---------------------------------------------------------------------------
 
-  Widget _buildStudentChip(_MockStudent student) {
+  Widget _buildStudentChip({required String name}) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         DocumentImageWidget(
           fileUuid: '',
-          name: student.fullName,
+          name: name,
           size: 30,
           fontSize: 12,
           disableProfileLookupFallback: true,
@@ -202,29 +104,15 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         ),
         const SizedBox(width: 10),
         Flexible(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                student.fullName,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: AppColors.primaryColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                student.roomName,
-                style: const TextStyle(
-                  fontSize: 13,
-                  color: AppColors.primaryColor,
-                ),
-              ),
-            ],
+          child: Text(
+            name,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: AppColors.primaryColor,
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -235,8 +123,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
   // Payment tile – Payment type
   // ---------------------------------------------------------------------------
 
-  Widget _buildPaymentTile(_MockTransaction transaction) {
-    final paidOn = DateTime.parse(transaction.date);
+  Widget _buildPaymentTile(FamilyLedgerTransactionEntity transaction) {
     return ExpansionTile(
       title: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -260,7 +147,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
           ),
           const SizedBox(height: 5),
           Text(
-            'Status: ${transaction.processStatus}',
+            'Status: ${transaction.status}',
             style: const TextStyle(
               fontSize: 12,
               color: AppColors.primaryColor,
@@ -278,7 +165,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
           ),
           const SizedBox(height: 5),
           Text(
-            'Paid On: ${_formatDate(paidOn)}',
+            'Paid On: ${_formatDate(transaction.date)}',
             style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
           ),
         ],
@@ -297,96 +184,20 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
       children: [
         Divider(color: AppColors.billingDividerColor),
         const SizedBox(height: 5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Payment Method',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              transaction.paymentMode,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        _detailRow('Payment Method', transaction.method),
+        const SizedBox(height: 10),
+        _detailRow('Description', transaction.description, expand: true),
+        const SizedBox(height: 10),
+        _detailRow(
+          'Open balance',
+          '\$${transaction.balance.toStringAsFixed(2)}',
         ),
         const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Description',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                transaction.displayDescription,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Open balance',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              '\$${transaction.localBalanceAmount.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.billingBorderMedium),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'View Receipt',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-              ),
-            ),
-          ],
+        CustomButtonLayout(
+          isForm: false,
+          showCancelButton: false,
+          confirmButtonLabel: 'View Receipt',
+          onPressedConfirm: () => _openBillingScreen(context),
         ),
       ],
     );
@@ -396,12 +207,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
   // Invoice tile
   // ---------------------------------------------------------------------------
 
-  Widget _buildInvoiceTile(_MockInvoice invoice) {
-    final student = _mockStudents.firstWhere(
-      (s) => s.id == invoice.studentId,
-      orElse: () => _mockStudents.first,
-    );
-    final dueDate = DateTime.parse(invoice.date);
+  Widget _buildInvoiceTile(FamilyLedgerTransactionEntity invoice) {
     return ExpansionTile(
       title: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -426,7 +232,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
           ),
           const SizedBox(height: 5),
           Text(
-            'Status: ${invoice.invoiceStatus}',
+            'Status: ${invoice.status}',
             style: const TextStyle(
               fontSize: 12,
               color: AppColors.primaryColor,
@@ -439,12 +245,12 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           Text(
-            '\$${invoice.invoiceAmount.toStringAsFixed(2)}',
+            '\$${invoice.amount.toStringAsFixed(2)}',
             style: const TextStyle(fontSize: 20, color: AppColors.primaryColor),
           ),
           const SizedBox(height: 5),
           Text(
-            'Created On: ${_formatDate(dueDate)}',
+            'Created On: ${_formatDate(invoice.date)}',
             style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
           ),
         ],
@@ -463,91 +269,36 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
       children: [
         Divider(color: AppColors.billingDividerColor),
         const SizedBox(height: 5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Student Name',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 5),
-            _buildStudentChip(student),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Description',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                invoice.description,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Open balance',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              '\$${invoice.openBalanceAmount.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton(
-                onPressed: () {},
-                style: OutlinedButton.styleFrom(
-                  side: BorderSide(color: AppColors.billingBorderMedium),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                ),
-                child: const Text(
-                  'View Invoice',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.primaryColor,
-                  ),
+        if (invoice.studentName.trim().isNotEmpty) ...[
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Student Name',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(height: 5),
+              _buildStudentChip(name: invoice.studentName),
+            ],
+          ),
+          const SizedBox(height: 10),
+        ],
+        _detailRow('Description', invoice.description, expand: true),
+        const SizedBox(height: 10),
+        _detailRow(
+          'Open balance',
+          '\$${invoice.balance.toStringAsFixed(2)}',
+        ),
+        const SizedBox(height: 10),
+        CustomButtonLayout(
+          isForm: false,
+          showCancelButton: false,
+          confirmButtonLabel: 'View Invoice',
+          onPressedConfirm: () => _openBillingScreen(context),
         ),
       ],
     );
@@ -557,8 +308,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
   // Refund tile
   // ---------------------------------------------------------------------------
 
-  Widget _buildRefundTile(_MockTransaction transaction) {
-    final paidOn = DateTime.parse(transaction.date);
+  Widget _buildRefundTile(FamilyLedgerTransactionEntity transaction) {
     return ExpansionTile(
       title: Column(
         mainAxisAlignment: MainAxisAlignment.start,
@@ -583,7 +333,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
           ),
           const SizedBox(height: 5),
           Text(
-            'Status: ${transaction.processStatus}',
+            'Status: ${transaction.status}',
             style: const TextStyle(
               fontSize: 12,
               color: AppColors.primaryColor,
@@ -601,7 +351,7 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
           ),
           const SizedBox(height: 5),
           Text(
-            'Paid On: ${_formatDate(paidOn)}',
+            'Paid On: ${_formatDate(transaction.date)}',
             style: const TextStyle(fontSize: 14, color: AppColors.primaryColor),
           ),
         ],
@@ -620,139 +370,85 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
       children: [
         Divider(color: AppColors.billingDividerColor),
         const SizedBox(height: 5),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Payment Method',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              transaction.paymentMode,
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
+        _detailRow('Payment Method', transaction.method),
         const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Description',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Expanded(
-              child: Text(
-                transaction.displayDescription,
-                style: const TextStyle(
-                  fontSize: 16,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
-                ),
-                textAlign: TextAlign.end,
-                overflow: TextOverflow.ellipsis,
-                maxLines: 2,
-              ),
-            ),
-          ],
-        ),
+        _detailRow('Description', transaction.description, expand: true),
         const SizedBox(height: 10),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Open balance',
-              style: TextStyle(
-                fontSize: 14,
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-              ),
-            ),
-            Text(
-              '\$${transaction.localBalanceAmount.toStringAsFixed(2)}',
-              style: const TextStyle(
-                fontSize: 16,
-                color: AppColors.primaryColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
+        _detailRow(
+          'Open balance',
+          '\$${transaction.balance.toStringAsFixed(2)}',
         ),
         const SizedBox(height: 10),
       ],
     );
   }
 
+  /// Label (left, muted) + value (right) row used inside the expandable tiles.
+  Widget _detailRow(String label, String value, {bool expand = false}) {
+    final valueWidget = Text(
+      value,
+      style: const TextStyle(
+        fontSize: 16,
+        color: AppColors.primaryColor,
+        fontWeight: FontWeight.w500,
+      ),
+      textAlign: TextAlign.end,
+      overflow: TextOverflow.ellipsis,
+      maxLines: 2,
+    );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 14,
+            color: AppColors.primaryColor.withValues(alpha: 0.5),
+          ),
+        ),
+        if (expand) Expanded(child: valueWidget) else valueWidget,
+      ],
+    );
+  }
+
   // ---------------------------------------------------------------------------
-  // Build the sorted/merged payment list (top 3 most-recent items)
+  // Build the transaction tiles (top N most-recent items, API order preserved)
   // ---------------------------------------------------------------------------
 
-  List<Widget> _buildPaymentList() {
-    final List<_PaymentItem> items = [
-      ..._mockInvoices.map(
-        (inv) => _PaymentItem(
-          date: DateTime.parse(inv.date),
-          type: _PaymentType.invoice,
-          data: inv,
-        ),
-      ),
-      ..._mockTransactions.map(
-        (txn) => _PaymentItem(
-          date: DateTime.parse(txn.date),
-          type: _PaymentType.transaction,
-          data: txn,
-        ),
-      ),
-      ..._mockRefunds.map(
-        (ref) => _PaymentItem(
-          date: DateTime.parse(ref.date),
-          type: _PaymentType.refund,
-          data: ref,
-        ),
-      ),
-    ];
-
-    if (items.isEmpty) {
+  List<Widget> _buildTransactionList(
+    List<FamilyLedgerTransactionEntity> transactions,
+  ) {
+    if (transactions.isEmpty) {
       return [
         const Center(
-          child: Text(
-            'No Transactions',
-            style: TextStyle(fontSize: 16, color: AppColors.primaryColor),
+          child: Padding(
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'No Transactions',
+              style: TextStyle(fontSize: 16, color: AppColors.primaryColor),
+            ),
           ),
         ),
       ];
     }
 
-    items.sort((a, b) => b.date.compareTo(a.date));
-    final visible = items.length > 3 ? items.sublist(0, 3) : items;
+    final visible = transactions.length > _maxVisibleTransactions
+        ? transactions.sublist(0, _maxVisibleTransactions)
+        : transactions;
 
-    return visible.map((item) {
-      switch (item.type) {
-        case _PaymentType.invoice:
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: _buildInvoiceTile(item.data as _MockInvoice),
-          );
-        case _PaymentType.transaction:
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: _buildPaymentTile(item.data as _MockTransaction),
-          );
-        case _PaymentType.refund:
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8.0),
-            child: _buildRefundTile(item.data as _MockTransaction),
-          );
+    return visible.map((txn) {
+      final Widget tile;
+      if (_isInvoice(txn)) {
+        tile = _buildInvoiceTile(txn);
+      } else if (_isRefund(txn)) {
+        tile = _buildRefundTile(txn);
+      } else {
+        tile = _buildPaymentTile(txn);
       }
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8.0),
+        child: tile,
+      );
     }).toList();
   }
 
@@ -785,92 +481,134 @@ class _StudentBillingCardState extends State<StudentBillingCard> {
               onRedirect: () {},
             ),
 
-            if (!_isMinimized) ...[
-              const SizedBox(height: 16),
+            if (!_isMinimized)
+              BlocBuilder<ParentBillingCubit, ParentBillingState>(
+                builder: (context, state) {
+                  if (state.isLoading && state.ledger == null) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 16),
+                      child: BillingTransactionShimmer(),
+                    );
+                  }
 
-              // --------------------------------------------------------------
-              // Student grid
-              // --------------------------------------------------------------
-              GridView.builder(
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2,
-                  mainAxisSpacing: 0,
-                  childAspectRatio: 2,
-                  crossAxisSpacing: 10,
-                ),
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: _mockStudents.length,
-                shrinkWrap: true,
-                itemBuilder: (context, index) {
-                  final student = _mockStudents[index];
-                  return Align(
-                    alignment: Alignment.centerLeft,
-                    child: _buildStudentChip(student),
+                  if (state.errorMessage != null && state.ledger == null) {
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 24),
+                      child: Column(
+                        children: [
+                          Text(
+                            state.errorMessage!,
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color:
+                                  AppColors.primaryColor.withValues(alpha: 0.7),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          TextButton(
+                            onPressed: () =>
+                                context.read<ParentBillingCubit>().refresh(),
+                            child: const Text('Retry'),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  final students = state.students;
+                  return Column(
+                    children: [
+                      const SizedBox(height: 16),
+
+                      // ----------------------------------------------------
+                      // Student grid
+                      // ----------------------------------------------------
+                      if (students.isNotEmpty)
+                        GridView.builder(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            mainAxisSpacing: 0,
+                            childAspectRatio: 2,
+                            crossAxisSpacing: 10,
+                          ),
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: students.length,
+                          shrinkWrap: true,
+                          itemBuilder: (context, index) {
+                            final student = students[index];
+                            return Align(
+                              alignment: Alignment.centerLeft,
+                              child: _buildStudentChip(name: student.fullName),
+                            );
+                          },
+                        ),
+
+                      const SizedBox(height: 15),
+
+                      // ----------------------------------------------------
+                      // Current balance + Pay Now button row
+                      // ----------------------------------------------------
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '\$${state.openBalance.toStringAsFixed(2)}',
+                                  style: const TextStyle(
+                                    color: AppColors.themeColor,
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const Text(
+                                  'Current\nBalance',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Color.fromRGBO(65, 65, 76, 0.8),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 3,
+                            child: Padding(
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 20.0),
+                              child: CustomButtonLayout(
+                                isForm: false,
+                                showCancelButton: false,
+                                confirmButtonLabel: 'Pay Now',
+                                onPressedConfirm: () => _openPayNow(context),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+
+                      const SizedBox(height: 15),
+
+                      // ----------------------------------------------------
+                      // Recent transactions (invoices, payments, refunds)
+                      // ----------------------------------------------------
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children:
+                            _buildTransactionList(state.visibleTransactions),
+                      ),
+                    ],
                   );
                 },
               ),
-
-              const SizedBox(height: 15),
-
-              // --------------------------------------------------------------
-              // Current balance + Pay Now button row
-              // --------------------------------------------------------------
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Current balance column
-                  Expanded(
-                    flex: 2,
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        Text(
-                          '\$${_mockCurrentBalance.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                            color: AppColors.themeColor,
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const Text(
-                          'Current\nBalance',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: Color.fromRGBO(65, 65, 76, 0.8),
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  // Pay Now button
-                  Expanded(
-                    flex: 3,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                      child: CustomButtonLayout(
-                        isForm: false,
-                        showCancelButton: false,
-                        confirmButtonLabel: 'Pay Now',
-                        onPressedConfirm: () {},
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-
-              const SizedBox(height: 15),
-
-              // --------------------------------------------------------------
-              // Recent transactions list (invoices, payments, refunds)
-              // --------------------------------------------------------------
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: _buildPaymentList(),
-              ),
-            ],
           ],
         ),
       ),

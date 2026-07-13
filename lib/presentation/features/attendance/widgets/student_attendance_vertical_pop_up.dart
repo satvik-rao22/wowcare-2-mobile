@@ -131,15 +131,23 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             ),
             child: Container(
               width: 50,
-              constraints: const BoxConstraints(maxHeight: 400),
+              constraints: BoxConstraints(
+                // Upper bound only. The Column (mainAxisSize.min) sizes to its
+                // content, so this must stay ABOVE the 4 items' height or the
+                // last action ("Absent") gets cropped. The dialog's own bounds
+                // (insetPadding.top) already handle the anchor offset, and the
+                // scroll view below guards genuinely tiny screens.
+                maxHeight: MediaQuery.of(context).size.height * 0.9,
+              ),
               padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                   _buildMenuItem(
                     context,
                     MediaRes.Sign_in,
@@ -171,7 +179,8 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
                     activeDisabledActions,
                     activeReasons,
                   ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

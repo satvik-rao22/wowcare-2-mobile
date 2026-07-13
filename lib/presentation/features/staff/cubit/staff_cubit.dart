@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -200,7 +201,7 @@ class StaffCubit extends Cubit<StaffState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -281,7 +282,7 @@ class StaffCubit extends Cubit<StaffState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(isLoadingMore: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoadingMore: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 

@@ -1,9 +1,10 @@
 import 'dart:async' show unawaited;
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -30,6 +31,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/attendance_attended_duration.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
@@ -124,9 +126,7 @@ class _StudentAttendanceDailyViewScreenState
   bool _sortAscending = true;
   Map<String, String> _tagNameToCode = <String, String>{};
   bool _isLoadingTagMap = false;
-  bool _isClassroomDataReady = false;
   String? _loggedInUserName;
-  bool _isTeacherStaffPersona = false;
 
   // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
   int enrolled = 0;
@@ -145,6 +145,11 @@ class _StudentAttendanceDailyViewScreenState
       serviceLocator<GetClassroomByCodeUseCase>();
   final Map<String, String> _absentToggleClassroomNameByCode = {};
   final Set<String> _absentToggleClassroomFetchInFlight = {};
+
+  /// When the school allows teacher cross-class attendance, a staff/teacher
+  /// persona is treated like an admin for student attendance: summary cards are
+  /// shown and the classroom dropdown lists every classroom (not just theirs).
+  bool _allowCrossClass = false;
 
   @override
   void initState() {
@@ -188,11 +193,13 @@ class _StudentAttendanceDailyViewScreenState
         storageService: serviceLocator(),
       );
     }
+    // Resolve the teacher cross-class flag first so the classroom dropdown and
+    // summary cards render in the correct (admin-like) mode when it's enabled.
+    _resolveCrossClassFlag();
     // Load classroom data and tag mapping
     _loadClassroomData();
     _loadTagNameCodeMap();
     _loadLoggedInUserName();
-    _loadStaffPersonaFlags();
     _searchController.addListener(_onSearchChanged);
     widget.refreshNotifier?.addListener(_onExternalRefresh);
 
@@ -263,6 +270,9 @@ class _StudentAttendanceDailyViewScreenState
     // Reload this Daily tab's list and counts...
     _loadAttendanceData(reset: true);
     unawaited(_loadStudentCounts());
+    // ...and every visible avatar status dot, which fetches independently of
+    // this list and would otherwise keep showing the pre-edit status.
+    DocumentImageWidget.refreshAttendanceStatusDots();
     // ...and, when hosted in the tabbed shell, the sibling tabs (Custom,
     // Absent) so the whole page reflects the action.
     widget.onAttendanceMutated?.call();
@@ -300,37 +310,34 @@ class _StudentAttendanceDailyViewScreenState
     }
   }
 
-  Future<void> _loadClassroomData() async {
+  /// Resolves whether the active school lets teachers do cross-class student
+  /// attendance. When enabled, flips this screen into admin-like mode and
+  /// reloads the classroom dropdown unscoped.
+  Future<void> _resolveCrossClassFlag() async {
+    try {
+      final enabled =
+          await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (!mounted || !enabled || _allowCrossClass) return;
+      setState(() => _allowCrossClass = true);
+      // Re-load the dropdown without staff scope now that we know it's allowed.
+      _loadClassroomData();
+    } catch (_) {
+      // Non-critical: default (scoped) behaviour stays in effect.
+    }
+  }
+
+  void _loadClassroomData() {
     // Transfers can involve non-CLASSROOM locations; load all types to maximize
-    // classroomCode → name resolution across the app.
+    // classroomCode → name resolution across the app. The UI (and the filter
+    // screen) react to the ClassroomCubit state directly, so no readiness flag
+    // or blocking wait is needed here.
     _classroomCubit.loadActiveClassrooms(
       onlyTypeClassroom: false,
-      applyAttendanceStaffScope: true,
+      // Cross-class teachers see every classroom in the filter, like an admin.
+      applyAttendanceStaffScope: !_allowCrossClass,
     );
-
-    // Check if data is already available
-    if (!_classroomCubit.state.isLoading &&
-        _classroomCubit.state.classrooms.isNotEmpty) {
-      if (!mounted) return;
-      setState(() {
-        _isClassroomDataReady = true;
-      });
-      return;
-    }
-
-    // Wait for classroom data to be available (max 10 seconds)
-    int attempts = 0;
-    while (_classroomCubit.state.isLoading && attempts < 100) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      attempts++;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _isClassroomDataReady =
-          !_classroomCubit.state.isLoading &&
-          _classroomCubit.state.classrooms.isNotEmpty;
-    });
   }
 
   Future<void> _loadTagNameCodeMap() async {
@@ -385,45 +392,6 @@ class _StudentAttendanceDailyViewScreenState
     } catch (_) {}
   }
 
-  Future<void> _loadStaffPersonaFlags() async {
-    try {
-      final storage = serviceLocator<StorageService>();
-      final staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
-          .trim();
-      final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      bool isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-      if (!isStaffAdmin) {
-        final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
-            .trim();
-        if (rolesJson.isNotEmpty) {
-          final roles = jsonDecode(rolesJson);
-          if (roles is List) {
-            isStaffAdmin = roles.any((r) {
-              if (r is! Map) return false;
-              final roleCode = (r['role'] ?? '')
-                  .toString()
-                  .trim()
-                  .toUpperCase();
-              return roleCode == 'SCHOOL_ADMIN' ||
-                  roleCode == 'ORGANIZATION_ADMIN';
-            });
-          }
-        }
-      }
-      if (!mounted) return;
-      setState(() {
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isTeacherStaffPersona = false;
-      });
-    }
-  }
 
   @override
   void dispose() {
@@ -945,6 +913,11 @@ class _StudentAttendanceDailyViewScreenState
   Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
+    
+    // Staff normally don't see the summary count cards, but when the school
+    // enables cross-class attendance they get the admin-like view.
+    final bool hideSummaryCards =
+        context.watch<RoleCubit>().isStaff && !_allowCrossClass;
 
     return BlocListener<
       StudentAttendanceAbsentToggleCubit,
@@ -1013,7 +986,7 @@ class _StudentAttendanceDailyViewScreenState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         SizedBox(height: responsive.verticalSpacing / 4),
-                        if (!_isTeacherStaffPersona) ...[
+                        if (!hideSummaryCards) ...[
                           StudentAttendanceSummary(
                             enrolled: enrolled,
                             active: active,
@@ -1639,84 +1612,12 @@ class _StudentAttendanceDailyViewScreenState
   }
 
   void _navigateToFilterScreen() async {
-    // Ensure classroom data is loaded before opening filter screen
-    if (!_isClassroomDataReady || _classroomCubit.state.classrooms.isEmpty) {
-      // Show loading indicator and wait for data
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      try {
-        // Reload classroom data if needed
-        if (_classroomCubit.state.classrooms.isEmpty) {
-          _classroomCubit.loadActiveClassrooms(
-            force: true,
-            applyAttendanceStaffScope: true,
-          );
-        }
-
-        // Wait for classroom data to load (max 10 seconds)
-        int attempts = 0;
-        while (_classroomCubit.state.isLoading && attempts < 100) {
-          await Future.delayed(const Duration(milliseconds: 100));
-          attempts++;
-        }
-
-        if (!mounted) return;
-        Navigator.of(context).pop(); // Close loading dialog
-
-        // Check if we have data now
-        if (_classroomCubit.state.classrooms.isEmpty) {
-          CoreUtils.showTopSnackBarFromSnackBar(
-            context: context,
-            snackBar: const SnackBar(
-              content: Text('Failed to load classroom data. Please try again.'),
-            ),
-          );
-          return;
-        }
-
-        setState(() {
-          _isClassroomDataReady = true;
-        });
-      } catch (e) {
-        if (!mounted) return;
-        Navigator.of(context).pop(); // Close loading dialog
-        final message = ApiErrorHandler.extractErrorMessage(e);
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: SnackBar(content: Text(message)),
-        );
-        return;
-      }
-    }
-
-    // Ensure tag mapping is loaded
-    if (_tagNameToCode.isEmpty && !_isLoadingTagMap) {
-      await _loadTagNameCodeMap();
-    }
-
-    // Wait for tag map if still loading
-    if (_isLoadingTagMap) {
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => const Center(child: CircularProgressIndicator()),
-      );
-
-      // Wait for tag map to finish loading (max 5 seconds)
-      int attempts = 0;
-      while (_isLoadingTagMap && attempts < 50) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        attempts++;
-      }
-
-      if (!mounted) return;
-      Navigator.of(context).pop(); // Close loading dialog
-    }
-
+    // Open the filter screen directly. StudentFilterScreen loads (and shows a
+    // shimmer for) its own classroom + tag data, so we must NOT block here with
+    // a manual loader dialog + `while (isLoading)` poll: if the classroom load
+    // ever stays in-flight (a hung/guarded request) that barrier-dismissible
+    // dialog gets stuck showing a spinner forever. The filter screen's own
+    // loading state is dismissible (back button) and self-recovers.
     final result = await Navigator.push<Map<String, List<String>>>(
       context,
       MaterialPageRoute(
@@ -1744,6 +1645,16 @@ class _StudentAttendanceDailyViewScreenState
       );
       _selectedTagNames = List<String>.from(result['Tags'] ?? const []);
     });
+
+    // The tag name→code map is needed to translate the selected tag names into
+    // codes for the attendance query. Load it now (after selection) rather than
+    // blocking the filter from opening.
+    if (_selectedTagNames.isNotEmpty &&
+        _tagNameToCode.isEmpty &&
+        !_isLoadingTagMap) {
+      await _loadTagNameCodeMap();
+      if (!mounted) return;
+    }
 
     // Reload attendance data with new filters
     _loadAttendanceData(reset: true);

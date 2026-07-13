@@ -17,15 +17,17 @@ class ConversationThreadState extends Equatable {
     this.successMessage,
   });
 
-  const ConversationThreadState.initial({required String conversationCode})
-      : conversationCode = conversationCode,
+  const ConversationThreadState.initial({
+    required String conversationCode,
+    ConversationEntity? conversation,
+  })  : conversationCode = conversationCode,
         messages = const [],
         isLoading = false,
         isRefreshing = false,
         isFromCache = false,
         isSending = false,
         hasOlderMessages = true,
-        conversation = null,
+        conversation = conversation,
         sendError = null,
         errorMessage = null,
         successMessage = null;

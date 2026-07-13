@@ -84,8 +84,72 @@ class NotificationRouteResolver {
     }
 
     final builder = _table[action];
-    if (builder == null) return null;
-    return builder(n);
+    if (builder != null) return builder(n);
+
+    // Fallback: no exact action match, so land on the notification's MODULE
+    // (category) home screen instead of doing nothing. Keeps every inbox item
+    // tappable even when its precise event type isn't in the table yet.
+    return _moduleFallback(n, isGuardian: isGuardian);
+  }
+
+  /// Routes by the notification's `module`/category to a sensible landing
+  /// screen. Returns null only when the module is unknown (tap stays put).
+  static NotificationDestination? _moduleFallback(
+    PushNotification n, {
+    required bool isGuardian,
+  }) {
+    final module =
+        (n.data['module'] ?? n.data['categoryCode'] ?? n.type ?? '')
+            .trim()
+            .toUpperCase();
+    switch (module) {
+      case 'CLASSROOM':
+      case 'CLASSROOM_SCHEDULE':
+        return _dest(AppRoutes.classroom, n,
+            highlight: _kClassroom, params: _classroomParam(n));
+      case 'STUDENT':
+        return _dest(_students, n, highlight: _kStudent);
+      case 'STAFF':
+        return _dest(_staff, n, highlight: _kStaff);
+      case 'ATTENDANCE':
+      case 'STUDENT_ATTENDANCE':
+      case 'STAFF_ATTENDANCE':
+        if (_firstCode(n, _kStudent) != null) return _studentAttendanceProfile(n);
+        if (_firstCode(n, _kStaff) != null) return _staffAttendanceProfile(n);
+        return const NotificationDestination(path: AppRoutes.dashboard);
+      case 'SCHEDULING':
+      case 'STAFF_SCHEDULING':
+        return _staffShift(n);
+      case 'AVAILABILITY':
+      case 'FUTURE_AVAILABILITY':
+      case 'MOVEMENT_RULE':
+      case 'MOVEMENT_RULES':
+      case 'INDIVIDUAL_MOVEMENT':
+      case 'INDIVISUAL_MOVEMENTS':
+        return _dest(_individualMovement, n, highlight: _kMovement);
+      case 'BILLING':
+      case 'ACCOUNTS':
+      case 'INVOICES':
+      case 'TRANSACTION':
+        return _dest(isGuardian ? AppRoutes.parentBilling : _billing, n,
+            highlight: _kInvoice);
+      case 'ACTIVITIES':
+      case 'DAILY_ACTIVITY':
+        return _dest(AppRoutes.activityFeed, n,
+            highlight: _kActivity, params: _activityDateParam(n));
+      case 'PARENT_MESSAGING':
+        // Room-chat / parent messaging → Parent Messaging (Room Chats) sub-tab.
+        return const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'parent'},
+        );
+      case 'MESSAGING':
+      case 'STAFF_MESSAGING':
+      case 'NEWSLETTER':
+        return const NotificationDestination(path: AppRoutes.messaging);
+      default:
+        return null;
+    }
   }
 
   // ── helpers ──────────────────────────────────────────────────────────────
@@ -218,7 +282,17 @@ class NotificationRouteResolver {
         path: _studentProfileByCode, queryParameters: params);
   }
 
-  static const _kDocument = ['documentCode', 'document_code', 'documentUuid'];
+  static const _kDocument = [
+    'documentCode',
+    'document_code',
+    'documentUuid',
+    'document_uuid',
+    // Backend payload currently sends this MISSPELLED key (missing the 'n') for
+    // student-document notifications, e.g. {"documetCode":"DOC_…"}. Tolerate it
+    // so the document row still highlights. Remove once the backend fixes it.
+    'documetCode',
+    'documet_code',
+  ];
 
   static const String _staffProfileByCode = '/dashboard/staff-profile-by-code';
 
@@ -389,7 +463,12 @@ class NotificationRouteResolver {
     NotificationAction.messageToStaff: (n) =>
         const NotificationDestination(path: AppRoutes.messaging),
     NotificationAction.messageToStudent: (n) =>
-        const NotificationDestination(path: AppRoutes.messaging),
+        // MESSAGE_FROM_PARENT = a room-chat/parent message → open the Parent Messaging
+        // (Room Chats) sub-tab, not Staff Messaging (which is index 0 = the default).
+        const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'parent'},
+        ),
     NotificationAction.newsletterSent: (n) => const NotificationDestination(
           path: AppRoutes.messaging,
           queryParameters: {'tab': 'newsletter'},

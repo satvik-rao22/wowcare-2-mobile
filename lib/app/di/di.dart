@@ -9,7 +9,7 @@ import '../../data/features/notifications/datasources/fcm_registration_remote_da
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
-import '../../data/features/notifications/datasources/notification_logs_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_inbox_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_preferences_remote_data_source.dart';
 import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
 import '../../data/features/notifications/repositories/notification_preferences_repository_impl.dart';
@@ -21,12 +21,14 @@ import '../../domain/features/notifications/repositories/notification_center_rep
 import '../../domain/features/notifications/repositories/notification_preferences_repository.dart';
 import '../../domain/features/notifications/repositories/push_notification_repository.dart';
 import '../../domain/features/notifications/usecases/get_notification_preferences_usecase.dart';
+import '../../domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
 import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
 import '../../domain/features/notifications/usecases/update_notification_preferences_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
 import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
+import '../../presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
 import '../../presentation/features/user-profile/view_model/notification_settings_cubit.dart';
@@ -115,6 +117,7 @@ import '../../presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/work_break_reminder_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
@@ -810,6 +813,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => EditUserProfileCubit(
       storageService: serviceLocator(),
       staffRepository: serviceLocator(),
+      studentRemoteDataSource: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<UserProfileCubit>(
@@ -1436,6 +1440,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
       apiClient: serviceLocator(),
     ),
   );
+  serviceLocator.registerFactory<WorkBreakReminderCubit>(
+    () => WorkBreakReminderCubit(
+      staffRepository: serviceLocator(),
+    ),
+  );
   serviceLocator.registerFactory<DashboardAttentionCubit>(
     () => DashboardAttentionCubit(
       activityRepository: serviceLocator(),
@@ -1808,13 +1817,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Notification center (bell-icon inbox) — delivery logs API.
-  serviceLocator.registerLazySingleton<NotificationLogsRemoteDataSource>(
-    () => NotificationLogsRemoteDataSourceImpl(apiClient: serviceLocator()),
+  // Notification center (bell-icon inbox) — /notification/inbox API.
+  serviceLocator.registerLazySingleton<NotificationInboxRemoteDataSource>(
+    () => NotificationInboxRemoteDataSourceImpl(apiClient: serviceLocator()),
   );
   serviceLocator.registerLazySingleton<NotificationCenterDataSource>(
     () => NotificationCenterRemoteDataSource(
-      logsRemote: serviceLocator(),
+      inboxRemote: serviceLocator(),
       storage: serviceLocator(),
     ),
   );
@@ -1830,12 +1839,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<MarkAllNotificationsReadUseCase>(
     () => MarkAllNotificationsReadUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetNotificationUnreadCountsUseCase>(
+    () => GetNotificationUnreadCountsUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<NotificationCenterCubit>(
     () => NotificationCenterCubit(
       getNotificationsUseCase: serviceLocator(),
       markNotificationReadUseCase: serviceLocator(),
       markAllNotificationsReadUseCase: serviceLocator(),
+      getUnreadCountsUseCase: serviceLocator(),
     ),
+  );
+  // Shared app-session singleton powering the app-bar bell badge (mirrors
+  // UnreadBadgeCubit). Provided at the app root; reloaded on GlobalScaffold mount.
+  serviceLocator.registerLazySingleton<NotificationBadgeCubit>(
+    () => NotificationBadgeCubit(getUnreadCounts: serviceLocator()),
   );
 
   // Notification preferences (settings screen) — GET/PATCH /preferences.

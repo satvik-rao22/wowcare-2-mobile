@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart'
     show ChatAttachment;
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
@@ -36,6 +37,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ConversationThreadCubit({
     required String conversationCode,
     required String currentUserCode,
+    ConversationEntity? conversation,
     required WatchMessagesUseCase watchMessagesUseCase,
     required GetMessagesEntityUseCase getMessagesUseCase,
     required SendMessageEntityUseCase sendMessageUseCase,
@@ -64,7 +66,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        _attachmentUploader = attachmentUploader,
        _markReadDebounceDuration = markReadDebounceDuration,
        super(
-         ConversationThreadState.initial(conversationCode: conversationCode),
+         ConversationThreadState.initial(
+           conversationCode: conversationCode,
+           // Seed the conversation so the realtime listener uses THIS conversation's
+           // own org/school for the Firestore path (see startWatchingMessages) instead
+           // of the session's active school — which for a classroom in a different
+           // school built the wrong path → permission-denied → no live messages
+           // (Classroom Notes). Mirrors staff/parent messaging.
+           conversation: conversation,
+         ),
        );
 
   final String _currentUserCode;
@@ -692,6 +702,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       state.messages,
       messageCode,
       currentUserCode,
+      emoji,
     );
     emit(state.copyWith(messages: optimistic));
 
@@ -731,6 +742,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   void clearSuccess() {
     if (!isClosed) {
       emit(state.copyWith(clearSuccess: true));
+    }
+  }
+
+  void clearError() {
+    if (!isClosed && state.errorMessage != null) {
+      emit(state.copyWith(clearError: true));
     }
   }
 
@@ -838,8 +855,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ) {
     return messages.map((m) {
       if (m.code != messageCode) return m;
-      final updated = Map<String, String>.from(m.reactions);
-      updated[userCode] = emoji;
+      // Append this (user, emoji) only if not already present — a user may
+      // hold multiple distinct emojis; adding one must not drop the others.
+      if (m.userHasReaction(userCode, emoji)) return m;
+      final updated = [
+        ...m.reactions,
+        ReactionEntry(userCode: userCode, emoji: emoji),
+      ];
       return m.copyWithReactions(updated);
     }).toList();
   }
@@ -848,10 +870,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     List<MessageEntity> messages,
     String messageCode,
     String userCode,
+    String emoji,
   ) {
     return messages.map((m) {
       if (m.code != messageCode) return m;
-      final updated = Map<String, String>.from(m.reactions)..remove(userCode);
+      // Drop only the matching (user, emoji) entry — the user's other emojis
+      // on this message stay put.
+      final updated = m.reactions
+          .where((r) => !(r.matchesUser(userCode) && r.emoji == emoji))
+          .toList();
       return m.copyWithReactions(updated);
     }).toList();
   }
@@ -920,7 +947,7 @@ extension _MessageEntityX on MessageEntity {
     localTempCode: localTempCode,
   );
 
-  MessageEntity copyWithReactions(Map<String, String> newReactions) =>
+  MessageEntity copyWithReactions(List<ReactionEntry> newReactions) =>
       MessageEntity(
         id: id,
         code: code,

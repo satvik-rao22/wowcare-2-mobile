@@ -333,11 +333,14 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                                 highlightCode: widget.initialClassroomCode,
                                 borderRadius: 8,
                                 child: ClassroomDropdown(
+                                  // Not loading here (isInitialLoading handles
+                                  // that above), so an empty list means the
+                                  // load finished with no classrooms.
                                   items: dropdownItems.isEmpty
-                                      ? const ['Loading...']
+                                      ? const ['No classrooms available']
                                       : dropdownItems,
                                   value: dropdownItems.isEmpty
-                                      ? 'Loading...'
+                                      ? 'No classrooms available'
                                       : (selectedRoom?.name ??
                                           dropdownItems.first),
                                   onChanged: (value) {

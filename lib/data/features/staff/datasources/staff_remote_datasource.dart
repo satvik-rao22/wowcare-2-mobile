@@ -280,6 +280,15 @@ abstract class StaffRemoteDataSource {
   Future<PhysicalCheckupSummaryModel> getPhysicalCheckupSummary({
     required String schoolCode,
   });
+
+  /// Updates work break reminder preference via
+  /// `PATCH /api/v1/staff/staff/my-profile/{staffCode}/work-break-reminder`.
+  ///
+  /// Body: `{ "setWorkBreakRemainder": true/false }`
+  Future<WorkBreakReminderResponseModel> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  });
 }
 
 class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
@@ -1185,6 +1194,30 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     }
     return PhysicalCheckupSummaryModel.fromJson(
         response.data! as Map<String, dynamic>);
+  }
+
+  @override
+  Future<WorkBreakReminderResponseModel> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.staffWorkBreakReminderPath(staffCode),
+      ApiConstants.staffBaseUrl,
+    );
+
+    final response = await _client.patch<dynamic>(
+      endpoint,
+      data: <String, dynamic>{'setWorkBreakRemainder': enabled},
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception('Unexpected work break reminder API response format');
+    }
+
+    return WorkBreakReminderResponseModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
   }
 }
 

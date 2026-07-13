@@ -1685,7 +1685,8 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     required Map<String, dynamic> payload,
     required List<String> allowedClassroomCodes,
   }) async {
-    final body = Map<String, dynamic>.from(payload);
+    final body = Map<String, dynamic>.from(payload)
+      ..['allowedClassroomCodes'] = List<String>.from(allowedClassroomCodes);
 
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.studentAttendanceDailyRecordByRowCode(attendanceRecordCode),

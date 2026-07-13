@@ -29,6 +29,7 @@ class EditUserProfileScreen extends StatelessWidget {
     this.role,
     this.signInPin,
     this.initialAddressLine2,
+    this.isParent = false,
   });
   static const String routeName = '/edit-user-profile-details-screen';
 
@@ -45,10 +46,15 @@ class EditUserProfileScreen extends StatelessWidget {
   final String? signInPin;
   final String? initialAddressLine2;
 
+  /// When true the screen edits the logged-in guardian's profile (guardian
+  /// endpoints) instead of the staff profile.
+  final bool isParent;
+
   @override
   Widget build(BuildContext context) {
     return BlocProvider(
-      create: (_) => serviceLocator<EditUserProfileCubit>()..loadProfile(),
+      create: (_) =>
+          serviceLocator<EditUserProfileCubit>()..loadProfile(isParent: isParent),
       child: _EditUserProfileForm(
         initialFirstName: initialFirstName,
         initialLastName: initialLastName,
@@ -62,6 +68,7 @@ class EditUserProfileScreen extends StatelessWidget {
         role: role,
         signInPin: signInPin,
         initialAddressLine2: initialAddressLine2,
+        isParent: isParent,
       ),
     );
   }
@@ -81,6 +88,7 @@ class _EditUserProfileForm extends StatefulWidget {
     this.role,
     this.signInPin,
     this.initialAddressLine2,
+    this.isParent = false,
   });
 
   final String? initialFirstName;
@@ -95,6 +103,7 @@ class _EditUserProfileForm extends StatefulWidget {
   final String? role;
   final String? signInPin;
   final String? initialAddressLine2;
+  final bool isParent;
 
   @override
   State<_EditUserProfileForm> createState() => _EditUserProfileFormState();
@@ -292,7 +301,9 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       );
       return;
     }
-    if (!_e164Regex.hasMatch('+$phoneDigits')) {
+    // Staff keep the original E.164 check; guardians only need 10 digits (their
+    // numbers may legitimately start with 0, which E.164 would reject).
+    if (!widget.isParent && !_e164Regex.hasMatch('+$phoneDigits')) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter a valid 10-digit phone number',
@@ -300,7 +311,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       );
       return;
     }
-    if (_streetController.text.isEmpty) {
+    if (!widget.isParent && _streetController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Street is required',
@@ -316,7 +327,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       );
       return;
     }
-    if (_cityController.text.isEmpty) {
+    if (!widget.isParent && _cityController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'City is required',
@@ -332,7 +343,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       );
       return;
     }
-    if (_zipCodeController.text.trim().isEmpty) {
+    if (!widget.isParent && _zipCodeController.text.trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code is required',
@@ -341,7 +352,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
-    if (!RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+    if (zipDigits.isNotEmpty && !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
@@ -349,7 +360,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       );
       return;
     }
-    if ((_selectedState ?? '').trim().isEmpty) {
+    if (!widget.isParent && (_selectedState ?? '').trim().isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'State is required',
@@ -388,20 +399,31 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       'addressCountry': 'United States',
     };
 
-    final result = await context.read<EditUserProfileCubit>().saveProfile(
+    final cubit = context.read<EditUserProfileCubit>();
+    final result = await cubit.saveProfile(
       fields: body,
       email: email,
+      isParent: widget.isParent,
     );
     if (!mounted) return;
 
     switch (result) {
       case EditProfileSaveResult.success:
+        final message = (cubit.lastSaveMessage ?? '').trim();
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              message.isNotEmpty ? message : 'Profile updated successfully',
+          isSuccess: true,
+        );
         // Pop with result so caller can refresh profile details.
         Navigator.pop(context, true);
       case EditProfileSaveResult.unresolvedStaff:
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Unable to resolve staff profile. Please try again.',
+          message: widget.isParent
+              ? 'Unable to resolve your profile. Please try again.'
+              : 'Unable to resolve staff profile. Please try again.',
           isError: true,
         );
       case EditProfileSaveResult.failed:

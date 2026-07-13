@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/staff/entities/staff_document.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
@@ -86,7 +87,7 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
         state.copyWith(
           isLoading: false,
           isRefreshing: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -125,7 +126,7 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
       emit(
         state.copyWith(
           isLoadingMore: false,
-          errorMessage: e.toString(),
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
         ),
       );
     }
@@ -151,7 +152,7 @@ class StaffDocumentsListCubit extends Cubit<StaffDocumentsListState> {
         },
       );
     } catch (e) {
-      return e.toString();
+      return ApiErrorHandler.extractErrorMessage(e);
     }
   }
 }

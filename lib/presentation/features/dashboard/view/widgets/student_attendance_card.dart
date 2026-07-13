@@ -146,6 +146,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
           padding: const EdgeInsets.only(left: 25),
           child: DropdownButtonHideUnderline(
             child: DropdownButton<ParentChildRef>(
+              // Fill the fixed-width parent so the internal [item, arrow] Row
+              // is bounded and the Flexible name ellipsizes instead of
+              // overflowing (was ~1.7px over on long names).
+              isExpanded: true,
               value: children.any((c) => c.code == selectedChild.code)
                   ? selectedChild
                   : null,
@@ -180,7 +184,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                           const SizedBox(width: 8),
                           Flexible(
                             child: Text(
-                              child.name.length > 6
+                              child.name.length > 8
                                   ? '${child.name.substring(0, 8)}...'
                                   : child.name,
                               overflow: TextOverflow.ellipsis,
