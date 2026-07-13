@@ -597,9 +597,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                 item.lastMessageAt ?? existing.lastMessageAt;
             existing.lastMessageBy =
                 item.lastMessageSenderCode ?? existing.lastMessageBy;
-            if (item.lastMessagePreview.isNotEmpty) {
-              existing.lastMessagePreview = item.lastMessagePreview;
-            }
+            // Take the inbox preview verbatim, including empty. The Firestore snapshot is a
+            // full-document read, so an empty preview means the backend cleared it (every
+            // message in the conversation was deleted) — not a partial update. The previous
+            // isNotEmpty guard skipped that clear, leaving a deleted last message showing as
+            // the list preview after the conversation was fully emptied.
+            existing.lastMessagePreview = item.lastMessagePreview;
             await cacheService.put(existing);
             merged.add(existing.toEntity());
           }
