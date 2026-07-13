@@ -137,8 +137,13 @@ class NotificationRouteResolver {
       case 'DAILY_ACTIVITY':
         return _dest(AppRoutes.activityFeed, n,
             highlight: _kActivity, params: _activityDateParam(n));
-      case 'MESSAGING':
       case 'PARENT_MESSAGING':
+        // Room-chat / parent messaging → Parent Messaging (Room Chats) sub-tab.
+        return const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'parent'},
+        );
+      case 'MESSAGING':
       case 'STAFF_MESSAGING':
       case 'NEWSLETTER':
         return const NotificationDestination(path: AppRoutes.messaging);
@@ -458,7 +463,12 @@ class NotificationRouteResolver {
     NotificationAction.messageToStaff: (n) =>
         const NotificationDestination(path: AppRoutes.messaging),
     NotificationAction.messageToStudent: (n) =>
-        const NotificationDestination(path: AppRoutes.messaging),
+        // MESSAGE_FROM_PARENT = a room-chat/parent message → open the Parent Messaging
+        // (Room Chats) sub-tab, not Staff Messaging (which is index 0 = the default).
+        const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'parent'},
+        ),
     NotificationAction.newsletterSent: (n) => const NotificationDestination(
           path: AppRoutes.messaging,
           queryParameters: {'tab': 'newsletter'},
