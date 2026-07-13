@@ -222,9 +222,12 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
     // every mount keeps badges fresh after login/school-switch without ever
     // opening more than one set of Firestore listeners app-wide.
     _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
-    // Same shared-singleton pattern for the notification bell badge; load() is
-    // a cheap idempotent REST fetch that keeps the count fresh on every mount.
-    _notificationBadgeCubit = serviceLocator<NotificationBadgeCubit>()..load();
+    // Same shared-singleton pattern for the notification bell badge:
+    // startWatching() does an immediate REST refresh AND attaches a live
+    // Firestore listener (userNotifications/{userCode}/notifications) that
+    // refreshes the REST count as notifications arrive / are read. Idempotent.
+    _notificationBadgeCubit =
+        serviceLocator<NotificationBadgeCubit>()..startWatching();
   }
 
   @override

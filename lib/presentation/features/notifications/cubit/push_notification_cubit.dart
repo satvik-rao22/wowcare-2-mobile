@@ -8,6 +8,9 @@ import '../../../../domain/features/notifications/entities/push_notification.dar
 import '../../../../domain/features/notifications/repositories/push_notification_repository.dart';
 import '../../../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../../../shared/services/geofence_notification_service.dart';
+import '../../../../app/di/di.dart';
+import '../../../../core/util/notification_events.dart';
+import 'notification_badge_cubit.dart';
 import '../routing/notification_route_resolver.dart';
 part 'push_notification_state.dart';
 
@@ -90,6 +93,14 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
         AppLogger.d(
           '[FCM] ═══════════════════════════════════════════════════',
         );
+        // A push may correspond to a new bell notification. Re-fetch the
+        // authoritative REST unread-count (never increment locally — the count
+        // is always server-derived, never accumulated on device) and tell any
+        // open Notification Center to reload its list.
+        try {
+          serviceLocator<NotificationBadgeCubit>().refresh();
+        } catch (_) {}
+        NotificationEvents.notifyChanged();
         final destination = NotificationRouteResolver.resolve(message);
         // Encode the target org/school into the payload so a tap on this local
         // notification (now, or after a kill/relaunch) can switch school before

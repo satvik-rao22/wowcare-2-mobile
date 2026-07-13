@@ -5,6 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/active_school_switcher.dart';
+import 'package:wowcare/core/util/notification_events.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -236,10 +237,19 @@ class _NotificationsListState extends State<_NotificationsList> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Reload the list live when a new notification arrives while this screen
+    // is open (fired by the FCM foreground handler).
+    NotificationEvents.inboxChanged.addListener(_onInboxChanged);
+  }
+
+  void _onInboxChanged() {
+    if (!mounted) return;
+    context.read<NotificationCenterCubit>().refresh();
   }
 
   @override
   void dispose() {
+    NotificationEvents.inboxChanged.removeListener(_onInboxChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
