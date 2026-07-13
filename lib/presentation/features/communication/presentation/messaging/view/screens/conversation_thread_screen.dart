@@ -479,6 +479,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   // ── Participants ──────────────────────────────────────────────────────────
 
+  /// userCode → display name, for resolving receipt names in the status dialog
+  /// (realtime receipts carry no display name).
+  Map<String, String> get _participantNameByCode => {
+        for (final p in _conversation.participants)
+          if (p.userName.isNotEmpty) p.userCode: p.userName,
+      };
+
   List<ParticipantDisplayData> get _participantData =>
       _conversation.participants.map((p) {
         final roleStr = p.role.toApiString().toUpperCase();
@@ -1199,7 +1206,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                       },
                 onInfo: msg.isDeleted
                     ? null
-                    : () => MessageStatusDialog.show(context, message: msg),
+                    : () => MessageStatusDialog.show(
+                        context,
+                        message: msg,
+                        nameByCode: _participantNameByCode,
+                      ),
                 onDeleteAttachment: (attachment) {
                   if (attachment.attachmentId != null) {
                     _cubit.deleteAttachment(

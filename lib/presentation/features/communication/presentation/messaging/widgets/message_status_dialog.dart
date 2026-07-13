@@ -15,19 +15,39 @@ import 'package:wowcare/presentation/features/communication/shared/utils/message
 /// MessageStatusDialog.show(context, message: msg);
 /// ```
 class MessageStatusDialog extends StatelessWidget {
-  const MessageStatusDialog({super.key, required this.message});
+  const MessageStatusDialog({
+    super.key,
+    required this.message,
+    this.nameByCode = const {},
+  });
 
   final MessageEntity message;
+
+  /// Maps participant userCode → display name, so receipts that carry no
+  /// display name (the realtime layer emits an empty [RecipientStatus.userName])
+  /// resolve to a human-readable name instead of leaking the raw user code.
+  final Map<String, String> nameByCode;
 
   static Future<void> show(
     BuildContext context, {
     required MessageEntity message,
+    Map<String, String> nameByCode = const {},
   }) {
     return showDialog(
       context: context,
       barrierColor: Colors.black45,
-      builder: (_) => MessageStatusDialog(message: message),
+      builder: (_) =>
+          MessageStatusDialog(message: message, nameByCode: nameByCode),
     );
+  }
+
+  /// Resolves a receipt to a display name: the receipt's own name if present,
+  /// else the participant map, else a generic label (never the raw code).
+  String _resolveName(String userName, String userCode) {
+    if (userName.isNotEmpty) return userName;
+    final resolved = nameByCode[userCode];
+    if (resolved != null && resolved.isNotEmpty) return resolved;
+    return 'Participant';
   }
 
   @override
@@ -130,7 +150,7 @@ class MessageStatusDialog extends StatelessWidget {
                   else
                     ...delivered.map(
                       (r) => _ReceiptTile(
-                        name: r.userName.isNotEmpty ? r.userName : r.userCode,
+                        name: _resolveName(r.userName, r.userCode),
                         timestamp: r.deliveredAt,
                         icon: Icons.done_all_rounded,
                         iconColor: const Color(0xFF636E72),
@@ -147,7 +167,7 @@ class MessageStatusDialog extends StatelessWidget {
                   else
                     ...readBy.map(
                       (r) => _ReceiptTile(
-                        name: r.userName.isNotEmpty ? r.userName : r.userCode,
+                        name: _resolveName(r.userName, r.userCode),
                         timestamp: r.readAt,
                         icon: Icons.done_all_rounded,
                         iconColor: Colors.blue,
