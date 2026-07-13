@@ -1736,6 +1736,24 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return _formatTime12h(time);
   }
 
+  bool _isKioskOrPinMethodEnum(ProfileAbsentMarkMethod? method) {
+    return method == ProfileAbsentMarkMethod.kiosk;
+  }
+
+  String _resolveSignInByDisplay(String signInBy, ProfileAbsentMarkMethod? method) {
+    final name = signInBy.trim();
+    if (name.isNotEmpty) return name;
+    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+    return '';
+  }
+
+  String _resolveSignOutByDisplay(String signOutBy, ProfileAbsentMarkMethod? method) {
+    final name = signOutBy.trim();
+    if (name.isNotEmpty) return name;
+    if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
+    return '';
+  }
+
   Widget _buildAttendanceItem(int index) {
     final attendance = attendances[index];
     final collapsedText = _formatAttendedTimeForCard(attendance);
@@ -1785,7 +1803,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign In By',
-            text: getFirstName(attendance.signInBy),
+            text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1797,7 +1815,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign Out By',
-            text: getFirstName(attendance.signOutBy),
+            text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: 16),

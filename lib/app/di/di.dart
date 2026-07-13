@@ -117,6 +117,7 @@ import '../../presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import '../../presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_day_cubit.dart';
+import '../../presentation/features/dashboard/cubit/work_break_reminder_cubit.dart';
 import '../../presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import '../../presentation/features/dashboard/cubit/parent_dashboard_cubit.dart';
 import '../../presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
@@ -1437,6 +1438,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
       staffRepository: serviceLocator(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<WorkBreakReminderCubit>(
+    () => WorkBreakReminderCubit(
+      staffRepository: serviceLocator(),
     ),
   );
   serviceLocator.registerFactory<DashboardAttentionCubit>(
