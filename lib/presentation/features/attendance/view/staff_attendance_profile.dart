@@ -1230,17 +1230,25 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     );
   }
 
+  /// Attended/Absent Days cards navigate to [StaffAttendanceTabbedView], which
+  /// lists ALL staff — an admin-only surface. A staff persona viewing their
+  /// own "My Attendance" profile must never be able to reach it, so those
+  /// cards are non-tappable for that persona (self-service view only).
+  bool get _canOpenStaffTabbedViewFromStats => !_isSelfStaffPersona;
+
   Widget _buildStats() {
     if (attendanceReport == null) {
       return Column(
         children: [
           InkWell(
-            onTap: () {
-              context.push(
-                StaffAttendanceTabbedView.routeName,
-                extra: {'filter': 'Present'},
-              );
-            },
+            onTap: _canOpenStaffTabbedViewFromStats
+                ? () {
+                    context.push(
+                      StaffAttendanceTabbedView.routeName,
+                      extra: {'filter': 'Present'},
+                    );
+                  }
+                : null,
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: const Color(0xFF4285F4),
@@ -1253,12 +1261,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           _buildAttendedHoursStat(report: null),
           const SizedBox(height: 16),
           InkWell(
-            onTap: () {
-              context.push(
-                StaffAttendanceTabbedView.routeName,
-                extra: {'filter': 'Absent'},
-              );
-            },
+            onTap: _canOpenStaffTabbedViewFromStats
+                ? () {
+                    context.push(
+                      StaffAttendanceTabbedView.routeName,
+                      extra: {'filter': 'Absent'},
+                    );
+                  }
+                : null,
             child: _buildStatItem(
               icon: MediaRes.calenderClockIcon,
               iconColor: const Color(0xFF4285F4),
@@ -1274,12 +1284,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     return Column(
       children: [
         InkWell(
-          onTap: () {
-            context.push(
-              StaffAttendanceTabbedView.routeName,
-              extra: {'filter': 'Present'},
-            );
-          },
+          onTap: _canOpenStaffTabbedViewFromStats
+              ? () {
+                  context.push(
+                    StaffAttendanceTabbedView.routeName,
+                    extra: {'filter': 'Present'},
+                  );
+                }
+              : null,
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: const Color(0xFF4285F4),
@@ -1292,12 +1304,14 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         _buildAttendedHoursStat(report: attendanceReport),
         const SizedBox(height: 16),
         InkWell(
-          onTap: () {
-            context.push(
-              StaffAttendanceTabbedView.routeName,
-              extra: {'filter': 'Absent'},
-            );
-          },
+          onTap: _canOpenStaffTabbedViewFromStats
+              ? () {
+                  context.push(
+                    StaffAttendanceTabbedView.routeName,
+                    extra: {'filter': 'Absent'},
+                  );
+                }
+              : null,
           child: _buildStatItem(
             icon: MediaRes.calenderClockIcon,
             iconColor: const Color(0xFF4285F4),
