@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -906,10 +907,28 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     todayStatusRaw: _todayStatusRaw,
   );
 
-  bool get _canSignIn => !_isTodayStatusLoading && _todayGate.canSignIn;
-  bool get _canSignOut => !_isTodayStatusLoading && _todayGate.canSignOut;
-  bool get _canTransfer => !_isTodayStatusLoading && _todayGate.canTransfer;
-  bool get _canMarkAbsent => !_isTodayStatusLoading && _todayGate.canMarkAbsent;
+  /// This screen doubles as the staff persona's own "My Attendance" profile
+  /// (opened via the drawer, `staffId == 0`) and as the admin's read-only
+  /// view of another staff member's attendance. Geofencing only applies to
+  /// the former — an admin managing someone else's record isn't expected to
+  /// be standing at that staff member's location.
+  bool get _isSelfStaffPersona => context.read<RoleCubit>().isStaff;
+
+  bool get _isWithinGeofence {
+    if (!_isSelfStaffPersona) return true;
+    return context.read<GeofenceCubit>().state.isWithinGeofence;
+  }
+
+  StaffAttendanceActionAvailability get _availability =>
+      _todayGate.availabilityWithGeofence(_isWithinGeofence);
+
+  bool get _canSignIn => !_isTodayStatusLoading && _availability.signInEnabled;
+  bool get _canSignOut =>
+      !_isTodayStatusLoading && _availability.signOutEnabled;
+  bool get _canTransfer =>
+      !_isTodayStatusLoading && _availability.transferEnabled;
+  bool get _canMarkAbsent =>
+      !_isTodayStatusLoading && _availability.absentEnabled;
 
   Future<void> _handleStaffAction(String actionLabel) async {
     final current = staff;
@@ -1112,7 +1131,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             },
             disabledReasons: _isTodayStatusLoading
                 ? const <String, String>{}
-                : staffAttendanceDisabledReasons(_todayGate),
+                : staffAttendanceDisabledReasonsWithGeofence(
+                    _todayGate,
+                    isWithinGeofence: _isWithinGeofence,
+                  ),
             onActionTap: _handleStaffAction,
           ),
         );
