@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
@@ -245,6 +246,9 @@ abstract class StudentRemoteDataSource {
     required String schoolCode,
     required String userCode,
   });
+
+  /// School-level student settings via `GET /api/v1/student-settings`.
+  Future<StudentSettings> getStudentSettings({required String schoolCode});
 
   /// Fetches children linked to a guardian via
   /// `GET /api/v1/guardian/children`.
@@ -1340,6 +1344,37 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       return Map<String, dynamic>.from(data);
     }
     return <String, dynamic>{};
+  }
+
+  @override
+  Future<StudentSettings> getStudentSettings({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentSettings,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+
+    final root = response.data;
+    final data = root is Map<String, dynamic> ? root['data'] : null;
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected student settings API response format');
+    }
+    bool asBool(dynamic v) => v == true;
+    return StudentSettings(
+      code: (data['code'] ?? '').toString(),
+      schoolCode: (data['schoolCode'] ?? '').toString(),
+      organizationCode: (data['organizationCode'] ?? '').toString(),
+      canParentEditChildHealthRecords:
+          asBool(data['canParentEditChildHealthRecords']),
+      canStaffEditTheirOwnHealthRecords:
+          asBool(data['canStaffEditTheirOwnHealthRecords']),
+    );
   }
 
   @override

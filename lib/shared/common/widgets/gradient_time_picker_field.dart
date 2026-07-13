@@ -361,46 +361,20 @@ class GradientTimePickerField extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        _formatHourMinute(time),
-                        style: const TextStyle(
-                          color: AppColors.primaryColor,
-                          fontSize: 15,
-                          fontFamily: 'Manrope',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      // Container(
-                      //   padding: const EdgeInsets.symmetric(
-                      //     horizontal: 10,
-                      //     vertical: 4,
-                      //   ),
-
-                      //   decoration: BoxDecoration(
-                      //     color: AppColors.themeColor,
-
-                      //     borderRadius: BorderRadius.circular(6),
-                      //   ),
-
-                      //   child: Text(
-                      //     _formatPeriod(time),
-
-                      //     style: const TextStyle(
-                      //       color: Colors.white,
-                      //       fontSize: 11,
-                      //       fontFamily: 'Manrope',
-                      //       fontWeight: FontWeight.w700,
-                      //     ),
-                      //   ),
-                      // ),
-                    ],
+                  child: Text(
+                    _formatHourMinute(time),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 15,
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
+
+                const SizedBox(width: 8),
 
                 if (onClear != null && time != null && enabled) ...[
                   GestureDetector(

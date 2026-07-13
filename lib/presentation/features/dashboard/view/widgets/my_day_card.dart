@@ -84,11 +84,24 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     todayStatusRaw: _todayStatusRaw,
   );
 
-  bool get _canTransfer => _todayGate.canTransfer;
-  bool get _canMarkAbsent => _todayGate.canMarkAbsent;
+  /// Geofencing is the first-class gate for every self-attendance action:
+  /// staff must be within the school's geofence before any of Sign-In,
+  /// Sign-Out, Transfer or Mark-Absent become available. Within range, the
+  /// day's status (via [_todayGate]) decides which of the four apply.
+  StaffAttendanceActionAvailability _availability(
+    GeofenceState geofenceState,
+  ) => _todayGate.availabilityWithGeofence(geofenceState.isWithinGeofence);
 
-  bool get _markAbsentDisabled =>
-      !_staffIdentityLoaded || _staffCode.isEmpty || !_canMarkAbsent;
+  Map<String, String> _disabledReasons(GeofenceState geofenceState) =>
+      staffAttendanceDisabledReasonsWithGeofence(
+        _todayGate,
+        isWithinGeofence: geofenceState.isWithinGeofence,
+      );
+
+  bool _markAbsentDisabled(GeofenceState geofenceState) =>
+      !_staffIdentityLoaded ||
+      _staffCode.isEmpty ||
+      !_availability(geofenceState).absentEnabled;
 
   // Cached staff identity — loaded once in initState so button taps never hit
   // a timing window where storage hasn't resolved yet.
@@ -411,9 +424,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   }
 
   void _handleMarkAbsentDisabledTap() {
+    final geofenceState = context.read<GeofenceCubit>().state;
     final message = _todayGate.isAbsentToday
         ? 'Already marked absent for today.'
-        : (staffAttendanceDisabledReasons(_todayGate)['Absent'] ??
+        : (_disabledReasons(geofenceState)['Absent'] ??
               'Mark Absent is currently unavailable.');
     CoreUtils.showTopSnackBar(
       context: context,
@@ -1072,11 +1086,20 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                           final roleProvider = context.watch<RoleCubit>();
                           final bool isStaff = roleProvider.isStaff;
                           final bool isAdmin = roleProvider.isAdmin;
-                          final bool isWithinGeofence =
-                              geofenceState.isWithinGeofence;
-                          // Both staff and admin: button enabled only when within geofence.
+                          final StaffAttendanceActionAvailability
+                          availability = _availability(geofenceState);
+                          final Map<String, String> disabledReasons =
+                              _disabledReasons(geofenceState);
+                          final bool markAbsentDisabled = _markAbsentDisabled(
+                            geofenceState,
+                          );
+                          // Sign button toggles Sign-In/Sign-Out depending on
+                          // today's status; enable per the action it currently represents.
                           final bool signButtonEnabled =
-                              (isStaff || isAdmin) && isWithinGeofence;
+                              (isStaff || isAdmin) &&
+                              (_isSignedIn
+                                  ? availability.signOutEnabled
+                                  : availability.signInEnabled);
                           // Show attendance buttons for both staff and admin
                           final bool showSignButton = isStaff || isAdmin;
                           // Show Transfer/Mark-Absent for staff and admin equally.
@@ -1095,17 +1118,16 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                       if (showSecondaryButtons && _isSignedIn)
                                         Expanded(
                                           child: Tooltip(
-                                            message: _canTransfer
+                                            message: availability.transferEnabled
                                                 ? ''
-                                                : staffAttendanceDisabledReasons(
-                                                        _todayGate,
-                                                      )['Transfer'] ??
+                                                : disabledReasons['Transfer'] ??
                                                       '',
                                             child: OutlinedButton.icon(
                                               onPressed:
                                                   (!_staffIdentityLoaded ||
                                                       _staffCode.isEmpty ||
-                                                      !_canTransfer)
+                                                      !availability
+                                                          .transferEnabled)
                                                   ? null
                                                   : _openTransferForSelf,
                                               icon: !_staffIdentityLoaded
@@ -1150,18 +1172,16 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                           !_isSignedIn)
                                         Expanded(
                                           child: GestureDetector(
-                                            onTap: _markAbsentDisabled
+                                            onTap: markAbsentDisabled
                                                 ? _handleMarkAbsentDisabledTap
                                                 : null,
                                             child: Tooltip(
-                                              message: _canMarkAbsent
+                                              message: availability.absentEnabled
                                                   ? ''
-                                                  : staffAttendanceDisabledReasons(
-                                                          _todayGate,
-                                                        )['Absent'] ??
+                                                  : disabledReasons['Absent'] ??
                                                         '',
                                               child: OutlinedButton.icon(
-                                                onPressed: _markAbsentDisabled
+                                                onPressed: markAbsentDisabled
                                                     ? null
                                                     : _openMarkAbsentForSelf,
                                                 icon: !_staffIdentityLoaded
@@ -1183,11 +1203,11 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 ),
                                                 style: OutlinedButton.styleFrom(
                                                   foregroundColor:
-                                                      _markAbsentDisabled
+                                                      markAbsentDisabled
                                                       ? Colors.grey[600]
                                                       : AppColors.themeColor,
                                                   side: BorderSide(
-                                                    color: _markAbsentDisabled
+                                                    color: markAbsentDisabled
                                                         ? Colors.grey[400]!
                                                         : AppColors.themeColor,
                                                   ),
@@ -1266,11 +1286,17 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 }
                                               : null,
                                           disabledConfirmTooltip:
+                                              disabledReasons[_isSignedIn
+                                                  ? 'Sign-Out'
+                                                  : 'Sign-in'] ??
                                               'You are not within geofencing Range',
                                           onDisabledConfirmTap: () {
                                             CoreUtils.showTopSnackBar(
                                               isWarning: true,
                                               message:
+                                                  disabledReasons[_isSignedIn
+                                                      ? 'Sign-Out'
+                                                      : 'Sign-in'] ??
                                                   'You are not within geofencing Range',
                                               context: context,
                                             );

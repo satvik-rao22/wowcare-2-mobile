@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:dio/dio.dart';
@@ -34,6 +33,7 @@ class StudentDocumentsTab extends StatefulWidget {
     required this.name,
     required this.classroom,
     this.studentCode,
+    this.canEdit = false,
     this.highlightCode,
   });
 
@@ -41,6 +41,10 @@ class StudentDocumentsTab extends StatefulWidget {
   final String name;
   final String classroom;
   final String? studentCode;
+
+  /// Whether the current persona may add/edit/delete documents (resolved from
+  /// the school's student-settings by the parent screen).
+  final bool canEdit;
 
   /// Document code (== API `code`/documentUuid) from a notification deep-link;
   /// the matching document card scrolls into view, expands, and flashes.
@@ -143,9 +147,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 
   Future<void> _handleEdit(BuildContext context, StudentDocument doc) async {
-    final role = context.read<RoleCubit>();
-    if (!ModuleAccess.mayWrite(role, AppAccessModules.student) ||
-        role.isParent) {
+    if (!widget.canEdit) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -188,9 +190,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
   }
 
   Future<void> _handleDelete(BuildContext context, StudentDocument doc) async {
-    final role = context.read<RoleCubit>();
-    if (!ModuleAccess.mayWrite(role, AppAccessModules.student) ||
-        role.isParent) {
+    if (!widget.canEdit) {
       ModuleAccess.showWriteRestricted(context);
       return;
     }
@@ -370,9 +370,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final role = context.watch<RoleCubit>();
-    final canStudentWrite =
-        ModuleAccess.mayWrite(role, AppAccessModules.student) && !role.isParent;
+    final canStudentWrite = widget.canEdit;
     final studentCode = widget.studentCode ?? '';
     if (studentCode.isEmpty) {
       return const Center(

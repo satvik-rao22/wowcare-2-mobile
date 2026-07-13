@@ -28,6 +28,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
+import 'package:wowcare/domain/features/student/entities/student_settings.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
@@ -123,6 +124,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   bool _isUploadingProfilePhoto = false;
   double _profilePhotoUploadPercent = 0;
 
+  /// School-level student settings; gates Health/Documents editing for the
+  /// guardian and staff personas. Null until loaded (edit stays off meanwhile).
+  StudentSettings? _studentSettings;
+
   @override
   void initState() {
     super.initState();
@@ -141,6 +146,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     _displayClassroom = widget.classroom;
     _profileStatusUpper = widget.initialEnrollmentStatus?.trim().toUpperCase();
     _loadUploadContext();
+    _loadStudentSettings();
     // Deep-link case: opened by code straight to a non-Profile tab. The profile
     // fetch that fills the header (name/classroom) lives inside the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on another
@@ -156,6 +162,37 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         // If no ClassroomCubit is provided above, build() will wrap with one.
       }
     });
+  }
+
+  /// Loads school-level student settings so the Health/Documents tabs know
+  /// whether the current persona may edit. Best-effort: on failure editing
+  /// stays disabled for guardian/staff (admins keep their module-access default).
+  Future<void> _loadStudentSettings() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final school =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (school.isEmpty) return;
+      final settings = await serviceLocator<StudentRemoteDataSource>()
+          .getStudentSettings(schoolCode: school);
+      if (!mounted) return;
+      setState(() => _studentSettings = settings);
+    } catch (e) {
+      AppLogger.d('[StudentProfile] student settings load failed: $e');
+    }
+  }
+
+  /// Whether the current persona may edit the Health tab and Documents:
+  /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords], admin → module access.
+  bool _canEditHealthAndDocuments(RoleCubit role) {
+    if (role.isParent) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    if (role.isStaff) {
+      return _studentSettings?.canStaffEditTheirOwnHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
   }
 
   /// Loads the student's profile at the screen level so the header (name,
@@ -568,6 +605,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       role,
       AppAccessModules.student,
     );
+    final canEditHealthDocs = _canEditHealthAndDocuments(role);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -640,6 +678,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  canEdit: canEditHealthDocs,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
@@ -659,6 +698,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
+                  canEdit: canEditHealthDocs,
                   highlightCode: widget.highlightCode,
                 ),
               ],

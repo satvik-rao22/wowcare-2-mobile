@@ -4,6 +4,7 @@ import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
+import '../../../../domain/features/student/entities/student_settings.dart';
 import '../../../../domain/features/student/entities/student_document.dart';
 import '../../../../domain/features/student/entities/student_documents_page.dart';
 import '../../../../domain/features/student/entities/student_guardian.dart';
@@ -1216,6 +1217,11 @@ class StudentRepositoryImpl
       schoolCode: schoolCode,
       userCode: userCode,
     );
+  }
+
+  @override
+  Future<StudentSettings> getStudentSettings({required String schoolCode}) {
+    return _remoteDataSource.getStudentSettings(schoolCode: schoolCode);
   }
 
   @override
