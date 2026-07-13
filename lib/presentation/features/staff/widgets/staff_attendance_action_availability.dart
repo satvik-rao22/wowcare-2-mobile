@@ -96,18 +96,23 @@ class StaffAttendanceActionAvailability {
 }
 
 /// Combines a status-based [StaffAttendanceGate] with the self-service
-/// geofencing check that gates all four self-attendance actions: a staff
-/// member must be within the school's geofence before *any* of Sign-In,
-/// Sign-Out, Transfer or Mark-Absent become available; once within range,
-/// [StaffAttendanceGate]'s status rules decide which of those four apply.
+/// geofencing check. Geofencing only gates the two *entry* actions — Sign-In
+/// and Mark-Absent — since those are the actions that establish where the
+/// staff member is for the day. Once the staff member has signed in, they are
+/// no longer required to stay within range just to Sign-Out or Transfer: the
+/// initial geofence check already proved their presence, and requiring a
+/// live in-range check for every subsequent action would incorrectly lock
+/// out a staff member who has since moved (e.g. transferred rooms, stepped
+/// out). Sign-Out and Transfer therefore depend only on [StaffAttendanceGate]'s
+/// status rules.
 extension StaffAttendanceGateGeofence on StaffAttendanceGate {
   StaffAttendanceActionAvailability availabilityWithGeofence(
     bool isWithinGeofence,
   ) {
     return StaffAttendanceActionAvailability(
       signInEnabled: isWithinGeofence && canSignIn,
-      signOutEnabled: isWithinGeofence && canSignOut,
-      transferEnabled: isWithinGeofence && canTransfer,
+      signOutEnabled: canSignOut,
+      transferEnabled: canTransfer,
       absentEnabled: isWithinGeofence && canMarkAbsent,
     );
   }
@@ -132,23 +137,22 @@ Map<String, String> staffAttendanceDisabledReasons(StaffAttendanceGate gate) {
 }
 
 /// Same as [staffAttendanceDisabledReasons] but also accounts for the
-/// self-service geofencing gate: when the staff member is outside the
-/// school's geofence, every currently-disabled action reports the
-/// geofencing reason first since that is the actual blocker.
+/// self-service geofencing gate. Geofencing only blocks the two entry
+/// actions — Sign-In and Mark-Absent — so only those report the geofencing
+/// reason when the staff member is outside range; Sign-Out and Transfer keep
+/// reporting their normal status-based reason (see [availabilityWithGeofence]
+/// for why they are exempt from the live range check).
 Map<String, String> staffAttendanceDisabledReasonsWithGeofence(
   StaffAttendanceGate gate, {
   required bool isWithinGeofence,
 }) {
   const geofenceReason = 'You are not within geofencing Range';
-  if (isWithinGeofence) {
-    return staffAttendanceDisabledReasons(gate);
+  final reasons = Map<String, String>.from(staffAttendanceDisabledReasons(gate));
+  if (!isWithinGeofence) {
+    reasons['Sign-in'] = geofenceReason;
+    reasons['Absent'] = geofenceReason;
   }
-  return <String, String>{
-    if (!gate.canSignIn || !isWithinGeofence) 'Sign-in': geofenceReason,
-    if (!gate.canSignOut || !isWithinGeofence) 'Sign-Out': geofenceReason,
-    if (!gate.canTransfer || !isWithinGeofence) 'Transfer': geofenceReason,
-    if (!gate.canMarkAbsent || !isWithinGeofence) 'Absent': geofenceReason,
-  };
+  return reasons;
 }
 
 /// Parses today's status string from [GetStaffTodaySignInStatusMapUseCase] / API.
