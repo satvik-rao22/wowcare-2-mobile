@@ -649,6 +649,13 @@ class ApiPaths {
   static String attendanceSettings(String schoolCode) =>
       '/api/v1/attendance/schools/$schoolCode/attendance-settings';
 
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/allow-teacher-cross-class-attendance
+  /// Lightweight flag: whether teachers can sign in/out (and view) students
+  /// from any classroom. When true, non-admin staff behave like an admin for
+  /// student attendance.
+  static String allowTeacherCrossClassAttendance(String schoolCode) =>
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings/allow-teacher-cross-class-attendance';
+
   // —— Kiosk (attendance MS) ——
   /// POST /api/v1/kiosk/verify-pin — Verify PIN for guardian/staff access.
   static const String kioskVerifyPin = '/api/v1/kiosk/verify-pin';

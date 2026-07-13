@@ -244,7 +244,8 @@ class _AttendanceField extends StatelessWidget {
           ),
         );
       case StaffProfileAbsentMarkMethod.system:
-        // TODO: Handle this case.
+        // Auto sign-out performed by the system (no person). Matches web's
+        // gear/"System" indicator.
         return Tooltip(
           message: 'System',
           child: SvgPicture.asset(
@@ -429,6 +430,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         return StaffProfileAbsentMarkMethod.app;
       case 'WEB':
         return StaffProfileAbsentMarkMethod.web;
+      case 'SYSTEM':
+        return StaffProfileAbsentMarkMethod.system;
       default:
         return null;
     }
@@ -712,13 +715,39 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             }
           }
 
+          final signOutMethodEnum = _mapAbsentMethodStringToEnum(
+            m['signedOutMethod'] as String?,
+          );
+          // On a classroom transfer the "sign in/out" for that segment is the
+          // transfer itself, performed by `transferredBy`. The API leaves
+          // signedInBy/signedOutBy empty on transfer records, so fall back to
+          // transferredBy for the person's name.
+          final transferredBy = ((m['transferredBy'] as String?) ?? '').trim();
+
+          final rawSignedInBy = ((m['signedInBy'] as String?) ?? '').trim();
+          final signInByText = rawSignedInBy.isNotEmpty
+              ? rawSignedInBy
+              : (isTransferSignIn ? transferredBy : '');
+
+          // Auto sign-out has no person: the API sends signedOutMethod=SYSTEM
+          // with an empty signedOutBy. Show "System" (web parity) so the row
+          // isn't blank; keep the real name / transfer person when present.
+          final rawSignedOutBy = ((m['signedOutBy'] as String?) ?? '').trim();
+          final signOutByText = rawSignedOutBy.isNotEmpty
+              ? rawSignedOutBy
+              : (isTransferSignOut && transferredBy.isNotEmpty
+                  ? transferredBy
+                  : (signOutMethodEnum == StaffProfileAbsentMarkMethod.system
+                      ? 'System'
+                      : ''));
+
           return _AttendanceModel(
             date: parsedDate,
             signInTime: effectiveSignIn,
             signOutTime: effectiveSignOut,
             roomName: (m['classroomName'] as String?) ?? widget.roomName,
-            signInBy: (m['signedInBy'] as String?) ?? '',
-            signOutBy: (m['signedOutBy'] as String?) ?? '',
+            signInBy: signInByText,
+            signOutBy: signOutByText,
             attendedTime: (m['attendedTime'] as String?) ?? '',
             attendedHours: (m['attendedHours'] as int?) ?? 0,
             attendedMinutes: (m['attendedMinutes'] as int?) ?? 0,
@@ -727,9 +756,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             signInMethod: _mapAbsentMethodStringToEnum(
               m['signedInMethod'] as String?,
             ),
-            signOutMethod: _mapAbsentMethodStringToEnum(
-              m['signedOutMethod'] as String?,
-            ),
+            signOutMethod: signOutMethodEnum,
           );
         }).toList();
 
@@ -1064,9 +1091,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         return Dialog(
           backgroundColor: Colors.transparent,
           elevation: 0,
+          // Pin the menu flush below the + button (top-right) and give it the
+          // full height beneath the button. A large `bottom` inset here used to
+          // squeeze the centered band so short it cropped the last action
+          // ("Absent"); topRight alignment + no bottom inset lets all 4 fit.
+          alignment: Alignment.topRight,
           insetPadding: EdgeInsets.only(
             top: floatingButtonTop + floatingButtonSize + 8,
-            bottom: mediaQuery.size.height * 0.45,
             left: mediaQuery.size.width * 0.75,
             right: floatingButtonRight,
           ),

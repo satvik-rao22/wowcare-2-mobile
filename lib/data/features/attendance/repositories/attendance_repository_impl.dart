@@ -36,15 +36,30 @@ class AttendanceRepositoryImpl
 
   /// Permission scope for attendance list APIs — always the staff member's full
   /// allowed list (or empty for admin/parent personas).
-  Future<List<String>> _attendanceAllowedClassroomCodes() =>
-      resolveAttendanceAllowedClassroomCodes(storage: _storage);
+  ///
+  /// [studentCrossClass] must be true for STUDENT attendance calls: a scoped
+  /// teacher is then relaxed to unscoped (all classrooms) when the active
+  /// school has `allowTeacherCrossClassAttendance` enabled. Staff-attendance
+  /// calls leave it false so their scoping is unchanged.
+  Future<List<String>> _attendanceAllowedClassroomCodes({
+    bool studentCrossClass = false,
+  }) =>
+      studentCrossClass
+          ? resolveStudentAttendanceAllowedClassroomCodes(storage: _storage)
+          : resolveAttendanceAllowedClassroomCodes(storage: _storage);
 
   /// Builds attendance list query classroom params:
   /// - [classroomCodes]: user filter (intersected with allowed when scoped)
   /// - [allowedClassroomCodes]: full permission scope
+  /// - [studentCrossClass]: see [_attendanceAllowedClassroomCodes].
   Future<({List<String>? classroomCodes, List<String> allowedClassroomCodes})>
-      _resolveAttendanceClassroomQueryParams(List<String>? classroomCodes) async {
-    final allowed = await _attendanceAllowedClassroomCodes();
+      _resolveAttendanceClassroomQueryParams(
+    List<String>? classroomCodes, {
+    bool studentCrossClass = false,
+  }) async {
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: studentCrossClass,
+    );
     final effective = resolveAttendanceFilterClassroomCodes(
       selectedClassroomCodes: classroomCodes,
       allowedClassroomCodes: allowed,
@@ -171,8 +186,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     // 1. Call remote datasource
     final pageModel = await _remoteDataSource.getStudentAttendanceDaily(
       attendanceDate: attendanceDate,
@@ -214,7 +231,9 @@ class AttendanceRepositoryImpl
     List<String>? tagCodes,
     String? search,
   }) async {
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     if (allowed.isNotEmpty) {
       return null;
     }
@@ -323,8 +342,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     final pageModel = await _remoteDataSource.getStudentAttendanceCustom(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -360,7 +381,9 @@ class AttendanceRepositoryImpl
     List<String>? tagCodes,
     String? search,
   }) async {
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     if (allowed.isNotEmpty) {
       return null;
     }
@@ -424,8 +447,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     final pageModel = await _remoteDataSource.getStudentSignInFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -451,8 +476,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     final pageModel = await _remoteDataSource.getStudentSignOutFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -478,8 +505,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     final pageModel = await _remoteDataSource.getStudentTransferFormList(
       fromAttendanceDate: fromAttendanceDate,
       toAttendanceDate: toAttendanceDate,
@@ -880,8 +909,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     final pageModel = await _remoteDataSource.getStudentAbsentFormList(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -908,8 +939,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     final pageModel = await _remoteDataSource.getStudentAbsentRecordsActivity(
       fromAbsenceDate: fromAbsenceDate,
       toAbsenceDate: toAbsenceDate,
@@ -930,7 +963,9 @@ class AttendanceRepositoryImpl
     required String absenceRecordCode,
     required String staffCode,
   }) async {
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     await _remoteDataSource.deleteStudentAbsenceRecord(
       absenceRecordCode: absenceRecordCode,
       staffCode: staffCode,
@@ -943,7 +978,9 @@ class AttendanceRepositoryImpl
     required String attendanceRecordCode,
     required String staffCode,
   }) async {
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     await _remoteDataSource.deleteStudentAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
       staffCode: staffCode,
@@ -976,7 +1013,9 @@ class AttendanceRepositoryImpl
     required Map<String, bool> isExpectedTodayByStudentCode,
     String markAbsentMethod = 'APP',
   }) async {
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     final response = await _remoteDataSource.markStudentsAbsent(
       request: MarkAbsentRequestModel(
         staffCode: staffCode,
@@ -1041,8 +1080,10 @@ class AttendanceRepositoryImpl
     int page = 0,
     int size = 10,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
     final pageModel = await _remoteDataSource
         .getStudentAttendanceAbsentToggleView(
           fromAbsenceDate: fromAbsenceDate,
@@ -1136,7 +1177,9 @@ class AttendanceRepositoryImpl
       );
     }
 
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     final effective = _effectiveClassroomCodeForSummary(null, allowed);
     final cacheKey = _studentAttendanceSummaryCacheKey(effective);
 
@@ -1312,7 +1355,9 @@ class AttendanceRepositoryImpl
 
   @override
   Future<String?> getStudentTodaySignInStatus(String studentCode) async {
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     final map = await _remoteDataSource.getStudentSignInStatus(
       studentCodes: <String>[studentCode],
       allowedClassroomCodes: allowed,
@@ -1329,7 +1374,9 @@ class AttendanceRepositoryImpl
         .where((e) => e.isNotEmpty)
         .toList();
     if (codes.isEmpty) return <String, String>{};
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed = await _attendanceAllowedClassroomCodes(
+      studentCrossClass: true,
+    );
     return _remoteDataSource.getStudentSignInStatus(
       studentCodes: codes,
       allowedClassroomCodes: allowed,
@@ -1367,7 +1414,8 @@ class AttendanceRepositoryImpl
 
     // The backend validates the editing teacher's classroom assignment
     // against this list (mirrors markStudentsAbsent/markStaffAbsent).
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed =
+        await _attendanceAllowedClassroomCodes(studentCrossClass: true);
 
     return _remoteDataSource.updateStudentAttendanceRecord(
       attendanceRecordCode: attendanceRecordCode,
@@ -1409,7 +1457,8 @@ class AttendanceRepositoryImpl
       'occurredAt': occurredAt?.toUtc().toIso8601String(),
     };
 
-    final allowed = await _attendanceAllowedClassroomCodes();
+    final allowed =
+        await _attendanceAllowedClassroomCodes(studentCrossClass: true);
     return _remoteDataSource.createStudentSignInRecords(
       payload: payload,
       allowedClassroomCodes: allowed,
@@ -1472,7 +1521,7 @@ class AttendanceRepositoryImpl
     // Skip classroom codes for kiosk mode
     final method = (body['method'] ?? '').toString().trim();
     if (method != 'KIOSK') {
-      await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+      await applyStudentAllowedClassroomCodesToAttendanceBody(body, _storage);
     }
     final data = await _remoteDataSource.postStudentSignIn(
       body: body,
@@ -1500,7 +1549,7 @@ class AttendanceRepositoryImpl
     // Skip classroom codes for kiosk mode
     final method = (body['method'] ?? '').toString().trim();
     if (method != 'KIOSK') {
-      await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+      await applyStudentAllowedClassroomCodesToAttendanceBody(body, _storage);
     }
     final data = await _remoteDataSource.postStudentSignOut(
       body: body,
@@ -1518,7 +1567,7 @@ class AttendanceRepositoryImpl
     required Map<String, dynamic> payload,
   }) async {
     final body = Map<String, dynamic>.from(payload);
-    await applyAllowedClassroomCodesToAttendanceBody(body, _storage);
+    await applyStudentAllowedClassroomCodesToAttendanceBody(body, _storage);
     final data = await _remoteDataSource.postStudentTransfer(body: body);
     return _attendanceActionResult(data, defaultMessage: 'Transfer successfully');
   }
@@ -1634,8 +1683,10 @@ class AttendanceRepositoryImpl
     int size = 10,
     List<String>? sort,
   }) async {
-    final classroomQuery =
-        await _resolveAttendanceClassroomQueryParams(classroomCodes);
+    final classroomQuery = await _resolveAttendanceClassroomQueryParams(
+      classroomCodes,
+      studentCrossClass: true,
+    );
 
     final queryParameters = <String, dynamic>{
       'fromAbsenceDate': fromAbsenceDate,

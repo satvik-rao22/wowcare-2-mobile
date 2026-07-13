@@ -583,7 +583,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                 physics: targetHeight > widget.maxDropdownHeight
                                     ? const AlwaysScrollableScrollPhysics()
                                     : const NeverScrollableScrollPhysics(),
-                                itemExtent: _dropdownRowHeight,
+                                // No fixed itemExtent: let rows size to content
+                                // so long labels (e.g. "Assistant Teacher") can
+                                // wrap to a second line instead of clipping.
                                 itemCount: itemCount,
                                 itemBuilder: (context, index) {
                                   if (widget.showSelectAll && index == 0) {
@@ -668,9 +670,12 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                                               style: const TextStyle(
                                                 fontSize: 14,
                                               ),
-                                              maxLines: 1,
+                                              // Allow long designations (e.g.
+                                              // "Assistant Teacher") to wrap to a
+                                              // second line instead of clipping.
+                                              maxLines: 2,
                                               overflow: TextOverflow.ellipsis,
-                                              softWrap: false,
+                                              softWrap: true,
                                             ),
                                           ),
                                         ],

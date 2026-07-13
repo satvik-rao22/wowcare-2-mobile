@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.da
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -211,6 +212,28 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     );
     _tabController.addListener(_onTabChanged);
     _syncPersonaFlags();
+    // The student-attendance actions are gated on the staff being signed in, so
+    // refresh that status when the popup opens (the shared GeofenceCubit may be
+    // stale, e.g. the user came straight here without the dashboard refreshing).
+    if (!context.read<RoleCubit>().isParent) {
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      _resolveCrossClassPermission();
+    }
+  }
+
+  /// Resolves the school's `allowTeacherCrossClassAttendance` flag so the
+  /// permission gate (which reads it synchronously) reflects the active school.
+  /// Rebuilds once resolved so the student-attendance actions enable when a
+  /// teacher is allowed cross-class access, exactly like an admin.
+  Future<void> _resolveCrossClassPermission() async {
+    try {
+      await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Non-critical: falls back to the signed-in gate.
+    }
   }
 
   @override
@@ -330,6 +353,9 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleCubit>();
+    // Watch the geofence cubit so the student-attendance buttons re-enable as
+    // soon as the staff sign-in status resolves (they gate on isStaffSignedIn).
+    context.watch<GeofenceCubit>();
     final isAdmin = roleProvider.isAdmin && !_isParentRole;
     final isParent = _isParentRole;
     final isTeacherPersona = _isTeacherStaffPersona == true;

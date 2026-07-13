@@ -194,11 +194,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isEmpty) return;
-      final isScopedStaff = await isAttendanceScopedStaffPersona(
+      final isScopedStaff = await isStudentAttendanceScopedStaffPersona(
         storage: storageService,
       );
       final allowedCodes = isScopedStaff
-          ? (await resolveAttendanceAllowedClassroomCodes(
+          ? (await resolveStudentAttendanceAllowedClassroomCodes(
               storage: storageService,
             )).map((e) => e.trim()).where((e) => e.isNotEmpty).toSet()
           : const <String>{};
