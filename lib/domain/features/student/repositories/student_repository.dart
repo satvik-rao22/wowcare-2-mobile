@@ -9,6 +9,7 @@ import '../entities/student_physician.dart';
 import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
 import '../entities/student_regular_schedule.dart';
+import '../entities/student_settings.dart';
 
 abstract class StudentRepository {
   /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
@@ -209,6 +210,9 @@ abstract class StudentRepository {
     required String schoolCode,
     required String userCode,
   });
+
+  /// School-level student settings from `GET /api/v1/student-settings`.
+  Future<StudentSettings> getStudentSettings({required String schoolCode});
 
   /// Fetches student counts (active, upcoming, enrolled) for a school.
   ///

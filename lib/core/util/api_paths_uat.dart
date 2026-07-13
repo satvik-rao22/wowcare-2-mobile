@@ -145,6 +145,7 @@ class ApiPathsUat {
       case 'student':
       case 'student-classroom':
       case 'student-documents':
+      case 'student-settings':
       case 'student-tags':
       case 'regular-schedules':
       case 'physicians':
