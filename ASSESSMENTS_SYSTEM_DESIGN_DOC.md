@@ -661,7 +661,7 @@ Carried from PRD §27.6 (OQ-01…08), framed as decisions this design is ready t
 
 ## 16. Mock data responses
 
-Illustrative payloads for the contract above, reflecting the final model: cross-service references are **codes** (`schoolCode`, `orgCode`, `studentCode`, `classroomCode`, user codes) while same-service foreign keys stay internal ids (`age_group_id`, `milestone_id`); soft-delete is the boolean `isDeleted`; every entity carries `schoolCode` + `orgCode`; and `Assessment` carries `isPublished`. All responses use the standard envelope `{ success, message, data }`.
+Illustrative payloads for the contract above, reflecting the final model: cross-service references are **codes** (`schoolCode`, `orgCode`, `studentCode`, `classroomCode`, user codes) while same-service foreign keys stay internal ids (`age_group_id`, `milestone_id`); soft-delete is the boolean `deleted`; every entity carries `schoolCode` + `orgCode`; and `Assessment` carries `isPublished`. All responses use the standard envelope `{ success, message, data }`.
 
 ### 16.1 `GET /api/v1/schools/{schoolCode}/domains` — parameter hierarchy (nested)
 
@@ -677,7 +677,7 @@ Illustrative payloads for the contract above, reflecting the final model: cross-
         "orgCode": "ORG-88",
         "name": "Social & Emotional",
         "description": "Relationships, self-regulation, empathy.",
-        "isDeleted": false,
+        "deleted": false,
         "ageGroups": ["AGE-BIRTH9M"],
         "subdomainCount": 1,
         "subdomains": [
@@ -687,7 +687,7 @@ Illustrative payloads for the contract above, reflecting the final model: cross-
             "schoolCode": "SCH-1042",
             "orgCode": "ORG-88",
             "name": "Emotional Regulation",
-            "isDeleted": false,
+            "deleted": false,
             "ageGroups": ["AGE-BIRTH9M"],
             "milestones": [
               {
@@ -698,7 +698,7 @@ Illustrative payloads for the contract above, reflecting the final model: cross-
                 "orgCode": "ORG-88",
                 "name": "Identifies basic emotions",
                 "description": "Names happy, sad, angry when prompted.",
-                "isDeleted": false,
+                "deleted": false,
                 "ageGroups": ["AGE-BIRTH9M"]
               }
             ]
