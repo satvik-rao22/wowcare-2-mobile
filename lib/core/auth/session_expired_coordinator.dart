@@ -24,12 +24,36 @@ class SessionExpiredCoordinator {
 
   bool _busy = false;
 
+  /// True when the app is already on an auth-entry route — the sign-in screen or
+  /// the splash (`/`, which runs its own auth check and routes) — or there is no
+  /// navigator yet. Used to avoid a redirect/snackbar loop when a burst of 401s
+  /// lands after we've already bounced the user out, and to avoid interrupting
+  /// the boot/login flow that splash drives.
+  bool _isOnSignInRoute() {
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return true;
+    try {
+      final location =
+          GoRouter.of(ctx).routerDelegate.currentConfiguration.uri.path;
+      return location == SignInScreen.routeName || location == '/';
+    } catch (_) {
+      // Router not ready — treat as "can't navigate" so we don't thrash.
+      return true;
+    }
+  }
+
   /// Best-effort backend logout (plain Dio — no auth interceptors), then clear cache
   /// and return user to sign-in.
   Future<void> performLogoutDueToExpiredSession({
     String userMessage = 'Your session has expired. Please sign in again.',
   }) async {
     if (_busy) return;
+    // Already on the sign-in screen (or no navigator yet): nothing to bounce.
+    // This guard makes the coordinator safe to call on EVERY 401 — including the
+    // case where the session was already cleared underneath a stuck authenticated
+    // screen — without re-clearing/re-navigating and spamming the snackbar on
+    // each subsequent 401.
+    if (_isOnSignInRoute()) return;
     _busy = true;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();

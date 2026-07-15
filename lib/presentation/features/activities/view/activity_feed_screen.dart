@@ -153,6 +153,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                       ActivityCustomTab(
                         fromStudentProfile: widget.fromStudentProfile,
                         studentName: widget.studentName?['name']?.toString(),
+                        studentProfile: widget.fromStudentProfile
+                            ? widget.studentName
+                            : null,
                         isNotParent: true,
                         allowActivityWrite: allowWrite,
                       ),

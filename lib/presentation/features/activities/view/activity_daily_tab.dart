@@ -1149,6 +1149,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _pinProfileStudent();
     });
   }
 
@@ -1386,6 +1387,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .toSet()
         .toList();
     if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
+
+    // Opened from a student profile: the profile passes the student's classroom
+    // CODE directly. Use it as the final fallback so the feed resolves this
+    // student's room even when the name→code maps / _classroomStudents haven't
+    // populated yet (otherwise _loadDailyFeed early-returns an empty feed).
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final cc = widget.studentProfile!['classroomCode'];
+      if (cc is String && cc.trim().isNotEmpty) {
+        return <String>[cc.trim()];
+      }
+    }
 
     return const <String>[];
   }
@@ -2452,14 +2464,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _cacheManager = CacheManager(_storageService);
 
     isNotParent = widget.isNotParent;
-    if (widget.fromStudentProfile) {
-      final n = widget.studentName;
-      if (n != null && n.trim().isNotEmpty) {
-        _selectedStudent = n.trim();
-      }
-    }
+    _seedProfileContext();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // Opened from a student profile: we already have the classroom + student
+      // codes, so kick off the feed right away instead of waiting for the full
+      // classroom/student bootstrap. The dropdown option lists fill in behind
+      // it. _loadDailyFeed de-dupes by request key, so the later bootstrap call
+      // with the same classroom won't refetch.
+      if (widget.fromStudentProfile && widget.studentProfile != null) {
+        final school =
+            (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+                .trim();
+        if (school.isNotEmpty && mounted) {
+          _schoolCode = school;
+          unawaited(_loadDailyFeed(refresh: true));
+        }
+      }
       await _bootstrap();
     });
     _feedScrollController.addListener(_onFeedScroll);
@@ -2548,6 +2569,55 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           .toList();
       _selectedStudent = null;
     }
+    _pinProfileStudent();
+  }
+
+  /// Seeds the classroom + student the screen was opened for (from a student
+  /// profile) into the dropdown state up-front — using the name/code already
+  /// carried in [ActivityFeedScreen.studentName] — so both dropdowns display
+  /// their selection on the first frame instead of appearing empty while the
+  /// classroom and student lists load in the background. The feed is filtered by
+  /// the student's code separately, so this is purely to preload the UI.
+  void _seedProfileContext() {
+    if (!widget.fromStudentProfile) return;
+    final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+    final clsCode =
+        (widget.studentProfile?['classroomCode'] as String?)?.trim() ?? '';
+    if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+      if (clsCode.isNotEmpty) {
+        _classroomCodeByName[cls] = clsCode;
+        _classroomNameByCode[clsCode] = cls;
+      }
+      if (!_classroomOptions.contains(cls)) {
+        _classroomOptions = <String>[..._classroomOptions, cls]..sort();
+      }
+      _selectdClassroom = cls;
+      _selectedClassrooms = <String>[cls];
+    }
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isNotEmpty) {
+      _selectedStudent = name;
+      _selectedStudents = <String>[name];
+    }
+    _pinProfileStudent();
+  }
+
+  /// Keeps the profile student present in the options + selection when launched
+  /// from a student profile. Both this widget's pruning and
+  /// [CustomMultiSelectDropdown] drop selections absent from the options list,
+  /// so without this the pre-selected student silently disappears once the real
+  /// student list loads.
+  void _pinProfileStudent() {
+    if (!widget.fromStudentProfile) return;
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isEmpty) return;
+    if (!_availableStudents.contains(name)) {
+      _availableStudents = <String>[..._availableStudents, name]..sort();
+    }
+    if (!_selectedStudents.contains(name)) {
+      _selectedStudents = <String>[..._selectedStudents, name];
+    }
+    _selectedStudent ??= name;
   }
 
   Future<void> _openActivityFilter() async {
