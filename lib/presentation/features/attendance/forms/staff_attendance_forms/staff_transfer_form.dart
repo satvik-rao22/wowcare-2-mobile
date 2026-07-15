@@ -471,7 +471,20 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         // away.
         await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isStaffAdmin);
         if (!mounted) return;
-        redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+        if (!isStaffAdmin) {
+          // Teacher/staff persona: send them to their own attendance
+          // profile, never the admin-only all-staff tabbed view.
+          final selfName = _selectedStaff.isNotEmpty
+              ? _selectedStaff.first.name
+              : '';
+          redirectToOwnStaffAttendanceProfile(
+            context,
+            staffCode: staffCode,
+            staffName: selfName,
+          );
+        } else {
+          redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+        }
       }
     } catch (e) {
       if (!mounted) return;
