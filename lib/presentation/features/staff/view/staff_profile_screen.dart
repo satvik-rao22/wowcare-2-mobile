@@ -3,12 +3,16 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
@@ -90,6 +94,10 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   bool _isResolvingClassroom = false;
 
+  /// Logged-in user's own staffCode (resolved lazily, staff persona only) —
+  /// used to scope document edit/upload to a staff member's own profile.
+  String? _ownStaffCode;
+
   /// Formats enum-style strings from the API into human readable labels.
   /// Examples:
   /// - "ASSOCIATE_TEACHER" -> "Associate Teacher"
@@ -127,6 +135,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
     _displayClassroom = widget.classroom;
     _profileUserCode = widget.userCode.trim();
     _loadUploadContext();
+    _loadOwnStaffCodeIfStaff();
     // Deep-link case: opened by code straight to a non-Profile tab. The summary
     // (name/designation/classroom) is normally pushed up by the Profile tab,
     // which TabBarView builds lazily — so it never runs when we land on Dates or
@@ -163,6 +172,16 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         if (photo.isNotEmpty) _profilePhotoUrl = photo;
         final uc = profile.userCode.trim();
         if (uc.isNotEmpty) _profileUserCode = uc;
+        // Prefer the staff member's own school/organization over the
+        // device's active-school context: an admin/staff may be viewing a
+        // staff member whose home school differs from the active one, and
+        // uploads scoped to the wrong school 500 on the backend.
+        final ownerSchoolCode = profile.schoolCode.trim();
+        if (ownerSchoolCode.isNotEmpty) _schoolCode = ownerSchoolCode;
+        final ownerOrganizationCode = profile.organizationCode.trim();
+        if (ownerOrganizationCode.isNotEmpty) {
+          _organizationCode = ownerOrganizationCode;
+        }
       });
       // Prefer the human-readable name the API already returns; fall back to the
       // code (which _applyHeaderClassroomFromProfile then resolves to a name).
@@ -186,6 +205,32 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       _schoolCode = schoolCode.isEmpty ? null : schoolCode;
       _organizationCode = organizationCode.isEmpty ? null : organizationCode;
     });
+  }
+
+  /// Resolves the logged-in user's own staffCode so [_canEditDocuments] can
+  /// scope staff document edit/upload to their own profile only. Best-effort:
+  /// on failure editing stays disabled for staff.
+  Future<void> _loadOwnStaffCodeIfStaff() async {
+    try {
+      final role = context.read<RoleCubit>();
+      if (!role.isStaff) return;
+      final code = await resolveStaffCodeForLoggedInUser();
+      if (!mounted) return;
+      setState(() => _ownStaffCode = code);
+    } catch (_) {
+      // Keep editing disabled for staff on failure.
+    }
+  }
+
+  /// Whether the current persona may add/edit/delete this staff member's
+  /// Documents: Admin always; staff only on their own profile; parents never.
+  bool _canEditDocuments(RoleCubit role) {
+    if (role.isParent) return false;
+    if (role.isStaff) {
+      final own = (_ownStaffCode ?? '').trim();
+      return own.isNotEmpty && own == widget.staffCode.trim();
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.staff);
   }
 
   bool _looksLikeClassroomCode(String value) {
@@ -417,6 +462,8 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
 
   @override
   Widget build(BuildContext context) {
+    final role = context.watch<RoleCubit>();
+    final canEditDocuments = _canEditDocuments(role);
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: true,
@@ -478,6 +525,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                 StaffDatesTab(staffCode: widget.staffCode),
                 StaffDocumentsTab(
                   staffCode: widget.staffCode,
+                  canEdit: canEditDocuments,
                   highlightCode: widget.highlightCode,
                 ),
               ],
