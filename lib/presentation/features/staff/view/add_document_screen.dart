@@ -18,6 +18,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_document_cubit.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_document.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'dart:io';
@@ -281,10 +282,33 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         _uploadProgressPercent = 0;
       });
       final storage = serviceLocator<StorageService>();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
-      final organizationCode =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+      // Use the document owner's own school/organization rather than the
+      // device's currently active school: an admin/staff can view a staff
+      // member whose home school differs from the active one (e.g. after a
+      // school switch, org-wide search, or a notification deep-link), and
+      // the upload-session endpoint 500s if the school doesn't own the staff
+      // code. Fall back to the active-school context if the profile lookup
+      // fails.
+      String schoolCode = '';
+      String organizationCode = '';
+      try {
+        final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+          staffCode: widget.staffCode,
+        );
+        schoolCode = profile.schoolCode.trim();
+        organizationCode = profile.organizationCode.trim();
+      } catch (_) {
+        // Fall back below.
+      }
+      if (schoolCode.isEmpty) {
+        schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+            .trim();
+      }
+      if (organizationCode.isEmpty) {
+        organizationCode =
+            (await storage.getString(StorageKeys.organizationCode) ?? '')
+                .trim();
+      }
       if (schoolCode.isEmpty || organizationCode.isEmpty) {
         CoreUtils.showTopSnackBar(
           context: context,

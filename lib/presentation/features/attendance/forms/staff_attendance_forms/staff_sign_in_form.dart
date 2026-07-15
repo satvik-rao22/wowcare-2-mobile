@@ -86,6 +86,20 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   String?
   _currentStaffCode; // Current user's staff code - for self-only validation
 
+  /// True when this form targets the logged-in user's own attendance record
+  /// (My Attendance) rather than another staff member's. Self attendance can
+  /// never have its date/time edited, even by an admin persona — only
+  /// admin-managed OTHER-staff attendance allows picking a date/time.
+  bool get _isSelfTarget {
+    if (widget.forceSelf || widget.isKiosk || widget.qrToken.isNotEmpty) {
+      return true;
+    }
+    final code = _currentStaffCode;
+    if (code == null || code.isEmpty) return false;
+    return _selectedStaff.length == 1 &&
+        (_selectedStaff.first.staffCode ?? '').trim() == code;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -500,7 +514,13 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // Self sign-in (forceSelf) must also use "now" — the backend's /self endpoint
     // always rejects backdated timestamps, so the stale picker value can't be sent.
     final bool isQrForTime = widget.qrToken.isNotEmpty;
-    if (!isStaffAdmin || isQrForTime || widget.forceSelf) {
+    // An admin acting on their OWN record (e.g. via "My Attendance"/My Day,
+    // or a bulk form where they only selected themselves) must not be able
+    // to pick a date/time either — only admin-managed OTHER-staff attendance
+    // allows the picker.
+    final bool isSelfTarget =
+        targetStaffCodes.length == 1 && targetStaffCodes.first == staffCode;
+    if (!isStaffAdmin || isQrForTime || widget.forceSelf || isSelfTarget) {
       if (!isStaffAdmin &&
           (targetStaffCodes.length != 1 ||
               targetStaffCodes.first != staffCode)) {
@@ -545,6 +565,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     if (isStaffAdmin &&
         !isQrForTime &&
         !widget.forceSelf &&
+        !isSelfTarget &&
         occurredAt.isAfter(nowUtc)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -782,7 +803,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: _isStaffAdminPersona == false,
+                        isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -816,8 +837,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        // Teachers cannot modify time; submission will also force "now".
-                        ignoring: _isStaffAdminPersona == false,
+                        // Teachers, and anyone acting on their own record,
+                        // cannot modify time; submission will also force "now".
+                        ignoring: _isStaffAdminPersona != true || _isSelfTarget,
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {

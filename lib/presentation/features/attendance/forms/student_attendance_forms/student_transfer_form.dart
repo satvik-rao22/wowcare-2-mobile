@@ -92,7 +92,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   DateTime _selectedTransferDate = DateTime.now();
   TimeOfDay _selectedTransferTime = TimeOfDay.now();
   String? _schoolIana;
-  bool? _isStaffAdminPersona;
+  bool? _isStaffPersona;
   String? selectedClassroom;
   String currentClassroom = '';
   List<String> availableClassrooms = [];
@@ -127,11 +127,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
 
       final storage = serviceLocator<StorageService>();
       final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      bool isAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-      if (!isAdmin) {
+          .trim();
+      // True for any staff-side login (school/org admin or regular staff);
+      // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+      bool isStaff = staffType.isNotEmpty;
+      if (!isStaff) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
@@ -139,18 +139,20 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
             final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
                 .toString()
                 .toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN') {
-              isAdmin = true;
-              break;
+            if (roleCode.contains('GUARDIAN') ||
+                roleCode.contains('PARENT') ||
+                roleCode.contains('KIOSK')) {
+              continue;
             }
+            isStaff = true;
+            break;
           }
         }
       }
       if (!mounted) return;
       setState(() {
         _schoolIana = schoolIana;
-        _isStaffAdminPersona = isAdmin;
+        _isStaffPersona = isStaff;
         if (schoolIana != null && schoolIana.isNotEmpty) {
           final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
             schoolIana,
@@ -334,10 +336,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
       schoolTimeZone,
     );
-    final isAdmin = _isStaffAdminPersona ?? false;
+    final isStaffPersona = _isStaffPersona ?? false;
 
     final DateTime transferredAt;
-    if (isAdmin) {
+    if (isStaffPersona) {
       final pickedDay = DateTime(
         _selectedTransferDate.year,
         _selectedTransferDate.month,
@@ -355,6 +357,22 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
     } else {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
     }
+
+    if (isStaffPersona && transferredAt.isAfter(DateTime.now().toUtc())) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBarFromSnackBar(
+        context: context,
+        snackBar: const SnackBar(
+          content: Text('You cannot transfer for a future date/time.'),
+          backgroundColor: AppColors.warningColor,
+        ),
+      );
+      setState(() {
+        _isSubmitting = false;
+      });
+      return;
+    }
+
     final transferDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
       transferredAt,
       schoolTimeZone,
@@ -506,7 +524,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: _selectedTransferDate,
-                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        isDisabled: !(_isStaffPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -541,7 +559,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: !(_isStaffAdminPersona ?? false),
+                        ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
                           time: _selectedTransferTime,
                           onTimeSelected: (t) {

@@ -115,7 +115,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
-  bool? _isStaffAdminPersona;
+  bool? _isStaffPersona;
 
   @override
   void initState() {
@@ -150,11 +150,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
       final storage = serviceLocator<StorageService>();
       final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      bool isAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-      if (!isAdmin) {
+          .trim();
+      // True for any staff-side login (school/org admin or regular staff);
+      // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+      bool isStaff = staffType.isNotEmpty;
+      if (!isStaff) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
@@ -162,18 +162,20 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
             final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
                 .toString()
                 .toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN') {
-              isAdmin = true;
-              break;
+            if (roleCode.contains('GUARDIAN') ||
+                roleCode.contains('PARENT') ||
+                roleCode.contains('KIOSK')) {
+              continue;
             }
+            isStaff = true;
+            break;
           }
         }
       }
       if (!mounted) return;
       setState(() {
         _schoolIana = iana;
-        _isStaffAdminPersona = isAdmin;
+        _isStaffPersona = isStaff;
         if (iana != null && iana.isNotEmpty) {
           final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
           selectedDate = dt.$1;
@@ -248,10 +250,10 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       apiClient: serviceLocator<ApiClient>(),
     );
 
-    final isAdmin = _isStaffAdminPersona ?? false;
+    final isStaffPersona = _isStaffPersona ?? false;
     final nowUtc = DateTime.now().toUtc();
 
-    final DateTime occurredAt = isAdmin
+    final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.utcFromSchoolWallClock(
             schoolTimeZone,
             year: selectedDate.year,
@@ -287,7 +289,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-    } else if (isAdmin) {
+    } else if (isStaffPersona) {
       if (occurredAt.isAfter(nowUtc)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -608,7 +610,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        isDisabled: !(_isStaffPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -643,7 +645,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: !(_isStaffAdminPersona ?? false),
+                        ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {

@@ -125,7 +125,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
-  bool? _isStaffAdminPersona;
+  bool? _isStaffPersona;
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
@@ -256,11 +256,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   }
 
   Future<void> _loadPersonaFlags() async {
-    final isAdmin = await _resolveIsStaffAdminPersona();
+    final isStaff = await _resolveIsStaffPersona();
     if (!mounted) return;
     setState(() {
-      _isStaffAdminPersona = isAdmin;
-      if (!_isStaffAdminPersona!) {
+      _isStaffPersona = isStaff;
+      if (!_isStaffPersona!) {
         setCurrentDateTime();
       }
     });
@@ -269,15 +269,15 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     });
   }
 
-  Future<bool> _resolveIsStaffAdminPersona() async {
+  /// True for any staff-side login (school/org admin or regular staff);
+  /// false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+  Future<bool> _resolveIsStaffPersona() async {
     try {
       final storage = serviceLocator<StorageService>();
       final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
-        return true;
-      }
+          .trim();
+      if (staffType.isNotEmpty) return true;
+
       final rolesJson = await storage.getString(StorageKeys.roles);
       if (rolesJson == null || rolesJson.trim().isEmpty) return false;
       final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
@@ -285,9 +285,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
             .toString()
             .toUpperCase();
-        if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
-          return true;
+        if (roleCode.contains('GUARDIAN') ||
+            roleCode.contains('PARENT') ||
+            roleCode.contains('KIOSK')) {
+          continue;
         }
+        return true;
       }
     } catch (_) {}
     return false;
@@ -472,11 +475,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       apiClient: serviceLocator<ApiClient>(),
     );
 
-    // Admins pick school-local date/time; everyone else uses "now" in the school's zone.
-    final isAdmin = _isStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
+    final isStaffPersona = _isStaffPersona ?? await _resolveIsStaffPersona();
     final nowUtc = DateTime.now().toUtc();
 
-    final DateTime occurredAt = isAdmin
+    final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.utcFromSchoolWallClock(
             schoolTimeZone,
             year: selectedDate.year,
@@ -512,8 +515,8 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         );
         return;
       }
-    } else if (isAdmin) {
-      // Admin cannot sign in for a future date/time
+    } else if (isStaffPersona) {
+      // Staff cannot sign in for a future date/time
       if (occurredAt.isAfter(nowUtc)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -829,7 +832,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        isDisabled: !(_isStaffPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
                             // Prevent future dates (school calendar), not device calendar.
@@ -866,7 +869,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: !(_isStaffAdminPersona ?? false),
+                        ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {

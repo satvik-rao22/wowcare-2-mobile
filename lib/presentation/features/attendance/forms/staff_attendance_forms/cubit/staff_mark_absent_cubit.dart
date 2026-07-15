@@ -60,6 +60,7 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
+    final currentStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
     if (isClosed) return;
     final start = (schoolIana != null && schoolIana.isNotEmpty)
         ? SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana)
@@ -67,6 +68,8 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     emit(state.copyWith(
       schoolIana: schoolIana,
       isStaffAdminPersona: isAdmin,
+      currentStaffCode:
+          currentStaffCode.isNotEmpty ? currentStaffCode : null,
       startDate: start,
       endDate: start,
     ));
@@ -166,13 +169,24 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
       for (final code in targetStaffCodes) code: true,
     };
 
+    // Self attendance (even for an admin persona) is always "today" —
+    // defense in depth alongside the UI's disabled date pickers.
+    final isSelfTarget = targetStaffCodes.length == 1 &&
+        targetStaffCodes.first == markerStaffCode;
+    final iana = state.schoolIana;
+    final today = (iana != null && iana.isNotEmpty)
+        ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+        : _localToday();
+    final absenceFromDate = isSelfTarget ? today : state.startDate;
+    final absenceToDate = isSelfTarget ? today : state.endDate;
+
     emit(state.copyWith(isSubmitting: true));
     try {
       final message = await _markStaffAbsentUseCase(
         staffCode: markerStaffCode,
         staffCodes: targetStaffCodes,
-        absenceFromDate: _formatDate(state.startDate),
-        absenceToDate: _formatDate(state.endDate),
+        absenceFromDate: _formatDate(absenceFromDate),
+        absenceToDate: _formatDate(absenceToDate),
         absenceReason: absenceReason,
         absenceType: absenceType,
         absenceNotes: absenceNotes,
