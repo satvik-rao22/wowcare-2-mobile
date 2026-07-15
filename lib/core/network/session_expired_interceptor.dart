@@ -28,6 +28,7 @@ class SessionExpiredInterceptor extends Interceptor {
   }
 
   /// Login/forgot-password 401 means invalid credentials, not global session expiry.
+  /// Login-context 401 is handled explicitly by the splash screen (and auth cubit).
   /// FCM endpoints 401s are non-fatal and should not trigger logout.
   /// Notification operations should never interrupt authentication.
   static bool _shouldIgnorePath(RequestOptions options) {
@@ -37,6 +38,8 @@ class SessionExpiredInterceptor extends Interceptor {
     if (p.contains('/auth/forgot-password')) return true;
     if (p.contains('/auth/forgot_password')) return true;
     if (p.contains('/auth/logout')) return true;
+    // Login-context: 401 means the cached token expired (handled by splash screen)
+    if (p.contains('/auth/login-context')) return true;
     // FCM endpoints: 401 is non-fatal and must NOT trigger logout
     if (p.contains('/notification/fcm')) return true;
     if (p.contains('/notification/fcm/')) return true;

@@ -580,9 +580,15 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                               child: ListView.builder(
                                 padding: EdgeInsets.zero,
                                 shrinkWrap: true,
-                                physics: targetHeight > widget.maxDropdownHeight
-                                    ? const AlwaysScrollableScrollPhysics()
-                                    : const NeverScrollableScrollPhysics(),
+                                // Always allow scrolling: rows can wrap to two
+                                // lines (long student names / designations), so
+                                // the fixed `_dropdownRowHeight` estimate can
+                                // undercount the real content height. Gating
+                                // scroll on that estimate left overflowing rows
+                                // clipped and unreachable. ClampingScrollPhysics
+                                // scrolls only when content exceeds the box and
+                                // stays put when it fits.
+                                physics: const ClampingScrollPhysics(),
                                 // No fixed itemExtent: let rows size to content
                                 // so long labels (e.g. "Assistant Teacher") can
                                 // wrap to a second line instead of clipping.

@@ -76,8 +76,8 @@ class MediaRes {
   static const backgroundImage44 = '';
   static const wowcareMobileBg = '$_baseBackgroundImage/wowcare_mobile_bg.png';
 
-  static const userImageMale = '$_baseImages/male.png';
-  static const userImageFemale = '$_baseImages/female.png';
+  static const userImageMale = '$_baseImages/WowCarePNG.png';
+  static const userImageFemale = '$_baseImages/WowCarePNG.png';
   static const logo_wow = '$_baseImages/WowCarePNG.png';
   static const logo_wow_new = '$_baseImages/WowLogoRound.svg';
   static const logout_image = '$_baseImages/logout_image.png';

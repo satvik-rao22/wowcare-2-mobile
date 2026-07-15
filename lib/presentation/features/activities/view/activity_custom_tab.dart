@@ -347,25 +347,26 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     isNotParent = widget.isNotParent;
     // Opened from a student profile: pre-select that student (and their
     // classroom) in the admin filter row so the range feed is filtered to them
-    // and the dropdowns reflect it, instead of showing an empty "Select
-    // Student".
-    if (widget.fromStudentProfile) {
-      final name = widget.studentName?.trim() ?? '';
-      if (name.isNotEmpty) {
-        _selectedStudent = name;
-        _selectedStudents = <String>[name];
-      }
-      final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
-      if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
-        _selectdClassroom = cls;
-        _selectedClassrooms = <String>[cls];
-      }
-    }
+    // and the dropdowns reflect it on the first frame, instead of showing an
+    // empty "Select Student" while the lists load.
+    _seedProfileContext();
     _updateAvailableStudents();
     //_selectedStudent = _allStudents[0];
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // Feed is locked to the profile student's code + classroom already, so
+      // load it right away rather than waiting for the classroom/student
+      // bootstrap; _loadRangeFeed de-dupes so the later bootstrap won't refetch.
+      if (widget.fromStudentProfile && widget.studentProfile != null) {
+        final school =
+            (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+                .trim();
+        if (school.isNotEmpty && mounted) {
+          _schoolCode = school;
+          unawaited(_loadRangeFeed(refresh: true));
+        }
+      }
       await _bootstrapRangeFeed();
     });
     _feedScrollController.addListener(_onFeedScroll);
@@ -1407,6 +1408,37 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           .where((name) => _availableStudents.contains(name))
           .toList();
       _selectedStudent = null;
+    }
+    _pinProfileStudent();
+  }
+
+  /// Seeds the classroom + student the screen was opened for (from a student
+  /// profile) into the dropdown state up-front — using the name/code already
+  /// carried in [ActivityFeedScreen.studentName] — so both dropdowns display
+  /// their selection on the first frame instead of appearing empty while the
+  /// classroom and student lists load in the background. The feed is filtered by
+  /// the student's code separately, so this is purely to preload the UI.
+  void _seedProfileContext() {
+    if (!widget.fromStudentProfile) return;
+    final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+    final clsCode =
+        (widget.studentProfile?['classroomCode'] as String?)?.trim() ?? '';
+    if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+      if (clsCode.isNotEmpty) {
+        _classroomCodeByName[cls] = clsCode;
+        _classroomNameByCode[clsCode] = cls;
+      }
+      if (!_classroomOptions.contains(cls)) {
+        _classroomOptions.add(cls);
+        _classroomOptions.sort();
+      }
+      _selectdClassroom = cls;
+      _selectedClassrooms = <String>[cls];
+    }
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isNotEmpty) {
+      _selectedStudent = name;
+      _selectedStudents = <String>[name];
     }
     _pinProfileStudent();
   }
