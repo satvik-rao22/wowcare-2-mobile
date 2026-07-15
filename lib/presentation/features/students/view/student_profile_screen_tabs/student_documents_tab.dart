@@ -177,6 +177,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           initialMimeType: doc.mimeType,
           initialFileSizeKb: doc.documentSizeKb,
           initialDocumentNotes: null,
+          initialAssetCode: doc.assetCode,
           documentUuid: doc.documentUuid,
         ),
       ),
@@ -792,8 +793,9 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                             ),
                                                       style: OutlinedButton.styleFrom(
                                                         side: const BorderSide(
-                                                          color: AppColors
-                                                              .primaryColor,
+                                                          color: Color(
+                                                            0xFF6C7FD8,
+                                                          ),
                                                         ),
                                                         shape: RoundedRectangleBorder(
                                                           borderRadius:
@@ -822,8 +824,9 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                                 fontWeight:
                                                                     FontWeight
                                                                         .w700,
-                                                                color: AppColors
-                                                                    .primaryColor,
+                                                                color: Color(
+                                                                  0xFF6C7FD8,
+                                                                ),
                                                               ),
                                                             ),
                                                     ),

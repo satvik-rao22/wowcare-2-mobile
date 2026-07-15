@@ -182,28 +182,30 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     }
   }
 
-  /// Whether the current persona may edit the Health tab: guardian →
-  /// [StudentSettings.canParentEditChildHealthRecords], staff →
-  /// [StudentSettings.canStaffEditTheirOwnHealthRecords], admin → module access.
+  /// Whether the current persona may edit a student's Health tab: guardian →
+  /// [StudentSettings.canParentEditChildHealthRecords], staff → also
+  /// [StudentSettings.canParentEditChildHealthRecords] (per backend contract,
+  /// this single toggle governs Health-tab edit access for both guardian and
+  /// staff personas — [StudentSettings.canStaffEditTheirOwnHealthRecords] is
+  /// reserved for Documents, see [_canEditDocuments]), admin → module access.
   bool _canEditHealth(RoleCubit role) {
+    if (role.isParent || role.isStaff) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
+  }
+
+  /// Whether the current persona may add/edit/delete a student's Documents:
+  /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords] (despite its
+  /// health-records name, this field is the backend's toggle for whether
+  /// staff may add/edit student documents), admin → module access.
+  bool _canEditDocuments(RoleCubit role) {
     if (role.isParent) {
       return _studentSettings?.canParentEditChildHealthRecords ?? false;
     }
     if (role.isStaff) {
       return _studentSettings?.canStaffEditTheirOwnHealthRecords ?? false;
-    }
-    return ModuleAccess.mayWrite(role, AppAccessModules.student);
-  }
-
-  /// Whether the current persona may add/edit/delete a student's Documents.
-  /// Only Admin and the student's own guardian may — staff can never upload
-  /// or manage a student's documents (they may only manage their own staff
-  /// documents, see [StaffDocumentsTab]), regardless of the school's
-  /// staff health-records setting.
-  bool _canEditDocuments(RoleCubit role) {
-    if (role.isStaff) return false;
-    if (role.isParent) {
-      return _studentSettings?.canParentEditChildHealthRecords ?? false;
     }
     return ModuleAccess.mayWrite(role, AppAccessModules.student);
   }
