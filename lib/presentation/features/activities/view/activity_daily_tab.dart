@@ -1149,6 +1149,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _pinProfileStudent();
     });
   }
 
@@ -1386,6 +1387,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .toSet()
         .toList();
     if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
+
+    // Opened from a student profile: the profile passes the student's classroom
+    // CODE directly. Use it as the final fallback so the feed resolves this
+    // student's room even when the name→code maps / _classroomStudents haven't
+    // populated yet (otherwise _loadDailyFeed early-returns an empty feed).
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final cc = widget.studentProfile!['classroomCode'];
+      if (cc is String && cc.trim().isNotEmpty) {
+        return <String>[cc.trim()];
+      }
+    }
 
     return const <String>[];
   }
@@ -2456,6 +2468,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       final n = widget.studentName;
       if (n != null && n.trim().isNotEmpty) {
         _selectedStudent = n.trim();
+        // Also seed the multiselect list so the admin student dropdown shows the
+        // student as selected (the feed is locked to their code separately).
+        _selectedStudents = <String>[n.trim()];
+      }
+      // Pre-select the student's classroom so the classroom dropdown reflects it
+      // and the room's student list loads.
+      final cls =
+          (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+      if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+        _selectdClassroom = cls;
+        _selectedClassrooms = <String>[cls];
       }
     }
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -2548,6 +2571,25 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           .toList();
       _selectedStudent = null;
     }
+    _pinProfileStudent();
+  }
+
+  /// Keeps the profile student present in the options + selection when launched
+  /// from a student profile. Both this widget's pruning and
+  /// [CustomMultiSelectDropdown] drop selections absent from the options list,
+  /// so without this the pre-selected student silently disappears once the real
+  /// student list loads.
+  void _pinProfileStudent() {
+    if (!widget.fromStudentProfile) return;
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isEmpty) return;
+    if (!_availableStudents.contains(name)) {
+      _availableStudents = <String>[..._availableStudents, name]..sort();
+    }
+    if (!_selectedStudents.contains(name)) {
+      _selectedStudents = <String>[..._selectedStudents, name];
+    }
+    _selectedStudent ??= name;
   }
 
   Future<void> _openActivityFilter() async {

@@ -164,6 +164,26 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     });
   }
 
+  /// Resolves the active student's classroom NAME ([_displayClassroom]) to its
+  /// classroom CODE via the loaded [ClassroomCubit] list. The activity flow needs
+  /// the code — the feed to pre-filter to this student's room, and the add-flow
+  /// to load per-classroom activity settings — but the profile only carries the
+  /// name. Returns '' when it can't be resolved (list not loaded / no match).
+  String _resolveClassroomCode(BuildContext context) {
+    final name = _displayClassroom.trim();
+    if (name.isEmpty) return '';
+    try {
+      final classrooms = context.read<ClassroomCubit>().state.classrooms;
+      final needle = name.toLowerCase();
+      for (final c in classrooms) {
+        if (c.name.trim().toLowerCase() == needle) return c.code.trim();
+      }
+    } catch (_) {
+      // ClassroomCubit not available / not loaded yet — fall through.
+    }
+    return '';
+  }
+
   /// Loads school-level student settings so the Health/Documents tabs know
   /// whether the current persona may edit. Best-effort: on failure editing
   /// stays disabled for guardian/staff (admins keep their module-access default).
@@ -1050,6 +1070,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 role,
                 AppAccessModules.dailyActivity,
                 () {
+                  // Resolve the classroom NAME → CODE so the activity feed can
+                  // filter to this student's room and the add-activity flow can
+                  // load per-classroom activity settings (the profile only holds
+                  // the name; without the code the add screen shows "No
+                  // activities available from API").
+                  final classroomCode = _resolveClassroomCode(context);
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ActivityFeedScreen(
@@ -1064,6 +1090,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               _activeStudentCode!.trim().isNotEmpty)
                             'studentCode': _activeStudentCode!.trim(),
                           'classroom': _displayClassroom,
+                          if (classroomCode.isNotEmpty)
+                            'classroomCode': classroomCode,
                           'tags': _profileTags,
                           'nappingStatus': false,
                         },

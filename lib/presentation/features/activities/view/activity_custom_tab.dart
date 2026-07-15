@@ -73,12 +73,18 @@ class ActivityCustomTab extends StatefulWidget {
     super.key,
     this.fromStudentProfile = false,
     this.studentName,
+    this.studentProfile,
     this.isNotParent = true,
     this.allowActivityWrite = true,
   });
 
   final bool fromStudentProfile;
   final String? studentName;
+
+  /// Full student context ({name, studentCode, classroom, classroomCode, …})
+  /// when launched from a student profile. Used to lock the feed to that student
+  /// (by studentCode) and resolve its classroom, mirroring [ActivityDailyTab].
+  final Map<String, dynamic>? studentProfile;
   final bool isNotParent;
 
   /// Edit / delete; false when [DAILY_ACTIVITY] has `write: false`.
@@ -338,8 +344,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
-    _updateAvailableStudents();
     isNotParent = widget.isNotParent;
+    // Opened from a student profile: pre-select that student (and their
+    // classroom) in the admin filter row so the range feed is filtered to them
+    // and the dropdowns reflect it, instead of showing an empty "Select
+    // Student".
+    if (widget.fromStudentProfile) {
+      final name = widget.studentName?.trim() ?? '';
+      if (name.isNotEmpty) {
+        _selectedStudent = name;
+        _selectedStudents = <String>[name];
+      }
+      final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+      if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+        _selectdClassroom = cls;
+        _selectedClassrooms = <String>[cls];
+      }
+    }
+    _updateAvailableStudents();
     //_selectedStudent = _allStudents[0];
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
@@ -442,6 +464,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   List<String>? _selectedStudentCodesForAttendanceFilter() {
+    // Opened from a student profile: lock the feed to that student's code so the
+    // range feed only shows their activities (name→code resolution can miss
+    // before the student list loads, which let other students' activities leak
+    // through).
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final sc = widget.studentProfile!['studentCode'];
+      if (sc is String && sc.trim().isNotEmpty) {
+        return <String>[sc.trim()];
+      }
+    }
     final selectedNames = _selectedStudents.isNotEmpty
         ? _selectedStudents
         : ((_selectedStudent?.trim().isNotEmpty ?? false)
@@ -497,6 +529,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         .toSet()
         .toList();
     if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
+
+    // Opened from a student profile: fall back to the student's classroom CODE
+    // so the range feed resolves the room even before the name→code maps load.
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final cc = widget.studentProfile!['classroomCode'];
+      if (cc is String && cc.trim().isNotEmpty) {
+        return <String>[cc.trim()];
+      }
+    }
 
     return const <String>[];
   }
@@ -1367,6 +1408,25 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           .toList();
       _selectedStudent = null;
     }
+    _pinProfileStudent();
+  }
+
+  /// Keeps the profile student present in the options + selection when launched
+  /// from a student profile. Both this widget's pruning and
+  /// [CustomMultiSelectDropdown] drop selections absent from the options list,
+  /// so without this the pre-selected student silently disappears once the real
+  /// student list loads.
+  void _pinProfileStudent() {
+    if (!widget.fromStudentProfile) return;
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isEmpty) return;
+    if (!_availableStudents.contains(name)) {
+      _availableStudents = <String>[..._availableStudents, name]..sort();
+    }
+    if (!_selectedStudents.contains(name)) {
+      _selectedStudents = <String>[..._selectedStudents, name];
+    }
+    _selectedStudent ??= name;
   }
 
   Future<void> _openActivityFilter() async {
@@ -1452,6 +1512,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _pinProfileStudent();
     });
   }
 
@@ -2707,7 +2768,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.white,
                     ),
-                    child: widget.fromStudentProfile
+                    child: widget.fromStudentProfile && !isNotParent
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [

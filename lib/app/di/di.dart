@@ -488,7 +488,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       baseUrl: apiBaseUrl,
       interceptors: <Interceptor>[
         AuthInterceptor(serviceLocator<StorageService>()),
-        SessionExpiredInterceptor(serviceLocator<StorageService>()),
+        SessionExpiredInterceptor(),
       ],
     ),
   );
