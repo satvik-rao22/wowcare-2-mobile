@@ -727,10 +727,23 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           if (isSelfSignIn) {
             context.read<GeofenceCubit>().updateStaffSignInStatus(true);
           }
-          redirectToAttendanceDaily(
-            context,
-            StaffAttendanceTabbedView.routeName,
-          );
+          if (!isStaffAdmin) {
+            // Teacher/staff persona: send them to their own attendance
+            // profile, never the admin-only all-staff tabbed view.
+            final selfName = _selectedStaff.isNotEmpty
+                ? _selectedStaff.first.name
+                : '';
+            redirectToOwnStaffAttendanceProfile(
+              context,
+              staffCode: staffCode,
+              staffName: selfName,
+            );
+          } else {
+            redirectToAttendanceDaily(
+              context,
+              StaffAttendanceTabbedView.routeName,
+            );
+          }
         }
       }
     } catch (e) {

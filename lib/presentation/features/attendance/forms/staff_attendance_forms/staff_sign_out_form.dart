@@ -488,6 +488,17 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           if (mounted) {
             context.go('/kiosk');
           }
+        } else if (!isStaffAdmin) {
+          // Teacher/staff persona: send them to their own attendance
+          // profile, never the admin-only all-staff tabbed view.
+          final selfName = _selectedStaff.isNotEmpty
+              ? _selectedStaff.first.name
+              : '';
+          redirectToOwnStaffAttendanceProfile(
+            context,
+            staffCode: staffCode,
+            staffName: selfName,
+          );
         } else {
           redirectToAttendanceDaily(
               context, StaffAttendanceTabbedView.routeName);
