@@ -176,7 +176,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       ));
       // Keep the app-bar bell badge in step with the read action.
       try {
-        serviceLocator<NotificationBadgeCubit>().refresh();
+        serviceLocator<NotificationBadgeCubit>().markOneReadLocally();
       } catch (_) {}
     } catch (e) {
       if (isClosed) return;
@@ -201,7 +201,7 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       emit(state.copyWith(isMutating: false, serverUnreadCount: 0));
       // Keep the app-bar bell badge in step with mark-all-read.
       try {
-        serviceLocator<NotificationBadgeCubit>().refresh();
+        serviceLocator<NotificationBadgeCubit>().markAllReadLocally();
       } catch (_) {}
     } catch (e) {
       if (isClosed) return;
