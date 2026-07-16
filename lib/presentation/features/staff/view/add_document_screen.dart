@@ -36,6 +36,7 @@ class AddDocumentScreen extends StatefulWidget {
     this.initialMimeType,
     this.initialFileSizeKb,
     this.initialDocumentNotes,
+    this.initialAssetCode,
   });
   static const String routeName = '/add-document-screen';
 
@@ -49,6 +50,7 @@ class AddDocumentScreen extends StatefulWidget {
   final String? initialMimeType;
   final int? initialFileSizeKb;
   final String? initialDocumentNotes;
+  final String? initialAssetCode;
 
   @override
   _AddDocumentScreenState createState() => _AddDocumentScreenState();
@@ -91,6 +93,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       if (widget.initialDocumentNotes != null) {
         _notesController.text = widget.initialDocumentNotes!.trim();
       }
+      _uploadedAssetCode = widget.initialAssetCode;
     }
   }
 
