@@ -48,13 +48,13 @@ import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
 import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
 import '../../domain/features/events/usecases/update_event_usecase.dart';
 import '../../presentation/features/events/cubit/events_cubit.dart';
-import '../../data/features/tasks/datasources/task_local_datasource.dart';
-import '../../data/features/tasks/datasources/task_seed_datasource.dart';
+import '../../data/features/tasks/datasources/task_remote_datasource.dart';
 import '../../data/features/tasks/repositories/task_repository_impl.dart';
 import '../../domain/features/tasks/repositories/task_repository.dart';
 import '../../domain/features/tasks/usecases/create_task_usecase.dart';
 import '../../domain/features/tasks/usecases/delete_task_usecase.dart';
 import '../../domain/features/tasks/usecases/get_tasks_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
@@ -472,20 +472,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Tasks (local-first: Isar persistence seeded from bundled mock JSON
-  // until the tasks backend is available — mirrors the Events module).
-  serviceLocator.registerLazySingleton<TaskLocalDataSource>(
-    () => TaskLocalDataSourceImpl(serviceLocator<CacheService>()),
-  );
-  serviceLocator.registerLazySingleton<TaskSeedDataSource>(
-    () => TaskSeedDataSourceImpl(),
-  );
-  serviceLocator.registerLazySingleton<TaskRepository>(
-    () => TaskRepositoryImpl(
-      serviceLocator<TaskLocalDataSource>(),
-      serviceLocator<TaskSeedDataSource>(),
+  // Tasks are remote-only (no Isar/mock), live on the events-todo MS.
+  serviceLocator.registerLazySingleton<TaskRemoteDataSource>(
+    () => TaskRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
       serviceLocator<StorageService>(),
     ),
+  );
+  serviceLocator.registerLazySingleton<TaskRepository>(
+    () => TaskRepositoryImpl(serviceLocator<TaskRemoteDataSource>()),
   );
   serviceLocator.registerFactory<GetTasksUseCase>(
     () => GetTasksUseCase(serviceLocator()),
@@ -499,6 +494,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteTaskUseCase>(
     () => DeleteTaskUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UpdateTaskAssignmentStatusUseCase>(
+    () => UpdateTaskAssignmentStatusUseCase(serviceLocator()),
+  );
   // Singleton so the tasks board, detail and form screens (separate routes)
   // share one state and edits reflect everywhere without refetching.
   serviceLocator.registerLazySingleton<TasksCubit>(
@@ -507,6 +505,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<CreateTaskUseCase>(),
       serviceLocator<UpdateTaskUseCase>(),
       serviceLocator<DeleteTaskUseCase>(),
+      serviceLocator<UpdateTaskAssignmentStatusUseCase>(),
+      serviceLocator<GetAllStaffUseCase>(),
       serviceLocator<StorageService>(),
     ),
   );

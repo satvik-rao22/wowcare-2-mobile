@@ -59,9 +59,10 @@ class TaskAccess {
   static bool _isMine(Task task, String userCode, String staffCode) {
     final codes = <String>{userCode, staffCode}
       ..removeWhere((code) => code.isEmpty);
-    // Cold cache (identity not resolved): stay permissive so staff aren't
-    // locked out of their own tasks.
-    if (codes.isEmpty) return true;
+    // RBAC: a staff member manages only their own tasks. If we can't confirm
+    // identity yet, deny rather than grant blanket write access to everyone
+    // else's tasks (admins are handled earlier and are unaffected).
+    if (codes.isEmpty) return false;
     return codes.contains(task.assigneeCode) || codes.contains(task.createdBy);
   }
 }

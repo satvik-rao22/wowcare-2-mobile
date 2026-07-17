@@ -231,6 +231,7 @@ class ApiPaths {
       case 'messages':
         return ApiMicroservices.communication;
       case 'holidays':
+      case 'tasks':
         return ApiMicroservices.eventsTodo;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
@@ -922,6 +923,31 @@ class ApiPaths {
 
   /// `PATCH` `/api/v1/holidays/{code}/status` — approve/reject a federal holiday.
   static String holidayStatus(String code) => '${holidayByCode(code)}/status';
+
+  // —— Events/Todo MS — Tasks ——
+  /// `GET`/`POST` `/api/v1/tasks`. List supports the series filters
+  /// `?seriesStatus=&recurring=&q=&page=&size=`.
+  static const String tasks = '/api/v1/tasks';
+
+  /// `PATCH`/`DELETE` `/api/v1/tasks/{code}` (series-level).
+  static String taskByCode(String code) =>
+      '$tasks/${Uri.encodeComponent(code.trim())}';
+
+  /// `GET` `/api/v1/tasks/assignments` — flat, mixed-status page of task
+  /// assignments (same filters as the board, ungrouped).
+  static const String taskAssignments = '$tasks/assignments';
+
+  /// `GET` `/api/v1/tasks/board` — Kanban board grouped into status columns.
+  static const String taskBoard = '$tasks/board';
+
+  /// `PATCH` `/api/v1/tasks/assignments/{code}/status` — quick status change
+  /// on a single assignment.
+  static String taskAssignmentStatus(String code) =>
+      '$taskAssignments/${Uri.encodeComponent(code.trim())}/status';
+
+  /// `POST` `/api/v1/tasks/upload-session` — open a shared upload session for
+  /// task attachments (document-microservice, domain `TASK`).
+  static const String taskUploadSession = '$tasks/upload-session';
 
   // —— Notification service (FCM + delivery logs) ——
   static const String notificationFcmRegister =

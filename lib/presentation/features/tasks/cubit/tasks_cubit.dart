@@ -1,20 +1,22 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_tasks_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 
 part 'tasks_state.dart';
 
-/// Lightweight assignee reference passed from the form to [TasksCubit.create]
-/// so multi-assignee creation can fan out one task per staff member
-/// (PRD BR-TASK-01) while keeping the denormalized display name.
+/// Lightweight assignee reference passed from the form to [TasksCubit.create].
+/// Selecting several populates one shared roster on a single create call
+/// (Tasks API §1); the display [name] is kept for the confirmation toast.
 typedef TaskAssigneeRef = ({String code, String name});
 
 class TasksCubit extends Cubit<TasksState> {
@@ -23,6 +25,8 @@ class TasksCubit extends Cubit<TasksState> {
     this._createTask,
     this._updateTask,
     this._deleteTask,
+    this._updateStatus,
+    this._getAllStaff,
     this._storageService,
   ) : super(const TasksState.initial());
 
@@ -30,11 +34,19 @@ class TasksCubit extends Cubit<TasksState> {
   final CreateTaskUseCase _createTask;
   final UpdateTaskUseCase _updateTask;
   final DeleteTaskUseCase _deleteTask;
+  final UpdateTaskAssignmentStatusUseCase _updateStatus;
+  final GetAllStaffUseCase _getAllStaff;
   final StorageService _storageService;
 
   /// The "My Tasks" default is derived from the persona once per cubit
   /// lifetime so later loads don't clobber the user's own toggle choice.
   bool _audienceDefaultApplied = false;
+
+  /// assigneeCode → display name, resolved from the staff directory once and
+  /// reused across loads. The assignments API returns only staff codes, so we
+  /// denormalize names here so cards/detail/filters read like the rest of the
+  /// app instead of showing "Unassigned".
+  final Map<String, String> _staffNames = {};
 
   Future<void> load({bool silent = false}) async {
     if (!silent) {
@@ -68,10 +80,11 @@ class TasksCubit extends Cubit<TasksState> {
         final isStaff = role.contains('STAFF') || role.contains('TEACHER');
         scope = isStaff ? TaskScope.mine : TaskScope.all;
       }
-      final tasks = await _getTasks();
+      final tasks = await _getTasks(query: state.searchQuery);
+      await _ensureStaffNames();
       emit(state.copyWith(
         scope: scope,
-        tasks: tasks,
+        tasks: _withAssigneeNames(tasks),
         isLoading: false,
         currentUserCode: userCode,
         currentUserName: userName,
@@ -88,8 +101,29 @@ class TasksCubit extends Cubit<TasksState> {
 
   // ------------------------------------------------------ search & filters
 
+  /// Search is server-backed (Tasks API §7 `q`): store the query and refetch.
+  /// The UI already debounces keystrokes, so this fires at most once per pause.
   void setSearchQuery(String query) {
+    if (query == state.searchQuery) return;
     emit(state.copyWith(searchQuery: query));
+    _refetchForSearch();
+  }
+
+  Future<void> _refetchForSearch() async {
+    final query = state.searchQuery;
+    try {
+      final tasks = await _getTasks(query: query);
+      await _ensureStaffNames();
+      // Drop a stale response if the query moved on while we were fetching.
+      if (query != state.searchQuery) return;
+      emit(state.copyWith(
+        tasks: _withAssigneeNames(tasks),
+        errorMessage: () => null,
+      ));
+    } catch (e) {
+      if (query != state.searchQuery) return;
+      emit(state.copyWith(errorMessage: () => 'Failed to search tasks: $e'));
+    }
   }
 
   /// Scope toggle (PRD FR-TK-19): admins switch All/My, staff switch
@@ -132,6 +166,7 @@ class TasksCubit extends Cubit<TasksState> {
 
   /// Resets all filter state including the search query (PRD FR-TK-25).
   void clearAllFilters() {
+    final hadSearch = state.searchQuery.trim().isNotEmpty;
     emit(state.copyWith(
       searchQuery: '',
       assigneeFilter: const <String>{},
@@ -142,37 +177,28 @@ class TasksCubit extends Cubit<TasksState> {
       dateTo: () => null,
       overdueOnly: false,
     ));
+    // Clearing the text query widens the server-side search, so refetch.
+    if (hadSearch) _refetchForSearch();
   }
 
   // ----------------------------------------------------------------- tasks
 
-  /// Creates one task per [assignees] entry (PRD BR-TASK-01: each task is
-  /// identical except for the assignee). Audit/code fields are stamped here
-  /// so the form only deals with user input. Returns true on success.
+  /// Creates one task series whose roster is [assignees] (Tasks API §1 —
+  /// multiple assignees populate one shared roster, not N task rows). The
+  /// server stamps codes, dates and audit fields, so on success we reload to
+  /// pick up the newly materialized assignment cards. Returns true on success.
   Future<bool> create(Task draft, List<TaskAssigneeRef> assignees) async {
     if (assignees.isEmpty) return false;
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      final created = <Task>[];
-      for (final assignee in assignees) {
-        final now = DateTime.now();
-        final task = draft.copyWith(
-          code: 'TSK-${const Uuid().v4().substring(0, 8).toUpperCase()}',
-          assigneeCode: assignee.code,
-          assigneeName: assignee.name,
-          createdBy: state.currentStaffCode.isNotEmpty
-              ? state.currentStaffCode
-              : state.currentUserCode,
-          createdByName: state.currentUserName,
-          createdAt: now,
-          updatedAt: now,
-        );
-        created.add(await _createTask(task));
-      }
-      emit(state.copyWith(
-        tasks: _sorted([...state.tasks, ...created]),
-        isSaving: false,
-      ));
+      // No per-assignee priority in the form: everyone falls back to the
+      // task-level priority carried on [draft].
+      final roster = assignees
+          .map((a) => TaskAssignee(staffCode: a.code))
+          .toList();
+      await _createTask(draft: draft, assignees: roster);
+      await load(silent: true);
+      emit(state.copyWith(isSaving: false));
       return true;
     } catch (e) {
       emit(state.copyWith(
@@ -183,11 +209,53 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
+  /// Saves edits to a single card. Series-level fields (title/description),
+  /// the schedule (dates/times/recurrence) and a full-replace roster go through
+  /// `PATCH /tasks/{seriesCode}` (Tasks API §3, full parity); a status change
+  /// routes through the assignment status endpoint. The schedule is only sent
+  /// when it actually changed, since re-sending it re-materializes future
+  /// occurrences. Reloads on success.
   Future<bool> update(Task task) async {
+    if (task.taskCode.isEmpty) {
+      emit(state.copyWith(errorMessage: () => 'Missing task reference'));
+      return false;
+    }
+    final previous = state.taskByCode(task.code);
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      final updated = await _updateTask(task);
-      emit(state.copyWith(tasks: _replace(updated), isSaving: false));
+      final rosterChanged = previous == null ||
+          previous.priority != task.priority ||
+          previous.assigneeCode != task.assigneeCode;
+      final scheduleChanged = previous == null ||
+          previous.startDate != task.startDate ||
+          previous.startTime != task.startTime ||
+          previous.dueDate != task.dueDate ||
+          previous.dueTime != task.dueTime ||
+          previous.recurring != task.recurring ||
+          previous.recurringPattern != task.recurringPattern ||
+          previous.recurringEndDate != task.recurringEndDate ||
+          previous.startDay != task.startDay;
+      await _updateTask(
+        seriesCode: task.taskCode,
+        title: task.title,
+        description: task.description,
+        schedule: scheduleChanged ? task : null,
+        assignees: rosterChanged
+            ? _rosterFor(
+                task.taskCode,
+                editedAssigneeCode: previous?.assigneeCode ?? task.assigneeCode,
+                newAssigneeCode: task.assigneeCode,
+                newPriority: task.priority,
+              )
+            : null,
+      );
+      if (previous != null &&
+          previous.status != task.status &&
+          task.code.isNotEmpty) {
+        await _updateStatus(assignmentCode: task.code, status: task.status);
+      }
+      await load(silent: true);
+      emit(state.copyWith(isSaving: false));
       return true;
     } catch (e) {
       emit(state.copyWith(
@@ -198,12 +266,23 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
+  /// Deletes the series the card belongs to (Tasks API §4 soft-deletes the
+  /// series and its untouched future assignments), then drops every loaded
+  /// card of that series from state.
   Future<bool> delete(String code) async {
+    final task = state.taskByCode(code);
+    final seriesCode = task?.taskCode ?? '';
+    if (seriesCode.isEmpty) {
+      emit(state.copyWith(errorMessage: () => 'Missing task reference'));
+      return false;
+    }
     try {
-      await _deleteTask(code);
-      emit(state.copyWith(
-        tasks: state.tasks.where((t) => t.code != code).toList(),
-      ));
+      await _deleteTask(seriesCode);
+      // Reconcile with the server rather than optimistically dropping the
+      // cards: DELETE soft-deletes the series and only its TO_DO/future
+      // assignments, so a reload reflects exactly what actually remains and
+      // avoids "deleted" cards reappearing on the next fetch.
+      await load(silent: true);
       return true;
     } catch (e) {
       emit(state.copyWith(errorMessage: () => 'Failed to delete task: $e'));
@@ -212,13 +291,24 @@ class TasksCubit extends Cubit<TasksState> {
   }
 
   /// Quick status change from the Kanban tabs / card menu (PRD FR-TK-13/16).
+  /// Acts directly on the single assignment (Tasks API §5).
   Future<void> changeStatus(String code, TaskStatus status) async {
     final task = state.taskByCode(code);
     if (task == null || task.status == status) return;
-    await update(task.copyWith(status: status));
+    try {
+      final updated =
+          await _updateStatus(assignmentCode: code, status: status);
+      emit(state.copyWith(tasks: _replace(code, updated)));
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: () => 'Failed to update task: $e',
+      ));
+    }
   }
 
-  /// Inline priority change from the list view (PRD FR-TK-16).
+  /// Inline priority change from the list view (PRD FR-TK-16). Priority has no
+  /// dedicated endpoint, so it is persisted by replacing the series roster
+  /// (via [update]) with this assignee's new priority.
   Future<void> changePriority(String code, TaskPriority priority) async {
     final task = state.taskByCode(code);
     if (task == null || task.priority == priority) return;
@@ -227,18 +317,75 @@ class TasksCubit extends Cubit<TasksState> {
 
   // -------------------------------------------------------------- helpers
 
-  List<Task> _replace(Task updated) {
+  /// Rebuilds the full roster for [taskCode] from the loaded cards so a
+  /// single-card edit doesn't prune its siblings on a full-replace `PATCH`.
+  /// The edited assignee's code/priority are overridden with the new values.
+  List<TaskAssignee> _rosterFor(
+    String taskCode, {
+    required String editedAssigneeCode,
+    required String newAssigneeCode,
+    required TaskPriority newPriority,
+  }) {
+    final roster = <TaskAssignee>[];
+    final seen = <String>{};
+    for (final t in state.tasks) {
+      if (t.taskCode != taskCode) continue;
+      final isEdited = t.assigneeCode == editedAssigneeCode;
+      final code = isEdited ? newAssigneeCode : t.assigneeCode;
+      if (code.isEmpty || !seen.add(code)) continue;
+      roster.add(TaskAssignee(
+        staffCode: code,
+        priority: isEdited ? newPriority : t.priority,
+      ));
+    }
+    if (newAssigneeCode.isNotEmpty && seen.add(newAssigneeCode)) {
+      roster.add(TaskAssignee(staffCode: newAssigneeCode, priority: newPriority));
+    }
+    return roster;
+  }
+
+  List<Task> _replace(String code, Task updated) {
     return state.tasks
-        .map((t) => t.code == updated.code ? updated : t)
+        .map((t) => t.code == code ? _withAssigneeName(updated) : t)
         .toList();
   }
 
-  static List<Task> _sorted(List<Task> tasks) {
-    return tasks
-      ..sort((a, b) {
-        final byDue = a.dueDate.compareTo(b.dueDate);
-        if (byDue != 0) return byDue;
-        return a.dueTime.compareTo(b.dueTime);
-      });
+  // --------------------------------------------------- assignee-name lookup
+
+  /// Loads the staff directory once (code → name) so [_withAssigneeName] can
+  /// denormalize the assignments API's bare staff codes. Failures are
+  /// swallowed — a missing name only degrades to the raw code, never blocks
+  /// the task list.
+  Future<void> _ensureStaffNames() async {
+    if (_staffNames.isNotEmpty) return;
+    try {
+      final organizationCode =
+          (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final schoolCode =
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
+      if (organizationCode.isEmpty || schoolCode.isEmpty) return;
+      final staff = await _getAllStaff(
+        organizationCode: organizationCode,
+        schoolCode: schoolCode,
+      );
+      for (final member in staff) {
+        if (member.code.isNotEmpty && member.name.trim().isNotEmpty) {
+          _staffNames[member.code] = member.name.trim();
+        }
+      }
+    } catch (_) {
+      // Leave names unresolved; cards fall back to the code.
+    }
+  }
+
+  List<Task> _withAssigneeNames(List<Task> tasks) =>
+      tasks.map(_withAssigneeName).toList();
+
+  Task _withAssigneeName(Task task) {
+    if (task.assigneeName.trim().isNotEmpty) return task;
+    final name = _staffNames[task.assigneeCode];
+    return name == null ? task : task.copyWith(assigneeName: name);
   }
 }

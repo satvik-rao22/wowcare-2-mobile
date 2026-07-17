@@ -1,79 +1,75 @@
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/data/features/tasks/datasources/task_local_datasource.dart';
-import 'package:wowcare/data/features/tasks/datasources/task_seed_datasource.dart';
-import 'package:wowcare/data/features/tasks/models/task_collection.dart';
+import 'package:wowcare/data/features/tasks/datasources/task_remote_datasource.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
 
+/// Remote-only implementation backed by the events-todo Tasks API. No Isar
+/// persistence or mock seeding — mirrors the Events/Holidays modules.
 class TaskRepositoryImpl implements TaskRepository {
-  TaskRepositoryImpl(
-    this._localDataSource,
-    this._seedDataSource,
-    this._storageService,
-  );
+  TaskRepositoryImpl(this._remoteDataSource);
 
-  final TaskLocalDataSource _localDataSource;
-  final TaskSeedDataSource _seedDataSource;
-  final StorageService _storageService;
-
-  /// One-shot flag so user deletions aren't resurrected by reseeding.
-  static const String _seededFlagKey = 'tasks_mock_seeded_v1';
+  final TaskRemoteDataSource _remoteDataSource;
 
   @override
-  Future<List<Task>> getTasks() async {
-    await _seedIfNeeded();
-    final rows = await _localDataSource.getAll();
-    final tasks = rows.map((r) => r.toEntity()).toList()
+  Future<List<Task>> getTasks({String? query}) async {
+    final models = await _remoteDataSource.getAssignments(q: query);
+    // Defensive de-duplication by assignment code: a single assignment must
+    // never surface as two cards even if the API echoes a row twice.
+    final seen = <String>{};
+    final tasks = <Task>[];
+    for (final model in models) {
+      if (!seen.add(model.code)) continue;
+      tasks.add(model.toEntity());
+    }
+    return tasks
       ..sort((a, b) {
         final byDue = a.dueDate.compareTo(b.dueDate);
         if (byDue != 0) return byDue;
         return a.dueTime.compareTo(b.dueTime);
       });
-    return tasks;
   }
 
   @override
-  Future<Task?> getTaskByCode(String code) async {
-    final trimmed = code.trim();
-    if (trimmed.isEmpty) return null;
-    final rows = await _localDataSource.getAll();
-    for (final row in rows) {
-      if (row.code == trimmed) return row.toEntity();
-    }
-    return null;
+  Future<void> createTask({
+    required Task draft,
+    required List<TaskAssignee> assignees,
+  }) async {
+    await _remoteDataSource.createTask(draft: draft, assignees: assignees);
   }
 
   @override
-  Future<Task> createTask(Task task) async {
-    await _localDataSource.upsert(TaskCollection.fromEntity(task));
-    return task;
+  Future<void> updateTask({
+    required String seriesCode,
+    String? title,
+    String? description,
+    TaskHolidayPolicy? holidayPolicy,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+  }) async {
+    await _remoteDataSource.updateTask(
+      code: seriesCode.trim(),
+      title: title,
+      description: description,
+      holidayPolicy: holidayPolicy,
+      schedule: schedule,
+      assignees: assignees,
+    );
   }
 
   @override
-  Future<Task> updateTask(Task task) async {
-    final updated = task.copyWith(updatedAt: DateTime.now());
-    await _localDataSource.upsert(TaskCollection.fromEntity(updated));
-    return updated;
+  Future<void> deleteTask(String seriesCode) {
+    return _remoteDataSource.deleteTask(seriesCode.trim());
   }
 
   @override
-  Future<void> deleteTask(String code) {
-    return _localDataSource.deleteByCode(code.trim());
-  }
-
-  Future<void> _seedIfNeeded() async {
-    final alreadySeeded =
-        await _storageService.getBool(_seededFlagKey) ?? false;
-    if (alreadySeeded) return;
-    final existing = await _localDataSource.getAll();
-    if (existing.isEmpty) {
-      final seeds = await _seedDataSource.fetchTasks();
-      if (seeds.isNotEmpty) {
-        await _localDataSource.upsertAll(
-          seeds.map((m) => TaskCollection.fromEntity(m.toEntity())).toList(),
-        );
-      }
-    }
-    await _storageService.saveBool(_seededFlagKey, true);
+  Future<Task> updateAssignmentStatus({
+    required String assignmentCode,
+    required TaskStatus status,
+  }) async {
+    final model = await _remoteDataSource.updateAssignmentStatus(
+      code: assignmentCode.trim(),
+      status: status,
+    );
+    return model.toEntity();
   }
 }

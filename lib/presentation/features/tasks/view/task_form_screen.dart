@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_form_validation.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -181,7 +182,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 _dateTimeRow(
                   date: _startDate,
                   time: _startTime,
-                  onDate: (d) => setState(() => _startDate = d),
+                  onDate: (d) => setState(() {
+                    _startDate = d;
+                    // Keep the window non-negative: pull the due date up to the
+                    // new start when the start moves past it.
+                    if (_dueDate.isBefore(_startDate)) _dueDate = _startDate;
+                  }),
                   onTime: (t) => setState(() => _startTime = t),
                 ),
                 const SizedBox(height: 14),
@@ -189,6 +195,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 _dateTimeRow(
                   date: _dueDate,
                   time: _dueTime,
+                  // Disallow picking a due date earlier than the start date.
+                  firstDate: _startDate,
                   onDate: (d) => setState(() => _dueDate = d),
                   onTime: (t) => setState(() => _dueTime = t),
                 ),
@@ -653,8 +661,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   // ------------------------------------------------------------- save
 
   Widget _saveButton() {
-    final canSave =
-        _titleController.text.trim().isNotEmpty && _assignees.isNotEmpty;
+    // Mandatory-field gate (PRD FR-TK-09): title + assignee always; a one-off
+    // task also needs a non-negative start→due window, while a recurring task
+    // derives its window from the recurrence fields.
+    final canSave = TaskFormValidation.canSubmit(
+      title: _titleController.text,
+      hasAssignee: _assignees.isNotEmpty,
+      recurring: _recurring,
+      startDate: _startDate,
+      startTime: _startTime,
+      dueDate: _dueDate,
+      dueTime: _dueTime,
+    );
     return BlocBuilder<TasksCubit, TasksState>(
       builder: (context, state) {
         final enabled = canSave && !state.isSaving;
@@ -796,7 +814,16 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   /// non-recurring due date precedes the start date.
   ({DateTime start, DateTime due})? _resolveDates() {
     if (!_recurring) {
-      if (_dueDate.isBefore(_startDate)) return null;
+      // Reject negative windows at the datetime level, so 16th 00:00 → 15th
+      // 23:59 (and same-day due-before-start) are caught, not just date-only.
+      if (!TaskFormValidation.isNonNegativeRange(
+        startDate: _startDate,
+        startTime: _startTime,
+        dueDate: _dueDate,
+        dueTime: _dueTime,
+      )) {
+        return null;
+      }
       return (start: _startDate, due: _dueDate);
     }
     switch (_recurringPattern) {
@@ -837,7 +864,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     required TimeOfDay time,
     required ValueChanged<DateTime> onDate,
     required ValueChanged<TimeOfDay> onTime,
+    DateTime? firstDate,
   }) {
+    final effectiveFirst = firstDate ?? DateTime(DateTime.now().year - 1);
     return Row(
       children: [
         Expanded(
@@ -848,8 +877,11 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             onTap: () async {
               final picked = await showDatePicker(
                 context: context,
-                initialDate: date,
-                firstDate: DateTime(DateTime.now().year - 1),
+                // initialDate must satisfy firstDate; clamp when the current
+                // value predates it (e.g. a due date behind the start).
+                initialDate:
+                    date.isBefore(effectiveFirst) ? effectiveFirst : date,
+                firstDate: effectiveFirst,
                 lastDate: DateTime(DateTime.now().year + 3),
               );
               if (picked != null) onDate(_dateOnly(picked));

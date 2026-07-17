@@ -1079,20 +1079,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        // Tasks — temporarily hidden from the drawer while
-                        // kept in the codebase; re-enable by uncommenting.
-                        // _CustomExpansionTile(
-                        //   title: 'Tasks',
-                        //   icon: MediaRes.tasksIcon,
-                        //   isCurrentRoute:
-                        //       _currentRoute == TasksScreen.routeName,
-                        //   onTap: () {
-                        //     Navigator.pop(context);
-                        //     if (_currentRoute != TasksScreen.routeName) {
-                        //       context.go(TasksScreen.routeName);
-                        //     }
-                        //   },
-                        // ),
+                        _CustomExpansionTile(
+                          title: 'Tasks',
+                          icon: MediaRes.tasksIcon,
+                          isCurrentRoute:
+                              _currentRoute == TasksScreen.routeName,
+                          onTap: () {
+                            Navigator.pop(context);
+                            if (_currentRoute != TasksScreen.routeName) {
+                              context.go(TasksScreen.routeName);
+                            }
+                          },
+                        ),
                         // Assessments — temporarily hidden from the drawer
                         // while kept in the codebase; re-enable by
                         // uncommenting.

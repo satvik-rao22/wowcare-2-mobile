@@ -1,4 +1,5 @@
 import '../entities/task.dart';
+import '../entities/task_assignee.dart';
 import '../repositories/task_repository.dart';
 
 class CreateTaskUseCase {
@@ -6,7 +7,10 @@ class CreateTaskUseCase {
 
   final TaskRepository _repository;
 
-  Future<Task> call(Task task) {
-    return _repository.createTask(task);
+  Future<void> call({
+    required Task draft,
+    required List<TaskAssignee> assignees,
+  }) {
+    return _repository.createTask(draft: draft, assignees: assignees);
   }
 }

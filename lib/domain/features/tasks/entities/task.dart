@@ -62,6 +62,26 @@ enum TaskPriority {
   }
 }
 
+/// How a recurring task treats a date that lands on a school holiday
+/// (Tasks API `TaskHolidayPolicy`). [skip] materializes the occurrence as
+/// SKIPPED with no assignments; [keep] generates it normally.
+enum TaskHolidayPolicy {
+  skip('SKIP'),
+  keep('KEEP');
+
+  const TaskHolidayPolicy(this.value);
+
+  final String value;
+
+  static TaskHolidayPolicy fromValue(String? raw) {
+    final normalized = (raw ?? '').trim().toUpperCase();
+    return TaskHolidayPolicy.values.firstWhere(
+      (p) => p.value == normalized,
+      orElse: () => TaskHolidayPolicy.skip,
+    );
+  }
+}
+
 /// Repeat cadence for recurring tasks (PRD §11.1 Cycle).
 enum TaskRecurrence {
   daily('DAILY'),
@@ -101,6 +121,7 @@ enum TaskRecurrence {
 class Task extends Equatable {
   const Task({
     required this.code,
+    this.taskCode = '',
     required this.title,
     this.description = '',
     this.assigneeCode = '',
@@ -127,7 +148,15 @@ class Task extends Equatable {
     required this.updatedAt,
   });
 
+  /// Identity of this card. When loaded from the Tasks API this is the
+  /// **task assignment** code (`TSA_…`) — one person on one occurrence — which
+  /// is what status changes act on. Empty for an unsaved draft.
   final String code;
+
+  /// The owning **task series** code (`TSK_…`). Series-level operations
+  /// (update / delete) act on this, not [code]. Empty for an unsaved draft.
+  final String taskCode;
+
   final String title;
   final String description;
 
@@ -199,6 +228,7 @@ class Task extends Equatable {
 
   Task copyWith({
     String? code,
+    String? taskCode,
     String? title,
     String? description,
     String? assigneeCode,
@@ -226,6 +256,7 @@ class Task extends Equatable {
   }) {
     return Task(
       code: code ?? this.code,
+      taskCode: taskCode ?? this.taskCode,
       title: title ?? this.title,
       description: description ?? this.description,
       assigneeCode: assigneeCode ?? this.assigneeCode,
@@ -263,6 +294,7 @@ class Task extends Equatable {
   @override
   List<Object?> get props => [
         code,
+        taskCode,
         title,
         description,
         assigneeCode,

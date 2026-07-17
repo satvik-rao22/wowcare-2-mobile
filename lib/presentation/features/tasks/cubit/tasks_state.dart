@@ -91,10 +91,11 @@ class TasksState extends Equatable {
   bool get hasActiveFilters => filterCount > 0 || searchQuery.trim().isNotEmpty;
 
   /// Tasks passing the scope / assignee / priority / status / date / overdue
-  /// filters and the search query.
+  /// filters. The free-text search is applied server-side (Tasks API §7 `q`),
+  /// so [tasks] is already the search result set — no client-side text match
+  /// here.
   List<Task> get filteredTasks {
     final now = DateTime.now();
-    final query = searchQuery.trim().toLowerCase();
     return tasks.where((task) {
       if (scope == TaskScope.mine && !_isMine(task)) return false;
       if (scope == TaskScope.byMe && !_isByMe(task)) return false;
@@ -116,11 +117,6 @@ class TasksState extends Equatable {
       if (dateFrom != null && task.dueDate.isBefore(dateFrom!)) return false;
       if (dateTo != null && task.dueDate.isAfter(dateTo!)) return false;
       if (overdueOnly && !task.isOverdueAt(now)) return false;
-      if (query.isNotEmpty &&
-          !task.title.toLowerCase().contains(query) &&
-          !task.description.toLowerCase().contains(query)) {
-        return false;
-      }
       return true;
     }).toList();
   }

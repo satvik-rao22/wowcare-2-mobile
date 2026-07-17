@@ -7,6 +7,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_option_picker.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
@@ -57,8 +58,18 @@ class TaskDetailScreen extends StatelessWidget {
                   runSpacing: 6,
                   children: [
                     if (task.isOverdue) const TaskOverdueBadge(),
-                    TaskPriorityBadge(priority: task.priority),
-                    TaskStatusBadge(status: task.status),
+                    // Inline status/priority editing (PRD FR-TK-16), same
+                    // ownership rule as the list — tap to change.
+                    TaskPriorityBadge(
+                      priority: task.priority,
+                      onTap:
+                          canManage ? () => _pickPriority(context, task) : null,
+                    ),
+                    TaskStatusBadge(
+                      status: task.status,
+                      onTap:
+                          canManage ? () => _pickStatus(context, task) : null,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -294,6 +305,34 @@ class TaskDetailScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  Future<void> _pickStatus(BuildContext context, Task task) async {
+    final cubit = context.read<TasksCubit>();
+    final picked = await showTaskOptionPicker<TaskStatus>(
+      context: context,
+      title: 'Move task to',
+      options: TaskStatus.values,
+      current: task.status,
+      colorOf: TaskUiUtils.statusColor,
+      iconOf: TaskUiUtils.statusIcon,
+      labelOf: (s) => s.label,
+    );
+    if (picked != null) cubit.changeStatus(task.code, picked);
+  }
+
+  Future<void> _pickPriority(BuildContext context, Task task) async {
+    final cubit = context.read<TasksCubit>();
+    final picked = await showTaskOptionPicker<TaskPriority>(
+      context: context,
+      title: 'Set priority',
+      options: TaskPriority.values,
+      current: task.priority,
+      colorOf: TaskUiUtils.priorityColor,
+      iconOf: TaskUiUtils.priorityIcon,
+      labelOf: (p) => p.label,
+    );
+    if (picked != null) cubit.changePriority(task.code, picked);
   }
 
   Future<void> _confirmDelete(BuildContext context, Task task) async {
