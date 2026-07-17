@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/html_aw
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 
 /// WhatsApp-style composable chat input bar.
@@ -416,38 +417,81 @@ class _AttachmentPreviewStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     if (attachments.isEmpty) return const SizedBox.shrink();
     return SizedBox(
-      height: 90,
+      // Extra top padding gives the tiles breathing room from the field above and
+      // leaves headroom for the remove badge (which sits at top:-4) so it isn't clipped.
+      height: 100,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 6),
+        padding: const EdgeInsets.fromLTRB(12, 12, 12, 6),
         itemCount: attachments.length,
         separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
+        itemBuilder: (context, i) {
           final att = attachments[i];
+          final isVideo =
+              att.type == 'video' || att.mimeType.startsWith('video/');
+          final canPreview =
+              (att.isImage || isVideo) && (att.localPath?.isNotEmpty ?? false);
           return Stack(
             clipBehavior: Clip.none,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: att.isImage
-                    ? Image.file(
-                        File(att.localPath!),
-                        width: 76,
-                        height: 76,
-                        fit: BoxFit.cover,
-                      )
-                    : Thumbnail(
-                        mimeType: att.mimeType,
-                        dataResolver: () => File(att.localPath!).readAsBytes(),
-                        widgetSize: 76,
-                        decoration: WidgetDecoration(
-                          backgroundColor: Colors.white,
-                          iconColor: AppColors.primaryColor,
-                          textColor: AppColors.primaryColor,
-                          wrapperBgColor: Colors.transparent,
-                          wrapperSize: 80,
+              // Tapping an image/video tile opens a full-screen in-app preview.
+              GestureDetector(
+                onTap: canPreview
+                    ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => ShowFullScreenMediaView(
+                              imageFile:
+                                  att.isImage ? File(att.localPath!) : null,
+                              videoFile: isVideo ? File(att.localPath!) : null,
+                              title: att.name,
+                            ),
+                          ),
+                        )
+                    : null,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: att.isImage
+                          ? Image.file(
+                              File(att.localPath!),
+                              width: 76,
+                              height: 76,
+                              fit: BoxFit.cover,
+                            )
+                          : Thumbnail(
+                              mimeType: att.mimeType,
+                              dataResolver: () =>
+                                  File(att.localPath!).readAsBytes(),
+                              widgetSize: 76,
+                              decoration: WidgetDecoration(
+                                backgroundColor: Colors.white,
+                                iconColor: AppColors.primaryColor,
+                                textColor: AppColors.primaryColor,
+                                wrapperBgColor: Colors.transparent,
+                                wrapperSize: 80,
+                              ),
+                            ),
+                    ),
+                    // Play affordance so a video tile reads as tappable/previewable.
+                    if (isVideo)
+                      Container(
+                        width: 28,
+                        height: 28,
+                        decoration: const BoxDecoration(
+                          color: Colors.black54,
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.play_arrow_rounded,
+                          color: Colors.white,
+                          size: 20,
                         ),
                       ),
+                  ],
+                ),
               ),
               if (!att.isImage)
                 Positioned(
