@@ -17,6 +17,8 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/admin_chat_filter_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -47,6 +49,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _showUnreadOnly = false;
   late final ConversationListCubit _cubit;
+
+  // Student-oriented filters (Classroom + Tag + Status), matched client-side
+  // against each conversation's student (admin chats are student-scoped).
+  Set<String> _selectedClassrooms = {};
+  Set<String> _selectedTags = {};
+  String? _selectedStatus;
 
   /// Backs the "Start new chat" section shown when searching matches a
   /// student who has no admin-chat conversation yet.
@@ -92,16 +100,106 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
   void _onSearchChanged() => setState(() {});
 
+  bool get _hasStudentFilters =>
+      _selectedClassrooms.isNotEmpty ||
+      _selectedTags.isNotEmpty ||
+      _selectedStatus != null;
+
   bool get _hasActiveFilters =>
-      _showUnreadOnly || _searchController.text.trim().isNotEmpty;
+      _showUnreadOnly ||
+      _searchController.text.trim().isNotEmpty ||
+      _hasStudentFilters;
+
+  /// The display classroom label a student is filtered by (name preferred).
+  String _classroomLabel(Student s) =>
+      (s.primaryClassroomName != null && s.primaryClassroomName!.trim().isNotEmpty)
+          ? s.primaryClassroomName!.trim()
+          : s.classroom.trim();
+
+  /// Distinct classroom labels across the loaded students, for the filter sheet.
+  List<String> _classroomOptions() {
+    final set = <String>{};
+    for (final s in _studentCubit.state.items) {
+      final label = _classroomLabel(s);
+      if (label.isNotEmpty) set.add(label);
+    }
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  /// Distinct tag names across the loaded students, for the filter sheet.
+  List<String> _tagOptions() {
+    final set = <String>{};
+    for (final s in _studentCubit.state.items) {
+      set.addAll(s.tags.where((t) => t.trim().isNotEmpty));
+    }
+    final list = set.toList()..sort();
+    return list;
+  }
+
+  bool _matchesStudentFilters(ConversationEntity c, Map<String, Student> byCode) {
+    final code = c.studentCode;
+    // Filtering is active but this conversation's student isn't loaded/known —
+    // exclude it (we can't confirm a match).
+    final s = (code == null || code.isEmpty) ? null : byCode[code];
+    if (s == null) return false;
+    if (_selectedStatus != null &&
+        s.status.toUpperCase() != _selectedStatus!.toUpperCase()) {
+      return false;
+    }
+    if (_selectedClassrooms.isNotEmpty) {
+      final label = _classroomLabel(s).toLowerCase();
+      if (!_selectedClassrooms.any((sel) => sel.toLowerCase() == label)) {
+        return false;
+      }
+    }
+    if (_selectedTags.isNotEmpty) {
+      if (!s.tags.any((t) => _selectedTags.contains(t))) return false;
+    }
+    return true;
+  }
 
   List<ConversationEntity> _filtered(List<ConversationEntity> all) {
     final q = _searchController.text.trim().toLowerCase();
+    final hasStudentFilters = _hasStudentFilters;
+    final Map<String, Student> byCode = hasStudentFilters
+        ? {for (final s in _studentCubit.state.items) s.code: s}
+        : const {};
     return all.where((c) {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
+      if (hasStudentFilters && !_matchesStudentFilters(c, byCode)) return false;
       return true;
     }).toList();
+  }
+
+  void _showFilterSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => AdminChatFilterSheet(
+        classroomOptions: _classroomOptions(),
+        tagOptions: _tagOptions(),
+        statusOptions: const ['ACTIVE', 'UPCOMING'],
+        selectedClassrooms: _selectedClassrooms,
+        selectedTags: _selectedTags,
+        selectedStatus: _selectedStatus,
+        onApply: (classrooms, tags, status) => setState(() {
+          _selectedClassrooms = classrooms;
+          _selectedTags = tags;
+          _selectedStatus = status;
+        }),
+        onClear: () => setState(() {
+          _selectedClassrooms = {};
+          _selectedTags = {};
+          _selectedStatus = null;
+        }),
+      ),
+    );
   }
 
   void _openThread(ConversationEntity conversation) {
@@ -270,18 +368,14 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            // if (!_isGuardian)
-                            //   FilterIndicator(
-                            //     hasActiveFilters: state.hasActiveFilters,
-                            //     filterCount: [
-                            //       state.activeDesignation,
-                            //       state.activeStaffStatus,
-                            //       state.activeClassroom,
-                            //     ]
-                            //         .where((f) => f != null)
-                            //         .length,
-                            //     onTap: _showFilterSheet,
-                            //   ),
+                            // Non-parents only (the parent branch returns early above).
+                            FilterIndicator(
+                              hasActiveFilters: _hasStudentFilters,
+                              filterCount: (_selectedClassrooms.isNotEmpty ? 1 : 0) +
+                                  (_selectedTags.isNotEmpty ? 1 : 0) +
+                                  (_selectedStatus != null ? 1 : 0),
+                              onTap: _showFilterSheet,
+                            ),
                           ],
                         ),
                       ),
@@ -304,6 +398,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               onTap: () => setState(() {
                                 _showUnreadOnly = false;
                                 _searchController.clear();
+                                _selectedClassrooms = {};
+                                _selectedTags = {};
+                                _selectedStatus = null;
                               }),
                             ),
                           ],

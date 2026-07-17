@@ -72,6 +72,18 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   _isStaffAdminPersona; // Admin can backdate (past) but not future; teacher is locked to "now".
   String? _currentStaffCode; // Current user's staff code
 
+  /// True when this form targets the logged-in user's own attendance record
+  /// (My Attendance) rather than another staff member's. Self attendance can
+  /// never have its date/time edited, even by an admin persona — only
+  /// admin-managed OTHER-staff attendance allows picking a date/time.
+  bool get _isSelfTarget {
+    if (widget.isKiosk || widget.qrToken.isNotEmpty) return true;
+    final code = _currentStaffCode;
+    if (code == null || code.isEmpty) return false;
+    return _selectedStaff.length == 1 &&
+        (_selectedStaff.first.staffCode ?? '').trim() == code;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -307,6 +319,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     late final DateTime occurredAt;
     late final String attendanceDate;
 
+    // An admin acting on their OWN record (My Attendance/My Day, or a bulk
+    // form where they only selected themselves) must not be able to pick a
+    // date/time either — only admin-managed OTHER-staff attendance allows it.
+    final bool isSelfTarget = widget.isKiosk ||
+        widget.qrToken.isNotEmpty ||
+        (targetStaffCodes.length == 1 && targetStaffCodes.first == staffCode);
+
     if (!isStaffAdmin) {
       if (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode) {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -328,6 +347,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         occurredAt,
         schoolTimeZone,
       );
+    } else if (isSelfTarget) {
+      occurredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
+      attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+        occurredAt,
+        schoolTimeZone,
+      );
     } else {
       occurredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
         schoolTimeZone,
@@ -344,7 +369,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     // Admin cannot sign out for future date/time.
-    if (isStaffAdmin && occurredAt.isAfter(nowUtc)) {
+    if (isStaffAdmin && !isSelfTarget && occurredAt.isAfter(nowUtc)) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
@@ -463,6 +488,17 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           if (mounted) {
             context.go('/kiosk');
           }
+        } else if (!isStaffAdmin) {
+          // Teacher/staff persona: send them to their own attendance
+          // profile, never the admin-only all-staff tabbed view.
+          final selfName = _selectedStaff.isNotEmpty
+              ? _selectedStaff.first.name
+              : '';
+          redirectToOwnStaffAttendanceProfile(
+            context,
+            staffCode: staffCode,
+            staffName: selfName,
+          );
         } else {
           redirectToAttendanceDaily(
               context, StaffAttendanceTabbedView.routeName);
@@ -538,7 +574,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: _isStaffAdminPersona == false,
+                        isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -571,7 +607,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: _isStaffAdminPersona == false,
+                        ignoring: _isStaffAdminPersona != true || _isSelfTarget,
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {

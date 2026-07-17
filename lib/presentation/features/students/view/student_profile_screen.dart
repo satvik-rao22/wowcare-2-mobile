@@ -202,10 +202,25 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     }
   }
 
-  /// Whether the current persona may edit the Health tab and Documents:
+  /// Whether the current persona may edit a student's Health tab: guardian →
+  /// [StudentSettings.canParentEditChildHealthRecords], staff → also
+  /// [StudentSettings.canParentEditChildHealthRecords] (per backend contract,
+  /// this single toggle governs Health-tab edit access for both guardian and
+  /// staff personas — [StudentSettings.canStaffEditTheirOwnHealthRecords] is
+  /// reserved for Documents, see [_canEditDocuments]), admin → module access.
+  bool _canEditHealth(RoleCubit role) {
+    if (role.isParent || role.isStaff) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
+  }
+
+  /// Whether the current persona may add/edit/delete a student's Documents:
   /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
-  /// [StudentSettings.canStaffEditTheirOwnHealthRecords], admin → module access.
-  bool _canEditHealthAndDocuments(RoleCubit role) {
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords] (despite its
+  /// health-records name, this field is the backend's toggle for whether
+  /// staff may add/edit student documents), admin → module access.
+  bool _canEditDocuments(RoleCubit role) {
     if (role.isParent) {
       return _studentSettings?.canParentEditChildHealthRecords ?? false;
     }
@@ -625,7 +640,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       role,
       AppAccessModules.student,
     );
-    final canEditHealthDocs = _canEditHealthAndDocuments(role);
+    final canEditHealth = _canEditHealth(role);
+    final canEditDocuments = _canEditDocuments(role);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -698,7 +714,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
-                  canEdit: canEditHealthDocs,
+                  canEdit: canEditHealth,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
@@ -718,7 +734,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
-                  canEdit: canEditHealthDocs,
+                  canEdit: canEditDocuments,
                   highlightCode: widget.highlightCode,
                 ),
               ],

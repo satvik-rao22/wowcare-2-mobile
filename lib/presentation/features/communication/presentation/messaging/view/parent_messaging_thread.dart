@@ -3708,6 +3708,23 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
+  /// Resolves a receipt to a display name. Realtime receipts carry an empty
+  /// [RecipientStatus.name] (no display name at that layer), so fall back to
+  /// the conversation participant list keyed by user code, then a generic
+  /// label — never the raw user code.
+  String _resolveRecipientName(RecipientStatus r) {
+    if (r.name.trim().isNotEmpty) return r.name.trim();
+    final code = r.userId;
+    if (code != null && code.isNotEmpty) {
+      final match = _participants
+          .where((p) => p.userCode == code && p.userName.trim().isNotEmpty)
+          .firstOrNull;
+      if (match != null) return match.userName.trim();
+      if (code == _currentUserCode) return 'You';
+    }
+    return 'Participant';
+  }
+
   Widget _buildRecipientList({
     required String title,
     required IconData icon,
@@ -3756,9 +3773,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           Flexible(
                             fit: FlexFit.loose,
                             child: CustomTextWidget(
-                              text: r.name.trim().isNotEmpty
-                                  ? r.name
-                                  : 'Participant',
+                              text: _resolveRecipientName(r),
                               fontSize: 13,
                             ),
                           ),

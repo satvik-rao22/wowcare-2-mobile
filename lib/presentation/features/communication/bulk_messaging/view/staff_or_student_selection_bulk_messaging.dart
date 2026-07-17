@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
@@ -475,6 +476,10 @@ class _StaffOrStudentSelectionBulkMessagingState
   void _applyDefaultClassroomSelectionIfNeeded() {
     if (widget.hideFilters || _selectedClassrooms.isNotEmpty) return;
     if (!_primaryClassroomResolved) return;
+    // Admins are not classroom-bound, so don't pre-apply a default classroom filter
+    // when they compose a new message — they should see all recipients. This applies to
+    // both staff messaging and parent/room messaging (staff/parent keep their default).
+    if (context.read<RoleCubit>().role == 'admin') return;
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
     if (classrooms.isEmpty) return;
 

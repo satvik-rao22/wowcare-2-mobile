@@ -19,6 +19,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import 'package:wowcare/shared/common/views/document_viewer_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_document_screen.dart';
 import 'package:wowcare/presentation/features/students/cubit/student_documents_list_cubit.dart';
 import 'package:wowcare/domain/features/student/entities/student_document.dart';
@@ -176,6 +177,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           initialMimeType: doc.mimeType,
           initialFileSizeKb: doc.documentSizeKb,
           initialDocumentNotes: null,
+          initialAssetCode: doc.assetCode,
           documentUuid: doc.documentUuid,
         ),
       ),
@@ -255,29 +257,68 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     );
   }
 
+  /// The downloadable URL is resolved from the asset code; documentUrl can be
+  /// just a file name for newer rows.
+  Future<String> _resolveDocumentUrl(StudentDocument doc) async {
+    final assetCode = (doc.assetCode ?? '').trim();
+    final rawUrl = doc.documentUrl.trim();
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+    if (assetCode.isNotEmpty) {
+      return (await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
+        assetCode: assetCode,
+      )).trim();
+    }
+    return '';
+  }
+
+  bool _isResolvingViewUrl = false;
+
+  Future<void> _handleView(BuildContext context, StudentDocument doc) async {
+    if (_isResolvingViewUrl) return;
+    setState(() => _isResolvingViewUrl = true);
+    try {
+      final url = await _resolveDocumentUrl(doc);
+      if (!mounted) return;
+      if (url.isEmpty || Uri.tryParse(url) == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Document link not available',
+          isError: true,
+        );
+        return;
+      }
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => DocumentViewerScreen(
+            url: url,
+            documentName: doc.documentName,
+            mimeType: doc.mimeType,
+          ),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: ApiErrorHandler.extractErrorMessage(e),
+        isError: true,
+      );
+    } finally {
+      if (mounted) setState(() => _isResolvingViewUrl = false);
+    }
+  }
+
   Future<void> _handleDownload(
     BuildContext context,
     StudentDocument doc,
   ) async {
     if (_isDownloadingDoc) return;
 
-    // The downloadable URL is resolved from the asset code; documentUrl can be
-    // just a file name for newer rows.
-    String url = '';
-    final assetCode = (doc.assetCode ?? '').trim();
-    final rawUrl = doc.documentUrl.trim();
-    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-      url = rawUrl;
-    }
-
     setState(() => _isDownloadingDoc = true);
     try {
-      if (url.isEmpty && assetCode.isNotEmpty) {
-        url =
-            (await serviceLocator<ImageUploadService>().getMediaAssetUrlByCode(
-              assetCode: assetCode,
-            )).trim();
-      }
+      final url = await _resolveDocumentUrl(doc);
       if (!mounted) return;
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
@@ -651,9 +692,9 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                               value: expiryDisplay,
                                             ),
                                             const SizedBox(height: 16),
-                                            Row(
-                                              children: [
-                                                if (canStudentWrite) ...[
+                                            if (canStudentWrite) ...[
+                                              Row(
+                                                children: [
                                                   Expanded(
                                                     child: Container(
                                                       height: 40,
@@ -733,8 +774,65 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                       ),
                                                     ),
                                                   ),
-                                                  const SizedBox(width: 12),
                                                 ],
+                                              ),
+                                              const SizedBox(height: 12),
+                                            ],
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: SizedBox(
+                                                    height: 40,
+                                                    child: OutlinedButton(
+                                                      onPressed:
+                                                          _isResolvingViewUrl
+                                                          ? null
+                                                          : () => _handleView(
+                                                              context,
+                                                              doc,
+                                                            ),
+                                                      style: OutlinedButton.styleFrom(
+                                                        side: const BorderSide(
+                                                          color: Color(
+                                                            0xFF6C7FD8,
+                                                          ),
+                                                        ),
+                                                        shape: RoundedRectangleBorder(
+                                                          borderRadius:
+                                                              BorderRadius.circular(
+                                                                8,
+                                                              ),
+                                                        ),
+                                                        padding:
+                                                            EdgeInsets.zero,
+                                                      ),
+                                                      child: _isResolvingViewUrl
+                                                          ? const SizedBox(
+                                                              width: 18,
+                                                              height: 18,
+                                                              child: PrimaryCircularLoader(
+                                                                size: 18,
+                                                                strokeWidth: 2,
+                                                              ),
+                                                            )
+                                                          : const Text(
+                                                              'View',
+                                                              style: TextStyle(
+                                                                fontFamily:
+                                                                    'Manrope',
+                                                                fontSize: 16,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w700,
+                                                                color: Color(
+                                                                  0xFF6C7FD8,
+                                                                ),
+                                                              ),
+                                                            ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 12),
                                                 Expanded(
                                                   child: Container(
                                                     height: 40,

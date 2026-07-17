@@ -1,8 +1,10 @@
 /// School-level student settings from `GET /api/v1/student-settings`.
 ///
-/// Drives who may edit a student's Health tab and Documents:
-/// - [canParentEditChildHealthRecords] → guardian/parent persona may edit.
-/// - [canStaffEditTheirOwnHealthRecords] → staff persona may edit.
+/// Drives who may edit a student's Health tab and Documents tab:
+/// - [canParentEditChildHealthRecords] → guardian may edit Health and
+///   Documents; staff may edit Health (shared toggle, per backend contract).
+/// - [canStaffEditTheirOwnHealthRecords] → despite its name, this is the
+///   toggle for whether staff may add/edit a student's Documents.
 class StudentSettings {
   const StudentSettings({
     this.code = '',

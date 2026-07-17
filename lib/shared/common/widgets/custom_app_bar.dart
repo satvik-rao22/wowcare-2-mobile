@@ -175,6 +175,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       width: 22,
                       height: 22,
                     ),
+                    // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
+                    // role-gated, each with its unread badge) instead of jumping straight to
+                    // one surface — so the user can pick which messaging area to open, as on web.
                     onPressed: () => context.push(AppRoutes.messagingEntry),
                   ),
                   if (unreadCount > 0)

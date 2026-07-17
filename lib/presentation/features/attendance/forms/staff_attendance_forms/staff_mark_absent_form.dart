@@ -64,7 +64,25 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+      if (outcome.returnToTabbedView) {
+        redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+      } else {
+        // Teacher/staff persona: send them to their own attendance profile,
+        // never the admin-only all-staff tabbed view.
+        final selfStaff = _cubit.state.selectedStaff.isNotEmpty
+            ? _cubit.state.selectedStaff.first
+            : null;
+        final selfStaffCode = (selfStaff?.staffCode ?? '').trim();
+        if (selfStaffCode.isNotEmpty) {
+          redirectToOwnStaffAttendanceProfile(
+            context,
+            staffCode: selfStaffCode,
+            staffName: selfStaff?.name ?? '',
+          );
+        } else if (mounted) {
+          Navigator.of(context).maybePop();
+        }
+      }
     } else {
       final message = outcome.error != null
           ? ApiErrorHandler.extractErrorMessage(outcome.error)
@@ -119,7 +137,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.startDate,
-                        isDisabled: !(state.isStaffAdminPersona ?? false),
+                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
                         onDateSelected: _cubit.selectStartDate,
                       ),
                     ],
@@ -138,7 +156,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.endDate,
-                        isDisabled: !(state.isStaffAdminPersona ?? false),
+                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
                         onDateSelected: _cubit.selectEndDate,
                       ),
                     ],

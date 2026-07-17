@@ -98,9 +98,12 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
         // A push may correspond to a new bell notification. Re-fetch the
         // authoritative REST unread-count (never increment locally — the count
         // is always server-derived, never accumulated on device) and tell any
-        // open Notification Center to reload its list.
+        // open Notification Center to reload its list. Use the retrying
+        // variant: the backend's own read-model can lag a beat behind the
+        // push it just sent, so a single read taken right now can come back
+        // stale — the retry re-reads shortly after to self-correct.
         try {
-          serviceLocator<NotificationBadgeCubit>().refresh();
+          serviceLocator<NotificationBadgeCubit>().refreshWithRetry();
         } catch (_) {}
         NotificationEvents.notifyChanged();
         // Resolve with the current persona: billing opens the PARENT billing
@@ -188,6 +191,13 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
 
   void _requestNavigation(PushNotification message) {
     AppLogger.d('[FCM] Tap → action=${message.action} data=${message.data}');
+    // This message was delivered while the app was backgrounded/killed, so
+    // the foreground onMessage handler above never ran for it — without this,
+    // the badge stays stale until some unrelated screen refresh happens to
+    // reload it.
+    try {
+      serviceLocator<NotificationBadgeCubit>().refreshWithRetry();
+    } catch (_) {}
     emit(state.copyWith(navigationRequest: message));
   }
 

@@ -207,7 +207,6 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         attendanceRecords: const [],
         attendancePage: 0,
         attendanceHasMore: false,
-        attendanceLoaded: false,
         absentRecords: const [],
         absentPage: 0,
         absentHasMore: false,

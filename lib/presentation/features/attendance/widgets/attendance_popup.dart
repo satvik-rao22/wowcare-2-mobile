@@ -207,7 +207,13 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   // (alongside geofencing) to gate Sign-In/Sign-Out/Transfer/Mark-Absent in
   // the "My Attendance" tab. Not used for the admin staff-selection flow.
   String? _todayStatusRaw;
-  bool _isTodayStatusLoading = false;
+  // Starts true (rather than false) so Sign-In/Sign-Out/Transfer/Mark-Absent
+  // in the "My Attendance" tab render disabled until the real today-status
+  // has been fetched. Defaulting to false let the gate fall back to its
+  // "not signed in" assumption (which enables Sign-In + Mark-Absent) during
+  // the fetch window right after the popup opens, so an already-signed-in
+  // staff member briefly saw those actions as tappable.
+  bool _isTodayStatusLoading = true;
 
   StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
     isActiveProfile: true,
