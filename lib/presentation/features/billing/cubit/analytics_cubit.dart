@@ -34,10 +34,12 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
         emit(state.copyWith(isLoading: false));
         return;
       }
+      // Default to current year if no year is specified and selectedYear is null
+      final effectiveYear = year ?? state.selectedYear ?? DateTime.now().year;
       final analytics = await _getAnalytics(
         organizationCode: org,
         school: school,
-        year: year ?? state.selectedYear,
+        year: effectiveYear,
       );
       if (isClosed) return;
       emit(state.copyWith(

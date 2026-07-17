@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:io' show Platform;
-import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/notification_payload.dart';
 import '../../../../domain/features/notifications/entities/push_notification.dart';
 import '../../../../domain/features/notifications/repositories/push_notification_repository.dart';
 import '../../../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../shared/services/geofence_notification_service.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/util/notification_events.dart';
@@ -104,7 +106,14 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
           serviceLocator<NotificationBadgeCubit>().refreshWithRetry();
         } catch (_) {}
         NotificationEvents.notifyChanged();
-        final destination = NotificationRouteResolver.resolve(message);
+        // Resolve with the current persona: billing opens the PARENT billing
+        // screen for guardians and the admin one for staff/admins. This payload
+        // is what a tap on the local notification routes to, so resolving it
+        // persona-less sent parents to the (empty-for-them) admin billing screen.
+        final destination = NotificationRouteResolver.resolve(
+          message,
+          isGuardian: _isGuardianPersona(),
+        );
         // Encode the target org/school into the payload so a tap on this local
         // notification (now, or after a kill/relaunch) can switch school before
         // routing — the plain location alone would lose that context.
@@ -164,6 +173,20 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
     // If user is not authenticated yet, the 401 is caught and ignored.
     // ignore: unawaited_futures
     _registerDeviceFcmToken(fcmToken: token);
+  }
+
+  /// Current persona, read off the root navigator's [RoleCubit] (the cubit lives
+  /// above the router, so it is reachable without a local BuildContext — the
+  /// same approach [SessionExpiredCoordinator] uses). Defaults to false when the
+  /// tree isn't up yet, matching the resolver's own default.
+  bool _isGuardianPersona() {
+    try {
+      final ctx = CoreUtils.rootNavigatorKey.currentContext;
+      if (ctx == null || !ctx.mounted) return false;
+      return ctx.read<RoleCubit>().isParent;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _requestNavigation(PushNotification message) {
