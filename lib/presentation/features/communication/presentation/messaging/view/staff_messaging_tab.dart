@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
@@ -381,6 +382,32 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                             Colors.transparent,
                           ),
                           borderColor: Colors.transparent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Visible manual refresh (in addition to pull-to-refresh) —
+                    // reloads the conversation list on tap.
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          context.read<CommunicationCubit>().loadConversations(
+                            type: _conversationType,
+                            size: _conversationPageSize,
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0x33B1AFE9),
+                          ),
+                          child: const Icon(
+                            Icons.refresh,
+                            color: AppColors.primaryColor,
+                          ),
                         ),
                       ),
                     ),
