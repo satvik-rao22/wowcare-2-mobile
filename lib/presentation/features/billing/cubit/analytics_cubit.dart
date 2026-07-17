@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -34,8 +35,9 @@ class AnalyticsCubit extends Cubit<AnalyticsState> {
         emit(state.copyWith(isLoading: false));
         return;
       }
-      // Default to current year if no year is specified and selectedYear is null
-      final effectiveYear = year ?? state.selectedYear ?? DateTime.now().year;
+      // Default to the current SCHOOL-calendar year when none is specified.
+      final effectiveYear =
+          year ?? state.selectedYear ?? billingSchoolCurrentYear();
       final analytics = await _getAnalytics(
         organizationCode: org,
         school: school,

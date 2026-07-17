@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 const _kStatementTypes = ['Monthly', 'Yearly', 'Custom Range'];
 
@@ -74,7 +75,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
   }
 
   List<String> get _yearOptions {
-    final now = DateTime.now().year;
+    final now = billingSchoolCurrentYear();
     return List.generate(8, (i) => '${now - 5 + i}');
   }
 
@@ -107,7 +108,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
       case 'Custom Range':
         return _customStart!;
       default:
-        return DateTime.now();
+        return billingSchoolToday();
     }
   }
 
@@ -121,7 +122,7 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
       case 'Custom Range':
         return _customEnd!;
       default:
-        return DateTime.now();
+        return billingSchoolToday();
     }
   }
 

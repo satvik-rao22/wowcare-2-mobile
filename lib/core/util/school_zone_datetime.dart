@@ -36,6 +36,30 @@ abstract final class SchoolZoneDateTime {
     return tz.TZDateTime(loc, year, month, day, hour, minute).toUtc();
   }
 
+  /// Interprets [wallClock]'s calendar + clock fields as **school wall clock**
+  /// and returns the corresponding UTC instant.
+  ///
+  /// Use for a date/time the user PICKED (a calendar concept), never for an
+  /// instant. `picked.toUtc()` is wrong for picked values: it reads the fields
+  /// in the DEVICE's zone, so `DateTime(2026, 7, 17)` on an IST device becomes
+  /// `2026-07-16T18:30:00Z` — a day earlier than the user chose.
+  static DateTime utcFromSchoolWallClockDateTime(
+    DateTime wallClock,
+    String ianaName,
+  ) {
+    final loc = locationForIana(ianaName);
+    return tz.TZDateTime(
+      loc,
+      wallClock.year,
+      wallClock.month,
+      wallClock.day,
+      wallClock.hour,
+      wallClock.minute,
+      wallClock.second,
+      wallClock.millisecond,
+    ).toUtc();
+  }
+
   /// Calendar date (yyyy-MM-dd) of [utcInstant] as seen in the school zone.
   static String yyyyMmDdFromUtcInstant(DateTime utcInstant, String ianaName) {
     final loc = locationForIana(ianaName);

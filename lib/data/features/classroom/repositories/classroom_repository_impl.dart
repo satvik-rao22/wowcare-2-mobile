@@ -69,6 +69,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       createdAt: details.createdAt,
       updatedBy: details.updatedBy,
       updatedAt: details.updatedAt,
+      logoAssetCode: details.logoAssetCode,
     );
   }
 

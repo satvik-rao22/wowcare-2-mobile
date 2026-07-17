@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class AnalyticsSection extends StatelessWidget {
   const AnalyticsSection({super.key, this.onRegisterRefresh});
@@ -59,7 +60,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
       builder: (context, state) {
         final bool isTablet = ResponsiveSizing.isTablet(context);
         final double sectionGap = isTablet ? 16 : 12;
-        final int currentYear = DateTime.now().year;
+        final int currentYear = billingSchoolCurrentYear();
 
         if (state.isLoading) {
           return const _AnalyticsShimmer();
@@ -368,7 +369,7 @@ class _YearSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final int currentYear = DateTime.now().year;
+    final int currentYear = billingSchoolCurrentYear();
     // Years from 10 years ago through 2 years in the future (inclusive)
     final List<int> yearList = List.generate(13, (i) => currentYear - 10 + i);
     final List<String> yearStrings = yearList.map((y) => y.toString()).toList();

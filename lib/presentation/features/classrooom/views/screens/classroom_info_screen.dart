@@ -338,31 +338,39 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     final code = classroomCode.trim();
     if (code.isEmpty) return;
 
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    if (schoolCode.isEmpty) return;
-
     try {
       setState(() {
         _isLogoLoading = true;
       });
 
-      final body = await serviceLocator<ClassroomRepository>()
-          .getClassroomLogoAssetCodes(classroomCode: code, schoolCode: schoolCode);
-      if (body is! Map<String, dynamic> || body['success'] == false) {
-        return;
-      }
-      final data = body['data'];
-      if (data is! List) return;
+      // First check if _details already has the logoAssetCode
+      String assetCode = '';
+      if (_details != null && _details!.logoAssetCode.isNotEmpty) {
+        assetCode = _details!.logoAssetCode.trim().toUpperCase();
+      } else {
+        // Fallback: fetch from API if not in details
+        final schoolCode =
+            (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+        if (schoolCode.isEmpty) return;
 
-      final matched = data.whereType<Map>().firstWhere(
-            (row) =>
-                (row['classroomCode'] ?? '').toString().trim().toUpperCase() ==
-                code.toUpperCase(),
-            orElse: () => <String, dynamic>{},
-          );
-      final assetCode =
-          (matched['logoAssetCode'] ?? '').toString().trim().toUpperCase();
+        final body = await serviceLocator<ClassroomRepository>()
+            .getClassroomLogoAssetCodes(classroomCode: code, schoolCode: schoolCode);
+        if (body is! Map<String, dynamic> || body['success'] == false) {
+          return;
+        }
+        final data = body['data'];
+        if (data is! List) return;
+
+        final matched = data.whereType<Map>().firstWhere(
+              (row) =>
+                  (row['classroomCode'] ?? '').toString().trim().toUpperCase() ==
+                  code.toUpperCase(),
+              orElse: () => <String, dynamic>{},
+            );
+        assetCode =
+            (matched['logoAssetCode'] ?? '').toString().trim().toUpperCase();
+      }
+
       if (!mounted) return;
 
       if (assetCode.isEmpty) {
@@ -374,12 +382,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
       final uploadService = serviceLocator<ImageUploadService>();
       final url = await uploadService.getMediaAssetUrlByCode(assetCode: assetCode);
+      AppLogger.d('[ClassroomInfo] getMediaAssetUrlByCode returned: $url');
       if (!mounted) return;
       setState(() {
         _classroomLogoUrl = url;
       });
-    } catch (_) {
-      // Non-fatal: fall back to initials circle.
+    } catch (e) {
+      AppLogger.d('[ClassroomInfo] Logo loading error: $e');
     } finally {
       if (mounted) {
         setState(() {
@@ -435,12 +444,38 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
   Widget _buildClassroomLogoAvatar({required String name}) {
     final trimmedName = name.trim();
+    final logoUrl = _classroomLogoUrl.trim();
 
-    final content = _classroomLogoUrl.trim().isNotEmpty
+    final content = logoUrl.isNotEmpty
         ? CircleAvatar(
             radius: 30,
             backgroundColor: const Color.fromARGB(255, 232, 234, 234),
-            backgroundImage: NetworkImage(_classroomLogoUrl.trim()),
+            child: ClipOval(
+              child: Image.network(
+                logoUrl,
+                fit: BoxFit.cover,
+                width: 60,
+                height: 60,
+                errorBuilder: (context, error, stackTrace) {
+                  return DocumentImageWidget(
+                    fileUuid: '',
+                    name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
+                    size: 60,
+                    fontSize: 24,
+                  );
+                },
+                loadingBuilder: (context, child, loadingProgress) {
+                  if (loadingProgress == null) return child;
+                  return const Center(
+                    child: SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                },
+              ),
+            ),
           )
         : DocumentImageWidget(
             fileUuid: '',
@@ -594,41 +629,70 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           msg.isNotEmpty ? msg : 'Unable to finalize classroom logo',
         );
       }
-      final finalizeData = finalizeBody['data'];
-      String resolvedUrl = '';
-      if (finalizeData is Map) {
-        resolvedUrl = (finalizeData['url'] ?? finalizeData['thumbnailUrl'] ?? '')
-            .toString()
-            .trim();
-      }
-      if (resolvedUrl.isEmpty) {
-        resolvedUrl = await uploadService.getMediaAssetUrlByCode(
-          assetCode: presign.assetCode,
-        );
-      }
 
       if (!mounted) return;
+
+      // Set logo loading and fetch URL using the assetCode we just uploaded
       setState(() {
-        _classroomLogoUrl = resolvedUrl;
+        _isLogoLoading = true;
       });
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Classroom logo updated successfully',
-        isSuccess: true,
-      );
+
+      try {
+        // Use uploadService to get the actual delivery URL
+        final logoUrl = await uploadService.getMediaAssetUrlByCode(
+          assetCode: presign.assetCode.trim(),
+        );
+        AppLogger.d('[ClassroomInfo] Logo URL after upload: $logoUrl');
+
+        if (!mounted) return;
+
+        if (logoUrl.isNotEmpty) {
+          setState(() {
+            _classroomLogoUrl = logoUrl;
+            _isLogoLoading = false;
+          });
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Classroom logo updated successfully',
+            isSuccess: true,
+          );
+        } else {
+          // Fallback: reload details if URL is empty
+          setState(() {
+            _isLogoLoading = false;
+          });
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Logo uploaded, reloading...',
+            isSuccess: true,
+          );
+          if (!mounted) return;
+          _loadDetails(classroomCode);
+        }
+      } catch (e) {
+        AppLogger.d('[ClassroomInfo] Error fetching logo URL: $e');
+        if (mounted) {
+          setState(() {
+            _isLogoLoading = false;
+          });
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Logo uploaded successfully',
+            isSuccess: true,
+          );
+          _loadDetails(classroomCode);
+        }
+      }
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isLogoLoading = false;
+        });
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Failed to update classroom logo: ${ApiErrorHandler.extractErrorMessage(e)}',
           isError: true,
         );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLogoLoading = false;
-        });
       }
     }
   }
