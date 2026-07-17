@@ -700,7 +700,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     if (isLoading) return const ChatThreadShimmer();
     return Stack(
       children: [
-        ListView.builder(
+        RefreshIndicator(
+          onRefresh: () => context.read<CommunicationCubit>().loadMessages(
+            widget.parentInfo['code'] as String,
+            currentUserId: _currentUserCode,
+          ),
+          child: ListView.builder(
+          // Always scrollable so pull-to-refresh works on a short thread.
+          physics: const AlwaysScrollableScrollPhysics(),
           controller: controller,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
           reverse: true,
@@ -846,6 +853,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
               ),
             );
           },
+        ),
         ),
         Positioned(
           left: 0,

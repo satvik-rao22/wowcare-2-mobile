@@ -572,7 +572,19 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           ),
                                           color: const Color(0xFFF4F7FD),
                                         ),
-                                        child: ListView.builder(
+                                        child: RefreshIndicator(
+                                          onRefresh: () => context
+                                              .read<CommunicationCubit>()
+                                              .loadMessages(
+                                                widget.staffInfo['code']
+                                                    as String,
+                                                currentUserId: _currentUserCode,
+                                              ),
+                                          child: ListView.builder(
+                                          // Always scrollable so pull-to-refresh
+                                          // works even when the thread is short.
+                                          physics:
+                                              const AlwaysScrollableScrollPhysics(),
                                           controller: _scrollController,
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 8,
@@ -794,6 +806,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                               ),
                                             );
                                           },
+                                        ),
                                         ),
                                       ),
                                       Positioned(
