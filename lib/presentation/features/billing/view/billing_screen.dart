@@ -2,7 +2,7 @@ import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/billing_events.dart';
-import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart';
+// import 'package:wowcare/presentation/features/billing/widgets/subsidies/subsidies_section.dart'; // Subsidies not implemented yet
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -40,7 +40,7 @@ class _BillingScreenState extends State<BillingScreen>
     'Transactions',
     // 'Recurring Plans',
     'General Ledger',
-    'Subsidies',
+    // 'Subsidies', // Not implemented yet - hidden for all personas
     'Analytics',
     'Billing Settings',
   ];
@@ -110,7 +110,7 @@ class _BillingScreenState extends State<BillingScreen>
       case 2:
         _ledgerRefreshFn?.call();
         break;
-      case 4:
+      case 3:
         _analyticsRefreshFn?.call();
         break;
     }
@@ -127,7 +127,7 @@ class _BillingScreenState extends State<BillingScreen>
     VoidCallback? loadFn;
     if (tc.index == 1) loadFn = _transactionsLoadNextFn;
     if (tc.index == 2) loadFn = _ledgerLoadNextFn;
-    if (tc.index == 5) loadFn = _discountLoadNextFn;
+    if (tc.index == 4) loadFn = _discountLoadNextFn;
     if (loadFn == null) return;
 
     if (position.maxScrollExtent <= 0) {
@@ -190,7 +190,7 @@ class _BillingScreenState extends State<BillingScreen>
                         case 2:
                           await _ledgerRefreshFn?.call();
                           break;
-                        case 4:
+                        case 3:
                           await _analyticsRefreshFn?.call();
                           break;
                       }
@@ -222,7 +222,7 @@ class _BillingScreenState extends State<BillingScreen>
                                 animation: controller,
                                 builder: (_, __) {
                                   final int idx = controller.index;
-                                  if (idx == 4 || idx == 5) {
+                                  if (idx == 3 || idx == 4) {
                                     return const SizedBox.shrink();
                                   }
                                   return GradientAddButton(
@@ -446,14 +446,15 @@ class _BillingScreenState extends State<BillingScreen>
                                   onLoadMoreNeeded: _maybeLoadNextPage,
                                 );
                               } else if (current == 3) {
-                                content = const SubsidiesSection();
-                              } else if (current == 4) {
+                                // 'Subsidies' tab is not implemented yet; the
+                                // tab entry above is disabled so this index
+                                // now maps to Analytics instead.
                                 content = AnalyticsSection(
                                   onRegisterRefresh: (fn) {
                                     _analyticsRefreshFn = fn;
                                   },
                                 );
-                              } else if (current == 5) {
+                              } else if (current == 4) {
                                 content = BillingSettingsSection(
                                   onRegisterLoadNextPage: (fn) {
                                     _discountLoadNextFn = fn;
