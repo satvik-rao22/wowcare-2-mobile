@@ -933,6 +933,11 @@ class ApiPaths {
   static String taskByCode(String code) =>
       '$tasks/${Uri.encodeComponent(code.trim())}';
 
+  /// `DELETE` `/api/v1/tasks/{code}/assignees/{staffCode}` — remove one
+  /// assignee from a task's roster without touching the series (§4a).
+  static String taskAssignee(String code, String staffCode) =>
+      '${taskByCode(code)}/assignees/${Uri.encodeComponent(staffCode.trim())}';
+
   /// `GET` `/api/v1/tasks/assignments` — flat, mixed-status page of task
   /// assignments (same filters as the board, ungrouped).
   static const String taskAssignments = '$tasks/assignments';

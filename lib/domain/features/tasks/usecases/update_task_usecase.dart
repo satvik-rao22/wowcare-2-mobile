@@ -14,6 +14,8 @@ class UpdateTaskUseCase {
     TaskHolidayPolicy? holidayPolicy,
     Task? schedule,
     List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+    String? parentTaskCode,
   }) {
     return _repository.updateTask(
       seriesCode: seriesCode,
@@ -22,6 +24,8 @@ class UpdateTaskUseCase {
       holidayPolicy: holidayPolicy,
       schedule: schedule,
       assignees: assignees,
+      assetCodes: assetCodes,
+      parentTaskCode: parentTaskCode,
     );
   }
 }

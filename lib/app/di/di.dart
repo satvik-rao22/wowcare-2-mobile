@@ -53,9 +53,13 @@ import '../../data/features/tasks/repositories/task_repository_impl.dart';
 import '../../domain/features/tasks/repositories/task_repository.dart';
 import '../../domain/features/tasks/usecases/create_task_usecase.dart';
 import '../../domain/features/tasks/usecases/delete_task_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_board_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_series_usecase.dart';
 import '../../domain/features/tasks/usecases/get_tasks_usecase.dart';
+import '../../domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
+import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
 import '../../data/features/assessments/datasources/assessment_seed_datasource.dart';
@@ -480,10 +484,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerLazySingleton<TaskRepository>(
-    () => TaskRepositoryImpl(serviceLocator<TaskRemoteDataSource>()),
+    () => TaskRepositoryImpl(
+      serviceLocator<TaskRemoteDataSource>(),
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<StorageService>(),
+    ),
   );
   serviceLocator.registerFactory<GetTasksUseCase>(
     () => GetTasksUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskSeriesUseCase>(
+    () => GetTaskSeriesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskBoardUseCase>(
+    () => GetTaskBoardUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateTaskUseCase>(
     () => CreateTaskUseCase(serviceLocator()),
@@ -494,8 +508,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteTaskUseCase>(
     () => DeleteTaskUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<RemoveTaskAssigneeUseCase>(
+    () => RemoveTaskAssigneeUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<UpdateTaskAssignmentStatusUseCase>(
     () => UpdateTaskAssignmentStatusUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadTaskAttachmentUseCase>(
+    () => UploadTaskAttachmentUseCase(serviceLocator()),
   );
   // Singleton so the tasks board, detail and form screens (separate routes)
   // share one state and edits reflect everywhere without refetching.
@@ -505,7 +525,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<CreateTaskUseCase>(),
       serviceLocator<UpdateTaskUseCase>(),
       serviceLocator<DeleteTaskUseCase>(),
+      serviceLocator<RemoveTaskAssigneeUseCase>(),
       serviceLocator<UpdateTaskAssignmentStatusUseCase>(),
+      serviceLocator<UploadTaskAttachmentUseCase>(),
       serviceLocator<GetAllStaffUseCase>(),
       serviceLocator<StorageService>(),
     ),

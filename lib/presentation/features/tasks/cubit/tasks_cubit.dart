@@ -9,8 +9,10 @@ import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_tasks_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 
 part 'tasks_state.dart';
 
@@ -25,7 +27,9 @@ class TasksCubit extends Cubit<TasksState> {
     this._createTask,
     this._updateTask,
     this._deleteTask,
+    this._removeAssignee,
     this._updateStatus,
+    this._uploadAttachment,
     this._getAllStaff,
     this._storageService,
   ) : super(const TasksState.initial());
@@ -34,7 +38,9 @@ class TasksCubit extends Cubit<TasksState> {
   final CreateTaskUseCase _createTask;
   final UpdateTaskUseCase _updateTask;
   final DeleteTaskUseCase _deleteTask;
+  final RemoveTaskAssigneeUseCase _removeAssignee;
   final UpdateTaskAssignmentStatusUseCase _updateStatus;
+  final UploadTaskAttachmentUseCase _uploadAttachment;
   final GetAllStaffUseCase _getAllStaff;
   final StorageService _storageService;
 
@@ -187,7 +193,11 @@ class TasksCubit extends Cubit<TasksState> {
   /// multiple assignees populate one shared roster, not N task rows). The
   /// server stamps codes, dates and audit fields, so on success we reload to
   /// pick up the newly materialized assignment cards. Returns true on success.
-  Future<bool> create(Task draft, List<TaskAssigneeRef> assignees) async {
+  Future<bool> create(
+    Task draft,
+    List<TaskAssigneeRef> assignees, {
+    List<String> assetCodes = const [],
+  }) async {
     if (assignees.isEmpty) return false;
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
@@ -196,7 +206,11 @@ class TasksCubit extends Cubit<TasksState> {
       final roster = assignees
           .map((a) => TaskAssignee(staffCode: a.code))
           .toList();
-      await _createTask(draft: draft, assignees: roster);
+      await _createTask(
+        draft: draft,
+        assignees: roster,
+        assetCodes: assetCodes,
+      );
       await load(silent: true);
       emit(state.copyWith(isSaving: false));
       return true;
@@ -287,6 +301,52 @@ class TasksCubit extends Cubit<TasksState> {
     } catch (e) {
       emit(state.copyWith(errorMessage: () => 'Failed to delete task: $e'));
       return false;
+    }
+  }
+
+  /// Removes one assignee from a task's roster (Tasks API §4a) without touching
+  /// the series or other assignees, then reloads so the dropped assignee's cards
+  /// disappear. Prefer this over a full-replace roster `PATCH` when the only
+  /// change is dropping one person. [seriesCode] is the owning `TSK_…` code.
+  Future<bool> removeAssignee(String seriesCode, String staffCode) async {
+    if (seriesCode.trim().isEmpty || staffCode.trim().isEmpty) {
+      emit(state.copyWith(errorMessage: () => 'Missing task reference'));
+      return false;
+    }
+    emit(state.copyWith(isSaving: true, errorMessage: () => null));
+    try {
+      await _removeAssignee(seriesCode: seriesCode, staffCode: staffCode);
+      await load(silent: true);
+      emit(state.copyWith(isSaving: false));
+      return true;
+    } catch (e) {
+      emit(state.copyWith(
+        isSaving: false,
+        errorMessage: () => 'Failed to remove assignee: $e',
+      ));
+      return false;
+    }
+  }
+
+  /// Uploads one attachment through the §8/§9 cross-service flow and returns the
+  /// ready asset code (or null on failure), which the form then passes to
+  /// [create]. Surfaces failures via [TasksState.errorMessage].
+  Future<String?> uploadAttachment({
+    required String filePath,
+    required String fileName,
+    required String contentType,
+  }) async {
+    try {
+      return await _uploadAttachment(
+        filePath: filePath,
+        fileName: fileName,
+        contentType: contentType,
+      );
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: () => 'Failed to upload attachment: $e',
+      ));
+      return null;
     }
   }
 

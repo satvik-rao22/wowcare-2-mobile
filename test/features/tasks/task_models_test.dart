@@ -2,6 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/data/features/tasks/models/task_models.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 
 void main() {
   group('TaskAssignmentModel.fromJson → toEntity', () {
@@ -27,8 +29,15 @@ void main() {
       expect(task.status, TaskStatus.inProgress);
       expect(task.priority, TaskPriority.high);
       expect(task.startDate, DateTime(2026, 7, 15));
-      expect(task.dueDate, DateTime(2026, 7, 17));
-      expect(task.dueTime, '17:00');
+      // dueAt is converted to local (Fix A), so assert against the local
+      // wall-clock rather than the raw UTC components (timezone-robust).
+      final localDue = DateTime.parse('2026-07-17T17:00:00Z').toLocal();
+      expect(task.dueDate, DateTime(localDue.year, localDue.month, localDue.day));
+      expect(
+        task.dueTime,
+        '${localDue.hour.toString().padLeft(2, '0')}:'
+        '${localDue.minute.toString().padLeft(2, '0')}',
+      );
     });
 
     test('defaults status/priority and tolerates a missing dueAt', () {
@@ -43,6 +52,29 @@ void main() {
       expect(task.priority, TaskPriority.medium);
       // dueAt falls back to the occurrence date.
       expect(task.dueDate, DateTime(2026, 7, 15));
+    });
+
+    // Fix A: a UTC `dueAt` must be converted to the device's local wall-clock
+    // before being split into dueDate/dueTime, otherwise overdue math and the
+    // displayed time are off by the timezone offset.
+    test('converts a UTC dueAt to local before splitting date/time', () {
+      const iso = '2026-07-17T17:00:00Z';
+      final model = TaskAssignmentModel.fromJson(const {
+        'code': 'TSA_TZ',
+        'taskCode': 'TSK_TZ',
+        'title': 'x',
+        'occurrenceDate': '2026-07-15',
+        'dueAt': iso,
+      });
+      final task = model.toEntity();
+
+      final local = DateTime.parse(iso).toLocal();
+      final expectedTime = '${local.hour.toString().padLeft(2, '0')}:'
+          '${local.minute.toString().padLeft(2, '0')}';
+      expect(task.dueTime, expectedTime);
+      expect(task.dueDate, DateTime(local.year, local.month, local.day));
+      // The reconstructed due moment must equal the original instant.
+      expect(task.dueAt, local);
     });
   });
 
@@ -158,6 +190,23 @@ void main() {
       );
       expect(body['assetCodes'], ['AST_9F2A1B']);
     });
+
+    // Fix D: holidayPolicy is sent on create only when supplied; omitted lets
+    // the server default to SKIP.
+    test('sends holidayPolicy only when supplied', () {
+      final withPolicy = TaskRequestBuilder.createBody(
+        draft: draft(),
+        assignees: const [TaskAssignee(staffCode: 'STF_1A2B3C')],
+        holidayPolicy: TaskHolidayPolicy.keep,
+      );
+      expect(withPolicy['holidayPolicy'], 'KEEP');
+
+      final without = TaskRequestBuilder.createBody(
+        draft: draft(),
+        assignees: const [TaskAssignee(staffCode: 'STF_1A2B3C')],
+      );
+      expect(without.containsKey('holidayPolicy'), isFalse);
+    });
   });
 
   group('TaskRequestBuilder.updateBody', () {
@@ -178,6 +227,38 @@ void main() {
 
     test('is empty when nothing is provided', () {
       expect(TaskRequestBuilder.updateBody(), isEmpty);
+    });
+
+    // Fix B (§3c): assetCodes full-replace and parentTaskCode re-parent.
+    test('sends assetCodes as a full replace (including an empty list)', () {
+      expect(
+        TaskRequestBuilder.updateBody(assetCodes: const ['AST_1', 'AST_2'])[
+            'assetCodes'],
+        ['AST_1', 'AST_2'],
+      );
+      // An empty list is meaningful (clears all attachments) → must be sent.
+      final cleared = TaskRequestBuilder.updateBody(assetCodes: const []);
+      expect(cleared.containsKey('assetCodes'), isTrue);
+      expect(cleared['assetCodes'], isEmpty);
+      // Null means "leave unchanged" → omitted.
+      expect(TaskRequestBuilder.updateBody().containsKey('assetCodes'), isFalse);
+    });
+
+    test('sends parentTaskCode, including "" to clear the parent', () {
+      expect(
+        TaskRequestBuilder.updateBody(parentTaskCode: 'TSK_PARENT01')[
+            'parentTaskCode'],
+        'TSK_PARENT01',
+      );
+      // "" clears an existing parent and must reach the wire (not omitted).
+      final cleared = TaskRequestBuilder.updateBody(parentTaskCode: '');
+      expect(cleared.containsKey('parentTaskCode'), isTrue);
+      expect(cleared['parentTaskCode'], '');
+      // Null leaves it unchanged.
+      expect(
+        TaskRequestBuilder.updateBody().containsKey('parentTaskCode'),
+        isFalse,
+      );
     });
 
     test('serializes the schedule when a task is provided (§3 parity)', () {
@@ -206,5 +287,197 @@ void main() {
       TaskRequestBuilder.statusBody(TaskStatus.completed),
       {'status': 'COMPLETED'},
     );
+  });
+
+  group('TaskSeriesModel.toSeries (§2 list row)', () {
+    test('maps list fields to the TaskSeries domain entity', () {
+      final series = TaskSeriesModel.fromJson(const {
+        'code': 'TSK_2E7C1A0B9F',
+        'title': 'Water classroom plants',
+        'recurringFlag': true,
+        'rruleFreq': 'WEEKLY',
+        'seriesStartDate': '2026-07-15',
+        'seriesStatus': 'ACTIVE',
+        'nextOccurrenceDate': '2026-07-15',
+        'nextOccurrenceStatus': 'SCHEDULED',
+        'version': 0,
+      }).toSeries();
+
+      expect(series.code, 'TSK_2E7C1A0B9F');
+      expect(series.title, 'Water classroom plants');
+      expect(series.recurring, isTrue);
+      expect(series.recurrencePattern, TaskRecurrence.weekly);
+      expect(series.seriesStartDate, DateTime(2026, 7, 15));
+      expect(series.seriesStatus, TaskSeriesStatus.active);
+      expect(series.nextOccurrenceStatus, 'SCHEDULED');
+    });
+
+    test('leaves recurrencePattern null for a one-off series', () {
+      final series = TaskSeriesModel.fromJson(const {
+        'code': 'TSK_1',
+        'title': 'Prepare report',
+        'recurringFlag': false,
+        'rruleFreq': null,
+        'seriesStatus': 'ENDED',
+      }).toSeries();
+      expect(series.recurring, isFalse);
+      expect(series.recurrencePattern, isNull);
+      expect(series.seriesStatus, TaskSeriesStatus.ended);
+    });
+  });
+
+  group('TaskRequestBuilder.assignmentQueryParams (§6/§7)', () {
+    test('drops empty filters and keeps only active ones', () {
+      final params = TaskRequestBuilder.assignmentQueryParams(const TaskQuery());
+      expect(params['page'], 0);
+      expect(params['size'], 20);
+      expect(params.containsKey('assigneeCodes'), isFalse);
+      expect(params.containsKey('priorities'), isFalse);
+      expect(params.containsKey('statuses'), isFalse);
+      expect(params.containsKey('overdue'), isFalse);
+      expect(params.containsKey('q'), isFalse);
+    });
+
+    test('serializes multi-selects, date window, overdue and search', () {
+      final params = TaskRequestBuilder.assignmentQueryParams(TaskQuery(
+        assigneeCodes: const ['STF_1', 'STF_2'],
+        priorities: const [TaskPriority.high, TaskPriority.medium],
+        statuses: const [TaskStatus.toDo, TaskStatus.inProgress],
+        fromDate: DateTime(2026, 7, 1),
+        toDate: DateTime(2026, 7, 31),
+        overdue: true,
+        query: '  report  ',
+        page: 2,
+        size: 50,
+      ));
+
+      expect(params['assigneeCodes'], ['STF_1', 'STF_2']);
+      expect(params['priorities'], ['HIGH', 'MEDIUM']);
+      expect(params['statuses'], ['TO_DO', 'IN_PROGRESS']);
+      expect(params['fromDate'], '2026-07-01');
+      expect(params['toDate'], '2026-07-31');
+      expect(params['overdue'], true);
+      expect(params['q'], 'report');
+      expect(params['page'], 2);
+      expect(params['size'], 50);
+    });
+  });
+
+  group('TaskRequestBuilder.seriesListQueryParams (§2)', () {
+    test('includes only supplied filters', () {
+      final params = TaskRequestBuilder.seriesListQueryParams(
+        seriesStatus: TaskSeriesStatus.active,
+        recurring: false,
+        q: 'report',
+        page: 1,
+        size: 20,
+      );
+      expect(params['seriesStatus'], 'ACTIVE');
+      expect(params['recurring'], false);
+      expect(params['q'], 'report');
+      expect(params['page'], 1);
+      expect(params['size'], 20);
+
+      final bare = TaskRequestBuilder.seriesListQueryParams();
+      expect(bare.keys.toSet(), {'page', 'size'});
+    });
+  });
+
+  group('TaskResponseParser', () {
+    test('seriesPage unwraps items and pagination (§2)', () {
+      final page = TaskResponseParser.seriesPage(const {
+        'data': {
+          'items': [
+            {'code': 'TSK_1', 'title': 'A', 'recurringFlag': false},
+            {'code': 'TSK_2', 'title': 'B', 'recurringFlag': true, 'rruleFreq': 'WEEKLY'},
+            {'title': 'no code — dropped'},
+          ],
+          'page': 0,
+          'size': 20,
+          'totalElements': 2,
+          'totalPages': 1,
+        },
+      });
+      expect(page.items.map((s) => s.code), ['TSK_1', 'TSK_2']);
+      expect(page.totalElements, 2);
+      expect(page.totalPages, 1);
+    });
+
+    test('seriesPage degrades to an empty page on a bad payload', () {
+      final page = TaskResponseParser.seriesPage({'unexpected': true});
+      expect(page.items, isEmpty);
+      expect(page.totalElements, 0);
+    });
+
+    test('board groups cards into the three columns with pagination (§6)', () {
+      final board = TaskResponseParser.board(const {
+        'data': {
+          'columns': {
+            'TO_DO': {
+              'items': [
+                {
+                  'code': 'TSA_1',
+                  'taskCode': 'TSK_1',
+                  'title': 'A',
+                  'occurrenceDate': '2026-07-15',
+                  'dueAt': '2026-07-17T17:00:00Z',
+                  'status': 'TO_DO',
+                },
+              ],
+              'page': 0,
+              'size': 20,
+              'totalElements': 1,
+              'totalPages': 1,
+            },
+            'IN_PROGRESS': {'items': [], 'totalElements': 0, 'totalPages': 0},
+            'COMPLETED': {'items': [], 'totalElements': 0, 'totalPages': 0},
+          },
+        },
+      });
+      expect(board.toDo.cards.single.code, 'TSA_1');
+      expect(board.toDo.totalElements, 1);
+      expect(board.inProgress.cards, isEmpty);
+      expect(board.completed.cards, isEmpty);
+      expect(board.column(TaskStatus.toDo).cards.single.code, 'TSA_1');
+    });
+
+    test('board returns empty columns when the envelope is malformed', () {
+      final board = TaskResponseParser.board({'data': {}});
+      expect(board.toDo.cards, isEmpty);
+      expect(board.inProgress.cards, isEmpty);
+      expect(board.completed.cards, isEmpty);
+    });
+
+    test('uploadSession parses code and falls back on missing base path', () {
+      final session = TaskResponseParser.uploadSession(
+        const {
+          'data': {'sessionCode': 'SES_1A2B3C', 'sessionStatus': 'OPEN'},
+        },
+        fallbackDocumentBasePath: '/document-ms/api/v1',
+      );
+      expect(session.sessionCode, 'SES_1A2B3C');
+      expect(session.documentApiBasePath, '/document-ms/api/v1');
+
+      final explicit = TaskResponseParser.uploadSession(
+        const {
+          'data': {
+            'sessionCode': 'SES_2',
+            'documentApiBasePath': '/api/v1/document',
+          },
+        },
+        fallbackDocumentBasePath: '/document-ms/api/v1',
+      );
+      expect(explicit.documentApiBasePath, '/api/v1/document');
+    });
+
+    test('uploadSession throws when the session code is missing', () {
+      expect(
+        () => TaskResponseParser.uploadSession(
+          const {'data': <String, dynamic>{}},
+          fallbackDocumentBasePath: '/x',
+        ),
+        throwsA(isA<Exception>()),
+      );
+    });
   });
 }

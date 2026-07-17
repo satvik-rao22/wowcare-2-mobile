@@ -6,12 +6,17 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_tasks_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 
 /// In-memory [StorageService] so the cubit's identity/role reads never touch
@@ -56,9 +61,13 @@ class _FakeTaskRepository implements TaskRepository {
 
   int createCalls = 0;
   List<TaskAssignee>? lastCreateRoster;
+  List<String>? lastCreateAssetCodes;
   Map<String, dynamic>? lastUpdateArgs;
   String? lastDeletedSeries;
+  Map<String, dynamic>? lastRemovedAssignee;
   Map<String, dynamic>? lastStatusArgs;
+  Map<String, dynamic>? lastUploadArgs;
+  String uploadResult = 'AST_READY';
 
   String? lastQuery;
 
@@ -71,12 +80,34 @@ class _FakeTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<TaskSeriesPage> getTaskSeries({
+    TaskSeriesStatus? seriesStatus,
+    bool? recurring,
+    String? query,
+    int page = 0,
+    int size = 20,
+  }) async =>
+      const TaskSeriesPage(
+        items: [],
+        page: 0,
+        size: 20,
+        totalElements: 0,
+        totalPages: 0,
+      );
+
+  @override
+  Future<TaskBoard> getBoard(TaskQuery query) async => const TaskBoard.empty();
+
+  @override
   Future<void> createTask({
     required Task draft,
     required List<TaskAssignee> assignees,
+    TaskHolidayPolicy? holidayPolicy,
+    List<String> assetCodes = const [],
   }) async {
     createCalls++;
     lastCreateRoster = assignees;
+    lastCreateAssetCodes = assetCodes;
   }
 
   @override
@@ -87,6 +118,8 @@ class _FakeTaskRepository implements TaskRepository {
     TaskHolidayPolicy? holidayPolicy,
     Task? schedule,
     List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+    String? parentTaskCode,
   }) async {
     lastUpdateArgs = {
       'seriesCode': seriesCode,
@@ -94,6 +127,8 @@ class _FakeTaskRepository implements TaskRepository {
       'description': description,
       'schedule': schedule,
       'assignees': assignees,
+      'assetCodes': assetCodes,
+      'parentTaskCode': parentTaskCode,
     };
   }
 
@@ -105,6 +140,18 @@ class _FakeTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<void> removeAssignee({
+    required String seriesCode,
+    required String staffCode,
+  }) async {
+    lastRemovedAssignee = {'seriesCode': seriesCode, 'staffCode': staffCode};
+    // Mirror the server: that assignee's cards are gone on the next fetch.
+    tasks = tasks
+        .where((t) => !(t.taskCode == seriesCode && t.assigneeCode == staffCode))
+        .toList();
+  }
+
+  @override
   Future<Task> updateAssignmentStatus({
     required String assignmentCode,
     required TaskStatus status,
@@ -112,6 +159,20 @@ class _FakeTaskRepository implements TaskRepository {
     lastStatusArgs = {'code': assignmentCode, 'status': status};
     final current = tasks.firstWhere((t) => t.code == assignmentCode);
     return current.copyWith(status: status);
+  }
+
+  @override
+  Future<String> uploadAttachment({
+    required String filePath,
+    required String fileName,
+    required String contentType,
+  }) async {
+    lastUploadArgs = {
+      'filePath': filePath,
+      'fileName': fileName,
+      'contentType': contentType,
+    };
+    return uploadResult;
   }
 }
 
@@ -175,7 +236,9 @@ TasksCubit _buildCubit(
       CreateTaskUseCase(repo),
       UpdateTaskUseCase(repo),
       DeleteTaskUseCase(repo),
+      RemoveTaskAssigneeUseCase(repo),
       UpdateTaskAssignmentStatusUseCase(repo),
+      UploadTaskAttachmentUseCase(repo),
       GetAllStaffUseCase(_FakeStaffRepository(staff)),
       _FakeStorage(),
     );
@@ -304,5 +367,52 @@ void main() {
     final schedule = repo.lastUpdateArgs!['schedule'] as Task?;
     expect(schedule, isNotNull);
     expect(schedule!.dueDate, DateTime(2026, 7, 20));
+  });
+
+  test('create forwards uploaded assetCodes to the repository (§8/§9)',
+      () async {
+    await cubit.load();
+    final ok = await cubit.create(
+      _card(code: '', taskCode: ''),
+      const [(code: 'STF_1', name: 'One')],
+      assetCodes: const ['AST_READY'],
+    );
+    expect(ok, isTrue);
+    expect(repo.lastCreateAssetCodes, ['AST_READY']);
+  });
+
+  test('removeAssignee drops that assignee and reloads (§4a)', () async {
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1'),
+      _card(code: 'TSA_2', taskCode: 'TSK_1', assignee: 'STF_2'),
+    ];
+    await cubit.load();
+
+    final ok = await cubit.removeAssignee('TSK_1', 'STF_2');
+
+    expect(ok, isTrue);
+    expect(repo.lastRemovedAssignee, {'seriesCode': 'TSK_1', 'staffCode': 'STF_2'});
+    // Only STF_2's card is gone; STF_1 stays.
+    expect(cubit.state.tasks.map((t) => t.code), ['TSA_1']);
+    expect(cubit.state.isSaving, isFalse);
+  });
+
+  test('removeAssignee reports an error when references are missing', () async {
+    await cubit.load();
+    final ok = await cubit.removeAssignee('', 'STF_2');
+    expect(ok, isFalse);
+    expect(cubit.state.errorMessage, isNotNull);
+  });
+
+  test('uploadAttachment returns the ready asset code (§8/§9)', () async {
+    await cubit.load();
+    final code = await cubit.uploadAttachment(
+      filePath: '/tmp/notes.pdf',
+      fileName: 'notes.pdf',
+      contentType: 'application/pdf',
+    );
+    expect(code, 'AST_READY');
+    expect(repo.lastUploadArgs!['fileName'], 'notes.pdf');
+    expect(repo.lastUploadArgs!['contentType'], 'application/pdf');
   });
 }

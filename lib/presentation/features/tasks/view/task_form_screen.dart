@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
@@ -66,6 +67,21 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   String? _attachmentName;
   String? _attachmentUrl;
   String? _attachmentType;
+
+  /// Set once a freshly-picked attachment has been uploaded through the §8/§9
+  /// flow; passed to create as `assetCodes`. Null when no new file is attached.
+  String? _attachmentAssetCode;
+  bool _uploadingAttachment = false;
+
+  /// Attachment picker limits (mirrors the tile's helper text).
+  static const int _maxAttachmentBytes = 10 * 1024 * 1024;
+  static const List<String> _attachmentExtensions = [
+    'jpg',
+    'jpeg',
+    'png',
+    'webp',
+    'pdf',
+  ];
 
   bool get _isEditing => _editing != null;
 
@@ -617,6 +633,29 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   // ------------------------------------------------------- attachment
 
   Widget _attachmentTile() {
+    if (_uploadingAttachment) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: _tileDecoration(),
+        child: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.themeColor,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'Uploading attachment…',
+              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      );
+    }
     if (_attachmentName != null && _attachmentName!.isNotEmpty) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -639,6 +678,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 _attachmentName = null;
                 _attachmentUrl = null;
                 _attachmentType = null;
+                _attachmentAssetCode = null;
               }),
               child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
             ),
@@ -649,13 +689,54 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     return _fieldTile(
       icon: Icons.upload_file_outlined,
       text: 'Add attachment (JPEG, PNG, WebP, PDF • max 10MB)',
-      onTap: () => CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'File attachments will be available once the backend is '
-            'connected.',
-        isWarning: true,
-      ),
+      onTap: _pickAndUploadAttachment,
     );
+  }
+
+  /// Picks one file and drives the §8/§9 upload, storing the resulting asset
+  /// code so [_save] can pass it to create. Editing an existing task keeps its
+  /// current attachment display; new attachments apply to newly-created tasks.
+  Future<void> _pickAndUploadAttachment() async {
+    final picked = await FilePickerUtils.pickFile(
+      allowedExtensions: _attachmentExtensions,
+      context: context,
+    );
+    final path = picked?.path;
+    if (picked == null || path == null) return;
+
+    if (picked.size > _maxAttachmentBytes) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Attachment must be 10MB or smaller.',
+        isWarning: true,
+      );
+      return;
+    }
+
+    final cubit = context.read<TasksCubit>();
+    setState(() => _uploadingAttachment = true);
+    final assetCode = await cubit.uploadAttachment(
+      filePath: path,
+      fileName: picked.name,
+      contentType: FilePickerUtils.getMimeType(picked.extension),
+    );
+    if (!mounted) return;
+    setState(() {
+      _uploadingAttachment = false;
+      if (assetCode != null && assetCode.isNotEmpty) {
+        _attachmentAssetCode = assetCode;
+        _attachmentName = picked.name;
+        _attachmentType = picked.extension;
+      }
+    });
+    if (assetCode == null || assetCode.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not upload the attachment. Please try again.',
+        isError: true,
+      );
+    }
   }
 
   // ------------------------------------------------------------- save
@@ -784,7 +865,13 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       final assignees = _assignees.entries
           .map((e) => (code: e.key, name: e.value))
           .toList();
-      ok = await cubit.create(draft, assignees);
+      ok = await cubit.create(
+        draft,
+        assignees,
+        assetCodes: _attachmentAssetCode == null
+            ? const []
+            : [_attachmentAssetCode!],
+      );
     }
 
     if (!mounted) return;

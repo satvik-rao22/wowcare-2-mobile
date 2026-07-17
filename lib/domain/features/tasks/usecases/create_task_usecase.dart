@@ -10,7 +10,14 @@ class CreateTaskUseCase {
   Future<void> call({
     required Task draft,
     required List<TaskAssignee> assignees,
+    TaskHolidayPolicy? holidayPolicy,
+    List<String> assetCodes = const [],
   }) {
-    return _repository.createTask(draft: draft, assignees: assignees);
+    return _repository.createTask(
+      draft: draft,
+      assignees: assignees,
+      holidayPolicy: holidayPolicy,
+      assetCodes: assetCodes,
+    );
   }
 }

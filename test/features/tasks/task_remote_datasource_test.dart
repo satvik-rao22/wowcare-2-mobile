@@ -9,6 +9,8 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/tasks/datasources/task_remote_datasource.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 
 /// Fake [HttpClientAdapter] that captures the outgoing request and replays a
 /// staged JSON response — drives the real Dio pipeline without any network.
@@ -88,7 +90,8 @@ void main() {
   });
 
   group('getAssignments', () {
-    test('GETs the flat endpoint with page/size and unwraps data.items', () async {
+    test('GETs the flat endpoint with pagination and unwraps data.items',
+        () async {
       stub(
         (_) => _jsonBody({
           'data': {
@@ -107,40 +110,120 @@ void main() {
               {'taskCode': 'TSK_2', 'title': 'ghost', 'occurrenceDate': '2026-07-15'},
             ],
             'page': 0,
-            'size': 500,
+            'size': 100,
           },
         }),
       );
 
-      final result = await dataSource.getAssignments();
+      final result = await dataSource.getAssignments(
+        const TaskQuery(page: 0, size: 100),
+      );
 
       expect(result.map((a) => a.code).toList(), ['TSA_1']);
       expect(adapter.captured!.method, 'GET');
       expect(adapter.captured!.path, contains('/api/v1/tasks/assignments'));
       expect(adapter.captured!.queryParameters['page'], 0);
-      expect(adapter.captured!.queryParameters['size'], 500);
-      // X-Staff-Code is scoped to POST /tasks only (used as assignedBy on the
-      // TASK_ASSIGNED notification), so a read must not carry it.
+      expect(adapter.captured!.queryParameters['size'], 100);
+      // X-Staff-Code is scoped to POST /tasks only, so a read must not carry it.
       expect(_header(adapter.captured!, 'X-Staff-Code'), isNull);
     });
 
     test('returns empty for an unexpected payload shape', () async {
       stub((_) => _jsonBody({'unexpected': true}));
-      expect(await dataSource.getAssignments(), isEmpty);
+      expect(await dataSource.getAssignments(const TaskQuery()), isEmpty);
     });
 
-    test('sends the q search param when provided, omits it when blank', () async {
+    test('serializes multi-select filters as repeated query keys', () async {
       stub((_) => _jsonBody({'data': {'items': []}}));
-      await dataSource.getAssignments(q: 'report');
-      expect(adapter.captured!.queryParameters['q'], 'report');
+      await dataSource.getAssignments(const TaskQuery(
+        assigneeCodes: ['STF_1', 'STF_2'],
+        priorities: [TaskPriority.high],
+        statuses: [TaskStatus.toDo, TaskStatus.inProgress],
+        overdue: true,
+        query: 'report',
+      ));
 
-      await dataSource.getAssignments(q: '   ');
-      expect(adapter.captured!.queryParameters.containsKey('q'), isFalse);
+      // ListFormat.multi ⇒ `assigneeCodes=STF_1&assigneeCodes=STF_2`.
+      final uri = adapter.captured!.uri.toString();
+      expect(uri, contains('assigneeCodes=STF_1'));
+      expect(uri, contains('assigneeCodes=STF_2'));
+      expect(uri, contains('statuses=TO_DO'));
+      expect(uri, contains('statuses=IN_PROGRESS'));
+      expect(uri, contains('priorities=HIGH'));
+      expect(uri, contains('overdue=true'));
+      expect(uri, contains('q=report'));
+    });
+  });
+
+  group('getTaskSeries (§2)', () {
+    test('GETs /tasks with the series filters and parses the page', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'items': [
+              {'code': 'TSK_1', 'title': 'A', 'recurringFlag': false},
+            ],
+            'page': 0,
+            'size': 20,
+            'totalElements': 1,
+            'totalPages': 1,
+          },
+        }),
+      );
+
+      final page = await dataSource.getTaskSeries(
+        seriesStatus: TaskSeriesStatus.active,
+        recurring: false,
+        q: 'report',
+      );
+
+      expect(page.items.single.code, 'TSK_1');
+      expect(adapter.captured!.method, 'GET');
+      expect(adapter.captured!.path, endsWith('/api/v1/tasks'));
+      expect(adapter.captured!.queryParameters['seriesStatus'], 'ACTIVE');
+      expect(adapter.captured!.queryParameters['recurring'], false);
+      expect(adapter.captured!.queryParameters['q'], 'report');
+    });
+  });
+
+  group('getBoard (§6)', () {
+    test('GETs /tasks/board and groups the columns', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'columns': {
+              'TO_DO': {
+                'items': [
+                  {
+                    'code': 'TSA_1',
+                    'taskCode': 'TSK_1',
+                    'title': 'A',
+                    'occurrenceDate': '2026-07-15',
+                    'dueAt': '2026-07-17T17:00:00Z',
+                    'status': 'TO_DO',
+                  },
+                ],
+                'totalElements': 1,
+                'totalPages': 1,
+              },
+              'IN_PROGRESS': {'items': []},
+              'COMPLETED': {'items': []},
+            },
+          },
+        }),
+      );
+
+      final board = await dataSource.getBoard(const TaskQuery());
+
+      expect(board.toDo.cards.single.code, 'TSA_1');
+      expect(board.inProgress.cards, isEmpty);
+      expect(adapter.captured!.path, contains('/api/v1/tasks/board'));
     });
   });
 
   group('createTask', () {
-    test('POSTs the create body and parses the series response', () async {
+    test('POSTs the create body with staff code and parses the series',
+        () async {
       stub(
         (_) => _jsonBody({
           'data': {
@@ -159,14 +242,15 @@ void main() {
           TaskAssignee(staffCode: 'STF_1'),
           TaskAssignee(staffCode: 'STF_2'),
         ],
+        holidayPolicy: TaskHolidayPolicy.keep,
+        assetCodes: const ['AST_1'],
       );
 
       expect(series.code, 'TSK_9F2A1B3C4D');
       expect(series.assigneeCount, 2);
       expect(adapter.captured!.method, 'POST');
-      expect(adapter.captured!.path, contains('/api/v1/tasks'));
+      expect(adapter.captured!.path, endsWith('/api/v1/tasks'));
       expect(_header(adapter.captured!, 'X-Staff-Code'), 'STF_ME');
-      // Tasks must be routed to the events-todo service, not any other MS.
       expect(
         adapter.captured!.uri.toString(),
         startsWith(ApiConstants.eventsTodoBaseUrl),
@@ -174,6 +258,8 @@ void main() {
       final body = adapter.captured!.data as Map<String, dynamic>;
       expect(body['title'], 'Prepare report');
       expect((body['assignees'] as List), hasLength(2));
+      expect(body['holidayPolicy'], 'KEEP');
+      expect(body['assetCodes'], ['AST_1']);
     });
 
     test('throws when the response has no data payload', () async {
@@ -204,20 +290,25 @@ void main() {
       final body = adapter.captured!.data as Map<String, dynamic>;
       expect(body['title'], 'Renamed');
       expect(body.containsKey('description'), isFalse);
-      // No schedule passed → no recurrence/date fields on the wire.
       expect(body.containsKey('startDate'), isFalse);
       expect(body.containsKey('recurring'), isFalse);
-      // X-Staff-Code is create-only.
       expect(_header(adapter.captured!, 'X-Staff-Code'), isNull);
     });
 
-    test('serializes the schedule for a one-off when provided', () async {
-      stub(
-        (_) => _jsonBody({
-          'data': {'code': 'TSK_1', 'title': 'x', 'version': 1},
-        }),
+    test('sends assetCodes and parentTaskCode when provided (§3c)', () async {
+      stub((_) => _jsonBody({'data': {'code': 'TSK_1', 'title': 'x'}}));
+      await dataSource.updateTask(
+        code: 'TSK_1',
+        assetCodes: const ['AST_1', 'AST_2'],
+        parentTaskCode: '',
       );
+      final body = adapter.captured!.data as Map<String, dynamic>;
+      expect(body['assetCodes'], ['AST_1', 'AST_2']);
+      expect(body['parentTaskCode'], '');
+    });
 
+    test('serializes the schedule for a one-off when provided', () async {
+      stub((_) => _jsonBody({'data': {'code': 'TSK_1', 'title': 'x'}}));
       await dataSource.updateTask(code: 'TSK_1', schedule: _draft());
 
       final body = adapter.captured!.data as Map<String, dynamic>;
@@ -229,12 +320,7 @@ void main() {
     });
 
     test('serializes RRULE fields for a recurring schedule', () async {
-      stub(
-        (_) => _jsonBody({
-          'data': {'code': 'TSK_1', 'title': 'x', 'version': 1},
-        }),
-      );
-
+      stub((_) => _jsonBody({'data': {'code': 'TSK_1', 'title': 'x'}}));
       final recurring = _draft().copyWith(
         recurring: true,
         recurringPattern: () => TaskRecurrence.weekly,
@@ -262,14 +348,24 @@ void main() {
 
     test('treats 404 (already deleted) as success — idempotent', () async {
       stub((_) => _jsonBody({'message': 'Task not found'}, status: 404));
-      // Must not throw: re-deleting an already-gone series should succeed so
-      // the stale card can be cleared.
       await expectLater(dataSource.deleteTask('TSK_GONE'), completes);
     });
 
     test('rethrows non-404 errors', () async {
       stub((_) => _jsonBody({'message': 'boom'}, status: 500));
       await expectLater(dataSource.deleteTask('TSK_1'), throwsA(isA<Object>()));
+    });
+  });
+
+  group('removeAssignee (§4a)', () {
+    test('DELETEs the roster assignee endpoint', () async {
+      stub((_) => _jsonBody(const <String, dynamic>{}, status: 204));
+      await dataSource.removeAssignee(code: 'TSK_1', staffCode: 'STF_4D5E6F');
+      expect(adapter.captured!.method, 'DELETE');
+      expect(
+        adapter.captured!.path,
+        contains('/api/v1/tasks/TSK_1/assignees/STF_4D5E6F'),
+      );
     });
   });
 
@@ -306,6 +402,28 @@ void main() {
         (adapter.captured!.data as Map<String, dynamic>)['status'],
         'IN_PROGRESS',
       );
+    });
+  });
+
+  group('createUploadSession (§8)', () {
+    test('POSTs /tasks/upload-session and parses the session', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'sessionCode': 'SES_1A2B3C',
+            'sessionStatus': 'OPEN',
+            'documentApiBasePath': '/document-ms/api/v1',
+          },
+          'message': 'Task upload session created',
+        }, status: 201),
+      );
+
+      final session = await dataSource.createUploadSession();
+
+      expect(session.sessionCode, 'SES_1A2B3C');
+      expect(session.documentApiBasePath, '/document-ms/api/v1');
+      expect(adapter.captured!.method, 'POST');
+      expect(adapter.captured!.path, contains('/api/v1/tasks/upload-session'));
     });
   });
 }
