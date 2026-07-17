@@ -334,70 +334,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     }
   }
 
-  Future<void> _loadClassroomLogo(String classroomCode) async {
-    final code = classroomCode.trim();
-    if (code.isEmpty) return;
-
-    try {
-      setState(() {
-        _isLogoLoading = true;
-      });
-
-      // First check if _details already has the logoAssetCode
-      String assetCode = '';
-      if (_details != null && _details!.logoAssetCode.isNotEmpty) {
-        assetCode = _details!.logoAssetCode.trim().toUpperCase();
-      } else {
-        // Fallback: fetch from API if not in details
-        final schoolCode =
-            (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-        if (schoolCode.isEmpty) return;
-
-        final body = await serviceLocator<ClassroomRepository>()
-            .getClassroomLogoAssetCodes(classroomCode: code, schoolCode: schoolCode);
-        if (body is! Map<String, dynamic> || body['success'] == false) {
-          return;
-        }
-        final data = body['data'];
-        if (data is! List) return;
-
-        final matched = data.whereType<Map>().firstWhere(
-              (row) =>
-                  (row['classroomCode'] ?? '').toString().trim().toUpperCase() ==
-                  code.toUpperCase(),
-              orElse: () => <String, dynamic>{},
-            );
-        assetCode =
-            (matched['logoAssetCode'] ?? '').toString().trim().toUpperCase();
-      }
-
-      if (!mounted) return;
-
-      if (assetCode.isEmpty) {
-        setState(() {
-          _classroomLogoUrl = '';
-        });
-        return;
-      }
-
-      final uploadService = serviceLocator<ImageUploadService>();
-      final url = await uploadService.getMediaAssetUrlByCode(assetCode: assetCode);
-      AppLogger.d('[ClassroomInfo] getMediaAssetUrlByCode returned: $url');
-      if (!mounted) return;
-      setState(() {
-        _classroomLogoUrl = url;
-      });
-    } catch (e) {
-      AppLogger.d('[ClassroomInfo] Logo loading error: $e');
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLogoLoading = false;
-        });
-      }
-    }
-  }
-
   Future<void> _loadDetails(
     String code, {
     bool refreshEnrolledCounts = false,
@@ -409,6 +345,10 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       _studentSummary = null;
       _staffSummary = null;
       _summaryError = null;
+      // The logo avatar resolves per-classroom via DocumentImageWidget; a
+      // stale explicit URL from a previous selection must not leak over.
+      _classroomLogoUrl = '';
+      _isLogoLoading = false;
     });
     try {
       final details = await _getClassroomByCodeUseCase(code: code);
@@ -429,7 +369,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           forceRefresh: refreshEnrolledCounts,
         ),
         _loadSummaries(code),
-        _loadClassroomLogo(code),
       ]).catchError((Object _) => <void>[]);
     } catch (e) {
       if (!mounted) return;
@@ -445,44 +384,22 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   Widget _buildClassroomLogoAvatar({required String name}) {
     final trimmedName = name.trim();
     final logoUrl = _classroomLogoUrl.trim();
+    final classroomCode =
+        (_selectedRoom?.code ?? _cachedSelectedClassroomCode ?? '').trim();
 
-    final content = logoUrl.isNotEmpty
-        ? CircleAvatar(
-            radius: 30,
-            backgroundColor: const Color.fromARGB(255, 232, 234, 234),
-            child: ClipOval(
-              child: Image.network(
-                logoUrl,
-                fit: BoxFit.cover,
-                width: 60,
-                height: 60,
-                errorBuilder: (context, error, stackTrace) {
-                  return DocumentImageWidget(
-                    fileUuid: '',
-                    name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
-                    size: 60,
-                    fontSize: 24,
-                  );
-                },
-                loadingBuilder: (context, child, loadingProgress) {
-                  if (loadingProgress == null) return child;
-                  return const Center(
-                    child: SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    ),
-                  );
-                },
-              ),
-            ),
-          )
-        : DocumentImageWidget(
-            fileUuid: '',
-            name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
-            size: 60,
-            fontSize: 24,
-          );
+    // DocumentImageWidget resolves the classroom logo itself (asset-codes →
+    // document service → deliveryUrl) exactly like staff/student photos, with
+    // shimmer while loading and initials fallback. An explicit [logoUrl] (set
+    // right after an upload) takes precedence over that lookup.
+    final content = DocumentImageWidget(
+      key: ValueKey('classroom-logo-$classroomCode-$logoUrl'),
+      fileUuid: '',
+      imageUrl: logoUrl.isEmpty ? null : logoUrl,
+      classroomCode: classroomCode.isEmpty ? null : classroomCode,
+      name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
+      size: 60,
+      fontSize: 24,
+    );
 
     return GestureDetector(
       onTap: _isLogoLoading ? null : _onPickAndUploadClassroomLogo,
@@ -630,59 +547,28 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         );
       }
 
-      if (!mounted) return;
-
-      // Set logo loading and fetch URL using the assetCode we just uploaded
-      setState(() {
-        _isLogoLoading = true;
-      });
-
+      // Resolve the fresh delivery URL; even if this comes back empty the
+      // avatar still refetches by classroomCode because the cache is cleared.
+      String logoUrl = '';
       try {
-        // Use uploadService to get the actual delivery URL
-        final logoUrl = await uploadService.getMediaAssetUrlByCode(
+        logoUrl = await uploadService.getMediaAssetUrlByCode(
           assetCode: presign.assetCode.trim(),
         );
-        AppLogger.d('[ClassroomInfo] Logo URL after upload: $logoUrl');
-
-        if (!mounted) return;
-
-        if (logoUrl.isNotEmpty) {
-          setState(() {
-            _classroomLogoUrl = logoUrl;
-            _isLogoLoading = false;
-          });
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Classroom logo updated successfully',
-            isSuccess: true,
-          );
-        } else {
-          // Fallback: reload details if URL is empty
-          setState(() {
-            _isLogoLoading = false;
-          });
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Logo uploaded, reloading...',
-            isSuccess: true,
-          );
-          if (!mounted) return;
-          _loadDetails(classroomCode);
-        }
       } catch (e) {
-        AppLogger.d('[ClassroomInfo] Error fetching logo URL: $e');
-        if (mounted) {
-          setState(() {
-            _isLogoLoading = false;
-          });
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: 'Logo uploaded successfully',
-            isSuccess: true,
-          );
-          _loadDetails(classroomCode);
-        }
+        AppLogger.d('[ClassroomInfo] Post-upload URL resolve failed: $e');
       }
+      DocumentImageWidget.clearProfilePhotoCache(classroomCode: classroomCode);
+
+      if (!mounted) return;
+      setState(() {
+        _classroomLogoUrl = logoUrl;
+        _isLogoLoading = false;
+      });
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Classroom logo updated successfully',
+        isSuccess: true,
+      );
     } catch (e) {
       if (mounted) {
         setState(() {

@@ -98,10 +98,15 @@ class DocumentImageWidget extends StatefulWidget {
     _attendanceStatusRefreshTick.value++;
   }
 
-  static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
+  static void clearProfilePhotoCache({
+    String? studentCode,
+    String? staffCode,
+    String? classroomCode,
+  }) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
-    if (student.isEmpty && staff.isEmpty) {
+    final classroom = (classroomCode ?? '').trim();
+    if (student.isEmpty && staff.isEmpty && classroom.isEmpty) {
       _DocumentImageWidgetState._profilePhotoUrlCache.clear();
       _DocumentImageWidgetState._profilePhotoFetchedAt.clear();
       _DocumentImageWidgetState._profilePhotoInFlight.clear();
@@ -115,6 +120,12 @@ class DocumentImageWidget extends StatefulWidget {
     }
     if (staff.isNotEmpty) {
       final key = 'staff:$staff';
+      _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
+      _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
+      _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
+    }
+    if (classroom.isNotEmpty) {
+      final key = 'classroom:$classroom';
       _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
       _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
       _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
