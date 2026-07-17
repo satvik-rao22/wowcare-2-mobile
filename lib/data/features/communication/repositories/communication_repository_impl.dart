@@ -248,12 +248,34 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
 
         // 3. Update cache (for first page)
         if (page == 0) {
+          // Firestore is the source of truth for the live fields (unreadCount +
+          // lastMessagePreview). The REST list returns the conversation-level,
+          // shared-across-all-participants preview — which is the neutral
+          // "Private message" placeholder for private messages — whereas the
+          // per-user Firestore inbox carries the REAL last message for the
+          // parent/staff who may see it. So DON'T let this REST refresh clobber
+          // those fields on conversations we already have cached (that would make
+          // a read private message revert from its real text to "Private
+          // message"). Preserve them from the existing row; refresh everything
+          // else from REST. New conversations take the REST value until the next
+          // Firestore snapshot fills in the real preview.
+          final existingByCode = {
+            for (final c in await cacheService.getAll<ConversationCollection>())
+              c.code: c,
+          };
+          final toStore = conversations.map((e) {
+            final col = ConversationCollection.fromEntity(e);
+            final prev = existingByCode[e.code];
+            if (prev != null) {
+              col.lastMessagePreview = prev.lastMessagePreview;
+              col.unreadCount = prev.unreadCount;
+              col.lastMessageAt = prev.lastMessageAt;
+              col.lastMessageBy = prev.lastMessageBy;
+            }
+            return col;
+          }).toList();
           await cacheService.clear<ConversationCollection>();
-          await cacheService.putAll(
-            conversations
-                .map((e) => ConversationCollection.fromEntity(e))
-                .toList(),
-          );
+          await cacheService.putAll(toStore);
         }
 
         return Right(
