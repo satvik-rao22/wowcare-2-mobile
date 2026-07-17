@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -35,10 +36,11 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
 
   void initialize(DateTime? start, DateTime? end) {
     if (start == null || end == null) {
-      final now = DateTime.now();
+      // Current month in the SCHOOL calendar — a device in another zone would
+      // otherwise roll the month over early/late near month boundaries.
       emit(state.copyWith(
-        customStartDate: () => DateTime(now.year, now.month, 1),
-        customEndDate: () => DateTime(now.year, now.month + 1, 0),
+        customStartDate: () => billingSchoolMonthStart(),
+        customEndDate: () => billingSchoolMonthEnd(),
         displayCount: _pageSize,
       ));
     } else {

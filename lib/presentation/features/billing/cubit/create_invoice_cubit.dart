@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/widgets.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -483,8 +484,10 @@ class CreateInvoiceCubit extends Cubit<CreateInvoiceState> {
     required String mode,
     String? notes,
   }) async {
-    // Invoice date is no longer collected in the UI — default to today.
-    final issueDate = state.invoiceDate ?? DateTime.now();
+    // Invoice date is no longer collected in the UI — default to today. Use the
+    // SCHOOL calendar: near midnight a device in another zone would otherwise
+    // issue the invoice dated the wrong day.
+    final issueDate = state.invoiceDate ?? billingSchoolToday();
     final dueDate = state.dueDate;
     if (dueDate == null) {
       return const InvoiceSubmitResult(

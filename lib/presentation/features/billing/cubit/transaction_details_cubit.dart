@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -189,7 +190,7 @@ class TransactionDetailsCubit extends Cubit<TransactionDetailsState> {
         invoiceCode: t.invoiceCode.isNotEmpty ? t.invoiceCode : null,
         transactionType:
             t.transactionType.isNotEmpty ? t.transactionType : 'Invoice',
-        date: t.date ?? DateTime.now(),
+        date: t.date ?? billingSchoolNow(),
         amount: t.amount,
         paidAmount: t.paidAmount,
         refundedAmount: t.refundedAmount,

@@ -1,4 +1,23 @@
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
+
 /// Request + result models for `POST /api/v1/invoices`.
+
+/// Serializes a **calendar date** (issueDate / dueDate / period bounds) the user
+/// picked in the school's calendar.
+///
+/// These must NOT use `toUtc()`: a picked `DateTime(2026, 7, 17)` is device-local
+/// midnight, so on an IST device `toUtc()` yields `2026-07-16T18:30:00Z` and the
+/// invoice lands a day earlier than chosen. Interpreting the picked fields as
+/// SCHOOL wall clock gives the instant the school means by that day.
+///
+/// Instants (e.g. a payment's "now") are different and keep using `toUtc()`,
+/// which is already correct for them.
+String _schoolDateIso(DateTime picked) =>
+    SchoolZoneDateTime.utcFromSchoolWallClockDateTime(
+      picked,
+      SchoolTimezoneResolver.lastKnownTimeZone,
+    ).toIso8601String();
 
 class CreateInvoiceItemRequestModel {
   const CreateInvoiceItemRequestModel({
@@ -62,12 +81,10 @@ class CreateInvoiceRequestModel {
         'organizationCode': organizationCode,
         'schoolCode': schoolCode,
         'studentCode': studentCode,
-        'issueDate': issueDate.toUtc().toIso8601String(),
-        'dueDate': dueDate.toUtc().toIso8601String(),
-        if (periodStart != null)
-          'periodStart': periodStart!.toUtc().toIso8601String(),
-        if (periodEnd != null)
-          'periodEnd': periodEnd!.toUtc().toIso8601String(),
+        'issueDate': _schoolDateIso(issueDate),
+        'dueDate': _schoolDateIso(dueDate),
+        if (periodStart != null) 'periodStart': _schoolDateIso(periodStart!),
+        if (periodEnd != null) 'periodEnd': _schoolDateIso(periodEnd!),
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
         if (currency != null && currency!.isNotEmpty) 'currency': currency,
         'items': items.map((i) => i.toJson()).toList(),
@@ -116,12 +133,10 @@ class UpdateInvoiceRequestModel {
           'studentCode': studentCode,
         if (ownerType != null && ownerType!.isNotEmpty) 'ownerType': ownerType,
         if (ownerCode != null && ownerCode!.isNotEmpty) 'ownerCode': ownerCode,
-        if (issueDate != null) 'issueDate': issueDate!.toUtc().toIso8601String(),
-        if (dueDate != null) 'dueDate': dueDate!.toUtc().toIso8601String(),
-        if (periodStart != null)
-          'periodStart': periodStart!.toUtc().toIso8601String(),
-        if (periodEnd != null)
-          'periodEnd': periodEnd!.toUtc().toIso8601String(),
+        if (issueDate != null) 'issueDate': _schoolDateIso(issueDate!),
+        if (dueDate != null) 'dueDate': _schoolDateIso(dueDate!),
+        if (periodStart != null) 'periodStart': _schoolDateIso(periodStart!),
+        if (periodEnd != null) 'periodEnd': _schoolDateIso(periodEnd!),
         if (currency != null && currency!.isNotEmpty) 'currency': currency,
         if (notes != null && notes!.isNotEmpty) 'notes': notes,
         if (items != null) 'items': items!.map((i) => i.toJson()).toList(),

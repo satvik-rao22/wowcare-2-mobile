@@ -1,4 +1,5 @@
 import 'dart:async' show unawaited;
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/billing_events.dart';
@@ -149,7 +150,7 @@ class _BillingScreenState extends State<BillingScreen>
     return TransactionItem(
       id: 0,
       transactionType: 'Payment',
-      date: DateTime.now(),
+      date: billingSchoolNow(),
       amount: 0,
       status: '',
       description: 'Receive Payment',

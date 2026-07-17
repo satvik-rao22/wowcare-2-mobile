@@ -1,4 +1,5 @@
 import 'package:wowcare/domain/features/billing/entities/invoice_list_entity.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class TransactionItem {
   TransactionItem({
@@ -81,7 +82,7 @@ class TransactionItem {
       id: map['id'] as int,
       transactionType: (map['transactionType'] ?? '').toString(),
       date: DateTime.tryParse((map['date'] ?? '').toString()) ??
-          DateTime.now(),
+          billingSchoolNow(),
       amount: (map['amount'] as num?)?.toDouble() ?? 0.0,
       status: (map['processStatus'] ?? map['status'] ?? '').toString(),
       description: (map['description'] ?? '').toString(),
@@ -119,7 +120,7 @@ class TransactionItem {
       id: id,
       invoiceCode: invoice.code,
       transactionType: 'Invoice',
-      date: invoice.issueDate ?? invoice.createdDate ?? DateTime.now(),
+      date: invoice.issueDate ?? invoice.createdDate ?? billingSchoolNow(),
       amount: invoice.total,
       status: status,
       description:

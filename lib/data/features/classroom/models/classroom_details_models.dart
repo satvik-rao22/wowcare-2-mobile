@@ -13,6 +13,7 @@ class ClassroomDetailsDataModel {
     required this.createdAt,
     required this.updatedBy,
     required this.updatedAt,
+    this.logoAssetCode = '',
   });
 
   final String code;
@@ -30,6 +31,7 @@ class ClassroomDetailsDataModel {
   final String createdBy;
   final DateTime? updatedAt;
   final String updatedBy;
+  final String logoAssetCode;
 
   static int _nonNegativeMonths(dynamic v) {
     if (v is num) {
@@ -99,6 +101,7 @@ class ClassroomDetailsDataModel {
       createdAt: DateTime.tryParse((json['createdAt'] ?? '').toString()),
       updatedBy: (json['updatedBy'] ?? '').toString(),
       updatedAt: DateTime.tryParse((json['updatedAt'] ?? '').toString()),
+      logoAssetCode: (json['logoAssetCode'] ?? '').toString().trim(),
     );
   }
 }

@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/billing/widgets/transactions/view_
 import 'package:wowcare/presentation/features/billing/widgets/transactions/view_receipt_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 /// Demo statement data model for UI-only display
 class DemoStatement {
@@ -132,7 +133,7 @@ class ParentTransactionCard extends StatelessWidget {
     return TransactionItem(
       id: int.tryParse(transaction.id.replaceAll(RegExp(r'[^0-9]'), '')) ?? 0,
       transactionType: transaction.transactionType,
-      date: transaction.date ?? DateTime.now(),
+      date: transaction.date ?? billingSchoolNow(),
       amount: transaction.amount,
       status: transaction.status,
       description: transaction.description,

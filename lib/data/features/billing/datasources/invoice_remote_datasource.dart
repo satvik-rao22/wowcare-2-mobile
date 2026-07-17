@@ -1,5 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/data/features/billing/models/family_ledger_models.dart';
 import 'package:wowcare/data/features/billing/models/family_summary_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_analytics_models.dart';
@@ -7,6 +9,17 @@ import 'package:wowcare/data/features/billing/models/invoice_list_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_overview_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_request_models.dart';
 import 'package:wowcare/data/features/billing/models/invoice_transaction_models.dart';
+
+/// Serializes a date-range filter bound the user picked in the school's
+/// calendar. Same rule as the invoice request models: a picked date is a
+/// calendar day, so `toUtc()` would read it in the DEVICE's zone and shift the
+/// window by a day (an IST-picked Jul 17 becomes Jul 16T18:30Z), silently
+/// dropping/adding a day's transactions.
+String _schoolRangeIso(DateTime picked) =>
+    SchoolZoneDateTime.utcFromSchoolWallClockDateTime(
+      picked,
+      SchoolTimezoneResolver.lastKnownTimeZone,
+    ).toIso8601String();
 
 abstract class InvoiceRemoteDataSource {
   Future<InvoiceResultModel> createInvoice(CreateInvoiceRequestModel request);
@@ -114,8 +127,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
       queryParameters: <String, dynamic>{
         'organizationCode': organizationCode,
         'school': school,
-        if (dateFrom != null) 'dateFrom': dateFrom.toUtc().toIso8601String(),
-        if (dateTo != null) 'dateTo': dateTo.toUtc().toIso8601String(),
+        if (dateFrom != null) 'dateFrom': _schoolRangeIso(dateFrom),
+        if (dateTo != null) 'dateTo': _schoolRangeIso(dateTo),
       },
     );
     return InvoiceOverviewModel.fromJson(response.data ?? {});
@@ -139,8 +152,8 @@ class InvoiceRemoteDataSourceImpl implements InvoiceRemoteDataSource {
         'school': school,
         if (type != null && type.trim().isNotEmpty) 'type': type.trim(),
         if (status != null && status.trim().isNotEmpty) 'status': status.trim(),
-        if (dateFrom != null) 'dateFrom': dateFrom.toUtc().toIso8601String(),
-        if (dateTo != null) 'dateTo': dateTo.toUtc().toIso8601String(),
+        if (dateFrom != null) 'dateFrom': _schoolRangeIso(dateFrom),
+        if (dateTo != null) 'dateTo': _schoolRangeIso(dateTo),
         'page': page,
         'size': size,
       },
