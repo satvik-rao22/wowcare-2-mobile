@@ -23,6 +23,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -708,6 +709,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
             Navigator.of(context).pop();
           }
         } else if (widget.isKiosk) {
+          // Reload QR code before returning to dashboard
+          AppLogger.d('[Kiosk] Student sign-in success - reloading QR code');
+          unawaited(context.read<KioskDashboardCubit>().loadQrCode());
           context.go('/kiosk');
         } else if (isParent) {
           final s = currentStudents.first;

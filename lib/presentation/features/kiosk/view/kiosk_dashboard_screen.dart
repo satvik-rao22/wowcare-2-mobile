@@ -8,6 +8,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_qr_section_widget.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_pin_pad_widget.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
@@ -156,98 +157,108 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   }
 
   Widget _buildScaffold(bool isTablet) {
-    return BlocListener<KioskDashboardCubit, KioskDashboardState>(
+    return BlocListener<KioskAttendanceCubitV2, KioskAttendanceStateV2>(
       listener: (context, state) {
-        if (state is KioskDashboardPinSuccess) {
-          _handlePinSuccess(context, state.pinResult);
-        } else if (state is KioskDashboardError) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.message,
-            isError: true,
+        if (state is KioskAttendanceSuccessV2) {
+          AppLogger.d(
+            '[KIOSK] Attendance success detected - reloading QR code',
           );
+          _loadQrCode();
+          context.read<KioskAttendanceCubitV2>().reset();
         }
       },
-      child: Scaffold(
-        appBar: PreferredSize(
-          preferredSize: const Size.fromHeight(kToolbarHeight + 1),
-          child: Column(
-            children: [
-              Container(
-                color: Colors.white,
-                child: SafeArea(
-                  bottom: false,
-                  child: Row(
-                    children: [
-                      // Back arrow
-                      // IconButton(
-                      //   icon: const Icon(
-                      //     Icons.arrow_back,
-                      //     color: AppColors.primaryColor,
-                      //   ),
-                      //   onPressed: () async {
-                      //     AppLogger.d('[Kiosk] Back button pressed');
-                      //     // go back to the previous screen
-                      //     if (mounted) {
-                      //       GoRouter.of(context).pop();
-                      //     }
-                      //   },
-                      // ),
-                      const Padding(
-                        padding: EdgeInsets.only(left: 16.0),
-                        child: CircleAvatar(
-                          radius: 20,
-                          backgroundImage: AssetImage(
-                            'assets/images/WowCarePNG.png',
+      child: BlocListener<KioskDashboardCubit, KioskDashboardState>(
+        listener: (context, state) {
+          if (state is KioskDashboardPinSuccess) {
+            _handlePinSuccess(context, state.pinResult);
+          } else if (state is KioskDashboardError) {
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: state.message,
+              isError: true,
+            );
+          }
+        },
+        child: Scaffold(
+          appBar: PreferredSize(
+            preferredSize: const Size.fromHeight(kToolbarHeight + 1),
+            child: Column(
+              children: [
+                Container(
+                  color: Colors.white,
+                  child: SafeArea(
+                    bottom: false,
+                    child: Row(
+                      children: [
+                        // Back arrow
+                        // IconButton(
+                        //   icon: const Icon(
+                        //     Icons.arrow_back,
+                        //     color: AppColors.primaryColor,
+                        //   ),
+                        //   onPressed: () async {
+                        //     AppLogger.d('[Kiosk] Back button pressed');
+                        //     // go back to the previous screen
+                        //     if (mounted) {
+                        //       GoRouter.of(context).pop();
+                        //     }
+                        //   },
+                        // ),
+                        const Padding(
+                          padding: EdgeInsets.only(left: 16.0),
+                          child: CircleAvatar(
+                            radius: 20,
+                            backgroundImage: AssetImage(
+                              'assets/images/WowCarePNG.png',
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      const Expanded(
-                        child: Text(
-                          'WowCare',
-                          style: TextStyle(
-                            color: AppColors.primaryColor,
-                            fontWeight: FontWeight.w600,
-                            fontSize: 18,
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'WowCare',
+                            style: TextStyle(
+                              color: AppColors.primaryColor,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 18,
+                            ),
                           ),
                         ),
-                      ),
-                      // IconButton(
-                      //   icon: const Icon(
-                      //     Icons.exit_to_app,
-                      //     color: AppColors.primaryColor,
-                      //   ),
-                      //   onPressed: () async {
-                      //     AppLogger.d('[Kiosk] Logout button pressed');
-                      //     await serviceLocator<KioskAccessControl>()
-                      //         .deactivateKioskMode();
-                      //     if (mounted) {
-                      //       GoRouter.of(context).go('/sign-in');
-                      //     }
-                      //   },
-                      // ),
-                    ],
+                        // IconButton(
+                        //   icon: const Icon(
+                        //     Icons.exit_to_app,
+                        //     color: AppColors.primaryColor,
+                        //   ),
+                        //   onPressed: () async {
+                        //     AppLogger.d('[Kiosk] Logout button pressed');
+                        //     await serviceLocator<KioskAccessControl>()
+                        //         .deactivateKioskMode();
+                        //     if (mounted) {
+                        //       GoRouter.of(context).go('/sign-in');
+                        //     }
+                        //   },
+                        // ),
+                      ],
+                    ),
                   ),
                 ),
-              ),
-              Divider(height: 1, color: AppColors.themeColor),
-            ],
+                Divider(height: 1, color: AppColors.themeColor),
+              ],
+            ),
           ),
-        ),
-
-        bottomSheet: Container(color: AppColors.themeColor, height: 1),
-        body: RefreshIndicator(
-          onRefresh: _refreshDashboard,
-          child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
-            builder: (context, state) {
-              return Container(
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildScaffoldGradient(),
-                ),
-                child: _buildContent(context, state, isTablet),
-              );
-            },
+          bottomSheet: Container(color: AppColors.themeColor, height: 1),
+          body: RefreshIndicator(
+            onRefresh: _refreshDashboard,
+            child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
+              builder: (context, state) {
+                return Container(
+                  decoration: BoxDecoration(
+                    gradient: AppColors.buildScaffoldGradient(),
+                  ),
+                  child: _buildContent(context, state, isTablet),
+                );
+              },
+            ),
           ),
         ),
       ),

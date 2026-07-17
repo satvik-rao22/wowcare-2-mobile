@@ -17,6 +17,8 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -461,6 +463,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           // For kiosk: show success for 2 seconds then return to kiosk dashboard
           await Future.delayed(const Duration(seconds: 2));
           if (mounted) {
+            // Reload QR code before returning to dashboard
+            AppLogger.d('[Kiosk] Staff sign-out success - reloading QR code');
+            unawaited(context.read<KioskDashboardCubit>().loadQrCode());
             context.go('/kiosk');
           }
         } else {

@@ -545,6 +545,7 @@ void main() {
     test('updates state to ready when all child cubits are loaded', () async {
       final coordinator = ParentDashboardCoordinatorCubit(
         dashboardCubit: dashboardCubit,
+
         myChildsDayCubit: myChildsDayCubit,
         studentAttendanceProfileCubit: studentAttendanceProfileCubit,
         communicationCubit: communicationCubit,
