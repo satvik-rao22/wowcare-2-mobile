@@ -16,6 +16,10 @@ class AnalyticsState extends Equatable {
           errorMessage: null,
         );
 
+  /// Returns the effective year to use for data fetches — defaults to current year
+  /// when [selectedYear] is null (the initial state).
+  int get effectiveYear => selectedYear ?? DateTime.now().year;
+
   final bool isLoading;
   final int? selectedYear;
   final InvoiceAnalyticsEntity? analytics;

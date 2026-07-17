@@ -6,6 +6,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
+import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 
 class AnalyticsSection extends StatelessWidget {
@@ -134,7 +135,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
               title: 'Revenue (Net Paid)',
-              ytdLabel: 'Revenue YTD',
+              ytdLabel: 'Total Revenue',
               ytdAmount: revenueYtd,
               data: revenue,
               months: _months,
@@ -146,7 +147,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
               title: 'Amount Invoiced',
-              ytdLabel: 'Invoiced YTD',
+              ytdLabel: 'Total Invoiced',
               ytdAmount: invoicedYtd,
               data: invoiced,
               months: _months,
@@ -158,7 +159,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
               title: 'Refunds',
-              ytdLabel: 'Refunds YTD',
+              ytdLabel: 'Total Refunds',
               ytdAmount: refundsYtd,
               data: refunds,
               months: _months,
@@ -367,41 +368,31 @@ class _YearSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isTablet = ResponsiveSizing.isTablet(context);
     final int currentYear = DateTime.now().year;
-    final List<int> years = List.generate(5, (i) => currentYear - i);
+    // Years from 10 years ago through 2 years in the future (inclusive)
+    final List<int> yearList = List.generate(13, (i) => currentYear - 10 + i);
+    final List<String> yearStrings = yearList.map((y) => y.toString()).toList();
+    final String selectedYearStr = selectedYear.toString();
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        Text(
-          'Year',
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: isTablet ? 14 : 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.billingTextColor,
-          ),
+    return Align(
+      alignment: Alignment.centerRight,
+      child: SizedBox(
+        width: 140,
+        child: CustomDropdown(
+          label: null,
+          hintText: 'Select Year',
+          items: yearStrings,
+          selectedItem: selectedYearStr,
+          isRequired: false,
+          showAsterisk: false,
+          onSelect: (selected) {
+            if (selected != null && selected.isNotEmpty) {
+              final year = int.tryParse(selected);
+              onYearChanged(year);
+            }
+          },
         ),
-        const SizedBox(width: 12),
-        DropdownButton<int>(
-          value: selectedYear,
-          underline: const SizedBox.shrink(),
-          style: TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: isTablet ? 14 : 13,
-            fontWeight: FontWeight.w600,
-            color: AppColors.billingTextColor,
-          ),
-          items: years
-              .map((y) => DropdownMenuItem<int>(
-                    value: y,
-                    child: Text('$y'),
-                  ))
-              .toList(),
-          onChanged: onYearChanged,
-        ),
-      ],
+      ),
     );
   }
 }
@@ -561,7 +552,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    'Subsidies Invoiced YTD',
+                    'Total Subsidies Invoiced',
                     style: TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
@@ -672,6 +663,7 @@ class _SimpleBarChart extends StatelessWidget {
                             horizontal: isTablet ? 6 : 4,
                           ),
                           child: _SingleBar(
+                            month: months[index],
                             value: data[index],
                             maxY: maxY,
                             gradient: gradient,
@@ -756,6 +748,8 @@ class _GroupedBarChart extends StatelessWidget {
                                       padding: const EdgeInsets.symmetric(
                                           horizontal: 1.8),
                                       child: _SignedBar(
+                                        month: months[mi],
+                                        seriesName: s.label,
                                         value: s.data[mi],
                                         maxY: maxAbsY,
                                         negativeMin: -maxAbsY * 0.4,
@@ -878,11 +872,13 @@ class _PlotArea extends StatelessWidget {
 
 class _SingleBar extends StatelessWidget {
   const _SingleBar({
+    required this.month,
     required this.value,
     required this.maxY,
     required this.gradient,
   });
 
+  final String month;
   final double value;
   final double maxY;
   final Gradient gradient;
@@ -891,16 +887,23 @@ class _SingleBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final double barRatio =
         maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
+    final NumberFormatHelper formatter = NumberFormatHelper();
     return LayoutBuilder(
       builder: (context, constraints) {
         final double h = constraints.maxHeight * barRatio;
-        return Align(
-          alignment: Alignment.bottomCenter,
-          child: Container(
-            height: h < 2 && value > 0 ? 2 : h,
-            decoration: BoxDecoration(
-              gradient: gradient,
-              borderRadius: BorderRadius.circular(4),
+        return Tooltip(
+          message: '$month: ${formatter.currency(value)}',
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: Align(
+              alignment: Alignment.bottomCenter,
+              child: Container(
+                height: h < 2 && value > 0 ? 2 : h,
+                decoration: BoxDecoration(
+                  gradient: gradient,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
             ),
           ),
         );
@@ -911,12 +914,16 @@ class _SingleBar extends StatelessWidget {
 
 class _SignedBar extends StatelessWidget {
   const _SignedBar({
+    required this.month,
+    required this.seriesName,
     required this.value,
     required this.maxY,
     required this.negativeMin,
     required this.gradient,
   });
 
+  final String month;
+  final String seriesName;
   final double value;
   final double maxY;
   final double negativeMin;
@@ -927,6 +934,7 @@ class _SignedBar extends StatelessWidget {
     final double totalRange = maxY - negativeMin;
     final double zeroRatio =
         totalRange == 0 ? 1 : (maxY / totalRange);
+    final NumberFormatHelper formatter = NumberFormatHelper();
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -934,11 +942,12 @@ class _SignedBar extends StatelessWidget {
         final double topArea = zeroY;
         final double bottomArea = constraints.maxHeight - zeroY;
 
+        final Widget barContent;
         if (value >= 0) {
           final double ratio =
               maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
           final double height = topArea * ratio;
-          return Stack(children: [
+          barContent = Stack(children: [
             Positioned(
               left: 0,
               right: 0,
@@ -947,21 +956,29 @@ class _SignedBar extends StatelessWidget {
               child: _GradientBar(gradient: gradient),
             ),
           ]);
+        } else {
+          final double ratio = negativeMin == 0
+              ? 0
+              : (value.abs() / negativeMin.abs()).clamp(0.0, 1.0);
+          final double height = bottomArea * ratio;
+          barContent = Stack(children: [
+            Positioned(
+              left: 0,
+              right: 0,
+              top: topArea,
+              height: height < 2 && value.abs() > 0 ? 2 : height,
+              child: _GradientBar(gradient: gradient),
+            ),
+          ]);
         }
 
-        final double ratio = negativeMin == 0
-            ? 0
-            : (value.abs() / negativeMin.abs()).clamp(0.0, 1.0);
-        final double height = bottomArea * ratio;
-        return Stack(children: [
-          Positioned(
-            left: 0,
-            right: 0,
-            top: topArea,
-            height: height < 2 && value.abs() > 0 ? 2 : height,
-            child: _GradientBar(gradient: gradient),
+        return Tooltip(
+          message: '$month - $seriesName: ${formatter.currency(value)}',
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click,
+            child: barContent,
           ),
-        ]);
+        );
       },
     );
   }

@@ -246,6 +246,30 @@ final GoRouter appRouter = GoRouter(
       }
     }
 
+    // Billing is persona-split: the admin billing screen has no data for a
+    // guardian. Anything that lands a guardian on /dashboard/billing — most
+    // notably a notification deep-link resolved before the persona was known
+    // (the killed-state launch path bakes its location in `main()`, long before
+    // login/school-switch settle the role) — is rewritten to the parent billing
+    // screen. Query params (e.g. `highlightCode`) are preserved so the target
+    // invoice still flashes.
+    if (state.uri.path == BillingScreen.routeName) {
+      try {
+        if (context.read<RoleCubit>().isParent) {
+          final q = state.uri.queryParameters;
+          AppLogger.d(
+            '[Billing] Guardian on ${state.uri} → redirecting to parent billing',
+          );
+          return Uri(
+            path: AppRoutes.parentBilling,
+            queryParameters: q.isEmpty ? null : q,
+          ).toString();
+        }
+      } catch (_) {
+        // RoleCubit not reachable/resolved yet — leave routing untouched.
+      }
+    }
+
     return null;
   },
   routes: [
@@ -1114,7 +1138,11 @@ final GoRouter appRouter = GoRouter(
               path: AppRoutes.parentBilling,
               builder: (context, state) => BlocProvider(
                 create: (_) => serviceLocator<ParentBillingCubit>(),
-                child: const ParentBillingScreen(),
+                // Billing notification deep-link: the invoice's card is revealed
+                // (page window grown), scrolled to and flashed.
+                child: ParentBillingScreen(
+                  highlightCode: state.uri.queryParameters['highlightCode'],
+                ),
               ),
             ),
           ],
