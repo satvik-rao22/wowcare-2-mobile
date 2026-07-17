@@ -639,6 +639,22 @@ class AuthCubit extends Cubit<AuthState> {
           ),
         );
 
+        // Sign into Firebase Auth for Firestore realtime (live sync). This login
+        // path auto-resolves org/school from the login-context and navigates
+        // straight in WITHOUT going through the school-selection screen (which is
+        // the only place that called completeLogin/setSelectedOrgAndSchool → signIn).
+        // Without this, an auto-navigated login (e.g. org-admin with a last-login
+        // school) never authenticates to Firestore, so message/inbox live sync stays
+        // dead (silent permission-denied) until a re-login. Session + org/school are
+        // persisted above, so the AuthInterceptor injects the right token + headers.
+        // Non-fatal: failures only affect realtime; REST APIs keep working.
+        try {
+          AppLogger.d('[AUTH] Login flow complete — signing into Firebase');
+          _firebaseAuthService.signIn();
+        } catch (e) {
+          AppLogger.w('[AUTH] Firebase sign-in after login failed (non-fatal): $e');
+        }
+
         // Prefetch parent/guardian children upfront so UI doesn't trigger the
         // guardian/children APIs on first open of dropdown/profile screens.
         try {
