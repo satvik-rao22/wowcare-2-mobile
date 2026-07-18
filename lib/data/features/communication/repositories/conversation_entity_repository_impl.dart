@@ -24,6 +24,12 @@ class ConversationEntityRepositoryImpl
   final ConversationRealtimeDataSource _realtime;
   final StorageService _storage;
 
+  /// Conversation codes we've already tried to lazy-hydrate (see
+  /// watchConversations). Prevents re-fetching the same missing item on every
+  /// inbox emission. The repository is a singleton, so this is shared across
+  /// all watchers (dashboard, list, unread badge).
+  final Set<String> _hydrationAttempted = {};
+
   ConversationEntityRepositoryImpl({
     required ConversationEntityRemoteDataSource remoteDataSource,
     required ConversationEntityLocalDataSource localDataSource,
@@ -498,12 +504,43 @@ class ConversationEntityRepositoryImpl
         .asyncMap((inboxItems) async {
       // For each Firestore inbox item, merge with the Isar-cached entity so
       // metadata fields (title, avatarUrl, participants) are preserved.
-      final cached = await _local.getConversations(
+      var cached = await _local.getConversations(
         organizationCode: org,
         schoolCode: school,
         type: type,
       );
-      final cacheMap = {for (final c in cached) c.code: c.toEntity()};
+      var cacheMap = {for (final c in cached) c.code: c.toEntity()};
+
+      // Lazy-hydrate metadata for inbox items not yet in Isar. The Firestore
+      // inbox doc carries no title/participants, so an un-cached item would
+      // fall to toMinimalEntity (empty title -> "Conversation" placeholder)
+      // until the user opens it (which fetches + persists it). Fetch each
+      // missing conversation once (guarded), persist to Isar, then reload the
+      // cache so the merge below resolves the real title/roster on first load.
+      final missing = <String>[];
+      for (final item in inboxItems) {
+        final code = item.conversationCode;
+        if (!cacheMap.containsKey(code) && !_hydrationAttempted.contains(code)) {
+          _hydrationAttempted.add(code);
+          missing.add(code);
+        }
+      }
+      if (missing.isNotEmpty) {
+        await Future.wait(missing.map((code) async {
+          try {
+            final dto = await _remote.getConversation(code);
+            await _local.saveConversation(dto.toEntity());
+          } catch (_) {
+            // Best-effort: leave the minimal entity if the fetch fails.
+          }
+        }));
+        cached = await _local.getConversations(
+          organizationCode: org,
+          schoolCode: school,
+          type: type,
+        );
+        cacheMap = {for (final c in cached) c.code: c.toEntity()};
+      }
 
       final merged = inboxItems.map((item) {
         final existing = cacheMap[item.conversationCode];
