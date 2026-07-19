@@ -28,6 +28,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
@@ -1513,6 +1514,9 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   StreamSubscription<List<ConversationEntity>>? _sub;
   List<ConversationEntity> _items = const [];
   bool _loading = true;
+  // Logged-in user's code — used to resolve viewer-relative 1:1 conversation
+  // titles (the other participant's name) instead of the frozen stored title.
+  String _currentUserCode = '';
 
   @override
   void initState() {
@@ -1530,6 +1534,10 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   /// Firestore inbox in realtime. Uses type: null so ALL conversation types are included — the REST
   /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
   Future<void> _init() async {
+    _currentUserCode =
+        (await serviceLocator<StorageService>().getString(StorageKeys.userCode))
+                ?.trim() ??
+            '';
     try {
       final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
           .call();
@@ -1656,6 +1664,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             conversation: _items[i],
             timeLabel: _formatTime(_items[i].lastMessageAt),
             onTap: () => _openConversation(_items[i]),
+            currentUserCode: _currentUserCode,
           ),
         ],
       ],
@@ -1668,11 +1677,13 @@ class _RecentChatRow extends StatelessWidget {
     required this.conversation,
     required this.timeLabel,
     required this.onTap,
+    required this.currentUserCode,
   });
 
   final ConversationEntity conversation;
   final String timeLabel;
   final VoidCallback onTap;
+  final String currentUserCode;
 
   @override
   Widget build(BuildContext context) {
@@ -1686,7 +1697,7 @@ class _RecentChatRow extends StatelessWidget {
           children: [
             DocumentImageWidget(
               fileUuid: conversation.avatarUrl,
-              name: conversation.title,
+              name: conversation.displayTitle(currentUserCode),
               size: 50,
               fontSize: 20,
               disableProfileLookupFallback: true,
@@ -1701,9 +1712,7 @@ class _RecentChatRow extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          conversation.title.isNotEmpty
-                              ? conversation.title
-                              : 'Conversation',
+                          conversation.displayTitle(currentUserCode),
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: AppColors.primaryColor,
