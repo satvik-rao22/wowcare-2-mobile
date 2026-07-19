@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -446,7 +447,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           state.copyWith(
             messages: failed,
             isSending: false,
-            sendError: 'Failed to upload attachment: $e',
+            sendError: ApiErrorHandler.extractErrorMessage(e),
           ),
         );
         return;

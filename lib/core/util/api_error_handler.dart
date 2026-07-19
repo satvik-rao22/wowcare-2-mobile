@@ -35,12 +35,20 @@ class ApiErrorHandler {
           break;
       }
 
-      // Prefer a human-readable message from the API response body.
-      final bodyMessage = _messageFromBody(error.response?.data);
-      if (bodyMessage != null) return bodyMessage;
+      final status = error.response?.statusCode;
 
-      // No usable body message → map by HTTP status code.
-      final byStatus = _messageForStatus(error.response?.statusCode);
+      // Only 4xx client errors carry a meaningful, user-facing backend message
+      // (e.g. "Invalid credentials", "Email already exists", "OTP is incorrect").
+      // 5xx server errors and framework faults must NEVER surface their response
+      // body (e.g. Spring's "Internal Server Error", stack text) — fall through to
+      // a generic message and leave the raw detail for the logs.
+      if (status != null && status >= 400 && status < 500) {
+        final bodyMessage = _messageFromBody(error.response?.data);
+        if (bodyMessage != null) return bodyMessage;
+      }
+
+      // No usable body message → map by HTTP status code (5xx → generic).
+      final byStatus = _messageForStatus(status);
       if (byStatus != null) return byStatus;
 
       // Last resort: sanitize whatever Dio produced.

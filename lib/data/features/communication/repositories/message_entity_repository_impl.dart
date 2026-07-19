@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_local_data_source.dart';
@@ -85,7 +86,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       if (cached.isNotEmpty) {
         return Right(cached.map((c) => c.toEntity()).toList());
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -193,7 +194,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         },
       );
 
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -257,7 +258,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         schoolCode: school,
         payload: {'messageCode': messageCode, 'newText': newText},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -286,7 +287,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         schoolCode: school,
         payload: {'messageCode': messageCode},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -318,7 +319,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       if (originalEntity != null) {
         await _local.saveMessage(originalEntity);
       }
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
