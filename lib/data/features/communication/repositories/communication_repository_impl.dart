@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../core/util/school_zone_datetime.dart';
@@ -113,7 +114,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       if (fallbackMessages.isNotEmpty) {
         return Right(fallbackMessages);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -150,7 +151,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
 
       return Right(sentMessage);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -175,7 +176,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
 
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -185,7 +186,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       await remoteDataSource.markAllAsDelivered(threadId);
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -213,7 +214,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       } catch (_) {}
       return Right(conversation);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -305,7 +306,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           ),
         );
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -381,7 +382,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions = originalReactions;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -412,7 +413,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.deletedAt = originalDeletedAt;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -450,7 +451,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions = originalReactions;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -484,7 +485,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.attachments = originalAttachments;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -560,7 +561,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.editedAt = originalEditedAt;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 

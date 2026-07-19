@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_local_data_source.dart';
@@ -72,7 +73,7 @@ class ReactionRepositoryImpl implements ReactionRepository {
         entityCode: messageCode,
         payload: {'messageCode': messageCode, 'emoji': emoji},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -107,7 +108,7 @@ class ReactionRepositoryImpl implements ReactionRepository {
         entityCode: messageCode,
         payload: {'messageCode': messageCode, 'emoji': emoji},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
@@ -738,7 +739,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         );
       } catch (e) {
         if (isClosed) return;
-        emit(CommunicationError('Failed to upload attachment: $e'));
+        emit(CommunicationError(ApiErrorHandler.extractErrorMessage(e)));
         emit(currentState);
         return;
       }

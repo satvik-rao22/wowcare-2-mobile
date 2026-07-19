@@ -1,5 +1,6 @@
 import 'package:dartz/dartz.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_local_data_source.dart';
@@ -87,7 +88,7 @@ class ConversationEntityRepositoryImpl
 
       return Right(entities);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -122,7 +123,7 @@ class ConversationEntityRepositoryImpl
       // Network failed — try cache
       final cached = await _local.getConversation(conversationCode);
       if (cached != null) return Right(cached.toEntity());
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -152,7 +153,7 @@ class ConversationEntityRepositoryImpl
       );
       return Right(results);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -167,7 +168,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -186,7 +187,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -203,7 +204,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -227,7 +228,7 @@ class ConversationEntityRepositoryImpl
       if (cached.isNotEmpty) {
         return Right(cached.map((c) => c.toEntity()).toList());
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -251,7 +252,7 @@ class ConversationEntityRepositoryImpl
       if (cached.isNotEmpty) {
         return Right(cached.map((c) => c.toEntity()).toList());
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -267,7 +268,7 @@ class ConversationEntityRepositoryImpl
       );
       return const Right(unit);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -315,7 +316,7 @@ class ConversationEntityRepositoryImpl
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -331,7 +332,7 @@ class ConversationEntityRepositoryImpl
       );
       return Right(dtos.map((d) => d.toEntity()).toList());
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -347,7 +348,7 @@ class ConversationEntityRepositoryImpl
       );
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -363,7 +364,7 @@ class ConversationEntityRepositoryImpl
       );
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -390,7 +391,7 @@ class ConversationEntityRepositoryImpl
         }
         return Right(aggregated);
       } catch (_) {
-        return Left(ServerFailure(e.toString()));
+        return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
       }
     }
   }
@@ -440,7 +441,7 @@ class ConversationEntityRepositoryImpl
 
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -452,7 +453,7 @@ class ConversationEntityRepositoryImpl
       await _remote.markConversationDelivered(conversationCode);
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -465,7 +466,7 @@ class ConversationEntityRepositoryImpl
       await _remote.getUnreadAggregates();
       return Right([]);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
