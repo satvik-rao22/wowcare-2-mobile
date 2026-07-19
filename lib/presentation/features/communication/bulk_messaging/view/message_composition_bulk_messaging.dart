@@ -400,8 +400,7 @@ class _MessageCompositionBulkMessagingState
                                               },
                                               maxLength: maxChars,
                                               decoration: const InputDecoration(
-                                                hintText:
-                                                    'Hello Parents, children had a good day today!',
+                                                hintText: 'Type a message…',
                                                 border: InputBorder.none,
                                                 contentPadding: EdgeInsets.all(
                                                   16,
