@@ -142,6 +142,7 @@ import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
 import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
 import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
 import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
@@ -1978,6 +1979,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
       signOutStaffUseCase: serviceLocator<SignOutStaffUseCase>(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
+    ),
+  );
+
+  // Kiosk logout cubit
+  serviceLocator.registerFactory<KioskLogoutCubit>(
+    () => KioskLogoutCubit(
+      authCubit: serviceLocator<AuthCubit>(),
+      verifyKioskPinUseCase: serviceLocator<VerifyKioskPinUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+      kioskAccessControl: serviceLocator<KioskAccessControl>(),
     ),
   );
 

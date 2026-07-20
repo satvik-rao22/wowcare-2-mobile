@@ -750,6 +750,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       title: 'Sign-In',
       isKiosk: widget.isKiosk,
       showKioskBackButton: widget.isKiosk,
+      showKioskLogoutMenu: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

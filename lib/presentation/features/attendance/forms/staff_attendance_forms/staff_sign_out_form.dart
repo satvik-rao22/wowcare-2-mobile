@@ -507,6 +507,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       title: 'Sign-Out',
       isKiosk: widget.isKiosk,
       showKioskBackButton: widget.isKiosk,
+      showKioskLogoutMenu: widget.isKiosk,
       child: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,

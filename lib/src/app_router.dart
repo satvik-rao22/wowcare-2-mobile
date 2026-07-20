@@ -59,6 +59,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/view/logout/kiosk_logout_page.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -491,6 +492,15 @@ final GoRouter appRouter = GoRouter(
                 pin: pin,
               ),
             );
+          },
+        ),
+
+        // Kiosk logout confirmation page
+        GoRoute(
+          path: 'logout',
+          pageBuilder: (context, state) {
+            AppLogger.d('[Kiosk] Building logout page');
+            return _fastPage(state, const KioskLogoutPage());
           },
         ),
       ],

@@ -17,11 +17,13 @@ abstract class KioskRemoteDataSource {
 
   /// Verify a 4-digit PIN and get guardian/staff details and student status.
   /// Uses: POST /api/v1/attendance/kiosk/verify-pin
-  /// Body: {"pin": int}
+  /// Body: {"pin": int, "isLogout": true (optional)}
   /// School code is passed via X-School-Code header.
+  /// When isLogout=true, the API will process this as a logout confirmation for the kiosk user.
   Future<KioskPinResultModel> verifyPin({
     required String pin,
     required String schoolCode,
+    bool isLogout = false,
   });
 }
 
@@ -65,13 +67,19 @@ class KioskRemoteDataSourceImpl implements KioskRemoteDataSource {
   Future<KioskPinResultModel> verifyPin({
     required String pin,
     required String schoolCode,
+    bool isLogout = false,
   }) async {
     final url = ApiConstants.kioskVerifyPinEndpoint;
 
     try {
+      final requestBody = {
+        'pin': pin,
+        if (isLogout) 'isLogout': true,
+      };
+
       final response = await _client.post<Map<String, dynamic>>(
         url,
-        data: {'pin': pin},
+        data: requestBody,
         options: Options(
           headers: {
             'Accept': 'application/json',

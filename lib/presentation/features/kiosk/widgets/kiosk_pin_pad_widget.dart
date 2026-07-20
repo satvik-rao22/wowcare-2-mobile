@@ -10,11 +10,13 @@ class KioskPinPadWidget extends StatefulWidget {
   const KioskPinPadWidget({
     required this.onPinSubmit,
     this.maxPinLength = 4,
+    this.isLogout = false,
     super.key,
   });
 
-  final Function(String pin) onPinSubmit;
+  final Function(String pin, {bool isLogout}) onPinSubmit;
   final int maxPinLength;
+  final bool isLogout;
 
   @override
   State<KioskPinPadWidget> createState() => _KioskPinPadWidgetState();
@@ -67,7 +69,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       setState(() {
         _isSubmitting = true;
       });
-      widget.onPinSubmit(_pin);
+      widget.onPinSubmit(_pin, isLogout: widget.isLogout);
     }
   }
 
@@ -85,8 +87,8 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       _isSubmitting = true;
     });
 
-    // Call parent callback
-    widget.onPinSubmit(_pin);
+    // Call parent callback with isLogout flag
+    widget.onPinSubmit(_pin, isLogout: widget.isLogout);
   }
 
   @override
