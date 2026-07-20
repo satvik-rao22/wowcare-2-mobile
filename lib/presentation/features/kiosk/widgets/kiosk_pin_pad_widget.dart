@@ -38,14 +38,16 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
         _pin += digit;
       });
 
+      // TODO: Temporarily disabled auto-trigger for Next button.
+      // User must explicitly tap the Next button.
       // Auto-submit when max PIN length is reached
-      if (_pin.length == widget.maxPinLength) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted && !_isSubmitting) {
-            _submitPinInternal();
-          }
-        });
-      }
+      // if (_pin.length == widget.maxPinLength) {
+      //   Future.delayed(const Duration(milliseconds: 300), () {
+      //     if (mounted && !_isSubmitting) {
+      //       _submitPinInternal();
+      //     }
+      //   });
+      // }
     }
   }
 
