@@ -190,7 +190,7 @@ void main() {
   });
 
   group('updateHoliday', () {
-    test('sends only provided fields, dates together, with If-Match', () async {
+    test('sends only provided fields, dates together', () async {
       stub(
         (_) => _jsonBody({
           'data': {
@@ -214,7 +214,8 @@ void main() {
 
       expect(adapter.captured!.method, 'PATCH');
       expect(adapter.captured!.path, contains('/api/v1/holidays/SCH-1'));
-      expect(_header(adapter.captured!, 'If-Match'), '4');
+      // V14 removed If-Match optimistic locking.
+      expect(_header(adapter.captured!, 'If-Match'), isNull);
       final body = adapter.captured!.data as Map<String, dynamic>;
       expect(body['name'], 'Renamed');
       expect(body['startDate'], '2026-03-16');
@@ -242,7 +243,7 @@ void main() {
   });
 
   group('updateStatus', () {
-    test('sends the action with the If-Match version', () async {
+    test('sends the action', () async {
       stub(
         (_) => _jsonBody({
           'data': {
@@ -267,7 +268,7 @@ void main() {
       expect(message, 'approved');
       expect(adapter.captured!.method, 'PATCH');
       expect(adapter.captured!.path, contains('/api/v1/holidays/FED-1/status'));
-      expect(_header(adapter.captured!, 'If-Match'), '2');
+      expect(_header(adapter.captured!, 'If-Match'), isNull);
       expect(
         (adapter.captured!.data as Map<String, dynamic>)['action'],
         'APPROVE',

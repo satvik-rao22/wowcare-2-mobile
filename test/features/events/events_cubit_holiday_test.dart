@@ -1,10 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
+import 'package:wowcare/domain/features/events/usecases/cancel_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/create_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_holiday_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/get_event_by_code_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_events_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_holidays_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/respond_to_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/save_holiday_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/set_holiday_status_usecase.dart';
@@ -39,10 +42,13 @@ void main() {
 
   EventsCubit build() => EventsCubit(
     GetEventsUseCase(repo),
+    GetEventByCodeUseCase(repo),
     CreateEventUseCase(repo),
     UpdateEventUseCase(repo),
     DeleteEventUseCase(repo),
     RespondToEventUseCase(repo),
+    UpdateOccurrenceUseCase(repo),
+    CancelOccurrenceUseCase(repo),
     GetHolidaysUseCase(repo),
     CreateHolidayUseCase(repo),
     UpdateHolidayUseCase(repo),

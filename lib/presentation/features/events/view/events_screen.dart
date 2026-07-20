@@ -45,6 +45,9 @@ class _EventsScreenState extends State<EventsScreen> {
   /// When true, every view shows completed events (most recently completed
   /// first) instead of the upcoming-event content.
   bool _showCompleted = false;
+
+  /// Month keys ('y-m') the user collapsed on the grid/list views.
+  final Set<String> _collapsedMonths = {};
   DateTime _focusedDay = DateTime.now();
   DateTime _selectedDay = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
@@ -559,7 +562,10 @@ class _EventsScreenState extends State<EventsScreen> {
         onFormatChanged: (format) => setState(() => _calendarFormat = format),
         onPageChanged: (focusedDay) {
           _focusedDay = focusedDay;
-          context.read<EventsCubit>().ensureHolidaysForYear(focusedDay.year);
+          final cubit = context.read<EventsCubit>();
+          cubit.ensureHolidaysForYear(focusedDay.year);
+          // Fetch the newly visible month's occurrences on demand.
+          cubit.ensureMonth(focusedDay);
         },
         headerStyle: HeaderStyle(
           titleCentered: true,
@@ -677,6 +683,11 @@ class _EventsScreenState extends State<EventsScreen> {
                       for (final event in dayEvents) ...[
                         EventCard(
                           event: event,
+                          myRsvp: event.myRsvpStatus,
+                          onRsvp: state.isParticipant(event)
+                              ? (status) => _respond(
+                                  context, event, status, roles.isParent)
+                              : null,
                           showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
                           onTap: () => _openDetail(context, event),
                         ),
@@ -740,44 +751,9 @@ class _EventsScreenState extends State<EventsScreen> {
     RoleCubit roles,
     List<Event> events, {
     required String emptyMessage,
-  }) {
-    if (events.isEmpty) {
-      return _emptyState(emptyMessage);
-    }
-    return RefreshIndicator(
-      color: AppColors.themeColor,
-      onRefresh: () => context.read<EventsCubit>().load(silent: true),
-      child: GridView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 90),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
-          mainAxisSpacing: 8,
-          crossAxisSpacing: 8,
-          childAspectRatio: 0.95,
-        ),
-        itemCount: events.length,
-        itemBuilder: (context, index) {
-          final event = events[index];
-          final canRsvp = EventAccess.canRsvp(
-            roles: roles,
-            event: event,
-            userCode: state.currentUserCode,
-            staffCode: state.currentStaffCode,
-          );
-          return EventGridCard(
-            event: event,
-            myRsvp: event.rsvpFor(state.currentUserCode)?.status,
-            showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
-            onTap: () => _openDetail(context, event),
-            onRsvp: canRsvp
-                ? (status) => _respond(context, event, status, roles.isParent)
-                : null,
-          );
-        },
-      ),
-    );
-  }
+  }) =>
+      _groupedView(context, state, roles, events,
+          grid: true, emptyMessage: emptyMessage);
 
   Widget _listView(
     BuildContext context,
@@ -785,47 +761,162 @@ class _EventsScreenState extends State<EventsScreen> {
     RoleCubit roles,
     List<Event> events, {
     required String emptyMessage,
+  }) =>
+      _groupedView(context, state, roles, events,
+          grid: false, emptyMessage: emptyMessage);
+
+  /// Shared month-grouped layout for the grid and list views: one
+  /// collapsible "Month Year" section per month containing that month's
+  /// occurrence cards, a single scrollable (so the pagination trigger and
+  /// bottom spinner behave identically in both views).
+  Widget _groupedView(
+    BuildContext context,
+    EventsState state,
+    RoleCubit roles,
+    List<Event> events, {
+    required bool grid,
+    required String emptyMessage,
   }) {
     if (events.isEmpty) {
       return _emptyState(emptyMessage);
     }
+
+    // Group by month preserving the incoming (date-sorted) order.
+    final months = <DateTime, List<Event>>{};
+    for (final event in events) {
+      final key = DateTime(event.date.year, event.date.month);
+      months.putIfAbsent(key, () => []).add(event);
+    }
+
+    Widget card(Event event) => grid
+        ? EventGridCard(
+            event: event,
+            myRsvp: event.myRsvpStatus,
+            showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
+            onTap: () => _openDetail(context, event),
+            onRsvp: state.isParticipant(event)
+                ? (status) => _respond(context, event, status, roles.isParent)
+                : null,
+          )
+        : EventCard(
+            event: event,
+            myRsvp: event.myRsvpStatus,
+            onRsvp: state.isParticipant(event)
+                ? (status) => _respond(context, event, status, roles.isParent)
+                : null,
+            showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
+            onTap: () => _openDetail(context, event),
+          );
+
+    String monthKey(DateTime d) => '${d.year}-${d.month}';
+
     return RefreshIndicator(
       color: AppColors.themeColor,
       onRefresh: () => context.read<EventsCubit>().load(silent: true),
-      child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.only(bottom: 90),
-        itemCount: events.length,
-        itemBuilder: (context, index) {
-          final event = events[index];
-          final showHeader =
-              index == 0 || !_sameMonth(events[index - 1].date, event.date);
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      child: NotificationListener<ScrollNotification>(
+          onNotification: (n) {
+            if (n.metrics.pixels >= n.metrics.maxScrollExtent - 200) {
+              context.read<EventsCubit>().loadMoreEvents();
+            }
+            return false;
+          },
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.only(bottom: 90),
             children: [
-              if (showHeader)
-                Padding(
-                  padding: EdgeInsets.only(top: index == 0 ? 0 : 10, bottom: 8),
-                  child: Text(
-                    DateFormat('MMMM yyyy').format(event.date),
-                    style: const TextStyle(
-                      color: AppColors.primaryColor,
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w600,
+              for (final entry in months.entries) ...[
+                // Minimal month separator: "July 2026" + collapse chevron.
+                InkWell(
+                  onTap: () {
+                    final key = monthKey(entry.key);
+                    setState(() {
+                      if (!_collapsedMonths.remove(key)) {
+                        _collapsedMonths.add(key);
+                      }
+                    });
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            DateFormat('MMMM yyyy').format(entry.key),
+                            style: const TextStyle(
+                              color: AppColors.primaryColor,
+                              fontSize: 14.5,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                        Icon(
+                          _collapsedMonths.contains(monthKey(entry.key))
+                              ? Icons.keyboard_arrow_down
+                              : Icons.keyboard_arrow_up,
+                          size: 20,
+                          color: Colors.grey[700],
+                        ),
+                      ],
                     ),
                   ),
                 ),
+                if (!_collapsedMonths.contains(monthKey(entry.key)))
+                  grid
+                      ? GridView.count(
+                          crossAxisCount: 2,
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          mainAxisSpacing: 8,
+                          crossAxisSpacing: 8,
+                          childAspectRatio: 0.95,
+                          children: [
+                            for (final event in entry.value) card(event),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            for (final event in entry.value)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 8),
+                                child: card(event),
+                              ),
+                          ],
+                        ),
+              ],
+              // Always-visible footer so the user knows whether more
+              // data exists — even with every month collapsed.
               Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: EventCard(
-                  event: event,
-                  showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
-                  onTap: () => _openDetail(context, event),
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Center(
+                  child: state.isLoadingMore
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : state.hasMoreEvents
+                          ? OutlinedButton.icon(
+                              onPressed: () => context
+                                  .read<EventsCubit>()
+                                  .loadMoreEvents(),
+                              icon: const Icon(Icons.expand_more, size: 18),
+                              label: const Text('Load more events'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.themeColor,
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            )
+                          : Text(
+                              "You're all caught up",
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[600],
+                              ),
+                            ),
                 ),
               ),
             ],
-          );
-        },
+        ),
       ),
     );
   }
@@ -856,6 +947,11 @@ class _EventsScreenState extends State<EventsScreen> {
                     final event = results[index];
                     return EventCard(
                       event: event,
+                      myRsvp: event.myRsvpStatus,
+                      onRsvp: state.isParticipant(event)
+                          ? (status) =>
+                              _respond(context, event, status, roles.isParent)
+                          : null,
                       showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
                       onTap: () => _openDetail(context, event),
                     );
@@ -1105,7 +1201,7 @@ class _EventsScreenState extends State<EventsScreen> {
     bool isParent,
   ) async {
     final (ok, message) = await context.read<EventsCubit>().respond(
-      eventCode: event.code,
+      occurrence: event,
       status: status,
       userType: isParent ? 'PARENT' : 'STAFF',
     );
@@ -1121,7 +1217,10 @@ class _EventsScreenState extends State<EventsScreen> {
   void _openDetail(BuildContext context, Event event) {
     context.push(
       EventDetailScreen.routeName,
-      extra: <String, dynamic>{'eventCode': event.code},
+      extra: <String, dynamic>{
+        'eventCode': event.code,
+        'occurrenceCode': event.occurrenceCode,
+      },
     );
   }
 
@@ -1147,8 +1246,6 @@ class _EventsScreenState extends State<EventsScreen> {
     return [...upcoming, ...past];
   }
 
-  static bool _sameMonth(DateTime a, DateTime b) =>
-      a.year == b.year && a.month == b.month;
 
   /// Events occurring on [day] for the calendar — limited to completed
   /// events while the "View Completed" toggle is on so only past completed

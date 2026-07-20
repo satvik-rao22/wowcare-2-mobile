@@ -38,11 +38,14 @@ import '../../data/features/events/datasources/event_remote_datasource.dart';
 import '../../data/features/events/datasources/holiday_remote_datasource.dart';
 import '../../data/features/events/repositories/event_repository_impl.dart';
 import '../../domain/features/events/repositories/event_repository.dart';
+import '../../domain/features/events/usecases/cancel_occurrence_usecase.dart';
 import '../../domain/features/events/usecases/create_event_usecase.dart';
 import '../../domain/features/events/usecases/delete_event_usecase.dart';
 import '../../domain/features/events/usecases/delete_holiday_usecase.dart';
+import '../../domain/features/events/usecases/get_event_by_code_usecase.dart';
 import '../../domain/features/events/usecases/get_events_usecase.dart';
 import '../../domain/features/events/usecases/get_holidays_usecase.dart';
+import '../../domain/features/events/usecases/update_occurrence_usecase.dart';
 import '../../domain/features/events/usecases/save_holiday_usecase.dart';
 import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
 import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
@@ -439,6 +442,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<RespondToEventUseCase>(
     () => RespondToEventUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetEventByCodeUseCase>(
+    () => GetEventByCodeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateOccurrenceUseCase>(
+    () => UpdateOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CancelOccurrenceUseCase>(
+    () => CancelOccurrenceUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetHolidaysUseCase>(
     () => GetHolidaysUseCase(serviceLocator()),
   );
@@ -459,10 +471,13 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<EventsCubit>(
     () => EventsCubit(
       serviceLocator<GetEventsUseCase>(),
+      serviceLocator<GetEventByCodeUseCase>(),
       serviceLocator<CreateEventUseCase>(),
       serviceLocator<UpdateEventUseCase>(),
       serviceLocator<DeleteEventUseCase>(),
       serviceLocator<RespondToEventUseCase>(),
+      serviceLocator<UpdateOccurrenceUseCase>(),
+      serviceLocator<CancelOccurrenceUseCase>(),
       serviceLocator<GetHolidaysUseCase>(),
       serviceLocator<CreateHolidayUseCase>(),
       serviceLocator<UpdateHolidayUseCase>(),

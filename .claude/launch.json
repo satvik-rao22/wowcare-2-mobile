@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "wishmate-web-release",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8321", "-d", "/Users/deepaksingh/Documents/Flutter/projects/wishmate_app/apps/wishmate/build/web"],
+      "port": 8321
+    }
+  ]
+}

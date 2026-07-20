@@ -7,6 +7,7 @@ import 'package:wowcare/domain/features/events/entities/event.dart';
 class EventModel extends Equatable {
   const EventModel({
     required this.code,
+    this.occurrenceCode = '',
     required this.type,
     required this.name,
     required this.date,
@@ -17,11 +18,12 @@ class EventModel extends Equatable {
     this.classrooms = const <EventAttendeeModel>[],
     this.students = const <EventAttendeeModel>[],
     this.staff = const <EventAttendeeModel>[],
+    this.parents = const <EventAttendeeModel>[],
     this.includeParents = false,
     this.rsvps = const <EventRsvpModel>[],
+    this.myRsvpStatus,
     this.recurring = false,
-    this.recurringPattern,
-    this.recurringEndDate,
+    this.recurrence,
     this.attachmentName,
     this.attachmentUrl,
     this.version = 0,
@@ -36,9 +38,9 @@ class EventModel extends Equatable {
   /// plus `audiences` selectors. Distinct from [EventModel.fromJson], which
   /// keeps understanding the legacy seed-file shape.
   ///
-  /// The API returns audiences as bare selectors (kind + code, no display
-  /// name), so attendee names come back empty — callers that already know
-  /// the names (create/update flows) merge them back in.
+  /// Audience selectors carry a hydrated `selectorName`; the occasional
+  /// null name (unhydrated row) is left empty and filled client-side by
+  /// the attendee-name resolver as a fallback.
   factory EventModel.fromApi(Map<String, dynamic> json) {
     final classrooms = <EventAttendeeModel>[];
     final students = <EventAttendeeModel>[];
@@ -49,7 +51,10 @@ class EventModel extends Equatable {
         final kind = (entry['selectorKind'] ?? '').toString().toUpperCase();
         final code = (entry['selectorCode'] ?? '').toString().trim();
         if (code.isEmpty) continue; // SCHOOL_WIDE / ALL_* carry no code.
-        final attendee = EventAttendeeModel(code: code, name: '');
+        final attendee = EventAttendeeModel(
+          code: code,
+          name: (entry['selectorName'] ?? '').toString().trim(),
+        );
         switch (kind) {
           case 'CLASSROOM':
             classrooms.add(attendee);
@@ -62,6 +67,7 @@ class EventModel extends Equatable {
     }
 
     final rrule = (json['rrule'] ?? '').toString();
+    final recurring = json['recurringFlag'] == true;
     return EventModel(
       code: (json['code'] ?? '').toString().trim(),
       type: (json['type'] ?? '').toString(),
@@ -75,11 +81,92 @@ class EventModel extends Equatable {
       students: students,
       staff: staff,
       includeParents: json['includeParentsFlag'] == true,
-      recurring: json['recurringFlag'] == true,
-      recurringPattern: _rruleFreq(rrule),
-      recurringEndDate:
-          _parseDate(json['rruleUntil']) ?? _rruleUntil(rrule),
+      recurring: recurring,
+      recurrence: recurring
+          ? parseRrule(rrule, untilOverride: _parseDate(json['rruleUntil']))
+          : null,
       version: (json['version'] as num?)?.toInt() ?? 0,
+      createdBy: (json['createdBy'] ?? '').toString(),
+      createdByName: (json['createdByName'] ?? '').toString(),
+      createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
+      updatedAt: _parseDate(json['updatedAt']) ?? DateTime.now(),
+    );
+  }
+
+  /// One row of `GET /api/v1/occurrences` — the occurrence-based read
+  /// view. Carries display fields (occurrence overrides pre-applied by the
+  /// server), the caller's `myRsvp`, and the full hydrated `participants`
+  /// roster with per-person RSVPs, so no follow-up calls are needed.
+  factory EventModel.fromOccurrenceApi(Map<String, dynamic> json) {
+    String codeOf(Map entry) =>
+        (entry['entityCode'] ?? entry['partyCode'] ?? '').toString().trim();
+
+    List<EventAttendeeModel> group(dynamic entries) {
+      if (entries is! List) return const <EventAttendeeModel>[];
+      return [
+        for (final entry in entries.whereType<Map>())
+          if (codeOf(entry).isNotEmpty)
+            EventAttendeeModel(
+              code: codeOf(entry),
+              name: (entry['name'] ?? '').toString().trim(),
+              linkedCode:
+                  (entry['linkedStudentCode'] ?? '').toString().trim(),
+            ),
+      ];
+    }
+
+    // Per-person responses (explicit rows + implicit student ATTENDING)
+    // feed the RSVP summary and the roster sheets.
+    List<EventRsvpModel> responses(dynamic entries, String partyType) =>
+        entries is! List
+            ? const <EventRsvpModel>[]
+            : [
+                for (final entry in entries.whereType<Map>())
+                  if ((entry['rsvp'] ?? '').toString().trim().isNotEmpty)
+                    EventRsvpModel(
+                      userCode: (entry['partyCode'] ?? '').toString().trim(),
+                      userName: (entry['name'] ?? '').toString().trim(),
+                      userType: partyType,
+                      status: (entry['rsvp'] ?? '').toString(),
+                      respondedAt: _parseDate(entry['respondedAt']) ??
+                          DateTime.now(),
+                    ),
+              ];
+
+    final participants = json['participants'];
+    final classrooms = participants is Map ? participants['classroom'] : null;
+    final students = participants is Map ? participants['students'] : null;
+    final staff = participants is Map ? participants['staff'] : null;
+    final parents = participants is Map ? participants['parents'] : null;
+
+    final myRsvp = json['myRsvp'];
+    final myRsvpImplicit = myRsvp is Map && myRsvp['implicit'] == true;
+
+    return EventModel(
+      code: (json['eventCode'] ?? '').toString().trim(),
+      occurrenceCode: (json['occurrenceCode'] ?? '').toString().trim(),
+      type: (json['type'] ?? '').toString(),
+      name: (json['displayName'] ?? '').toString(),
+      description: (json['displayDescription'] ?? '').toString(),
+      date: _parseDate(json['scheduledStartDate']) ?? DateTime.now(),
+      allDay: json['allDayFlag'] == true,
+      startTime: _hhmm(json['scheduledStartTime']),
+      endTime: _hhmm(json['scheduledEndTime']),
+      classrooms: group(classrooms),
+      students: group(students),
+      staff: group(staff),
+      parents: group(parents),
+      includeParents: json['includeParentsFlag'] == true,
+      rsvps: [
+        ...responses(staff, 'STAFF'),
+        ...responses(students, 'STUDENT'),
+        ...responses(parents, 'PARENT'),
+      ],
+      // Implicit student rows aren't the caller's own choice.
+      myRsvpStatus: myRsvp is Map && !myRsvpImplicit
+          ? myRsvp['status']?.toString()
+          : null,
+      recurring: json['recurring'] == true,
       createdBy: (json['createdBy'] ?? '').toString(),
       createdByName: (json['createdByName'] ?? '').toString(),
       createdAt: _parseDate(json['createdAt']) ?? DateTime.now(),
@@ -122,8 +209,7 @@ class EventModel extends Equatable {
               .toList()
           : const [],
       recurring: json['recurring'] == true,
-      recurringPattern: json['recurringPattern']?.toString(),
-      recurringEndDate: _parseDate(json['recurringEndDate']),
+      recurrence: _legacyRule(json),
       attachmentName: json['attachmentName']?.toString(),
       attachmentUrl: json['attachmentUrl']?.toString(),
       createdBy: (json['createdBy'] ?? '').toString(),
@@ -136,6 +222,7 @@ class EventModel extends Equatable {
   factory EventModel.fromEntity(Event event) {
     return EventModel(
       code: event.code,
+      occurrenceCode: event.occurrenceCode,
       type: event.type.value,
       name: event.name,
       date: event.date,
@@ -147,11 +234,12 @@ class EventModel extends Equatable {
           event.classrooms.map(EventAttendeeModel.fromEntity).toList(),
       students: event.students.map(EventAttendeeModel.fromEntity).toList(),
       staff: event.staff.map(EventAttendeeModel.fromEntity).toList(),
+      parents: event.parents.map(EventAttendeeModel.fromEntity).toList(),
       includeParents: event.includeParents,
       rsvps: event.rsvps.map(EventRsvpModel.fromEntity).toList(),
+      myRsvpStatus: event.myRsvpStatus?.value,
       recurring: event.recurring,
-      recurringPattern: event.recurringPattern?.value,
-      recurringEndDate: event.recurringEndDate,
+      recurrence: event.recurrence,
       attachmentName: event.attachmentName,
       attachmentUrl: event.attachmentUrl,
       version: event.version,
@@ -163,6 +251,7 @@ class EventModel extends Equatable {
   }
 
   final String code;
+  final String occurrenceCode;
   final String type;
   final String name;
   final DateTime date;
@@ -173,11 +262,12 @@ class EventModel extends Equatable {
   final List<EventAttendeeModel> classrooms;
   final List<EventAttendeeModel> students;
   final List<EventAttendeeModel> staff;
+  final List<EventAttendeeModel> parents;
   final bool includeParents;
   final List<EventRsvpModel> rsvps;
+  final String? myRsvpStatus;
   final bool recurring;
-  final String? recurringPattern;
-  final DateTime? recurringEndDate;
+  final RecurrenceRule? recurrence;
   final String? attachmentName;
   final String? attachmentUrl;
   final int version;
@@ -196,17 +286,30 @@ class EventModel extends Equatable {
       if (event.description.isNotEmpty) 'description': event.description,
       'seriesStartDate': formatDate(event.date),
       if (!event.allDay && event.startTime.isNotEmpty)
-        'seriesStartTime': _apiTime(event.startTime),
+        'seriesStartTime': apiTime(event.startTime),
       if (!event.allDay && event.endTime.isNotEmpty)
-        'seriesEndTime': _apiTime(event.endTime),
+        'seriesEndTime': apiTime(event.endTime),
       'allDayFlag': event.allDay,
       'audienceScope': _audienceScope(event.type),
       'includeParentsFlag': event.includeParents,
       'recurringFlag': event.recurring,
-      if (event.recurring && event.recurringPattern != null)
+      if (event.recurring && event.recurrence != null)
         'rrule': buildRrule(event),
       'audiences': _audiences(event),
     };
+  }
+
+  /// Builds the `PATCH /api/v1/events/{code}` body. Everything is editable
+  /// except the event type (and its derived audience scope) — changing the
+  /// type means delete + recreate.
+  static Map<String, dynamic> updateBody(Event event) {
+    final body = createBody(event)
+      ..remove('type')
+      ..remove('audienceScope');
+    // Sent even when empty so a cleared description persists (PATCH
+    // treats only OMITTED fields as untouched; createBody omits blanks).
+    body['description'] = event.description;
+    return body;
   }
 
   /// `AudienceScope` derived from the UI's event type (§4.2). CUSTOM and
@@ -261,30 +364,139 @@ class EventModel extends Equatable {
     }
   }
 
-  /// RRULE per the contract's §5.1 mapping. Weekly recurs on the start
-  /// date's weekday (no BYDAY needed); monthly pins BYMONTHDAY to the
-  /// start date's day.
+  /// RFC 5545 RRULE for the Teams-style [Event.recurrence], anchored at
+  /// [Event.date]. Emits `INTERVAL` for "every N", plain `BYDAY` for
+  /// weekday sets, ordinal `BYDAY` (`3WE`, `-1FR`) for nth-weekday
+  /// monthly/yearly modes, and `BYMONTH`/`BYMONTHDAY` anchors.
   static String buildRrule(Event event) {
-    final until = event.recurringEndDate;
-    final untilPart = until != null ? ';UNTIL=${_compactDate(until)}' : '';
-    switch (event.recurringPattern!) {
-      case EventRecurrence.daily:
-        return 'FREQ=DAILY$untilPart';
-      case EventRecurrence.weekly:
-        return 'FREQ=WEEKLY$untilPart';
-      case EventRecurrence.monthly:
-        return 'FREQ=MONTHLY;BYMONTHDAY=${event.date.day}$untilPart';
+    final rule = event.recurrence!;
+    final start = event.date;
+
+    var frequency = rule.frequency;
+    String? byDay;
+    String? byMonthDay;
+    String? byMonth;
+
+    switch (rule.frequency) {
+      case RecurrenceFrequency.daily:
+        // Teams semantics: "every day on Mon, Wed" is weekly-on-those-days.
+        if (rule.interval == 1 &&
+            rule.daysOfWeek.isNotEmpty &&
+            rule.daysOfWeek.length < 7) {
+          frequency = RecurrenceFrequency.weekly;
+          byDay = _plainByDay(rule.daysOfWeek);
+        }
+      case RecurrenceFrequency.weekly:
+        byDay = _plainByDay(
+          rule.daysOfWeek.isEmpty ? {start.weekday} : rule.daysOfWeek,
+        );
+      case RecurrenceFrequency.monthly:
+        if (rule.monthlyMode == MonthlyRepeatMode.dayOfMonth) {
+          byMonthDay = '${start.day}';
+        } else {
+          byDay = _ordinalByDay(start);
+        }
+      case RecurrenceFrequency.yearly:
+        byMonth = '${start.month}';
+        if (rule.yearlyMode == YearlyRepeatMode.date) {
+          byMonthDay = '${start.day}';
+        } else {
+          byDay = _ordinalByDay(start);
+        }
     }
+
+    final end = rule.endDate;
+    return [
+      'FREQ=${frequency.value}',
+      if (rule.interval > 1) 'INTERVAL=${rule.interval}',
+      if (byMonth != null) 'BYMONTH=$byMonth',
+      if (byMonthDay != null) 'BYMONTHDAY=$byMonthDay',
+      if (byDay != null) 'BYDAY=$byDay',
+      if (end != null) 'UNTIL=${_compactDate(end)}',
+    ].join(';');
   }
 
-  /// FREQ token of an RRULE → [EventRecurrence] code, null when absent
-  /// or unsupported by the UI (e.g. YEARLY).
-  static String? _rruleFreq(String rrule) {
-    final match = RegExp('FREQ=([A-Z]+)').firstMatch(rrule.toUpperCase());
-    final freq = match?.group(1);
-    return (freq == 'DAILY' || freq == 'WEEKLY' || freq == 'MONTHLY')
-        ? freq
-        : null;
+  /// Parses the scheduler API's RRULE back into a [RecurrenceRule];
+  /// [untilOverride] (the response's explicit `rruleUntil`) wins over the
+  /// UNTIL token. Returns null when FREQ is missing or unknown.
+  static RecurrenceRule? parseRrule(String rrule, {DateTime? untilOverride}) {
+    final tokens = <String, String>{};
+    for (final part in rrule.toUpperCase().split(';')) {
+      final split = part.indexOf('=');
+      if (split <= 0) continue;
+      tokens[part.substring(0, split).trim()] =
+          part.substring(split + 1).trim();
+    }
+
+    final frequency = RecurrenceFrequency.fromValue(tokens['FREQ']);
+    if (frequency == null) return null;
+
+    final daysOfWeek = <int>{};
+    var hasOrdinalByDay = false;
+    for (final token in (tokens['BYDAY'] ?? '').split(',')) {
+      final match =
+          RegExp(r'^(-?[0-9]+)?([A-Z]{2})$').firstMatch(token.trim());
+      if (match == null) continue;
+      if (match.group(1) != null) hasOrdinalByDay = true;
+      final weekday = _weekdayFromToken[match.group(2)];
+      if (weekday != null) daysOfWeek.add(weekday);
+    }
+
+    return RecurrenceRule(
+      frequency: frequency,
+      interval: (int.tryParse(tokens['INTERVAL'] ?? '') ?? 1).clamp(1, 99),
+      // An ordinal BYDAY (3WE) anchors monthly/yearly nth-weekday modes;
+      // it is not a weekday set.
+      daysOfWeek: hasOrdinalByDay ? const <int>{} : daysOfWeek,
+      monthlyMode: hasOrdinalByDay
+          ? MonthlyRepeatMode.nthWeekday
+          : MonthlyRepeatMode.dayOfMonth,
+      yearlyMode: hasOrdinalByDay
+          ? YearlyRepeatMode.nthWeekday
+          : YearlyRepeatMode.date,
+      endDate: untilOverride ?? _rruleUntil(rrule),
+    );
+  }
+
+  /// Simple rule from the legacy seed-file keys
+  /// (`recurringPattern: DAILY|WEEKLY|MONTHLY` + `recurringEndDate`).
+  static RecurrenceRule? _legacyRule(Map<String, dynamic> json) {
+    if (json['recurring'] != true) return null;
+    final frequency =
+        RecurrenceFrequency.fromValue(json['recurringPattern']?.toString());
+    if (frequency == null) return null;
+    return RecurrenceRule(
+      frequency: frequency,
+      endDate: _parseDate(json['recurringEndDate']),
+    );
+  }
+
+  static const Map<int, String> _weekdayTokens = {
+    DateTime.monday: 'MO',
+    DateTime.tuesday: 'TU',
+    DateTime.wednesday: 'WE',
+    DateTime.thursday: 'TH',
+    DateTime.friday: 'FR',
+    DateTime.saturday: 'SA',
+    DateTime.sunday: 'SU',
+  };
+
+  static final Map<String, int> _weekdayFromToken = {
+    for (final entry in _weekdayTokens.entries) entry.value: entry.key,
+  };
+
+  static String _plainByDay(Set<int> days) {
+    final sorted = days.toList()..sort();
+    return sorted.map((day) => _weekdayTokens[day]!).join(',');
+  }
+
+  /// `3WE` for the third Wednesday, `-1FR` when [date] is the month's last
+  /// occurrence of its weekday (Teams "last Friday").
+  static String _ordinalByDay(DateTime date) {
+    final ordinal = RecurrenceRule.isLastWeekdayOfMonth(date)
+        ? -1
+        : RecurrenceRule.nthWeekdayOfMonth(date);
+    return '$ordinal${_weekdayTokens[date.weekday]!}';
   }
 
   /// UNTIL token of an RRULE (compact `yyyyMMdd` or full
@@ -316,7 +528,7 @@ class EventModel extends Equatable {
   }
 
   /// UI `HH:mm` → API `HH:mm:ss`.
-  static String _apiTime(String hhmm) =>
+  static String apiTime(String hhmm) =>
       hhmm.length == 5 ? '$hhmm:00' : hhmm;
 
   Map<String, dynamic> toJson() {
@@ -335,8 +547,8 @@ class EventModel extends Equatable {
       'includeParents': includeParents,
       'rsvps': rsvps.map((r) => r.toJson()).toList(),
       'recurring': recurring,
-      'recurringPattern': recurringPattern,
-      'recurringEndDate': recurringEndDate?.toIso8601String(),
+      'recurringPattern': recurrence?.frequency.value,
+      'recurringEndDate': recurrence?.endDate?.toIso8601String(),
       'attachmentName': attachmentName,
       'attachmentUrl': attachmentUrl,
       'createdBy': createdBy,
@@ -349,6 +561,7 @@ class EventModel extends Equatable {
   Event toEntity() {
     return Event(
       code: code,
+      occurrenceCode: occurrenceCode,
       type: EventType.fromValue(type),
       name: name,
       date: date,
@@ -359,11 +572,12 @@ class EventModel extends Equatable {
       classrooms: classrooms.map((a) => a.toEntity()).toList(),
       students: students.map((a) => a.toEntity()).toList(),
       staff: staff.map((a) => a.toEntity()).toList(),
+      parents: parents.map((a) => a.toEntity()).toList(),
       includeParents: includeParents,
       rsvps: rsvps.map((r) => r.toEntity()).toList(),
+      myRsvpStatus: EventRsvpStatus.fromValue(myRsvpStatus),
       recurring: recurring,
-      recurringPattern: EventRecurrence.fromValue(recurringPattern),
-      recurringEndDate: recurringEndDate,
+      recurrence: recurrence,
       attachmentName: attachmentName,
       attachmentUrl: attachmentUrl,
       version: version,
@@ -384,7 +598,11 @@ class EventModel extends Equatable {
 }
 
 class EventAttendeeModel extends Equatable {
-  const EventAttendeeModel({required this.code, required this.name});
+  const EventAttendeeModel({
+    required this.code,
+    required this.name,
+    this.linkedCode = '',
+  });
 
   factory EventAttendeeModel.fromJson(Map<String, dynamic> json) {
     return EventAttendeeModel(
@@ -399,16 +617,18 @@ class EventAttendeeModel extends Equatable {
 
   final String code;
   final String name;
+  final String linkedCode;
 
   Map<String, dynamic> toJson() => <String, dynamic>{
         'code': code,
         'name': name,
       };
 
-  EventAttendee toEntity() => EventAttendee(code: code, name: name);
+  EventAttendee toEntity() =>
+      EventAttendee(code: code, name: name, linkedCode: linkedCode);
 
   @override
-  List<Object?> get props => [code, name];
+  List<Object?> get props => [code, name, linkedCode];
 }
 
 class EventRsvpModel extends Equatable {
@@ -425,6 +645,24 @@ class EventRsvpModel extends Equatable {
       userCode: (json['userCode'] ?? '').toString().trim(),
       userName: (json['userName'] ?? '').toString(),
       userType: (json['userType'] ?? '').toString().toUpperCase(),
+      status: (json['status'] ?? '').toString(),
+      respondedAt:
+          DateTime.tryParse((json['respondedAt'] ?? '').toString()) ??
+              DateTime.now(),
+    );
+  }
+
+  /// One row of the occurrence RSVPs roster
+  /// (`GET /events/{code}/occurrences/{occ}/rsvps` — §08.4): partyCode /
+  /// partyName / partyType / status / respondedAt. Implicit student rows
+  /// arrive as regular ATTENDING rows, matching the API's count semantics.
+  factory EventRsvpModel.fromApi(Map<String, dynamic> json) {
+    final code = (json['partyCode'] ?? '').toString().trim();
+    final name = (json['partyName'] ?? '').toString().trim();
+    return EventRsvpModel(
+      userCode: code,
+      userName: name.isNotEmpty ? name : code,
+      userType: (json['partyType'] ?? '').toString().toUpperCase(),
       status: (json['status'] ?? '').toString(),
       respondedAt:
           DateTime.tryParse((json['respondedAt'] ?? '').toString()) ??

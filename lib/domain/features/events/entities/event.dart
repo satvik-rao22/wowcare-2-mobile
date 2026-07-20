@@ -1,4 +1,7 @@
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/domain/features/events/entities/recurrence_rule.dart';
+
+export 'package:wowcare/domain/features/events/entities/recurrence_rule.dart';
 
 /// Audience scope of an event. Stored/transported as the uppercase
 /// [value] string so backend integration only has to agree on codes.
@@ -69,46 +72,25 @@ enum EventRsvpStatus {
   }
 }
 
-enum EventRecurrence {
-  daily('DAILY'),
-  weekly('WEEKLY'),
-  monthly('MONTHLY');
-
-  const EventRecurrence(this.value);
-
-  final String value;
-
-  String get label {
-    switch (this) {
-      case EventRecurrence.daily:
-        return 'Daily';
-      case EventRecurrence.weekly:
-        return 'Weekly';
-      case EventRecurrence.monthly:
-        return 'Monthly';
-    }
-  }
-
-  static EventRecurrence? fromValue(String? raw) {
-    final normalized = (raw ?? '').trim().toUpperCase();
-    for (final pattern in EventRecurrence.values) {
-      if (pattern.value == normalized) return pattern;
-    }
-    return null;
-  }
-}
-
 /// Lightweight reference to an invited entity (classroom, student or staff).
 /// The display [name] is denormalized so cards/details render without a
 /// lookup against the entity's own module.
 class EventAttendee extends Equatable {
-  const EventAttendee({required this.code, required this.name});
+  const EventAttendee({
+    required this.code,
+    required this.name,
+    this.linkedCode = '',
+  });
 
   final String code;
   final String name;
 
+  /// Related entity code — for a parent row, the linked student's code
+  /// (used to show the child's name next to the parent).
+  final String linkedCode;
+
   @override
-  List<Object?> get props => [code, name];
+  List<Object?> get props => [code, name, linkedCode];
 }
 
 class EventRsvp extends Equatable {
@@ -135,6 +117,7 @@ class EventRsvp extends Equatable {
 class Event extends Equatable {
   const Event({
     required this.code,
+    this.occurrenceCode = '',
     required this.type,
     required this.name,
     required this.date,
@@ -145,11 +128,12 @@ class Event extends Equatable {
     this.classrooms = const <EventAttendee>[],
     this.students = const <EventAttendee>[],
     this.staff = const <EventAttendee>[],
+    this.parents = const <EventAttendee>[],
     this.includeParents = false,
     this.rsvps = const <EventRsvp>[],
+    this.myRsvpStatus,
     this.recurring = false,
-    this.recurringPattern,
-    this.recurringEndDate,
+    this.recurrence,
     this.attachmentName,
     this.attachmentUrl,
     this.version = 0,
@@ -160,6 +144,10 @@ class Event extends Equatable {
   });
 
   final String code;
+
+  /// Code of the specific occurrence this view represents (occurrence-based
+  /// reads return one row per occurrence). Empty for locally drafted events.
+  final String occurrenceCode;
   final EventType type;
   final String name;
 
@@ -173,11 +161,19 @@ class Event extends Equatable {
   final List<EventAttendee> classrooms;
   final List<EventAttendee> students;
   final List<EventAttendee> staff;
+
+  /// Invited parents/guardians (server-resolved participant roster).
+  final List<EventAttendee> parents;
   final bool includeParents;
   final List<EventRsvp> rsvps;
+
+  /// The current user's RSVP on this occurrence, resolved by the API via
+  /// `X-Party-Code`. Null when not responded (or not a participant).
+  final EventRsvpStatus? myRsvpStatus;
   final bool recurring;
-  final EventRecurrence? recurringPattern;
-  final DateTime? recurringEndDate;
+
+  /// Teams-style repeat rule; null for one-off events.
+  final RecurrenceRule? recurrence;
   final String? attachmentName;
   final String? attachmentUrl;
 
@@ -191,6 +187,10 @@ class Event extends Equatable {
 
   int get attendeeCount =>
       classrooms.length + students.length + staff.length;
+
+  /// Last day of the series (the rule's UNTIL); null for one-off events
+  /// and for rules without an end.
+  DateTime? get recurringEndDate => recurrence?.endDate;
 
   EventRsvp? rsvpFor(String userCode) {
     final trimmed = userCode.trim();
@@ -224,25 +224,13 @@ class Event extends Equatable {
     final target = DateTime(day.year, day.month, day.day);
     final first = DateTime(date.year, date.month, date.day);
     if (target == first) return true;
-    if (!recurring || recurringPattern == null) return false;
-    if (target.isBefore(first)) return false;
-    final end = recurringEndDate;
-    if (end != null &&
-        target.isAfter(DateTime(end.year, end.month, end.day))) {
-      return false;
-    }
-    switch (recurringPattern!) {
-      case EventRecurrence.daily:
-        return true;
-      case EventRecurrence.weekly:
-        return target.weekday == first.weekday;
-      case EventRecurrence.monthly:
-        return target.day == first.day;
-    }
+    if (!recurring || recurrence == null) return false;
+    return recurrence!.matches(target, first);
   }
 
   Event copyWith({
     String? code,
+    String? occurrenceCode,
     EventType? type,
     String? name,
     DateTime? date,
@@ -253,11 +241,12 @@ class Event extends Equatable {
     List<EventAttendee>? classrooms,
     List<EventAttendee>? students,
     List<EventAttendee>? staff,
+    List<EventAttendee>? parents,
     bool? includeParents,
     List<EventRsvp>? rsvps,
+    EventRsvpStatus? Function()? myRsvpStatus,
     bool? recurring,
-    EventRecurrence? Function()? recurringPattern,
-    DateTime? Function()? recurringEndDate,
+    RecurrenceRule? Function()? recurrence,
     String? Function()? attachmentName,
     String? Function()? attachmentUrl,
     int? version,
@@ -268,6 +257,7 @@ class Event extends Equatable {
   }) {
     return Event(
       code: code ?? this.code,
+      occurrenceCode: occurrenceCode ?? this.occurrenceCode,
       type: type ?? this.type,
       name: name ?? this.name,
       date: date ?? this.date,
@@ -278,15 +268,13 @@ class Event extends Equatable {
       classrooms: classrooms ?? this.classrooms,
       students: students ?? this.students,
       staff: staff ?? this.staff,
+      parents: parents ?? this.parents,
       includeParents: includeParents ?? this.includeParents,
       rsvps: rsvps ?? this.rsvps,
+      myRsvpStatus:
+          myRsvpStatus != null ? myRsvpStatus() : this.myRsvpStatus,
       recurring: recurring ?? this.recurring,
-      recurringPattern: recurringPattern != null
-          ? recurringPattern()
-          : this.recurringPattern,
-      recurringEndDate: recurringEndDate != null
-          ? recurringEndDate()
-          : this.recurringEndDate,
+      recurrence: recurrence != null ? recurrence() : this.recurrence,
       attachmentName:
           attachmentName != null ? attachmentName() : this.attachmentName,
       attachmentUrl:
@@ -302,6 +290,7 @@ class Event extends Equatable {
   @override
   List<Object?> get props => [
         code,
+        occurrenceCode,
         type,
         name,
         date,
@@ -312,11 +301,12 @@ class Event extends Equatable {
         classrooms,
         students,
         staff,
+        parents,
         includeParents,
         rsvps,
+        myRsvpStatus,
         recurring,
-        recurringPattern,
-        recurringEndDate,
+        recurrence,
         attachmentName,
         attachmentUrl,
         version,

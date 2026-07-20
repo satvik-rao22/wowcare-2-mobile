@@ -5,7 +5,10 @@ class DeleteEventUseCase {
 
   final EventRepository _repository;
 
-  Future<void> call(String code) {
-    return _repository.deleteEvent(code);
+  /// Deletes the whole series, or — with [fromOccurrenceCode] — cancels
+  /// from that occurrence to the end (THIS_AND_FUTURE), keeping earlier
+  /// occurrences intact.
+  Future<void> call(String code, {String fromOccurrenceCode = ''}) {
+    return _repository.deleteEvent(code, fromOccurrenceCode: fromOccurrenceCode);
   }
 }

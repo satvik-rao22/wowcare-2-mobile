@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -8,8 +10,11 @@ import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
+import 'package:wowcare/presentation/features/events/utils/event_attendee_names.dart';
 import 'package:wowcare/presentation/features/events/utils/event_audience_cascade.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/presentation/features/events/utils/recurrence_end_policy.dart';
+import 'package:wowcare/presentation/features/events/utils/recurrence_summary.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -19,7 +24,14 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 /// the web design's multi-step wizard: basics up top, audience pickers
 /// (modal bottom sheets) below.
 class EventFormScreen extends StatefulWidget {
-  const EventFormScreen({this.eventCode, this.initialDate, super.key});
+  const EventFormScreen({
+    this.eventCode,
+    this.initialDate,
+    this.splitFromOccurrenceCode,
+    this.splitFromDate,
+    this.editOccurrenceCode,
+    super.key,
+  });
 
   static const String routeName = '/dashboard/events/form';
 
@@ -28,6 +40,16 @@ class EventFormScreen extends StatefulWidget {
 
   /// Default date for new events (the day selected on the calendar).
   final DateTime? initialDate;
+
+  /// When set, saving splits the recurring series at this occurrence
+  /// (THIS_AND_FUTURE): changes apply from [splitFromDate] onward and
+  /// earlier occurrences keep the old details.
+  final String? splitFromOccurrenceCode;
+  final DateTime? splitFromDate;
+
+  /// When set, saving edits ONLY this occurrence (THIS_ONLY override:
+  /// name, description, date, times); series-level sections are hidden.
+  final String? editOccurrenceCode;
 
   @override
   State<EventFormScreen> createState() => _EventFormScreenState();
@@ -45,14 +67,28 @@ class _EventFormScreenState extends State<EventFormScreen> {
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   TimeOfDay _endTime = const TimeOfDay(hour: 10, minute: 0);
   bool _recurring = false;
-  EventRecurrence _recurringPattern = EventRecurrence.weekly;
+  RecurrenceFrequency _recurFrequency = RecurrenceFrequency.daily;
+  int _recurInterval = 1;
+  Set<int> _recurDays = const {};
+  MonthlyRepeatMode _recurMonthlyMode = MonthlyRepeatMode.dayOfMonth;
+  YearlyRepeatMode _recurYearlyMode = YearlyRepeatMode.date;
   DateTime? _recurringEndDate;
+
+  /// Whether the user picked the "Until" date themselves — manual picks
+  /// are clamped (not replaced) when the unit or start date changes.
+  bool _recurEndManual = false;
   bool _includeParents = false;
   List<EventAttendee> _classrooms = const [];
   List<EventAttendee> _students = const [];
   List<EventAttendee> _staff = const [];
 
   bool get _isEditing => _editing != null;
+
+  bool get _isSplitting =>
+      (widget.splitFromOccurrenceCode ?? '').trim().isNotEmpty;
+
+  bool get _isOccurrenceEdit =>
+      (widget.editOccurrenceCode ?? '').trim().isNotEmpty;
 
   /// Name plus the type-specific audience/time rules must all be satisfied
   /// before the Save button is enabled — mirrors [_validateAudienceAndTime],
@@ -71,13 +107,33 @@ class _EventFormScreenState extends State<EventFormScreen> {
     _date = initial.isBefore(today) ? today : initial;
     final code = widget.eventCode?.trim() ?? '';
     if (code.isNotEmpty) {
-      final event = context.read<EventsCubit>().state.eventByCode(code);
-      if (event != null) _prefill(event);
+      // Instant prefill from the occurrence row in state, then refine with
+      // the full series event (recurrence rule + audience selectors live
+      // only on GET /events/{code}).
+      final state = context.read<EventsCubit>().state;
+      final row = _isOccurrenceEdit
+          ? state.eventByOccurrence(
+              widget.editOccurrenceCode!,
+              eventCode: code,
+            )
+          : state.eventByCode(code);
+      if (row != null) _prefill(row);
+      // Occurrence mode edits the row's own values — the series detail
+      // (rrule, selectors) isn't needed and would overwrite them.
+      if (!_isOccurrenceEdit) unawaited(_loadFullEvent(code));
     }
     _nameController.addListener(_onFieldChanged);
   }
 
   void _onFieldChanged() => setState(() {});
+
+  Future<void> _loadFullEvent(String code) async {
+    final full = await context.read<EventsCubit>().loadEventForEdit(code);
+    if (!mounted || full == null) return;
+    setState(
+      () => _prefill(EventAttendeeNames.resolve(context, full, listen: false)),
+    );
+  }
 
   void _prefill(Event event) {
     _editing = event;
@@ -89,8 +145,16 @@ class _EventFormScreenState extends State<EventFormScreen> {
     _startTime = _parseTime(event.startTime) ?? _startTime;
     _endTime = _parseTime(event.endTime) ?? _endTime;
     _recurring = event.recurring;
-    _recurringPattern = event.recurringPattern ?? EventRecurrence.weekly;
-    _recurringEndDate = event.recurringEndDate;
+    final rule = event.recurrence;
+    if (rule != null) {
+      _recurFrequency = rule.frequency;
+      _recurInterval = rule.interval;
+      _recurDays = Set.of(rule.daysOfWeek);
+      _recurMonthlyMode = rule.monthlyMode;
+      _recurYearlyMode = rule.yearlyMode;
+      _recurringEndDate = rule.endDate;
+      _recurEndManual = true;
+    }
     _includeParents = event.includeParents;
     _classrooms = event.classrooms;
     _students = event.students;
@@ -125,6 +189,46 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (_isEditing && !_isOccurrenceEdit) ...[
+                const SizedBox(height: 10),
+                _editLimitsBanner(),
+              ],
+              if (_isOccurrenceEdit) ...[
+                const SizedBox(height: 10),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8EAF6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Text(
+                    'Editing this event only — name, description, date and '
+                    'time apply to this date. Attendees and repeat settings '
+                    'belong to the whole series.',
+                    style:
+                        TextStyle(fontSize: 11.5, color: Color(0xFF303F9F)),
+                  ),
+                ),
+              ],
+              if (_isSplitting && widget.splitFromDate != null) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8EAF6),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    'Editing this and future events: changes apply from '
+                    '${DateFormat('MMM d, yyyy').format(widget.splitFromDate!)} '
+                    'onward — earlier events keep their current details.',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: Color(0xFF303F9F),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 14),
               _label('Event Type', required: true),
               _typeSelector(),
@@ -168,21 +272,14 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   ],
                 ),
               ],
-              const SizedBox(height: 8),
-              _switchTile(
-                title: 'Repeats',
-                value: _recurring,
-                onChanged: (value) => setState(() => _recurring = value),
-              ),
-              if (_recurring) ...[
+              if (!_isOccurrenceEdit) ...[
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(child: _recurrenceDropdown()),
-                    const SizedBox(width: 8),
-                    Expanded(child: _recurringEndTile()),
-                  ],
+                _switchTile(
+                  title: 'Repeats',
+                  value: _recurring,
+                  onChanged: _onRecurringToggled,
                 ),
+                if (_recurring) ..._recurrencePanel(),
               ],
               const SizedBox(height: 14),
               _label('Description'),
@@ -216,11 +313,41 @@ class _EventFormScreenState extends State<EventFormScreen> {
 
   // ---------------------------------------------------------------- type
 
+  /// The event type (and its derived audience scope) is the one immutable
+  /// field on the events API — changing it means delete + recreate.
+  Widget _editLimitsBanner() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF8E1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: const Color(0xFFFFE082)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 15, color: Colors.orange[800]),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'The event type can\'t be changed — delete this event and '
+              'create a new one to switch types. Everything else is '
+              'editable.',
+              style: TextStyle(fontSize: 11.5, color: Colors.orange[900]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _typeSelector() {
-    // Staff cannot create school-wide events (PRD §5.1); keep the chip
-    // visible when editing one so the form still renders correctly.
-    final types = EventAccess.creatableTypes(context.watch<RoleCubit>());
-    if (_isEditing && !types.contains(_type)) types.add(_type);
+    // Editing: the API cannot change an event's type, so only the current
+    // type is shown, locked. Staff cannot create school-wide events
+    // (PRD §5.1) — creatableTypes handles that for the create flow.
+    final types = _isEditing
+        ? [_type]
+        : EventAccess.creatableTypes(context.watch<RoleCubit>());
     return Wrap(
       spacing: 6,
       runSpacing: 6,
@@ -251,7 +378,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
             side: BorderSide(
               color: EventUiUtils.typeColor(type).withValues(alpha: 0.3),
             ),
-            onSelected: (_) => _onTypeChanged(type),
+            onSelected: _isEditing ? null : (_) => _onTypeChanged(type),
           ),
       ],
     );
@@ -561,9 +688,31 @@ class _EventFormScreenState extends State<EventFormScreen> {
               : _dateOnly(DateTime.now()),
           lastDate: DateTime(DateTime.now().year + 3),
         );
-        if (picked != null) setState(() => _date = _dateOnly(picked));
+        if (picked != null) _onStartDateChanged(picked);
       },
     );
+  }
+
+  /// Moving the start date keeps the recurrence consistent with it: the
+  /// old start weekday in the weekly selection follows to the new one
+  /// (Thu -> Fri when the event moves a day later; other picked days are
+  /// preserved), the monthly/yearly anchors re-derive automatically from
+  /// the new date, and the "Until" date is re-anchored into the valid
+  /// window.
+  void _onStartDateChanged(DateTime picked) {
+    setState(() {
+      final previous = _date;
+      _date = _dateOnly(picked);
+      if (!_recurring) return;
+      _recurDays = RecurrenceRule.shiftStartWeekday(
+        _recurDays,
+        previous.weekday,
+        _date.weekday,
+      );
+      _recurringEndDate = _recurEndManual
+          ? RecurrenceEndPolicy.clamp(_recurringEndDate, _recurFrequency, _date)
+          : RecurrenceEndPolicy.defaultEnd(_recurFrequency, _date);
+    });
   }
 
   Widget _timeTile({
@@ -584,44 +733,349 @@ class _EventFormScreenState extends State<EventFormScreen> {
     );
   }
 
-  Widget _recurrenceDropdown() {
+  // -------------------------------------------------- recurrence (Teams)
+
+  /// Enabling recurrence applies the Teams defaults: daily, every 1, all
+  /// seven days, ending 30 days after the start date.
+  void _onRecurringToggled(bool value) {
+    setState(() {
+      _recurring = value;
+      if (value) {
+        _recurFrequency = RecurrenceFrequency.daily;
+        _recurInterval = 1;
+        _recurDays = {...RecurrenceSummary.chipWeekdays};
+        _recurMonthlyMode = MonthlyRepeatMode.dayOfMonth;
+        _recurYearlyMode = YearlyRepeatMode.date;
+        if (!_recurEndManual) {
+          _recurringEndDate =
+              RecurrenceEndPolicy.defaultEnd(_recurFrequency, _date);
+        }
+      }
+    });
+  }
+
+  /// Switching the unit resets the weekday selection to its per-unit
+  /// default (Teams behaviour): day → all seven, week → start weekday.
+  void _onFrequencyChanged(RecurrenceFrequency next) {
+    setState(() {
+      _recurFrequency = next;
+      if (next == RecurrenceFrequency.daily) {
+        _recurDays = {...RecurrenceSummary.chipWeekdays};
+      } else if (next == RecurrenceFrequency.weekly) {
+        _recurDays = {_date.weekday};
+      }
+      // Each unit has its own sensible horizon; a manually picked date is
+      // kept but clamped into the new unit's window.
+      _recurringEndDate = _recurEndManual
+          ? RecurrenceEndPolicy.clamp(_recurringEndDate, next, _date)
+          : RecurrenceEndPolicy.defaultEnd(next, _date);
+    });
+  }
+
+  bool get _showsWeekdayChips =>
+      _recurFrequency == RecurrenceFrequency.weekly ||
+      (_recurFrequency == RecurrenceFrequency.daily && _recurInterval == 1);
+
+  /// The rule as currently configured on the form. Weekday sets only apply
+  /// to the units whose chips are visible.
+  RecurrenceRule _buildRecurrenceRule() {
+    return RecurrenceRule(
+      frequency: _recurFrequency,
+      interval: _recurInterval,
+      daysOfWeek: _showsWeekdayChips ? _recurDays : const <int>{},
+      monthlyMode: _recurMonthlyMode,
+      yearlyMode: _recurYearlyMode,
+      endDate: _recurringEndDate,
+    );
+  }
+
+  List<Widget> _recurrencePanel() {
+    return [
+      const SizedBox(height: 10),
+      _label('Repeat every'),
+      Row(
+        children: [
+          SizedBox(width: 86, child: _intervalDropdown()),
+          const SizedBox(width: 8),
+          Expanded(child: _frequencyDropdown()),
+        ],
+      ),
+      if (_showsWeekdayChips) ...[
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            _label(
+              _recurFrequency == RecurrenceFrequency.daily
+                  ? 'On days'
+                  : 'Days of week',
+            ),
+            TextButton(
+              onPressed: _onWeekdaySelectAll,
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                minimumSize: const Size(0, 28),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: Text(
+                _recurDays.length == 7 ? 'Clear all' : 'Select all',
+                style: const TextStyle(fontSize: 12),
+              ),
+            ),
+          ],
+        ),
+        _weekdayChips(),
+      ],
+      if (_recurFrequency == RecurrenceFrequency.monthly) ...[
+        const SizedBox(height: 10),
+        _label('Repeat on'),
+        _modeRadio<MonthlyRepeatMode>(
+          value: MonthlyRepeatMode.dayOfMonth,
+          groupValue: _recurMonthlyMode,
+          label:
+              'Day ${RecurrenceSummary.dayOfMonthLabel(_date)} of every month',
+          onChanged: (mode) => setState(() => _recurMonthlyMode = mode),
+        ),
+        _modeRadio<MonthlyRepeatMode>(
+          value: MonthlyRepeatMode.nthWeekday,
+          groupValue: _recurMonthlyMode,
+          label:
+              'The ${RecurrenceSummary.nthWeekdayLabel(_date)} of every month',
+          onChanged: (mode) => setState(() => _recurMonthlyMode = mode),
+        ),
+      ],
+      if (_recurFrequency == RecurrenceFrequency.yearly) ...[
+        const SizedBox(height: 10),
+        _label('Repeat on'),
+        _modeRadio<YearlyRepeatMode>(
+          value: YearlyRepeatMode.date,
+          groupValue: _recurYearlyMode,
+          label: '${DateFormat('MMMM d').format(_date)} every year',
+          onChanged: (mode) => setState(() => _recurYearlyMode = mode),
+        ),
+        _modeRadio<YearlyRepeatMode>(
+          value: YearlyRepeatMode.nthWeekday,
+          groupValue: _recurYearlyMode,
+          label: 'The ${RecurrenceSummary.nthWeekdayLabel(_date)} of '
+              '${DateFormat('MMMM').format(_date)} every year',
+          onChanged: (mode) => setState(() => _recurYearlyMode = mode),
+        ),
+      ],
+      const SizedBox(height: 10),
+      _label('Until'),
+      _recurringEndTile(),
+      const SizedBox(height: 10),
+      _recurrenceSummaryBox(),
+    ];
+  }
+
+  Widget _intervalDropdown() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: _tileDecoration(),
       child: DropdownButtonHideUnderline(
-        child: DropdownButton<EventRecurrence>(
-          value: _recurringPattern,
+        child: DropdownButton<int>(
+          value: _recurInterval,
           isExpanded: true,
           style: const TextStyle(fontSize: 13, color: Colors.black87),
           items: [
-            for (final pattern in EventRecurrence.values)
-              DropdownMenuItem(value: pattern, child: Text(pattern.label)),
+            for (var n = 1; n <= 99; n++)
+              DropdownMenuItem(value: n, child: Text('$n')),
           ],
-          onChanged: (pattern) {
-            if (pattern != null) {
-              setState(() => _recurringPattern = pattern);
-            }
+          onChanged: (n) {
+            if (n != null) setState(() => _recurInterval = n);
           },
         ),
       ),
     );
   }
 
+  Widget _frequencyDropdown() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: _tileDecoration(),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<RecurrenceFrequency>(
+          value: _recurFrequency,
+          isExpanded: true,
+          style: const TextStyle(fontSize: 13, color: Colors.black87),
+          items: [
+            for (final frequency in RecurrenceFrequency.values)
+              DropdownMenuItem(
+                value: frequency,
+                child: Text(
+                  _recurInterval == 1
+                      ? frequency.unitLabel
+                      : '${frequency.unitLabel}s',
+                ),
+              ),
+          ],
+          onChanged: (frequency) {
+            if (frequency != null) _onFrequencyChanged(frequency);
+          },
+        ),
+      ),
+    );
+  }
+
+  void _onWeekdaySelectAll() {
+    setState(() {
+      if (_recurDays.length == 7) {
+        // "Clear all": weekly keeps at least the start date's weekday.
+        _recurDays = _recurFrequency == RecurrenceFrequency.weekly
+            ? {_date.weekday}
+            : const <int>{};
+      } else {
+        _recurDays = {...RecurrenceSummary.chipWeekdays};
+      }
+    });
+  }
+
+  Widget _weekdayChips() {
+    const dayLabels = {
+      DateTime.sunday: 'Sun',
+      DateTime.monday: 'Mon',
+      DateTime.tuesday: 'Tue',
+      DateTime.wednesday: 'Wed',
+      DateTime.thursday: 'Thu',
+      DateTime.friday: 'Fri',
+      DateTime.saturday: 'Sat',
+    };
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final day in RecurrenceSummary.chipWeekdays)
+          FilterChip(
+            label: Text(dayLabels[day]!),
+            labelStyle: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: _recurDays.contains(day)
+                  ? Colors.white
+                  : AppColors.primaryColor,
+            ),
+            selected: _recurDays.contains(day),
+            selectedColor: AppColors.primaryColor,
+            backgroundColor: Colors.white,
+            checkmarkColor: Colors.white,
+            showCheckmark: false,
+            side: BorderSide(
+              color: AppColors.primaryColor.withValues(alpha: 0.3),
+            ),
+            onSelected: (selected) {
+              setState(() {
+                final next = Set<int>.of(_recurDays);
+                if (selected) {
+                  next.add(day);
+                } else {
+                  next.remove(day);
+                }
+                _recurDays = next;
+              });
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _modeRadio<T>({
+    required T value,
+    required T groupValue,
+    required String label,
+    required ValueChanged<T> onChanged,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: () => onChanged(value),
+      child: Row(
+        children: [
+          Radio<T>(
+            value: value,
+            groupValue: groupValue,
+            visualDensity: VisualDensity.compact,
+            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            onChanged: (next) {
+              if (next != null) onChanged(next);
+            },
+          ),
+          Expanded(
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 13, color: Colors.black87),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Live "Occurs every other week on Mon, Wed … until …" line, mirroring
+  /// the web app's summary.
+  Widget _recurrenceSummaryBox() {
+    final summary = RecurrenceSummary.describe(
+      rule: _buildRecurrenceRule(),
+      startDate: _date,
+      startTime: _allDay ? '' : _formatTime(_startTime),
+      endTime: _allDay ? '' : _formatTime(_endTime),
+    );
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF0FDF4),
+        borderRadius: BorderRadius.circular(8),
+        border: const Border(
+          left: BorderSide(color: Color(0xFF16A34A), width: 3),
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(
+            Icons.info_outline,
+            size: 15,
+            color: Color(0xFF166534),
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              summary,
+              style: const TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF166534),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _recurringEndTile() {
+    final maxEnd = RecurrenceEndPolicy.maxEnd(_recurFrequency, _date);
     return _fieldTile(
       icon: Icons.event_repeat_outlined,
       text: _recurringEndDate == null
           ? 'End date'
           : DateFormat('MMM d, yyyy').format(_recurringEndDate!),
       onTap: () async {
+        final initial = RecurrenceEndPolicy.clamp(
+          _recurringEndDate,
+          _recurFrequency,
+          _date,
+        );
         final picked = await showDatePicker(
           context: context,
-          initialDate: _recurringEndDate ?? _date.add(const Duration(days: 30)),
+          initialDate: initial,
           firstDate: _date,
-          lastDate: DateTime(DateTime.now().year + 3),
+          lastDate: maxEnd,
         );
         if (picked != null) {
-          setState(() => _recurringEndDate = _dateOnly(picked));
+          setState(() {
+            _recurringEndDate = _dateOnly(picked);
+            _recurEndManual = true;
+          });
         }
       },
     );
@@ -758,12 +1212,36 @@ class _EventFormScreenState extends State<EventFormScreen> {
           : const [],
       includeParents: _type == EventType.staff ? false : _includeParents,
       recurring: _recurring,
-      recurringPattern: () => _recurring ? _recurringPattern : null,
-      recurringEndDate: () => _recurring ? _recurringEndDate : null,
+      recurrence: () => _recurring ? _buildRecurrenceRule() : null,
     );
 
+    if (_isOccurrenceEdit) {
+      // Single-occurrence override: only the fields the THIS_ONLY PATCH
+      // supports. Attendee/recurrence changes need a series-level scope.
+      final (occOk, message) = await cubit.updateOccurrence(
+        eventCode: _editing?.code ?? '',
+        occurrenceCode: widget.editOccurrenceCode!,
+        overrideName: _nameController.text.trim(),
+        overrideDescription: _descriptionController.text.trim(),
+        scheduledStartDate: _date,
+        scheduledStartTime: _allDay ? null : _formatTime(_startTime),
+        scheduledEndTime: _allDay ? null : _formatTime(_endTime),
+      );
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: occOk,
+        isError: !occOk,
+      );
+      if (occOk) context.pop();
+      return;
+    }
     final ok = _isEditing
-        ? await cubit.update(event)
+        ? await cubit.update(
+            event,
+            splitFromOccurrenceCode: widget.splitFromOccurrenceCode ?? '',
+          )
         : await cubit.create(event);
     if (!mounted) return;
     if (ok) {
@@ -790,6 +1268,11 @@ class _EventFormScreenState extends State<EventFormScreen> {
     }
     if (_recurring && _recurringEndDate == null) {
       return 'Pick an end date for the repeating event';
+    }
+    if (_recurring &&
+        _recurFrequency == RecurrenceFrequency.weekly &&
+        _recurDays.isEmpty) {
+      return 'Select at least one day of the week';
     }
     switch (_type) {
       case EventType.classroom:
@@ -934,6 +1417,7 @@ class _EventFormScreenState extends State<EventFormScreen> {
     required String title,
     required bool value,
     required ValueChanged<bool> onChanged,
+    bool enabled = true,
   }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -943,13 +1427,16 @@ class _EventFormScreenState extends State<EventFormScreen> {
           Expanded(
             child: Text(
               title,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 13,
+                color: enabled ? Colors.black87 : Colors.grey[500],
+              ),
             ),
           ),
           Switch(
             value: value,
             activeThumbColor: AppColors.themeColor,
-            onChanged: onChanged,
+            onChanged: enabled ? onChanged : null,
           ),
         ],
       ),

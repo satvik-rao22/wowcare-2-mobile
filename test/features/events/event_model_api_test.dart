@@ -15,8 +15,7 @@ Event _event({
   List<EventAttendee> staff = const [],
   bool includeParents = false,
   bool recurring = false,
-  EventRecurrence? recurringPattern,
-  DateTime? recurringEndDate,
+  RecurrenceRule? recurrence,
 }) {
   return Event(
     code: '',
@@ -32,10 +31,31 @@ Event _event({
     staff: staff,
     includeParents: includeParents,
     recurring: recurring,
-    recurringPattern: recurringPattern,
-    recurringEndDate: recurringEndDate,
+    recurrence: recurrence,
     createdAt: DateTime(2026, 7, 1),
     updatedAt: DateTime(2026, 7, 1),
+  );
+}
+
+Event _recurring(
+  RecurrenceFrequency frequency, {
+  DateTime? date,
+  int interval = 1,
+  Set<int> daysOfWeek = const {},
+  MonthlyRepeatMode monthlyMode = MonthlyRepeatMode.dayOfMonth,
+  YearlyRepeatMode yearlyMode = YearlyRepeatMode.date,
+}) {
+  return _event(
+    date: date ?? DateTime(2026, 9, 15), // a Tuesday
+    recurring: true,
+    recurrence: RecurrenceRule(
+      frequency: frequency,
+      interval: interval,
+      daysOfWeek: daysOfWeek,
+      monthlyMode: monthlyMode,
+      yearlyMode: yearlyMode,
+      endDate: DateTime(2026, 12, 18),
+    ),
   );
 }
 
@@ -96,31 +116,6 @@ void main() {
       expect(body.containsKey('rrule'), isFalse);
     });
 
-    test('recurring daily/weekly/monthly encode the contract RRULEs', () {
-      Map<String, dynamic> body(EventRecurrence pattern) =>
-          EventModel.createBody(
-            _event(
-              date: DateTime(2026, 9, 15),
-              recurring: true,
-              recurringPattern: pattern,
-              recurringEndDate: DateTime(2026, 12, 18),
-            ),
-          );
-
-      expect(
-        body(EventRecurrence.daily)['rrule'],
-        'FREQ=DAILY;UNTIL=20261218',
-      );
-      expect(
-        body(EventRecurrence.weekly)['rrule'],
-        'FREQ=WEEKLY;UNTIL=20261218',
-      );
-      expect(
-        body(EventRecurrence.monthly)['rrule'],
-        'FREQ=MONTHLY;BYMONTHDAY=15;UNTIL=20261218',
-      );
-    });
-
     test('custom and individual events send mixed CUSTOM selectors', () {
       final body = EventModel.createBody(
         _event(
@@ -149,6 +144,157 @@ void main() {
     });
   });
 
+  group('EventModel.buildRrule', () {
+    test('daily every day', () {
+      expect(
+        EventModel.buildRrule(_recurring(RecurrenceFrequency.daily)),
+        'FREQ=DAILY;UNTIL=20261218',
+      );
+    });
+
+    test('daily every 3 days carries INTERVAL', () {
+      expect(
+        EventModel.buildRrule(
+          _recurring(RecurrenceFrequency.daily, interval: 3),
+        ),
+        'FREQ=DAILY;INTERVAL=3;UNTIL=20261218',
+      );
+    });
+
+    test('daily on a weekday subset becomes weekly BYDAY (Teams semantics)',
+        () {
+      expect(
+        EventModel.buildRrule(
+          _recurring(
+            RecurrenceFrequency.daily,
+            daysOfWeek: {DateTime.monday, DateTime.wednesday},
+          ),
+        ),
+        'FREQ=WEEKLY;BYDAY=MO,WE;UNTIL=20261218',
+      );
+    });
+
+    test('weekly defaults to the start weekday when no days picked', () {
+      expect(
+        EventModel.buildRrule(_recurring(RecurrenceFrequency.weekly)),
+        'FREQ=WEEKLY;BYDAY=TU;UNTIL=20261218', // 2026-09-15 is a Tuesday
+      );
+    });
+
+    test('every 2 weeks on Mon, Wed, Fri', () {
+      expect(
+        EventModel.buildRrule(
+          _recurring(
+            RecurrenceFrequency.weekly,
+            interval: 2,
+            daysOfWeek: {
+              DateTime.monday,
+              DateTime.wednesday,
+              DateTime.friday,
+            },
+          ),
+        ),
+        'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR;UNTIL=20261218',
+      );
+    });
+
+    test('monthly by day of month', () {
+      expect(
+        EventModel.buildRrule(_recurring(RecurrenceFrequency.monthly)),
+        'FREQ=MONTHLY;BYMONTHDAY=15;UNTIL=20261218',
+      );
+    });
+
+    test('monthly on the nth weekday', () {
+      expect(
+        EventModel.buildRrule(
+          _recurring(
+            RecurrenceFrequency.monthly,
+            monthlyMode: MonthlyRepeatMode.nthWeekday,
+          ),
+        ),
+        // Sep 15, 2026 is the third Tuesday.
+        'FREQ=MONTHLY;BYDAY=3TU;UNTIL=20261218',
+      );
+    });
+
+    test('monthly on the LAST weekday uses the -1 ordinal', () {
+      expect(
+        EventModel.buildRrule(
+          _recurring(
+            RecurrenceFrequency.monthly,
+            date: DateTime(2026, 9, 29), // last Tuesday of Sep 2026
+            monthlyMode: MonthlyRepeatMode.nthWeekday,
+          ),
+        ),
+        'FREQ=MONTHLY;BYDAY=-1TU;UNTIL=20261218',
+      );
+    });
+
+    test('yearly by date anchors month and day', () {
+      expect(
+        EventModel.buildRrule(
+          _recurring(RecurrenceFrequency.yearly, interval: 2),
+        ),
+        'FREQ=YEARLY;INTERVAL=2;BYMONTH=9;BYMONTHDAY=15;UNTIL=20261218',
+      );
+    });
+
+    test('yearly on the nth weekday of the month', () {
+      expect(
+        EventModel.buildRrule(
+          _recurring(
+            RecurrenceFrequency.yearly,
+            yearlyMode: YearlyRepeatMode.nthWeekday,
+          ),
+        ),
+        'FREQ=YEARLY;BYMONTH=9;BYDAY=3TU;UNTIL=20261218',
+      );
+    });
+  });
+
+  group('EventModel.parseRrule', () {
+    test('round-trips a weekly interval rule', () {
+      final rule = EventModel.parseRrule(
+        'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR;UNTIL=20261218',
+      )!;
+
+      expect(rule.frequency, RecurrenceFrequency.weekly);
+      expect(rule.interval, 2);
+      expect(
+        rule.daysOfWeek,
+        {DateTime.monday, DateTime.wednesday, DateTime.friday},
+      );
+      expect(rule.endDate, DateTime(2026, 12, 18));
+    });
+
+    test('ordinal BYDAY parses as nth-weekday mode, not a weekday set', () {
+      final rule = EventModel.parseRrule('FREQ=MONTHLY;BYDAY=-1FR')!;
+
+      expect(rule.frequency, RecurrenceFrequency.monthly);
+      expect(rule.monthlyMode, MonthlyRepeatMode.nthWeekday);
+      expect(rule.daysOfWeek, isEmpty);
+      expect(rule.endDate, isNull);
+    });
+
+    test('yearly nth-weekday parses both modes', () {
+      final rule =
+          EventModel.parseRrule('FREQ=YEARLY;BYMONTH=9;BYDAY=3TU')!;
+      expect(rule.frequency, RecurrenceFrequency.yearly);
+      expect(rule.yearlyMode, YearlyRepeatMode.nthWeekday);
+
+      final byDate = EventModel.parseRrule(
+        'FREQ=YEARLY;BYMONTH=9;BYMONTHDAY=15',
+      )!;
+      expect(byDate.yearlyMode, YearlyRepeatMode.date);
+    });
+
+    test('unknown FREQ yields null', () {
+      expect(EventModel.parseRrule('FREQ=HOURLY;UNTIL=20261218'), isNull);
+      expect(EventModel.parseRrule(''), isNull);
+    });
+  });
+
   group('EventModel.fromApi', () {
     test('parses the contract create response (§4.3)', () {
       final model = EventModel.fromApi({
@@ -166,8 +312,18 @@ void main() {
         'rrule': null,
         'version': 0,
         'audiences': [
-          {'selectorKind': 'STUDENT', 'selectorCode': 'STD_EMMA'},
-          {'selectorKind': 'STUDENT', 'selectorCode': 'STD_LIAM'},
+          {
+            'selectorKind': 'STUDENT',
+            'selectorCode': 'STD_EMMA',
+            'selectorName': 'Emma Stone',
+          },
+          // Unhydrated row: null name stays empty for the client-side
+          // fallback resolver.
+          {
+            'selectorKind': 'STUDENT',
+            'selectorCode': 'STD_LIAM',
+            'selectorName': null,
+          },
         ],
       });
 
@@ -180,7 +336,9 @@ void main() {
       expect(model.endTime, '13:30');
       expect(model.includeParents, isTrue);
       expect(model.version, 0);
+      expect(model.recurrence, isNull);
       expect(model.students.map((s) => s.code), ['STD_EMMA', 'STD_LIAM']);
+      expect(model.students.map((s) => s.name), ['Emma Stone', '']);
       expect(model.classrooms, isEmpty);
 
       final entity = model.toEntity();
@@ -188,7 +346,7 @@ void main() {
       expect(entity.version, 0);
     });
 
-    test('parses recurring fields from the rrule', () {
+    test('parses the recurrence rule from the rrule', () {
       final model = EventModel.fromApi({
         'code': 'EVT_1',
         'type': 'SCHOOL',
@@ -196,15 +354,18 @@ void main() {
         'seriesStartDate': '2026-09-07',
         'allDayFlag': true,
         'recurringFlag': true,
-        'rrule': 'FREQ=WEEKLY;BYDAY=MO;UNTIL=20261218T235959Z',
+        'rrule': 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO;UNTIL=20261218T235959Z',
         'audiences': [
           {'selectorKind': 'SCHOOL_WIDE'},
         ],
       });
 
       expect(model.recurring, isTrue);
-      expect(model.recurringPattern, 'WEEKLY');
-      expect(model.recurringEndDate, DateTime(2026, 12, 18));
+      final rule = model.recurrence!;
+      expect(rule.frequency, RecurrenceFrequency.weekly);
+      expect(rule.interval, 2);
+      expect(rule.daysOfWeek, {DateTime.monday});
+      expect(rule.endDate, DateTime(2026, 12, 18));
       // SCHOOL_WIDE carries no selector code — no phantom attendees.
       expect(model.classrooms, isEmpty);
     });
@@ -220,21 +381,7 @@ void main() {
         'rruleUntil': '2026-11-01',
       });
 
-      expect(model.recurringEndDate, DateTime(2026, 11, 1));
-    });
-
-    test('unsupported YEARLY frequency degrades to no pattern', () {
-      final model = EventModel.fromApi({
-        'code': 'EVT_1',
-        'type': 'SCHOOL',
-        'name': 'Anniversary',
-        'seriesStartDate': '2026-10-04',
-        'recurringFlag': true,
-        'rrule': 'FREQ=YEARLY;UNTIL=20361004',
-      });
-
-      expect(model.recurringPattern, isNull);
-      expect(model.toEntity().recurringPattern, isNull);
+      expect(model.recurrence!.endDate, DateTime(2026, 11, 1));
     });
   });
 }

@@ -6,12 +6,15 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
+import 'package:wowcare/domain/features/events/usecases/cancel_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/create_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_holiday_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/get_event_by_code_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_events_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_holidays_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/respond_to_event_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/save_holiday_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/set_holiday_status_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/update_event_usecase.dart';
@@ -21,10 +24,13 @@ part 'events_state.dart';
 class EventsCubit extends Cubit<EventsState> {
   EventsCubit(
     this._getEvents,
+    this._getEventByCode,
     this._createEvent,
     this._updateEvent,
     this._deleteEvent,
     this._respondToEvent,
+    this._updateOccurrence,
+    this._cancelOccurrence,
     this._getHolidays,
     this._createHoliday,
     this._updateHoliday,
@@ -34,10 +40,13 @@ class EventsCubit extends Cubit<EventsState> {
   ) : super(EventsState.initial());
 
   final GetEventsUseCase _getEvents;
+  final GetEventByCodeUseCase _getEventByCode;
   final CreateEventUseCase _createEvent;
   final UpdateEventUseCase _updateEvent;
   final DeleteEventUseCase _deleteEvent;
   final RespondToEventUseCase _respondToEvent;
+  final UpdateOccurrenceUseCase _updateOccurrence;
+  final CancelOccurrenceUseCase _cancelOccurrence;
   final GetHolidaysUseCase _getHolidays;
   final CreateHolidayUseCase _createHoliday;
   final UpdateHolidayUseCase _updateHoliday;
@@ -49,12 +58,40 @@ class EventsCubit extends Cubit<EventsState> {
   /// lifetime so later loads don't clobber the user's own toggle choice.
   bool _audienceDefaultApplied = false;
 
+  /// Calendar months already fetched (the calendar loads exactly the
+  /// visible month; swiping fetches the new month on demand).
+  final Set<String> _loadedMonths = {};
+
+  /// Grid/list infinite scroll: next page to fetch over a wide window
+  /// (the API requires a date range; views paginate rather than filter).
+  int _listPage = 0;
+  bool _fetchingMore = false;
+
+  static String _monthKey(DateTime d) => '${d.year}-${d.month}';
+  static String _rowKey(Event e) =>
+      e.occurrenceCode.isNotEmpty ? e.occurrenceCode : '${e.code}@${e.date}';
+
+  /// In-flight [load] — concurrent triggers (route builder re-runs,
+  /// pull-to-refresh, window expansion) join it instead of firing a
+  /// duplicate request burst.
+  Future<void>? _inFlightLoad;
+
   /// Years whose holidays have already been fetched, so the Events tab
   /// calendar can lazily load holidays as the user navigates between years
   /// without re-fetching or losing previously loaded years.
   final Set<int> _loadedHolidayYears = {};
 
-  Future<void> load({bool silent = false}) async {
+  Future<void> load({bool silent = false}) {
+    final pending = _inFlightLoad;
+    if (pending != null) return pending;
+    final run = _doLoad(silent: silent).whenComplete(() {
+      _inFlightLoad = null;
+    });
+    _inFlightLoad = run;
+    return run;
+  }
+
+  Future<void> _doLoad({required bool silent}) async {
     if (!silent) {
       emit(state.copyWith(isLoading: true, errorMessage: () => null));
     }
@@ -68,6 +105,9 @@ class EventsCubit extends Cubit<EventsState> {
       // or before first resolution — access checks degrade gracefully.
       final staffCode =
           (await _storageService.getString(StorageKeys.staffCode) ?? '').trim();
+      final guardianCode =
+          (await _storageService.getString(StorageKeys.guardianCode) ?? '')
+              .trim();
       var showMineOnly = state.showMineOnly;
       if (!_audienceDefaultApplied) {
         _audienceDefaultApplied = true;
@@ -80,18 +120,45 @@ class EventsCubit extends Cubit<EventsState> {
         showMineOnly = role.contains('STAFF') || role.contains('TEACHER');
       }
       final schoolName = await _resolveSchoolName();
-      final events = await _getEvents();
+      final (partyCode, _) = await _partyIdentity();
+      // One list per all three views: the visible month (calendar) plus
+      // the first infinite-scroll page (grid/list), merged by occurrence.
+      _loadedMonths
+        ..clear()
+        ..add(_monthKey(DateTime.now()));
+      _listPage = 0;
+      final now = DateTime.now();
+      final month = await _getEvents(
+        from: DateTime(now.year, now.month, 1),
+        to: DateTime(now.year, now.month + 1, 0),
+        partyCode: partyCode,
+      );
+      final (firstPage, hasMore) = await _getEvents.page(
+        from: _listFrom,
+        to: _listTo,
+        page: 0,
+        partyCode: partyCode,
+      );
+      _listPage = 1;
+      final byKey = <String, Event>{
+        for (final e in [...month, ...firstPage]) _rowKey(e): e,
+      };
+      final events = byKey.values.toList()
+        ..sort((a, b) => a.date.compareTo(b.date));
       final holidays = await _getHolidays(year: state.selectedYear);
       _loadedHolidayYears.add(state.selectedYear);
       emit(
         state.copyWith(
           showMineOnly: showMineOnly,
           events: events,
+          hasMoreEvents: hasMore,
+          isLoadingMore: false,
           holidays: holidays,
           isLoading: false,
           currentUserCode: userCode,
           currentUserName: userName,
           currentStaffCode: staffCode,
+          currentGuardianCode: guardianCode,
           schoolName: schoolName,
           errorMessage: () => null,
         ),
@@ -222,15 +289,159 @@ class EventsCubit extends Cubit<EventsState> {
     }
   }
 
-  Future<bool> update(Event event) async {
+  /// Updates the series; with [splitFromOccurrenceCode] it splits at that
+  /// occurrence (THIS_AND_FUTURE). Display fields are patched onto the
+  /// local rows without a refetch; date/recurrence changes and splits
+  /// reshape the occurrence set, so those refresh from the server.
+  Future<bool> update(
+    Event event, {
+    String splitFromOccurrenceCode = '',
+  }) async {
     emit(state.copyWith(isSaving: true));
     try {
-      final updated = await _updateEvent(event);
-      emit(state.copyWith(events: _replace(updated), isSaving: false));
+      await _updateEvent(
+        event,
+        splitFromOccurrenceCode: splitFromOccurrenceCode,
+      );
+      emit(state.copyWith(isSaving: false));
+      final original = state.eventByCode(event.code);
+      final shapeChanged = splitFromOccurrenceCode.isNotEmpty ||
+          (event.recurring &&
+              (original == null || original.recurrence != event.recurrence));
+      if (shapeChanged) {
+        await refresh();
+      } else {
+        emit(
+          state.copyWith(
+            events: [
+              for (final e in state.events)
+                if (e.code != event.code)
+                  e
+                else
+                  e.copyWith(
+                    name: event.name,
+                    description: event.description,
+                    allDay: event.allDay,
+                    startTime: event.startTime,
+                    endTime: event.endTime,
+                    includeParents: event.includeParents,
+                    date: event.recurring ? null : event.date,
+                  ),
+            ],
+          ),
+        );
+      }
       return true;
     } catch (e) {
       emit(state.copyWith(isSaving: false));
       return false;
+    }
+  }
+
+  /// Full series event (audiences + recurrence rule) for the edit form —
+  /// occurrence rows don't carry the rrule.
+  Future<Event?> loadEventForEdit(String code) {
+    return _getEventByCode(code);
+  }
+
+  /// Overrides one occurrence (name/description/date/times) and patches
+  /// the local row — no refetch needed.
+  Future<(bool success, String message)> updateOccurrence({
+    required String eventCode,
+    required String occurrenceCode,
+    String? overrideName,
+    String? overrideDescription,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+  }) async {
+    try {
+      await _updateOccurrence(
+        eventCode: eventCode,
+        occurrenceCode: occurrenceCode,
+        overrideName: overrideName,
+        overrideDescription: overrideDescription,
+        scheduledStartDate: scheduledStartDate,
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+      );
+      String pick(String? next, String current) =>
+          (next ?? '').trim().isNotEmpty ? next!.trim() : current;
+      emit(
+        state.copyWith(
+          events: [
+            for (final e in state.events)
+              if (e.occurrenceCode != occurrenceCode)
+                e
+              else
+                e.copyWith(
+                  name: pick(overrideName, e.name),
+                  description: pick(overrideDescription, e.description),
+                  date: scheduledStartDate ?? e.date,
+                  startTime: pick(scheduledStartTime, e.startTime),
+                  endTime: pick(scheduledEndTime, e.endTime),
+                ),
+          ],
+        ),
+      );
+      return (true, 'Event updated');
+    } catch (_) {
+      return (false, 'Could not update this event. Please try again.');
+    }
+  }
+
+  /// Cancels one occurrence; the row disappears from the loaded window
+  /// (cancelled occurrences are excluded by default).
+  Future<(bool success, String message)> cancelOccurrence({
+    required String eventCode,
+    required String occurrenceCode,
+    String reason = '',
+  }) async {
+    try {
+      await _cancelOccurrence(
+        eventCode: eventCode,
+        occurrenceCode: occurrenceCode,
+        reason: reason,
+      );
+      emit(
+        state.copyWith(
+          events: state.events
+              .where((e) => e.occurrenceCode != occurrenceCode)
+              .toList(),
+        ),
+      );
+      return (true, 'Event cancelled');
+    } catch (_) {
+      return (false, 'Could not cancel this event. Please try again.');
+    }
+  }
+
+  /// Cancels [occurrence] and every later one in its series
+  /// (THIS_AND_FUTURE) — e.g. an admin stopping a weekly event from next
+  /// month onward. Earlier occurrences stay.
+  Future<(bool success, String message)> deleteFromOccurrence(
+    Event occurrence,
+  ) async {
+    try {
+      await _deleteEvent(
+        occurrence.code,
+        fromOccurrenceCode: occurrence.occurrenceCode,
+      );
+      final cutoff =
+          DateTime(occurrence.date.year, occurrence.date.month, occurrence.date.day);
+      emit(
+        state.copyWith(
+          events: state.events
+              .where(
+                (e) =>
+                    e.code != occurrence.code || e.date.isBefore(cutoff),
+              )
+              .toList(),
+        ),
+      );
+      return (true, 'Upcoming events cancelled');
+    } catch (_) {
+      return (false, 'Could not cancel the upcoming events. Please try again.');
     }
   }
 
@@ -248,34 +459,161 @@ class EventsCubit extends Cubit<EventsState> {
     }
   }
 
-  /// Records the current user's RSVP. [userType] comes from the caller
-  /// because the role lives in RoleCubit (presentation scope), not here.
-  /// Returns a fixed success/failure message for the caller to show as a
-  /// toast, mirroring the holiday save/delete/status-change methods.
+  /// Records the current user's RSVP on [occurrence] (an occurrence-based
+  /// event row). Only server-confirmed participants — people on the row's
+  /// roster — may respond; the UI hides the bar for everyone else and this
+  /// guard backstops it. Returns a fixed success/failure message for the
+  /// caller's toast. [userType] is kept for caller compatibility; the
+  /// identity is resolved from storage.
   Future<(bool success, String message)> respond({
-    required String eventCode,
+    required Event occurrence,
     required EventRsvpStatus status,
     required String userType,
   }) async {
-    if (state.currentUserCode.isEmpty) {
+    final (partyCode, partyType) = await _partyIdentity();
+    if (partyCode.isEmpty) {
       return (false, 'Unable to identify the current user');
     }
+    if (!state.isParticipant(occurrence)) {
+      return (false, 'Only invited participants can RSVP to this event');
+    }
     try {
-      final updated = await _respondToEvent(
-        eventCode: eventCode,
-        rsvp: EventRsvp(
-          userCode: state.currentUserCode,
-          userName: state.currentUserName,
-          userType: userType,
-          status: status,
-          respondedAt: DateTime.now(),
-        ),
+      await _respondToEvent(
+        eventCode: occurrence.code,
+        occurrenceCode: occurrence.occurrenceCode,
+        partyCode: partyCode,
+        partyType: partyType,
+        status: status,
       );
-      emit(state.copyWith(events: _replace(updated)));
+      _applyMyRsvp(occurrence.occurrenceCode, status, partyType, partyCode);
       return (true, 'RSVP saved');
     } catch (e) {
       return (false, 'Could not save your RSVP. Please try again.');
     }
+  }
+
+  /// (partyCode, partyType) of the logged-in user: staff code when one is
+  /// resolved, else the guardian record code for parents.
+  Future<(String, String)> _partyIdentity() async {
+    final staffCode = state.currentStaffCode.trim().isNotEmpty
+        ? state.currentStaffCode.trim()
+        : (await _storageService.getString(StorageKeys.staffCode) ?? '')
+              .trim();
+    if (staffCode.isNotEmpty) return (staffCode, 'STAFF');
+    final guardianCode =
+        (await _storageService.getString(StorageKeys.guardianCode) ?? '')
+            .trim();
+    if (guardianCode.isNotEmpty) return (guardianCode, 'PARENT');
+    return ('', 'STAFF');
+  }
+
+  /// Reflects the RSVP on the occurrence row so the bar and summary
+  /// update without a refetch.
+  void _applyMyRsvp(
+    String occurrenceCode,
+    EventRsvpStatus status,
+    String partyType,
+    String partyCode,
+  ) {
+    final events = [
+      for (final event in state.events)
+        if (event.occurrenceCode != occurrenceCode)
+          event
+        else
+          event.copyWith(
+            myRsvpStatus: () => status,
+            rsvps: [
+              ...event.rsvps.where((r) => r.userCode != partyCode),
+              EventRsvp(
+                userCode: partyCode,
+                userName: state.currentUserName,
+                userType: partyType,
+                status: status,
+                respondedAt: DateTime.now(),
+              ),
+            ],
+          ),
+    ];
+    emit(state.copyWith(events: events));
+  }
+
+  /// Range for grid/list pagination — the API requires a window, the views
+  /// want plain pages. Starts TODAY: pages walk date_asc, so starting in
+  /// the past would spend the first pages on old occurrences the upcoming
+  /// list filters out (past events come from the month fetches instead).
+  DateTime get _listFrom {
+    final now = DateTime.now();
+    return DateTime(now.year, now.month, now.day);
+  }
+
+  DateTime get _listTo =>
+      DateTime(DateTime.now().year + 2, DateTime.now().month, 0);
+
+  /// Merges [rows] into state (occurrence-keyed) keeping date order.
+  void _mergeRows(List<Event> rows, {bool? hasMore}) {
+    final byKey = <String, Event>{
+      for (final e in state.events) _rowKey(e): e,
+    };
+    for (final row in rows) {
+      byKey[_rowKey(row)] = row;
+    }
+    final events = byKey.values.toList()
+      ..sort((a, b) => a.date.compareTo(b.date));
+    emit(
+      state.copyWith(
+        events: events,
+        isLoadingMore: false,
+        hasMoreEvents: hasMore,
+      ),
+    );
+  }
+
+  /// Calendar navigation: fetch the newly visible month once.
+  Future<void> ensureMonth(DateTime month) async {
+    final key = _monthKey(month);
+    if (_loadedMonths.contains(key)) return;
+    _loadedMonths.add(key);
+    try {
+      final (partyCode, _) = await _partyIdentity();
+      final rows = await _getEvents(
+        from: DateTime(month.year, month.month, 1),
+        to: DateTime(month.year, month.month + 1, 0),
+        partyCode: partyCode,
+      );
+      _mergeRows(rows);
+    } catch (_) {
+      _loadedMonths.remove(key); // retry on the next visit
+    }
+  }
+
+  /// Grid/list infinite scroll: fetch the next page (10 rows) and append.
+  Future<void> loadMoreEvents() async {
+    if (_fetchingMore || !state.hasMoreEvents) return;
+    _fetchingMore = true;
+    emit(state.copyWith(isLoadingMore: true));
+    try {
+      final (partyCode, _) = await _partyIdentity();
+      final (rows, hasMore) = await _getEvents.page(
+        from: _listFrom,
+        to: _listTo,
+        page: _listPage,
+        partyCode: partyCode,
+      );
+      _listPage++;
+      _mergeRows(rows, hasMore: hasMore);
+    } catch (_) {
+      emit(state.copyWith(isLoadingMore: false));
+    } finally {
+      _fetchingMore = false;
+    }
+  }
+
+  /// Full reload that never joins an already-running (stale) load.
+  Future<void> refresh() async {
+    try {
+      await _inFlightLoad;
+    } catch (_) {}
+    await load(silent: true);
   }
 
   // ------------------------------------------------------------- holidays
