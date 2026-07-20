@@ -40,17 +40,20 @@ class MockStorageService implements StorageService {
   @override
   Future<String?> getString(String key) async => _data[key];
   @override
-  Future<void> saveInt(String key, int value) async => _data[key] = value.toString();
+  Future<void> saveInt(String key, int value) async =>
+      _data[key] = value.toString();
   @override
   Future<int?> getInt(String key) async => int.tryParse(_data[key] ?? '');
   @override
-  Future<void> saveBool(String key, bool value) async => _data[key] = value.toString();
+  Future<void> saveBool(String key, bool value) async =>
+      _data[key] = value.toString();
   @override
   Future<bool?> getBool(String key) async {
     final v = _data[key];
     if (v == null) return null;
     return v == 'true';
   }
+
   @override
   Future<void> saveJson(String key, Map<String, dynamic> value) async {}
   @override
@@ -81,9 +84,9 @@ class MockMyAttendanceState extends MyAttendanceState {
     bool isLoading = false,
     bool isLoaded = false,
     bool isError = false,
-  })  : _isLoading = isLoading,
-        _isLoaded = isLoaded,
-        _isError = isError;
+  }) : _isLoading = isLoading,
+       _isLoaded = isLoaded,
+       _isError = isError;
 
   @override
   bool get isLoading => _isLoading;
@@ -104,9 +107,9 @@ class MockMyShiftsState extends MyShiftsState {
     bool isLoading = false,
     bool isLoaded = false,
     bool isError = false,
-  })  : _isLoading = isLoading,
-        _isLoaded = isLoaded,
-        _isError = isError;
+  }) : _isLoading = isLoading,
+       _isLoaded = isLoaded,
+       _isError = isError;
 
   @override
   bool get isLoading => _isLoading;
@@ -119,7 +122,8 @@ class MockMyShiftsState extends MyShiftsState {
 }
 
 // 1. Parent Dashboard Cubits
-class MockParentDashboardCubit extends MockCubit<ParentDashboardState> implements ParentDashboardCubit {
+class MockParentDashboardCubit extends MockCubit<ParentDashboardState>
+    implements ParentDashboardCubit {
   MockParentDashboardCubit(super.initialState);
   bool isClosedCalled = false;
   @override
@@ -129,7 +133,8 @@ class MockParentDashboardCubit extends MockCubit<ParentDashboardState> implement
   }
 }
 
-class MockMyChildsDayCubit extends MockCubit<MyChildsDayState> implements MyChildsDayCubit {
+class MockMyChildsDayCubit extends MockCubit<MyChildsDayState>
+    implements MyChildsDayCubit {
   MockMyChildsDayCubit(super.initialState);
   bool loadForChildCalled = false;
   String? lastStudentCode;
@@ -148,7 +153,9 @@ class MockMyChildsDayCubit extends MockCubit<MyChildsDayState> implements MyChil
   }
 }
 
-class MockStudentAttendanceProfileCubit extends MockCubit<StudentAttendanceProfileState> implements StudentAttendanceProfileCubit {
+class MockStudentAttendanceProfileCubit
+    extends MockCubit<StudentAttendanceProfileState>
+    implements StudentAttendanceProfileCubit {
   MockStudentAttendanceProfileCubit(super.initialState);
   bool loadAttendanceProfileCalled = false;
   bool isClosedCalled = false;
@@ -170,7 +177,8 @@ class MockStudentAttendanceProfileCubit extends MockCubit<StudentAttendanceProfi
   }
 }
 
-class MockCommunicationCubit extends MockCubit<CommunicationState> implements CommunicationCubit {
+class MockCommunicationCubit extends MockCubit<CommunicationState>
+    implements CommunicationCubit {
   MockCommunicationCubit(super.initialState);
   bool loadConversationsCalled = false;
   bool isClosedCalled = false;
@@ -192,7 +200,8 @@ class MockCommunicationCubit extends MockCubit<CommunicationState> implements Co
   }
 }
 
-class MockStudentNewslettersCubit extends MockCubit<StudentNewslettersState> implements StudentNewslettersCubit {
+class MockStudentNewslettersCubit extends MockCubit<StudentNewslettersState>
+    implements StudentNewslettersCubit {
   MockStudentNewslettersCubit(super.initialState);
   bool loadFirstPageCalled = false;
   bool isClosedCalled = false;
@@ -214,7 +223,8 @@ class MockStudentNewslettersCubit extends MockCubit<StudentNewslettersState> imp
   }
 }
 
-class MockGeofenceCubit extends MockCubit<GeofenceState> implements GeofenceCubit {
+class MockGeofenceCubit extends MockCubit<GeofenceState>
+    implements GeofenceCubit {
   MockGeofenceCubit(super.initialState);
   bool initForSchoolCalled = false;
   String? lastSchoolCode;
@@ -233,12 +243,14 @@ class MockGeofenceCubit extends MockCubit<GeofenceState> implements GeofenceCubi
   }
 }
 
-class MockParentChildCubit extends MockCubit<ParentChildState> implements ParentChildCubit {
+class MockParentChildCubit extends MockCubit<ParentChildState>
+    implements ParentChildCubit {
   MockParentChildCubit(super.initialState);
 }
 
 // 2. Staff Dashboard Cubits
-class MockStaffDashboardCubit extends MockCubit<StaffDashboardState> implements StaffDashboardCubit {
+class MockStaffDashboardCubit extends MockCubit<StaffDashboardState>
+    implements StaffDashboardCubit {
   MockStaffDashboardCubit(super.initialState);
   bool isClosedCalled = false;
   @override
@@ -271,7 +283,8 @@ class MockMyDayCubit extends MockCubit<MyDayState> implements MyDayCubit {
   }
 }
 
-class MockRatioMonitoringCubit extends MockCubit<RatioMonitoringState> implements RatioMonitoringCubit {
+class MockRatioMonitoringCubit extends MockCubit<RatioMonitoringState>
+    implements RatioMonitoringCubit {
   MockRatioMonitoringCubit(super.initialState);
   bool loadRatioMonitoringCalled = false;
   bool isClosedCalled = false;
@@ -293,7 +306,8 @@ class MockRatioMonitoringCubit extends MockCubit<RatioMonitoringState> implement
   }
 }
 
-class MockMyAttendanceCubit extends MockCubit<MyAttendanceState> implements MyAttendanceCubit {
+class MockMyAttendanceCubit extends MockCubit<MyAttendanceState>
+    implements MyAttendanceCubit {
   MockMyAttendanceCubit(super.initialState);
   bool loadCalled = false;
   bool refreshCalled = false;
@@ -316,7 +330,8 @@ class MockMyAttendanceCubit extends MockCubit<MyAttendanceState> implements MyAt
   }
 }
 
-class MockMyShiftsCubit extends MockCubit<MyShiftsState> implements MyShiftsCubit {
+class MockMyShiftsCubit extends MockCubit<MyShiftsState>
+    implements MyShiftsCubit {
   MockMyShiftsCubit(super.initialState);
   bool loadCalled = false;
   bool isClosedCalled = false;
@@ -334,7 +349,8 @@ class MockMyShiftsCubit extends MockCubit<MyShiftsState> implements MyShiftsCubi
 }
 
 // 3. Admin Dashboard Cubits
-class MockAdminDashboardCubit extends MockCubit<AdminDashboardState> implements AdminDashboardCubit {
+class MockAdminDashboardCubit extends MockCubit<AdminDashboardState>
+    implements AdminDashboardCubit {
   MockAdminDashboardCubit(super.initialState);
   bool loadUserNameCalled = false;
   bool isClosedCalled = false;
@@ -351,7 +367,8 @@ class MockAdminDashboardCubit extends MockCubit<AdminDashboardState> implements 
   }
 }
 
-class MockSchoolStatusCubit extends MockCubit<SchoolStatusState> implements SchoolStatusCubit {
+class MockSchoolStatusCubit extends MockCubit<SchoolStatusState>
+    implements SchoolStatusCubit {
   MockSchoolStatusCubit(super.initialState);
   bool loadSchoolStatusCalled = false;
   bool isClosedCalled = false;
@@ -372,7 +389,8 @@ class MockSchoolStatusCubit extends MockCubit<SchoolStatusState> implements Scho
   }
 }
 
-class MockIndividualMovementsCubit extends MockCubit<IndividualMovementsState> implements IndividualMovementsCubit {
+class MockIndividualMovementsCubit extends MockCubit<IndividualMovementsState>
+    implements IndividualMovementsCubit {
   MockIndividualMovementsCubit(super.initialState);
   bool loadInitialCalled = false;
   bool refreshCalled = false;
@@ -409,7 +427,8 @@ class MockIndividualMovementsCubit extends MockCubit<IndividualMovementsState> i
   }
 }
 
-class MockFutureAvailabilityCubit extends MockCubit<FutureAvailabilityState> implements FutureAvailabilityCubit {
+class MockFutureAvailabilityCubit extends MockCubit<FutureAvailabilityState>
+    implements FutureAvailabilityCubit {
   MockFutureAvailabilityCubit(super.initialState);
   bool loadCalled = false;
   bool refreshCalled = false;
@@ -421,7 +440,10 @@ class MockFutureAvailabilityCubit extends MockCubit<FutureAvailabilityState> imp
   }
 
   @override
-  Future<void> refresh({required DateTime date, required bool isTwoShifts}) async {
+  Future<void> refresh({
+    required DateTime date,
+    required bool isTwoShifts,
+  }) async {
     refreshCalled = true;
   }
 
@@ -432,7 +454,8 @@ class MockFutureAvailabilityCubit extends MockCubit<FutureAvailabilityState> imp
   }
 }
 
-class MockClassroomShiftsCubit extends MockCubit<ClassroomShiftsState> implements ClassroomShiftsCubit {
+class MockClassroomShiftsCubit extends MockCubit<ClassroomShiftsState>
+    implements ClassroomShiftsCubit {
   MockClassroomShiftsCubit(super.initialState);
   bool loadCalled = false;
   bool isClosedCalled = false;
@@ -449,7 +472,8 @@ class MockClassroomShiftsCubit extends MockCubit<ClassroomShiftsState> implement
   }
 }
 
-class MockDashboardAttentionCubit extends MockCubit<DashboardAttentionState> implements DashboardAttentionCubit {
+class MockDashboardAttentionCubit extends MockCubit<DashboardAttentionState>
+    implements DashboardAttentionCubit {
   MockDashboardAttentionCubit(super.initialState);
   bool loadCalled = false;
   bool refreshCalled = false;
@@ -496,7 +520,9 @@ void main() {
 
     setUp(() {
       dashboardCubit = MockParentDashboardCubit(
-        ParentDashboardState(cards: List<ParentDashboardCard>.of(ParentDashboardCard.values)),
+        ParentDashboardState(
+          cards: List<ParentDashboardCard>.of(ParentDashboardCard.values),
+        ),
       );
       myChildsDayCubit = MockMyChildsDayCubit(const MyChildsDayState.initial());
       studentAttendanceProfileCubit = MockStudentAttendanceProfileCubit(
@@ -511,9 +537,17 @@ void main() {
     });
 
     test('initializes and triggers loads if child is already selected', () async {
-      const child = ParentChildRef(code: 'CHILD123', name: 'Child Name', classroom: 'Room A');
+      const child = ParentChildRef(
+        code: 'CHILD123',
+        name: 'Child Name',
+        classroom: 'Room A',
+      );
       parentChildCubit.emit(
-        ParentChildState(selectedChild: child, children: const [child], isLoaded: true),
+        ParentChildState(
+          selectedChild: child,
+          children: const [child],
+          isLoaded: true,
+        ),
       );
 
       mockStorageService.saveString(StorageKeys.schoolCode, 'SCHOOL_XYZ');
@@ -545,6 +579,7 @@ void main() {
     test('updates state to ready when all child cubits are loaded', () async {
       final coordinator = ParentDashboardCoordinatorCubit(
         dashboardCubit: dashboardCubit,
+
         myChildsDayCubit: myChildsDayCubit,
         studentAttendanceProfileCubit: studentAttendanceProfileCubit,
         communicationCubit: communicationCubit,
@@ -556,12 +591,20 @@ void main() {
       expect(coordinator.state.status, DashboardStatus.initial);
 
       // Emit loading on one child cubit
-      myChildsDayCubit.emit(const MyChildsDayState.initial().copyWith(status: MyChildsDayStatus.loading));
+      myChildsDayCubit.emit(
+        const MyChildsDayState.initial().copyWith(
+          status: MyChildsDayStatus.loading,
+        ),
+      );
       await Future.delayed(Duration.zero);
       expect(coordinator.state.status, DashboardStatus.loading);
 
       // Emit loaded/ready states on all sub-cubits
-      myChildsDayCubit.emit(const MyChildsDayState.initial().copyWith(status: MyChildsDayStatus.loaded));
+      myChildsDayCubit.emit(
+        const MyChildsDayState.initial().copyWith(
+          status: MyChildsDayStatus.loaded,
+        ),
+      );
       studentAttendanceProfileCubit.emit(
         StudentAttendanceProfileState.loaded(
           studentCode: 'C1',
@@ -575,9 +618,13 @@ void main() {
         ),
       );
       studentNewslettersCubit.emit(
-        const StudentNewslettersState.initial().copyWith(status: StudentNewslettersStatus.loaded),
+        const StudentNewslettersState.initial().copyWith(
+          status: StudentNewslettersStatus.loaded,
+        ),
       );
-      communicationCubit.emit(const CommunicationLoaded(threads: {}, activeThreadId: ''));
+      communicationCubit.emit(
+        const CommunicationLoaded(threads: {}, activeThreadId: ''),
+      );
 
       await Future.delayed(Duration.zero);
       expect(coordinator.state.status, DashboardStatus.ready);
@@ -585,26 +632,29 @@ void main() {
       coordinator.close();
     });
 
-    test('closes non-singleton cubits on close, but keeps geofence alive', () async {
-      final coordinator = ParentDashboardCoordinatorCubit(
-        dashboardCubit: dashboardCubit,
-        myChildsDayCubit: myChildsDayCubit,
-        studentAttendanceProfileCubit: studentAttendanceProfileCubit,
-        communicationCubit: communicationCubit,
-        studentNewslettersCubit: studentNewslettersCubit,
-        geofenceCubit: geofenceCubit,
-        parentChildCubit: parentChildCubit,
-      );
+    test(
+      'closes non-singleton cubits on close, but keeps geofence alive',
+      () async {
+        final coordinator = ParentDashboardCoordinatorCubit(
+          dashboardCubit: dashboardCubit,
+          myChildsDayCubit: myChildsDayCubit,
+          studentAttendanceProfileCubit: studentAttendanceProfileCubit,
+          communicationCubit: communicationCubit,
+          studentNewslettersCubit: studentNewslettersCubit,
+          geofenceCubit: geofenceCubit,
+          parentChildCubit: parentChildCubit,
+        );
 
-      await coordinator.close();
+        await coordinator.close();
 
-      expect(dashboardCubit.isClosedCalled, isTrue);
-      expect(myChildsDayCubit.isClosedCalled, isTrue);
-      expect(studentAttendanceProfileCubit.isClosedCalled, isTrue);
-      expect(communicationCubit.isClosedCalled, isTrue);
-      expect(studentNewslettersCubit.isClosedCalled, isTrue);
-      expect(geofenceCubit.isClosedCalled, isFalse);
-    });
+        expect(dashboardCubit.isClosedCalled, isTrue);
+        expect(myChildsDayCubit.isClosedCalled, isTrue);
+        expect(studentAttendanceProfileCubit.isClosedCalled, isTrue);
+        expect(communicationCubit.isClosedCalled, isTrue);
+        expect(studentNewslettersCubit.isClosedCalled, isTrue);
+        expect(geofenceCubit.isClosedCalled, isFalse);
+      },
+    );
   });
 
   group('StaffDashboardCoordinatorCubit Tests', () {
@@ -617,10 +667,14 @@ void main() {
 
     setUp(() {
       dashboardCubit = MockStaffDashboardCubit(
-        StaffDashboardState(cards: List<StaffDashboardCard>.of(StaffDashboardCard.values)),
+        StaffDashboardState(
+          cards: List<StaffDashboardCard>.of(StaffDashboardCard.values),
+        ),
       );
       myDayCubit = MockMyDayCubit(const MyDayState());
-      ratioMonitoringCubit = MockRatioMonitoringCubit(const RatioMonitoringState.initial());
+      ratioMonitoringCubit = MockRatioMonitoringCubit(
+        const RatioMonitoringState.initial(),
+      );
       myAttendanceCubit = MockMyAttendanceCubit(const MockMyAttendanceState());
       myShiftsCubit = MockMyShiftsCubit(const MockMyShiftsState());
       geofenceCubit = MockGeofenceCubit(const GeofenceState.initial());
@@ -667,7 +721,9 @@ void main() {
 
       // Simulate loaded states
       myDayCubit.emit(const MyDayState(status: MyDayStatus.loaded));
-      ratioMonitoringCubit.emit(const RatioMonitoringState.loaded(schoolCode: 'S1', classrooms: []));
+      ratioMonitoringCubit.emit(
+        const RatioMonitoringState.loaded(schoolCode: 'S1', classrooms: []),
+      );
       myAttendanceCubit.emit(const MockMyAttendanceState(isLoaded: true));
       myShiftsCubit.emit(const MockMyShiftsState(isLoaded: true));
 
@@ -691,14 +747,28 @@ void main() {
 
     setUp(() {
       dashboardCubit = MockAdminDashboardCubit(
-        AdminDashboardState(cards: List<AdminDashboardCard>.of(AdminDashboardCard.values)),
+        AdminDashboardState(
+          cards: List<AdminDashboardCard>.of(AdminDashboardCard.values),
+        ),
       );
-      schoolStatusCubit = MockSchoolStatusCubit(const SchoolStatusState.initial());
-      ratioMonitoringCubit = MockRatioMonitoringCubit(const RatioMonitoringState.initial());
-      movementsCubit = MockIndividualMovementsCubit(const IndividualMovementsState.initial());
-      availabilityCubit = MockFutureAvailabilityCubit(const FutureAvailabilityState.initial());
-      classroomShiftsCubit = MockClassroomShiftsCubit(const ClassroomShiftsState.initial());
-      attentionCubit = MockDashboardAttentionCubit(const DashboardAttentionState());
+      schoolStatusCubit = MockSchoolStatusCubit(
+        const SchoolStatusState.initial(),
+      );
+      ratioMonitoringCubit = MockRatioMonitoringCubit(
+        const RatioMonitoringState.initial(),
+      );
+      movementsCubit = MockIndividualMovementsCubit(
+        const IndividualMovementsState.initial(),
+      );
+      availabilityCubit = MockFutureAvailabilityCubit(
+        const FutureAvailabilityState.initial(),
+      );
+      classroomShiftsCubit = MockClassroomShiftsCubit(
+        const ClassroomShiftsState.initial(),
+      );
+      attentionCubit = MockDashboardAttentionCubit(
+        const DashboardAttentionState(),
+      );
       myDayCubit = MockMyDayCubit(const MyDayState());
       geofenceCubit = MockGeofenceCubit(const GeofenceState.initial());
     });

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -12,6 +14,7 @@ class StaffFormLayout extends StatelessWidget {
     required this.bottomBar,
     this.isKiosk = false,
     this.showKioskBackButton = false,
+    this.showKioskLogoutMenu = true,
   });
 
   final String title;
@@ -22,6 +25,9 @@ class StaffFormLayout extends StatelessWidget {
   /// Shows a back arrow in the kiosk header. Only relevant when [isKiosk] is
   /// true; the non-kiosk header already has a back button via [CustomAppBar].
   final bool showKioskBackButton;
+
+  /// Shows a logout menu in the kiosk header. Only relevant when [isKiosk] is true.
+  final bool showKioskLogoutMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -70,6 +76,29 @@ class StaffFormLayout extends StatelessWidget {
                               ),
                             ),
                           ),
+                          if (showKioskLogoutMenu)
+                            PopupMenuButton<String>(
+                              icon: const Icon(Icons.more_vert, color: Color(0xff573353)),
+                              onSelected: (value) {
+                                if (value == 'logout') {
+                                  AppLogger.d('[Kiosk] Logout selected from menu');
+                                  context.go('/kiosk/logout');
+                                }
+                              },
+                              itemBuilder: (BuildContext context) => [
+                                const PopupMenuItem<String>(
+                                  value: 'logout',
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.logout, size: 20, color: Color(0xff573353)),
+                                      SizedBox(width: 12),
+                                      Text('Logout'),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
                         ],
                       ),
                     ),

@@ -8,8 +8,10 @@ abstract class KioskRepository {
 
   /// Verify a 4-digit PIN and get guardian/staff details and student status.
   /// Returns KioskPinResultEntity with persona, student sign-in/out status, etc.
+  /// When isLogout=true, processes this as a logout confirmation for the kiosk user.
   Future<KioskPinResultEntity> verifyPin({
     required String pin,
     required String schoolCode,
+    bool isLogout = false,
   });
 }

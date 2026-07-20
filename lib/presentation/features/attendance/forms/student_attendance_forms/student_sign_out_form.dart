@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -16,6 +17,8 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
@@ -500,6 +503,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
         } else if (widget.isKiosk) {
+          // Reload QR code before returning to dashboard
+          AppLogger.d('[Kiosk] Student sign-out success - reloading QR code');
+          unawaited(context.read<KioskDashboardCubit>().loadQrCode());
           context.go('/kiosk');
         } else if (isParent) {
           final s = currentStudents.first;
@@ -574,6 +580,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     return StaffFormLayout(
       isKiosk: widget.isKiosk,
       showKioskBackButton: widget.isKiosk,
+      showKioskLogoutMenu: widget.isKiosk,
       title: 'Sign-Out',
       child: SingleChildScrollView(
         child: Column(
