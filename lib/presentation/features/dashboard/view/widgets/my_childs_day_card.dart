@@ -681,8 +681,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           _refreshSignInStatusAfterAction(children),
                     ),
                   ),
+                // TODO: Temporarily disabled Sign Out bottom sheet and push notification.
                 ).then((_) {
-                  if (mounted) _refreshSignInStatusAfterAction(children);
+                  // if (mounted) _refreshSignInStatusAfterAction(children);
                 }),
               );
             }
@@ -720,8 +721,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       popOnSuccess: true,
                     ),
                   ),
+                // TODO: Temporarily disabled Sign Out bottom sheet and push notification after Sign In.
+                // Status will be checked on next dashboard refresh or app resume.
                 ).then((_) {
-                  if (mounted) _refreshSignInStatusAfterAction(children);
+                  // if (mounted) _refreshSignInStatusAfterAction(children);
                 }),
               );
             }
@@ -948,6 +951,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                             prev.status != GeofenceCubitStatus.withinRange &&
                             curr.status == GeofenceCubitStatus.withinRange,
                         listener: (context, _) {
+                          // TODO: Temporarily disabled Sign Out bottom sheet when child is signed in.
+                          // Only show the sheet if the selected child is signed out (needs to sign in).
+                          if (_isSelectedChildSignedIn) return;
                           // GeofenceCubit already fires the notification via
                           // _triggerNotificationIfNeeded — no need to do it here.
                           if (!context.mounted) return;

@@ -196,7 +196,7 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
 
                         const SizedBox(height: 50),
 
-                        // Action Buttons
+                        // Action Buttons (styled to match KioskPinPadWidget)
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 30),
                           child: Row(
@@ -204,14 +204,12 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                               // Cancel Button
                               Expanded(
                                 child: Container(
-                                  height: 50,
+                                  height: 48,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: AppColors.themeColor,
-                                      width: 2,
-                                    ),
+                                    gradient: AppColors.buildSecondaryGradient(),
                                   ),
+                                  padding: const EdgeInsets.all(1),
                                   child: TextButton(
                                     onPressed: isLoading
                                         ? null
@@ -221,25 +219,36 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                                             setState(() {});
                                             context.go('/kiosk');
                                           },
-                                    child: Text(
-                                      'Cancel',
-                                      style: TextStyle(
-                                        color: isLoading ? Colors.grey : AppColors.primaryColor,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 16,
+                                    style: TextButton.styleFrom(
+                                      backgroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: ShaderMask(
+                                      shaderCallback: (Rect bounds) =>
+                                          AppColors.buildSecondaryGradient().createShader(bounds),
+                                      blendMode: BlendMode.srcIn,
+                                      child: const Text(
+                                        'Cancel',
+                                        style: TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 16 * (-3 / 100),
+                                        ),
                                       ),
                                     ),
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 20),
-                              // Next/Logout Button
+                              const SizedBox(width: 16),
+                              // Next Button (styled to match KioskPinPadWidget)
                               Expanded(
                                 child: Container(
-                                  height: 50,
                                   decoration: BoxDecoration(
                                     borderRadius: BorderRadius.circular(8),
-                                    color: isLoading ? Colors.grey : AppColors.themeColor,
+                                    gradient: AppColors.buildSecondaryGradient(),
                                   ),
                                   child: ElevatedButton(
                                     onPressed: isLoading || _currentPin.length != maxPinLength
@@ -247,7 +256,11 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                                         : () => _submitPin(ctx),
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Colors.transparent,
-                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(vertical: 10),
+                                      shadowColor: Colors.transparent,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
                                     ),
                                     child: isLoading
                                         ? const SizedBox(
@@ -264,8 +277,9 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                                             'Next',
                                             style: TextStyle(
                                               color: Colors.white,
-                                              fontWeight: FontWeight.w600,
                                               fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              letterSpacing: 16 * (-3 / 100),
                                             ),
                                           ),
                                   ),
@@ -293,14 +307,16 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
         _currentPin += digit;
       });
 
+      // TODO: Temporarily disabled auto-trigger for Next button.
+      // User must explicitly tap the Next button.
       // Auto-submit when max PIN length is reached
-      if (_currentPin.length == maxPinLength) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted) {
-            _submitPin(_blocContext);  // ← Use captured BlocBuilder context
-          }
-        });
-      }
+      // if (_currentPin.length == maxPinLength) {
+      //   Future.delayed(const Duration(milliseconds: 300), () {
+      //     if (mounted) {
+      //       _submitPin(_blocContext);  // ← Use captured BlocBuilder context
+      //     }
+      //   });
+      // }
     }
   }
 
