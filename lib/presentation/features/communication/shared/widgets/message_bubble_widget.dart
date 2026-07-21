@@ -231,18 +231,18 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
-    // Deleted messages: no Reply/Copy/Edit/Delete/Info regardless of who
-    // sent it — there's no content left to act on. Reacting is still
-    // allowed (matches WhatsApp/Telegram behavior for deleted messages).
+    // Deleted messages: no Reply/Copy/Edit/Delete/Info and no reactions — there's no
+    // content left to act on, and we don't show reaction pills on a deleted message, so
+    // reacting is disabled entirely (no long-press picker / double-tap) to stay consistent.
     if (widget.isDeleted) {
       return const ChatReactionsConfig(
-        availableReactions: ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
+        availableReactions: [],
         menuItems: [],
-        enableLongPress: true,
-        enableDoubleTap: true,
+        enableLongPress: false,
+        enableDoubleTap: false,
         showAddReactionButton: false,
-        showContextMenu: true,
-        enableHapticFeedback: true,
+        showContextMenu: false,
+        enableHapticFeedback: false,
         reactionSize: 24,
       );
     }
@@ -738,6 +738,8 @@ class _MessageBubbleState extends State<MessageBubble>
                       // _AnimatedReactionBadge preserves its own state across
                       // AnimatedBuilder rebuilds so per-emoji spring animations
                       // fire only for newly added/removed reactions.
+                      // Deleted messages show no reaction pills.
+                      if (!widget.isDeleted)
                       AnimatedBuilder(
                         animation: widget.reactionsController,
                         builder: (context, _) {
