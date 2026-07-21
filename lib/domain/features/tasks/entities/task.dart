@@ -82,6 +82,19 @@ enum TaskHolidayPolicy {
   }
 }
 
+/// Scope of a series update (Tasks API §3 `?scope=`). [all] regenerates future
+/// occurrences from today (the whole-series default); [thisAndFuture] reanchors
+/// that regeneration at a specific occurrence, leaving everything before it
+/// untouched (§3d — requires an `anchorOccurrenceCode`).
+enum TaskUpdateScope {
+  all('ALL'),
+  thisAndFuture('THIS_AND_FUTURE');
+
+  const TaskUpdateScope(this.value);
+
+  final String value;
+}
+
 /// Repeat cadence for recurring tasks (PRD §11.1 Cycle).
 enum TaskRecurrence {
   daily('DAILY'),

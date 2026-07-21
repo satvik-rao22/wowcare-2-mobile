@@ -7,6 +7,7 @@ import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/tasks/entities/task.dart';
 import '../../../../domain/features/tasks/entities/task_assignee.dart';
 import '../../../../domain/features/tasks/entities/task_board.dart';
+import '../../../../domain/features/tasks/entities/task_occurrence.dart';
 import '../../../../domain/features/tasks/entities/task_query.dart';
 import '../../../../domain/features/tasks/entities/task_series.dart';
 import '../../../../domain/features/tasks/entities/task_upload_session.dart';
@@ -30,6 +31,10 @@ abstract class TaskRemoteDataSource {
     int size,
   });
 
+  /// `GET /api/v1/tasks/{code}` — full detail for one series (Tasks API §2a),
+  /// including the recurrence breakdown the lean list rows omit.
+  Future<TaskSeriesModel> getTask(String code);
+
   /// `GET /api/v1/tasks/board` — Kanban board grouped into status columns, each
   /// independently paginated (Tasks API §6).
   Future<TaskBoard> getBoard(TaskQuery query);
@@ -46,7 +51,9 @@ abstract class TaskRemoteDataSource {
   /// [schedule], when non-null, carries the recurrence rule and series
   /// dates/times to persist (Tasks API §3 full parity). [assetCodes], when
   /// non-null, full-replaces attachments; [parentTaskCode] re-parents (`""`
-  /// clears an existing parent).
+  /// clears an existing parent). [scope] defaults to `ALL`; pass
+  /// `THIS_AND_FUTURE` with [anchorOccurrenceCode] to reanchor the schedule
+  /// regeneration at a specific occurrence (§3d).
   Future<TaskSeriesModel> updateTask({
     required String code,
     String? title,
@@ -56,6 +63,8 @@ abstract class TaskRemoteDataSource {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
     String? parentTaskCode,
+    TaskUpdateScope scope,
+    String? anchorOccurrenceCode,
   });
 
   /// `DELETE /api/v1/tasks/{code}` — soft-delete the series.
@@ -68,10 +77,75 @@ abstract class TaskRemoteDataSource {
     required String staffCode,
   });
 
+  /// `PATCH /api/v1/tasks/{code}/assignees/{staffCode}` — update one assignee's
+  /// priority in isolation, cascading it onto their future assignments without
+  /// resending the whole roster (Tasks API §4b).
+  Future<void> updateAssigneePriority({
+    required String code,
+    required String staffCode,
+    required TaskPriority priority,
+  });
+
   /// `PATCH /api/v1/tasks/assignments/{code}/status` — change one card's status.
   Future<TaskAssignmentModel> updateAssignmentStatus({
     required String code,
     required TaskStatus status,
+  });
+
+  /// `GET /api/v1/tasks/assignments/{code}` — one assignment by its own code
+  /// (Tasks API §5a).
+  Future<TaskAssignmentModel> getAssignment(String code);
+
+  /// `PATCH /api/v1/tasks/assignments/{code}` — edit a single assignment
+  /// (Tasks API §5b). Accepts the full create-time field set, not just
+  /// `dueAt`/`priority`; every field is optional so callers send only what
+  /// changed. The edit form funnels its whole save through here.
+  Future<TaskAssignmentModel> updateAssignment({
+    required String code,
+    String? title,
+    String? description,
+    DateTime? dueAt,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  });
+
+  /// `DELETE /api/v1/tasks/assignments/{code}` — remove one occurrence for one
+  /// assignee (must be `TO_DO`) (Tasks API §5c).
+  Future<void> deleteAssignment(String code);
+
+  /// `GET /api/v1/tasks/{code}/occurrences` — every occurrence of one series,
+  /// ascending (Tasks API §11a).
+  Future<List<TaskOccurrence>> getOccurrences(String code);
+
+  /// `GET /api/v1/tasks/{code}/occurrences/{occurrenceCode}` — one occurrence's
+  /// own detail (Tasks API §11b).
+  Future<TaskOccurrence> getOccurrence({
+    required String code,
+    required String occurrenceCode,
+  });
+
+  /// `PATCH /api/v1/tasks/{code}/occurrences/{occurrenceCode}?scope=THIS_ONLY`
+  /// — reschedule/override one occurrence only (Tasks API §11c).
+  Future<TaskOccurrence> updateOccurrence({
+    required String code,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  });
+
+  /// `DELETE /api/v1/tasks/{code}/occurrences/{occurrenceCode}` — cancel one
+  /// occurrence, keeping its row/history (Tasks API §11d).
+  Future<TaskOccurrence> cancelOccurrence({
+    required String code,
+    required String occurrenceCode,
+    String? reason,
   });
 
   /// `POST /api/v1/tasks/upload-session` — open a school-wide shared upload
@@ -185,7 +259,18 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
     String? parentTaskCode,
+    TaskUpdateScope scope = TaskUpdateScope.all,
+    String? anchorOccurrenceCode,
   }) async {
+    // Only send `scope`/`anchorOccurrenceCode` for THIS_AND_FUTURE (§3d) — a
+    // plain whole-series edit stays on the server default (ALL) and keeps the
+    // request identical to the pre-scope behaviour.
+    final query = <String, dynamic>{};
+    if (scope == TaskUpdateScope.thisAndFuture) {
+      query['scope'] = scope.value;
+      final anchor = (anchorOccurrenceCode ?? '').trim();
+      if (anchor.isNotEmpty) query['anchorOccurrenceCode'] = anchor;
+    }
     final response = await _client.patch<dynamic>(
       _url(ApiPaths.taskByCode(code)),
       data: TaskRequestBuilder.updateBody(
@@ -197,9 +282,19 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
         assetCodes: assetCodes,
         parentTaskCode: parentTaskCode,
       ),
+      queryParameters: query.isEmpty ? null : query,
       options: await _options(),
     );
     return _parseSeries(response.data, action: 'update');
+  }
+
+  @override
+  Future<TaskSeriesModel> getTask(String code) async {
+    final response = await _client.get<dynamic>(
+      _url(ApiPaths.taskByCode(code)),
+      options: await _options(),
+    );
+    return _parseSeries(response.data, action: 'fetch');
   }
 
   @override
@@ -229,6 +324,19 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
   }
 
   @override
+  Future<void> updateAssigneePriority({
+    required String code,
+    required String staffCode,
+    required TaskPriority priority,
+  }) async {
+    await _client.patch<dynamic>(
+      _url(ApiPaths.taskAssignee(code, staffCode)),
+      data: TaskRequestBuilder.assigneePriorityBody(priority),
+      options: await _options(),
+    );
+  }
+
+  @override
   Future<TaskAssignmentModel> updateAssignmentStatus({
     required String code,
     required TaskStatus status,
@@ -239,6 +347,118 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
       options: await _options(),
     );
     return _parseAssignmentSingle(response.data);
+  }
+
+  @override
+  Future<TaskAssignmentModel> getAssignment(String code) async {
+    final response = await _client.get<dynamic>(
+      _url(ApiPaths.taskAssignmentByCode(code)),
+      options: await _options(),
+    );
+    return _parseAssignmentSingle(response.data);
+  }
+
+  @override
+  Future<TaskAssignmentModel> updateAssignment({
+    required String code,
+    String? title,
+    String? description,
+    DateTime? dueAt,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  }) async {
+    final response = await _client.patch<dynamic>(
+      _url(ApiPaths.taskAssignmentByCode(code)),
+      data: TaskRequestBuilder.assignmentPatchBody(
+        title: title,
+        description: description,
+        dueAt: dueAt,
+        priority: priority,
+        status: status,
+        effort: effort,
+        schedule: schedule,
+        assignees: assignees,
+        assetCodes: assetCodes,
+      ),
+      options: await _options(),
+    );
+    return _parseAssignmentSingle(response.data);
+  }
+
+  @override
+  Future<void> deleteAssignment(String code) async {
+    await _client.delete<dynamic>(
+      _url(ApiPaths.taskAssignmentByCode(code)),
+      options: await _options(),
+    );
+  }
+
+  @override
+  Future<List<TaskOccurrence>> getOccurrences(String code) async {
+    final response = await _client.get<dynamic>(
+      _url(ApiPaths.taskOccurrences(code)),
+      options: await _options(),
+    );
+    return TaskResponseParser.occurrenceList(response.data);
+  }
+
+  @override
+  Future<TaskOccurrence> getOccurrence({
+    required String code,
+    required String occurrenceCode,
+  }) async {
+    final response = await _client.get<dynamic>(
+      _url(ApiPaths.taskOccurrence(code, occurrenceCode)),
+      options: await _options(),
+    );
+    return TaskResponseParser.occurrence(response.data);
+  }
+
+  @override
+  Future<TaskOccurrence> updateOccurrence({
+    required String code,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  }) async {
+    final response = await _client.patch<dynamic>(
+      _url(ApiPaths.taskOccurrence(code, occurrenceCode)),
+      // THIS_ONLY is the only value this endpoint accepts and its default, so
+      // send it explicitly for clarity (§11c).
+      queryParameters: const {'scope': 'THIS_ONLY'},
+      data: TaskRequestBuilder.occurrencePatchBody(
+        scheduledStartDate: scheduledStartDate,
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+        overrideTitle: overrideTitle,
+        overrideDescription: overrideDescription,
+      ),
+      options: await _options(),
+    );
+    return TaskResponseParser.occurrence(response.data);
+  }
+
+  @override
+  Future<TaskOccurrence> cancelOccurrence({
+    required String code,
+    required String occurrenceCode,
+    String? reason,
+  }) async {
+    final trimmedReason = (reason ?? '').trim();
+    final response = await _client.delete<dynamic>(
+      _url(ApiPaths.taskOccurrence(code, occurrenceCode)),
+      queryParameters:
+          trimmedReason.isEmpty ? null : {'reason': trimmedReason},
+      options: await _options(),
+    );
+    return TaskResponseParser.occurrence(response.data);
   }
 
   @override

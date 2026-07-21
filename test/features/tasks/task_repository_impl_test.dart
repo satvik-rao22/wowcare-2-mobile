@@ -9,6 +9,7 @@ import 'package:wowcare/data/features/tasks/repositories/task_repository_impl.da
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart';
@@ -32,12 +33,30 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
     documentApiBasePath: '/document-ms/api/v1',
   );
 
+  TaskSeriesModel nextSeries =
+      const TaskSeriesModel(code: 'TSK_1', title: 'x');
+  TaskAssignmentModel? nextAssignmentCard;
+  TaskOccurrence nextOccurrence = TaskOccurrence(
+    code: 'TOC_1',
+    taskCode: 'TSK_1',
+    originalStartDate: DateTime(2026, 7, 15),
+  );
+  List<TaskOccurrence> nextOccurrences = const [];
+
   final List<TaskQuery> assignmentQueries = [];
   Map<String, dynamic>? lastCreateArgs;
   Map<String, dynamic>? lastUpdateArgs;
   String? lastDeletedCode;
   Map<String, dynamic>? lastRemovedAssignee;
   Map<String, dynamic>? lastStatusArgs;
+  Map<String, dynamic>? lastAssigneePriorityArgs;
+  Map<String, dynamic>? lastAssignmentPatchArgs;
+  String? lastFetchedTaskCode;
+  String? lastFetchedAssignmentCode;
+  String? lastDeletedAssignmentCode;
+  String? lastOccurrencesCode;
+  Map<String, dynamic>? lastOccurrenceUpdateArgs;
+  Map<String, dynamic>? lastOccurrenceCancelArgs;
   int uploadSessionCalls = 0;
 
   @override
@@ -85,6 +104,8 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
     String? parentTaskCode,
+    TaskUpdateScope scope = TaskUpdateScope.all,
+    String? anchorOccurrenceCode,
   }) async {
     lastUpdateArgs = {
       'code': code,
@@ -95,8 +116,16 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
       'assignees': assignees,
       'assetCodes': assetCodes,
       'parentTaskCode': parentTaskCode,
+      'scope': scope,
+      'anchorOccurrenceCode': anchorOccurrenceCode,
     };
     return const TaskSeriesModel(code: 'TSK_1', title: 'x');
+  }
+
+  @override
+  Future<TaskSeriesModel> getTask(String code) async {
+    lastFetchedTaskCode = code;
+    return nextSeries;
   }
 
   @override
@@ -110,6 +139,19 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
     required String staffCode,
   }) async {
     lastRemovedAssignee = {'code': code, 'staffCode': staffCode};
+  }
+
+  @override
+  Future<void> updateAssigneePriority({
+    required String code,
+    required String staffCode,
+    required TaskPriority priority,
+  }) async {
+    lastAssigneePriorityArgs = {
+      'code': code,
+      'staffCode': staffCode,
+      'priority': priority,
+    };
   }
 
   @override
@@ -127,6 +169,115 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
           dueAt: DateTime(2026, 7, 17, 17),
           status: status.value,
         );
+  }
+
+  @override
+  Future<TaskAssignmentModel> getAssignment(String code) async {
+    lastFetchedAssignmentCode = code;
+    return nextAssignmentCard ??
+        TaskAssignmentModel(
+          code: code,
+          taskCode: 'TSK_1',
+          title: 'x',
+          occurrenceDate: DateTime(2026, 7, 15),
+          dueAt: DateTime(2026, 7, 17, 17),
+        );
+  }
+
+  @override
+  Future<TaskAssignmentModel> updateAssignment({
+    required String code,
+    String? title,
+    String? description,
+    DateTime? dueAt,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  }) async {
+    lastAssignmentPatchArgs = {
+      'code': code,
+      'title': title,
+      'description': description,
+      'dueAt': dueAt,
+      'priority': priority,
+      'status': status,
+      'effort': effort,
+      'schedule': schedule,
+      'assignees': assignees,
+      'assetCodes': assetCodes,
+    };
+    return nextAssignmentCard ??
+        TaskAssignmentModel(
+          code: code,
+          taskCode: 'TSK_1',
+          title: 'x',
+          occurrenceDate: DateTime(2026, 7, 15),
+          dueAt: dueAt ?? DateTime(2026, 7, 17, 17),
+          priority: (priority ?? TaskPriority.medium).value,
+        );
+  }
+
+  @override
+  Future<void> deleteAssignment(String code) async {
+    lastDeletedAssignmentCode = code;
+  }
+
+  @override
+  Future<List<TaskOccurrence>> getOccurrences(String code) async {
+    lastOccurrencesCode = code;
+    return nextOccurrences;
+  }
+
+  @override
+  Future<TaskOccurrence> getOccurrence({
+    required String code,
+    required String occurrenceCode,
+  }) async {
+    lastOccurrenceUpdateArgs = {
+      'code': code,
+      'occurrenceCode': occurrenceCode,
+      'get': true,
+    };
+    return nextOccurrence;
+  }
+
+  @override
+  Future<TaskOccurrence> updateOccurrence({
+    required String code,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  }) async {
+    lastOccurrenceUpdateArgs = {
+      'code': code,
+      'occurrenceCode': occurrenceCode,
+      'scheduledStartDate': scheduledStartDate,
+      'scheduledStartTime': scheduledStartTime,
+      'scheduledEndTime': scheduledEndTime,
+      'overrideTitle': overrideTitle,
+      'overrideDescription': overrideDescription,
+    };
+    return nextOccurrence;
+  }
+
+  @override
+  Future<TaskOccurrence> cancelOccurrence({
+    required String code,
+    required String occurrenceCode,
+    String? reason,
+  }) async {
+    lastOccurrenceCancelArgs = {
+      'code': code,
+      'occurrenceCode': occurrenceCode,
+      'reason': reason,
+    };
+    return nextOccurrence;
   }
 
   @override
@@ -370,6 +521,106 @@ void main() {
     expect(remote.lastStatusArgs!['code'], 'TSA_1');
     expect(remote.lastStatusArgs!['status'], TaskStatus.completed);
     expect(task.status, TaskStatus.completed);
+  });
+
+  test('getTask trims and maps the series detail (§2a)', () async {
+    remote.nextSeries = const TaskSeriesModel(
+      code: 'TSK_1',
+      title: 'Detail',
+      recurringFlag: true,
+      rruleFreq: 'WEEKLY',
+      rruleByDay: ['MO', 'WE'],
+    );
+    final series = await repo.getTask('  TSK_1  ');
+    expect(remote.lastFetchedTaskCode, 'TSK_1');
+    expect(series.recurrenceByDay, ['MO', 'WE']);
+    expect(series.recurrencePattern, TaskRecurrence.weekly);
+  });
+
+  test('updateTask forwards scope + anchor for THIS_AND_FUTURE (§3d)',
+      () async {
+    await repo.updateTask(
+      seriesCode: 'TSK_1',
+      scope: TaskUpdateScope.thisAndFuture,
+      anchorOccurrenceCode: 'TOC_7',
+    );
+    expect(remote.lastUpdateArgs!['scope'], TaskUpdateScope.thisAndFuture);
+    expect(remote.lastUpdateArgs!['anchorOccurrenceCode'], 'TOC_7');
+  });
+
+  test('updateAssigneePriority trims and forwards (§4b)', () async {
+    await repo.updateAssigneePriority(
+      seriesCode: ' TSK_1 ',
+      staffCode: ' STF_1 ',
+      priority: TaskPriority.high,
+    );
+    expect(remote.lastAssigneePriorityArgs, {
+      'code': 'TSK_1',
+      'staffCode': 'STF_1',
+      'priority': TaskPriority.high,
+    });
+  });
+
+  test('getAssignment trims and maps the card (§5a)', () async {
+    final task = await repo.getAssignment('  TSA_1  ');
+    expect(remote.lastFetchedAssignmentCode, 'TSA_1');
+    expect(task.code, 'TSA_1');
+  });
+
+  test('updateAssignment forwards dueAt/priority and maps the card (§5b)',
+      () async {
+    final due = DateTime.utc(2026, 7, 18, 17);
+    final task = await repo.updateAssignment(
+      assignmentCode: ' TSA_1 ',
+      dueAt: due,
+      priority: TaskPriority.high,
+    );
+    expect(remote.lastAssignmentPatchArgs!['code'], 'TSA_1');
+    expect(remote.lastAssignmentPatchArgs!['dueAt'], due);
+    expect(remote.lastAssignmentPatchArgs!['priority'], TaskPriority.high);
+    expect(task.priority, TaskPriority.high);
+  });
+
+  test('deleteAssignment trims before delegating (§5c)', () async {
+    await repo.deleteAssignment('  TSA_1  ');
+    expect(remote.lastDeletedAssignmentCode, 'TSA_1');
+  });
+
+  test('getOccurrences trims and delegates (§11a)', () async {
+    remote.nextOccurrences = [
+      TaskOccurrence(
+        code: 'TOC_1',
+        taskCode: 'TSK_1',
+        originalStartDate: DateTime(2026, 7, 15),
+      ),
+    ];
+    final occ = await repo.getOccurrences('  TSK_1  ');
+    expect(remote.lastOccurrencesCode, 'TSK_1');
+    expect(occ.single.code, 'TOC_1');
+  });
+
+  test('updateOccurrence trims + forwards the override fields (§11c)',
+      () async {
+    await repo.updateOccurrence(
+      seriesCode: ' TSK_1 ',
+      occurrenceCode: ' TOC_7 ',
+      scheduledStartDate: DateTime(2026, 7, 18),
+      overrideTitle: 'Moved',
+    );
+    expect(remote.lastOccurrenceUpdateArgs!['code'], 'TSK_1');
+    expect(remote.lastOccurrenceUpdateArgs!['occurrenceCode'], 'TOC_7');
+    expect(remote.lastOccurrenceUpdateArgs!['overrideTitle'], 'Moved');
+  });
+
+  test('cancelOccurrence trims + forwards the reason (§11d)', () async {
+    await repo.cancelOccurrence(
+      seriesCode: ' TSK_1 ',
+      occurrenceCode: ' TOC_7 ',
+      reason: 'Closed',
+    );
+    expect(remote.lastOccurrenceCancelArgs!['code'], 'TSK_1');
+    expect(remote.lastOccurrenceCancelArgs!['occurrenceCode'], 'TOC_7');
+    expect(remote.lastOccurrenceCancelArgs!['reason'], 'Closed');
   });
 
   group('uploadAttachment (§8/§9)', () {

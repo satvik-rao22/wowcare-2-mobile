@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart';
@@ -10,20 +11,23 @@ import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart'
 /// (Tasks API §5–§7). This is the unit the board, the flat assignments list
 /// and the status endpoint all return, and it maps 1:1 onto a UI [Task] card.
 ///
-/// The assignment payload is intentionally lean: it carries no description,
-/// effort, recurrence or creator, so [toEntity] leaves those at their entity
-/// defaults. Series-level detail comes from [TaskSeriesModel].
+/// The payload now carries [description] (joined back from the parent series)
+/// and [effort] alongside the core fields, so a card/detail screen no longer
+/// needs a separate series fetch to show them. Recurrence and creator still
+/// live only on [TaskSeriesModel].
 class TaskAssignmentModel extends Equatable {
   const TaskAssignmentModel({
     required this.code,
     required this.taskCode,
     required this.title,
+    this.description = '',
     this.assigneeCode = '',
     this.assigneeName = '',
     required this.occurrenceDate,
     required this.dueAt,
     this.priority = 'MEDIUM',
     this.status = 'TO_DO',
+    this.effort = 0,
   });
 
   factory TaskAssignmentModel.fromJson(Map<String, dynamic> json) {
@@ -36,6 +40,9 @@ class TaskAssignmentModel extends Equatable {
       code: (json['code'] ?? '').toString().trim(),
       taskCode: (json['taskCode'] ?? '').toString().trim(),
       title: (json['title'] ?? '').toString(),
+      // Joined back from the parent series (§5a/§6/§7) — present on the card
+      // payload now, so the detail screen reads it without a series fetch.
+      description: (json['description'] ?? '').toString(),
       assigneeCode: (json['assigneeCode'] ?? '').toString().trim(),
       // Not part of the documented assignment payload; parsed opportunistically
       // so cards show a name if the backend ever denormalizes one.
@@ -44,24 +51,31 @@ class TaskAssignmentModel extends Equatable {
       dueAt: due,
       priority: (json['priority'] ?? 'MEDIUM').toString(),
       status: (json['status'] ?? 'TO_DO').toString(),
+      // Estimated hours — per-assignment (the series has no `effort` field).
+      effort: (json['effort'] is num)
+          ? (json['effort'] as num).toDouble()
+          : double.tryParse((json['effort'] ?? '').toString()) ?? 0,
     );
   }
 
   final String code;
   final String taskCode;
   final String title;
+  final String description;
   final String assigneeCode;
   final String assigneeName;
   final DateTime occurrenceDate;
   final DateTime dueAt;
   final String priority;
   final String status;
+  final double effort;
 
   Task toEntity() {
     return Task(
       code: code,
       taskCode: taskCode,
       title: title,
+      description: description,
       assigneeCode: assigneeCode,
       assigneeName: assigneeName,
       status: TaskStatus.fromValue(status),
@@ -69,14 +83,25 @@ class TaskAssignmentModel extends Equatable {
       startDate: occurrenceDate,
       dueDate: DateTime(dueAt.year, dueAt.month, dueAt.day),
       dueTime: _formatTime(dueAt),
+      effort: effort,
       createdAt: occurrenceDate,
       updatedAt: occurrenceDate,
     );
   }
 
   @override
-  List<Object?> get props =>
-      [code, taskCode, title, assigneeCode, occurrenceDate, dueAt, priority, status];
+  List<Object?> get props => [
+        code,
+        taskCode,
+        title,
+        description,
+        assigneeCode,
+        occurrenceDate,
+        dueAt,
+        priority,
+        status,
+        effort,
+      ];
 }
 
 /// DTO for a **task series** — the row returned by create/update/list
@@ -89,10 +114,19 @@ class TaskSeriesModel extends Equatable {
     this.description = '',
     this.recurringFlag = false,
     this.rruleFreq,
+    this.rruleInterval,
+    this.rruleByDay = const [],
+    this.rruleByMonthday,
+    this.rruleUntil,
     this.seriesStartDate,
+    this.seriesStartTime = '',
+    this.seriesEndTime = '',
+    this.dueDate,
+    this.holidayPolicy,
     this.seriesStatus = 'ACTIVE',
     this.nextOccurrenceDate,
     this.nextOccurrenceStatus = '',
+    this.parentTaskCode,
     this.assigneeCount = 0,
     this.version = 0,
   });
@@ -103,18 +137,38 @@ class TaskSeriesModel extends Equatable {
       return int.tryParse(raw?.toString() ?? '') ?? 0;
     }
 
+    int? parseNullableInt(dynamic raw) {
+      if (raw == null) return null;
+      if (raw is num) return raw.toInt();
+      return int.tryParse(raw.toString().trim());
+    }
+
+    String? emptyToNull(dynamic raw) {
+      final value = (raw ?? '').toString().trim();
+      return value.isEmpty ? null : value;
+    }
+
     return TaskSeriesModel(
       code: (json['code'] ?? '').toString().trim(),
       title: (json['title'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       recurringFlag: json['recurringFlag'] == true,
-      rruleFreq: (json['rruleFreq'] ?? '').toString().trim().isEmpty
-          ? null
-          : json['rruleFreq'].toString(),
+      rruleFreq: emptyToNull(json['rruleFreq']),
+      rruleInterval: parseNullableInt(json['rruleInterval']),
+      // Detail (§2a) returns `rruleByDay` comma-joined (`"MO,WE,FR"`); create
+      // requests send a list. Accept either so this model round-trips both.
+      rruleByDay: _parseByDay(json['rruleByDay']),
+      rruleByMonthday: parseNullableInt(json['rruleByMonthday']),
+      rruleUntil: _parseDate(json['rruleUntil']),
       seriesStartDate: _parseDate(json['seriesStartDate']),
+      seriesStartTime: (json['seriesStartTime'] ?? '').toString().trim(),
+      seriesEndTime: (json['seriesEndTime'] ?? '').toString().trim(),
+      dueDate: _parseDate(json['dueDate']),
+      holidayPolicy: emptyToNull(json['holidayPolicy']),
       seriesStatus: (json['seriesStatus'] ?? 'ACTIVE').toString(),
       nextOccurrenceDate: _parseDate(json['nextOccurrenceDate']),
       nextOccurrenceStatus: (json['nextOccurrenceStatus'] ?? '').toString(),
+      parentTaskCode: emptyToNull(json['parentTaskCode']),
       assigneeCount: parseInt(json['assigneeCount']),
       version: parseInt(json['version']),
     );
@@ -125,28 +179,156 @@ class TaskSeriesModel extends Equatable {
   final String description;
   final bool recurringFlag;
   final String? rruleFreq;
+  final int? rruleInterval;
+  final List<String> rruleByDay;
+  final int? rruleByMonthday;
+  final DateTime? rruleUntil;
   final DateTime? seriesStartDate;
+  final String seriesStartTime;
+  final String seriesEndTime;
+  final DateTime? dueDate;
+  final String? holidayPolicy;
   final String seriesStatus;
   final DateTime? nextOccurrenceDate;
   final String nextOccurrenceStatus;
+  final String? parentTaskCode;
   final int assigneeCount;
   final int version;
 
-  /// Maps the list DTO to its domain [TaskSeries] (Tasks API §2).
+  /// Maps the DTO to its domain [TaskSeries] (Tasks API §2 list / §2a detail).
   TaskSeries toSeries() => TaskSeries(
         code: code,
         title: title,
+        description: description,
         recurring: recurringFlag,
         recurrencePattern: TaskRecurrence.fromValue(rruleFreq),
+        recurrenceInterval: rruleInterval,
+        recurrenceByDay: rruleByDay,
+        recurrenceByMonthday: rruleByMonthday,
+        recurrenceUntil: rruleUntil,
         seriesStartDate: seriesStartDate,
+        seriesStartTime: seriesStartTime,
+        seriesEndTime: seriesEndTime,
+        dueDate: dueDate,
+        holidayPolicy:
+            holidayPolicy == null ? null : TaskHolidayPolicy.fromValue(holidayPolicy),
         seriesStatus: TaskSeriesStatus.fromValue(seriesStatus),
         nextOccurrenceDate: nextOccurrenceDate,
         nextOccurrenceStatus: nextOccurrenceStatus,
+        parentTaskCode: parentTaskCode,
+        version: version,
+      );
+
+  static List<String> _parseByDay(dynamic raw) {
+    if (raw == null) return const [];
+    if (raw is List) {
+      return raw
+          .map((e) => e.toString().trim().toUpperCase())
+          .where((e) => e.isNotEmpty)
+          .toList();
+    }
+    return raw
+        .toString()
+        .split(',')
+        .map((e) => e.trim().toUpperCase())
+        .where((e) => e.isNotEmpty)
+        .toList();
+  }
+
+  @override
+  List<Object?> get props => [code, title, seriesStatus, assigneeCount, version];
+}
+
+/// DTO for a single **task occurrence** (Tasks API §11). Carries the
+/// occurrence's identity ([originalStartDate]), its reschedulable window, any
+/// per-occurrence overrides, and its assignment roll-up counts.
+class TaskOccurrenceModel extends Equatable {
+  const TaskOccurrenceModel({
+    required this.code,
+    required this.taskCode,
+    this.sequenceNumber = 0,
+    required this.originalStartDate,
+    this.scheduledStartDate,
+    this.scheduledStartTime = '',
+    this.scheduledEndTime = '',
+    this.overrideTitle,
+    this.overrideDescription,
+    this.isModified = false,
+    this.status = 'SCHEDULED',
+    this.statusReason,
+    this.assignmentTotal = 0,
+    this.assignmentInProgress = 0,
+    this.assignmentCompleted = 0,
+    this.version = 0,
+  });
+
+  factory TaskOccurrenceModel.fromJson(Map<String, dynamic> json) {
+    String? emptyToNull(dynamic raw) {
+      if (raw == null) return null;
+      final value = raw.toString();
+      return value.isEmpty ? null : value;
+    }
+
+    return TaskOccurrenceModel(
+      code: (json['code'] ?? '').toString().trim(),
+      taskCode: (json['taskCode'] ?? '').toString().trim(),
+      sequenceNumber: _parseIntOr(json['sequenceNumber']),
+      originalStartDate:
+          _parseDate(json['originalStartDate']) ?? DateTime.now(),
+      scheduledStartDate: _parseDate(json['scheduledStartDate']),
+      scheduledStartTime: (json['scheduledStartTime'] ?? '').toString().trim(),
+      scheduledEndTime: (json['scheduledEndTime'] ?? '').toString().trim(),
+      overrideTitle: emptyToNull(json['overrideTitle']),
+      overrideDescription: emptyToNull(json['overrideDescription']),
+      isModified: json['isModified'] == true,
+      status: (json['status'] ?? 'SCHEDULED').toString(),
+      statusReason: emptyToNull(json['statusReason']),
+      assignmentTotal: _parseIntOr(json['assignmentTotal']),
+      assignmentInProgress: _parseIntOr(json['assignmentInProgress']),
+      assignmentCompleted: _parseIntOr(json['assignmentCompleted']),
+      version: _parseIntOr(json['version']),
+    );
+  }
+
+  final String code;
+  final String taskCode;
+  final int sequenceNumber;
+  final DateTime originalStartDate;
+  final DateTime? scheduledStartDate;
+  final String scheduledStartTime;
+  final String scheduledEndTime;
+  final String? overrideTitle;
+  final String? overrideDescription;
+  final bool isModified;
+  final String status;
+  final String? statusReason;
+  final int assignmentTotal;
+  final int assignmentInProgress;
+  final int assignmentCompleted;
+  final int version;
+
+  TaskOccurrence toEntity() => TaskOccurrence(
+        code: code,
+        taskCode: taskCode,
+        sequenceNumber: sequenceNumber,
+        originalStartDate: originalStartDate,
+        scheduledStartDate: scheduledStartDate,
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+        overrideTitle: overrideTitle,
+        overrideDescription: overrideDescription,
+        isModified: isModified,
+        status: TaskOccurrenceStatus.fromValue(status),
+        statusReason: statusReason,
+        assignmentTotal: assignmentTotal,
+        assignmentInProgress: assignmentInProgress,
+        assignmentCompleted: assignmentCompleted,
         version: version,
       );
 
   @override
-  List<Object?> get props => [code, title, seriesStatus, assigneeCount, version];
+  List<Object?> get props =>
+      [code, taskCode, originalStartDate, scheduledStartDate, status, version];
 }
 
 /// Builds the JSON bodies the Tasks API expects. Kept separate from the DTOs
@@ -228,6 +410,10 @@ abstract final class TaskRequestBuilder {
     if (task.recurring) {
       final freq = task.recurringPattern ?? TaskRecurrence.daily;
       json['rruleFreq'] = freq.value;
+      // The UI only models every-1 cadence; send it explicitly so the wire
+      // matches the API samples (every recurring create/update carries it) and
+      // never relies on a server-side default.
+      json['rruleInterval'] = 1;
       if (freq == TaskRecurrence.weekly && task.startDay != null) {
         json['rruleByDay'] = [_weekdayAbbr(task.startDay!)];
       }
@@ -248,6 +434,67 @@ abstract final class TaskRequestBuilder {
   /// Body for `PATCH /api/v1/tasks/assignments/{code}/status`.
   static Map<String, dynamic> statusBody(TaskStatus status) =>
       <String, dynamic>{'status': status.value};
+
+  /// Body for `PATCH /api/v1/tasks/{code}/assignees/{staffCode}` (§4b) — a
+  /// single assignee's priority in isolation. `priority` is required.
+  static Map<String, dynamic> assigneePriorityBody(TaskPriority priority) =>
+      <String, dynamic>{'priority': priority.value};
+
+  /// Body for `PATCH /api/v1/tasks/assignments/{code}` (§5b). Every field is
+  /// optional — an omitted/null field means "leave unchanged" — so callers send
+  /// only what changed. Beyond the documented `dueAt`/`priority`, the endpoint
+  /// also accepts the full create-time field set ([title], [description],
+  /// [status], [effort], the [schedule] recurrence/dates, roster [assignees] and
+  /// [assetCodes]); the app funnels every edit-form save through here rather than
+  /// the series endpoint. `dueAt` is serialized as a UTC ISO-8601 `Z` instant.
+  static Map<String, dynamic> assignmentPatchBody({
+    String? title,
+    String? description,
+    DateTime? dueAt,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  }) =>
+      <String, dynamic>{
+        if (title != null) 'title': title,
+        if (description != null) 'description': description,
+        if (dueAt != null) 'dueAt': _formatInstant(dueAt),
+        if (priority != null) 'priority': priority.value,
+        if (status != null) 'status': status.value,
+        if (effort != null) 'effort': effort,
+        if (schedule != null) ..._scheduleJson(schedule),
+        if (assignees != null) 'assignees': assignees.map(_assigneeJson).toList(),
+        if (assetCodes != null) 'assetCodes': assetCodes,
+      };
+
+  /// Body for `PATCH /api/v1/tasks/{code}/occurrences/{occurrenceCode}`
+  /// (§11c, THIS_ONLY). Every field optional; omitted means unchanged.
+  static Map<String, dynamic> occurrencePatchBody({
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  }) =>
+      <String, dynamic>{
+        if (scheduledStartDate != null)
+          'scheduledStartDate': formatDate(scheduledStartDate),
+        if (scheduledStartTime != null)
+          'scheduledStartTime': scheduledStartTime,
+        if (scheduledEndTime != null) 'scheduledEndTime': scheduledEndTime,
+        // Checked against null (not emptiness) so an explicit `""` clears an
+        // override rather than being dropped.
+        if (overrideTitle != null) 'overrideTitle': overrideTitle,
+        if (overrideDescription != null)
+          'overrideDescription': overrideDescription,
+      };
+
+  /// UTC ISO-8601 instant with a `Z` suffix (e.g. `2026-07-18T17:00:00Z`).
+  static String _formatInstant(DateTime dt) =>
+      '${dt.toUtc().toIso8601String().split('.').first}Z';
 
   /// Query parameters shared by `GET /tasks/assignments` (§7) and
   /// `GET /tasks/board` (§6): assignee/priority/status multi-selects, a due-date
@@ -396,6 +643,32 @@ abstract final class TaskResponseParser {
       totalElements: _parseIntOr(raw['totalElements'], fallback: cards.length),
       totalPages: _parseIntOr(raw['totalPages'], fallback: cards.isEmpty ? 0 : 1),
     );
+  }
+
+  /// `GET /tasks/{code}/occurrences` (§11a) → the ascending occurrence list.
+  /// `data` is a bare array here (not an `items` envelope). Tolerant of a
+  /// malformed payload — degrades to an empty list.
+  static List<TaskOccurrence> occurrenceList(dynamic raw) {
+    final data = raw is Map<String, dynamic> ? raw['data'] : raw;
+    if (data is! List) return const <TaskOccurrence>[];
+    final result = <TaskOccurrence>[];
+    for (final entry in data) {
+      if (entry is! Map) continue;
+      final model = TaskOccurrenceModel.fromJson(
+        entry.map((k, v) => MapEntry(k.toString(), v)),
+      );
+      if (model.code.isNotEmpty) result.add(model.toEntity());
+    }
+    return result;
+  }
+
+  /// `GET`/`PATCH`/`DELETE` on one occurrence (§11b–d) → the single occurrence.
+  static TaskOccurrence occurrence(dynamic raw) {
+    final data = raw is Map<String, dynamic> ? raw['data'] : null;
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected task occurrence response format');
+    }
+    return TaskOccurrenceModel.fromJson(data).toEntity();
   }
 
   /// `POST /tasks/upload-session` (§8) → the opened session. Falls back to the

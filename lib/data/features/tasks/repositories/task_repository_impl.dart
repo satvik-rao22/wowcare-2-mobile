@@ -6,6 +6,7 @@ import 'package:wowcare/data/features/tasks/datasources/task_remote_datasource.d
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
@@ -79,6 +80,12 @@ class TaskRepositoryImpl implements TaskRepository {
   }
 
   @override
+  Future<TaskSeries> getTask(String seriesCode) async {
+    final model = await _remoteDataSource.getTask(seriesCode.trim());
+    return model.toSeries();
+  }
+
+  @override
   Future<TaskBoard> getBoard(TaskQuery query) {
     return _remoteDataSource.getBoard(query);
   }
@@ -108,6 +115,8 @@ class TaskRepositoryImpl implements TaskRepository {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
     String? parentTaskCode,
+    TaskUpdateScope scope = TaskUpdateScope.all,
+    String? anchorOccurrenceCode,
   }) async {
     await _remoteDataSource.updateTask(
       code: seriesCode.trim(),
@@ -118,6 +127,8 @@ class TaskRepositoryImpl implements TaskRepository {
       assignees: assignees,
       assetCodes: assetCodes,
       parentTaskCode: parentTaskCode,
+      scope: scope,
+      anchorOccurrenceCode: anchorOccurrenceCode,
     );
   }
 
@@ -138,6 +149,19 @@ class TaskRepositoryImpl implements TaskRepository {
   }
 
   @override
+  Future<void> updateAssigneePriority({
+    required String seriesCode,
+    required String staffCode,
+    required TaskPriority priority,
+  }) {
+    return _remoteDataSource.updateAssigneePriority(
+      code: seriesCode.trim(),
+      staffCode: staffCode.trim(),
+      priority: priority,
+    );
+  }
+
+  @override
   Future<Task> updateAssignmentStatus({
     required String assignmentCode,
     required TaskStatus status,
@@ -147,6 +171,95 @@ class TaskRepositoryImpl implements TaskRepository {
       status: status,
     );
     return model.toEntity();
+  }
+
+  @override
+  Future<Task> getAssignment(String assignmentCode) async {
+    final model = await _remoteDataSource.getAssignment(assignmentCode.trim());
+    return model.toEntity();
+  }
+
+  @override
+  Future<Task> updateAssignment({
+    required String assignmentCode,
+    String? title,
+    String? description,
+    DateTime? dueAt,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  }) async {
+    final model = await _remoteDataSource.updateAssignment(
+      code: assignmentCode.trim(),
+      title: title,
+      description: description,
+      dueAt: dueAt,
+      priority: priority,
+      status: status,
+      effort: effort,
+      schedule: schedule,
+      assignees: assignees,
+      assetCodes: assetCodes,
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<void> deleteAssignment(String assignmentCode) {
+    return _remoteDataSource.deleteAssignment(assignmentCode.trim());
+  }
+
+  @override
+  Future<List<TaskOccurrence>> getOccurrences(String seriesCode) {
+    return _remoteDataSource.getOccurrences(seriesCode.trim());
+  }
+
+  @override
+  Future<TaskOccurrence> getOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+  }) {
+    return _remoteDataSource.getOccurrence(
+      code: seriesCode.trim(),
+      occurrenceCode: occurrenceCode.trim(),
+    );
+  }
+
+  @override
+  Future<TaskOccurrence> updateOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  }) {
+    return _remoteDataSource.updateOccurrence(
+      code: seriesCode.trim(),
+      occurrenceCode: occurrenceCode.trim(),
+      scheduledStartDate: scheduledStartDate,
+      scheduledStartTime: scheduledStartTime,
+      scheduledEndTime: scheduledEndTime,
+      overrideTitle: overrideTitle,
+      overrideDescription: overrideDescription,
+    );
+  }
+
+  @override
+  Future<TaskOccurrence> cancelOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    String? reason,
+  }) {
+    return _remoteDataSource.cancelOccurrence(
+      code: seriesCode.trim(),
+      occurrenceCode: occurrenceCode.trim(),
+      reason: reason,
+    );
   }
 
   @override

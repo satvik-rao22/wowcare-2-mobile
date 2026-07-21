@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/data/features/tasks/models/task_models.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 
@@ -12,11 +13,13 @@ void main() {
         'code': 'TSA_1A2B3C4D5E',
         'taskCode': 'TSK_9F2A1B3C4D',
         'title': 'Prepare Q3 report',
+        'description': 'Q3 attendance summary for the board meeting',
         'assigneeCode': 'STF_1A2B3C',
         'occurrenceDate': '2026-07-15',
         'dueAt': '2026-07-17T17:00:00Z',
         'priority': 'HIGH',
         'status': 'IN_PROGRESS',
+        'effort': 3.5,
         'overdue': false,
       });
 
@@ -25,6 +28,9 @@ void main() {
       expect(task.code, 'TSA_1A2B3C4D5E');
       expect(task.taskCode, 'TSK_9F2A1B3C4D');
       expect(task.title, 'Prepare Q3 report');
+      // description + effort now travel on the assignment payload (§5a/§6/§7).
+      expect(task.description, 'Q3 attendance summary for the board meeting');
+      expect(task.effort, 3.5);
       expect(task.assigneeCode, 'STF_1A2B3C');
       expect(task.status, TaskStatus.inProgress);
       expect(task.priority, TaskPriority.high);
@@ -162,6 +168,7 @@ void main() {
 
       expect(body['recurring'], true);
       expect(body['rruleFreq'], 'WEEKLY');
+      expect(body['rruleInterval'], 1);
       expect(body['rruleByDay'], ['MO']);
       expect(body['rruleUntil'], '2026-09-30');
       expect(body.containsKey('startDate'), isFalse);
@@ -478,6 +485,130 @@ void main() {
         ),
         throwsA(isA<Exception>()),
       );
+    });
+
+    test('occurrenceList parses the bare data array (§11a)', () {
+      final list = TaskResponseParser.occurrenceList(const {
+        'data': [
+          {
+            'code': 'TOC_1',
+            'taskCode': 'TSK_1',
+            'sequenceNumber': 1,
+            'originalStartDate': '2026-07-15',
+            'status': 'SCHEDULED',
+          },
+          // No code — filtered out.
+          {'taskCode': 'TSK_1', 'originalStartDate': '2026-07-17'},
+        ],
+      });
+      expect(list.map((o) => o.code).toList(), ['TOC_1']);
+    });
+
+    test('occurrence throws on a malformed payload (§11b)', () {
+      expect(
+        () => TaskResponseParser.occurrence(const {'data': 'nope'}),
+        throwsA(isA<Exception>()),
+      );
+    });
+  });
+
+  group('TaskSeriesModel detail (§2a)', () {
+    test('parses the recurrence breakdown, times and comma-joined byDay', () {
+      final series = TaskSeriesModel.fromJson(const {
+        'code': 'TSK_1',
+        'title': 'Water plants',
+        'description': 'daily care',
+        'recurringFlag': true,
+        'rruleFreq': 'WEEKLY',
+        'rruleInterval': 2,
+        'rruleByDay': 'MO,WE,FR',
+        'rruleUntil': '2026-09-30',
+        'seriesStartTime': '08:30',
+        'seriesEndTime': '09:00',
+        'holidayPolicy': 'KEEP',
+        'parentTaskCode': 'TSK_PARENT',
+      }).toSeries();
+
+      expect(series.recurrenceInterval, 2);
+      expect(series.recurrenceByDay, ['MO', 'WE', 'FR']);
+      expect(series.recurrenceUntil, DateTime(2026, 9, 30));
+      expect(series.seriesStartTime, '08:30');
+      expect(series.holidayPolicy, TaskHolidayPolicy.keep);
+      expect(series.parentTaskCode, 'TSK_PARENT');
+      expect(series.description, 'daily care');
+    });
+
+    test('accepts rruleByDay as a list too', () {
+      final model = TaskSeriesModel.fromJson(const {
+        'code': 'TSK_1',
+        'title': 'x',
+        'rruleByDay': ['mo', 'we'],
+      });
+      expect(model.rruleByDay, ['MO', 'WE']);
+    });
+  });
+
+  group('TaskOccurrenceModel.fromJson → toEntity (§11)', () {
+    test('maps identity, reschedulable window and roll-up counts', () {
+      final occ = TaskOccurrenceModel.fromJson(const {
+        'code': 'TOC_7B1D4E2A31',
+        'taskCode': 'TSK_2E7C1A0B9F',
+        'sequenceNumber': 2,
+        'originalStartDate': '2026-07-17',
+        'scheduledStartDate': '2026-07-18',
+        'scheduledStartTime': '08:30',
+        'scheduledEndTime': '09:00',
+        'overrideTitle': 'Moved',
+        'isModified': true,
+        'status': 'CANCELLED',
+        'statusReason': 'Closed',
+        'assignmentTotal': 1,
+        'version': 2,
+      }).toEntity();
+
+      expect(occ.code, 'TOC_7B1D4E2A31');
+      expect(occ.originalStartDate, DateTime(2026, 7, 17));
+      expect(occ.scheduledStartDate, DateTime(2026, 7, 18));
+      expect(occ.overrideTitle, 'Moved');
+      expect(occ.isModified, isTrue);
+      expect(occ.status, TaskOccurrenceStatus.cancelled);
+      expect(occ.statusReason, 'Closed');
+      expect(occ.assignmentTotal, 1);
+    });
+  });
+
+  group('TaskRequestBuilder — isolated edits', () {
+    test('assigneePriorityBody sends the uppercase priority (§4b)', () {
+      expect(
+        TaskRequestBuilder.assigneePriorityBody(TaskPriority.high),
+        {'priority': 'HIGH'},
+      );
+    });
+
+    test('assignmentPatchBody sends dueAt as a UTC Z instant + priority (§5b)',
+        () {
+      final body = TaskRequestBuilder.assignmentPatchBody(
+        dueAt: DateTime.utc(2026, 7, 18, 17),
+        priority: TaskPriority.high,
+      );
+      expect(body['dueAt'], '2026-07-18T17:00:00Z');
+      expect(body['priority'], 'HIGH');
+    });
+
+    test('assignmentPatchBody omits unset fields', () {
+      expect(TaskRequestBuilder.assignmentPatchBody(), isEmpty);
+    });
+
+    test('occurrencePatchBody sends only provided override fields (§11c)', () {
+      final body = TaskRequestBuilder.occurrencePatchBody(
+        scheduledStartDate: DateTime(2026, 7, 18),
+        overrideTitle: '',
+      );
+      expect(body['scheduledStartDate'], '2026-07-18');
+      // Explicit "" reaches the wire (clears the override), not dropped.
+      expect(body.containsKey('overrideTitle'), isTrue);
+      expect(body['overrideTitle'], '');
+      expect(body.containsKey('scheduledStartTime'), isFalse);
     });
   });
 }

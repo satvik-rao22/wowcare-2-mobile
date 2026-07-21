@@ -7,15 +7,21 @@ import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dar
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
+import 'package:wowcare/domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/delete_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/get_task_occurrences_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/get_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_tasks_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
-import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 
@@ -67,6 +73,14 @@ class _FakeTaskRepository implements TaskRepository {
   Map<String, dynamic>? lastRemovedAssignee;
   Map<String, dynamic>? lastStatusArgs;
   Map<String, dynamic>? lastUploadArgs;
+  Map<String, dynamic>? lastAssigneePriorityArgs;
+  Map<String, dynamic>? lastAssignmentPatchArgs;
+  String? lastDeletedAssignment;
+  String? lastFetchedTaskCode;
+  Map<String, dynamic>? lastOccurrenceUpdateArgs;
+  Map<String, dynamic>? lastOccurrenceCancelArgs;
+  TaskSeries seriesDetail = const TaskSeries(code: 'TSK_1', title: 'x');
+  List<TaskOccurrence> occurrences = const [];
   String uploadResult = 'AST_READY';
 
   String? lastQuery;
@@ -120,6 +134,8 @@ class _FakeTaskRepository implements TaskRepository {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
     String? parentTaskCode,
+    TaskUpdateScope scope = TaskUpdateScope.all,
+    String? anchorOccurrenceCode,
   }) async {
     lastUpdateArgs = {
       'seriesCode': seriesCode,
@@ -129,7 +145,15 @@ class _FakeTaskRepository implements TaskRepository {
       'assignees': assignees,
       'assetCodes': assetCodes,
       'parentTaskCode': parentTaskCode,
+      'scope': scope,
+      'anchorOccurrenceCode': anchorOccurrenceCode,
     };
+  }
+
+  @override
+  Future<TaskSeries> getTask(String seriesCode) async {
+    lastFetchedTaskCode = seriesCode;
+    return seriesDetail;
   }
 
   @override
@@ -152,6 +176,25 @@ class _FakeTaskRepository implements TaskRepository {
   }
 
   @override
+  Future<void> updateAssigneePriority({
+    required String seriesCode,
+    required String staffCode,
+    required TaskPriority priority,
+  }) async {
+    lastAssigneePriorityArgs = {
+      'seriesCode': seriesCode,
+      'staffCode': staffCode,
+      'priority': priority,
+    };
+    // Mirror the §4b cascade: bump every loaded card for that assignee+series.
+    tasks = tasks
+        .map((t) => (t.taskCode == seriesCode && t.assigneeCode == staffCode)
+            ? t.copyWith(priority: priority)
+            : t)
+        .toList();
+  }
+
+  @override
   Future<Task> updateAssignmentStatus({
     required String assignmentCode,
     required TaskStatus status,
@@ -159,6 +202,108 @@ class _FakeTaskRepository implements TaskRepository {
     lastStatusArgs = {'code': assignmentCode, 'status': status};
     final current = tasks.firstWhere((t) => t.code == assignmentCode);
     return current.copyWith(status: status);
+  }
+
+  @override
+  Future<Task> getAssignment(String assignmentCode) async {
+    return tasks.firstWhere((t) => t.code == assignmentCode);
+  }
+
+  @override
+  Future<Task> updateAssignment({
+    required String assignmentCode,
+    String? title,
+    String? description,
+    DateTime? dueAt,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  }) async {
+    lastAssignmentPatchArgs = {
+      'code': assignmentCode,
+      'title': title,
+      'description': description,
+      'dueAt': dueAt,
+      'priority': priority,
+      'status': status,
+      'effort': effort,
+      'schedule': schedule,
+      'assignees': assignees,
+      'assetCodes': assetCodes,
+    };
+    final current = tasks.firstWhere((t) => t.code == assignmentCode);
+    return current.copyWith(
+      title: title ?? current.title,
+      priority: priority ?? current.priority,
+      status: status ?? current.status,
+    );
+  }
+
+  @override
+  Future<void> deleteAssignment(String assignmentCode) async {
+    lastDeletedAssignment = assignmentCode;
+  }
+
+  @override
+  Future<List<TaskOccurrence>> getOccurrences(String seriesCode) async {
+    lastFetchedTaskCode = seriesCode;
+    return occurrences;
+  }
+
+  @override
+  Future<TaskOccurrence> getOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+  }) async =>
+      occurrences.firstWhere((o) => o.code == occurrenceCode);
+
+  @override
+  Future<TaskOccurrence> updateOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  }) async {
+    lastOccurrenceUpdateArgs = {
+      'seriesCode': seriesCode,
+      'occurrenceCode': occurrenceCode,
+      'scheduledStartDate': scheduledStartDate,
+      'overrideTitle': overrideTitle,
+    };
+    return TaskOccurrence(
+      code: occurrenceCode,
+      taskCode: seriesCode,
+      originalStartDate: DateTime(2026, 7, 17),
+      scheduledStartDate: scheduledStartDate,
+      overrideTitle: overrideTitle,
+      isModified: true,
+    );
+  }
+
+  @override
+  Future<TaskOccurrence> cancelOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    String? reason,
+  }) async {
+    lastOccurrenceCancelArgs = {
+      'seriesCode': seriesCode,
+      'occurrenceCode': occurrenceCode,
+      'reason': reason,
+    };
+    return TaskOccurrence(
+      code: occurrenceCode,
+      taskCode: seriesCode,
+      originalStartDate: DateTime(2026, 7, 17),
+      status: TaskOccurrenceStatus.cancelled,
+      statusReason: reason,
+    );
   }
 
   @override
@@ -234,13 +379,18 @@ TasksCubit _buildCubit(
     TasksCubit(
       GetTasksUseCase(repo),
       CreateTaskUseCase(repo),
-      UpdateTaskUseCase(repo),
       DeleteTaskUseCase(repo),
       RemoveTaskAssigneeUseCase(repo),
       UpdateTaskAssignmentStatusUseCase(repo),
       UploadTaskAttachmentUseCase(repo),
       GetAllStaffUseCase(_FakeStaffRepository(staff)),
       _FakeStorage(),
+      UpdateTaskAssignmentUseCase(repo),
+      DeleteTaskAssignmentUseCase(repo),
+      GetTaskUseCase(repo),
+      GetTaskOccurrencesUseCase(repo),
+      UpdateTaskOccurrenceUseCase(repo),
+      CancelTaskOccurrenceUseCase(repo),
     );
 
 void main() {
@@ -333,7 +483,8 @@ void main() {
     expect(cubit.state.tasks.map((t) => t.code), ['TSA_3']);
   });
 
-  test('changePriority replaces the roster preserving siblings', () async {
+  test('changePriority routes through the per-assignment endpoint (§5b)',
+      () async {
     repo.tasks = [
       _card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1'),
       _card(code: 'TSA_2', taskCode: 'TSK_1', assignee: 'STF_2'),
@@ -342,18 +493,131 @@ void main() {
 
     await cubit.changePriority('TSA_1', TaskPriority.high);
 
-    final roster = repo.lastUpdateArgs!['assignees'] as List<TaskAssignee>;
-    expect(repo.lastUpdateArgs!['seriesCode'], 'TSK_1');
-    // Both assignees kept; the edited one gets the new priority.
-    expect(roster.map((a) => a.staffCode).toSet(), {'STF_1', 'STF_2'});
-    final edited = roster.firstWhere((a) => a.staffCode == 'STF_1');
-    expect(edited.priority, TaskPriority.high);
-    // A priority-only edit leaves the schedule untouched, so it must not be
-    // sent (re-sending it would re-materialize future occurrences).
-    expect(repo.lastUpdateArgs!['schedule'], isNull);
+    // Backend-directed path: §5b keyed by this card's own assignment code.
+    // The per-assignee §4b endpoint (broken by the suffixed assigneeCode) and
+    // the old full-replace roster PATCH are never touched.
+    expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+    expect(repo.lastAssignmentPatchArgs!['priority'], TaskPriority.high);
+    expect(repo.lastAssigneePriorityArgs, isNull);
+    expect(repo.lastUpdateArgs, isNull);
+    // Only this card changes in place; the sibling is untouched.
+    expect(cubit.state.taskByCode('TSA_1')!.priority, TaskPriority.high);
+    expect(cubit.state.taskByCode('TSA_2')!.priority, TaskPriority.medium);
   });
 
-  test('update sends the schedule only when dates/times/recurrence change',
+  test('updateAssignmentDetails edits one card in place (§5b)', () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+    await cubit.load();
+
+    final ok = await cubit.updateAssignmentDetails(
+      'TSA_1',
+      priority: TaskPriority.high,
+    );
+
+    expect(ok, isTrue);
+    expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+    expect(repo.lastAssignmentPatchArgs!['priority'], TaskPriority.high);
+    expect(cubit.state.taskByCode('TSA_1')!.priority, TaskPriority.high);
+  });
+
+  test('deleteAssignment drops just that card (§5c)', () async {
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1'),
+      _card(code: 'TSA_2', taskCode: 'TSK_1', assignee: 'STF_2'),
+    ];
+    await cubit.load();
+
+    final ok = await cubit.deleteAssignment('TSA_1');
+
+    expect(ok, isTrue);
+    expect(repo.lastDeletedAssignment, 'TSA_1');
+    expect(cubit.state.tasks.map((t) => t.code), ['TSA_2']);
+  });
+
+  test('fetchSeriesDetail returns the full series (§2a)', () async {
+    repo.seriesDetail = const TaskSeries(
+      code: 'TSK_1',
+      title: 'Detail',
+      recurring: true,
+      recurrenceByDay: ['MO', 'WE'],
+    );
+    await cubit.load();
+
+    final detail = await cubit.fetchSeriesDetail('TSK_1');
+
+    expect(repo.lastFetchedTaskCode, 'TSK_1');
+    expect(detail!.recurrenceByDay, ['MO', 'WE']);
+  });
+
+  test('rescheduleOccurrence forwards THIS_ONLY overrides and reloads (§11c)',
+      () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+    await cubit.load();
+
+    final occ = await cubit.rescheduleOccurrence(
+      seriesCode: 'TSK_1',
+      occurrenceCode: 'TOC_7',
+      scheduledStartDate: DateTime(2026, 7, 18),
+      overrideTitle: 'Moved',
+    );
+
+    expect(occ!.isModified, isTrue);
+    expect(repo.lastOccurrenceUpdateArgs!['occurrenceCode'], 'TOC_7');
+    expect(repo.lastOccurrenceUpdateArgs!['overrideTitle'], 'Moved');
+  });
+
+  test('cancelOccurrence forwards the reason and reloads (§11d)', () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+    await cubit.load();
+
+    final occ = await cubit.cancelOccurrence(
+      seriesCode: 'TSK_1',
+      occurrenceCode: 'TOC_7',
+      reason: 'Closed',
+    );
+
+    expect(occ!.status, TaskOccurrenceStatus.cancelled);
+    expect(repo.lastOccurrenceCancelArgs, {
+      'seriesCode': 'TSK_1',
+      'occurrenceCode': 'TOC_7',
+      'reason': 'Closed',
+    });
+  });
+
+  // Every edit-form save funnels through the per-assignment endpoint (§5b),
+  // keyed by the card's own TSA_ code — the series endpoint (§3, lastUpdateArgs)
+  // is never touched, no matter which field changed.
+  test('update sends a title change through the assignment endpoint only',
+      () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+    await cubit.load();
+
+    final edited = cubit.state.taskByCode('TSA_1')!.copyWith(title: 'Renamed');
+    final ok = await cubit.update(edited);
+
+    expect(ok, isTrue);
+    expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+    expect(repo.lastAssignmentPatchArgs!['title'], 'Renamed');
+    expect(repo.lastUpdateArgs, isNull);
+  });
+
+  test('update sends a start/recurrence change as schedule via the assignment '
+      'endpoint', () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+    await cubit.load();
+
+    final edited =
+        cubit.state.taskByCode('TSA_1')!.copyWith(startTime: '10:00');
+    final ok = await cubit.update(edited);
+
+    expect(ok, isTrue);
+    final schedule = repo.lastAssignmentPatchArgs!['schedule'] as Task?;
+    expect(schedule, isNotNull);
+    expect(schedule!.startTime, '10:00');
+    expect(repo.lastUpdateArgs, isNull);
+  });
+
+  test('update routes a due-only change through the assignment endpoint',
       () async {
     repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
     await cubit.load();
@@ -364,9 +628,51 @@ void main() {
     final ok = await cubit.update(edited);
 
     expect(ok, isTrue);
-    final schedule = repo.lastUpdateArgs!['schedule'] as Task?;
-    expect(schedule, isNotNull);
-    expect(schedule!.dueDate, DateTime(2026, 7, 20));
+    expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+    expect(repo.lastAssignmentPatchArgs!['dueAt'], isNotNull);
+    expect(repo.lastUpdateArgs, isNull);
+  });
+
+  test('update persists a priority-only edit through the assignment endpoint',
+      () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1')];
+    await cubit.load();
+
+    final edited =
+        cubit.state.taskByCode('TSA_1')!.copyWith(priority: TaskPriority.high);
+    final ok = await cubit.update(edited);
+
+    expect(ok, isTrue);
+    expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+    expect(repo.lastAssignmentPatchArgs!['priority'], TaskPriority.high);
+    expect(repo.lastUpdateArgs, isNull);
+  });
+
+  test('update forwards an attachment change via the assignment endpoint',
+      () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+    await cubit.load();
+
+    final edited = cubit.state.taskByCode('TSA_1')!;
+    final ok = await cubit.update(edited, assetCodes: const ['AST_NEW']);
+
+    expect(ok, isTrue);
+    expect(repo.lastAssignmentPatchArgs!['assetCodes'], ['AST_NEW']);
+    expect(repo.lastUpdateArgs, isNull);
+  });
+
+  test('update sends a reassignment roster through the assignment endpoint',
+      () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1')];
+    await cubit.load();
+
+    final edited =
+        cubit.state.taskByCode('TSA_1')!.copyWith(assigneeCode: 'STF_9');
+    final ok = await cubit.update(edited);
+
+    expect(ok, isTrue);
+    expect(repo.lastAssignmentPatchArgs!['assignees'], isNotNull);
+    expect(repo.lastUpdateArgs, isNull);
   });
 
   test('create forwards uploaded assetCodes to the repository (§8/§9)',

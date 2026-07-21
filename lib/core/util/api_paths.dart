@@ -935,12 +935,28 @@ class ApiPaths {
 
   /// `DELETE` `/api/v1/tasks/{code}/assignees/{staffCode}` — remove one
   /// assignee from a task's roster without touching the series (§4a).
+  /// Also `PATCH` — update one assignee's priority in isolation (§4b).
   static String taskAssignee(String code, String staffCode) =>
       '${taskByCode(code)}/assignees/${Uri.encodeComponent(staffCode.trim())}';
+
+  /// `GET` `/api/v1/tasks/{code}/occurrences` — every occurrence of one series
+  /// (§11a). The only endpoint that surfaces occurrence codes.
+  static String taskOccurrences(String code) => '${taskByCode(code)}/occurrences';
+
+  /// `GET`/`PATCH`/`DELETE` `/api/v1/tasks/{code}/occurrences/{occurrenceCode}`
+  /// — one occurrence's own detail / THIS_ONLY reschedule / cancel (§11b–d).
+  static String taskOccurrence(String code, String occurrenceCode) =>
+      '${taskOccurrences(code)}/${Uri.encodeComponent(occurrenceCode.trim())}';
 
   /// `GET` `/api/v1/tasks/assignments` — flat, mixed-status page of task
   /// assignments (same filters as the board, ungrouped).
   static const String taskAssignments = '$tasks/assignments';
+
+  /// `GET`/`PATCH`/`DELETE` `/api/v1/tasks/assignments/{code}` — one specific
+  /// assignment: fetch (§5a), edit its own `dueAt`/`priority` (§5b), or remove
+  /// one occurrence for one assignee (§5c).
+  static String taskAssignmentByCode(String code) =>
+      '$taskAssignments/${Uri.encodeComponent(code.trim())}';
 
   /// `GET` `/api/v1/tasks/board` — Kanban board grouped into status columns.
   static const String taskBoard = '$tasks/board';
@@ -948,7 +964,7 @@ class ApiPaths {
   /// `PATCH` `/api/v1/tasks/assignments/{code}/status` — quick status change
   /// on a single assignment.
   static String taskAssignmentStatus(String code) =>
-      '$taskAssignments/${Uri.encodeComponent(code.trim())}/status';
+      '${taskAssignmentByCode(code)}/status';
 
   /// `POST` `/api/v1/tasks/upload-session` — open a shared upload session for
   /// task attachments (document-microservice, domain `TASK`).

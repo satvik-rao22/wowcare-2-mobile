@@ -9,6 +9,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/tasks/datasources/task_remote_datasource.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 
@@ -332,6 +333,7 @@ void main() {
       final body = adapter.captured!.data as Map<String, dynamic>;
       expect(body['recurring'], isTrue);
       expect(body['rruleFreq'], 'WEEKLY');
+      expect(body['rruleInterval'], 1);
       expect(body['rruleByDay'], ['MO']);
       expect(body['rruleUntil'], '2026-09-30');
       expect(body.containsKey('startDate'), isFalse);
@@ -402,6 +404,234 @@ void main() {
         (adapter.captured!.data as Map<String, dynamic>)['status'],
         'IN_PROGRESS',
       );
+    });
+  });
+
+  group('getTask (§2a)', () {
+    test('GETs /tasks/{code} and parses the full detail', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'code': 'TSK_1',
+            'title': 'Water plants',
+            'recurringFlag': true,
+            'rruleFreq': 'WEEKLY',
+            'rruleInterval': 1,
+            'rruleByDay': 'MO,WE,FR',
+            'rruleUntil': '2026-09-30',
+            'seriesStartTime': '08:30',
+            'seriesEndTime': '09:00',
+          },
+        }),
+      );
+
+      final series = await dataSource.getTask('TSK_1');
+
+      expect(series.rruleByDay, ['MO', 'WE', 'FR']);
+      expect(series.rruleInterval, 1);
+      expect(series.seriesStartTime, '08:30');
+      expect(adapter.captured!.method, 'GET');
+      expect(adapter.captured!.path, endsWith('/api/v1/tasks/TSK_1'));
+    });
+  });
+
+  group('updateTask scope (§3d)', () {
+    test('omits scope for the default (ALL) whole-series edit', () async {
+      stub((_) => _jsonBody({'data': {'code': 'TSK_1', 'title': 'x'}}));
+      await dataSource.updateTask(code: 'TSK_1', title: 'x');
+      expect(adapter.captured!.queryParameters.containsKey('scope'), isFalse);
+    });
+
+    test('sends scope + anchorOccurrenceCode for THIS_AND_FUTURE', () async {
+      stub((_) => _jsonBody({'data': {'code': 'TSK_1', 'title': 'x'}}));
+      await dataSource.updateTask(
+        code: 'TSK_1',
+        schedule: _draft().copyWith(
+          recurring: true,
+          recurringPattern: () => TaskRecurrence.monthly,
+          startDay: () => '15',
+        ),
+        scope: TaskUpdateScope.thisAndFuture,
+        anchorOccurrenceCode: 'TOC_7',
+      );
+      expect(adapter.captured!.queryParameters['scope'], 'THIS_AND_FUTURE');
+      expect(
+        adapter.captured!.queryParameters['anchorOccurrenceCode'],
+        'TOC_7',
+      );
+    });
+  });
+
+  group('updateAssigneePriority (§4b)', () {
+    test('PATCHes the roster assignee endpoint with the priority', () async {
+      stub((_) => _jsonBody(const <String, dynamic>{}, status: 204));
+      await dataSource.updateAssigneePriority(
+        code: 'TSK_1',
+        staffCode: 'STF_1',
+        priority: TaskPriority.high,
+      );
+      expect(adapter.captured!.method, 'PATCH');
+      expect(
+        adapter.captured!.path,
+        contains('/api/v1/tasks/TSK_1/assignees/STF_1'),
+      );
+      expect(
+        (adapter.captured!.data as Map<String, dynamic>)['priority'],
+        'HIGH',
+      );
+    });
+  });
+
+  group('single assignment ops (§5a/§5b/§5c)', () {
+    test('getAssignment GETs /assignments/{code}', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'code': 'TSA_1',
+            'taskCode': 'TSK_1',
+            'title': 'x',
+            'occurrenceDate': '2026-07-15',
+            'dueAt': '2026-07-17T17:00:00Z',
+            'priority': 'HIGH',
+            'status': 'IN_PROGRESS',
+          },
+        }),
+      );
+      final card = await dataSource.getAssignment('TSA_1');
+      expect(card.code, 'TSA_1');
+      expect(adapter.captured!.method, 'GET');
+      expect(
+        adapter.captured!.path,
+        endsWith('/api/v1/tasks/assignments/TSA_1'),
+      );
+    });
+
+    test('updateAssignment PATCHes dueAt (UTC Z) + priority', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'code': 'TSA_1',
+            'taskCode': 'TSK_1',
+            'title': 'x',
+            'occurrenceDate': '2026-07-15',
+            'dueAt': '2026-07-18T17:00:00Z',
+            'priority': 'HIGH',
+            'status': 'TO_DO',
+          },
+        }),
+      );
+      await dataSource.updateAssignment(
+        code: 'TSA_1',
+        dueAt: DateTime.utc(2026, 7, 18, 17),
+        priority: TaskPriority.high,
+      );
+      expect(adapter.captured!.method, 'PATCH');
+      expect(
+        adapter.captured!.path,
+        endsWith('/api/v1/tasks/assignments/TSA_1'),
+      );
+      final body = adapter.captured!.data as Map<String, dynamic>;
+      expect(body['dueAt'], '2026-07-18T17:00:00Z');
+      expect(body['priority'], 'HIGH');
+    });
+
+    test('deleteAssignment DELETEs /assignments/{code}', () async {
+      stub((_) => _jsonBody(const <String, dynamic>{}, status: 204));
+      await dataSource.deleteAssignment('TSA_1');
+      expect(adapter.captured!.method, 'DELETE');
+      expect(
+        adapter.captured!.path,
+        endsWith('/api/v1/tasks/assignments/TSA_1'),
+      );
+    });
+  });
+
+  group('occurrences (§11)', () {
+    test('getOccurrences parses the bare data array', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': [
+            {
+              'code': 'TOC_1',
+              'taskCode': 'TSK_1',
+              'sequenceNumber': 1,
+              'originalStartDate': '2026-07-15',
+              'scheduledStartDate': '2026-07-15',
+              'status': 'SCHEDULED',
+            },
+            {
+              'code': 'TOC_2',
+              'taskCode': 'TSK_1',
+              'originalStartDate': '2026-07-17',
+              'status': 'CANCELLED',
+            },
+          ],
+        }),
+      );
+      final occ = await dataSource.getOccurrences('TSK_1');
+      expect(occ.map((o) => o.code).toList(), ['TOC_1', 'TOC_2']);
+      expect(occ.last.status, TaskOccurrenceStatus.cancelled);
+      expect(adapter.captured!.method, 'GET');
+      expect(
+        adapter.captured!.path,
+        endsWith('/api/v1/tasks/TSK_1/occurrences'),
+      );
+    });
+
+    test('updateOccurrence PATCHes with scope=THIS_ONLY and override body',
+        () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'code': 'TOC_7',
+            'taskCode': 'TSK_1',
+            'originalStartDate': '2026-07-17',
+            'scheduledStartDate': '2026-07-18',
+            'overrideTitle': 'Moved',
+            'isModified': true,
+            'status': 'SCHEDULED',
+          },
+        }),
+      );
+      final occ = await dataSource.updateOccurrence(
+        code: 'TSK_1',
+        occurrenceCode: 'TOC_7',
+        scheduledStartDate: DateTime(2026, 7, 18),
+        overrideTitle: 'Moved',
+      );
+      expect(occ.isModified, isTrue);
+      expect(occ.overrideTitle, 'Moved');
+      expect(adapter.captured!.method, 'PATCH');
+      expect(adapter.captured!.queryParameters['scope'], 'THIS_ONLY');
+      expect(
+        adapter.captured!.path,
+        endsWith('/api/v1/tasks/TSK_1/occurrences/TOC_7'),
+      );
+      final body = adapter.captured!.data as Map<String, dynamic>;
+      expect(body['scheduledStartDate'], '2026-07-18');
+      expect(body['overrideTitle'], 'Moved');
+    });
+
+    test('cancelOccurrence DELETEs with the reason query param', () async {
+      stub(
+        (_) => _jsonBody({
+          'data': {
+            'code': 'TOC_7',
+            'taskCode': 'TSK_1',
+            'originalStartDate': '2026-07-17',
+            'status': 'CANCELLED',
+            'statusReason': 'Closed',
+          },
+        }),
+      );
+      final occ = await dataSource.cancelOccurrence(
+        code: 'TSK_1',
+        occurrenceCode: 'TOC_7',
+        reason: 'Closed',
+      );
+      expect(occ.status, TaskOccurrenceStatus.cancelled);
+      expect(adapter.captured!.method, 'DELETE');
+      expect(adapter.captured!.queryParameters['reason'], 'Closed');
     });
   });
 

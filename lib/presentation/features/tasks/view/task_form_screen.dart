@@ -855,11 +855,22 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     final bool ok;
     if (_isEditing) {
       final entry = _assignees.entries.first;
+      // Attachments persist through the series' assetCodes full-replace (§3c):
+      // send the freshly-uploaded asset, an empty list when the existing one
+      // was removed, or null to leave attachments untouched.
+      List<String>? assetCodes;
+      if (_attachmentAssetCode != null) {
+        assetCodes = [_attachmentAssetCode!];
+      } else if ((_editing?.attachmentName ?? '').isNotEmpty &&
+          (_attachmentName ?? '').isEmpty) {
+        assetCodes = const <String>[];
+      }
       ok = await cubit.update(
         draft.copyWith(
           assigneeCode: entry.key,
           assigneeName: entry.value,
         ),
+        assetCodes: assetCodes,
       );
     } else {
       final assignees = _assignees.entries

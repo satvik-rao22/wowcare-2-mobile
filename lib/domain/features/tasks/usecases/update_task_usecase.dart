@@ -16,6 +16,8 @@ class UpdateTaskUseCase {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
     String? parentTaskCode,
+    TaskUpdateScope scope = TaskUpdateScope.all,
+    String? anchorOccurrenceCode,
   }) {
     return _repository.updateTask(
       seriesCode: seriesCode,
@@ -26,6 +28,8 @@ class UpdateTaskUseCase {
       assignees: assignees,
       assetCodes: assetCodes,
       parentTaskCode: parentTaskCode,
+      scope: scope,
+      anchorOccurrenceCode: anchorOccurrenceCode,
     );
   }
 }

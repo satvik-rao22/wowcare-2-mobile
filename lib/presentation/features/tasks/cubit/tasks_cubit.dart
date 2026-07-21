@@ -6,12 +6,19 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
+import 'package:wowcare/domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/delete_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/get_task_occurrences_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/get_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_tasks_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
-import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 
 part 'tasks_state.dart';
@@ -25,24 +32,34 @@ class TasksCubit extends Cubit<TasksState> {
   TasksCubit(
     this._getTasks,
     this._createTask,
-    this._updateTask,
     this._deleteTask,
     this._removeAssignee,
     this._updateStatus,
     this._uploadAttachment,
     this._getAllStaff,
     this._storageService,
+    this._updateAssignment,
+    this._deleteAssignment,
+    this._getTask,
+    this._getOccurrences,
+    this._updateOccurrence,
+    this._cancelOccurrence,
   ) : super(const TasksState.initial());
 
   final GetTasksUseCase _getTasks;
   final CreateTaskUseCase _createTask;
-  final UpdateTaskUseCase _updateTask;
   final DeleteTaskUseCase _deleteTask;
   final RemoveTaskAssigneeUseCase _removeAssignee;
   final UpdateTaskAssignmentStatusUseCase _updateStatus;
   final UploadTaskAttachmentUseCase _uploadAttachment;
   final GetAllStaffUseCase _getAllStaff;
   final StorageService _storageService;
+  final UpdateTaskAssignmentUseCase _updateAssignment;
+  final DeleteTaskAssignmentUseCase _deleteAssignment;
+  final GetTaskUseCase _getTask;
+  final GetTaskOccurrencesUseCase _getOccurrences;
+  final UpdateTaskOccurrenceUseCase _updateOccurrence;
+  final CancelTaskOccurrenceUseCase _cancelOccurrence;
 
   /// The "My Tasks" default is derived from the persona once per cubit
   /// lifetime so later loads don't clobber the user's own toggle choice.
@@ -223,38 +240,57 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// Saves edits to a single card. Series-level fields (title/description),
-  /// the schedule (dates/times/recurrence) and a full-replace roster go through
-  /// `PATCH /tasks/{seriesCode}` (Tasks API §3, full parity); a status change
-  /// routes through the assignment status endpoint. The schedule is only sent
-  /// when it actually changed, since re-sending it re-materializes future
-  /// occurrences. Reloads on success.
-  Future<bool> update(Task task) async {
-    if (task.taskCode.isEmpty) {
+  /// Saves edits to a single card through the per-assignment endpoint (§5b
+  /// `PATCH /tasks/assignments/{code}`), keyed by this card's own `TSA_` code —
+  /// the single edit endpoint the backend expects the form to use, for **every**
+  /// field (title, description, schedule/recurrence, priority, status, effort,
+  /// assignee, attachments), not just `dueAt`/`priority`. Only the fields that
+  /// actually changed are sent (null = unchanged), so the wire payload stays
+  /// minimal. On a reassignment the roster is rebuilt from sibling cards so a
+  /// full-replace never prunes other assignees. [assetCodes] full-replaces
+  /// attachments (`[]` clears, a list sets, null leaves them alone). Reloads on
+  /// success.
+  Future<bool> update(Task task, {List<String>? assetCodes}) async {
+    if (task.code.isEmpty) {
       emit(state.copyWith(errorMessage: () => 'Missing task reference'));
       return false;
     }
     final previous = state.taskByCode(task.code);
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      final rosterChanged = previous == null ||
-          previous.priority != task.priority ||
-          previous.assigneeCode != task.assigneeCode;
-      final scheduleChanged = previous == null ||
+      final titleChanged = previous == null || previous.title != task.title;
+      final descriptionChanged =
+          previous == null || previous.description != task.description;
+      final assigneeChanged =
+          previous == null || previous.assigneeCode != task.assigneeCode;
+      final priorityChanged =
+          previous == null || previous.priority != task.priority;
+      final statusChanged = previous == null || previous.status != task.status;
+      final effortChanged = previous == null || previous.effort != task.effort;
+      final dueChanged = previous == null ||
+          previous.dueDate != task.dueDate ||
+          previous.dueTime != task.dueTime;
+      final startOrRecurrenceChanged = previous == null ||
           previous.startDate != task.startDate ||
           previous.startTime != task.startTime ||
-          previous.dueDate != task.dueDate ||
-          previous.dueTime != task.dueTime ||
           previous.recurring != task.recurring ||
           previous.recurringPattern != task.recurringPattern ||
           previous.recurringEndDate != task.recurringEndDate ||
           previous.startDay != task.startDay;
-      await _updateTask(
-        seriesCode: task.taskCode,
-        title: task.title,
-        description: task.description,
-        schedule: scheduleChanged ? task : null,
-        assignees: rosterChanged
+
+      // One PATCH to /tasks/assignments/{code} carrying only what changed. The
+      // schedule (start/recurrence) and the due date/time both ride the
+      // [schedule] Task; a reassignment sends the rebuilt roster.
+      await _updateAssignment(
+        assignmentCode: task.code,
+        title: titleChanged ? task.title : null,
+        description: descriptionChanged ? task.description : null,
+        dueAt: dueChanged ? task.dueAt : null,
+        priority: priorityChanged ? task.priority : null,
+        status: statusChanged ? task.status : null,
+        effort: effortChanged ? task.effort : null,
+        schedule: startOrRecurrenceChanged ? task : null,
+        assignees: assigneeChanged
             ? _rosterFor(
                 task.taskCode,
                 editedAssigneeCode: previous?.assigneeCode ?? task.assigneeCode,
@@ -262,12 +298,9 @@ class TasksCubit extends Cubit<TasksState> {
                 newPriority: task.priority,
               )
             : null,
+        assetCodes: assetCodes,
       );
-      if (previous != null &&
-          previous.status != task.status &&
-          task.code.isNotEmpty) {
-        await _updateStatus(assignmentCode: task.code, status: task.status);
-      }
+
       await load(silent: true);
       emit(state.copyWith(isSaving: false));
       return true;
@@ -366,13 +399,154 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// Inline priority change from the list view (PRD FR-TK-16). Priority has no
-  /// dedicated endpoint, so it is persisted by replacing the series roster
-  /// (via [update]) with this assignee's new priority.
+  /// Inline priority change from the list view (PRD FR-TK-16). Persisted through
+  /// the per-assignment endpoint (Tasks API §5b), keyed by this card's own
+  /// assignment code, so it edits exactly this occurrence's priority in place.
+  ///
+  /// This is the backend-directed path: the per-assignee endpoint (§4b) keys off
+  /// a `staffCode`, but the assignment payload round-trips `assigneeCode` with a
+  /// suffix (e.g. `STF_…-0`) that doesn't match the roster, so §4b 404s. §5b
+  /// uses the unambiguous `TSA_…` code instead.
   Future<void> changePriority(String code, TaskPriority priority) async {
     final task = state.taskByCode(code);
     if (task == null || task.priority == priority) return;
-    await update(task.copyWith(priority: priority));
+    await updateAssignmentDetails(code, priority: priority);
+  }
+
+  /// Edits one occurrence's own due moment/priority in isolation (Tasks API §5b)
+  /// — no effect on the series, roster default, or the assignee's other
+  /// occurrences. On success the single card is replaced in place. Returns true
+  /// on success.
+  Future<bool> updateAssignmentDetails(
+    String assignmentCode, {
+    DateTime? dueAt,
+    TaskPriority? priority,
+  }) async {
+    if (assignmentCode.trim().isEmpty) {
+      emit(state.copyWith(errorMessage: () => 'Missing task reference'));
+      return false;
+    }
+    try {
+      final updated = await _updateAssignment(
+        assignmentCode: assignmentCode,
+        dueAt: dueAt,
+        priority: priority,
+      );
+      emit(state.copyWith(tasks: _replace(assignmentCode, updated)));
+      return true;
+    } catch (e) {
+      emit(state.copyWith(errorMessage: () => 'Failed to update task: $e'));
+      return false;
+    }
+  }
+
+  /// Removes one occurrence for one assignee (Tasks API §5c). Only a `TO_DO`
+  /// card can be removed this way; the server rejects others with 400, surfaced
+  /// via [TasksState.errorMessage]. On success the card is dropped from state.
+  /// Distinct from [removeAssignee], which drops the person from the whole series.
+  Future<bool> deleteAssignment(String assignmentCode) async {
+    final task = state.taskByCode(assignmentCode);
+    if (task == null) {
+      emit(state.copyWith(errorMessage: () => 'Missing task reference'));
+      return false;
+    }
+    try {
+      await _deleteAssignment(assignmentCode);
+      emit(state.copyWith(
+        tasks: state.tasks.where((t) => t.code != assignmentCode).toList(),
+      ));
+      return true;
+    } catch (e) {
+      emit(state.copyWith(errorMessage: () => 'Failed to remove task: $e'));
+      return false;
+    }
+  }
+
+  /// Full series detail (Tasks API §2a), including the recurrence breakdown the
+  /// flat assignment cards can't provide — lets the edit form pre-populate an
+  /// existing series' recurrence. Returns null on failure (non-blocking).
+  Future<TaskSeries?> fetchSeriesDetail(String seriesCode) async {
+    if (seriesCode.trim().isEmpty) return null;
+    try {
+      return await _getTask(seriesCode);
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: () => 'Failed to load task details: $e',
+      ));
+      return null;
+    }
+  }
+
+  /// Every occurrence of a series, ascending (Tasks API §11a) — the only source
+  /// of occurrence codes for the reschedule/cancel actions below. Returns an
+  /// empty list on failure.
+  Future<List<TaskOccurrence>> loadOccurrences(String seriesCode) async {
+    if (seriesCode.trim().isEmpty) return const [];
+    try {
+      return await _getOccurrences(seriesCode);
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: () => 'Failed to load occurrences: $e',
+      ));
+      return const [];
+    }
+  }
+
+  /// Reschedules/overrides a single occurrence (Tasks API §11c, THIS_ONLY). The
+  /// reschedule cascades the new due moment onto that occurrence's own
+  /// assignments, so the task list is reloaded on success. Returns the updated
+  /// occurrence, or null on failure.
+  Future<TaskOccurrence?> rescheduleOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  }) async {
+    try {
+      final occurrence = await _updateOccurrence(
+        seriesCode: seriesCode,
+        occurrenceCode: occurrenceCode,
+        scheduledStartDate: scheduledStartDate,
+        scheduledStartTime: scheduledStartTime,
+        scheduledEndTime: scheduledEndTime,
+        overrideTitle: overrideTitle,
+        overrideDescription: overrideDescription,
+      );
+      await load(silent: true);
+      return occurrence;
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: () => 'Failed to reschedule occurrence: $e',
+      ));
+      return null;
+    }
+  }
+
+  /// Cancels a single occurrence, keeping its row/history (Tasks API §11d).
+  /// Cascades to that occurrence's untouched assignments, so the task list is
+  /// reloaded on success. Returns the cancelled occurrence, or null on failure.
+  Future<TaskOccurrence?> cancelOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    String? reason,
+  }) async {
+    try {
+      final occurrence = await _cancelOccurrence(
+        seriesCode: seriesCode,
+        occurrenceCode: occurrenceCode,
+        reason: reason,
+      );
+      await load(silent: true);
+      return occurrence;
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: () => 'Failed to cancel occurrence: $e',
+      ));
+      return null;
+    }
   }
 
   // -------------------------------------------------------------- helpers

@@ -1,6 +1,7 @@
 import '../entities/task.dart';
 import '../entities/task_assignee.dart';
 import '../entities/task_board.dart';
+import '../entities/task_occurrence.dart';
 import '../entities/task_query.dart';
 import '../entities/task_series.dart';
 
@@ -24,6 +25,11 @@ abstract class TaskRepository {
     int size,
   });
 
+  /// Full detail for one series, including the recurrence breakdown the flat
+  /// assignment cards omit (Tasks API §2a `GET /tasks/{code}`). Lets the edit
+  /// form pre-populate an existing series' recurrence.
+  Future<TaskSeries> getTask(String seriesCode);
+
   /// The Kanban board grouped into status columns (Tasks API §6
   /// `GET /tasks/board`), each column independently paginated by [query].
   Future<TaskBoard> getBoard(TaskQuery query);
@@ -43,7 +49,9 @@ abstract class TaskRepository {
   /// (Tasks API §3 `PATCH /tasks/{code}`, full create/update parity). Pass
   /// [schedule] to persist the recurrence rule and series dates/times.
   /// [assetCodes], when present, full-replaces attachments; [parentTaskCode]
-  /// re-parents (`""` clears an existing parent).
+  /// re-parents (`""` clears an existing parent). [scope]/[anchorOccurrenceCode]
+  /// select `THIS_AND_FUTURE` reanchoring (§3d); the default is whole-series
+  /// (`ALL`).
   Future<void> updateTask({
     required String seriesCode,
     String? title,
@@ -53,6 +61,8 @@ abstract class TaskRepository {
     List<TaskAssignee>? assignees,
     List<String>? assetCodes,
     String? parentTaskCode,
+    TaskUpdateScope scope,
+    String? anchorOccurrenceCode,
   });
 
   /// Soft-deletes the series and its untouched future assignments
@@ -66,11 +76,76 @@ abstract class TaskRepository {
     required String staffCode,
   });
 
+  /// Updates one assignee's priority in isolation, cascading it onto their
+  /// future assignments without resending the whole roster (Tasks API §4b
+  /// `PATCH /tasks/{code}/assignees/{staffCode}`).
+  Future<void> updateAssigneePriority({
+    required String seriesCode,
+    required String staffCode,
+    required TaskPriority priority,
+  });
+
   /// Quick status change on a single assignment (Tasks API §5
   /// `PATCH /tasks/assignments/{code}/status`). Returns the updated card.
   Future<Task> updateAssignmentStatus({
     required String assignmentCode,
     required TaskStatus status,
+  });
+
+  /// One assignment fetched by its own code (Tasks API §5a
+  /// `GET /tasks/assignments/{code}`).
+  Future<Task> getAssignment(String assignmentCode);
+
+  /// Edits a single assignment by its own code (Tasks API §5b
+  /// `PATCH /tasks/assignments/{code}`). Accepts the full create-time field set,
+  /// not just `dueAt`/`priority`; every field is optional (null = unchanged).
+  /// Returns the updated card. The edit form routes its whole save through here.
+  Future<Task> updateAssignment({
+    required String assignmentCode,
+    String? title,
+    String? description,
+    DateTime? dueAt,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  });
+
+  /// Removes one occurrence for one assignee — must be `TO_DO` (Tasks API §5c
+  /// `DELETE /tasks/assignments/{code}`). Distinct from [removeAssignee], which
+  /// drops the person from the whole roster.
+  Future<void> deleteAssignment(String assignmentCode);
+
+  /// Every occurrence of one series, ascending (Tasks API §11a
+  /// `GET /tasks/{code}/occurrences`). The only source of occurrence codes.
+  Future<List<TaskOccurrence>> getOccurrences(String seriesCode);
+
+  /// One occurrence's own detail (Tasks API §11b).
+  Future<TaskOccurrence> getOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+  });
+
+  /// Reschedule/override one occurrence only — the series, other occurrences and
+  /// other assignees are untouched (Tasks API §11c, THIS_ONLY).
+  Future<TaskOccurrence> updateOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  });
+
+  /// Cancels one occurrence, keeping its row/history (Tasks API §11d). Returns
+  /// the cancelled occurrence.
+  Future<TaskOccurrence> cancelOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    String? reason,
   });
 
   /// Opens a shared upload session for task attachments and drives the full
