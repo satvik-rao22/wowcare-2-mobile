@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.dart';
@@ -58,9 +59,13 @@ class KioskLogoutCubit extends Cubit<KioskLogoutState> {
         );
         AppLogger.d('[Kiosk Logout] Logout API call successful');
       } catch (apiError) {
-        // Log API error but don't fail - still proceed to clear local session
-        AppLogger.w('[Kiosk Logout] Logout API call failed (will still clear local session): $apiError');
-        // Continue with logout even if API fails - this ensures local session is cleared
+        // API must succeed before we clear the local session - otherwise the
+        // kiosk device would be logged out locally while the backend still
+        // thinks the session is active.
+        AppLogger.w('[Kiosk Logout] Logout API call failed: $apiError');
+        if (isClosed) return false;
+        emit(KioskLogoutError(ApiErrorHandler.extractErrorMessage(apiError)));
+        return false;
       }
 
       if (isClosed) return true;
