@@ -2972,43 +2972,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 ),
               ),
             ),
-            SafeArea(
-              top: false,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
-                      blurRadius: 6,
-                      offset: const Offset(0, -2),
-                    ),
-                  ],
-                ),
-                child: ChatInputBar(
-                  controller: _controller,
-                  focusNode: _inputFocusNode,
-                  onSend: _sendMessage,
-                  onAttachmentTap: _showAttachmentSheet,
-                  showCharCounter: true,
-                  pendingAttachments: _pendingAttachments,
-                  quotedMessage: _quotedMessage,
-                  onCancelQuote: () => setState(() {
-                    _quotedMessage = null;
-                    _quotedMessageId = null;
-                  }),
-                  onRemoveAttachment: (i) => setState(() {
-                    _pendingAttachments.removeAt(i);
-                  }),
-                  editingMessage: _editingMessage,
-                  onCancelEdit: () => setState(() {
-                    _editingMessage = null;
-                    _controller.clear();
-                  }),
-                ),
-              ),
-            ),
+            // No ChatInputBar here: this empty-state is rendered INSIDE the thread body (the
+            // `else if (isEmpty)` branch of the message area), and that body already has an
+            // always-present ChatInputBar below it. Rendering a second one here showed a DUPLICATE
+            // composer when a conversation was opened, until the first message was sent (which flips
+            // isEmpty=false and hides this branch). The body's composer keeps input usable while empty.
           ],
         ),
       ),
