@@ -62,7 +62,8 @@ class MessagingEntryScreen extends StatelessWidget {
                                 iconSize: responsive.isTablet ? 30 : 26,
                                 fontSize: responsive.buttonFontSize,
                                 verticalPadding: responsive.isTablet ? 26 : 22,
-                                onTap: () => context.go(AppRoutes.messaging),
+                                onTap: () =>
+                                    context.go(MessagingScreen.staffMessagingRoute),
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                             ],
