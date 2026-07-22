@@ -25,6 +25,7 @@ class GeofenceState extends Equatable {
     this.parentGpsSignInEnabled = true,
     this.isStaffSignedIn = false,
     this.permissionLevel = LocationPermissionLevel.denied,
+    this.allChildrenSignedIn = false,
   });
 
   const GeofenceState.initial()
@@ -36,7 +37,8 @@ class GeofenceState extends Equatable {
         gpsSignInEnabled = true,
         parentGpsSignInEnabled = true,
         isStaffSignedIn = false,
-        permissionLevel = LocationPermissionLevel.denied;
+        permissionLevel = LocationPermissionLevel.denied,
+        allChildrenSignedIn = false;
 
   final GeofenceCubitStatus status;
   final String schoolCode;
@@ -57,6 +59,12 @@ class GeofenceState extends Equatable {
 
   /// Tracks if the staff member themselves has signed in.
   final bool isStaffSignedIn;
+
+  /// Guardian/parent equivalent of [isStaffSignedIn]: true only when the
+  /// guardian has at least one child AND every one of them is already
+  /// signed in for the day — used to suppress the "you can now Sign In or
+  /// Sign Out" notification when there's nothing left to act on.
+  final bool allChildrenSignedIn;
 
   /// Normalized OS location permission level. Internal plumbing only — does
   /// not currently drive any gating; [isWithinGeofence]/[status] remain the
@@ -82,6 +90,7 @@ class GeofenceState extends Equatable {
     bool? parentGpsSignInEnabled,
     bool? isStaffSignedIn,
     LocationPermissionLevel? permissionLevel,
+    bool? allChildrenSignedIn,
   }) =>
       GeofenceState(
         status: status ?? this.status,
@@ -94,6 +103,7 @@ class GeofenceState extends Equatable {
             parentGpsSignInEnabled ?? this.parentGpsSignInEnabled,
         isStaffSignedIn: isStaffSignedIn ?? this.isStaffSignedIn,
         permissionLevel: permissionLevel ?? this.permissionLevel,
+        allChildrenSignedIn: allChildrenSignedIn ?? this.allChildrenSignedIn,
       );
 
   @override
@@ -107,5 +117,6 @@ class GeofenceState extends Equatable {
         parentGpsSignInEnabled,
         isStaffSignedIn,
         permissionLevel,
+        allChildrenSignedIn,
       ];
 }

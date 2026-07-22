@@ -2,6 +2,7 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
@@ -40,6 +41,7 @@ class ThreadMessageTile extends StatelessWidget {
     this.isParentMessaging = false,
     this.isInactive = false,
     this.senderIsOrgSide,
+    this.participants,
   });
 
   final String threadId;
@@ -48,6 +50,7 @@ class ThreadMessageTile extends StatelessWidget {
   final bool isGrouped;
   final ReactionsController reactionsController;
   final String? currentUserCode;
+  final List<ConversationParticipant>? participants;
   final void Function(String quotedId)? onScrollToQuoted;
   final VoidCallback? onReply;
   final VoidCallback? onReplyFromMenu;
@@ -89,6 +92,7 @@ class ThreadMessageTile extends StatelessWidget {
           isDeleted: snapshot.message.isDeleted,
           quotedMessage: snapshot.quoted,
           currentUserCode: currentUserCode,
+          participants: participants,
           reactionsController: reactionsController,
           onScrollToQuoted: onScrollToQuoted,
           onReply: onReply,

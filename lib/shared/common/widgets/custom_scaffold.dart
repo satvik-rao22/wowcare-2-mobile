@@ -174,7 +174,6 @@ import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:provider/provider.dart';
 
 class GlobalScaffold extends StatefulWidget {
   const GlobalScaffold({
@@ -226,8 +225,8 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
     // startWatching() does an immediate REST refresh AND attaches a live
     // Firestore listener (userNotifications/{userCode}/notifications) that
     // refreshes the REST count as notifications arrive / are read. Idempotent.
-    _notificationBadgeCubit =
-        serviceLocator<NotificationBadgeCubit>()..startWatching();
+    _notificationBadgeCubit = serviceLocator<NotificationBadgeCubit>()
+      ..startWatching();
   }
 
   @override

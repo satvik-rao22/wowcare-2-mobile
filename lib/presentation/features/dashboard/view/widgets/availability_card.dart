@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/availability/view/future_availabil
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer model — one row in the classroom availability table.
@@ -29,27 +30,6 @@ class _AvailableCount {
   final String roomName;
   final int firstShiftCount;
   final int secondShiftCount;
-}
-
-// ---------------------------------------------------------------------------
-// Inline colour helper — deterministic colour from room name.
-// ---------------------------------------------------------------------------
-Color _colorFromName(String name) {
-  final palette = AppColors.profileAvatarColors;
-  if (name.isEmpty) return palette.first;
-  final index = name.codeUnitAt(0) % palette.length;
-  return palette[index];
-}
-
-// ---------------------------------------------------------------------------
-// Inline initials helper.
-// ---------------------------------------------------------------------------
-String _initialsFromName(String name) {
-  final parts = name.trim().split(RegExp(r'\s+'));
-  if (parts.isEmpty || parts.first.isEmpty) return '?';
-  if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-  return (parts.first.characters.first + parts.last.characters.first)
-      .toUpperCase();
 }
 
 // ---------------------------------------------------------------------------
@@ -461,7 +441,15 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  _buildClassroomAvatar(item.roomName),
+                  DocumentImageWidget(
+                    fileUuid: '',
+                    name: item.roomName,
+                    classroomCode: item.roomId,
+                    size: 32,
+                    fontSize: 12,
+                    disableProfileLookupFallback: true,
+                    disableAttendanceStatusLookup: true,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Tooltip(
@@ -532,28 +520,6 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
           ),
         ),
       ],
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Classroom avatar
-  // -------------------------------------------------------------------------
-
-  Widget _buildClassroomAvatar(String roomName) {
-    final String initials = _initialsFromName(roomName);
-    final Color color = _colorFromName(roomName);
-
-    return CircleAvatar(
-      backgroundColor: color.withValues(alpha: 0.8),
-      radius: 16,
-      child: Text(
-        initials,
-        style: TextStyle(
-          color: color == Colors.white ? AppColors.primaryColor : Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-      ),
     );
   }
 

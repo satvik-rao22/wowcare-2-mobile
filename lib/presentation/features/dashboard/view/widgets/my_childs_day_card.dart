@@ -258,6 +258,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       setState(() {
         _childrenSignInStatusMap = map;
       });
+      final allSignedIn = childCodes.every(
+        (code) => (map[code] ?? '').toUpperCase() == 'SIGNED_IN',
+      );
+      unawaited(
+        context.read<GeofenceCubit>().updateChildrenSignInStatus(allSignedIn),
+      );
     } catch (_) {
       // If status check fails, keep empty map
     } finally {

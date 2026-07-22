@@ -93,9 +93,13 @@ class _MessagingScreenState extends State<MessagingScreen>
   Widget build(BuildContext context) {
     final bool isLandscape =
         MediaQuery.of(context).orientation == Orientation.landscape;
-    final bool isParentPersona =
-        widget.userPersona == UserPersona.parent ||
-        context.watch<RoleCubit>().isParent;
+    // Always derived live from RoleCubit — widget.userPersona is only the
+    // value resolved when this branch's route was first built (go_router's
+    // StatefulShellRoute.indexedStack keeps this screen alive across persona
+    // switches without rebuilding that route), so it must never be OR'd in
+    // here or persona switches would get stuck showing the first persona
+    // that ever opened this tab.
+    final bool isParentPersona = context.watch<RoleCubit>().isParent;
 
     // Drives MessagingTab's Staff/Parent sub-tab from the `msgTab` deep-link
     // query param, so the drawer's "Parent Messaging" item lands directly on
@@ -108,7 +112,7 @@ class _MessagingScreenState extends State<MessagingScreen>
     return BlocProvider<CommunicationCubit>(
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(
-        hasBackButton: widget.userPersona == UserPersona.parent ? false : true,
+        hasBackButton: !isParentPersona,
         showCustomNavigationBar: !isLandscape,
         body: Column(
           mainAxisSize: MainAxisSize.min,
