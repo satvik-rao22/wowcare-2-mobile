@@ -18,11 +18,19 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
   final Message? quotedMessage;
   final String? currentUserCode;
+
+  /// Conversation participants — used to resolve the sender's real avatar
+  /// (imageUrl/staffCode) for the Parent Messaging sender header. Without
+  /// this, the header row has only [Message.senderName], which
+  /// [DocumentImageWidget] cannot resolve a photo from, so it always fell
+  /// back to initials even when the sender has a real profile photo.
+  final List<ConversationParticipant>? participants;
   final ReactionsController reactionsController;
   final void Function(String quotedId)? onScrollToQuoted;
   // Swipe-to-reply
@@ -60,6 +68,7 @@ class MessageBubble extends StatefulWidget {
     required this.reactionsController,
     this.quotedMessage,
     this.currentUserCode,
+    this.participants,
     this.onScrollToQuoted,
     this.onReply,
     this.onReplyFromMenu,
@@ -576,6 +585,18 @@ class _MessageBubbleState extends State<MessageBubble>
     return false;
   }
 
+  /// Looks up the sender's participant record (for [avatarUrl]/[staffCode])
+  /// by matching [Message.senderUserCode] — the message itself carries no
+  /// avatar data, only a name.
+  ConversationParticipant? _senderParticipant() {
+    final code = widget.message.senderUserCode;
+    if (code == null || code.isEmpty) return null;
+    for (final p in widget.participants ?? const <ConversationParticipant>[]) {
+      if (p.userCode == code) return p;
+    }
+    return null;
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -666,11 +687,27 @@ class _MessageBubbleState extends State<MessageBubble>
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               if (widget.isParentMessaging) ...[
-                                DocumentImageWidget(
-                                  fileUuid: widget.message.senderName ?? '',
-                                  name: widget.message.senderName ?? '',
-                                  size: 20,
-                                  fontSize: 10,
+                                Builder(
+                                  builder: (_) {
+                                    final sender = _senderParticipant();
+                                    final avatarUrl =
+                                        sender?.avatarUrl?.trim() ?? '';
+                                    return DocumentImageWidget(
+                                      fileUuid: '',
+                                      imageUrl: avatarUrl.startsWith('http')
+                                          ? avatarUrl
+                                          : null,
+                                      mediaAssetCode:
+                                          avatarUrl.isNotEmpty &&
+                                              !avatarUrl.startsWith('http')
+                                          ? avatarUrl
+                                          : null,
+                                      staffCode: sender?.staffCode,
+                                      name: widget.message.senderName ?? '',
+                                      size: 20,
+                                      fontSize: 10,
+                                    );
+                                  },
                                 ),
                                 const SizedBox(width: 6.0),
                               ],

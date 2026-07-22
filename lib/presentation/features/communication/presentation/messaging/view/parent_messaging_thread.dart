@@ -766,6 +766,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     currentUserCode: _currentUserCode,
                     reactionsController: _reactionsController,
                     isParentMessaging: true,
+                    participants: _participants,
                     senderIsOrgSide: _isOrgSideSender(message),
                     onReply: message.isDeleted
                         ? null
@@ -1079,6 +1080,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
+                                                        participants: _participants,
                                                         senderIsOrgSide:
                                                             _isOrgSideSender(
                                                               message,
@@ -1377,6 +1379,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
+                                                        participants: _participants,
                                                         senderIsOrgSide:
                                                             _isOrgSideSender(
                                                               message,
@@ -1680,6 +1683,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
+                                                        participants: _participants,
                                                         senderIsOrgSide:
                                                             _isOrgSideSender(
                                                               message,
@@ -2087,6 +2091,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _reactionsController,
                                                             isParentMessaging:
                                                                 true,
+                                                            participants: _participants,
                                                             senderIsOrgSide:
                                                                 _isOrgSideSender(
                                                                   message,
@@ -2389,6 +2394,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _reactionsController,
                                                             isParentMessaging:
                                                                 true,
+                                                            participants: _participants,
                                                             senderIsOrgSide:
                                                                 _isOrgSideSender(
                                                                   message,
@@ -2701,6 +2707,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _reactionsController,
                                                             isParentMessaging:
                                                                 true,
+                                                            participants: _participants,
                                                             senderIsOrgSide:
                                                                 _isOrgSideSender(
                                                                   message,

@@ -235,6 +235,12 @@ class _ParentDirectMessagingScreenState
             }
           },
           builder: (context, state) {
+            final childState = context.watch<ParentChildCubit>().state;
+            debugPrint(
+              'ParentLoaded=${childState.isLoaded}, '
+              'ConversationLoading=${state.isLoading}, '
+              'SelectedConversation=${_selectedConversation?.code}',
+            );
             return RefreshIndicator(
               onRefresh: _listCubit.refresh,
               child: Column(
@@ -242,7 +248,12 @@ class _ParentDirectMessagingScreenState
                 children: [
                   if (state.errorMessage != null)
                     _buildErrorBanner(state.errorMessage!),
-                  Expanded(child: _buildThreadArea(state)),
+                  Expanded(
+                    child: _buildThreadArea(
+                      state,
+                      isChildLoaded: childState.isLoaded,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -285,11 +296,14 @@ class _ParentDirectMessagingScreenState
     );
   }
 
-  Widget _buildThreadArea(ConversationListState state) {
+  Widget _buildThreadArea(
+    ConversationListState state, {
+    required bool isChildLoaded,
+  }) {
     final selected = _selectedConversation;
 
     if (selected == null) {
-      if (state.isLoading) {
+      if (state.isLoading || !isChildLoaded) {
         return const ChatThreadShimmer();
       }
       if (state.errorMessage != null) {
