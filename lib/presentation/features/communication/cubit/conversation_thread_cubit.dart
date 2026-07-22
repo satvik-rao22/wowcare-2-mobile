@@ -826,6 +826,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         );
       }
 
+      // Preserve attachments if a realtime update arrives without them (a legacy Firestore doc, or
+      // any emission that dropped them) so an existing message's image doesn't vanish on live update.
+      if (result.attachments.isEmpty && old.attachments.isNotEmpty) {
+        result = result.copyWith(attachments: old.attachments);
+      }
+
       return result;
     }).toList();
 

@@ -93,9 +93,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   static const int _olderPageSize = 50;
 
   StreamSubscription<List<Message>>? _messagesSubscription;
-  StreamSubscription<List<Conversation>>? _conversationsSubscription;
+  // One live conversation-list subscription PER type. The Staff (STAFF_DIRECT) and Parent
+  // (ROOM_CHAT) tabs share this single cubit and both call startWatchingConversations; a single
+  // shared subscription meant the second tab cancelled the first's, so one tab's list stopped
+  // live-updating (last message / unread / new conversations). Keying by type keeps both alive,
+  // mirroring UnreadBadgeCubit.
+  final Map<String?, StreamSubscription<List<Conversation>>> _conversationsSubscriptions = {};
   String? _watchedThreadId;
-  String? _watchedConversationsType;
 
   /// Next page to request from [loadOlderMessages] per thread — page 0 is
   /// always the initial/latest window fetched by [loadMessages], so the
@@ -219,13 +223,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// flow through; [loadConversations] remains the source of history.
   void startWatchingConversations({String? type}) {
 
-    if (_watchedConversationsType == type &&
-        _conversationsSubscription != null) {
+    // Already watching this type — keep it (do NOT cancel other types' subscriptions).
+    if (_conversationsSubscriptions.containsKey(type)) {
       return;
     }
-    _conversationsSubscription?.cancel();
-    _watchedConversationsType = type;
-    _conversationsSubscription = watchConversationsUseCase(type: type).listen(
+    _conversationsSubscriptions[type] = watchConversationsUseCase(type: type).listen(
       (conversations) {
         if (isClosed || conversations.isEmpty) {
             return;
@@ -293,7 +295,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   @override
   Future<void> close() {
     _messagesSubscription?.cancel();
-    _conversationsSubscription?.cancel();
+    for (final sub in _conversationsSubscriptions.values) {
+      sub.cancel();
+    }
+    _conversationsSubscriptions.clear();
     return super.close();
   }
 

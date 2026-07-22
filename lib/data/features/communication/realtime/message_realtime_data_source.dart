@@ -41,6 +41,7 @@ class MessageFirestoreItem {
     this.privateParentUserCode,
     this.deliveredTo = const {},
     this.readBy = const {},
+    this.attachments = const [],
   });
 
   final String code;
@@ -72,6 +73,10 @@ class MessageFirestoreItem {
   /// `deliveredTo`/`readBy` fields (firestore-messaging.service.ts).
   final Map<String, DateTime> deliveredTo;
   final Map<String, DateTime> readBy;
+
+  /// Attachments written on the message doc by the backend (fileUrl/mimeType/...), so a
+  /// live-received image/file renders immediately instead of only after a REST refetch.
+  final List<AttachmentEntity> attachments;
 
   factory MessageFirestoreItem.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -118,7 +123,50 @@ class MessageFirestoreItem {
       privateParentUserCode: d['privateParentUserCode'] as String?,
       deliveredTo: _parseReceiptMap(d['deliveredTo']),
       readBy: _parseReceiptMap(d['readBy']),
+      attachments: _parseAttachments(
+        d['attachments'],
+        d['code'] as String? ?? doc.id,
+        d['conversationCode'] as String? ?? '',
+        d['senderCode'] as String? ?? '',
+        _parseTimestamp(d['sentAt']) ?? DateTime.now(),
+      ),
     );
+  }
+
+  /// Parse the backend's Firestore attachment array into [AttachmentEntity]s. Only fileUrl/mimeType
+  /// are needed to render; the rest is best-effort so a missing field never drops the image.
+  static List<AttachmentEntity> _parseAttachments(
+    dynamic raw,
+    String messageCode,
+    String conversationCode,
+    String senderCode,
+    DateTime sentAt,
+  ) {
+    if (raw is! List) return const [];
+    final result = <AttachmentEntity>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final m = item.cast<String, dynamic>();
+      final fileUrl = m['fileUrl'] as String?;
+      if (fileUrl == null || fileUrl.isEmpty) continue;
+      final mimeType = m['mimeType'] as String? ?? 'application/octet-stream';
+      final rawId = m['attachmentId'];
+      result.add(AttachmentEntity(
+        code: rawId?.toString() ?? '',
+        messageCode: messageCode,
+        conversationCode: conversationCode,
+        fileName: m['fileName'] as String? ?? '',
+        fileUrl: fileUrl,
+        mimeType: mimeType,
+        fileSizeBytes: (m['fileSizeBytes'] as num?)?.toInt() ?? 0,
+        attachmentType: AttachmentType.fromMimeType(mimeType),
+        thumbnailUrl: m['thumbnailUrl'] as String?,
+        uploadedBy: senderCode,
+        uploadedAt: sentAt,
+        attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
+      ));
+    }
+    return result;
   }
 
   MessageEntity toEntity() {
@@ -149,6 +197,7 @@ class MessageFirestoreItem {
       threadParentSenderName: threadParentSenderName,
       threadParentText: threadParentText,
       privateParentUserCode: privateParentUserCode,
+      attachments: attachments,
     );
   }
 
