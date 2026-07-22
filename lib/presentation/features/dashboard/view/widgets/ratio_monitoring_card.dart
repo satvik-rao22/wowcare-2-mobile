@@ -339,6 +339,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                   DocumentImageWidget(
                     fileUuid: '',
                     name: room.name,
+                    classroomCode: room.code,
                     size: 30,
                     fontSize: 12,
                     disableProfileLookupFallback: true,
