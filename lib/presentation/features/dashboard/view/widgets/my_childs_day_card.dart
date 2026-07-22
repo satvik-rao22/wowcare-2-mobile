@@ -616,7 +616,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     required ParentChildState parentChildState,
   }) {
     final bool enabled =
-        geofenceState.status == GeofenceCubitStatus.withinRange;
+        geofenceState.isWithinGeofence && geofenceState.parentGpsSignInEnabled;
 
     final children = parentChildState.children;
     final signedInCodes = <String>[];

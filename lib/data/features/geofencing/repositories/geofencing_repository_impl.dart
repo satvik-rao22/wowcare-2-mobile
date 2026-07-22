@@ -3,6 +3,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../../../../domain/features/geofencing/entities/attendance_settings_entity.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
+import '../../../../domain/features/geofencing/entities/location_permission_level.dart';
 import '../../../../domain/features/geofencing/repositories/geofencing_repository.dart';
 import '../datasources/geofencing_local_datasource.dart';
 import '../models/attendance_settings_model.dart';
@@ -19,10 +20,11 @@ class GeofencingRepositoryImpl implements GeofencingRepository {
   final ApiClient _apiClient;
 
   @override
-  Future<bool> hasLocationPermission() => _local.hasLocationPermission();
+  Future<LocationPermissionLevel> getPermissionLevel() =>
+      _local.getPermissionLevel();
 
   @override
-  Future<bool> requestLocationPermission() =>
+  Future<LocationPermissionLevel> requestLocationPermission() =>
       _local.requestLocationPermission();
 
   @override
