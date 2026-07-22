@@ -1,3 +1,5 @@
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/src/app_router.dart';
 
 import '../../../../domain/features/notifications/entities/notification_action.dart';
@@ -136,7 +138,7 @@ class NotificationRouteResolver {
       case 'ACTIVITIES':
       case 'DAILY_ACTIVITY':
         return _dest(AppRoutes.activityFeed, n,
-            highlight: _kActivity, params: _activityDateParam(n));
+            highlight: _kActivity, params: _activityParams(n));
       case 'PARENT_MESSAGING':
         // Room-chat / parent messaging → Parent Messaging (Room Chats) sub-tab.
         return const NotificationDestination(
@@ -191,7 +193,21 @@ class NotificationRouteResolver {
   static const _kShift = ['shift_code', 'shiftCode'];
   // Movement cards match by integer id, so prefer `movement_id` for highlight.
   static const _kMovement = ['movement_id', 'movement_code', 'movementCode'];
-  static const _kActivity = ['activityCode', 'activity_code'];
+  /// Activity feed CARDS are keyed by `cardGroupCode` — see
+  /// `ActivityFeedModels`, which resolves a row's code as
+  /// `cardGroupCode ?? code ?? batchGroupCode ?? activityCode`. A card groups
+  /// the per-student activity rows, so the notification's `activityCode`
+  /// (ACT_…) never equals the rendered card's code (ACG_…) and the highlight
+  /// silently no-ops. Prefer the group code and keep `activityCode` as the
+  /// fallback for payloads/rows that only carry it.
+  static const _kActivity = [
+    'cardGroupCode',
+    'card_group_code',
+    'batchGroupCode',
+    'batch_group_code',
+    'activityCode',
+    'activity_code',
+  ];
   static const _kInvoice = ['invoiceCode', 'invoice_code'];
 
   /// Billing actions are routed by the current user's persona in [resolve]
@@ -214,13 +230,50 @@ class NotificationRouteResolver {
 
   /// Activity date (`date`/`activityDate` payload key) → `date=yyyy-MM-dd` so the
   /// Activity Feed opens on the activity's day, where its card can be flashed.
+  /// Payload keys carrying the activity's timestamp. The backend sends
+  /// `activityMarkedDate` for ACTIVITY_RECORDED / nap / incident events — it was
+  /// missing here, so no `date` param was produced and the feed opened on
+  /// *today* instead of the activity's day, leaving no card to highlight.
+  static const _kActivityDate = [
+    'date',
+    'activityDate',
+    'activity_date',
+    'activityMarkedDate',
+    'activity_marked_date',
+    // Last resort: older ACTIVITY notifications carry no date field at all
+    // (they predate `activityMarkedDate`), so fall back to when the inbox item
+    // was created — see AppNotificationModel.fromInboxJson. Without this a tap
+    // on an older notification opens the feed on TODAY instead of the day the
+    // activity happened.
+    'notificationCreatedAt',
+  ];
+
+  /// Query params an activity deep-link needs so the feed actually contains the
+  /// target card: its day AND its classroom. The feed loads a single classroom
+  /// at a time (defaulting to the viewer's primary room), so without the
+  /// classroom an activity in any other room simply isn't in the list and the
+  /// highlight silently no-ops.
+  static Map<String, String> _activityParams(PushNotification n) => {
+        ..._activityDateParam(n),
+        ..._classroomParam(n),
+      };
+
   static Map<String, String> _activityDateParam(PushNotification n) {
-    final raw = (n.data['date'] ?? n.data['activityDate'] ?? '').trim();
+    final raw = _firstCode(n, _kActivityDate) ?? '';
     if (raw.isEmpty) return const {};
     final parsed = DateTime.tryParse(raw);
-    final ymd = parsed != null
-        ? '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}'
-        : raw;
+    if (parsed == null) return {'date': raw};
+    // The payload carries a UTC instant (e.g. 2026-07-22T14:53:00Z) but the
+    // feed's day selector works in the SCHOOL calendar. Taking the raw UTC
+    // y/m/d can land a day off for schools far from UTC — again opening a feed
+    // that doesn't contain the card. Non-UTC values (a bare `yyyy-MM-dd`) are
+    // already calendar dates, so use them as-is.
+    final ymd = parsed.isUtc
+        ? SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
+            parsed,
+            SchoolTimezoneResolver.lastKnownTimeZone,
+          )
+        : '${parsed.year.toString().padLeft(4, '0')}-${parsed.month.toString().padLeft(2, '0')}-${parsed.day.toString().padLeft(2, '0')}';
     return {'date': ymd};
   }
 
@@ -438,15 +491,15 @@ class NotificationRouteResolver {
 
     // ── Activities (open the Activity Feed on the activity's date + flash it) ──
     NotificationAction.activityRecorded: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentApprovalPending: (n) => _dest(
         AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentAcknowledgementPending: (n) => _dest(
         AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.napAlert: (n) => _dest(AppRoutes.activityFeed, n,
-        highlight: _kActivity, params: _activityDateParam(n)),
+        highlight: _kActivity, params: _activityParams(n)),
 
     // ── Availability (room movements) ────────────────────────────────────────
     NotificationAction.createRule: (n) =>

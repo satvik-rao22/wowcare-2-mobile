@@ -85,6 +85,18 @@ class AppNotificationModel extends AppNotification {
       }
     }
 
+    // Expose the inbox item's own timestamp as a LAST-RESORT date for
+    // date-targeted deep links. Older ACTIVITY notifications predate the
+    // backend's `activityMarkedDate` field and carry no date whatsoever, so a
+    // tap had nothing to open the feed on and fell back to "today" — landing on
+    // the wrong day with no card to highlight. The item is created when the
+    // event is recorded, so `createdAt` is a close proxy. `putIfAbsent` keeps a
+    // real payload date authoritative whenever one exists.
+    final createdAtRaw = (json['createdAt'] ?? '').toString().trim();
+    if (createdAtRaw.isNotEmpty) {
+      data.putIfAbsent('notificationCreatedAt', () => createdAtRaw);
+    }
+
     final subjectName = _firstNonEmpty([
       data['studentName'],
       data['staffName'],

@@ -82,6 +82,10 @@ class _SignInScreenState extends State<SignInScreen>
     final storage = serviceLocator<StorageService>();
     final rememberMeValue =
         await storage.getBool(StorageKeys.rememberMe) ?? false;
+    AppLogger.d(
+      '[RememberMe] load: rememberMe=$rememberMeValue '
+      'savedUser="${credentials['username'] ?? ''}"',
+    );
 
     if (mounted) {
       setState(() {
@@ -90,8 +94,10 @@ class _SignInScreenState extends State<SignInScreen>
       });
     }
 
-    // "Remember me" password pre-fill: the password lives only in the biometric-
-    // gated secure store. Offer a Face ID / fingerprint prompt to fill it in.
+    // "Remember me" password pre-fill: the password lives only in the secure
+    // store. If the device has a biometric / passcode we prompt for it first;
+    // if it has neither, the password is filled in without a prompt so
+    // "Remember me" still works on unsecured devices.
     if (rememberMeValue) {
       await _offerBiometricPrefill();
     }
@@ -103,12 +109,21 @@ class _SignInScreenState extends State<SignInScreen>
     try {
       final secureStore = serviceLocator<SecureCredentialStore>();
       final has = await secureStore.hasSavedPassword();
-      AppLogger.d('[SignIn] biometric prefill: hasSavedPassword=$has');
-      if (!has) return;
+      AppLogger.d('[RememberMe] prefill: hasSavedPassword=$has');
+      if (!has) {
+        AppLogger.d(
+          '[RememberMe] prefill ABORTED — no password in Keychain. It was '
+          'either never saved, or wiped (see freshInstallCheck above).',
+        );
+        return;
+      }
       final creds = await secureStore.revealWithBiometrics(
         reason: 'Unlock your saved password to sign in',
       );
-      AppLogger.d('[SignIn] biometric prefill: creds=${creds != null}');
+      AppLogger.d(
+        '[RememberMe] prefill: revealed=${creds != null} '
+        'pwLen=${creds?['password']?.length ?? 0}',
+      );
       if (creds == null || !mounted) return;
       setState(() {
         final user = creds['username'] ?? '';

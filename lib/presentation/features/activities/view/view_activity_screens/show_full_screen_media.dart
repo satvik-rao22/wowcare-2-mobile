@@ -11,8 +11,18 @@ import 'package:wowcare/presentation/features/activities/view/activity_daily_tab
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
 class ShowFullScreenMedia extends StatefulWidget {
-  final ActivityItem activity;
-  const ShowFullScreenMedia({super.key, required this.activity});
+  /// Source activity. Optional so the same viewer can be opened with a raw
+  /// [photoUrl] / [videoUrl] (e.g. from the activity-detail screen) and still
+  /// get the identical zoom viewport + download button as the feed list.
+  final ActivityItem? activity;
+  final String? photoUrl;
+  final String? videoUrl;
+  const ShowFullScreenMedia({
+    super.key,
+    this.activity,
+    this.photoUrl,
+    this.videoUrl,
+  });
 
   @override
   State<ShowFullScreenMedia> createState() => _ShowFullScreenMediaState();
@@ -147,8 +157,8 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
 
   @override
   Widget build(BuildContext context) {
-    final String? videoUrl = widget.activity.videoUrl;
-    final String? photoUrl = widget.activity.photoUrl;
+    final String? videoUrl = widget.videoUrl ?? widget.activity?.videoUrl;
+    final String? photoUrl = widget.photoUrl ?? widget.activity?.photoUrl;
     final bool hasVideo = videoUrl?.isNotEmpty == true;
     final bool hasPhoto = photoUrl?.isNotEmpty == true;
     return Scaffold(
@@ -190,22 +200,33 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       ),
       body: hasVideo
           ? HlsWebPlayer(videoUrl: videoUrl!)
-          : Center(
-              child: hasPhoto
-                  ? InteractiveViewer(
-                      boundaryMargin: const EdgeInsets.all(20),
-                      child: Image.network(
-                        photoUrl!,
-                        fit: BoxFit.contain,
-                        loadingBuilder: (c, child, progress) => progress == null
-                            ? child
-                            : const CircularProgressIndicator(color: Colors.white),
-                        errorBuilder: (c, e, s) =>
-                            const Icon(Icons.error, color: Colors.white, size: 60),
+          : hasPhoto
+              // Let the InteractiveViewer fill the whole screen (image centered
+              // inside) so the pan/zoom area is the full viewport — not a small
+              // box the size of the image.
+              ? InteractiveViewer(
+                  minScale: 0.8,
+                  maxScale: 4.0,
+                  child: Center(
+                    child: Image.network(
+                      photoUrl!,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (c, child, progress) => progress == null
+                          ? child
+                          : const Center(
+                              child:
+                                  CircularProgressIndicator(color: Colors.white),
+                            ),
+                      errorBuilder: (c, e, s) => const Center(
+                        child: Icon(Icons.error, color: Colors.white, size: 60),
                       ),
-                    )
-                  : const Icon(Icons.broken_image, color: Colors.white, size: 100),
-            ),
+                    ),
+                  ),
+                )
+              : const Center(
+                  child:
+                      Icon(Icons.broken_image, color: Colors.white, size: 100),
+                ),
     );
   }
 }

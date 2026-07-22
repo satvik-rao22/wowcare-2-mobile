@@ -72,11 +72,25 @@ class StudentTransferForm extends StatefulWidget {
     this.refreshCallback,
     this.classroomNameToCode = const <String, String>{},
     this.popOnSuccess = false,
+    this.currentClassroomCode,
+    this.currentClassroomName,
   });
 
   final List<StudentEntity> students;
   final VoidCallback? refreshCallback;
   final Map<String, String> classroomNameToCode;
+
+  /// The classroom the user is currently VIEWING the student in, when the caller
+  /// knows it (e.g. the Classroom → Students tab).
+  ///
+  /// This is authoritative for "where is the student right now" and must win
+  /// over [StudentEntity.classroomCode]: a transfer moves the student for
+  /// attendance purposes, but the student record keeps pointing at their
+  /// enrolled room. Without it, transferring A→B and then opening Transfer from
+  /// classroom B excluded A (the stale value) and left B — the student's actual
+  /// current room — selectable as a destination.
+  final String? currentClassroomCode;
+  final String? currentClassroomName;
   // When true, pops back to the caller after a successful submission instead of
   // pushAndRemoveUntil → StudentAttendanceTabbedView. Set by callers that live
   // outside the Attendance tab (e.g. the Classroom Students card).
@@ -182,12 +196,32 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         .where((name) => name.isNotEmpty)
         .toSet();
 
+    // Also exclude the room the user is VIEWING the student in. The student
+    // record above can be stale after a transfer (it still points at their
+    // enrolled room), which is what left the current classroom selectable.
+    final viewing = _viewingClassroomName();
+    if (viewing.isNotEmpty) currentRoomNames.add(viewing);
+
     return classroomNameToCode.entries
         .where((entry) => entry.key.trim().isNotEmpty)
         .where((entry) => isSelectableClassroomName(entry.key))
         .where((entry) => !currentRoomNames.contains(entry.key))
         .map((entry) => entry.key)
         .toList(growable: false);
+  }
+
+  /// Name of the classroom the caller says we're viewing, resolved from its code
+  /// where possible. Empty when the caller didn't supply one.
+  String _viewingClassroomName() {
+    final code = (widget.currentClassroomCode ?? '').trim();
+    if (code.isNotEmpty) {
+      final resolved = (_codeToNameMap()[code] ?? '').trim();
+      if (resolved.isNotEmpty) return resolved;
+    }
+    final name = (widget.currentClassroomName ?? '').trim();
+    // Guard against a code being passed as the name (matches the daily-view rule).
+    if (name.isNotEmpty && !name.startsWith('CLS_')) return name;
+    return '';
   }
 
   Future<void> _loadAvailableClassroomsFromApi() async {
@@ -252,6 +286,11 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
   }
 
   String _deriveCurrentClassroomName() {
+    // The viewing room wins: after a transfer the student record still points at
+    // their enrolled room, so trusting it would both mislabel this field and
+    // leave the real current room selectable as a destination.
+    final viewing = _viewingClassroomName();
+    if (viewing.isNotEmpty) return viewing;
     if (currentStudents.isEmpty) return 'N/A';
     final first = currentStudents.firstWhere(
       (s) => s.classroomCode.trim().isNotEmpty || s.roomName.trim().isNotEmpty,

@@ -473,6 +473,11 @@ class _StudentSelectionTransferFormState
                   builder: (context) => StudentTransferForm(
                     students: selectedStudents.toSet().toList(),
                     classroomNameToCode: _classroomNameToCode,
+                    // Students were picked from this room, so it's their current
+                    // one — the student record can still name their enrolled room
+                    // after a transfer.
+                    currentClassroomCode: _selectedClassroomCode,
+                    currentClassroomName: _selectedClassroom,
                   ),
                 ),
               );

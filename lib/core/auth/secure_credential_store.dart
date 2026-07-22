@@ -1,4 +1,8 @@
+import 'dart:async';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:local_auth/error_codes.dart' as auth_error;
 import 'package:local_auth/local_auth.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 
@@ -11,8 +15,13 @@ import 'package:wowcare/core/util/logger_service.dart';
 ///   `EncryptedSharedPreferences` (hardware-backed Keystore). It is never put in
 ///   the app's plaintext SharedPreferences.
 /// - Reading it back to pre-fill REQUIRES a biometric / device-credential check
-///   (Face ID / fingerprint / PIN). A stolen-but-unlocked phone still cannot
-///   reveal the password without the user's biometric.
+///   (Face ID / fingerprint / PIN) **whenever the device has one**. A
+///   stolen-but-unlocked phone still cannot reveal the password without the
+///   user's biometric, and cancelling/failing the prompt reveals nothing.
+/// - When the device has NO biometric AND no passcode there is no gate that can
+///   ever be satisfied, so the password is returned without a prompt. Failing
+///   closed there would make "Remember me" permanently broken on those devices,
+///   and a device with no lock screen gains nothing from the gate anyway.
 /// - It is written only when "Remember me" is checked on a successful login, and
 ///   wiped the moment "Remember me" is unchecked or a login fails (wrong
 ///   password). It deliberately SURVIVES logout and session-expiry so the form
@@ -96,9 +105,31 @@ class SecureCredentialStore {
     }
   }
 
-  /// Prompts for biometrics / device credential and, only on success, returns
-  /// the stored `{username, password}`. Returns null on cancel, failure, no
-  /// stored value, or if the device can't authenticate (fail closed).
+  /// Reads the stored pair straight out of the secure store. Callers must have
+  /// already cleared the auth gate (or established that no gate exists).
+  Future<Map<String, String>?> _readStored() async {
+    final password = await _storage.read(key: _kPasswordKey);
+    final username = await _storage.read(key: _kUsernameKey);
+    if (password == null || password.isEmpty) return null;
+    return {'username': username ?? '', 'password': password};
+  }
+
+  /// True when [e] means "this device has no biometric / passcode to prompt
+  /// with" — as opposed to the user actively failing or cancelling a prompt.
+  bool _isNoGateAvailable(PlatformException e) {
+    return e.code == auth_error.passcodeNotSet ||
+        e.code == auth_error.notEnrolled ||
+        e.code == auth_error.notAvailable ||
+        e.code == auth_error.otherOperatingSystem;
+  }
+
+  /// Returns the stored `{username, password}` for "Remember me" pre-fill.
+  ///
+  /// If the device can prompt (biometric or PIN/passcode), the user must pass
+  /// that check — cancelling or failing returns null (fail closed). If the
+  /// device has no biometric AND no passcode, there is no gate to satisfy, so
+  /// the credentials are returned without a prompt so "Remember me" still works.
+  /// Returns null when nothing is stored.
   Future<Map<String, String>?> revealWithBiometrics({
     required String reason,
   }) async {
@@ -106,25 +137,67 @@ class SecureCredentialStore {
       final has = await hasSavedPassword();
       AppLogger.d('[SecureCred] reveal: hasSavedPassword=$has');
       if (!has) return null;
+
       final canAuth = await canAuthenticate();
       AppLogger.d('[SecureCred] reveal: canAuthenticate=$canAuth');
-      if (!canAuth) return null;
+      if (!canAuth) {
+        // No biometric and no device passcode — no gate can ever be satisfied.
+        // Honour "Remember me" instead of silently never pre-filling.
+        AppLogger.d('[SecureCred] reveal: no auth gate on device — ungated read');
+        return _readStored();
+      }
 
-      final ok = await _localAuth.authenticate(
-        localizedReason: reason,
-        options: const AuthenticationOptions(
-          stickyAuth: true,
-          biometricOnly: false, // allow device PIN/passcode fallback
-          useErrorDialogs: true,
-        ),
-      );
+      // isDeviceSupported() is true whenever a passcode exists, even with NO
+      // biometric enrolled. In that state there is no Face ID / fingerprint to
+      // prompt with, and the passcode-only prompt can never resolve (the
+      // authenticate() future hangs), which left the password permanently
+      // un-filled. "Remember me" must work without biometrics, so read ungated.
+      final enrolled = await _localAuth.getAvailableBiometrics();
+      if (enrolled.isEmpty) {
+        AppLogger.d(
+          '[SecureCred] reveal: no enrolled biometrics — ungated read',
+        );
+        return _readStored();
+      }
+
+      final bool ok;
+      try {
+        ok = await _localAuth
+            .authenticate(
+              localizedReason: reason,
+              options: const AuthenticationOptions(
+                stickyAuth: true,
+                biometricOnly: false, // allow device PIN/passcode fallback
+                useErrorDialogs: true,
+              ),
+            )
+            // Safety net: never let a prompt that never resolves hang the
+            // sign-in pre-fill forever.
+            .timeout(
+              const Duration(seconds: 60),
+              onTimeout: () {
+                AppLogger.d('[SecureCred] reveal: authenticate TIMED OUT');
+                return false;
+              },
+            );
+      } on PlatformException catch (e) {
+        // The platform reported there is nothing to prompt with (no enrolled
+        // biometric / no passcode). Treat as "no gate", not as a denial.
+        if (_isNoGateAvailable(e)) {
+          AppLogger.d(
+            '[SecureCred] reveal: no gate (${e.code}) — ungated read',
+          );
+          return _readStored();
+        }
+        AppLogger.d('[SecureCred] reveal: authenticate error ${e.code}');
+        return null;
+      }
+
       AppLogger.d('[SecureCred] reveal: authenticate returned $ok');
+      // User cancelled or failed a prompt the device COULD show — fail closed.
       if (!ok) return null;
 
-      final password = await _storage.read(key: _kPasswordKey);
-      final username = await _storage.read(key: _kUsernameKey);
-      if (password == null || password.isEmpty) return null;
-      return {'username': username ?? '', 'password': password};
+      return _readStored();
     } catch (e) {
       AppLogger.d('[SecureCred] revealWithBiometrics failed: $e');
       return null;
