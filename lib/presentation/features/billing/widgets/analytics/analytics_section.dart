@@ -35,13 +35,33 @@ class _AnalyticsSectionBody extends StatefulWidget {
 
 class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
   static const List<String> _months = <String>[
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   static const List<String> _monthNames = [
-    'jan', 'feb', 'mar', 'apr', 'may', 'jun',
-    'jul', 'aug', 'sep', 'oct', 'nov', 'dec',
+    'jan',
+    'feb',
+    'mar',
+    'apr',
+    'may',
+    'jun',
+    'jul',
+    'aug',
+    'sep',
+    'oct',
+    'nov',
+    'dec',
   ];
 
   @override
@@ -79,13 +99,12 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
                     style: TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 14 : 13,
-                      color: AppColors.billingTextColor.withOpacity(0.7),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.7),
                     ),
                   ),
                   const SizedBox(height: 12),
                   TextButton(
-                    onPressed: () =>
-                        context.read<AnalyticsCubit>().load(),
+                    onPressed: () => context.read<AnalyticsCubit>().load(),
                     child: const Text('Retry'),
                   ),
                 ],
@@ -95,12 +114,11 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
         }
 
         final analytics = state.analytics;
-        final List<double> revenue =
-            _toMonthlyValues(analytics?.revenue ?? []);
-        final List<double> invoiced =
-            _toMonthlyValues(analytics?.invoiced ?? []);
-        final List<double> refunds =
-            _toMonthlyValues(analytics?.refunds ?? []);
+        final List<double> revenue = _toMonthlyValues(analytics?.revenue ?? []);
+        final List<double> invoiced = _toMonthlyValues(
+          analytics?.invoiced ?? [],
+        );
+        final List<double> refunds = _toMonthlyValues(analytics?.refunds ?? []);
 
         final double revenueYtd = revenue.fold(0, (a, b) => a + b);
         final double invoicedYtd = invoiced.fold(0, (a, b) => a + b);
@@ -108,15 +126,23 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
 
         final List<AnalyticsSubsidyEntity> subsidyData =
             analytics?.subsidies ?? [];
-        final double subsidiesInvoicedYtd =
-            subsidyData.fold(0.0, (a, b) => a + b.invoiced);
+        final double subsidiesInvoicedYtd = subsidyData.fold(
+          0.0,
+          (a, b) => a + b.invoiced,
+        );
 
-        final List<double> subsidyBalance =
-            _toMonthlySubsidyValues(subsidyData, (e) => e.balance);
-        final List<double> subsidyInvoiced =
-            _toMonthlySubsidyValues(subsidyData, (e) => e.invoiced);
-        final List<double> subsidyReceived =
-            _toMonthlySubsidyValues(subsidyData, (e) => e.received);
+        final List<double> subsidyBalance = _toMonthlySubsidyValues(
+          subsidyData,
+          (e) => e.balance,
+        );
+        final List<double> subsidyInvoiced = _toMonthlySubsidyValues(
+          subsidyData,
+          (e) => e.invoiced,
+        );
+        final List<double> subsidyReceived = _toMonthlySubsidyValues(
+          subsidyData,
+          (e) => e.received,
+        );
 
         final double maxSubsidyAbs = _maxAbsValue([
           ...subsidyBalance,
@@ -130,8 +156,7 @@ class _AnalyticsSectionBodyState extends State<_AnalyticsSectionBody> {
             // Year filter — right-aligned
             _YearSelector(
               selectedYear: state.selectedYear ?? currentYear,
-              onYearChanged: (y) =>
-                  context.read<AnalyticsCubit>().setYear(y),
+              onYearChanged: (y) => context.read<AnalyticsCubit>().setYear(y),
             ),
             SizedBox(height: sectionGap),
             _AnalyticsBarCard(
@@ -283,7 +308,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.04),
+              color: Colors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -453,7 +478,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.billingTextColor.withOpacity(0.8),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -495,7 +520,7 @@ class _AnalyticsBarCard extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: isTablet ? 13 : 12,
-                  color: AppColors.billingTextColor.withOpacity(0.8),
+                  color: AppColors.billingTextColor.withValues(alpha: 0.8),
                 ),
               ),
             ],
@@ -558,7 +583,7 @@ class _SubsidiesOverviewCard extends StatelessWidget {
                       fontFamily: 'Manrope',
                       fontSize: isTablet ? 13 : 12,
                       fontWeight: FontWeight.w500,
-                      color: AppColors.billingTextColor.withOpacity(0.8),
+                      color: AppColors.billingTextColor.withValues(alpha: 0.8),
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -656,8 +681,7 @@ class _SimpleBarChart extends StatelessWidget {
                   chartHeight: chartHeight,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.end,
-                    children:
-                        List<Widget>.generate(data.length, (int index) {
+                    children: List<Widget>.generate(data.length, (int index) {
                       return Expanded(
                         child: Padding(
                           padding: EdgeInsets.symmetric(
@@ -731,23 +755,25 @@ class _GroupedBarChart extends StatelessWidget {
                       negativeMin: -maxAbsY * 0.4,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children:
-                            List<Widget>.generate(months.length, (int mi) {
+                        children: List<Widget>.generate(months.length, (
+                          int mi,
+                        ) {
                           return Expanded(
                             child: Padding(
                               padding: EdgeInsets.symmetric(
                                 horizontal: isTablet ? 4 : 2,
                               ),
                               child: Row(
-                                crossAxisAlignment:
-                                    CrossAxisAlignment.stretch,
-                                children: List<Widget>.generate(
-                                    series.length, (int si) {
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: List<Widget>.generate(series.length, (
+                                  int si,
+                                ) {
                                   final s = series[si];
                                   return Expanded(
                                     child: Padding(
                                       padding: const EdgeInsets.symmetric(
-                                          horizontal: 1.8),
+                                        horizontal: 1.8,
+                                      ),
                                       child: _SignedBar(
                                         month: months[mi],
                                         seriesName: s.label,
@@ -756,8 +782,8 @@ class _GroupedBarChart extends StatelessWidget {
                                         negativeMin: -maxAbsY * 0.4,
                                         gradient:
                                             AppColors.buildPrimaryGradient(
-                                          colors: s.gradientColors,
-                                        ),
+                                              colors: s.gradientColors,
+                                            ),
                                       ),
                                     ),
                                   );
@@ -780,11 +806,14 @@ class _GroupedBarChart extends StatelessWidget {
           spacing: 12,
           runSpacing: 8,
           children: series
-              .map((item) => _LegendDot(
-                    label: item.label,
-                    gradient: AppColors.buildPrimaryGradient(
-                        colors: item.gradientColors),
-                  ))
+              .map(
+                (item) => _LegendDot(
+                  label: item.label,
+                  gradient: AppColors.buildPrimaryGradient(
+                    colors: item.gradientColors,
+                  ),
+                ),
+              )
               .toList(),
         ),
       ],
@@ -811,8 +840,7 @@ class _PlotArea extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isTablet = ResponsiveSizing.isTablet(context);
     final double totalRange = maxY - negativeMin;
-    final double zeroRatio =
-        totalRange == 0 ? 1 : (maxY / totalRange);
+    final double zeroRatio = totalRange == 0 ? 1 : (maxY / totalRange);
 
     return Column(
       children: [
@@ -827,8 +855,7 @@ class _PlotArea extends StatelessWidget {
                     child: Container(
                       decoration: const BoxDecoration(
                         border: Border(
-                          top: BorderSide(
-                              color: Color(0xFFE9E8EF), width: 1),
+                          top: BorderSide(color: Color(0xFFE9E8EF), width: 1),
                         ),
                       ),
                     ),
@@ -840,10 +867,7 @@ class _PlotArea extends StatelessWidget {
                   left: 0,
                   right: 0,
                   top: chartHeight * (1 - zeroRatio),
-                  child: Container(
-                    height: 1.2,
-                    color: const Color(0xFFCFCAD8),
-                  ),
+                  child: Container(height: 1.2, color: const Color(0xFFCFCAD8)),
                 ),
               child,
             ],
@@ -859,7 +883,7 @@ class _PlotArea extends StatelessWidget {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: isTablet ? 12 : 10.5,
-                  color: AppColors.billingTextColor.withOpacity(0.75),
+                  color: AppColors.billingTextColor.withValues(alpha: 0.75),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -886,8 +910,7 @@ class _SingleBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final double barRatio =
-        maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
+    final double barRatio = maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
     final NumberFormatHelper formatter = NumberFormatHelper();
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -933,8 +956,7 @@ class _SignedBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final double totalRange = maxY - negativeMin;
-    final double zeroRatio =
-        totalRange == 0 ? 1 : (maxY / totalRange);
+    final double zeroRatio = totalRange == 0 ? 1 : (maxY / totalRange);
     final NumberFormatHelper formatter = NumberFormatHelper();
 
     return LayoutBuilder(
@@ -945,32 +967,35 @@ class _SignedBar extends StatelessWidget {
 
         final Widget barContent;
         if (value >= 0) {
-          final double ratio =
-              maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
+          final double ratio = maxY == 0 ? 0 : (value / maxY).clamp(0.0, 1.0);
           final double height = topArea * ratio;
-          barContent = Stack(children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              bottom: bottomArea,
-              height: height < 2 && value > 0 ? 2 : height,
-              child: _GradientBar(gradient: gradient),
-            ),
-          ]);
+          barContent = Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: bottomArea,
+                height: height < 2 && value > 0 ? 2 : height,
+                child: _GradientBar(gradient: gradient),
+              ),
+            ],
+          );
         } else {
           final double ratio = negativeMin == 0
               ? 0
               : (value.abs() / negativeMin.abs()).clamp(0.0, 1.0);
           final double height = bottomArea * ratio;
-          barContent = Stack(children: [
-            Positioned(
-              left: 0,
-              right: 0,
-              top: topArea,
-              height: height < 2 && value.abs() > 0 ? 2 : height,
-              child: _GradientBar(gradient: gradient),
-            ),
-          ]);
+          barContent = Stack(
+            children: [
+              Positioned(
+                left: 0,
+                right: 0,
+                top: topArea,
+                height: height < 2 && value.abs() > 0 ? 2 : height,
+                child: _GradientBar(gradient: gradient),
+              ),
+            ],
+          );
         }
 
         return Tooltip(
@@ -1025,13 +1050,11 @@ class _YAxisLabels extends StatelessWidget {
       children: List<Widget>.generate(steps + 1, (int index) {
         final double v = maxY - (range * (index / steps));
         return Text(
-          formatCompact
-              ? formatter.currencyCompact(v)
-              : formatter.currency(v),
+          formatCompact ? formatter.currencyCompact(v) : formatter.currency(v),
           style: TextStyle(
             fontFamily: 'Manrope',
             fontSize: isTablet ? 11 : 10,
-            color: AppColors.billingTextColor.withOpacity(0.6),
+            color: AppColors.billingTextColor.withValues(alpha: 0.6),
             fontWeight: FontWeight.w500,
           ),
           textAlign: TextAlign.right,
@@ -1068,7 +1091,7 @@ class _LegendDot extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: isTablet ? 12 : 11,
             fontWeight: FontWeight.w500,
-            color: AppColors.billingTextColor.withOpacity(0.8),
+            color: AppColors.billingTextColor.withValues(alpha: 0.8),
           ),
         ),
       ],

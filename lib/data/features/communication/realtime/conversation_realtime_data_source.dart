@@ -1,12 +1,10 @@
 import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
 // ─── Lightweight DTO for Firestore user_inbox data ──────────────────────────
-
 /// Represents the per-user conversation record stored in Firestore
 /// under orgs/{org}/schools/{school}/user_inbox/{user}/conversations/{code}.
 ///
@@ -209,15 +207,14 @@ class FirebaseConversationRealtimeDataSource
     required String organizationCode,
     required String schoolCode,
     required String userCode,
-  }) =>
-      firestore
-          .collection('orgs')
-          .doc(organizationCode)
-          .collection('schools')
-          .doc(schoolCode)
-          .collection('user_inbox')
-          .doc(userCode)
-          .collection('conversations');
+  }) => firestore
+      .collection('orgs')
+      .doc(organizationCode)
+      .collection('schools')
+      .doc(schoolCode)
+      .collection('user_inbox')
+      .doc(userCode)
+      .collection('conversations');
 
   @override
   Stream<List<ConversationInboxItem>> watchInbox({
@@ -247,16 +244,16 @@ class FirebaseConversationRealtimeDataSource
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
         if (attempt < _retryDelays.length) {
-          Future.delayed(
-            Duration(seconds: _retryDelays[attempt]),
-            () {
-              if (!controller.isClosed) attach(attempt + 1);
-            },
-          );
+          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+            if (!controller.isClosed) attach(attempt + 1);
+          });
         } else {
           authWaitSub?.cancel();
           authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
             if (user != null) {
               authWaitSub?.cancel();
               authWaitSub = null;
@@ -272,34 +269,32 @@ class FirebaseConversationRealtimeDataSource
 
     attach = (int attempt) {
       inner?.cancel();
-      runZonedGuarded(
-        () {
-          inner = query.snapshots().listen(
-            (snapshot) {
-              if (controller.isClosed) return;
-              final items = snapshot.docs
-                  .map(ConversationInboxItem.fromFirestore)
-                  .where((item) => item.isActive)
-                  .toList()
-                ..sort((a, b) {
-                  if (a.lastMessageAt == null && b.lastMessageAt == null) {
-                    return 0;
-                  }
-                  if (a.lastMessageAt == null) return 1;
-                  if (b.lastMessageAt == null) return -1;
-                  return b.lastMessageAt!.compareTo(a.lastMessageAt!);
-                });
-              controller.add(items);
-            },
-            onError: (Object error) => retryOrForward(error, attempt),
-            onDone: () {
-              if (!controller.isClosed) controller.close();
-            },
-            cancelOnError: true,
-          );
-        },
-        (Object error, StackTrace _) => retryOrForward(error, attempt),
-      );
+      runZonedGuarded(() {
+        inner = query.snapshots().listen(
+          (snapshot) {
+            if (controller.isClosed) return;
+            final items =
+                snapshot.docs
+                    .map(ConversationInboxItem.fromFirestore)
+                    .where((item) => item.isActive)
+                    .toList()
+                  ..sort((a, b) {
+                    if (a.lastMessageAt == null && b.lastMessageAt == null) {
+                      return 0;
+                    }
+                    if (a.lastMessageAt == null) return 1;
+                    if (b.lastMessageAt == null) return -1;
+                    return b.lastMessageAt!.compareTo(a.lastMessageAt!);
+                  });
+            controller.add(items);
+          },
+          onError: (Object error) => retryOrForward(error, attempt),
+          onDone: () {
+            if (!controller.isClosed) controller.close();
+          },
+          cancelOnError: true,
+        );
+      }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
     controller.onListen = () => attach(0);
@@ -333,16 +328,16 @@ class FirebaseConversationRealtimeDataSource
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
         if (attempt < _retryDelays.length) {
-          Future.delayed(
-            Duration(seconds: _retryDelays[attempt]),
-            () {
-              if (!controller.isClosed) attach(attempt + 1);
-            },
-          );
+          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+            if (!controller.isClosed) attach(attempt + 1);
+          });
         } else {
           authWaitSub?.cancel();
           authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
             if (user != null) {
               authWaitSub?.cancel();
               authWaitSub = null;
@@ -358,29 +353,25 @@ class FirebaseConversationRealtimeDataSource
 
     attach = (int attempt) {
       inner?.cancel();
-      runZonedGuarded(
-        () {
-          inner = ref.snapshots().listen(
-            (snapshot) {
-              if (controller.isClosed) return;
-              controller.add(
-                snapshot.docs.fold<int>(
-                  0,
-                  (sum, doc) =>
-                      sum +
-                      ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
-                ),
-              );
-            },
-            onError: (Object error) => retryOrForward(error, attempt),
-            onDone: () {
-              if (!controller.isClosed) controller.close();
-            },
-            cancelOnError: true,
-          );
-        },
-        (Object error, StackTrace _) => retryOrForward(error, attempt),
-      );
+      runZonedGuarded(() {
+        inner = ref.snapshots().listen(
+          (snapshot) {
+            if (controller.isClosed) return;
+            controller.add(
+              snapshot.docs.fold<int>(
+                0,
+                (sum, doc) =>
+                    sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+              ),
+            );
+          },
+          onError: (Object error) => retryOrForward(error, attempt),
+          onDone: () {
+            if (!controller.isClosed) controller.close();
+          },
+          cancelOnError: true,
+        );
+      }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
     controller.onListen = () => attach(0);
@@ -415,16 +406,16 @@ class FirebaseConversationRealtimeDataSource
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
         if (attempt < _retryDelays.length) {
-          Future.delayed(
-            Duration(seconds: _retryDelays[attempt]),
-            () {
-              if (!controller.isClosed) attach(attempt + 1);
-            },
-          );
+          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+            if (!controller.isClosed) attach(attempt + 1);
+          });
         } else {
           authWaitSub?.cancel();
           authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
             if (user != null) {
               authWaitSub?.cancel();
               authWaitSub = null;
@@ -440,29 +431,25 @@ class FirebaseConversationRealtimeDataSource
 
     attach = (int attempt) {
       inner?.cancel();
-      runZonedGuarded(
-        () {
-          inner = query.snapshots().listen(
-            (snapshot) {
-              if (controller.isClosed) return;
-              controller.add(
-                snapshot.docs.fold<int>(
-                  0,
-                  (sum, doc) =>
-                      sum +
-                      ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
-                ),
-              );
-            },
-            onError: (Object error) => retryOrForward(error, attempt),
-            onDone: () {
-              if (!controller.isClosed) controller.close();
-            },
-            cancelOnError: true,
-          );
-        },
-        (Object error, StackTrace _) => retryOrForward(error, attempt),
-      );
+      runZonedGuarded(() {
+        inner = query.snapshots().listen(
+          (snapshot) {
+            if (controller.isClosed) return;
+            controller.add(
+              snapshot.docs.fold<int>(
+                0,
+                (sum, doc) =>
+                    sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+              ),
+            );
+          },
+          onError: (Object error) => retryOrForward(error, attempt),
+          onDone: () {
+            if (!controller.isClosed) controller.close();
+          },
+          cancelOnError: true,
+        );
+      }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
     controller.onListen = () => attach(0);
