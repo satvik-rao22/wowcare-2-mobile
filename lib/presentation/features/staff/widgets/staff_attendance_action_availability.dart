@@ -1,5 +1,6 @@
 /// Rules aligned with [StaffAttendanceProfile] / staff attendance pop-up:
-/// - Sign-in: active profile, not currently signed in, not absent, not signed out for today
+/// - Sign-in: active profile, not currently signed in, not absent — repeatable
+///   any number of times per day, including after a prior sign-out
 /// - Sign-out / Transfer: currently signed in (and not absent)
 /// - Mark absent: active profile, not signed in, not already absent, not signed out
 class StaffAttendanceGate {
@@ -17,17 +18,20 @@ class StaffAttendanceGate {
 
   /// Enablement rules driven by today's attendance status:
   /// - SIGNED_IN  -> enable Sign-Out + Transfer only
-  /// - SIGNED_OUT -> disable all actions for the day (attendance is done)
+  /// - SIGNED_OUT -> Sign-In is available again (repeated sign-in/sign-out
+  ///   cycles are allowed within the same day); Mark Absent stays locked —
+  ///   attendance for the day has already started.
   /// - ABSENT     -> disable all actions for the day (no recovery sign-in)
   /// - otherwise (e.g. EXPECTED / NOT_MARKED / null)
   ///   -> enable **Sign-In** + **Mark Absent** only
   bool get canSignIn {
     if (!isActiveProfile) return false;
-    if (hasSignedOutToday) return false;
     if (isSignedInToday) return false;
     // Once marked absent for the day, all self-attendance actions are
     // locked out for that date — no recovery sign-in.
     if (isAbsentToday) return false;
+    // hasSignedOutToday intentionally does NOT block Sign-In — staff can
+    // sign in and out any number of times per day.
     return true;
   }
 

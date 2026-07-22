@@ -501,9 +501,11 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     );
     if (mounted) {
       unawaited(_loadStaffIdentity());
-      // TODO: Temporarily disabled Sign Out bottom sheet and push notification after Sign In.
-      // Status will be checked on next dashboard refresh or app resume.
-      // unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      // Keep GeofenceCubit.isStaffSignedIn in sync immediately after sign-in —
+      // it now also drives suppressing the "you can now Sign In or Sign Out"
+      // notification, so leaving it stale here would let that notification
+      // wrongly fire again right after the user just signed in.
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
     }
   }
 
@@ -523,7 +525,6 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
     if (mounted) {
       unawaited(_loadStaffIdentity());
-      // TODO: Temporarily disabled Sign Out push notification.
       unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
     }
   }

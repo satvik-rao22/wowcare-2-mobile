@@ -705,7 +705,13 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     // fire the Flutter-side notification instead to inform the user.
     if (fireFlutterNotification) {
       if (newStatus == GeofenceStatus.within) {
-        unawaited(_notifications.showEnteredZoneNotification());
+        // "You can now Sign In or Sign Out" is meaningless noise when there's
+        // nothing left to act on: a staff/admin user already signed in for
+        // the day, or a guardian whose children are all already signed in.
+        final nothingToDo = state.isStaffSignedIn || state.allChildrenSignedIn;
+        if (!nothingToDo) {
+          unawaited(_notifications.showEnteredZoneNotification());
+        }
       } else {
         unawaited(_notifications.showExitedZoneNotification());
       }
@@ -933,7 +939,13 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     _subscription = null;
     unawaited(_nativeSubscription?.cancel());
     _nativeSubscription = null;
-    _lastNotifiedStatus = null;
+    // Deliberately NOT resetting _lastNotifiedStatus here — it tracks the
+    // last geofence status the user was actually notified about for the
+    // whole session, independent of listener lifecycle. stopMonitoring() is
+    // called on every dashboard refresh/reinit (initForSchool, refreshSettings,
+    // pause/resume reconciliation); resetting the dedup flag here caused the
+    // "Sign In/Out — you can now Sign In or Sign Out" notification to re-fire
+    // on every refresh even when the user's status hadn't actually changed.
   }
 
   // ── WorkManager health check (Phase 5) ──────────────────────────────────────
@@ -1036,6 +1048,14 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
   Future<void> updateStaffSignInStatus(bool isSignedIn) async {
     emit(state.copyWith(isStaffSignedIn: isSignedIn));
+  }
+
+  /// Guardian/parent equivalent of [updateStaffSignInStatus] — called by
+  /// MyChildsDayCard whenever it refreshes children's sign-in status, so the
+  /// "you can now Sign In or Sign Out" notification can be suppressed once
+  /// nothing is left to act on for this guardian.
+  Future<void> updateChildrenSignInStatus(bool allSignedIn) async {
+    emit(state.copyWith(allChildrenSignedIn: allSignedIn));
   }
 
   @override
