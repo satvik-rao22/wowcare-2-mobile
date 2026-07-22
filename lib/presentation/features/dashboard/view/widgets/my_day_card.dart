@@ -102,12 +102,22 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
 
   bool _markAbsentDisabled(GeofenceState geofenceState) =>
       !_staffIdentityLoaded ||
-      _staffCode.isEmpty ||
+      _effectiveStaffCode.isEmpty ||
       !_availability(geofenceState).absentEnabled;
 
   // Cached staff identity — loaded once in initState so button taps never hit
   // a timing window where storage hasn't resolved yet.
   String _staffCode = '';
+  // Pure admins (role == 'admin', not also 'staff') have no staff profile, so
+  // StorageKeys.staffCode is legitimately empty for them — StorageKeys.userCode
+  // is used as their self-attendance identity instead.
+  String _userCode = '';
+
+  /// The identity used for self-attendance actions (Sign-In/Sign-Out/Transfer/
+  /// Mark Absent): the real staffCode when the user has a staff profile,
+  /// falling back to their userCode for staff-less personas (pure admins).
+  String get _effectiveStaffCode =>
+      _staffCode.isNotEmpty ? _staffCode : _userCode;
   String _staffDisplayName = '';
   String _staffDesignation = '';
   bool _staffIdentityLoaded = false;
@@ -369,6 +379,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   Future<void> _loadStaffIdentity() async {
     final storage = serviceLocator<StorageService>();
     final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    final userCode =
+        (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
     final name = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
     final designation =
@@ -376,14 +388,16 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() {
       _staffCode = code;
+      _userCode = userCode;
       _staffDisplayName = name;
       _staffDesignation = designation;
       _staffIdentityLoaded = true;
     });
-    if (code.isEmpty) return;
+    final effectiveCode = _effectiveStaffCode;
+    if (effectiveCode.isEmpty) return;
     try {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
-      final status = await useCase(staffCode: code);
+      final status = await useCase(staffCode: effectiveCode);
       if (!mounted) return;
       setState(() {
         _todayStatusRaw = status;
@@ -395,7 +409,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   }
 
   Future<void> _openTransferForSelf() async {
-    if (_staffCode.isEmpty) {
+    if (_effectiveStaffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Unable to find your staff profile to transfer.',
@@ -414,7 +428,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
             designation: _staffDesignation.isNotEmpty
                 ? _staffDesignation
                 : 'Staff',
-            staffCode: _staffCode,
+            staffCode: _effectiveStaffCode,
           ),
         ),
       ),
@@ -459,13 +473,13 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   }
 
   StaffEntity? _buildSelfStaffEntity() {
-    if (_staffCode.isEmpty) return null;
+    if (_effectiveStaffCode.isEmpty) return null;
     return StaffEntity(
       id: 0,
       name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
       primaryRoomId: 0,
       designation: _staffDesignation.isNotEmpty ? _staffDesignation : 'Staff',
-      staffCode: _staffCode,
+      staffCode: _effectiveStaffCode,
     );
   }
 
@@ -510,7 +524,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     if (mounted) {
       unawaited(_loadStaffIdentity());
       // TODO: Temporarily disabled Sign Out push notification.
-      // unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
     }
   }
 
@@ -1051,8 +1065,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                           final roleProvider = context.watch<RoleCubit>();
                           final bool isStaff = roleProvider.isStaff;
                           final bool isAdmin = roleProvider.isAdmin;
-                          final StaffAttendanceActionAvailability
-                          availability = _availability(geofenceState);
+                          final StaffAttendanceActionAvailability availability =
+                              _availability(geofenceState);
                           final Map<String, String> disabledReasons =
                               _disabledReasons(geofenceState);
                           final bool markAbsentDisabled = _markAbsentDisabled(
@@ -1083,14 +1097,15 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                       if (showSecondaryButtons && _isSignedIn)
                                         Expanded(
                                           child: Tooltip(
-                                            message: availability.transferEnabled
+                                            message:
+                                                availability.transferEnabled
                                                 ? ''
                                                 : disabledReasons['Transfer'] ??
                                                       '',
                                             child: OutlinedButton.icon(
                                               onPressed:
                                                   (!_staffIdentityLoaded ||
-                                                      _staffCode.isEmpty ||
+                                                      _effectiveStaffCode.isEmpty ||
                                                       !availability
                                                           .transferEnabled)
                                                   ? null
@@ -1141,7 +1156,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 ? _handleMarkAbsentDisabledTap
                                                 : null,
                                             child: Tooltip(
-                                              message: availability.absentEnabled
+                                              message:
+                                                  availability.absentEnabled
                                                   ? ''
                                                   : disabledReasons['Absent'] ??
                                                         '',
@@ -1541,9 +1557,10 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
   Future<void> _init() async {
     _currentUserCode =
-        (await serviceLocator<StorageService>().getString(StorageKeys.userCode))
-                ?.trim() ??
-            '';
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.userCode,
+        ))?.trim() ??
+        '';
     try {
       final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
           .call();

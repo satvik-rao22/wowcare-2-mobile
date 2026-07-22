@@ -24,6 +24,7 @@ class GeofenceState extends Equatable {
     this.gpsSignInEnabled = true,
     this.parentGpsSignInEnabled = true,
     this.isStaffSignedIn = false,
+    this.permissionLevel = LocationPermissionLevel.denied,
   });
 
   const GeofenceState.initial()
@@ -34,7 +35,8 @@ class GeofenceState extends Equatable {
         radiusMeters = null,
         gpsSignInEnabled = true,
         parentGpsSignInEnabled = true,
-        isStaffSignedIn = false;
+        isStaffSignedIn = false,
+        permissionLevel = LocationPermissionLevel.denied;
 
   final GeofenceCubitStatus status;
   final String schoolCode;
@@ -56,6 +58,11 @@ class GeofenceState extends Equatable {
   /// Tracks if the staff member themselves has signed in.
   final bool isStaffSignedIn;
 
+  /// Normalized OS location permission level. Internal plumbing only — does
+  /// not currently drive any gating; [isWithinGeofence]/[status] remain the
+  /// source of truth for Sign-In availability.
+  final LocationPermissionLevel permissionLevel;
+
   /// True only when within range AND admin has GPS sign-in enabled.
   bool get isWithinGeofence =>
       status == GeofenceCubitStatus.withinRange && gpsSignInEnabled;
@@ -74,6 +81,7 @@ class GeofenceState extends Equatable {
     bool? gpsSignInEnabled,
     bool? parentGpsSignInEnabled,
     bool? isStaffSignedIn,
+    LocationPermissionLevel? permissionLevel,
   }) =>
       GeofenceState(
         status: status ?? this.status,
@@ -85,6 +93,7 @@ class GeofenceState extends Equatable {
         parentGpsSignInEnabled:
             parentGpsSignInEnabled ?? this.parentGpsSignInEnabled,
         isStaffSignedIn: isStaffSignedIn ?? this.isStaffSignedIn,
+        permissionLevel: permissionLevel ?? this.permissionLevel,
       );
 
   @override
@@ -97,5 +106,6 @@ class GeofenceState extends Equatable {
         gpsSignInEnabled,
         parentGpsSignInEnabled,
         isStaffSignedIn,
+        permissionLevel,
       ];
 }

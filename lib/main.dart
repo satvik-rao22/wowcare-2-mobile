@@ -12,7 +12,9 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:sizer/sizer.dart';
 import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:workmanager/workmanager.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/background/geofence_background_task.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/auth/secure_credential_store.dart';
@@ -184,11 +186,30 @@ Future<void> _ensureFirebaseInitialized() async {
   }
 }
 
+/// WorkManager entry point — must be a top-level (or static) function.
+/// Registered once here; whether a task is actually scheduled is decided
+/// entirely by GeofenceCubit based on permission level + admin GPS setting
+/// (see _syncBackgroundHealthCheck), not by this initialization call.
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    if (task == geofenceHealthCheckTaskName) {
+      await geofenceBackgroundCallback();
+    }
+    return true;
+  });
+}
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   tzdata.initializeTimeZones();
 
   await configureDependencies();
+
+  // One-time WorkManager setup. Registers the callback dispatcher only —
+  // does NOT schedule any task. Task registration/cancellation is entirely
+  // state-driven from GeofenceCubit (always + gpsSignInEnabled only).
+  await Workmanager().initialize(callbackDispatcher);
 
   // Fresh-install reset: iOS Keychain (flutter_secure_storage) SURVIVES app
   // uninstall, so a reinstall could keep old "Remember me" credentials. The
