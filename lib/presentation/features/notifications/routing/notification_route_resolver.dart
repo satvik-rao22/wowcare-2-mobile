@@ -143,8 +143,13 @@ class NotificationRouteResolver {
           path: AppRoutes.messaging,
           queryParameters: {'msgTab': 'parent'},
         );
-      case 'MESSAGING':
       case 'STAFF_MESSAGING':
+        // A staff-to-staff message → Staff Messaging sub-tab (the module now defaults to Parent).
+        return const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'staff'},
+        );
+      case 'MESSAGING':
       case 'NEWSLETTER':
         return const NotificationDestination(path: AppRoutes.messaging);
       default:
@@ -461,7 +466,11 @@ class NotificationRouteResolver {
 
     // ── Communication ────────────────────────────────────────────────────────
     NotificationAction.messageToStaff: (n) =>
-        const NotificationDestination(path: AppRoutes.messaging),
+        // A staff-to-staff message → Staff Messaging sub-tab (the module now defaults to Parent).
+        const NotificationDestination(
+          path: AppRoutes.messaging,
+          queryParameters: {'msgTab': 'staff'},
+        ),
     NotificationAction.messageToStudent: (n) =>
         // MESSAGE_FROM_PARENT = a room-chat/parent message → open the Parent Messaging
         // (Room Chats) sub-tab, not Staff Messaging (which is index 0 = the default).

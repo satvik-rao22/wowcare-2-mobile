@@ -1162,7 +1162,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(MessagingScreen.staffMessagingRoute);
                                   },
                                 ),
                               if (showParentMessagingDrawer ||

@@ -31,6 +31,12 @@ class MessagingScreen extends StatefulWidget {
   /// so it doesn't land on Staff Messaging first.
   static const String parentMessagingRoute = '$routeName?msgTab=parent';
 
+  /// Deep-link straight to the Staff Messaging sub-tab. Admin/Staff now land on
+  /// Parent Messaging by default (see the sub-tab resolution in build()), so any
+  /// entry that must open Staff Messaging (drawer/launcher "Staff Messaging",
+  /// staff-message notifications) uses this explicit route.
+  static const String staffMessagingRoute = '$routeName?msgTab=staff';
+
   @override
   State<MessagingScreen> createState() => _MessagingScreenState();
 }
@@ -107,7 +113,10 @@ class _MessagingScreenState extends State<MessagingScreen>
     final msgTabQuery = GoRouterState.of(
       context,
     ).uri.queryParameters['msgTab']?.trim().toLowerCase();
-    final messagingSubTabIndex = msgTabQuery == 'parent' ? 1 : 0;
+    // Admin/Staff default to the Parent Messaging (Parent Communication) sub-tab; only an explicit
+    // `msgTab=staff` deep link (drawer/launcher "Staff Messaging", staff-message notifications)
+    // opens Staff Messaging. Parents never see these sub-tabs (they get ParentDirectMessagingScreen).
+    final messagingSubTabIndex = msgTabQuery == 'staff' ? 0 : 1;
 
     return BlocProvider<CommunicationCubit>(
       create: (context) => serviceLocator<CommunicationCubit>(),
