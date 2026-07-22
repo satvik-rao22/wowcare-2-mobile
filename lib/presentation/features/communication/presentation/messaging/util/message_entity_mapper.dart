@@ -10,14 +10,36 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 /// [EntityMessageTile] (per-row rendering) stay in sync.
 Message mapMessageEntityToMessage(
   MessageEntity entity,
-  String currentUserCode,
-) {
+  String currentUserCode, {
+  int recipientCount = 0,
+}) {
+  // Group read/delivered ticks (ALL-recipients): a group message counts as delivered/read only when
+  // EVERY active recipient has delivered/read it. readReceipts only contains recipients already
+  // delivered to (a recipient not yet delivered is absent), so compare their counts against the
+  // total active recipient count. Setting deliveredAt/readAt drives the bubble's isDelivered/isRead
+  // getters — left null (single "sent" tick) until the whole group crosses each threshold. For 1:1
+  // (recipientCount == 1) this collapses to the normal single-recipient behaviour.
+  DateTime? aggregatedDeliveredAt;
+  DateTime? aggregatedReadAt;
+  if (recipientCount > 0) {
+    final deliveredCount =
+        entity.readReceipts.where((r) => r.deliveredAt != null).length;
+    final readCount = entity.readReceipts.where((r) => r.readAt != null).length;
+    if (readCount >= recipientCount) {
+      aggregatedReadAt = entity.sentAt;
+      aggregatedDeliveredAt = entity.sentAt;
+    } else if (deliveredCount >= recipientCount) {
+      aggregatedDeliveredAt = entity.sentAt;
+    }
+  }
   return Message(
     id: entity.id,
     code: entity.code,
     text: entity.text,
     isSentByMe: entity.senderCode == currentUserCode,
     time: entity.sentAt,
+    deliveredAt: aggregatedDeliveredAt,
+    readAt: aggregatedReadAt,
     editedAt: entity.editedAt,
     reactions: entity.reactions,
     senderName: entity.senderName,
