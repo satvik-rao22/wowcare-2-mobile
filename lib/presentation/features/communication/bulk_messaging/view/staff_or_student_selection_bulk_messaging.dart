@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
@@ -68,6 +67,12 @@ class _StaffOrStudentSelectionBulkMessagingState
   /// whichever classroom happens to sort first alphabetically.
   String? _primaryClassroomCode;
   bool _primaryClassroomResolved = false;
+  /// Whether the ACTIVE persona is classroom-bound (staff/teacher). Only these get a default
+  /// classroom filter when composing a new message; admins/directors must not — they should see
+  /// all recipients. Gated on the active school role (StorageKeys.activeSchoolRole) rather than the
+  /// collapsed RoleCubit.role, which is unreliable for a multi-role account (e.g. an org admin who
+  /// also has a guardian/staff role collapses to 'parent'/'staff', so `role == 'admin'` missed it).
+  bool _activeRoleIsClassroomBound = false;
   // Default to Active-only (per spec); user can switch to Upcoming explicitly.
   String? _selectedStatus = 'Active';
   bool _selectAll = false;
@@ -496,14 +501,26 @@ class _StaffOrStudentSelectionBulkMessagingState
   /// Classroom screen) to default an admin/staff user onto their own room.
   Future<void> _resolvePrimaryClassroomCode() async {
     String? code;
+    bool staffPersona = false;
     try {
       code = await resolveStaffPrimaryClassroomCodeAnyPersona();
+      // Determine the ACTIVE persona (same source attendance scoping uses). Prefer the active
+      // school role; fall back to the login roles payload only for older sessions that never
+      // persisted it. Only staff/teacher personas are classroom-bound.
+      final storage = serviceLocator<StorageService>();
+      final activeRole = (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+      final roleSignal = (activeRole.isNotEmpty
+              ? activeRole
+              : (await storage.getString(StorageKeys.roles) ?? ''))
+          .toUpperCase();
+      staffPersona = roleSignal.contains('STAFF') || roleSignal.contains('TEACHER');
     } catch (_) {
       code = null;
     }
     if (!mounted) return;
     setState(() {
       _primaryClassroomCode = code;
+      _activeRoleIsClassroomBound = staffPersona;
       _primaryClassroomResolved = true;
     });
     _applyDefaultClassroomSelectionIfNeeded();
@@ -522,10 +539,11 @@ class _StaffOrStudentSelectionBulkMessagingState
   void _applyDefaultClassroomSelectionIfNeeded() {
     if (widget.hideFilters || _selectedClassrooms.isNotEmpty) return;
     if (!_primaryClassroomResolved) return;
-    // Admins are not classroom-bound, so don't pre-apply a default classroom filter
-    // when they compose a new message — they should see all recipients. This applies to
-    // both staff messaging and parent/room messaging (staff/parent keep their default).
-    if (context.read<RoleCubit>().role == 'admin') return;
+    // Only classroom-bound personas (staff/teacher) get a pre-applied default classroom filter.
+    // Admins/directors compose against ALL recipients — no default classroom — for both staff and
+    // parent/room messaging. Gated on the resolved active persona (see _activeRoleIsClassroomBound),
+    // which is reliable for multi-role accounts where the collapsed role is not.
+    if (!_activeRoleIsClassroomBound) return;
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
     if (classrooms.isEmpty) return;
 
