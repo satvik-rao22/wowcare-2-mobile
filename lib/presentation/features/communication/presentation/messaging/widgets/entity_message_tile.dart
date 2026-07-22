@@ -5,6 +5,7 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart'
     show ChatAttachment, Message;
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
@@ -27,6 +28,16 @@ Message? _denormalizedQuote(MessageEntity reply, String currentUserCode) {
     senderName: reply.threadParentSenderName,
     senderUserCode: reply.threadParentSenderCode,
   );
+}
+
+/// Active recipients = participants still in the conversation (leftAt == null), excluding the
+/// sender/current user. Drives the group read/delivered tick: a group message is delivered/read
+/// only once ALL of these have delivered/read it.
+int _activeRecipientCount(ConversationEntity? conversation, String currentUserCode) {
+  if (conversation == null) return 0;
+  return conversation.participants
+      .where((p) => p.leftAt == null && p.userCode != currentUserCode)
+      .length;
 }
 
 /// Renders a single [MessageBubble] driven by its own [BlocSelector] over
@@ -106,9 +117,14 @@ class EntityMessageTile extends StatelessWidget {
       },
       builder: (context, snapshot) {
         if (snapshot == null) return const SizedBox.shrink();
+        final recipientCount = _activeRecipientCount(
+          context.read<ConversationThreadCubit>().state.conversation,
+          currentUserCode,
+        );
         final message = mapMessageEntityToMessage(
           snapshot.message,
           currentUserCode,
+          recipientCount: recipientCount,
         );
         // Prefer the full quoted message (found in the loaded list); otherwise
         // fall back to the denormalized quote context carried on the reply
