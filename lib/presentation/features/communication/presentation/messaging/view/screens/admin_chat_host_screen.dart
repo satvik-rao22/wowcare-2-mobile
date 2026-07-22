@@ -18,7 +18,7 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/admin_chat_filter_sheet.dart';
+import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -173,31 +173,48 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     }).toList();
   }
 
+  /// Opens the same full-screen Filter UI used by Parent Messaging (Room Chat)
+  /// — Classroom + Status + Tags — instead of a bottom sheet, so both screens
+  /// share one filter experience.
   void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => AdminChatFilterSheet(
-        classroomOptions: _classroomOptions(),
-        tagOptions: _tagOptions(),
-        statusOptions: const ['ACTIVE', 'UPCOMING'],
-        selectedClassrooms: _selectedClassrooms,
-        selectedTags: _selectedTags,
-        selectedStatus: _selectedStatus,
-        onApply: (classrooms, tags, status) => setState(() {
-          _selectedClassrooms = classrooms;
-          _selectedTags = tags;
-          _selectedStatus = status;
-        }),
-        onClear: () => setState(() {
-          _selectedClassrooms = {};
-          _selectedTags = {};
-          _selectedStatus = null;
-        }),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FilterScreen(
+          sections: [
+            FilerSection(
+              label: 'Classroom',
+              hintText: 'Select classroom',
+              items: _classroomOptions(),
+              initialSelected: _selectedClassrooms.toList(),
+              isMultiSelectDropDown: true,
+            ),
+            FilerSection(
+              label: 'Status',
+              hintText: 'Select status',
+              items: const ['Active', 'Upcoming', 'Inactive'],
+              initialSelected:
+                  _selectedStatus != null ? [_selectedStatus!] : const [],
+              isSingleSelect: true,
+            ),
+            FilerSection(
+              label: 'Tags',
+              hintText: 'Select tags',
+              items: _tagOptions(),
+              initialSelected: _selectedTags.toList(),
+              isMultiSelectDropDown: true,
+            ),
+          ],
+          onApply: (filters) {
+            if (!mounted) return;
+            setState(() {
+              _selectedClassrooms = (filters['Classroom'] ?? const []).toSet();
+              _selectedTags = (filters['Tags'] ?? const []).toSet();
+              final status = filters['Status'] ?? const [];
+              _selectedStatus = status.isEmpty ? null : status.first;
+            });
+          },
+        ),
       ),
     );
   }
