@@ -6,6 +6,8 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/selection_list_item.dart';
 import 'package:wowcare/shared/common/widgets/messaging_filter_dropdown.dart';
@@ -83,6 +85,45 @@ class _StaffOrStudentSelectionBulkMessagingState
         .trim();
     if (!mounted || code.isEmpty) return;
     setState(() => _currentStaffCode = code);
+  }
+
+  /// studentCodes that already have a conversation of this compose flow's
+  /// [conversationType] — hidden from the student picker so an admin can't
+  /// start a duplicate conversation for a student who already has one
+  /// (ROOM_CHAT/ADMIN_CHAT are unique per school+student). Mirrors the web
+  /// "New Message" dialog's excludeStudentIds.
+  Set<String> _existingStudentCodes = <String>{};
+
+  /// Fetches the existing student-scoped conversations for this compose flow's
+  /// type and records their studentCodes, so [parentList] can hide them.
+  /// Only relevant for the student picker (ROOM_CHAT / ADMIN_CHAT).
+  Future<void> _loadExistingStudentConversations() async {
+    ConversationType type;
+    try {
+      type = ConversationType.fromApiString(widget.conversationType);
+    } catch (_) {
+      return; // Unknown / non-student-scoped type — nothing to exclude.
+    }
+    if (!type.isStudentScoped) return;
+    final result = await serviceLocator<GetConversationsEntityUseCase>()(
+      type: type,
+      status: 'ACTIVE',
+      page: 0,
+      // Cover the full active set in one call — a school rarely exceeds this,
+      // and unlike "Select All" this is a single background read.
+      size: 500,
+    );
+    result.fold(
+      (_) {}, // Non-critical: on failure just show the full roster.
+      (conversations) {
+        final codes = conversations
+            .map((c) => c.studentCode?.trim() ?? '')
+            .where((c) => c.isNotEmpty)
+            .toSet();
+        if (!mounted || codes.isEmpty) return;
+        setState(() => _existingStudentCodes = codes);
+      },
+    );
   }
 
   // Safety cap on how many extra pages "Select All" will fetch before
@@ -172,6 +213,9 @@ class _StaffOrStudentSelectionBulkMessagingState
   List<Map<String, dynamic>> get parentList {
     final students = context.read<StudentCubit>().state.items;
     return students
+        // Hide students who already have a conversation of this type — starting
+        // another would only re-open the existing one (unique per school+student).
+        .where((s) => !_existingStudentCodes.contains(s.code.trim()))
         .map(
           (s) => {
             'code': s.code,
@@ -432,6 +476,8 @@ class _StaffOrStudentSelectionBulkMessagingState
           unawaited(_loadCurrentStaffCode());
         } else {
           unawaited(_loadTags());
+          // Hide students who already have a conversation of this type.
+          unawaited(_loadExistingStudentConversations());
         }
 
         // Resolve the current user's primary classroom (admin or staff) in
