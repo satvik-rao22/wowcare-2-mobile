@@ -109,6 +109,7 @@ class ActivityDailyTab extends StatefulWidget {
     this.allowActivityWrite = true,
     this.highlightCode,
     this.highlightDate,
+    this.highlightClassroomCode,
   });
 
   /// Activity code from a notification deep-link; the matching feed card is
@@ -118,6 +119,11 @@ class ActivityDailyTab extends StatefulWidget {
   /// Date of the deep-linked activity (yyyy-MM-dd) so the feed opens on that
   /// day rather than today — otherwise the highlighted card isn't in view.
   final DateTime? highlightDate;
+
+  /// Classroom of the deep-linked activity. The feed loads ONE classroom at a
+  /// time, so without selecting this room the target card isn't in the list and
+  /// the highlight silently no-ops.
+  final String? highlightClassroomCode;
 
   final bool fromStudentProfile;
 
@@ -660,6 +666,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _classroomOptions = scoped.map((c) => c['name']!).toList()..sort();
             _feedError = null;
             if (_classroomOptions.isNotEmpty) {
+              _applyDeepLinkClassroom();
               final keep =
                   _selectdClassroom != null &&
                   _classroomOptions.contains(_selectdClassroom);
@@ -752,6 +759,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _classroomOptions = scoped.map((c) => c.name).toList()..sort();
         _feedError = null;
         if (_classroomOptions.isNotEmpty) {
+          _applyDeepLinkClassroom();
           final keep =
               _selectdClassroom != null &&
               _classroomOptions.contains(_selectdClassroom);
@@ -1952,11 +1960,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // Already-loaded feed: skip the refetch, but still honour a pending
+      // deep-link scroll (the rows are on screen; only the trigger was missing).
       if (_isFeedRequestInFlight) return;
-      if (!_lastFeedCompletedWithError) return;
+      if (!_lastFeedCompletedWithError) {
+        _scheduleHighlightScroll();
+        return;
+      }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
           DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -2075,6 +2089,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = false;
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
@@ -2292,13 +2307,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       if (!_lastFeedCompletedWithError) {
         // Last identical request already completed successfully
-        // (including empty-result success). No need to refetch.
+        // (including empty-result success). No need to refetch — but the rows
+        // ARE already loaded, so a pending deep-link still needs its scroll.
+        // Returning here previously skipped it entirely, which is why a cached
+        // feed highlighted without ever scrolling.
+        _scheduleHighlightScroll();
         return;
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
           DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
         // Throttle repeated failed requests for same filters.
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -2413,6 +2433,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       _isFeedRequestInFlight = false;
       _lastFeedCompletedAt = DateTime.now();
       _lastFeedCompletedWithError = false;
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
@@ -2489,6 +2510,38 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _loadDailyFeed(refresh: true);
       }
     });
+  }
+
+  /// Handles a NEW notification deep-link arriving into an already-live tab.
+  ///
+  /// This tab is `AutomaticKeepAliveClientMixin` and sits in an indexed-stack
+  /// shell branch, so once Activities has been visited the State is reused:
+  /// [initState] never runs again, every one-shot latch is still set from the
+  /// previous visit, and no feed reload is triggered. The card still flashed
+  /// (that reads `widget.highlightCode` live during paint) but nothing ever
+  /// asked for a scroll — the "cached / already open" case.
+  ///
+  /// Resetting the latches and reloading on the target's day + room restores
+  /// the same path a cold open takes.
+  @override
+  void didUpdateWidget(covariant ActivityDailyTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final changed = widget.highlightCode != oldWidget.highlightCode ||
+        widget.highlightDate != oldWidget.highlightDate ||
+        widget.highlightClassroomCode != oldWidget.highlightClassroomCode;
+    if (!changed) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+
+    setState(() {
+      _highlightApplied = false;
+      _highlightScrollScheduled = false;
+      _deepLinkClassroomApplied = false;
+      if (widget.highlightDate != null) _selectedDate = widget.highlightDate;
+      _applyDeepLinkClassroom();
+    });
+    // refresh: true bypasses the de-dupe, so the load always completes and
+    // fires the scroll even when the same day/room was already showing.
+    _loadDailyFeed(refresh: true);
   }
 
   Future<void> _bootstrapSchoolZone() async {
@@ -2601,6 +2654,105 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     }
     _pinProfileStudent();
   }
+
+  bool _highlightScrollScheduled = false;
+
+  /// Scrolls the deep-linked card into view.
+  ///
+  /// Driven by the DATA (the target's index in [_activities]), never by the
+  /// item builder. `ListView.builder` builds lazily, so a target further down
+  /// the list is never built while off-screen — its `itemBuilder` doesn't run,
+  /// and `Scrollable.ensureVisible` has no element to scroll to. That's why the
+  /// card only ever flashed once the user scrolled to it by hand.
+  ///
+  /// Converges in two phases: jump proportionally to bring the target into the
+  /// build window, then fine-tune with `ensureVisible` once it exists, plus a
+  /// settle pass for rows that grow when attachment thumbnails resolve.
+  void _scheduleHighlightScroll() {
+    if (_highlightApplied || _highlightScrollScheduled) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+    final index =
+        _activities.indexWhere((a) => _isHighlightTarget(a.activityCode));
+    if (index < 0) return; // not in this page yet — retried on the next load
+    _highlightScrollScheduled = true;
+
+    var passes = 0;
+    void step() {
+      if (!mounted) return;
+      if (passes++ > 25) {
+        _highlightScrollScheduled = false; // let a later load try again
+        return;
+      }
+      if (!_feedScrollController.hasClients) {
+        Future.delayed(const Duration(milliseconds: 100), step);
+        return;
+      }
+
+      final ctx = _highlightCardKey.currentContext;
+      if (ctx != null) {
+        // Built: fine-tune to the exact position.
+        _highlightApplied = true;
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.1,
+          curve: Curves.easeOut,
+        );
+        // One settle pass after layout stabilises.
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (!mounted) return;
+          final c = _highlightCardKey.currentContext;
+          if (c != null) {
+            Scrollable.ensureVisible(
+              c,
+              duration: const Duration(milliseconds: 200),
+              alignment: 0.1,
+              curve: Curves.easeOut,
+            );
+          }
+        });
+        return;
+      }
+
+      // Not built yet: jump proportionally so it enters the build window.
+      final pos = _feedScrollController.position;
+      final total = _activities.length;
+      final target = total <= 1
+          ? 0.0
+          : pos.maxScrollExtent * (index / (total - 1)).clamp(0.0, 1.0);
+      if ((target - pos.pixels).abs() > 1) {
+        _feedScrollController.jumpTo(
+          target.clamp(0.0, pos.maxScrollExtent),
+        );
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => step());
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => step());
+  }
+
+  /// Selects the classroom of a notification-deep-linked activity, so the feed
+  /// loads the room that actually contains the card being highlighted rather
+  /// than the viewer's default room.
+  ///
+  /// Called from [_bootstrap] once `_classroomNameByCode` is populated and
+  /// BEFORE the default-classroom `keep` check, so the resolved name survives as
+  /// the selection. No-op when there's no deep link or the code isn't in the
+  /// viewer's (possibly staff-scoped) classroom list.
+  void _applyDeepLinkClassroom() {
+    final code = (widget.highlightClassroomCode ?? '').trim();
+    if (code.isEmpty) return;
+    if (_deepLinkClassroomApplied) return;
+    final name = (_classroomNameByCode[code] ?? '').trim();
+    if (name.isEmpty || !_classroomOptions.contains(name)) return;
+    _deepLinkClassroomApplied = true;
+    _selectdClassroom = name;
+    _selectedClassrooms = <String>[name];
+  }
+
+  /// Applied once, so a later refresh can't yank the user off a room they
+  /// switched to after arriving via the deep link.
+  bool _deepLinkClassroomApplied = false;
 
   /// Keeps the profile student present in the options + selection when launched
   /// from a student profile. Both this widget's pruning and
@@ -3162,20 +3314,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         final bool isHighlightTarget = _isHighlightTarget(
                           activity.activityCode,
                         );
-                        if (isHighlightTarget && !_highlightApplied) {
-                          _highlightApplied = true;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            final ctx = _highlightCardKey.currentContext;
-                            if (ctx != null) {
-                              Scrollable.ensureVisible(
-                                ctx,
-                                duration: const Duration(milliseconds: 400),
-                                alignment: 0.1,
-                                curve: Curves.easeOut,
-                              );
-                            }
-                          });
-                        }
+                        if (isHighlightTarget) _scheduleHighlightScroll();
 
                         return HighlightableCard(
                           key: isHighlightTarget ? _highlightCardKey : null,
@@ -4797,24 +4936,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     _colorPalette[index % _colorPalette.length];
                                 final bool isHighlightTarget =
                                     _isHighlightTarget(activity.activityCode);
-                                if (isHighlightTarget && !_highlightApplied) {
-                                  _highlightApplied = true;
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    final ctx =
-                                        _highlightCardKey.currentContext;
-                                    if (ctx != null) {
-                                      Scrollable.ensureVisible(
-                                        ctx,
-                                        duration: const Duration(
-                                          milliseconds: 400,
-                                        ),
-                                        alignment: 0.1,
-                                        curve: Curves.easeOut,
-                                      );
-                                    }
-                                  });
+                                if (isHighlightTarget) {
+                                  _scheduleHighlightScroll();
                                 }
 
                                 return HighlightableCard(

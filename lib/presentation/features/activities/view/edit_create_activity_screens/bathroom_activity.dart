@@ -283,9 +283,16 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       _selectedSubType = null;
       return;
     }
-    final matching = _allSubTypeOptions
-        .where((o) => (o.parentOptionCode ?? '').trim() == parent)
-        .toList()
+    // An option WITHOUT a parentOptionCode isn't scoped to one Bathroom Type —
+    // it applies to all of them. The backend sends every Sub Type option with no
+    // parent (see GET /activity-types/{code}), so a strict `== parent` match
+    // discarded all of them and left the dropdown empty — making the required
+    // field impossible to satisfy. Mirrors the lenient rule already used by
+    // [_syncBathroomSelectionsWithLoadedOptions].
+    final matching = _allSubTypeOptions.where((o) {
+      final po = (o.parentOptionCode ?? '').trim();
+      return po.isEmpty || po == parent;
+    }).toList()
       ..sort((a, b) => a.displayOrder.compareTo(b.displayOrder));
     _availableSubTypes = matching
         .map((o) => (o.optionLabel ?? '').trim())

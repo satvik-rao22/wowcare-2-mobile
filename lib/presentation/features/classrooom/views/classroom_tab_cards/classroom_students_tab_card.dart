@@ -1220,6 +1220,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
               classroomNameToCode: classroomNameToCode,
               refreshCallback: _refreshAfterAttendanceAction,
               popOnSuccess: true,
+              // The room being viewed is authoritative for "where the student is
+              // now" — the student record still points at their enrolled room
+              // after a transfer, which previously left this room selectable as
+              // a transfer destination.
+              currentClassroomCode: widget.selectedRoom?.code,
+              currentClassroomName: widget.selectedRoom?.name,
             ),
           ),
         );

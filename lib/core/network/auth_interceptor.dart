@@ -58,6 +58,23 @@ class AuthInterceptor extends Interceptor {
       return;
     }
 
+    // Token refresh rides the gateway's RELAXED path and must stay there.
+    //
+    // Strict validation is keyed on the PRESENCE of `x-sub-channel`: send it
+    // and the gateway then demands the full role-scoped matrix (x-role +
+    // x-staff-code/x-guardian-code + x-school-code). A PARTIAL strict set is
+    // 4xx'd — which the 401 handler would turn into a logout loop. So refresh
+    // sends Content-Type only, exactly like the web client's `refreshSession`,
+    // which uses a raw fetch to bypass its own header injection.
+    //
+    // Matched by suffix, not by the full ApiPaths constant: on UAT the path is
+    // `/api/v1/user/auth/refresh`, which does NOT contain `/api/v1/auth/refresh`
+    // — the same reason [_skipAuthPaths] silently no-ops on UAT.
+    if (path.contains('/auth/refresh')) {
+      handler.next(options);
+      return;
+    }
+
     // If the request already has an explicit Authorization header (e.g. login-context
     // right after login with the fresh token), keep it and avoid overriding.
     final existingAuth =

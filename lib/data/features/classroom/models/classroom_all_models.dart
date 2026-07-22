@@ -2,17 +2,37 @@ class ClassroomAllItemModel {
   const ClassroomAllItemModel({
     required this.code,
     required this.name,
+    this.minAgeYears = 0,
+    this.maxAgeYears = 0,
   });
 
   final String code;
   final String name;
+
+  /// `GET /classroom/classroom/all` returns `minAge`/`maxAge` as whole YEARS
+  /// (e.g. `minAge: 2, maxAge: 4` = a 2–4 year room). 0 means "unset" — that
+  /// side of the range isn't enforced.
+  final int minAgeYears;
+  final int maxAgeYears;
 
   factory ClassroomAllItemModel.fromJson(Map<String, dynamic> json) {
     // Support both 'code' and 'classroomCode' (backend may use either)
     final code = (json['code'] as String? ?? json['classroomCode'] as String?) ??
         (json['id']?.toString() ?? '');
     final name = (json['name'] as String? ?? json['classroomName'] as String?) ?? '';
-    return ClassroomAllItemModel(code: code, name: name);
+    return ClassroomAllItemModel(
+      code: code,
+      name: name,
+      minAgeYears: _years(json['minAge']),
+      maxAgeYears: _years(json['maxAge']),
+    );
+  }
+
+  /// Tolerates int / num / numeric-string, and clamps negatives to 0 (unset).
+  static int _years(dynamic raw) {
+    if (raw == null) return 0;
+    final n = raw is num ? raw.toInt() : int.tryParse('$raw'.trim()) ?? 0;
+    return n < 0 ? 0 : n;
   }
 }
 

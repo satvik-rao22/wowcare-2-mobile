@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/notification_payload.dart';
 import 'package:wowcare/core/firebase/firebase_config_factory.dart';
@@ -154,13 +157,21 @@ Future<void> _resetSecureStoreOnFreshInstall() async {
     final storage = serviceLocator<StorageService>();
     final alreadyInstalled =
         await storage.getBool(StorageKeys.appInstalledMarker) ?? false;
+    AppLogger.d(
+      '[RememberMe] freshInstallCheck: installMarker=$alreadyInstalled '
+      '(false ⇒ Keychain password will be wiped)',
+    );
     if (!alreadyInstalled) {
+      final hadPassword = await SecureCredentialStore().hasSavedPassword();
       await SecureCredentialStore().clear();
       await storage.saveBool(StorageKeys.appInstalledMarker, true);
-      AppLogger.d('[FreshInstall] Wiped Keychain secure store on fresh install');
+      AppLogger.d(
+        '[RememberMe] freshInstall → wiped Keychain secure store '
+        '(hadSavedPassword=$hadPassword)',
+      );
     }
   } catch (e) {
-    AppLogger.d('[FreshInstall] reset failed (non-fatal): $e');
+    AppLogger.d('[RememberMe] freshInstall reset failed (non-fatal): $e');
   }
 }
 
@@ -390,7 +401,25 @@ Future<void> main() async {
     AppLogger.d('[main] launch-notification capture failed: $e');
   }
 
+  // Proactive token refresh — the piece the web client doesn't need. A browser
+  // tab stays alive; a phone can background for hours, so the access token is
+  // routinely stale on resume. Renewing here (with a skew, just BEFORE expiry)
+  // avoids eating a guaranteed 401 on the first request after resume.
+  WidgetsBinding.instance.addObserver(_TokenLifecycleObserver());
+
   runApp(const MyApp());
+}
+
+/// Refreshes the access token when the app returns to the foreground.
+class _TokenLifecycleObserver with WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    // Fire-and-forget: a failure just leaves the 401 path to handle renewal.
+    unawaited(
+      TokenRefreshService.instance.ensureFreshToken().catchError((_) => false),
+    );
+  }
 }
 
 /// Initialises the sizer [Device] globals (width, height, screenType, etc.)

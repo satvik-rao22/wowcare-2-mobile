@@ -195,11 +195,26 @@ class RoleCubit extends Cubit<RoleState> {
       return;
     } catch (_) {}
 
+    // `/users/details` failed (offline / 5xx). Keep the persona we already
+    // resolved rather than recomputing — re-deriving here previously flipped a
+    // signed-in admin who is ALSO a guardian over to the guardian UI on a
+    // transient error, since the fallback has no permissions payload to match.
+    if (state.granularModuleAccess) return;
+
     final fallbackRole = await _computeFallbackRole(storage);
     _safeEmit(state.copyWith(role: fallbackRole));
   }
 
   Future<String> _computeFallbackRole(StorageService storage) async {
+    // The persona the user is ACTUALLY in wins. A dual-role account (e.g.
+    // SCHOOL_ADMIN + GUARDIAN) would otherwise be demoted to 'parent' by the
+    // least-privilege scan below purely because 'GUARDIAN' appears in `roles`,
+    // flipping an admin session to the guardian UI. Only guess when no active
+    // persona has been resolved/persisted yet.
+    final active =
+        (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    if (active.isNotEmpty) return _personaFamily(active);
+
     // Fallback derives role from API-provided roles only.
     final roleJson =
         (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();

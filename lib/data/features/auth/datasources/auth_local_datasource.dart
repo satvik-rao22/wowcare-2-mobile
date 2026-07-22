@@ -1,7 +1,9 @@
 import 'dart:convert';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/jwt_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 
@@ -72,6 +74,12 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.saveString(StorageKeys.accessToken, response.accessToken);
     await _storage.saveString(StorageKeys.refreshToken, response.refreshToken);
     await _storage.saveInt(StorageKeys.tokenExpiresIn, response.expiresIn);
+    // Mirror the refresh token into the Keychain / EncryptedSharedPreferences
+    // (SharedPreferences is plaintext) and record an ABSOLUTE deadline —
+    // `expiresIn` is only a duration and can't answer "is it still valid?",
+    // which proactive refresh-on-resume needs.
+    await TokenRefreshService.instance.saveRefreshToken(response.refreshToken);
+    await TokenRefreshService.instance.saveAccessTokenExpiry(response.expiresIn);
     await _storage.saveInt(StorageKeys.refreshExpiresIn, response.refreshExpiresIn);
     await _storage.saveString(StorageKeys.tokenType, response.tokenType);
     await _storage.saveString(StorageKeys.userCode, response.userCode);
@@ -160,9 +168,19 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final rememberMe = await _storage.getBool(StorageKeys.rememberMe) ?? false;
     final savedUsername =
         rememberMe ? await _storage.getString(StorageKeys.username) : null;
+    // CRITICAL: the fresh-install marker must survive logout. It lives in
+    // SharedPreferences and is what tells main() this is NOT a fresh install.
+    // If it were wiped here, the next cold start would think the app was newly
+    // installed and WIPE the Keychain "Remember me" password — which silently
+    // broke the whole feature after any logout / session-expiry.
+    final installedMarker =
+        await _storage.getBool(StorageKeys.appInstalledMarker) ?? false;
     await _storage.clear();
     if (seenOnboarding) {
       await _storage.saveBool(StorageKeys.onboardingSeen, true);
+    }
+    if (installedMarker) {
+      await _storage.saveBool(StorageKeys.appInstalledMarker, true);
     }
     if (rememberMe) {
       await _storage.saveBool(StorageKeys.rememberMe, true);
@@ -170,6 +188,17 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         await _storage.saveString(StorageKeys.username, savedUsername);
       }
     }
+    AppLogger.d(
+      '[RememberMe] clearCache → preserved rememberMe=$rememberMe '
+      'user="${savedUsername ?? ''}" installMarker=$installedMarker '
+      '(password in Keychain is untouched)',
+    );
+    // The refresh token also lives in the secure store, which `_storage.clear()`
+    // does not touch — without this it would survive logout and could renew the
+    // previous user's session on a shared device.
+    try {
+      await TokenRefreshService.instance.clear();
+    } catch (_) {}
     try {
       await _sessionLocalCacheWiper?.wipe();
     } catch (_) {}

@@ -1105,12 +1105,30 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.activityFeed,
-              builder: (context, state) => ActivityFeedScreen(
-                highlightCode: state.uri.queryParameters['highlightCode'],
-                highlightDate: DateTime.tryParse(
-                  state.uri.queryParameters['date'] ?? '',
-                ),
-              ),
+              builder: (context, state) {
+                final q = state.uri.queryParameters;
+                final highlight = (q['highlightCode'] ?? '').trim();
+                final date = q['date'] ?? '';
+                final room = q['classroomCode'] ?? '';
+                return ActivityFeedScreen(
+                  // The Activities tab lives in an indexed-stack branch and its
+                  // Daily tab is keep-alive, so a notification tap into an
+                  // already-visited tab reuses the old State — leaving the feed
+                  // on the previously selected DAY/room. Keying a deep-link by
+                  // its target forces a remount, so initState re-runs and
+                  // applies the notification's date, classroom and highlight.
+                  // Normal tab navigation carries no highlightCode and keeps a
+                  // null key, so ordinary browsing state is preserved.
+                  key: highlight.isEmpty
+                      ? null
+                      : ValueKey('activityFeed-$highlight-$date-$room'),
+                  highlightCode: q['highlightCode'],
+                  highlightDate: DateTime.tryParse(date),
+                  // The deep-linked activity's classroom, so the feed opens on
+                  // the room that actually contains the card to highlight.
+                  highlightClassroomCode: q['classroomCode'],
+                );
+              },
             ),
           ],
         ),
