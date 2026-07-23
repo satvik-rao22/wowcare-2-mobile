@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -135,7 +136,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
   /// Human age relative to today — years/months for older children, weeks/days
   /// for infants. Empty for a future date of birth.
   String _ageLabel(DateTime dob) {
-    final now = DateTime.now();
+    final now = AppTime.now();
     if (dob.isAfter(now)) return '';
 
     int years = now.year - dob.year;
@@ -877,7 +878,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                                       }
 
                                       String _formatTimeOfDay(TimeOfDay time) {
-                                        final now = DateTime.now();
+                                        final now = AppTime.now();
                                         final dt = DateTime(
                                           now.year,
                                           now.month,

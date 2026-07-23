@@ -82,6 +82,8 @@ class _CalendarDialogState extends State<CalendarDialog> {
   /// school-today marker + any defaults the caller didn't pin.
   Future<void> _refreshSchoolNow() async {
     try {
+      // resolveForCurrentSchool refreshes the server clock as part of resolving,
+      // so "today"/"now" defaults below are authoritative at open time.
       final tzName = await SchoolTimezoneResolver.resolveForCurrentSchool(
         storage: serviceLocator<StorageService>(),
         apiClient: serviceLocator<ApiClient>(),

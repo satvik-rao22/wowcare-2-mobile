@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -72,7 +73,7 @@ class StaffSignInForm extends StatefulWidget {
 }
 
 class _StaffSignInFormState extends State<StaffSignInForm> {
-  DateTime selectedDate = DateTime.now();
+  DateTime selectedDate = AppTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
   String? _schoolIana;
   List<StaffEntity> _selectedStaff = [];
@@ -262,7 +263,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       });
       return;
     }
-    final now = DateTime.now();
+    final now = AppTime.now();
     setState(() {
       selectedDate = now;
       selectedTime = TimeOfDay.fromDateTime(now);
@@ -503,7 +504,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final nowUtc = DateTime.now().toUtc();
+    final nowUtc = AppTime.now().toUtc();
 
     // Teachers:
     // - can only sign in for themselves
@@ -830,9 +831,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    AppTime.now().year,
+                                    AppTime.now().month,
+                                    AppTime.now().day,
                                   );
                             final picked = DateTime(
                               date.year,

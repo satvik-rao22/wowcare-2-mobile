@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -23,6 +24,7 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'auth_state.dart';
 
@@ -107,6 +109,10 @@ class AuthCubit extends Cubit<AuthState> {
       }
 
       AppLogger.d('[AUTH-FCM] Session ready — registering FCM token');
+      // Session just became ready (fresh login or restore) — align "now" with
+      // the server clock now that a token is available, since there's no
+      // app-resume event on a cold login. Fire-and-forget; device time otherwise.
+      unawaited(ServerTimeService.instance.sync());
       await _registerDeviceFcmToken();
     } catch (e) {
       // Non-fatal: FCM registration errors should not interrupt auth flow

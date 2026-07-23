@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -112,7 +113,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _initialDeviceToday = DateTime(now.year, now.month, now.day);
     SchedulingCacheGate.revision.addListener(_onCacheInvalidated);
     WidgetsBinding.instance.addPostFrameCallback((_) {

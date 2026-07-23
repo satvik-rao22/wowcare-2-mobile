@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -220,7 +221,7 @@ class _ReportMonthYearFieldState extends State<ReportMonthYearField> {
     final picked = await showDialog<DateTime>(
       context: context,
       builder: (_) => _MonthYearPickerDialog(
-        initialMonth: _selected ?? DateTime.now(),
+        initialMonth: _selected ?? AppTime.now(),
         firstYear: widget.firstYear,
         lastYear: widget.lastYear,
       ),
@@ -308,8 +309,8 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
     _year = widget.initialMonth.year;
   }
 
-  int get _minYear => widget.firstYear ?? (DateTime.now().year - 10);
-  int get _maxYear => widget.lastYear ?? (DateTime.now().year + 10);
+  int get _minYear => widget.firstYear ?? (AppTime.now().year - 10);
+  int get _maxYear => widget.lastYear ?? (AppTime.now().year + 10);
 
   void _select(int monthIndex) {
     Navigator.of(context).pop(DateTime(_year, monthIndex + 1, 1));

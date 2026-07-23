@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -3433,7 +3434,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       schoolTz,
     );
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
+      AppTime.now().toUtc(),
       schoolTz,
     );
 

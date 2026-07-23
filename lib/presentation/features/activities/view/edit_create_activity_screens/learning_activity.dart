@@ -756,14 +756,6 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isNotEmpty && description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1023,14 +1015,6 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     }
 
     final description = _descriptionController.text.trim();
-    if (description.isNotEmpty && description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,

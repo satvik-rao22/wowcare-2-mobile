@@ -852,14 +852,6 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       );
       return;
     }
-    if (description.isNotEmpty && description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1147,14 +1139,6 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.isNotEmpty && description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
         isWarning: true,
       );
       return;

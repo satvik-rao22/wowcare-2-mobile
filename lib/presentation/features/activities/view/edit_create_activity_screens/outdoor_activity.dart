@@ -393,14 +393,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -932,14 +924,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
         isWarning: true,
       );
       return;

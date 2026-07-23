@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -173,7 +174,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
           todayScheduleRange: todayRange,
           allRegularSchedules: regularSchedules,
           schoolNow: SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            DateTime.now().toUtc(),
+            AppTime.now().toUtc(),
             tz,
           ),
           guardianClockPin: guardianClockPin,
@@ -210,7 +211,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
       _safeEmit(
         state.copyWith(
           schoolNow: SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            DateTime.now().toUtc(),
+            AppTime.now().toUtc(),
             iana,
           ),
         ),
@@ -231,7 +232,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
   String _schoolDowKey(String iana) {
     final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
+      AppTime.now().toUtc(),
       iana,
     );
     switch (schoolNow.weekday) {

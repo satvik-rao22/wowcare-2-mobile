@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -137,11 +138,11 @@ class _ParentDirectMessagingScreenState
         userCode: p.userCode,
         userName: p.userName,
         role: roleStr,
-        joinedAt: DateTime.now(),
+        joinedAt: AppTime.now(),
         muted: false,
         notificationsEnabled: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: AppTime.now(),
+        updatedAt: AppTime.now(),
         privateModeEnabled: conv.isPrivateModeEnabledFor(p.userCode),
         avatarUrl: p.avatarUrl,
         staffCode: p.staffCode,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -554,7 +555,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void initState() {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
-    final now = DateTime.now();
+    final now = AppTime.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
 
@@ -632,7 +633,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       return;
     }
 
-    final from = _startDate ?? DateTime.now();
+    final from = _startDate ?? AppTime.now();
     final to = _endDate ?? from;
 
     setState(() {
@@ -684,8 +685,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
           final dateStr = m['attendanceDate'] as String? ?? '';
           final parsedDate = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? AppTime.now()
+              : AppTime.now();
 
           final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
           final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
@@ -820,8 +821,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['absenceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? AppTime.now()
+              : AppTime.now();
 
           return _AbsentDayModel(
             startDate: date,

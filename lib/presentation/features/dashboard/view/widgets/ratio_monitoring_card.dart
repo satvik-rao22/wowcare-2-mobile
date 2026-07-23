@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -51,7 +52,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   static const int _initialDisplayCount = 7;
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = AppTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
 

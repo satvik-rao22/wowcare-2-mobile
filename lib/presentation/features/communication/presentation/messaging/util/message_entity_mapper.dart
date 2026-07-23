@@ -1,4 +1,5 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 
@@ -91,7 +92,7 @@ AttachmentEntity mapChatAttachmentToAttachmentEntity(
     attachmentType: AttachmentType.fromMimeType(attachment.mimeType),
     localFilePath: attachment.localPath,
     uploadedBy: uploadedBy,
-    uploadedAt: DateTime.now(),
+    uploadedAt: AppTime.now(),
     attachmentId: attachment.attachmentId,
   );
 }

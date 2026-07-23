@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -90,7 +91,7 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
   /// via [_resolveConversation]. org/school come from the real conversation
   /// once created; the send path sources them from the signed-in session.
   ConversationEntity _draftConversation(String classroomCode, String? name) {
-    final now = DateTime.now();
+    final now = AppTime.now();
     return ConversationEntity(
       id: 0,
       code: '',

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -775,7 +776,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
     if (nextDirection != _edgeDirection) {
       _edgeDirection = nextDirection;
-      _edgeHoldStartedAt = nextDirection == 0 ? null : DateTime.now();
+      _edgeHoldStartedAt = nextDirection == 0 ? null : AppTime.now();
       _stopEdgeAutoPaging();
       return;
     }
@@ -820,7 +821,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       _toastViewOnly(context);
       return;
     }
-    final sourceBucket = item.bucketFor(DateTime.now());
+    final sourceBucket = item.bucketFor(AppTime.now());
     if (sourceBucket == targetBucket) return;
     if (sourceBucket == MovementBucket.overdue &&
         targetBucket == MovementBucket.confirmed) {

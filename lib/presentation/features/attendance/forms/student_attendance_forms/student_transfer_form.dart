@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -103,7 +104,7 @@ class StudentTransferForm extends StatefulWidget {
 }
 
 class _StudentTransferFormState extends State<StudentTransferForm> {
-  DateTime _selectedTransferDate = DateTime.now();
+  DateTime _selectedTransferDate = AppTime.now();
   TimeOfDay _selectedTransferTime = TimeOfDay.now();
   String? _schoolIana;
   bool? _isStaffPersona;
@@ -174,7 +175,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           _selectedTransferDate = dt.$1;
           _selectedTransferTime = dt.$2;
         } else {
-          _selectedTransferDate = DateTime.now();
+          _selectedTransferDate = AppTime.now();
           _selectedTransferTime = TimeOfDay.now();
         }
       });
@@ -397,7 +398,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
     }
 
-    if (isStaffPersona && transferredAt.isAfter(DateTime.now().toUtc())) {
+    if (isStaffPersona && transferredAt.isAfter(AppTime.now().toUtc())) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -572,9 +573,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    AppTime.now().year,
+                                    AppTime.now().month,
+                                    AppTime.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,

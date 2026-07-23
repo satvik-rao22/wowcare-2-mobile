@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -45,7 +46,7 @@ bool _schoolZoneUnresolved(String tz) =>
 DateTime billingSchoolToday() {
   final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
   if (_schoolZoneUnresolved(tz)) {
-    final n = DateTime.now();
+    final n = AppTime.now();
     return DateTime(n.year, n.month, n.day);
   }
   return SchoolZoneDateTime.schoolCalendarTodayOnly(tz);
@@ -55,9 +56,9 @@ DateTime billingSchoolToday() {
 /// a timestamp — not just a calendar day — is needed.
 DateTime billingSchoolNow() {
   final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
-  if (_schoolZoneUnresolved(tz)) return DateTime.now();
+  if (_schoolZoneUnresolved(tz)) return AppTime.now();
   return SchoolZoneDateTime.dateTimeFromInstantInSchool(
-    DateTime.now().toUtc(),
+    AppTime.now().toUtc(),
     tz,
   );
 }

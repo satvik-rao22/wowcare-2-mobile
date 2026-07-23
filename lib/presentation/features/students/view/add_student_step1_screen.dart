@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -110,7 +111,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   }
 
   void _calculateAge(DateTime birthdate) {
-    final now = DateTime.now();
+    final now = AppTime.now();
     int years = now.year - birthdate.year;
     int months = now.month - birthdate.month;
     if (now.day < birthdate.day) {
@@ -185,7 +186,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         // Validate: must be past date only
@@ -210,7 +211,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _selectSchoolStartDate() async {
     try {
-      final now = DateTime.now();
+      final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final initial = _selectedSchoolStartDate;
       final DateTime? initialForPicker = _isUpcoming
