@@ -686,8 +686,16 @@ class _MessageBubbleState extends State<MessageBubble>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.center,
+                            // Mirror the header on right-aligned bubbles so the avatar sits on
+                            // the outer edge (the bubble's side), matching the web chat.
+                            textDirection: alignRight
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
                             children: [
-                              if (widget.isParentMessaging) ...[
+                              // Show the sender's avatar for everyone EXCEPT the viewer's own
+                              // messages (no avatar for "You"). Parent Messaging keeps its avatar;
+                              // Room/Admin now show it too, on both sides.
+                              if (widget.isParentMessaging || !isMe) ...[
                                 Builder(
                                   builder: (_) {
                                     final sender = _senderParticipant();
