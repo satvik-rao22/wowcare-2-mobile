@@ -1,6 +1,15 @@
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
+/// First non-empty (trimmed) string from [values], or '' if none — the avatar-field resolution
+/// mirrors web's pickString(), so mobile reads the same photo fields the backend actually sends.
+String _pickNonEmpty(List<String?> values) {
+  for (final v in values) {
+    if (v != null && v.trim().isNotEmpty) return v;
+  }
+  return '';
+}
+
 /// API response DTO for a conversation.
 /// Maps directly from the JSON payload returned by the backend.
 class ConversationEntityDto {
@@ -70,7 +79,15 @@ class ConversationEntityDto {
       schoolCode: json['schoolCode'] as String? ?? '',
       status: json['status'] as String? ?? 'ACTIVE',
       description: json['description'] as String? ?? '',
-      avatarUrl: json['avatarUrl'] as String? ?? '',
+      // Room/Admin conversations are student-scoped: the avatar is the student's photo, which the
+      // backend nests under `student` (web reads pickString(conversation.avatarUrl, student.photoUrl,
+      // student.avatarUrl)). Mobile only read the top-level avatarUrl, so those rows/titles were blank.
+      avatarUrl: _pickNonEmpty([
+        json['avatarUrl'] as String?,
+        (json['student'] as Map<String, dynamic>?)?['photoUrl'] as String?,
+        (json['student'] as Map<String, dynamic>?)?['avatarUrl'] as String?,
+        (json['student'] as Map<String, dynamic>?)?['profileAssetCode'] as String?,
+      ]),
       createdAt: _parseDate(json['createdAt']),
       createdBy: json['createdBy'] as String? ?? '',
       updatedAt: _parseDate(json['updatedAt']),
@@ -225,7 +242,17 @@ class ParticipantEntityDto {
       role: (json['participantType'] as String?)?.isNotEmpty == true
           ? json['participantType'] as String
           : (json['role'] as String? ?? 'PARENT'),
-      avatarUrl: json['avatarUrl'] as String?,
+      // The backend puts the RESOLVED participant photo in `photoUrl` (this is what web reads first,
+      // via pickString(photoUrl, avatarUrl, user.photoUrl)); mobile previously only read `avatarUrl`,
+      // which is null, so every participant-driven avatar fell back to initials. A profile-asset code
+      // (non-http) is also accepted — DocumentImageWidget resolves it as a mediaAssetCode.
+      avatarUrl: _pickNonEmpty([
+        json['photoUrl'] as String?,
+        json['avatarUrl'] as String?,
+        (json['user'] as Map<String, dynamic>?)?['photoUrl'] as String?,
+        json['profileAssetCode'] as String?,
+        json['profilePhotoAssetCode'] as String?,
+      ]),
       joinedAt: DateTime.parse(json['joinedAt'] as String? ?? DateTime.now().toIso8601String()),
       leftAt: json['leftAt'] != null ? DateTime.parse(json['leftAt'] as String) : null,
       lastReadAt: json['lastReadAt'] != null ? DateTime.parse(json['lastReadAt'] as String) : null,
