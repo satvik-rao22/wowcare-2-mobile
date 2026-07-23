@@ -4,31 +4,30 @@ class Classroom extends Equatable {
   const Classroom({
     required this.code,
     required this.name,
-    this.minAgeYears = 0,
-    this.maxAgeYears = 0,
+    this.minAgeMonths = 0,
+    this.maxAgeMonths = 0,
   });
 
   final String code;
   final String name;
 
-  /// Inclusive age bounds in whole YEARS, as returned by
-  /// `GET /classroom/classroom/all` (e.g. `minAge: 2, maxAge: 4` = 2–4 years).
-  /// 0 means that side is unset / not enforced.
+  /// Inclusive age bounds in whole MONTHS, as returned by
+  /// `GET /classroom/classroom/all`. 0 means that side is unset / not enforced.
   ///
   /// Used to warn (never to block) when a student's age falls outside the room
   /// — see [classroomAgeRangeWarning].
-  final int minAgeYears;
-  final int maxAgeYears;
+  final int minAgeMonths;
+  final int maxAgeMonths;
 
-  /// True when [ageYears] falls outside an enforced bound. Bounds are
-  /// INCLUSIVE, and a 0 bound is treated as unset.
-  bool isAgeOutsideRange(int ageYears) {
-    if (minAgeYears > 0 && ageYears < minAgeYears) return true;
-    if (maxAgeYears > 0 && ageYears > maxAgeYears) return true;
+  /// True when [ageMonths] falls outside an enforced bound. Bounds are
+  /// INCLUSIVE, and a 0 bound is treated as unset, matching the web client.
+  bool isAgeOutsideRange(int ageMonths) {
+    if (minAgeMonths > 0 && ageMonths < minAgeMonths) return true;
+    if (maxAgeMonths > 0 && ageMonths > maxAgeMonths) return true;
     return false;
   }
 
   @override
-  List<Object?> get props => [code, name, minAgeYears, maxAgeYears];
+  List<Object?> get props => [code, name, minAgeMonths, maxAgeMonths];
 }
 
