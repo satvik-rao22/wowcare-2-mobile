@@ -360,19 +360,33 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     final repo = serviceLocator<AttendanceRepository>();
     final allItems = <StudentAttendanceAbsentFormItem>[];
 
-    var page = 0;
-    const pageSize = 200;
-    while (true) {
-      final absentPage = await repo.getStudentAbsentFormList(
-        fromAbsenceDate: attendanceDateYyyyMmDd,
-        toAbsenceDate: attendanceDateYyyyMmDd,
-        page: page,
-        size: pageSize,
+    // The absent-form-list lookup is a best-effort PRE-step: it exists only to
+    // clear a same-day absence record before signing the student in. If it
+    // fails (e.g. the backend 500s on this endpoint), do NOT abort the whole
+    // sign-in — skip the deletion and let the sign-in POST run. Worst case the
+    // backend rejects the sign-in for a still-present absence record, which is a
+    // clear, actionable error; being unable to sign anyone in is worse.
+    try {
+      var page = 0;
+      const pageSize = 200;
+      while (true) {
+        final absentPage = await repo.getStudentAbsentFormList(
+          fromAbsenceDate: attendanceDateYyyyMmDd,
+          toAbsenceDate: attendanceDateYyyyMmDd,
+          page: page,
+          size: pageSize,
+        );
+        allItems.addAll(absentPage.items);
+        if (!absentPage.hasMore) break;
+        page++;
+        if (page > 100) break;
+      }
+    } catch (e) {
+      AppLogger.d(
+        '[StudentSignIn] absent-form-list lookup failed ($e); '
+        'proceeding to sign-in without clearing absence records',
       );
-      allItems.addAll(absentPage.items);
-      if (!absentPage.hasMore) break;
-      page++;
-      if (page > 100) break;
+      return; // skip deletion, caller continues to the sign-in POST
     }
 
     final processedStudentCodes = <String>{};

@@ -187,7 +187,7 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       // expired" snackbar, and navigate to sign-in. Return so we never fall
       // through to the dashboard with a dead session.
       await SessionExpiredCoordinator.instance
-          .performLogoutDueToExpiredSession();
+          .performLogoutDueToExpiredSession(fromEntryRoute: true);
       return;
     }
 
