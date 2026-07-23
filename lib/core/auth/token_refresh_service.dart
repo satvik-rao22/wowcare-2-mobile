@@ -127,14 +127,16 @@ class TokenRefreshService {
     final completer = Completer<String?>();
     _inFlight = completer;
 
-    _doRefresh().then((token) {
-      _inFlight = null; // cleared on success…
-      completer.complete(token);
-    }).catchError((Object e) {
-      _inFlight = null; // …and on failure (invariant 3).
-      AppLogger.d('[TokenRefresh] refresh threw: $e');
-      completer.complete(null);
-    });
+    _doRefresh()
+        .then((token) {
+          _inFlight = null; // cleared on success…
+          completer.complete(token);
+        })
+        .catchError((Object e) {
+          _inFlight = null; // …and on failure (invariant 3).
+          AppLogger.d('[TokenRefresh] refresh threw: $e');
+          completer.complete(null);
+        });
 
     return completer.future;
   }
@@ -196,8 +198,9 @@ class TokenRefreshService {
     // absorb), so check BOTH. Missing the rotation is the worst class of bug
     // here: the next refresh presents a consumed token and the user is logged
     // out hours later, seemingly at random.
-    final rotated =
-        (body['refreshToken'] ?? body['refresh_token'] ?? '').toString().trim();
+    final rotated = (body['refreshToken'] ?? body['refresh_token'] ?? '')
+        .toString()
+        .trim();
     final rotatedCookie = _refreshTokenFromSetCookie(response.headers);
     final newRefresh = rotated.isNotEmpty ? rotated : rotatedCookie;
     if (newRefresh.isNotEmpty && newRefresh != refreshToken) {
@@ -211,7 +214,9 @@ class TokenRefreshService {
       await saveAccessTokenExpiry(expiresIn);
     }
 
-    AppLogger.d('[TokenRefresh] access token renewed (expiresIn=${expiresIn}s)');
+    AppLogger.d(
+      '[TokenRefresh] access token renewed (expiresIn=${expiresIn}s)',
+    );
     return newAccess;
   }
 

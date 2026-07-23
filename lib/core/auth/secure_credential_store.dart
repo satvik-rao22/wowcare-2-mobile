@@ -30,15 +30,16 @@ class SecureCredentialStore {
   SecureCredentialStore({
     FlutterSecureStorage? storage,
     LocalAuthentication? localAuth,
-  })  : _storage = storage ??
-            const FlutterSecureStorage(
-              aOptions: AndroidOptions(encryptedSharedPreferences: true),
-              iOptions: IOSOptions(
-                accessibility: KeychainAccessibility.first_unlock_this_device,
-                synchronizable: false,
-              ),
-            ),
-        _localAuth = localAuth ?? LocalAuthentication();
+  }) : _storage =
+           storage ??
+           const FlutterSecureStorage(
+             aOptions: AndroidOptions(encryptedSharedPreferences: true),
+             iOptions: IOSOptions(
+               accessibility: KeychainAccessibility.first_unlock_this_device,
+               synchronizable: false,
+             ),
+           ),
+       _localAuth = localAuth ?? LocalAuthentication();
 
   final FlutterSecureStorage _storage;
   final LocalAuthentication _localAuth;
@@ -143,7 +144,9 @@ class SecureCredentialStore {
       if (!canAuth) {
         // No biometric and no device passcode — no gate can ever be satisfied.
         // Honour "Remember me" instead of silently never pre-filling.
-        AppLogger.d('[SecureCred] reveal: no auth gate on device — ungated read');
+        AppLogger.d(
+          '[SecureCred] reveal: no auth gate on device — ungated read',
+        );
         return _readStored();
       }
 

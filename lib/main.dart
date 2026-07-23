@@ -1,4 +1,3 @@
-
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -15,13 +14,13 @@ Future<void> main() async {
   // tab stays alive; a phone can background for hours, so the access token is
   // routinely stale on resume. Renewing here (with a skew, just BEFORE expiry)
   // avoids eating a guaranteed 401 on the first request after resume.
-  WidgetsBinding.instance.addObserver(TokenLifecycleObserver());
+  WidgetsBinding.instance.addObserver(_TokenLifecycleObserver());
 
   runApp(const MyApp());
 }
 
 /// Refreshes the access token when the app returns to the foreground.
-class TokenLifecycleObserver with WidgetsBindingObserver {
+class _TokenLifecycleObserver with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) return;

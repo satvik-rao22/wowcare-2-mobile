@@ -33,8 +33,9 @@ class SessionExpiredCoordinator {
     final ctx = CoreUtils.rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return true;
     try {
-      final location =
-          GoRouter.of(ctx).routerDelegate.currentConfiguration.uri.path;
+      final location = GoRouter.of(
+        ctx,
+      ).routerDelegate.currentConfiguration.uri.path;
       return location == SignInScreen.routeName || location == '/';
     } catch (_) {
       // Router not ready — treat as "can't navigate" so we don't thrash.
