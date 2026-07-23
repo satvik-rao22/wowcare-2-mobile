@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/view/message_composition_bulk_messaging.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
@@ -19,7 +18,6 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/safe_state_mixin.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../app/di/di.dart';
-import '../../../../../domain/features/classroom/entities/classroom.dart';
 import '../../../classrooom/views/filters/designation_display_utils.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
@@ -27,7 +25,6 @@ import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../../shared/common/widgets/custom_search_bar.dart';
 import '../../../student/cubit/student_cubit.dart';
 import '../widgets/selection_shimmer.dart';
-import '../../../../../core/util/attendance_classroom_scope.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
   const StaffOrStudentSelectionBulkMessaging({
@@ -63,11 +60,6 @@ class _StaffOrStudentSelectionBulkMessagingState
   final TextEditingController _searchController = TextEditingController();
   List<String> _selectedClassrooms = [];
 
-  /// The current user's primary classroom code (resolved for any persona,
-  /// admin included) — used to default the classroom dropdown instead of
-  /// whichever classroom happens to sort first alphabetically.
-  String? _primaryClassroomCode;
-  bool _primaryClassroomResolved = false;
   // Default to Active-only (per spec); user can switch to Upcoming explicitly.
   String? _selectedStatus = 'Active';
   bool _selectAll = false;
@@ -480,68 +472,16 @@ class _StaffOrStudentSelectionBulkMessagingState
           unawaited(_loadExistingStudentConversations());
         }
 
-        // Resolve the current user's primary classroom (admin or staff) in
-        // parallel with classroom/student loading, so the dropdown can
-        // default to it instead of whichever classroom sorts first.
-        unawaited(_resolvePrimaryClassroomCode());
-        _applyDefaultClassroomSelectionIfNeeded();
       }
     });
     _searchController.addListener(_applyFilters);
   }
 
-  /// Resolves the logged-in user's primary classroom code for any persona
-  /// (admin included) and applies it as the default classroom selection once
-  /// known — reuses the same resolver already used elsewhere (e.g. the
-  /// Classroom screen) to default an admin/staff user onto their own room.
-  Future<void> _resolvePrimaryClassroomCode() async {
-    String? code;
-    try {
-      code = await resolveStaffPrimaryClassroomCodeAnyPersona();
-    } catch (_) {
-      code = null;
-    }
-    if (!mounted) return;
-    setState(() {
-      _primaryClassroomCode = code;
-      _primaryClassroomResolved = true;
-    });
-    _applyDefaultClassroomSelectionIfNeeded();
-  }
-
-  /// Defaults the classroom dropdown to the user's primary classroom (falling
-  /// back to the first classroom if no primary is resolved/matched). Skipped
-  /// when filters are hidden (e.g. Admin/Director-only picker — that flow
-  /// wants every matching staff member, not just one classroom's), once a
-  /// selection already exists, or before the primary-classroom lookup
-  /// finishes (avoids briefly defaulting to the wrong classroom and then
-  /// jumping to the real primary a moment later). Safe to call repeatedly —
-  /// from initState, from the primary-classroom resolver, and whenever the
-  /// classroom list itself updates — since whichever of "classrooms loaded"
-  /// or "primary resolved" finishes last is what actually applies it.
-  void _applyDefaultClassroomSelectionIfNeeded() {
-    if (widget.hideFilters || _selectedClassrooms.isNotEmpty) return;
-    if (!_primaryClassroomResolved) return;
-    // Admins are not classroom-bound, so don't pre-apply a default classroom filter
-    // when they compose a new message — they should see all recipients. This applies to
-    // both staff messaging and parent/room messaging (staff/parent keep their default).
-    if (context.read<RoleCubit>().role == 'admin') return;
-    final classrooms = context.read<ClassroomCubit>().state.classrooms;
-    if (classrooms.isEmpty) return;
-
-    final primaryCode = (_primaryClassroomCode ?? '').trim();
-    final primaryMatches = primaryCode.isEmpty
-        ? const <Classroom>[]
-        : classrooms.where((c) => c.code.trim() == primaryCode).toList();
-    final defaultName = primaryMatches.isNotEmpty
-        ? primaryMatches.first.name
-        : classrooms.first.name;
-
-    setState(() {
-      _selectedClassrooms = [defaultName];
-    });
-    unawaited(_applyContactFiltersToCubit());
-  }
+  /// No default classroom filter on the New Message screen: the picker opens with NO classroom
+  /// selected (all recipients) for every persona — staff, admin, and director alike. Only the
+  /// Status filter defaults ("Active"). Kept as a no-op so the classroom-list [BlocListener] below
+  /// has a stable call site.
+  void _applyDefaultClassroomSelectionIfNeeded() {}
 
   void _applyFilters() {
     setState(() {});
