@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/errors/failures.dart';
@@ -754,6 +754,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   Future<void> _markRead() async {
+    // Only mark read while the app is actually in the foreground. This is triggered off Firestore
+    // snapshot emissions, so without the gate a message arriving while the recipient's app is
+    // backgrounded would be stamped read — zeroing their unread badge for a message they never
+    // actually saw (the unread badges are receipt-based).
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == AppLifecycleState.paused ||
+        lifecycle == AppLifecycleState.detached) {
+      return;
+    }
     final result = await _markConversationReadUseCase(state.conversationCode);
     // Publish event so ConversationListCubit zeroes the badge immediately —
     // before Firestore confirms the read receipt.
