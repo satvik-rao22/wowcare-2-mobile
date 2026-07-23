@@ -17,6 +17,7 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -680,6 +681,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final title = _conversation.title.isNotEmpty
         ? _conversation.title
         : 'Conversation';
+    // 1:1 chats carry no conversation-level avatar — resolve the other participant's photo; group
+    // chats use the conversation (student) avatar.
+    final headerAvatar = _conversation.displayAvatar(_senderCode);
     final count = participants.isNotEmpty ? participants.length : null;
 
     return Container(
@@ -698,12 +702,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 fileUuid: '',
                 // `avatarUrl` is either a resolved URL or a raw media-asset
                 // code depending on which screen started the conversation.
-                imageUrl: _conversation.avatarUrl.startsWith('http')
-                    ? _conversation.avatarUrl
-                    : null,
-                mediaAssetCode: _conversation.avatarUrl.startsWith('http')
+                imageUrl: headerAvatar.startsWith('http') ? headerAvatar : null,
+                mediaAssetCode: headerAvatar.startsWith('http')
                     ? null
-                    : _conversation.avatarUrl,
+                    : (headerAvatar.isNotEmpty ? headerAvatar : null),
+                studentCode: _conversation.studentCode,
                 name: title,
                 size: 36,
                 fontSize: 15,

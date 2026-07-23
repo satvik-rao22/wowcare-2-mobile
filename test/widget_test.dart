@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:bloc/bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -15,6 +14,7 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
@@ -141,7 +141,10 @@ class MockMyChildsDayCubit extends MockCubit<MyChildsDayState>
   bool isClosedCalled = false;
 
   @override
-  Future<void> loadForChild({required String studentCode}) async {
+  Future<void> loadForChild({
+    required String studentCode,
+    bool background = false,
+  }) async {
     loadForChildCalled = true;
     lastStudentCode = studentCode;
   }
@@ -166,6 +169,7 @@ class MockStudentAttendanceProfileCubit
     required DateTime fromDate,
     required DateTime toDate,
     bool forceRefresh = false,
+    bool background = false,
   }) async {
     loadAttendanceProfileCalled = true;
   }
@@ -212,6 +216,7 @@ class MockStudentNewslettersCubit extends MockCubit<StudentNewslettersState>
     int size = 10,
     String status = 'SENT',
     bool forceRefresh = false,
+    bool background = false,
   }) async {
     loadFirstPageCalled = true;
   }
@@ -246,6 +251,24 @@ class MockGeofenceCubit extends MockCubit<GeofenceState>
 class MockParentChildCubit extends MockCubit<ParentChildState>
     implements ParentChildCubit {
   MockParentChildCubit(super.initialState);
+}
+
+class MockParentBillingCubit extends MockCubit<ParentBillingState>
+    implements ParentBillingCubit {
+  MockParentBillingCubit(super.initialState);
+  bool loadCalled = false;
+  bool isClosedCalled = false;
+
+  @override
+  Future<void> load({bool background = false}) async {
+    loadCalled = true;
+  }
+
+  @override
+  Future<void> close() async {
+    isClosedCalled = true;
+    return super.close();
+  }
 }
 
 // 2. Staff Dashboard Cubits
@@ -517,6 +540,7 @@ void main() {
     late MockStudentNewslettersCubit studentNewslettersCubit;
     late MockGeofenceCubit geofenceCubit;
     late MockParentChildCubit parentChildCubit;
+    late MockParentBillingCubit parentBillingCubit;
 
     setUp(() {
       dashboardCubit = MockParentDashboardCubit(
@@ -534,6 +558,9 @@ void main() {
       );
       geofenceCubit = MockGeofenceCubit(const GeofenceState.initial());
       parentChildCubit = MockParentChildCubit(const ParentChildState());
+      parentBillingCubit = MockParentBillingCubit(
+        const ParentBillingState.initial(),
+      );
     });
 
     test('initializes and triggers loads if child is already selected', () async {
@@ -558,6 +585,7 @@ void main() {
         studentAttendanceProfileCubit: studentAttendanceProfileCubit,
         communicationCubit: communicationCubit,
         studentNewslettersCubit: studentNewslettersCubit,
+        parentBillingCubit: parentBillingCubit,
         geofenceCubit: geofenceCubit,
         parentChildCubit: parentChildCubit,
       );
@@ -584,6 +612,7 @@ void main() {
         studentAttendanceProfileCubit: studentAttendanceProfileCubit,
         communicationCubit: communicationCubit,
         studentNewslettersCubit: studentNewslettersCubit,
+        parentBillingCubit: parentBillingCubit,
         geofenceCubit: geofenceCubit,
         parentChildCubit: parentChildCubit,
       );
@@ -641,6 +670,7 @@ void main() {
           studentAttendanceProfileCubit: studentAttendanceProfileCubit,
           communicationCubit: communicationCubit,
           studentNewslettersCubit: studentNewslettersCubit,
+          parentBillingCubit: parentBillingCubit,
           geofenceCubit: geofenceCubit,
           parentChildCubit: parentChildCubit,
         );
