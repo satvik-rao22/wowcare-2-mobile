@@ -1,7 +1,9 @@
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/app.dart';
 import 'package:wowcare/bootstrap/app_bootstrap.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,4 +17,19 @@ Future<void> main() async {
   WidgetsBinding.instance.addObserver(_TokenLifecycleObserver());
 
   runApp(const MyApp());
+}
+
+/// Refreshes the access token whenever the app returns to the foreground, so the first request
+/// after a long background doesn't eat a guaranteed 401. [TokenRefreshService.ensureFreshToken]
+/// no-ops when the token is still comfortably valid (default 60s skew), so this is cheap on resume.
+///
+/// Restores the observer the "feature/activity-bug" merge dropped, which left a dangling
+/// `_TokenLifecycleObserver()` reference in main() and broke the mobile build on develop.
+class _TokenLifecycleObserver extends WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(TokenRefreshService.instance.ensureFreshToken());
+    }
+  }
 }
