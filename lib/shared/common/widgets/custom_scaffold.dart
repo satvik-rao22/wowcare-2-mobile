@@ -173,6 +173,7 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 class GlobalScaffold extends StatefulWidget {
@@ -189,8 +190,9 @@ class GlobalScaffold extends StatefulWidget {
     this.bodyPadding,
 
     /// Forces a specific nav-bar slot to highlight regardless of the shell's
-    /// current branch. Pass 1 for screens conceptually under the Attendance tab.
-    this.activeTabIndexOverride,
+    /// current branch. Pass [BottomNavigationItem.attendance] for screens
+    /// conceptually under the Attendance tab.
+    this.activeItemOverride,
     super.key,
   });
 
@@ -202,7 +204,7 @@ class GlobalScaffold extends StatefulWidget {
   final List<String>? studentList;
   final Widget? customButtonLayout;
   final EdgeInsetsGeometry? bodyPadding;
-  final int? activeTabIndexOverride;
+  final BottomNavigationItem? activeItemOverride;
 
   @override
   State<GlobalScaffold> createState() => _GlobalScaffoldState();
@@ -306,7 +308,7 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
                   curve: Curves.easeInOut,
                   child: _showBars
                       ? CustomNavigationBar(
-                          activeTabIndexOverride: widget.activeTabIndexOverride,
+                          activeItemOverride: widget.activeItemOverride,
                         )
                       : const SizedBox.shrink(),
                 )
