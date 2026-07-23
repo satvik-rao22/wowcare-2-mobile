@@ -50,9 +50,21 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   /// Also fetches counts from REST immediately so badges are visible before
   /// the Firestore connection is established — matching the web bootstrap.
   void startWatching() {
-    unawaited(_fetchFromApi());
+    unawaited(_bootstrapRest());
     for (final type in ConversationType.values) {
       _subscribeToType(type);
+    }
+  }
+
+  /// REST bootstrap with a few retries. The one-shot fetch can run before the session token /
+  /// org-school context is ready (returning nothing), leaving the badge blank until Firestore —
+  /// which is itself racing custom-token sign-in. Retrying a couple of times makes counts appear.
+  Future<void> _bootstrapRest() async {
+    const delaysSeconds = [0, 2, 5];
+    for (final d in delaysSeconds) {
+      if (d > 0) await Future.delayed(Duration(seconds: d));
+      if (isClosed) return;
+      if (await _fetchFromApi()) return;
     }
   }
 
@@ -72,11 +84,20 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     _subscriptions[key] = _watchUnreadCountForTypeUseCase(type).listen(
       (count) {
         if (isClosed) return;
+        // A spurious 0 on the FIRST emit (custom-token sign-in still propagating, or an
+        // empty/mismatched inbox path) must not clobber a positive REST-seeded count — that was
+        // leaving the badge blank on mobile. Ignore a not-yet-live 0 that would hide the REST
+        // count; a real (>0) emit, or a later 0 once Firestore is already live (a genuine read),
+        // still applies.
+        final alreadyLive = _firestoreDelivered.contains(key);
+        if (count == 0 && !alreadyLive && (_counts[key] ?? 0) > 0) {
+          return;
+        }
         _firestoreDelivered.add(key); // Firestore is now authoritative for this type
         _counts[key] = count;
         _emit();
       },
-      onError: (_) => unawaited(_fetchFromApi()),
+      onError: (_) => unawaited(_bootstrapRest()),
     );
   }
 
@@ -90,15 +111,18 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     }
   }
 
-  Future<void> _fetchFromApi() async {
+  Future<bool> _fetchFromApi() async {
     final result = await _getUnreadAggregatesUseCase();
-    if (isClosed) return;
-    result.fold(
-      (failure) => emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        errorMessage: failure.message ?? 'Failed to load unread counts.',
-      )),
+    if (isClosed) return false;
+    return result.fold(
+      (failure) {
+        emit(state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: failure.message ?? 'Failed to load unread counts.',
+        ));
+        return false;
+      },
       (counts) {
         // Seed only real conversation-type keys that Firestore hasn't delivered
         // yet. Skipping Firestore-delivered types keeps the reaction-inclusive
@@ -111,6 +135,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
           if (value != null) _counts[key] = value;
         }
         _emit();
+        return true;
       },
     );
   }
