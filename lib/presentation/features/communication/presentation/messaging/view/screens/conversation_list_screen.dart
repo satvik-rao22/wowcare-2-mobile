@@ -5,6 +5,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
@@ -60,6 +61,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   late final ConversationListCubit _cubit;
   Timer? _searchDebounce;
   bool _isGuardian = false;
+  String _currentUserCode = '';
 
   @override
   void initState() {
@@ -79,14 +81,16 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   }
 
   Future<void> _initRole() async {
-    final role = await serviceLocator<StorageService>().getString(
-      StorageKeys.activeSchoolRole,
-    );
+    final storage = serviceLocator<StorageService>();
+    final role = await storage.getString(StorageKeys.activeSchoolRole);
+    final userCode =
+        (await storage.getString(StorageKeys.userCode) ?? '').trim();
     if (mounted) {
       setState(() {
         _isGuardian =
             role?.toUpperCase() == 'GUARDIAN' ||
             role?.toUpperCase() == 'PARENT';
+        _currentUserCode = userCode;
       });
     }
   }
@@ -378,6 +382,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
           conversationCode: filtered[index].code,
           contentBuilder: (context, conversation) => _ConversationTileContent(
             conversation: conversation,
+            currentUserCode: _currentUserCode,
             onTap: () => widget.onConversationTap(conversation),
           ),
         ),
@@ -601,14 +606,20 @@ class _StaffDirectoryTile extends StatelessWidget {
 class _ConversationTileContent extends StatelessWidget {
   const _ConversationTileContent({
     required this.conversation,
+    required this.currentUserCode,
     required this.onTap,
   });
 
   final ConversationEntity conversation;
+  final String currentUserCode;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
+    // 1:1 (STAFF_DIRECT) chats have no conversation-level avatar — resolve the other participant's
+    // photo; group/room chats use the conversation (student) avatar. See displayAvatar/displayTitle.
+    final avatar = conversation.displayAvatar(currentUserCode);
+    final displayName = conversation.displayTitle(currentUserCode);
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7),
@@ -629,18 +640,16 @@ class _ConversationTileContent extends StatelessWidget {
             children: [
               DocumentImageWidget(
                 fileUuid: '',
-                // `conversation.avatarUrl` is either a resolved URL or a raw
-                // media-asset code depending on which screen started the
-                // conversation — `fileUuid` is never actually used to
-                // resolve an image (only `imageUrl`/`mediaAssetCode` are),
-                // so route to whichever matches the value's shape.
-                imageUrl: conversation.avatarUrl.startsWith('http')
-                    ? conversation.avatarUrl
-                    : null,
-                mediaAssetCode: conversation.avatarUrl.startsWith('http')
+                // `avatar` is either a resolved URL or a raw media-asset code depending on which
+                // screen created the conversation — route to whichever matches the value's shape.
+                // Also pass studentCode so a student-scoped (room/admin) chat can resolve the
+                // student's photo via the profile-lookup endpoint when no URL/asset is stored.
+                imageUrl: avatar.startsWith('http') ? avatar : null,
+                mediaAssetCode: avatar.startsWith('http')
                     ? null
-                    : conversation.avatarUrl,
-                name: conversation.title,
+                    : (avatar.isNotEmpty ? avatar : null),
+                studentCode: conversation.studentCode,
+                name: displayName,
                 size: 52,
               ),
               if (conversation.status == 'ACTIVE')
