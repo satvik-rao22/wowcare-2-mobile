@@ -160,14 +160,16 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     _resolvedImageUrl = _seedImageUrl();
     _resolveProfilePhotoIfNeeded();
     _loadAttendanceStatusIfNeeded();
-    DocumentImageWidget._attendanceStatusRefreshTick
-        .addListener(_onAttendanceStatusRefreshTick);
+    DocumentImageWidget._attendanceStatusRefreshTick.addListener(
+      _onAttendanceStatusRefreshTick,
+    );
   }
 
   @override
   void dispose() {
-    DocumentImageWidget._attendanceStatusRefreshTick
-        .removeListener(_onAttendanceStatusRefreshTick);
+    DocumentImageWidget._attendanceStatusRefreshTick.removeListener(
+      _onAttendanceStatusRefreshTick,
+    );
     super.dispose();
   }
 
@@ -773,7 +775,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.95),
+              color: AppColors.primaryColor.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(

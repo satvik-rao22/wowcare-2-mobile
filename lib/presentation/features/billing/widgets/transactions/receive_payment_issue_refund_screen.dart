@@ -220,8 +220,11 @@ class _ReceivePaymentIssueRefundScreenState
     }
   }
 
-  void _showMessage(String message,
-      {bool isError = false, bool isSuccess = false}) {
+  void _showMessage(
+    String message, {
+    bool isError = false,
+    bool isSuccess = false,
+  }) {
     CoreUtils.showTopSnackBar(
       context: context,
       message: message,
@@ -233,11 +236,11 @@ class _ReceivePaymentIssueRefundScreenState
   // ── Shared field styling (matches the Add Staff / Create Invoice forms) ────
 
   TextStyle _labelStyle(ResponsiveHelper responsive) => TextStyle(
-        fontSize: responsive.labelFontSize,
-        fontFamily: 'Manrope',
-        fontWeight: FontWeight.w400,
-        color: AppColors.billingTextColor,
-      );
+    fontSize: responsive.labelFontSize,
+    fontFamily: 'Manrope',
+    fontWeight: FontWeight.w400,
+    color: AppColors.billingTextColor,
+  );
 
   Widget _fieldLabel(
     ResponsiveHelper responsive,
@@ -260,16 +263,15 @@ class _ReceivePaymentIssueRefundScreenState
   }
 
   BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
-        color: AppColors.billingCardColor,
-        border: Border.all(color: const Color(0x66573353)),
-        borderRadius:
-            BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
-      );
+    color: AppColors.billingCardColor,
+    border: Border.all(color: const Color(0x66573353)),
+    borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+  );
 
   EdgeInsets _fieldPadding(ResponsiveHelper responsive) => EdgeInsets.symmetric(
-        horizontal: responsive.isTablet ? 16.0 : 12.0,
-        vertical: responsive.isTablet ? 16.0 : 12.0,
-      );
+    horizontal: responsive.isTablet ? 16.0 : 12.0,
+    vertical: responsive.isTablet ? 16.0 : 12.0,
+  );
 
   Widget _outlinedTextField(
     ResponsiveHelper responsive, {
@@ -291,7 +293,9 @@ class _ReceivePaymentIssueRefundScreenState
         maxLength: maxLength,
         // Hide the character counter so enforcing a limit doesn't change the
         // field's footprint; the cap is still enforced on input.
-        buildCounter: (_, {required currentLength, maxLength, required isFocused}) => null,
+        buildCounter:
+            (_, {required currentLength, maxLength, required isFocused}) =>
+                null,
         onChanged: onChanged,
         style: TextStyle(
           fontFamily: 'Manrope',
@@ -421,7 +425,10 @@ class _ReceivePaymentIssueRefundScreenState
     // of every sibling's outstanding.
     final double totalOutstanding = isRefund
         ? _outstandingValue
-        : students.fold<double>(0, (double sum, PayableStudent s) => sum + s.outstanding);
+        : students.fold<double>(
+            0,
+            (double sum, PayableStudent s) => sum + s.outstanding,
+          );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -683,8 +690,9 @@ class _ReceivePaymentIssueRefundScreenState
             child: controller != null
                 ? TextField(
                     controller: controller,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     onChanged: (_) {
                       _cubit.clearAmountError();
                       onChanged?.call();
@@ -692,8 +700,9 @@ class _ReceivePaymentIssueRefundScreenState
                     style: valueStyle,
                     decoration: InputDecoration(
                       hintText: '0.00',
-                      hintStyle: _labelStyle(responsive)
-                          .copyWith(color: AppColors.billingGrey),
+                      hintStyle: _labelStyle(
+                        responsive,
+                      ).copyWith(color: AppColors.billingGrey),
                       border: InputBorder.none,
                       contentPadding: _fieldPadding(responsive),
                     ),
@@ -712,8 +721,9 @@ class _ReceivePaymentIssueRefundScreenState
   /// next to it (white fill, themed border, same height/padding).
   Widget _buildPaymentTypeField(ResponsiveHelper responsive, double labelGap) {
     final List<String> options = _getFilteredPaymentOptions();
-    final String? selected =
-        options.contains(_selectedPaymentType) ? _selectedPaymentType : null;
+    final String? selected = options.contains(_selectedPaymentType)
+        ? _selectedPaymentType
+        : null;
     final TextStyle valueStyle = TextStyle(
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
@@ -729,8 +739,9 @@ class _ReceivePaymentIssueRefundScreenState
         LayoutBuilder(
           builder: (BuildContext context, BoxConstraints constraints) {
             return Container(
-              constraints:
-                  BoxConstraints(minHeight: responsive.inputFieldHeight),
+              constraints: BoxConstraints(
+                minHeight: responsive.inputFieldHeight,
+              ),
               decoration: _fieldBox(responsive),
               child: PopupMenuButton<String>(
                 enabled: !_isSubmitting,
@@ -743,8 +754,9 @@ class _ReceivePaymentIssueRefundScreenState
                   maxWidth: constraints.maxWidth,
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius:
-                      BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+                  borderRadius: BorderRadius.circular(
+                    responsive.isTablet ? 12.0 : 8.0,
+                  ),
                 ),
                 onSelected: (String value) => _cubit.setPaymentType(value),
                 itemBuilder: (BuildContext context) => options
@@ -769,8 +781,9 @@ class _ReceivePaymentIssueRefundScreenState
                           selected ?? 'Select payment type',
                           style: selected != null
                               ? valueStyle
-                              : _labelStyle(responsive)
-                                  .copyWith(color: Colors.grey),
+                              : _labelStyle(
+                                  responsive,
+                                ).copyWith(color: Colors.grey),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -795,13 +808,17 @@ class _ReceivePaymentIssueRefundScreenState
     final double bottomPadding = MediaQuery.of(context).padding.bottom;
     final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
     return Container(
-      padding:
-          EdgeInsets.only(bottom: safeAreaBottom, left: 16, right: 16, top: 8),
+      padding: EdgeInsets.only(
+        bottom: safeAreaBottom,
+        left: 16,
+        right: 16,
+        top: 8,
+      ),
       decoration: BoxDecoration(
         color: Colors.white,
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -816,8 +833,7 @@ class _ReceivePaymentIssueRefundScreenState
         decoration: BoxDecoration(
           gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
           color: _isSubmitting ? AppColors.billingGreyLight : null,
-          borderRadius:
-              BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
+          borderRadius: BorderRadius.circular(responsive.isTablet ? 16.0 : 8.0),
         ),
         child: TextButton(
           onPressed: _isSubmitting ? null : _onSave,
@@ -831,7 +847,8 @@ class _ReceivePaymentIssueRefundScreenState
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
                         valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.billingButtonTextColor),
+                          AppColors.billingButtonTextColor,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -861,8 +878,9 @@ class _ReceivePaymentIssueRefundScreenState
   }
 
   Widget _buildUserInfoSection() {
-    final double effectiveBalance =
-        _amountUnpaid != null ? _amountUnpaid!.toDouble() : 0.0;
+    final double effectiveBalance = _amountUnpaid != null
+        ? _amountUnpaid!.toDouble()
+        : 0.0;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
@@ -951,8 +969,9 @@ class _ReceivePaymentIssueRefundScreenState
     final List<String> parts = name.split(' ');
     if (parts.length >= 2) {
       final String first = parts[0].isNotEmpty ? parts[0][0] : '';
-      final String second =
-          parts.length > 1 && parts[1].isNotEmpty ? parts[1][0] : '';
+      final String second = parts.length > 1 && parts[1].isNotEmpty
+          ? parts[1][0]
+          : '';
       return (first + second).toUpperCase();
     } else if (parts.length == 1 && parts[0].isNotEmpty) {
       return parts[0][0].toUpperCase();
