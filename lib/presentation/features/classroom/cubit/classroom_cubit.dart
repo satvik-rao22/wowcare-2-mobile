@@ -45,8 +45,8 @@ class ClassroomCubit extends Cubit<ClassroomState> {
               (e) => <String, dynamic>{
                 'code': e.code,
                 'name': e.name,
-                'minAgeYears': e.minAgeYears,
-                'maxAgeYears': e.maxAgeYears,
+                'minAgeMonths': e.minAgeMonths,
+                'maxAgeMonths': e.maxAgeMonths,
               },
             )
             .toList(),
@@ -63,7 +63,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
       final code = (m['code'] ?? '').toString().trim();
       final name = (m['name'] ?? '').toString().trim();
       if (code.isEmpty) continue;
-      int years(dynamic v) {
+      int months(dynamic v) {
         final n = v is num ? v.toInt() : int.tryParse('${v ?? ''}'.trim()) ?? 0;
         return n < 0 ? 0 : n;
       }
@@ -72,8 +72,8 @@ class ClassroomCubit extends Cubit<ClassroomState> {
         Classroom(
           code: code,
           name: name.isEmpty ? code : name,
-          minAgeYears: years(m['minAgeYears']),
-          maxAgeYears: years(m['maxAgeYears']),
+          minAgeMonths: months(m['minAgeMonths']),
+          maxAgeMonths: months(m['maxAgeMonths']),
         ),
       );
     }
