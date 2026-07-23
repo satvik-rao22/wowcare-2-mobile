@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -105,13 +106,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
   DateTime? _selectedStartDate = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
+    AppTime.now().year,
+    AppTime.now().month,
     1,
   );
   DateTime? _selectedEndDate = DateTime(
-    DateTime.now().year,
-    DateTime.now().month + 1,
+    AppTime.now().year,
+    AppTime.now().month + 1,
     0,
   );
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
@@ -636,14 +637,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         } else {
           final src = (row.signedInAt ?? row.signedOutAt ?? '').trim();
           rowDay = src.isEmpty
-              ? (_selectedStartDate ?? DateTime.now())
+              ? (_selectedStartDate ?? AppTime.now())
               : SchoolZoneDateTime.dateTimeFromInstantInSchool(
                   DateTime.parse(src),
                   _schoolIana,
                 );
         }
       } catch (_) {
-        rowDay = _selectedStartDate ?? DateTime.now();
+        rowDay = _selectedStartDate ?? AppTime.now();
       }
       final studentName = row.studentName.trim().isEmpty
           ? 'Student'
@@ -828,10 +829,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       try {
         final src = row.absenceDate.trim();
         rowDay = src.isEmpty
-            ? (_selectedStartDate ?? DateTime.now())
+            ? (_selectedStartDate ?? AppTime.now())
             : DateTime.parse(src);
       } catch (_) {
-        rowDay = _selectedStartDate ?? DateTime.now();
+        rowDay = _selectedStartDate ?? AppTime.now();
       }
       final at = _absentClockToDateTime(row.markedAbsentTime, rowDay) ?? rowDay;
       final studentName = row.studentName.trim().isEmpty

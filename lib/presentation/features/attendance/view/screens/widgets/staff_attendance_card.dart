@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -580,7 +581,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     try {
       final parts = timeString.split(' ');
       if (parts.length < 2) {
-        return DateTime.now();
+        return AppTime.now();
       }
 
       final timePart = parts[0];
@@ -588,7 +589,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
 
       final timeComponents = timePart.split(':');
       if (timeComponents.length < 2) {
-        return DateTime.now();
+        return AppTime.now();
       }
 
       int hour = int.parse(timeComponents[0]);
@@ -597,9 +598,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       if (period == 'PM' && hour != 12) hour += 12;
       if (period == 'AM' && hour == 12) hour = 0;
 
-      return DateTime.now().copyWith(hour: hour, minute: minute);
+      return AppTime.now().copyWith(hour: hour, minute: minute);
     } catch (e) {
-      return DateTime.now();
+      return AppTime.now();
     }
   }
 }

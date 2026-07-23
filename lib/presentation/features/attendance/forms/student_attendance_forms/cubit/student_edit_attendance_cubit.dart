@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -36,7 +37,7 @@ class StudentEditAttendanceFormCubit
   TimeOfDay? _initialSignInTime;
   TimeOfDay? _initialSignOutTime;
   String? _attendanceRecordCode;
-  DateTime _attendanceDate = DateTime.now();
+  DateTime _attendanceDate = AppTime.now();
 
   /// Resolves the school timezone, prefills the time pickers from the record's
   /// raw strings, and remembers the identifiers needed at submit time.

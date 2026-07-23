@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -43,7 +44,7 @@ bool _isUsableZone(String iana) {
 DateTime attendanceSchoolToday() {
   final iana = attendanceSchoolIana();
   if (!_isUsableZone(iana)) {
-    final n = DateTime.now();
+    final n = AppTime.now();
     return DateTime(n.year, n.month, n.day);
   }
   return SchoolZoneDateTime.schoolCalendarTodayOnly(iana);
@@ -54,7 +55,7 @@ DateTime attendanceSchoolToday() {
 (DateTime dateOnly, TimeOfDay timeOfDay) attendanceSchoolDateAndTimeNow() {
   final iana = attendanceSchoolIana();
   if (!_isUsableZone(iana)) {
-    final n = DateTime.now();
+    final n = AppTime.now();
     return (DateTime(n.year, n.month, n.day), TimeOfDay(hour: n.hour, minute: n.minute));
   }
   return SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);

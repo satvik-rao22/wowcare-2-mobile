@@ -13,7 +13,7 @@ class StaffMarkAbsentState extends Equatable {
   });
 
   factory StaffMarkAbsentState.initial() {
-    final now = DateTime.now();
+    final now = AppTime.now();
     final today = DateTime(now.year, now.month, now.day);
     return StaffMarkAbsentState(
       selectedStaff: const <StaffEntity>[],

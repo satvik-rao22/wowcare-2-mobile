@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -59,7 +60,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
     _isFetching = true;
 
-    final now = DateTime.now();
+    final now = AppTime.now();
     final from = DateTime(now.year, now.month, 1);
     final to = now;
 
@@ -105,8 +106,8 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
     final from =
         state.fromDate ??
-        DateTime(DateTime.now().year, DateTime.now().month, 1);
-    final to = state.toDate ?? DateTime.now();
+        DateTime(AppTime.now().year, AppTime.now().month, 1);
+    final to = state.toDate ?? AppTime.now();
 
     await Future.wait([
       _fetchAttendance(
@@ -142,8 +143,8 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
       final from =
           state.fromDate ??
-          DateTime(DateTime.now().year, DateTime.now().month, 1);
-      final to = state.toDate ?? DateTime.now();
+          DateTime(AppTime.now().year, AppTime.now().month, 1);
+      final to = state.toDate ?? AppTime.now();
 
       await _fetchAbsent(
         staffCode: staffCode,

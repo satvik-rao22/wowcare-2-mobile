@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -62,7 +63,7 @@ class _GroupedMovement {
 
 /// Check if a movement is within the last 30 days from today.
 bool _isWithinLastMonth(DateTime movementDate) {
-  final now = DateTime.now();
+  final now = AppTime.now();
   final thirtyDaysAgo = now.subtract(const Duration(days: 30));
   return movementDate.isAfter(thirtyDaysAgo);
 }

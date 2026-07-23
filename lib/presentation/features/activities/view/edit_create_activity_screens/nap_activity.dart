@@ -580,14 +580,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
     final enteredDescription = _descriptionController.text.trim();
     var description = enteredDescription;
-    if (description.isNotEmpty && description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -798,14 +790,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
 
     final description = _descriptionController.text.trim();
-    if (description.isNotEmpty && description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,

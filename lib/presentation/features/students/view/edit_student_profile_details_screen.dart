@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -483,7 +484,7 @@ class _EditStudentProfileDetailsScreenState
       );
       return;
     } else {
-      final now = DateTime.now();
+      final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
       if (_selectedBirthDate!.isAfter(
         today.subtract(const Duration(days: 1)),
@@ -747,7 +748,7 @@ class _EditStudentProfileDetailsScreenState
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         // Birthdate must be a past date (not today or future)

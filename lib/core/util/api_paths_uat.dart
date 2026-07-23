@@ -194,6 +194,7 @@ class ApiPathsUat {
       case 'school-forte-configs':
       case 'payment-gateway':
       case 'payment':
+      case 'time': // server clock endpoint lives on the accounts (billing) MS
         return ApiMicroservices.billing;
       case 'reports':
         // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...

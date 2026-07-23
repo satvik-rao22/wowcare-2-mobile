@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -119,7 +120,7 @@ class StudentSignInForm extends StatefulWidget {
 }
 
 class _StudentSignInFormState extends State<StudentSignInForm> {
-  DateTime selectedDate = DateTime.now();
+  DateTime selectedDate = AppTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
 
   /// School IANA id from API; when set, date/time defaults and [occurredAt] use this zone.
@@ -307,7 +308,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       });
       return;
     }
-    final dateTime = DateTime.now();
+    final dateTime = AppTime.now();
     setState(() {
       selectedDate = dateTime;
       selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
@@ -492,7 +493,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
     final isStaffPersona = _isStaffPersona ?? await _resolveIsStaffPersona();
-    final nowUtc = DateTime.now().toUtc();
+    final nowUtc = AppTime.now().toUtc();
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.utcFromSchoolWallClock(
@@ -861,9 +862,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    AppTime.now().year,
+                                    AppTime.now().month,
+                                    AppTime.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,

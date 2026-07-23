@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -97,7 +98,7 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
   // ---------------------------------------------------------------------------
 
   Future<void> _fetch(String schoolCode) async {
-    final now = DateTime.now();
+    final now = AppTime.now();
     final fromDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
     // Last day of current month: day-0 of the next month = last day of this month.
     final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;

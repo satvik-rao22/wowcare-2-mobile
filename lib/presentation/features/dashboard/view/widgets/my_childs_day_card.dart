@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -284,7 +285,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
     void tick() {
       final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-        DateTime.now().toUtc(),
+        AppTime.now().toUtc(),
         schoolTimeZone,
       );
       final result = _computeCountdownFromSchedule(

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -38,7 +39,7 @@ class MyShiftsCubit extends Cubit<MyShiftsState> {
   bool _isFetching = false;
 
   Future<void> load({DateTime? date, bool forceRefresh = false}) async {
-    final targetDate = date ?? state.selectedDate ?? DateTime.now();
+    final targetDate = date ?? state.selectedDate ?? AppTime.now();
     final normalizedDate = DateTime(
       targetDate.year,
       targetDate.month,

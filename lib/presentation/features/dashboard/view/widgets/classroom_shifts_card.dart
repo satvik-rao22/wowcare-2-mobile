@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -42,7 +43,7 @@ class ClassroomShiftsCard extends StatefulWidget {
 class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   static const int _initialDisplayCount = 6;
 
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = AppTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
 

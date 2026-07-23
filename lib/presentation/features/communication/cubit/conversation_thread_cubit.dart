@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -402,7 +403,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       text: text,
       messageType: MessageType.text,
       status: MessageStatus.pending,
-      sentAt: DateTime.now(),
+      sentAt: AppTime.now(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       isPrivate: isPrivate,
@@ -912,7 +913,7 @@ extension _MessageEntityX on MessageEntity {
     isEdited: true,
     isDeleted: isDeleted,
     deletedPlaceholder: deletedPlaceholder,
-    editedAt: DateTime.now(),
+    editedAt: AppTime.now(),
     deletedAt: deletedAt,
     attachments: attachments,
     reactions: reactions,
@@ -943,7 +944,7 @@ extension _MessageEntityX on MessageEntity {
     isDeleted: true,
     deletedPlaceholder: 'This message has been deleted.',
     editedAt: editedAt,
-    deletedAt: DateTime.now(),
+    deletedAt: AppTime.now(),
     attachments: attachments,
     reactions: reactions,
     readReceipts: readReceipts,

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -41,7 +42,7 @@ class StaffTransferForm extends StatefulWidget {
 }
 
 class _StaffTransferFormState extends State<StaffTransferForm> {
-  DateTime _selectedTransferDate = DateTime.now();
+  DateTime _selectedTransferDate = AppTime.now();
   TimeOfDay _selectedTransferTime = TimeOfDay.now();
   String? _schoolIana;
   String? _selectedToClassroomCode;
@@ -121,7 +122,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         _selectedTransferDate = dt.$1;
         _selectedTransferTime = dt.$2;
       } else {
-        _selectedTransferDate = DateTime.now();
+        _selectedTransferDate = AppTime.now();
         _selectedTransferTime = TimeOfDay.now();
       }
     });
@@ -167,7 +168,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
     var resolved = '';
     try {
-      final now = DateTime.now();
+      final now = AppTime.now();
       final attendanceRepo = serviceLocator<AttendanceRepository>();
       final dailyPage = await attendanceRepo.getStaffAttendanceDaily(
         // A wide lookback, not just "today" — the most recent transfer may
@@ -628,9 +629,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                           iana,
                                         )
                                       : DateTime(
-                                          DateTime.now().year,
-                                          DateTime.now().month,
-                                          DateTime.now().day,
+                                          AppTime.now().year,
+                                          AppTime.now().month,
+                                          AppTime.now().day,
                                         );
                                   final picked = DateTime(
                                     date.year,

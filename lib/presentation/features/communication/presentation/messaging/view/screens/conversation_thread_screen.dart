@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -610,7 +611,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final tz = SchoolTimezoneResolver.lastKnownTimeZone;
     final d = SchoolZoneDateTime.dateTimeFromInstantInSchool(date, tz);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
+      AppTime.now().toUtc(),
       tz,
     );
     const months = [

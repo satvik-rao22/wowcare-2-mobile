@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -113,7 +114,7 @@ class StudentSignOutForm extends StatefulWidget {
 }
 
 class _StudentSignOutFormState extends State<StudentSignOutForm> {
-  DateTime selectedDate = DateTime.now();
+  DateTime selectedDate = AppTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
   String? _schoolIana;
   List<StudentEntity> currentStudents = [];
@@ -184,7 +185,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           selectedDate = dt.$1;
           selectedTime = dt.$2;
         } else {
-          final now = DateTime.now();
+          final now = AppTime.now();
           selectedDate = now;
           selectedTime = TimeOfDay.fromDateTime(now);
         }
@@ -254,7 +255,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     );
 
     final isStaffPersona = _isStaffPersona ?? false;
-    final nowUtc = DateTime.now().toUtc();
+    final nowUtc = AppTime.now().toUtc();
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.utcFromSchoolWallClock(
@@ -626,9 +627,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    AppTime.now().year,
+                                    AppTime.now().month,
+                                    AppTime.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,

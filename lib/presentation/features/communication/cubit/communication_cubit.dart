@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
@@ -126,7 +127,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   static const Duration _localMutationGuardWindow = Duration(seconds: 8);
 
   void _markRecentlyMutated(String messageCode) {
-    _recentLocalMutations[messageCode] = DateTime.now();
+    _recentLocalMutations[messageCode] = AppTime.now();
   }
 
   /// Starts (or restarts, if already watching a different thread) the
@@ -178,7 +179,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           (m) => !incomingCodes.contains(m.code),
         );
 
-        final cutoff = DateTime.now().subtract(_localMutationGuardWindow);
+        final cutoff = AppTime.now().subtract(_localMutationGuardWindow);
         _recentLocalMutations.removeWhere((_, t) => t.isBefore(cutoff));
 
         // For a message that's mid-settling from a local reaction/attachment/

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
@@ -112,7 +113,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _initialDeviceToday = DateTime(now.year, now.month, now.day);
     // Fire the cubit's entry-load exactly once per screen entry. First time
     // runs the full visible load; subsequent entries run a silent

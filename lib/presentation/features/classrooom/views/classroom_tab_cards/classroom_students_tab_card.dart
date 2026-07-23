@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -667,7 +668,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   String _attendanceCacheKeyForRoomToday() {
     final classroomCode = (widget.selectedRoom?.code ?? '').trim();
-    final date = _formatDate(DateTime.now());
+    final date = _formatDate(AppTime.now());
     return 'students:$classroomCode:$date';
   }
 
@@ -900,7 +901,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       return;
     }
 
-    final date = _formatDate(DateTime.now());
+    final date = _formatDate(AppTime.now());
     final token = ++_attendancePrefetchToken;
     final roomCode = (widget.selectedRoom?.code ?? '').trim();
     final classroomCodes = roomCode.isEmpty ? null : <String>[roomCode];

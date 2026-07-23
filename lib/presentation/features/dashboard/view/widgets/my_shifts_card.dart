@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -119,7 +120,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
     final result = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => ViewShiftScreen(
-          date: cubitState.selectedDate ?? DateTime.now(),
+          date: cubitState.selectedDate ?? AppTime.now(),
           staff: cubitState.staffName,
           classroom: shift.room,
           shiftStart: startTime,
@@ -164,7 +165,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
           state.classroomNames,
         );
         final dailyShifts = _mapToDailyShifts(state, classroomResolver);
-        final selectedDate = state.selectedDate ?? DateTime.now();
+        final selectedDate = state.selectedDate ?? AppTime.now();
         final dayColumnLabel = DateFormat('EEE, MMM d').format(selectedDate);
 
         return DashboardCardErrorOverlay(

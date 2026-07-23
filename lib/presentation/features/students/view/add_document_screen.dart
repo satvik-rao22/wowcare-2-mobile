@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -243,7 +244,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
         if (selectedDate.isBefore(today) ||
             selectedDate.isAtSameMomentAs(today)) {

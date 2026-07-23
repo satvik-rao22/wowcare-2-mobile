@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/notification_payload.dart';
 import 'package:wowcare/core/firebase/firebase_config_factory.dart';
@@ -407,10 +408,16 @@ Future<void> main() async {
   // avoids eating a guaranteed 401 on the first request after resume.
   WidgetsBinding.instance.addObserver(_TokenLifecycleObserver());
 
+  // Sync the authoritative server clock once at startup; the observer re-syncs
+  // on every resume (a phone can background for hours and the device clock can
+  // drift or be manually changed). Fire-and-forget: falls back to device time.
+  unawaited(ServerTimeService.instance.sync());
+
   runApp(const MyApp());
 }
 
-/// Refreshes the access token when the app returns to the foreground.
+/// Refreshes the access token and re-syncs the server clock when the app
+/// returns to the foreground.
 class _TokenLifecycleObserver with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
@@ -419,6 +426,8 @@ class _TokenLifecycleObserver with WidgetsBindingObserver {
     unawaited(
       TokenRefreshService.instance.ensureFreshToken().catchError((_) => false),
     );
+    // Re-align "now" with the server after time in the background.
+    unawaited(ServerTimeService.instance.sync());
   }
 }
 

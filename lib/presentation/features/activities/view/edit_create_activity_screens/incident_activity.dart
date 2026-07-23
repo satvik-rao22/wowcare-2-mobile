@@ -1470,14 +1470,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       );
       return;
     }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
-        isWarning: true,
-      );
-      return;
-    }
     if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1816,14 +1808,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
         isWarning: true,
       );
       return;

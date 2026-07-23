@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -710,7 +711,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           'mediaType': widget.isPhoto ? 'PHOTO' : 'VIDEO',
           'sessionCode': sessionCode,
           'assetCodes': assetCodes,
-          'savedAt': DateTime.now().toIso8601String(),
+          'savedAt': AppTime.now().toIso8601String(),
         }),
       );
     } catch (_) {}
@@ -894,14 +895,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
     final descriptionTrim = _descriptionController.text.trim();
     final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
-    if (descriptionTrim.isNotEmpty && descriptionTrim.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (descriptionTrim.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1145,14 +1138,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     );
 
     final desc = _descriptionController.text.trim();
-    if (desc.isNotEmpty && desc.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (desc.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,

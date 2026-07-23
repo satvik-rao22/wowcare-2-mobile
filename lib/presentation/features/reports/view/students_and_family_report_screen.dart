@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -136,8 +137,8 @@ class _StudentsAndFamilyReportScreenState
         .toList();
     final params = StudentsAndFamilyReportParams(
       reportType: ReportType.studentsAndFamily,
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
+      startDate: AppTime.now(),
+      endDate: AppTime.now(),
       studentFieldsSelected: _selectedStudentFields.value,
       parentFieldsSelected: _selectedParentFields.value,
       statusFilter: _status.value,

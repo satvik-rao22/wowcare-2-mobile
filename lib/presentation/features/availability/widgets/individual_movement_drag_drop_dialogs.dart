@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
@@ -131,7 +132,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
   }
 
   Future<void> _pickDate() async {
-    final now = DateTime.now();
+    final now = AppTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final picked = await pickNormalDate(
       context: context,
@@ -152,7 +153,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
         setState(() => _error = 'Please select a date.');
         return;
       }
-      final today = DateTime.now();
+      final today = AppTime.now();
       final dateOnlyToday = DateTime(today.year, today.month, today.day);
       if (_selectedDate!.isBefore(dateOnlyToday)) {
         setState(() => _error = 'Back dates are not allowed.');

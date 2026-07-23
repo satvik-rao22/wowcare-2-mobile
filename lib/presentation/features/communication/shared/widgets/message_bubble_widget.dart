@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
@@ -186,7 +187,7 @@ class _MessageBubbleState extends State<MessageBubble>
         return Reaction(
           emoji: r.emoji,
           userId: r.userCode,
-          timestamp: DateTime.now(),
+          timestamp: AppTime.now(),
         );
       }).toList();
       widget.reactionsController.loadReactions(messageId, reactions);

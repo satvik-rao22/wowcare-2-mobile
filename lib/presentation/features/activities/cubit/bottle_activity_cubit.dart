@@ -582,11 +582,6 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
       );
     }
     final desc = description.trim();
-    if (desc.isNotEmpty && desc.length < 5) {
-      return const ActivityFormOutcome.warning(
-        'Description must be at least 5 characters long',
-      );
-    }
     if (desc.isNotEmpty && desc.length > ActivityDescriptionLimits.maxLength) {
       return ActivityFormOutcome.warning(
         ActivityDescriptionLimits.maxLengthMessage,

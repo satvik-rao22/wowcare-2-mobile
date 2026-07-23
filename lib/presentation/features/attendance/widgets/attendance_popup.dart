@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
@@ -123,7 +124,7 @@ class AttendancePopupManager {
 
       try {
         final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = DateTime.now();
+        final now = AppTime.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final page = await useCase(
@@ -1415,7 +1416,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
       try {
         final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = DateTime.now();
+        final now = AppTime.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final page = await useCase(

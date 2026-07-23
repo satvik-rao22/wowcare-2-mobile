@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -37,7 +38,7 @@ class _StudentDailyAttendanceReportScreenState
   @override
   void initState() {
     super.initState();
-    _date = ValueNotifier<DateTime>(DateTime.now());
+    _date = ValueNotifier<DateTime>(AppTime.now());
   }
 
   @override

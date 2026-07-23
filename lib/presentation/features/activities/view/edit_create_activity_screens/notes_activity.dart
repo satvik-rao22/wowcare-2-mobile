@@ -377,14 +377,6 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       );
       return;
     }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -594,14 +586,6 @@ class _NotesActivityScreenState extends State<NotesActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
         isWarning: true,
       );
       return;

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
@@ -321,7 +322,7 @@ class BulkMessagingCompositionCubit
                     senderUserCode: senderUserCode.isNotEmpty
                         ? senderUserCode
                         : actualSenderCode,
-                    time: DateTime.now(),
+                    time: AppTime.now(),
                   );
                   await _sendMessageUseCase(conversationCode, msg);
                 }
@@ -384,7 +385,7 @@ class BulkMessagingCompositionCubit
                     senderUserCode: senderUserCode.isNotEmpty
                         ? senderUserCode
                         : actualSenderCode,
-                    time: DateTime.now(),
+                    time: AppTime.now(),
                   );
                   await _sendMessageUseCase(conv.code, msg);
                 }

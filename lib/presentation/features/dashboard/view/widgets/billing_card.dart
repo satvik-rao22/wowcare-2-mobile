@@ -1,4 +1,5 @@
 import 'package:fl_chart/fl_chart.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -25,7 +26,7 @@ class BillingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now();
+    final now = AppTime.now();
     final monthStart = DateTime(now.year, now.month, 1);
     final monthEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
     return MultiBlocProvider(
@@ -82,8 +83,8 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
   ];
 
   bool _minimized = false;
-  int _selectedYear = DateTime.now().year;
-  String _selectedMonth = _monthsList[DateTime.now().month - 1];
+  int _selectedYear = AppTime.now().year;
+  String _selectedMonth = _monthsList[AppTime.now().month - 1];
 
   /// 1-based month number of the current monthly-section selection.
   int get _monthIndex => _monthsList.indexOf(_selectedMonth) + 1;
@@ -91,7 +92,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
   Future<void> _reloadMonthlyOverview() {
     // The monthly section is scoped to the selected month within the current
     // calendar year (the year picker below only drives the revenue chart).
-    final year = DateTime.now().year;
+    final year = AppTime.now().year;
     final from = DateTime(year, _monthIndex, 1);
     final to = DateTime(year, _monthIndex + 1, 0, 23, 59, 59);
     return context
