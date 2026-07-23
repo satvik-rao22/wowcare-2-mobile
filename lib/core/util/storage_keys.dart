@@ -10,6 +10,11 @@ class StorageKeys {
   static const String accessToken = 'accessToken';
   static const String refreshToken = 'refreshToken';
   static const String tokenExpiresIn = 'tokenExpiresIn';
+  /// Absolute epoch-ms deadline for the access token. [tokenExpiresIn] alone is
+  /// a duration and says nothing about WHEN it was issued, so it cannot answer
+  /// "is the token still valid?" — this can, which is what proactive refresh
+  /// (refresh-before-expiry on resume) needs.
+  static const String tokenExpiresAt = 'tokenExpiresAt';
   static const String refreshExpiresIn = 'refreshExpiresIn';
   static const String tokenType = 'tokenType';
   static const String userCode = 'userCode';

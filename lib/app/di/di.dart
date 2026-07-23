@@ -490,7 +490,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
       baseUrl: apiBaseUrl,
       interceptors: <Interceptor>[
         AuthInterceptor(serviceLocator<StorageService>()),
-        SessionExpiredInterceptor(),
+      ],
+      // Needs its own Dio so it can replay a request after a token refresh.
+      interceptorsBuilder: (dio) => <Interceptor>[
+        SessionExpiredInterceptor(dio),
       ],
     ),
   );

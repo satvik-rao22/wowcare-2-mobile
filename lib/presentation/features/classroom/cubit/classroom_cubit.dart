@@ -39,7 +39,15 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   Map<String, dynamic> _encodeClassroomsForCache(List<Classroom> classrooms) => {
         'items': classrooms
             .map(
-              (e) => <String, dynamic>{'code': e.code, 'name': e.name},
+              // Age bounds must be cached too — omitting them meant a
+              // cache-hydrated list reported every room as "no age limit",
+              // silently disabling the age warning until a live refetch.
+              (e) => <String, dynamic>{
+                'code': e.code,
+                'name': e.name,
+                'minAgeMonths': e.minAgeMonths,
+                'maxAgeMonths': e.maxAgeMonths,
+              },
             )
             .toList(),
       };
@@ -55,7 +63,19 @@ class ClassroomCubit extends Cubit<ClassroomState> {
       final code = (m['code'] ?? '').toString().trim();
       final name = (m['name'] ?? '').toString().trim();
       if (code.isEmpty) continue;
-      result.add(Classroom(code: code, name: name.isEmpty ? code : name));
+      int months(dynamic v) {
+        final n = v is num ? v.toInt() : int.tryParse('${v ?? ''}'.trim()) ?? 0;
+        return n < 0 ? 0 : n;
+      }
+
+      result.add(
+        Classroom(
+          code: code,
+          name: name.isEmpty ? code : name,
+          minAgeMonths: months(m['minAgeMonths']),
+          maxAgeMonths: months(m['maxAgeMonths']),
+        ),
+      );
     }
     return result;
   }

@@ -14,6 +14,7 @@ class ConversationInboxItem {
   const ConversationInboxItem({
     required this.conversationCode,
     required this.conversationType,
+    this.title = '',
     required this.lastMessagePreview,
     required this.unreadCount,
     required this.isActive,
@@ -30,6 +31,11 @@ class ConversationInboxItem {
 
   final String conversationCode;
   final String conversationType;
+
+  /// The conversation's stored title from the inbox doc (room/student/classroom name, or the frozen
+  /// counterpart name for STAFF_DIRECT). Parsed so the no-cache [toMinimalEntity] can show it instead
+  /// of the "Conversation" placeholder until the participant roster loads from the Isar cache.
+  final String title;
   final String lastMessagePreview;
   final int unreadCount;
   final bool isActive;
@@ -58,6 +64,7 @@ class ConversationInboxItem {
     return ConversationInboxItem(
       conversationCode: d['conversationCode'] as String? ?? doc.id,
       conversationType: d['conversationType'] as String? ?? 'ROOM_CHAT',
+      title: d['title'] as String? ?? '',
       lastMessagePreview: d['lastMessagePreview'] as String? ?? '',
       unreadCount: (d['unreadCount'] as num?)?.toInt() ?? 0,
       isActive: d['isActive'] as bool? ?? true,
@@ -120,7 +127,7 @@ class ConversationInboxItem {
       id: 0,
       code: conversationCode,
       type: ConversationType.fromApiString(conversationType),
-      title: '',
+      title: title,
       description: '',
       avatarUrl: '',
       status: isActive ? 'ACTIVE' : 'INACTIVE',
