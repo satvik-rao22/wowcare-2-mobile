@@ -418,6 +418,34 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
   }
 
   @override
+  Future<Either<Failure, void>> markSyncOperationCompleted(int id) async {
+    try {
+      await _local.markOperationCompleted(id);
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> markSyncOperationFailed({
+    required int id,
+    required String error,
+    required int attempts,
+  }) async {
+    try {
+      await _local.markOperationFailed(
+        id: id,
+        error: error,
+        attempts: attempts,
+      );
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, int>> cleanupSyncQueue({int olderThanDays = 7}) async {
     try {
       final org = await _orgCode;

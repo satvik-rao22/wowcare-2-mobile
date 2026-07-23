@@ -270,6 +270,8 @@ import '../../presentation/features/students/cubit/student_documents_list_cubit.
 import '../../presentation/features/students/cubit/student_document_cubit.dart';
 import '../../presentation/features/students/cubit/student_important_dates_cubit.dart';
 import '../../domain/features/communication/repositories/communication_repository.dart';
+import '../../core/communication/messaging_lifecycle_manager.dart';
+import '../../domain/features/communication/usecases/drain_sync_queue_usecase.dart';
 import '../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_usecase.dart';
 import '../../domain/features/communication/usecases/create_conversation_usecase.dart';
@@ -712,6 +714,31 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storageService: serviceLocator(),
       realtimeDataSource: serviceLocator(),
       reactionRepository: serviceLocator(),
+    ),
+  );
+
+  // Additive: replays queued offline sends/edits/deletes/reactions. Existed
+  // with zero callers before MessagingLifecycleManager's SyncLifecycle
+  // wired it to connectivity-restored (see architecture audit finding #4).
+  serviceLocator.registerFactory<DrainSyncQueueUseCase>(
+    () => DrainSyncQueueUseCase(
+      messageRepository: serviceLocator(),
+      reactionRepository: serviceLocator(),
+    ),
+  );
+
+  // Additive orchestration only — see messaging_lifecycle_manager.dart.
+  // `UnreadBadgeCubit` is registered later in this same setup function
+  // (still fine — GetIt only resolves lazily-registered factories on first
+  // access, and the eager `serviceLocator<MessagingLifecycleManager>()`
+  // call at the very end of this function runs after every registration
+  // above and below this line has completed).
+  serviceLocator.registerLazySingleton<MessagingLifecycleManager>(
+    () => MessagingLifecycleManager(
+      networkInfo: serviceLocator(),
+      drainSyncQueueUseCase: serviceLocator(),
+      conversationRepository: serviceLocator(),
+      unreadBadgeCubit: serviceLocator(),
     ),
   );
 
@@ -2346,4 +2373,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       storage: serviceLocator<StorageService>(),
     ),
   );
+
+  // Eagerly resolve so the app-lifecycle observer and connectivity watch
+  // start listening from launch rather than waiting for first use (e.g. the
+  // first logout) — every dependency above is registered by this point.
+  serviceLocator<MessagingLifecycleManager>().init();
 }

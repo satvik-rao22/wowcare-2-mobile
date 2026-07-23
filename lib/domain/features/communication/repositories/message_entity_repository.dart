@@ -141,6 +141,21 @@ abstract class MessageEntityRepository {
   /// Return all pending [SyncQueueEntity] items for the current user/school.
   Future<Either<Failure, List<SyncQueueEntity>>> getPendingSyncOperations();
 
+  /// Marks a queued sync operation as successfully replayed. Thin
+  /// pass-through to the already-implemented
+  /// `MessageEntityLocalDataSource.markOperationCompleted` — exposed here so
+  /// `DrainSyncQueueUseCase` (which already called this) compiles.
+  Future<Either<Failure, void>> markSyncOperationCompleted(int id);
+
+  /// Marks a queued sync operation as terminally failed (attempt ceiling
+  /// reached) so it stops being retried. Pass-through to
+  /// `MessageEntityLocalDataSource.markOperationFailed`.
+  Future<Either<Failure, void>> markSyncOperationFailed({
+    required int id,
+    required String error,
+    required int attempts,
+  });
+
   /// Remove completed / old sync operations from Isar.
   Future<Either<Failure, int>> cleanupSyncQueue({
     int olderThanDays = 7,

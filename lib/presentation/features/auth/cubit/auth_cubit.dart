@@ -12,6 +12,7 @@ import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dar
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
 import 'package:wowcare/data/static/static_school_catalog.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/communication/messaging_lifecycle_manager.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
@@ -936,6 +937,18 @@ class AuthCubit extends Cubit<AuthState> {
       await _firebaseAuthService.signOut();
     } catch (e) {
       AppLogger.w('[AUTH] Firebase sign-out failed (non-fatal): $e');
+    }
+
+    // Messaging cache is scoped to the CURRENT user's organizationCode/
+    // schoolCode (read from StorageService at clear time) — must run before
+    // `_localDataSource.clearCache()` below wipes those storage keys, or the
+    // messaging repository would scope-clear against empty strings and
+    // silently clear nothing, leaking this user's cached conversations into
+    // the next login on this device.
+    try {
+      await serviceLocator<MessagingLifecycleManager>().onLogout();
+    } catch (e) {
+      AppLogger.w('[AUTH] Messaging cache teardown failed (non-fatal): $e');
     }
 
     // NOTE: clearCache() now preserves the "Remember me" username + flag so the

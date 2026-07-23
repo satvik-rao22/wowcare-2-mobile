@@ -1,3 +1,4 @@
+import 'package:wowcare/core/communication/messaging_logger.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
@@ -205,19 +206,49 @@ class ConversationEntityRemoteDataSourceImpl
     // list from the same endpoint already proven correct (it drives the
     // inbox) and verify the match against participants client-side instead
     // of trusting an unverified filter param.
-    final conversations = await getConversations(
-      type: ConversationType.staffDirect,
-      status: 'ACTIVE',
-      page: 0,
-      size: 100,
-    );
-    for (final c in conversations) {
-      if (c.participants.any((p) => p.userCode == recipientUserCode)) {
-        return c;
+    //
+    // Paginated rather than a single size:100 call: a staff member with more
+    // than one page of active STAFF_DIRECT conversations could otherwise
+    // silently fail to find an existing match and get a duplicate created.
+    // Same query/params/page-size as before per page — only the number of
+    // pages fetched is new. Capped at [_dedupScanMaxPages] so a pathological
+    // account can't turn one tap into an unbounded number of requests.
+    const int pageSize = 100;
+    const int maxPages = _dedupScanMaxPages;
+    var page = 0;
+    var pagesScanned = 0;
+    while (page < maxPages) {
+      final conversations = await getConversations(
+        type: ConversationType.staffDirect,
+        status: 'ACTIVE',
+        page: page,
+        size: pageSize,
+      );
+      pagesScanned++;
+      for (final c in conversations) {
+        if (c.participants.any((p) => p.userCode == recipientUserCode)) {
+          MessagingLogger.log(
+            event: MessagingEvent.dedupScan,
+            metadata: {'pagesScanned': pagesScanned, 'matched': true},
+          );
+          return c;
+        }
       }
+      if (conversations.length < pageSize) break;
+      page++;
     }
+    MessagingLogger.log(
+      event: MessagingEvent.dedupScan,
+      metadata: {'pagesScanned': pagesScanned, 'matched': false},
+    );
     return null;
   }
+
+  /// Safety cap for [findStaffDirectConversation]'s pagination scan —
+  /// 50 pages x 100/page = 5,000 conversations, far beyond any real staff
+  /// member's active STAFF_DIRECT count, so this only bounds a pathological
+  /// case rather than affecting normal use.
+  static const int _dedupScanMaxPages = 50;
 
   @override
   Future<ConversationEntityDto?> findRoomChatConversation({

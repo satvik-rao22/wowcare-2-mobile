@@ -152,6 +152,17 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
   getPendingSyncOperations() async => const Right([]);
 
   @override
+  Future<Either<Failure, void>> markSyncOperationCompleted(int id) async =>
+      const Right(null);
+
+  @override
+  Future<Either<Failure, void>> markSyncOperationFailed({
+    required int id,
+    required String error,
+    required int attempts,
+  }) async => const Right(null);
+
+  @override
   Future<Either<Failure, int>> cleanupSyncQueue({
     int olderThanDays = 7,
   }) async => const Right(0);

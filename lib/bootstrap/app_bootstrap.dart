@@ -18,6 +18,12 @@ class AppBootstrap {
   static Future<void> initialize() async {
     initializeTimeZoneData();
 
+    // Must run before configureDependencies(): DI eagerly resolves
+    // MessagingLifecycleManager at the end of setup, which cascades into
+    // FirebaseFirestore.instance / FirebaseMessaging.instance. Without an
+    // initialized Firebase app first, that throws [core/no-app].
+    await ensureFirebaseInitialized();
+
     await configureDependencies();
 
     // One-time WorkManager setup. Registers the callback dispatcher only —
@@ -30,8 +36,6 @@ class AppBootstrap {
     // install marker lives in SharedPreferences (wiped on uninstall); if it's
     // absent, this is a fresh install → wipe the Keychain so the app opens clean.
     await resetSecureStoreOnFreshInstall();
-
-    await ensureFirebaseInitialized();
 
     // iOS foreground notifications + FirebaseAnalytics library linking.
     await initializeFirebaseAnalyticsAndForegroundOptions();
