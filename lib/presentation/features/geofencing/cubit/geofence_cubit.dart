@@ -696,26 +696,38 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     GeofenceStatus newStatus, {
     bool fireFlutterNotification = false,
   }) {
-    if (_lastNotifiedStatus == newStatus) return;
-    _lastNotifiedStatus = newStatus;
+    // "You can now Sign In or Sign Out" is meaningless noise when there's
+    // nothing left to act on: a staff/admin/student user already signed in
+    // for the day, or a guardian whose children are all already signed in.
+    final nothingToDo = state.isStaffSignedIn || state.allChildrenSignedIn;
 
     // On an actual zone crossing the native layer fires the notification
-    // (Android → GeofenceBroadcastReceiver, iOS → GeofencePlugin). On a
-    // dashboard refresh there is no boundary crossing so native is silent —
-    // fire the Flutter-side notification instead to inform the user.
+    // (Android → GeofenceBroadcastReceiver, iOS → GeofencePlugin) with no
+    // awareness of sign-in status. On a dashboard refresh/resume/sign-in-status
+    // change there is no boundary crossing so native stays silent — Dart must
+    // independently decide to show/cancel every time, which is why this whole
+    // block runs ahead of (and independent from) the transition-dedup below:
+    // dashboard refreshes must be able to re-notify even when the geofence
+    // status itself hasn't changed since the last notification.
     if (fireFlutterNotification) {
       if (newStatus == GeofenceStatus.within) {
-        // "You can now Sign In or Sign Out" is meaningless noise when there's
-        // nothing left to act on: a staff/admin user already signed in for
-        // the day, or a guardian whose children are all already signed in.
-        final nothingToDo = state.isStaffSignedIn || state.allChildrenSignedIn;
         if (!nothingToDo) {
           unawaited(_notifications.showEnteredZoneNotification());
+        } else {
+          unawaited(_notifications.cancelEnteredZoneNotification());
         }
       } else {
         unawaited(_notifications.showExitedZoneNotification());
       }
+    } else if (newStatus == GeofenceStatus.within && nothingToDo) {
+      // Real boundary-cross relayed from native: native may have already
+      // posted the "entered zone" notification since it can't see sign-in
+      // status — cancel it now that Dart knows there's nothing actionable.
+      unawaited(_notifications.cancelEnteredZoneNotification());
     }
+
+    if (_lastNotifiedStatus == newStatus) return;
+    _lastNotifiedStatus = newStatus;
 
     unawaited(
       SharedPreferences.getInstance()
@@ -727,6 +739,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
             );
           })
           .catchError((_) {}),
+    );
+  }
+
+  /// Re-evaluates the "entered zone" notification against the current
+  /// geofence status whenever sign-in status changes (dashboard refresh,
+  /// sign-in/sign-out, resume) without a boundary crossing having occurred.
+  void _reevaluateNotificationForCurrentStatus() {
+    if (!state.isWithinGeofence) return;
+    _triggerNotificationIfNeeded(
+      GeofenceStatus.within,
+      fireFlutterNotification: true,
     );
   }
 
@@ -1041,13 +1064,16 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       final status = await getStaffStatusUseCase(staffCode: staffCode);
       final isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
       emit(state.copyWith(isStaffSignedIn: isSignedIn));
+      _reevaluateNotificationForCurrentStatus();
     } catch (_) {
       emit(state.copyWith(isStaffSignedIn: false));
+      _reevaluateNotificationForCurrentStatus();
     }
   }
 
   Future<void> updateStaffSignInStatus(bool isSignedIn) async {
     emit(state.copyWith(isStaffSignedIn: isSignedIn));
+    _reevaluateNotificationForCurrentStatus();
   }
 
   /// Guardian/parent equivalent of [updateStaffSignInStatus] — called by
@@ -1056,6 +1082,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   /// nothing is left to act on for this guardian.
   Future<void> updateChildrenSignInStatus(bool allSignedIn) async {
     emit(state.copyWith(allChildrenSignedIn: allSignedIn));
+    _reevaluateNotificationForCurrentStatus();
   }
 
   @override
