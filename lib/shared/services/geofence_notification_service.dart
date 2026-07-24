@@ -92,6 +92,19 @@ class GeofenceNotificationService {
     isCritical: true,
   );
 
+  /// Cancels a previously-shown "entered zone" tray notification. Used when
+  /// the user is inside the geofence but has nothing actionable to do (e.g.
+  /// already signed in) — native Android/iOS geofencing has no awareness of
+  /// sign-in status and may have already posted this notification on the
+  /// raw boundary-cross event, so Dart clears it once it learns better.
+  /// Shares the same channel id + notification id as the native side, so
+  /// cancelling here also clears a notification the native layer posted.
+  Future<void> cancelEnteredZoneNotification() async {
+    try {
+      await _plugin.cancel(id: _enteredId);
+    } catch (_) {}
+  }
+
   Future<void> showExitedZoneNotification() => _show(
     id: _exitedId,
     title: 'Outside School Premises',
