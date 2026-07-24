@@ -1,5 +1,4 @@
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -32,6 +31,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
 
 import 'dashboard_error_chip.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -285,7 +285,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
     void tick() {
       final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-        AppTime.now().toUtc(),
+        ServerTimeService.instance.nowUtc(),
         schoolTimeZone,
       );
       final result = _computeCountdownFromSchedule(

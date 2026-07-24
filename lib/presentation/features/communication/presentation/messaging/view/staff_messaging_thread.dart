@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -30,6 +29,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/loadi
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import '../widgets/thread_message_tile.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 class StaffMessagingThread extends StatefulWidget {
   const StaffMessagingThread({super.key, required this.staffInfo});
@@ -1580,7 +1580,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       schoolTz,
     );
     final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      AppTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       schoolTz,
     );
 

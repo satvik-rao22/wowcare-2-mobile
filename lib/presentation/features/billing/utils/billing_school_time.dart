@@ -5,6 +5,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 /// School-timezone helpers for the billing module.
 ///
@@ -58,7 +59,7 @@ DateTime billingSchoolNow() {
   final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
   if (_schoolZoneUnresolved(tz)) return AppTime.now();
   return SchoolZoneDateTime.dateTimeFromInstantInSchool(
-    AppTime.now().toUtc(),
+    ServerTimeService.instance.nowUtc(),
     tz,
   );
 }

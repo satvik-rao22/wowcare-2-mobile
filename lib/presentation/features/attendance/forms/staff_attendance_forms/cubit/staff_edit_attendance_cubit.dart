@@ -1,5 +1,4 @@
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart' show TimeOfDay;
 import 'package:flutter_bloc/flutter_bloc.dart';
 
@@ -10,6 +9,7 @@ import '../../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../../domain/features/attendance/repositories/attendance_repository.dart';
 import '../../attendance_time_parse_util.dart';
 import '../../edit_attendance_submit_outcome.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'staff_edit_attendance_state.dart';
 
@@ -36,7 +36,7 @@ class StaffEditAttendanceFormCubit extends Cubit<StaffEditAttendanceState> {
   TimeOfDay? _initialSignOutTime;
   String? _attendanceRecordCode;
   String _staffCode = '';
-  DateTime _attendanceDate = AppTime.now();
+  DateTime _attendanceDate = ServerTimeService.instance.now();
 
   /// Resolves the school timezone, prefills the time pickers from the record's
   /// raw strings, and remembers the identifiers needed at submit time.

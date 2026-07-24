@@ -45,6 +45,7 @@ abstract final class SchoolTimezoneResolver {
         cachedTz.toUpperCase() != fallbackTimeZone;
     if (hasUsableCachedTz) {
       _lastKnownTimeZone = cachedTz;
+      ServerTimeService.instance.setSchoolTimeZone(cachedTz);
       return cachedTz;
     }
 
@@ -56,15 +57,18 @@ abstract final class SchoolTimezoneResolver {
       await storage.saveString(StorageKeys.schoolTimeZoneSchoolCode, schoolCode);
       await storage.saveString(StorageKeys.schoolTimeZone, tz);
       _lastKnownTimeZone = tz;
+      ServerTimeService.instance.setSchoolTimeZone(tz);
       return tz;
     }
 
     // Preserve a previously resolved non-fallback timezone if network fetch fails.
     if (cachedFor == schoolCode && cachedTz.isNotEmpty) {
       _lastKnownTimeZone = cachedTz;
+      ServerTimeService.instance.setSchoolTimeZone(cachedTz);
       return cachedTz;
     }
     _lastKnownTimeZone = tz;
+    ServerTimeService.instance.setSchoolTimeZone(tz);
     return tz;
   }
 

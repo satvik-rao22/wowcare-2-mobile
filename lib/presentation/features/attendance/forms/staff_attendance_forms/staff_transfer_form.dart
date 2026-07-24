@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -17,6 +16,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -42,8 +42,8 @@ class StaffTransferForm extends StatefulWidget {
 }
 
 class _StaffTransferFormState extends State<StaffTransferForm> {
-  DateTime _selectedTransferDate = AppTime.now();
-  TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  DateTime _selectedTransferDate = ServerTimeService.instance.now();
+  TimeOfDay _selectedTransferTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
   String? _selectedToClassroomCode;
   final Map<String, String> _classroomNameToCode = <String, String>{};
@@ -117,14 +117,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       _isStaffAdminPersona = isAdmin;
       _currentStaffCode =
           currentStaffCode.isNotEmpty ? currentStaffCode : null;
-      if (schoolIana != null && schoolIana.isNotEmpty) {
-        final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolIana);
-        _selectedTransferDate = dt.$1;
-        _selectedTransferTime = dt.$2;
-      } else {
-        _selectedTransferDate = AppTime.now();
-        _selectedTransferTime = TimeOfDay.now();
-      }
+      final now = ServerTimeService.instance.now();
+      _selectedTransferDate = now;
+      _selectedTransferTime = TimeOfDay(hour: now.hour, minute: now.minute);
     });
     await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isAdmin);
   }
@@ -168,7 +163,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
     var resolved = '';
     try {
-      final now = AppTime.now();
+      final now = ServerTimeService.instance.now();
       final attendanceRepo = serviceLocator<AttendanceRepository>();
       final dailyPage = await attendanceRepo.getStaffAttendanceDaily(
         // A wide lookback, not just "today" — the most recent transfer may
@@ -629,9 +624,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                           iana,
                                         )
                                       : DateTime(
-                                          AppTime.now().year,
-                                          AppTime.now().month,
-                                          AppTime.now().day,
+                                          ServerTimeService.instance.now().year,
+                                          ServerTimeService.instance.now().month,
+                                          ServerTimeService.instance.now().day,
                                         );
                                   final picked = DateTime(
                                     date.year,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -17,6 +16,7 @@ import 'package:wowcare/core/util/classroom_visibility.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -104,8 +104,8 @@ class StudentTransferForm extends StatefulWidget {
 }
 
 class _StudentTransferFormState extends State<StudentTransferForm> {
-  DateTime _selectedTransferDate = AppTime.now();
-  TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  DateTime _selectedTransferDate = ServerTimeService.instance.now();
+  TimeOfDay _selectedTransferTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
   bool? _isStaffPersona;
   String? selectedClassroom;
@@ -168,16 +168,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       setState(() {
         _schoolIana = schoolIana;
         _isStaffPersona = isStaff;
-        if (schoolIana != null && schoolIana.isNotEmpty) {
-          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
-            schoolIana,
-          );
-          _selectedTransferDate = dt.$1;
-          _selectedTransferTime = dt.$2;
-        } else {
-          _selectedTransferDate = AppTime.now();
-          _selectedTransferTime = TimeOfDay.now();
-        }
+        final now = ServerTimeService.instance.now();
+        _selectedTransferDate = now;
+        _selectedTransferTime = TimeOfDay(hour: now.hour, minute: now.minute);
       });
     } catch (_) {}
   }
@@ -398,7 +391,8 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
     }
 
-    if (isStaffPersona && transferredAt.isAfter(AppTime.now().toUtc())) {
+    if (isStaffPersona &&
+        transferredAt.isAfter(ServerTimeService.instance.nowUtc())) {
       if (!mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
@@ -573,9 +567,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    AppTime.now().year,
-                                    AppTime.now().month,
-                                    AppTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,

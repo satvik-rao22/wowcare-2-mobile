@@ -1,5 +1,4 @@
 import 'package:bloc/bloc.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -13,6 +12,7 @@ import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_d
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/school_hours_resolver.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'my_day_state.dart';
 
@@ -106,7 +106,7 @@ class MyDayCubit extends Cubit<MyDayState> {
         apiClient: _apiClient,
       );
       final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-        AppTime.now().toUtc(),
+        ServerTimeService.instance.nowUtc(),
         schoolIana,
       );
       final todayKey = SchoolHoursResolver.dayOfWeekKey(schoolNow);

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -35,6 +34,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 // enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
 enum StaffProfileAbsentMarkMethod {
@@ -556,7 +556,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void initState() {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
-    final now = AppTime.now();
+    final now = ServerTimeService.instance.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
 
@@ -634,7 +634,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       return;
     }
 
-    final from = _startDate ?? AppTime.now();
+    final from = _startDate ?? ServerTimeService.instance.now();
     final to = _endDate ?? from;
 
     setState(() {
@@ -686,8 +686,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
           final dateStr = m['attendanceDate'] as String? ?? '';
           final parsedDate = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? AppTime.now()
-              : AppTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
           final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
@@ -822,8 +822,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['absenceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? AppTime.now()
-              : AppTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           return _AbsentDayModel(
             startDate: date,

@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 import 'package:wowcare/app/di/di.dart';
@@ -23,6 +24,11 @@ import 'package:wowcare/core/util/logger_service.dart';
 /// zero, i.e. plain device time. A time source that can silently break every
 /// date in the app must never hard-fail; the worst case is "same as before this
 /// feature existed".
+///
+/// **School wall clock.** User-facing date/time fields must show the school's
+/// zone (from storage / last sync request), never the device zone. Use [now],
+/// [today], and [timeOfDayNow] for that. Use [nowUtc] for instant comparisons
+/// and API timestamps — never call `.toUtc()` on [now]'s wall-clock fields.
 class ServerTimeService {
   ServerTimeService._();
   static final ServerTimeService instance = ServerTimeService._();
@@ -31,16 +37,69 @@ class ServerTimeService {
   Duration _offset = Duration.zero;
   bool _synced = false;
 
+  /// Last school IANA zone used for /time (and for wall-clock [now]).
+  String _schoolTimeZone = 'UTC';
+
   bool get isSynced => _synced;
   Duration get offset => _offset;
+  String get schoolTimeZone => _schoolTimeZone;
 
   /// Server-corrected current instant, in UTC. Synchronous and allocation-cheap
   /// so it's safe to call from anywhere, including widget builds.
   DateTime nowUtc() => DateTime.now().toUtc().add(_offset);
 
-  /// Server-corrected current instant, in the device's local zone. Prefer the
-  /// school-zone helpers (`SchoolZoneDateTime`) for user-facing dates.
-  DateTime now() => nowUtc().toLocal();
+  /// Server-corrected "now" as naive school wall-clock fields (year/month/day/
+  /// hour/minute in [_schoolTimeZone]). Drop-in for user-facing defaults —
+  /// never treat this as a real UTC/local instant (do not call `.toUtc()`).
+  DateTime now() {
+    final loc = _location(_schoolTimeZone);
+    final t = tz.TZDateTime.from(nowUtc(), loc);
+    return DateTime(
+      t.year,
+      t.month,
+      t.day,
+      t.hour,
+      t.minute,
+      t.second,
+      t.millisecond,
+      t.microsecond,
+    );
+  }
+
+  /// Date-only "today" in the school calendar.
+  DateTime today() {
+    final n = now();
+    return DateTime(n.year, n.month, n.day);
+  }
+
+  /// Current school wall-clock time-of-day for pickers / defaults.
+  TimeOfDay timeOfDayNow() {
+    final n = now();
+    return TimeOfDay(hour: n.hour, minute: n.minute);
+  }
+
+  /// Updates the school zone used for wall-clock [now] (e.g. after resolver).
+  void setSchoolTimeZone(String ianaName) {
+    final id = ianaName.trim().isEmpty ? 'UTC' : ianaName.trim();
+    _schoolTimeZone = id;
+  }
+
+  /// Loads cached school IANA zone from storage so [now] is correct before the
+  /// first async [sync] finishes (avoids a device/UTC flash on first paint).
+  Future<void> hydrateSchoolTimeZoneFromStorage() async {
+    try {
+      final schoolTz =
+          (await serviceLocator<StorageService>()
+                      .getString(StorageKeys.schoolTimeZone) ??
+                  '')
+              .trim();
+      if (schoolTz.isNotEmpty) {
+        _schoolTimeZone = schoolTz;
+      }
+    } catch (_) {
+      // Keep current zone.
+    }
+  }
 
   /// Fetches the backend clock and recomputes [_offset]. Best-effort: any
   /// failure leaves the previous offset (or zero) untouched. Safe to call
@@ -66,6 +125,7 @@ class ServerTimeService {
                   '')
               .trim();
       final requestTimeZone = schoolTz.isNotEmpty ? schoolTz : 'UTC';
+      _schoolTimeZone = requestTimeZone;
 
       final deviceBefore = DateTime.now().toUtc();
       final response = await client.post<dynamic>(
@@ -147,7 +207,9 @@ class ServerTimeService {
         day != null &&
         hour != null &&
         minute != null) {
-      final loc = _location((data['timeZone'] ?? 'UTC').toString());
+      final zone = (data['timeZone'] ?? _schoolTimeZone).toString();
+      _schoolTimeZone = zone.trim().isEmpty ? _schoolTimeZone : zone.trim();
+      final loc = _location(_schoolTimeZone);
       return tz.TZDateTime(
         loc,
         year,
@@ -167,7 +229,9 @@ class ServerTimeService {
     if (parsed == null) return null;
     if (parsed.isUtc) return parsed;
     // `dateTime` carries no zone; treat its wall-clock as the returned zone.
-    final loc = _location((data['timeZone'] ?? 'UTC').toString());
+    final zone = (data['timeZone'] ?? _schoolTimeZone).toString();
+    _schoolTimeZone = zone.trim().isEmpty ? _schoolTimeZone : zone.trim();
+    final loc = _location(_schoolTimeZone);
     return tz.TZDateTime(
       loc,
       parsed.year,

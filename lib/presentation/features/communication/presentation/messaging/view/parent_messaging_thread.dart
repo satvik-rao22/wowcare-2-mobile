@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
@@ -43,6 +42,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/room_ch
 import '../../../../../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import '../../../../../../domain/features/communication/usecases/get_conversation_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/participant_mapper.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 class ParentMessagingThread extends StatefulWidget {
   const ParentMessagingThread({
@@ -3434,7 +3434,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       schoolTz,
     );
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      AppTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       schoolTz,
     );
 

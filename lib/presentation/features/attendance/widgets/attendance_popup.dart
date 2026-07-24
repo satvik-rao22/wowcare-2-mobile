@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
@@ -39,6 +38,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 class AttendancePopupManager {
   // Guards against the bottom-nav Attendance tab being tapped multiple times
@@ -124,7 +124,7 @@ class AttendancePopupManager {
 
       try {
         final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = AppTime.now();
+        final now = ServerTimeService.instance.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final page = await useCase(
@@ -1416,7 +1416,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
       try {
         final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = AppTime.now();
+        final now = ServerTimeService.instance.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final page = await useCase(

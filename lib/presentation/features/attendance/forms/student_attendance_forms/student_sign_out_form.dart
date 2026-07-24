@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -23,6 +22,7 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -114,8 +114,8 @@ class StudentSignOutForm extends StatefulWidget {
 }
 
 class _StudentSignOutFormState extends State<StudentSignOutForm> {
-  DateTime selectedDate = AppTime.now();
-  TimeOfDay selectedTime = TimeOfDay.now();
+  DateTime selectedDate = ServerTimeService.instance.now();
+  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
@@ -180,15 +180,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       setState(() {
         _schoolIana = iana;
         _isStaffPersona = isStaff;
-        if (iana != null && iana.isNotEmpty) {
-          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-          selectedDate = dt.$1;
-          selectedTime = dt.$2;
-        } else {
-          final now = AppTime.now();
-          selectedDate = now;
-          selectedTime = TimeOfDay.fromDateTime(now);
-        }
+        final now = ServerTimeService.instance.now();
+        selectedDate = now;
+        selectedTime = TimeOfDay(hour: now.hour, minute: now.minute);
       });
     } catch (_) {}
   }
@@ -255,7 +249,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     );
 
     final isStaffPersona = _isStaffPersona ?? false;
-    final nowUtc = AppTime.now().toUtc();
+    final nowUtc = ServerTimeService.instance.nowUtc();
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.utcFromSchoolWallClock(
@@ -627,9 +621,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    AppTime.now().year,
-                                    AppTime.now().month,
-                                    AppTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,

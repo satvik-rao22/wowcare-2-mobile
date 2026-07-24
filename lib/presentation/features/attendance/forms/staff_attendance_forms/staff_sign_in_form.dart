@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -21,6 +20,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_sign_in_form_list_usecase.dart';
@@ -73,8 +73,8 @@ class StaffSignInForm extends StatefulWidget {
 }
 
 class _StaffSignInFormState extends State<StaffSignInForm> {
-  DateTime selectedDate = AppTime.now();
-  TimeOfDay selectedTime = TimeOfDay.now();
+  DateTime selectedDate = ServerTimeService.instance.now();
+  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
@@ -254,19 +254,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   }
 
   void _setCurrentDateTimeFromSchool() {
-    final iana = _schoolIana;
-    if (iana != null && iana.isNotEmpty) {
-      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-      setState(() {
-        selectedDate = dt.$1;
-        selectedTime = dt.$2;
-      });
-      return;
-    }
-    final now = AppTime.now();
+    final now = ServerTimeService.instance.now();
     setState(() {
       selectedDate = now;
-      selectedTime = TimeOfDay.fromDateTime(now);
+      selectedTime = TimeOfDay(hour: now.hour, minute: now.minute);
     });
   }
 
@@ -504,7 +495,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final nowUtc = AppTime.now().toUtc();
+    final nowUtc = ServerTimeService.instance.nowUtc();
 
     // Teachers:
     // - can only sign in for themselves
@@ -831,9 +822,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    AppTime.now().year,
-                                    AppTime.now().month,
-                                    AppTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final picked = DateTime(
                               date.year,

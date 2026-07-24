@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 enum SignMethod {
   gps,
@@ -571,7 +571,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
     try {
       final parts = timeString.split(' ');
       if (parts.length < 2) {
-        return AppTime.now();
+        return ServerTimeService.instance.now();
       }
 
       final timePart = parts[0];
@@ -579,7 +579,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
 
       final timeComponents = timePart.split(':');
       if (timeComponents.length < 2) {
-        return AppTime.now();
+        return ServerTimeService.instance.now();
       }
 
       int hour = int.parse(timeComponents[0]);
@@ -588,9 +588,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       if (period == 'PM' && hour != 12) hour += 12;
       if (period == 'AM' && hour == 12) hour = 0;
 
-      return AppTime.now().copyWith(hour: hour, minute: minute);
+      return ServerTimeService.instance.now().copyWith(hour: hour, minute: minute);
     } catch (e) {
-      return AppTime.now();
+      return ServerTimeService.instance.now();
     }
   }
 }

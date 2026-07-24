@@ -17,9 +17,9 @@ Future<void> main() async {
   // avoids eating a guaranteed 401 on the first request after resume.
   WidgetsBinding.instance.addObserver(_TokenLifecycleObserver());
 
-  // Sync the authoritative server clock once at startup; the observer re-syncs
-  // on every resume (a phone can background for hours and the device clock can
-  // drift or be manually changed). Fire-and-forget: falls back to device time.
+  // Hydrate school zone + sync authoritative server clock before first frame
+  // so date/time fields never flash device/UTC wall clock.
+  await ServerTimeService.instance.hydrateSchoolTimeZoneFromStorage();
   unawaited(ServerTimeService.instance.sync());
 
   runApp(const MyApp());

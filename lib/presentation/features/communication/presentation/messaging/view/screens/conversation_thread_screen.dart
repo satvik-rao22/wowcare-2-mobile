@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +42,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/new_m
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 /// Full-screen conversation thread for v2 conversations (STAFF_DIRECT, ROOM_CHAT, ADMIN_CHAT).
 class ConversationThreadScreen extends StatefulWidget {
@@ -612,7 +612,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final tz = SchoolTimezoneResolver.lastKnownTimeZone;
     final d = SchoolZoneDateTime.dateTimeFromInstantInSchool(date, tz);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      AppTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       tz,
     );
     const months = [

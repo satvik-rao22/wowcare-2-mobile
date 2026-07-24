@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +11,7 @@ import '../../../../../../core/util/staff_code_resolver.dart';
 import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import '../staff_entity.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'staff_mark_absent_state.dart';
 
@@ -206,7 +206,7 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
   }
 
   static DateTime _localToday() {
-    final now = AppTime.now();
+    final now = ServerTimeService.instance.now();
     return DateTime(now.year, now.month, now.day);
   }
 

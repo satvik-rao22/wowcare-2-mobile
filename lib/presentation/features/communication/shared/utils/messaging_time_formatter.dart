@@ -1,6 +1,6 @@
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 /// Single source of truth for all messaging timestamp formatting.
 ///
@@ -34,7 +34,7 @@ abstract final class MessagingTimeFormatter {
     final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
     final local = _toSchool(dt);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      AppTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       schoolTz,
     );
     final diff = _daysDiff(now, local);
@@ -61,7 +61,7 @@ abstract final class MessagingTimeFormatter {
     final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
     final local = _toSchool(dt);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      AppTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       schoolTz,
     );
     final diff = _daysDiff(now, local);

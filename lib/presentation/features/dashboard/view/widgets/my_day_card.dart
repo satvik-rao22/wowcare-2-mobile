@@ -36,6 +36,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -554,7 +555,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     // Get current time in SCHOOL TIMEZONE (for accurate countdown)
     final now = schoolTimeZone.isNotEmpty
         ? SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            AppTime.now().toUtc(),
+            ServerTimeService.instance.nowUtc(),
             schoolTimeZone,
           )
         : AppTime.now();

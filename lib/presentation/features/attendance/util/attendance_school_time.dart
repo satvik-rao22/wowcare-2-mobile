@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 /// School-timezone helpers for the attendance module.
 ///
@@ -44,7 +44,7 @@ bool _isUsableZone(String iana) {
 DateTime attendanceSchoolToday() {
   final iana = attendanceSchoolIana();
   if (!_isUsableZone(iana)) {
-    final n = AppTime.now();
+    final n = ServerTimeService.instance.now();
     return DateTime(n.year, n.month, n.day);
   }
   return SchoolZoneDateTime.schoolCalendarTodayOnly(iana);
@@ -55,7 +55,7 @@ DateTime attendanceSchoolToday() {
 (DateTime dateOnly, TimeOfDay timeOfDay) attendanceSchoolDateAndTimeNow() {
   final iana = attendanceSchoolIana();
   if (!_isUsableZone(iana)) {
-    final n = AppTime.now();
+    final n = ServerTimeService.instance.now();
     return (DateTime(n.year, n.month, n.day), TimeOfDay(hour: n.hour, minute: n.minute));
   }
   return SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);

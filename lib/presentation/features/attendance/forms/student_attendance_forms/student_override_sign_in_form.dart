@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/server_time_service.dart';
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:flutter_svg/svg.dart';
@@ -37,7 +38,7 @@
 // }
 
 // class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
-//   DateTime selectedDate = AppTime.now();
+//   DateTime selectedDate = ServerTimeService.instance.now();
 //   TimeOfDay selectedTime = TimeOfDay.now();
 //   List<StudentEntity> currentStudents = [];
 //   bool _isProcessing = false;
@@ -78,7 +79,7 @@
 //   }
 
 //   String _formatTimeForValidation() {
-//     final now = AppTime.now();
+//     final now = ServerTimeService.instance.now();
 //     final selectedDateTime = DateTime(
 //       selectedDate.year,
 //       selectedDate.month,
@@ -103,7 +104,7 @@
 //   }
 
 //   void setCurrentDateTime() {
-//     final now = AppTime.now();
+//     final now = ServerTimeService.instance.now();
 //     selectedDate = DateTime(now.year, now.month, now.day);
 //     selectedTime = TimeOfDay.fromDateTime(now);
 //   }
@@ -153,7 +154,7 @@
 //     try {
 //       final time = _formatTime(selectedTime);
 //       // Match StudentSignInForm payload semantics
-//       final DateTime currentUTC = AppTime.now().toUtc();
+//       final DateTime currentUTC = ServerTimeService.instance.nowUtc();
 //       final DateTime dateTimeUTC = DateTime.utc(
 //         selectedDate.year,
 //         selectedDate.month,

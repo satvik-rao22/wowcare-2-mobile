@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -28,6 +27,7 @@ import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -120,8 +120,8 @@ class StudentSignInForm extends StatefulWidget {
 }
 
 class _StudentSignInFormState extends State<StudentSignInForm> {
-  DateTime selectedDate = AppTime.now();
-  TimeOfDay selectedTime = TimeOfDay.now();
+  DateTime selectedDate = ServerTimeService.instance.now();
+  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
 
   /// School IANA id from API; when set, date/time defaults and [occurredAt] use this zone.
   String? _schoolIana;
@@ -299,16 +299,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   }
 
   void setCurrentDateTime() {
-    final iana = _schoolIana;
-    if (iana != null && iana.isNotEmpty) {
-      final (d, t) = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-      setState(() {
-        selectedDate = d;
-        selectedTime = t;
-      });
-      return;
-    }
-    final dateTime = AppTime.now();
+    final dateTime = ServerTimeService.instance.now();
     setState(() {
       selectedDate = dateTime;
       selectedTime = TimeOfDay(hour: dateTime.hour, minute: dateTime.minute);
@@ -493,7 +484,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
     final isStaffPersona = _isStaffPersona ?? await _resolveIsStaffPersona();
-    final nowUtc = AppTime.now().toUtc();
+    final nowUtc = ServerTimeService.instance.nowUtc();
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.utcFromSchoolWallClock(
@@ -862,9 +853,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    AppTime.now().year,
-                                    AppTime.now().month,
-                                    AppTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,

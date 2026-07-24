@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
@@ -43,6 +42,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as student_absent;
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 enum ProfileAbsentMarkMethod { gps, qr, kiosk, app, web, system }
 
@@ -556,7 +556,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
     _activeStudentCode = widget.studentCode.trim();
-    final now = AppTime.now();
+    final now = ServerTimeService.instance.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
 
@@ -644,7 +644,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     try {
       final signOutFormList =
           serviceLocator<GetStudentSignOutFormListUseCase>();
-      final now = AppTime.now();
+      final now = ServerTimeService.instance.now();
       final date =
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final signedInPage = await signOutFormList(
@@ -709,7 +709,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     // Load today's status first so action menu enablement is correct.
     await _loadTodayStatus();
 
-    final from = _startDate ?? AppTime.now();
+    final from = _startDate ?? ServerTimeService.instance.now();
     final to = _endDate ?? from;
 
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
@@ -753,8 +753,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['attendanceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? AppTime.now()
-              : AppTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
           final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
@@ -898,8 +898,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['absenceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? AppTime.now()
-              : AppTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           loadedAbsentDays.add(
             _AbsentDayModel(

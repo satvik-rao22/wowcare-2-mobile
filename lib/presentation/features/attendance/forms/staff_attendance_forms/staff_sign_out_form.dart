@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -22,6 +21,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'staff_entity.dart';
@@ -66,8 +66,8 @@ class StaffSignOutForm extends StatefulWidget {
 }
 
 class _StaffSignOutFormState extends State<StaffSignOutForm> {
-  DateTime selectedDate = AppTime.now();
-  TimeOfDay selectedTime = TimeOfDay.now();
+  DateTime selectedDate = ServerTimeService.instance.now();
+  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
@@ -207,15 +207,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     setState(() {
       _schoolIana = iana;
       _isStaffAdminPersona = isAdmin;
-      if (iana != null && iana.isNotEmpty) {
-        final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-        selectedDate = dt.$1;
-        selectedTime = dt.$2;
-      } else {
-        final n = AppTime.now();
-        selectedDate = n;
-        selectedTime = TimeOfDay.fromDateTime(n);
-      }
+      final n = ServerTimeService.instance.now();
+      selectedDate = n;
+      selectedTime = TimeOfDay(hour: n.hour, minute: n.minute);
     });
   }
 
@@ -316,7 +310,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final nowUtc = AppTime.now().toUtc();
+    final nowUtc = ServerTimeService.instance.nowUtc();
 
     // Teachers can only sign out themselves and cannot modify time.
     late final DateTime occurredAt;
@@ -590,9 +584,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    AppTime.now().year,
-                                    AppTime.now().month,
-                                    AppTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final picked = DateTime(
                               date.year,
