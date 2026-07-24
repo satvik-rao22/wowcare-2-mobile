@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -898,7 +899,7 @@ class _StudentScreenState extends State<StudentScreen> {
       _isAttendanceActionLoading = true;
     });
     try {
-      final date = _formatDate(DateTime.now());
+      final date = _formatDate(AppTime.now());
 
       if (actionName == 'sign_in') {
         final useCase = serviceLocator<GetStudentSignInFormListUseCase>();

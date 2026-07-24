@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -105,7 +106,7 @@ class MyDayCubit extends Cubit<MyDayState> {
         apiClient: _apiClient,
       );
       final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-        DateTime.now().toUtc(),
+        AppTime.now().toUtc(),
         schoolIana,
       );
       final todayKey = SchoolHoursResolver.dayOfWeekKey(schoolNow);

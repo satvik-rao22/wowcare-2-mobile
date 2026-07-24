@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -38,7 +39,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   String? _selectedClassroom;
   bool _selectAll = false;
   List<String> _selectedTags = [];
-  DateTime _selectedAttendanceDate = DateTime.now();
+  DateTime _selectedAttendanceDate = AppTime.now();
   bool _filtersAdopted = false;
 
   late final ActivityStudentSelectionCubit _cubit;

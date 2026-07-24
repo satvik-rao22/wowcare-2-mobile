@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -346,7 +347,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 // the client so we can show a friendly warning
                                 // instead of the raw backend error. Today is
                                 // always allowed for every status.
-                                final now = DateTime.now();
+                                final now = AppTime.now();
                                 final today = DateTime(
                                   now.year,
                                   now.month,

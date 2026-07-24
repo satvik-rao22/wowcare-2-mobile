@@ -295,6 +295,10 @@ class ApiPaths {
   static const String authForgotPassword = '/api/v1/auth/forgot-password';
   static const String authLoginContext = '/api/v1/auth/login-context';
 
+  /// Authoritative server clock — `POST` with `{ "timeZone": "..." }`. Lives on
+  /// the accounts/billing microservice (see [ServerTimeService]).
+  static const String serverTime = '/api/v1/time';
+
   /// Access-token renewal. Mirrors the web client's
   /// `POST {gateway}/api/v1/user/auth/refresh` — the `auth` root maps to the
   /// `user` microservice (see [ApiPathsUat]), so this resolves to the same URL.

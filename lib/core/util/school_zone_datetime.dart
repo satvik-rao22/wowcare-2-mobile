@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import 'package:wowcare/core/util/server_time_service.dart';
+
 /// Interprets attendance date/times in the **school's** IANA zone so behavior matches
 /// backend rules (e.g. school hours) when the device is in another country.
 ///
@@ -17,10 +19,17 @@ abstract final class SchoolZoneDateTime {
     }
   }
 
-  /// "Now" in the school zone — use for non-admin flows (exact instant).
+  /// "Now" as a UTC instant, sourced from the server clock (see
+  /// [ServerTimeService]) rather than the raw device clock. The zone argument is
+  /// irrelevant to a UTC instant and kept only for call-site compatibility.
   static DateTime utcNowInSchool(String ianaName) {
-    final loc = locationForIana(ianaName);
-    return tz.TZDateTime.now(loc).toUtc();
+    return ServerTimeService.instance.nowUtc();
+  }
+
+  /// Server-clock "now" as a [tz.TZDateTime] in [loc] — the single place the
+  /// class turns the corrected instant into wall-clock fields.
+  static tz.TZDateTime _nowInZone(tz.Location loc) {
+    return tz.TZDateTime.from(ServerTimeService.instance.nowUtc(), loc);
   }
 
   /// Interprets [year]/[month]/[day] + [hour]/[minute] as **school wall clock** and returns UTC.
@@ -101,7 +110,7 @@ abstract final class SchoolZoneDateTime {
 
   /// Date-only "today" in the school calendar (for comparing picked dates).
   static DateTime schoolCalendarTodayOnly(String ianaName) {
-    final n = tz.TZDateTime.now(locationForIana(ianaName));
+    final n = _nowInZone(locationForIana(ianaName));
     return DateTime(n.year, n.month, n.day);
   }
 
@@ -109,7 +118,7 @@ abstract final class SchoolZoneDateTime {
   static (DateTime dateOnly, TimeOfDay timeOfDay) schoolCalendarDateAndTimeNow(
     String ianaName,
   ) {
-    final sn = tz.TZDateTime.now(locationForIana(ianaName));
+    final sn = _nowInZone(locationForIana(ianaName));
     return (
       DateTime(sn.year, sn.month, sn.day),
       TimeOfDay(hour: sn.hour, minute: sn.minute),

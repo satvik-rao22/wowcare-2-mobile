@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:io';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
@@ -914,7 +915,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         // Birthdate must be a past date (not today or future)

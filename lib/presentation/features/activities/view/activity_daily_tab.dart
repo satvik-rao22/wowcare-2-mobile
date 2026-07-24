@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -161,7 +162,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late bool isNotParent;
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
-  DateTime? _selectedDate = DateTime.now();
+  DateTime? _selectedDate = AppTime.now();
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
@@ -1505,7 +1506,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   ) {
     if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
     final eventFilter = _selectedAttendanceEventFilter();
-    final day = _selectedDate ?? DateTime.now();
+    final day = _selectedDate ?? AppTime.now();
     final selectedClassroomName = _selectdClassroom;
     final selectedClassroomCode = selectedClassroomName != null
         ? _classroomCodeByName[selectedClassroomName]
@@ -1695,10 +1696,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       try {
         final src = row.absenceDate.trim();
         recordDay = src.isEmpty
-            ? (_selectedDate ?? DateTime.now())
+            ? (_selectedDate ?? AppTime.now())
             : DateTime.parse(src);
       } catch (_) {
-        recordDay = _selectedDate ?? DateTime.now();
+        recordDay = _selectedDate ?? AppTime.now();
       }
       final at =
           _absentClockToDateTime(row.markedAbsentTime, recordDay) ?? recordDay;
@@ -3181,7 +3182,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     CustomClearAllChip(
                                       onTap: () async {
                                         setState(() {
-                                          final now = DateTime.now();
+                                          final now = AppTime.now();
                                           _selectedDate = DateTime(
                                             now.year,
                                             now.month,
@@ -4823,7 +4824,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   CustomClearAllChip(
                                     onTap: () async {
                                       setState(() {
-                                        final now = DateTime.now();
+                                        final now = AppTime.now();
                                         _selectedDate = DateTime(
                                           now.year,
                                           now.month,
@@ -6579,7 +6580,7 @@ ActivityItem activityItemFromFeedRow(
         ? parsed.toLocal()
         : SchoolZoneDateTime.dateTimeFromInstantInSchool(parsed, iana);
   } catch (_) {
-    dt = DateTime.now();
+    dt = AppTime.now();
   }
   final time = DateFormat.jm().format(dt);
   final date = DateFormat('MMMM d, yyyy').format(dt);

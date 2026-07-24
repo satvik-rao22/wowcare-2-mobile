@@ -4,6 +4,7 @@ import 'package:provider/single_child_widget.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/theme_cubit.dart';
@@ -29,5 +30,13 @@ List<SingleChildWidget> rootAppProviders() => [
   // in GlobalScaffold.initState() after login.
   BlocProvider<NotificationBadgeCubit>(
     create: (_) => serviceLocator<NotificationBadgeCubit>(),
+  ),
+  // Depends on RoleCubit + UnreadBadgeCubit above — MultiProvider resolves
+  // top-to-bottom, so context.read of both works here.
+  BlocProvider<BottomNavigationCubit>(
+    create: (context) => BottomNavigationCubit(
+      roleCubit: context.read<RoleCubit>(),
+      unreadBadgeCubit: context.read<UnreadBadgeCubit>(),
+    ),
   ),
 ];

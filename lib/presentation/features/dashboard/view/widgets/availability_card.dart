@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -104,7 +105,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   static const double cellHeightRow = 48;
   static const int _initialDisplayCount = 7;
 
-  DateTime _selectedAvailabilityDate = DateTime.now();
+  DateTime _selectedAvailabilityDate = AppTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
 

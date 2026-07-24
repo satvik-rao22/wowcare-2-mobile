@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -76,7 +77,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         report = ReportMetadataEntity(
           reportId: assetCode,
           reportType: ReportType.studentDailyAttendance,
-          generatedAt: DateTime.now(),
+          generatedAt: AppTime.now(),
           assetCode: assetCode,
           fileName: 'report.pdf',
         );

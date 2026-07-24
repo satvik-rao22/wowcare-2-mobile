@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -32,14 +33,14 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
   static const Color _tintOtherColumns = Color.fromRGBO(247, 245, 249, 1);
   static const Color _tintHeaderOtherColumns = Color.fromRGBO(245, 243, 247, 1);
   static const Color _classroomColumnBg = Colors.white;
-  DateTime _selectedAvailabilityDate = DateTime.now();
+  DateTime _selectedAvailabilityDate = AppTime.now();
   bool _isTwoShifts = true;
   late final FutureAvailabilityCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    _selectedAvailabilityDate = _normalizedDate(DateTime.now());
+    _selectedAvailabilityDate = _normalizedDate(AppTime.now());
     _cubit = serviceLocator<FutureAvailabilityCubit>();
     _loadAvailability();
   }
@@ -109,8 +110,8 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
               final picked = await pickNormalDate(
                 context: context,
                 initialDate: _selectedAvailabilityDate,
-                firstDate: DateTime(DateTime.now().year - 2),
-                lastDate: DateTime(DateTime.now().year + 5),
+                firstDate: DateTime(AppTime.now().year - 2),
+                lastDate: DateTime(AppTime.now().year + 5),
               );
               if (picked != null) _onDateChanged(picked);
             },

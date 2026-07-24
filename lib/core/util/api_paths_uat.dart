@@ -103,7 +103,12 @@ class ApiPathsUat {
   }
 
   static String microserviceKeyFromPath(String path) {
-    final p = path.startsWith('/') ? path : '/$path';
+    // Classify by the resource segment only — strip any query string / fragment
+    // first. Without this a path like `/api/v1/conversations?status=ACTIVE` yields
+    // the segment `conversations?status=ACTIVE`, which matches no case and falls
+    // through to the default `user` host → `/api/v1/user/conversations` → 500.
+    final cleaned = path.split('?').first.split('#').first;
+    final p = cleaned.startsWith('/') ? cleaned : '/$cleaned';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') {
       return ApiMicroservices.user;
@@ -194,6 +199,7 @@ class ApiPathsUat {
       case 'school-forte-configs':
       case 'payment-gateway':
       case 'payment':
+      case 'time': // server clock endpoint lives on the accounts (billing) MS
         return ApiMicroservices.billing;
       case 'reports':
         // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -205,7 +206,7 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
   }
 
   static DateTime _localToday() {
-    final now = DateTime.now();
+    final now = AppTime.now();
     return DateTime(now.year, now.month, now.day);
   }
 

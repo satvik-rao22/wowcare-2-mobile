@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -553,10 +554,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     // Get current time in SCHOOL TIMEZONE (for accurate countdown)
     final now = schoolTimeZone.isNotEmpty
         ? SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            DateTime.now().toUtc(),
+            AppTime.now().toUtc(),
             schoolTimeZone,
           )
-        : DateTime.now();
+        : AppTime.now();
 
     final todayWeekday = now.weekday; // 1 = Monday, 7 = Sunday
 
@@ -1614,7 +1615,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   String _formatTime(DateTime? dt) {
     if (dt == null) return '';
     final local = dt.toLocal();
-    final now = DateTime.now();
+    final now = AppTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final msgDay = DateTime(local.year, local.month, local.day);
     final diff = today.difference(msgDay).inDays;

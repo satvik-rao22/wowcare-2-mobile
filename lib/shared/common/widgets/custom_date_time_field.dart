@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -125,8 +126,10 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   // Modified to return Future so we can await it
 
   Future<void> setCurrentDateTime() async {
-    DateTime dateTime = DateTime.now();
+    DateTime dateTime = AppTime.now();
     try {
+      // resolveForCurrentSchool pulls a fresh server clock as part of resolving,
+      // so schoolCalendarDateAndTimeNow below reflects authoritative "now".
       final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
         storage: serviceLocator<StorageService>(),
         apiClient: serviceLocator<ApiClient>(),

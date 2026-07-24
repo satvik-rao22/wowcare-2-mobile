@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -65,7 +66,7 @@ class StaffSignOutForm extends StatefulWidget {
 }
 
 class _StaffSignOutFormState extends State<StaffSignOutForm> {
-  DateTime selectedDate = DateTime.now();
+  DateTime selectedDate = AppTime.now();
   TimeOfDay selectedTime = TimeOfDay.now();
   String? _schoolIana;
   List<StaffEntity> _selectedStaff = [];
@@ -211,7 +212,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         selectedDate = dt.$1;
         selectedTime = dt.$2;
       } else {
-        final n = DateTime.now();
+        final n = AppTime.now();
         selectedDate = n;
         selectedTime = TimeOfDay.fromDateTime(n);
       }
@@ -315,7 +316,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final nowUtc = DateTime.now().toUtc();
+    final nowUtc = AppTime.now().toUtc();
 
     // Teachers can only sign out themselves and cannot modify time.
     late final DateTime occurredAt;
@@ -589,9 +590,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    AppTime.now().year,
+                                    AppTime.now().month,
+                                    AppTime.now().day,
                                   );
                             final picked = DateTime(
                               date.year,

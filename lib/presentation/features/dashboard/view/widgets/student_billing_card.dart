@@ -478,7 +478,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
               minimized: _isMinimized,
               onToggle: () => setState(() => _isMinimized = !_isMinimized),
               showRedirect: true,
-              onRedirect: () {},
+              onRedirect: () => _openBillingScreen(context),
             ),
 
             if (!_isMinimized)

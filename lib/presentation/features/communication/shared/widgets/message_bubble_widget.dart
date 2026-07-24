@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
@@ -186,7 +187,7 @@ class _MessageBubbleState extends State<MessageBubble>
         return Reaction(
           emoji: r.emoji,
           userId: r.userCode,
-          timestamp: DateTime.now(),
+          timestamp: AppTime.now(),
         );
       }).toList();
       widget.reactionsController.loadReactions(messageId, reactions);
@@ -685,8 +686,16 @@ class _MessageBubbleState extends State<MessageBubble>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.center,
+                            // Mirror the header on right-aligned bubbles so the avatar sits on
+                            // the outer edge (the bubble's side), matching the web chat.
+                            textDirection: alignRight
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
                             children: [
-                              if (widget.isParentMessaging) ...[
+                              // Show the sender's avatar for everyone EXCEPT the viewer's own
+                              // messages (no avatar for "You"). Parent Messaging keeps its avatar;
+                              // Room/Admin now show it too, on both sides.
+                              if (widget.isParentMessaging || !isMe) ...[
                                 Builder(
                                   builder: (_) {
                                     final sender = _senderParticipant();

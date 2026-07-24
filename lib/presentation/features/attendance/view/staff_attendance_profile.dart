@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -554,7 +556,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void initState() {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
-    final now = DateTime.now();
+    final now = AppTime.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
 
@@ -632,7 +634,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       return;
     }
 
-    final from = _startDate ?? DateTime.now();
+    final from = _startDate ?? AppTime.now();
     final to = _endDate ?? from;
 
     setState(() {
@@ -684,8 +686,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
           final dateStr = m['attendanceDate'] as String? ?? '';
           final parsedDate = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? AppTime.now()
+              : AppTime.now();
 
           final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
           final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
@@ -820,8 +822,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['absenceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? AppTime.now()
+              : AppTime.now();
 
           return _AbsentDayModel(
             startDate: date,
@@ -999,7 +1001,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       // pushed on the root navigator (no shell in context), so the nav bar would
       // otherwise default to highlighting Dashboard. Pin the highlight to the
       // Attendance slot (index 1) — mirrors StudentAttendanceProfile.
-      activeTabIndexOverride: 1,
+      activeItemOverride: BottomNavigationItem.attendance,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(

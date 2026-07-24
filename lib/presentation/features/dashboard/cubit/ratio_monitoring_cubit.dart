@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -64,7 +65,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
   bool _isShiftCacheValid() {
     final cached = _shiftCacheWeekStart;
     if (cached == null) return false;
-    final currentWeekStart = _mondayOf(DateTime.now());
+    final currentWeekStart = _mondayOf(AppTime.now());
     // Invalidate if the Monday has changed or TTL has expired.
     if (cached.year != currentWeekStart.year ||
         cached.month != currentWeekStart.month ||
@@ -365,11 +366,11 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
 
     if (staffCode.isEmpty || organizationCode.isEmpty) {
       _cachedShiftClassroomCodes = const {};
-      _shiftCacheWeekStart = _mondayOf(DateTime.now());
+      _shiftCacheWeekStart = _mondayOf(AppTime.now());
       return const {};
     }
 
-    final weekStart = _mondayOf(DateTime.now());
+    final weekStart = _mondayOf(AppTime.now());
     final weekEnd = weekStart.add(const Duration(days: 6));
 
     try {
