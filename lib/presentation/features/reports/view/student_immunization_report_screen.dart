@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -60,8 +61,27 @@ class _StudentImmunizationReportScreenState
   List<String> _selectedTags = <String>[];
   bool _showParentInfo = false;
   String _format = 'PDF';
+  late DateTime _startDate;
+  late DateTime _endDate;
+
+  @override
+  void initState() {
+    super.initState();
+    final now = AppTime.now();
+    _startDate = DateTime(now.year, now.month, 1);
+    _endDate = now;
+  }
 
   void _onGenerate() {
+    if (_startDate.isAfter(_endDate)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Start date must be on or before end date',
+        isError: true,
+      );
+      return;
+    }
+
     final cubit = context.read<ReportsCubit>();
     final classroomNameToCode = cubit.state.classroomNameToCode;
     final classroomCodes = _selectedClassrooms
@@ -76,8 +96,8 @@ class _StudentImmunizationReportScreenState
 
     final params = SchoolImmunizationReportParams(
       reportType: ReportType.immunization,
-      startDate: AppTime.now(),
-      endDate: AppTime.now(),
+      startDate: _startDate,
+      endDate: _endDate,
       vaccineCodes: vaccineCodes,
       statusFilters: statusFilters,
       includeParentName: _showParentInfo,
@@ -86,10 +106,7 @@ class _StudentImmunizationReportScreenState
       tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
       format: _format,
     );
-    cubit.generateReport(params);
-    if (mounted) {
-      Navigator.of(context).pop(true);
-    }
+    unawaited(cubit.generateReport(params));
   }
 
   /// Map UI vaccine selection to backend vaccine codes.
@@ -200,6 +217,45 @@ class _StudentImmunizationReportScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ReportFieldLabel(label: 'Start Date'),
+                          CustomDateTimeField(
+                            hasLabel: false,
+                            fetchInitialTime: false,
+                            initialDate: _startDate,
+                            lastDate: _endDate,
+                            onDateSelected: (d) =>
+                                setState(() => _startDate = d),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ReportFieldLabel(label: 'End Date'),
+                          CustomDateTimeField(
+                            hasLabel: false,
+                            fetchInitialTime: false,
+                            initialDate: _endDate,
+                            firstDate: _startDate,
+                            onDateSelected: (d) =>
+                                setState(() => _endDate = d),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: responsive.verticalSpacing),
                 CustomDropdown(
                   label: 'Vaccines',
                   hintText: 'Select',

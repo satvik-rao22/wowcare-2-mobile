@@ -112,6 +112,16 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   // Children sign-in status map
   Map<String, String> _childrenSignInStatusMap = {};
 
+  // True once `_loadChildrenSignInStatus` has resolved (success or failure)
+  // at least once. `_childrenSignInStatusMap` (and therefore
+  // `_isSelectedChildSignedIn`) defaults to "not signed in" until then, so
+  // the geofence-entry popup must not decide "show" or "don't show" based
+  // on it until this is true — otherwise a guardian restarting the app
+  // inside the geofence with an already-signed-in child (e.g. GeofenceCubit
+  // reporting `withinRange` from a cached last-known location before the
+  // attendance API call resolves) would incorrectly see the Sign-In sheet.
+  bool _signInStatusLoaded = false;
+
   Timer? _countdownTimer;
   final ValueNotifier<String> _statusText = ValueNotifier<String>(
     'Loading schedule...',
@@ -258,6 +268,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       if (!mounted) return;
       setState(() {
         _childrenSignInStatusMap = map;
+        _signInStatusLoaded = true;
       });
       final allSignedIn = childCodes.every(
         (code) => (map[code] ?? '').toUpperCase() == 'SIGNED_IN',
@@ -267,9 +278,44 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
       );
     } catch (_) {
       // If status check fails, keep empty map
+      if (mounted) setState(() => _signInStatusLoaded = true);
     } finally {
       _isSignInStatusLoading = false;
     }
+    // Covers the race where the geofence-entry listener fired (and skipped
+    // showing the sheet) while this fetch was still in flight — re-evaluate
+    // now that the real sign-in status is known.
+    _maybeShowChildSignInPopup();
+  }
+
+  /// Shows the geofence Sign-In sheet only when: the selected child is
+  /// currently within the school geofence, their today-sign-in status has
+  /// finished loading and shows them as not signed in. Called both from the
+  /// [GeofenceCubit] entry-transition listener and right after
+  /// [_loadChildrenSignInStatus]'s async fetch resolves, so whichever of the
+  /// two finishes last is the one that actually decides whether to show it.
+  void _maybeShowChildSignInPopup() {
+    if (!mounted || !_signInStatusLoaded) return;
+    // TODO: Temporarily disabled Sign Out bottom sheet when child is signed in.
+    // Only show the sheet if the selected child is signed out (needs to sign in).
+    if (_isSelectedChildSignedIn) return;
+    final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    final selectedChild =
+        Provider.of<ParentChildCubit>(context, listen: false).selectedChild;
+    // GeofenceCubit already fires the notification via
+    // _triggerNotificationIfNeeded — no need to do it here too.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        GeofenceSignInSheet.show(
+          context,
+          role: 'parent',
+          isSignedIn: _isSelectedChildSignedIn,
+          studentName: selectedChild?.name,
+        ),
+      );
+    });
   }
 
   void _stopCountdownTimer() {
@@ -957,25 +1003,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                         listenWhen: (prev, curr) =>
                             prev.status != GeofenceCubitStatus.withinRange &&
                             curr.status == GeofenceCubitStatus.withinRange,
-                        listener: (context, _) {
-                          // TODO: Temporarily disabled Sign Out bottom sheet when child is signed in.
-                          // Only show the sheet if the selected child is signed out (needs to sign in).
-                          if (_isSelectedChildSignedIn) return;
-                          // GeofenceCubit already fires the notification via
-                          // _triggerNotificationIfNeeded — no need to do it here.
-                          if (!context.mounted) return;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (!mounted) return;
-                            unawaited(
-                              GeofenceSignInSheet.show(
-                                context,
-                                role: 'parent',
-                                isSignedIn: _isSelectedChildSignedIn,
-                                studentName: selectedChild?.name,
-                              ),
-                            );
-                          });
-                        },
+                        listener: (context, _) => _maybeShowChildSignInPopup(),
                       ),
                     ],
                     child: BlocBuilder<MyChildsDayCubit, MyChildsDayState>(

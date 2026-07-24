@@ -46,6 +46,7 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         when (call.method) {
             "updateSchoolLocation" -> handleUpdateSchoolLocation(call, result)
             "getGeofenceStatus" -> handleGetGeofenceStatus(result)
+            "updateSignInStatus" -> handleUpdateSignInStatus(call, result)
             else -> result.notImplemented()
         }
     }
@@ -61,6 +62,16 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "radiusMeters" to (config?.radiusMeters ?: 0.0),
             "gpsSignInEnabled" to (config?.gpsSignInEnabled ?: false),
         ))
+    }
+
+    private fun handleUpdateSignInStatus(call: MethodCall, result: MethodChannel.Result) {
+        val args = call.arguments as? Map<*, *> ?: run {
+            result.error("bad_args", "Missing args", null)
+            return
+        }
+        val nothingToDo = (args["nothingToDo"] as? Boolean) ?: false
+        GeofencePrefs.setNothingToDo(appContext, nothingToDo)
+        result.success(true)
     }
 
     private fun handleUpdateSchoolLocation(call: MethodCall, result: MethodChannel.Result) {

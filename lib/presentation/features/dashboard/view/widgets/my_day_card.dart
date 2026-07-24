@@ -73,6 +73,16 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   // ---- sign-in status ----
   bool _isSignedIn = false;
 
+  // True once the async today-sign-in-status fetch in `_loadStaffIdentity`
+  // has resolved (success or failure) at least once. `_isSignedIn` defaults
+  // to false until then, so the geofence-entry popup must not trust it (and
+  // must not decide "show" or "don't show") until this is true — otherwise
+  // an already-signed-in user restarting the app inside the geofence (e.g.
+  // GeofenceCubit reporting `withinRange` from a cached last-known location
+  // before the attendance API call resolves) would incorrectly see the
+  // Sign-In sheet.
+  bool _signInStatusLoaded = false;
+
   // Raw today-status string from the API (e.g. SIGNED_IN, ABSENT,
   // SIGNED_OUT). Kept alongside `_isSignedIn` because the boolean alone
   // can't distinguish "not signed in" from "already marked absent today",
@@ -396,7 +406,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       _staffIdentityLoaded = true;
     });
     final effectiveCode = _effectiveStaffCode;
-    if (effectiveCode.isEmpty) return;
+    if (effectiveCode.isEmpty) {
+      if (mounted) setState(() => _signInStatusLoaded = true);
+      return;
+    }
     try {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
       final status = await useCase(staffCode: effectiveCode);
@@ -404,10 +417,46 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       setState(() {
         _todayStatusRaw = status;
         _isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
+        _signInStatusLoaded = true;
       });
     } catch (_) {
       // sign-in status check is best-effort
+      if (mounted) setState(() => _signInStatusLoaded = true);
     }
+    // Covers the race where the geofence-entry listener fired (and skipped
+    // showing the sheet) while this fetch was still in flight — re-evaluate
+    // now that the real sign-in status is known.
+    _maybeShowSignInPopup();
+  }
+
+  /// Shows the geofence Sign-In sheet only when: the staff/admin is
+  /// currently within the school geofence, their today-sign-in status has
+  /// finished loading and shows them as not signed in, and the popup hasn't
+  /// already been shown for this geofence entry. Called both from the
+  /// [GeofenceCubit] entry-transition listener and right after
+  /// [_loadStaffIdentity]'s async status fetch resolves, so whichever of the
+  /// two finishes last is the one that actually decides whether to show it.
+  void _maybeShowSignInPopup() {
+    if (!mounted || !_signInStatusLoaded) return;
+    if (_geofencePopupShownThisEntry) return;
+    // TODO: Temporarily disabled Sign Out bottom sheet when signed in.
+    // Only show the sheet if user is signed out (needs to sign in).
+    if (_isSignedIn) return;
+    final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    _geofencePopupShownThisEntry = true;
+    // GeofenceCubit already fires the notification via
+    // _triggerNotificationIfNeeded — no need to do it here too.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        GeofenceSignInSheet.show(
+          context,
+          role: 'staff',
+          isSignedIn: _isSignedIn,
+        ),
+      );
+    });
   }
 
   Future<void> _openTransferForSelf() async {
@@ -919,26 +968,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
         return prev.status != GeofenceCubitStatus.withinRange &&
             curr.status == GeofenceCubitStatus.withinRange;
       },
-      listener: (context, _) {
-        if (_geofencePopupShownThisEntry) return;
-        // TODO: Temporarily disabled Sign Out bottom sheet when signed in.
-        // Only show the sheet if user is signed out (needs to sign in).
-        if (_isSignedIn) return;
-        _geofencePopupShownThisEntry = true;
-        // GeofenceCubit already fires the notification via
-        // _triggerNotificationIfNeeded — no need to do it here too.
-        if (!context.mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          unawaited(
-            GeofenceSignInSheet.show(
-              context,
-              role: 'staff',
-              isSignedIn: _isSignedIn,
-            ),
-          );
-        });
-      },
+      listener: (context, _) => _maybeShowSignInPopup(),
       child: BlocConsumer<MyDayCubit, MyDayState>(
         // Re-compute countdown whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>
