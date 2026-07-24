@@ -111,6 +111,10 @@ class TasksState extends Equatable {
   /// filters. The free-text search is applied server-side (Tasks API §7 `q`),
   /// so [tasks] is already the search result set — no client-side text match
   /// here.
+  ///
+  /// This iterates the full list, so callers that need it several times in one
+  /// build (the status tabs, the Kanban column and the list view) should
+  /// compute it once and reuse it rather than reading this getter repeatedly.
   List<Task> get filteredTasks {
     final now = DateTime.now();
     return tasks.where((task) {
@@ -148,34 +152,54 @@ class TasksState extends Equatable {
   /// Tasks for a Kanban board with the required ordering: overdue items
   /// first (by due moment) on the active boards, and most-recently-due
   /// first on the Completed board (completed tasks are never overdue).
-  List<Task> orderedTasksWithStatus(TaskStatus status) {
-    final list = tasksWithStatus(status);
+  List<Task> orderedTasksWithStatus(TaskStatus status) =>
+      orderColumn(filteredTasks, status);
+
+  /// Non-completed filtered tasks, overdue first then the rest — backs the
+  /// list view's active list.
+  List<Task> get activeTasksOrdered => orderActive(filteredTasks);
+
+  /// Completed filtered tasks, most recently due first.
+  List<Task> get completedTasksOrdered => orderCompleted(filteredTasks);
+
+  /// All filtered tasks for the list view: active first (overdue first),
+  /// then completed (most recently due last). The status filter narrows this
+  /// when the user wants only completed (or any single status).
+  List<Task> get listTasksOrdered => listFrom(filteredTasks);
+
+  // --- Pure ordering helpers, so a build that needs several of these can run
+  // [filteredTasks] once and reuse the result instead of recomputing the full
+  // filter pass for each view (the list/tabs/column all read from it).
+
+  /// Column ordering for a precomputed [filtered] list (see
+  /// [orderedTasksWithStatus]).
+  static List<Task> orderColumn(List<Task> filtered, TaskStatus status) {
+    final list = filtered.where((t) => t.status == status).toList();
     if (status == TaskStatus.completed) {
       return list..sort((a, b) => b.dueAt.compareTo(a.dueAt));
     }
     return _overdueFirst(list);
   }
 
-  /// Non-completed filtered tasks, overdue first then the rest — backs the
-  /// list view's active list.
-  List<Task> get activeTasksOrdered => _overdueFirst(
-        filteredTasks.where((t) => t.status != TaskStatus.completed).toList(),
+  /// Active (non-completed) tasks from a precomputed [filtered] list,
+  /// overdue-first.
+  static List<Task> orderActive(List<Task> filtered) => _overdueFirst(
+        filtered.where((t) => t.status != TaskStatus.completed).toList(),
       );
 
-  /// Completed filtered tasks, most recently due first.
-  List<Task> get completedTasksOrdered =>
-      filteredTasks.where((t) => t.status == TaskStatus.completed).toList()
+  /// Completed tasks from a precomputed [filtered] list, most-recently-due
+  /// first.
+  static List<Task> orderCompleted(List<Task> filtered) =>
+      filtered.where((t) => t.status == TaskStatus.completed).toList()
         ..sort((a, b) => b.dueAt.compareTo(a.dueAt));
 
-  /// All filtered tasks for the list view: active first (overdue first),
-  /// then completed (most recently due last). The status filter narrows this
-  /// when the user wants only completed (or any single status).
-  List<Task> get listTasksOrdered =>
-      [...activeTasksOrdered, ...completedTasksOrdered];
+  /// Full list-view ordering from a precomputed [filtered] list.
+  static List<Task> listFrom(List<Task> filtered) =>
+      [...orderActive(filtered), ...orderCompleted(filtered)];
 
   /// Orders [source] with overdue tasks first (by due moment), then the
   /// remaining tasks (also by due moment).
-  List<Task> _overdueFirst(List<Task> source) {
+  static List<Task> _overdueFirst(List<Task> source) {
     final now = DateTime.now();
     final overdue = <Task>[];
     final rest = <Task>[];

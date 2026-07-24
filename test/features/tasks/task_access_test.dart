@@ -163,4 +163,20 @@ void main() {
       }
     });
   });
+
+  group('isAdmin compares the raw role (staff is not admin here)', () {
+    test('true only for the admin role', () {
+      expect(TaskAccess.isAdmin(admin), isTrue);
+      expect(TaskAccess.isAdmin(staff), isFalse);
+      expect(TaskAccess.isAdmin(parent), isFalse);
+    });
+  });
+
+  group('defaultShowMineOnly', () {
+    test('staff default to "My Tasks"; admins default to "All Tasks"', () {
+      expect(TaskAccess.defaultShowMineOnly(staff), isTrue);
+      expect(TaskAccess.defaultShowMineOnly(admin), isFalse);
+      expect(TaskAccess.defaultShowMineOnly(parent), isFalse);
+    });
+  });
 }

@@ -348,21 +348,31 @@ class _TasksScreenState extends State<TasksScreen> {
   // ------------------------------------------------------- kanban view
 
   Widget _kanbanView(BuildContext context, TasksState state, RoleCubit roles) {
+    // One filter pass shared by the tab counts and the visible column, instead
+    // of re-running the full filter for each (3 counts + the column).
+    final filtered = state.filteredTasks;
+    final counts = <TaskStatus, int>{
+      for (final status in TaskStatus.values)
+        status: filtered.where((t) => t.status == status).length,
+    };
+    final columnTasks = TasksState.orderColumn(filtered, _kanbanStatus);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _statusTabs(state),
+        _statusTabs(counts),
         const SizedBox(height: 10),
-        Expanded(child: _statusColumn(context, state, roles, _kanbanStatus)),
+        Expanded(
+          child: _statusColumn(context, state, roles, _kanbanStatus, columnTasks),
+        ),
       ],
     );
   }
 
-  Widget _statusTabs(TasksState state) {
+  Widget _statusTabs(Map<TaskStatus, int> counts) {
     Widget tab(TaskStatus status) {
       final selected = _kanbanStatus == status;
       final color = TaskUiUtils.statusColor(status);
-      final count = state.countWithStatus(status);
+      final count = counts[status] ?? 0;
       return Expanded(
         child: GestureDetector(
           onTap: () => setState(() => _kanbanStatus = status),
@@ -422,8 +432,8 @@ class _TasksScreenState extends State<TasksScreen> {
     TasksState state,
     RoleCubit roles,
     TaskStatus status,
+    List<Task> tasks,
   ) {
-    final tasks = state.orderedTasksWithStatus(status);
     if (tasks.isEmpty) {
       return _emptyState('No ${status.label.toLowerCase()} tasks');
     }
@@ -445,8 +455,9 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _listView(BuildContext context, TasksState state, RoleCubit roles) {
     // Completed tasks are surfaced via the status filter rather than a
-    // dedicated section, so the list simply shows all filtered tasks.
-    final tasks = state.listTasksOrdered;
+    // dedicated section, so the list simply shows all filtered tasks. One
+    // filter pass, reused for both the active and completed orderings.
+    final tasks = TasksState.listFrom(state.filteredTasks);
     if (tasks.isEmpty) {
       return _emptyState('No tasks match the current filters');
     }
@@ -477,6 +488,9 @@ class _TasksScreenState extends State<TasksScreen> {
       staffCode: state.currentStaffCode,
     );
     return TaskCard(
+      // Stable identity so Flutter reuses elements when the overdue-first
+      // ordering reorders cards, instead of mismatching them to stale data.
+      key: ValueKey(task.code),
       task: task,
       schoolTimeZone: state.schoolTimeZone,
       onTap: () => _openDetail(context, task),

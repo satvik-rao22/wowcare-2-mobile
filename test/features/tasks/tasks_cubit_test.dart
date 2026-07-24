@@ -84,9 +84,11 @@ class _FakeTaskRepository implements TaskRepository {
   String uploadResult = 'AST_READY';
 
   String? lastQuery;
+  int getTasksCalls = 0;
 
   @override
   Future<List<Task>> getTasks({String? query}) async {
+    getTasksCalls++;
     lastQuery = query;
     final q = (query ?? '').trim().toLowerCase();
     if (q.isEmpty) return List.of(tasks);
@@ -796,5 +798,107 @@ void main() {
     expect(code, 'AST_READY');
     expect(repo.lastUploadArgs!['fileName'], 'notes.pdf');
     expect(repo.lastUploadArgs!['contentType'], 'application/pdf');
+  });
+
+  // ------------------------------------------------ filter & scope mutators
+
+  group('filter & scope mutators', () {
+    test('setScope replaces the scope', () {
+      cubit.setScope(TaskScope.mine);
+      expect(cubit.state.scope, TaskScope.mine);
+    });
+
+    test('toggleAssigneeFilter adds then removes a code', () {
+      cubit.toggleAssigneeFilter('STF_1');
+      expect(cubit.state.assigneeFilter, {'STF_1'});
+      cubit.toggleAssigneeFilter('STF_2');
+      expect(cubit.state.assigneeFilter, {'STF_1', 'STF_2'});
+      cubit.toggleAssigneeFilter('STF_1');
+      expect(cubit.state.assigneeFilter, {'STF_2'});
+    });
+
+    test('toggleCreatedByFilter toggles membership', () {
+      cubit.toggleCreatedByFilter('STF_C');
+      expect(cubit.state.createdByFilter, {'STF_C'});
+      cubit.toggleCreatedByFilter('STF_C');
+      expect(cubit.state.createdByFilter, isEmpty);
+    });
+
+    test('togglePriorityFilter toggles membership', () {
+      cubit.togglePriorityFilter(TaskPriority.high);
+      expect(cubit.state.priorityFilter, {TaskPriority.high});
+      cubit.togglePriorityFilter(TaskPriority.high);
+      expect(cubit.state.priorityFilter, isEmpty);
+    });
+
+    test('toggleStatusFilter toggles membership', () {
+      cubit.toggleStatusFilter(TaskStatus.completed);
+      expect(cubit.state.statusFilter, {TaskStatus.completed});
+      cubit.toggleStatusFilter(TaskStatus.completed);
+      expect(cubit.state.statusFilter, isEmpty);
+    });
+
+    test('setDateRange sets and clears the range', () {
+      cubit.setDateRange(
+          from: DateTime(2026, 7, 1), to: DateTime(2026, 7, 31));
+      expect(cubit.state.dateFrom, DateTime(2026, 7, 1));
+      expect(cubit.state.dateTo, DateTime(2026, 7, 31));
+      cubit.setDateRange();
+      expect(cubit.state.dateFrom, isNull);
+      expect(cubit.state.dateTo, isNull);
+    });
+
+    test('setOverdueOnly flips the flag', () {
+      cubit.setOverdueOnly(true);
+      expect(cubit.state.overdueOnly, isTrue);
+      cubit.setOverdueOnly(false);
+      expect(cubit.state.overdueOnly, isFalse);
+    });
+
+    test('clearAllFilters resets every filter and the search query', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+      cubit.setSearchQuery('foo');
+      await pumpEventQueue();
+      cubit.toggleAssigneeFilter('STF_1');
+      cubit.togglePriorityFilter(TaskPriority.high);
+      cubit.setOverdueOnly(true);
+      cubit.setDateRange(from: DateTime(2026, 7, 1));
+
+      cubit.clearAllFilters();
+      await pumpEventQueue();
+
+      final s = cubit.state;
+      expect(s.searchQuery, isEmpty);
+      expect(s.assigneeFilter, isEmpty);
+      expect(s.createdByFilter, isEmpty);
+      expect(s.priorityFilter, isEmpty);
+      expect(s.statusFilter, isEmpty);
+      expect(s.dateFrom, isNull);
+      expect(s.dateTo, isNull);
+      expect(s.overdueOnly, isFalse);
+      expect(s.hasActiveFilters, isFalse);
+    });
+
+    test('clearAllFilters refetches only when a search query was active',
+        () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+      final callsAfterLoad = repo.getTasksCalls;
+
+      // No search set → no refetch.
+      cubit.toggleAssigneeFilter('STF_1');
+      cubit.clearAllFilters();
+      await pumpEventQueue();
+      expect(repo.getTasksCalls, callsAfterLoad);
+
+      // Search set → clearing widens the query, so it refetches.
+      cubit.setSearchQuery('foo');
+      await pumpEventQueue();
+      final callsAfterSearch = repo.getTasksCalls;
+      cubit.clearAllFilters();
+      await pumpEventQueue();
+      expect(repo.getTasksCalls, greaterThan(callsAfterSearch));
+    });
   });
 }

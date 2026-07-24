@@ -72,6 +72,17 @@ class TasksCubit extends Cubit<TasksState> {
   /// app instead of showing "Unassigned".
   final Map<String, String> _staffNames = {};
 
+  /// Guards every state push: the async task/occurrence flows all `await` a
+  /// network round trip before emitting, so if this cubit were ever closed
+  /// mid-flight (e.g. re-registered as non-singleton) the late emit would
+  /// throw "emit after close". Swallowing it here keeps all 40+ emit sites
+  /// safe without an `isClosed` check at each one.
+  @override
+  void emit(TasksState state) {
+    if (isClosed) return;
+    super.emit(state);
+  }
+
   Future<void> load({bool silent = false}) async {
     if (!silent) {
       emit(state.copyWith(isLoading: true, errorMessage: () => null));

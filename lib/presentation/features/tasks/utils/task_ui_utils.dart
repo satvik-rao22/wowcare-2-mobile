@@ -60,25 +60,6 @@ class TaskUiUtils {
     }
   }
 
-  /// Formats a `HH:mm` 24-hour string as `h:mm AM/PM`. Returns the raw value
-  /// when it doesn't parse.
-  static String formatTime(String hhmm) {
-    final parts = hhmm.split(':');
-    if (parts.length != 2) return hhmm;
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) return hhmm;
-    final dt = DateTime(2000, 1, 1, hour, minute);
-    return DateFormat('h:mm a').format(dt);
-  }
-
-  /// "Jun 19, 4:00 PM" style label for a due date + time.
-  static String dueLabel(Task task) {
-    final date = DateFormat('MMM d').format(task.dueDate);
-    final time = formatTime(task.dueTime);
-    return time.isEmpty ? date : '$date • $time';
-  }
-
   /// Formats a [TimeOfDay] as `h:mm a` without needing a [BuildContext].
   static String formatTimeOfDay(TimeOfDay time) {
     final dt = DateTime(2000, 1, 1, time.hour, time.minute);

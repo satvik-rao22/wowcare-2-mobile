@@ -298,7 +298,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 controller: _titleController,
                 textCapitalization: TextCapitalization.sentences,
                 decoration: _inputDecoration('E.g. Schedule Origami activity'),
-                onChanged: (_) => setState(() {}),
+                // The save-button gate listens to this controller directly
+                // (see [_saveButton]), so no full-form rebuild per keystroke.
                 validator: (value) =>
                     (value ?? '').trim().isEmpty ? 'Title is required' : null,
               ),
@@ -382,7 +383,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                           : newValue),
                 ],
                 autovalidateMode: AutovalidateMode.onUserInteraction,
-                onChanged: (_) => setState(() {}),
+                // Save-button gate listens to this controller directly.
                 validator: (value) => TaskFormValidation.isEffortValid(value ?? '')
                     ? null
                     : 'Enter a valid number of hours',
@@ -1036,22 +1037,29 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     // *derived* one (resolved from the recurrence fields) and it must also
     // carry a valid "Until" end date; effort, when present, must be a valid
     // non-negative number.
-    final window = _windowForValidation();
-    final canSave = TaskFormValidation.canSubmit(
-          title: _titleController.text,
-          hasAssignee: _assignees.isNotEmpty,
-          recurring: _recurring,
-          startDate: window.start,
-          startTime: _startTime,
-          dueDate: window.due,
-          dueTime: _dueTime,
-          recurrenceEnd: _recurring ? _recurringEndDate : null,
-        ) &&
-        TaskFormValidation.isEffortValid(_effortController.text);
-    return BlocBuilder<TasksCubit, TasksState>(
-      builder: (context, state) {
-        final enabled = canSave && !state.isSaving;
-        return SizedBox(
+    //
+    // The title/effort text feed this gate, so rather than `setState(() {})` on
+    // every keystroke (which would rebuild the whole form), listen to just the
+    // two controllers here and recompute the gate inside this subtree.
+    return ListenableBuilder(
+      listenable: Listenable.merge([_titleController, _effortController]),
+      builder: (context, _) {
+        final window = _windowForValidation();
+        final canSave = TaskFormValidation.canSubmit(
+              title: _titleController.text,
+              hasAssignee: _assignees.isNotEmpty,
+              recurring: _recurring,
+              startDate: window.start,
+              startTime: _startTime,
+              dueDate: window.due,
+              dueTime: _dueTime,
+              recurrenceEnd: _recurring ? _recurringEndDate : null,
+            ) &&
+            TaskFormValidation.isEffortValid(_effortController.text);
+        return BlocBuilder<TasksCubit, TasksState>(
+          builder: (context, state) {
+            final enabled = canSave && !state.isSaving;
+            return SizedBox(
           height: 46,
           child: DecoratedBox(
             decoration: BoxDecoration(
@@ -1087,6 +1095,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     ),
             ),
           ),
+        );
+          },
         );
       },
     );
