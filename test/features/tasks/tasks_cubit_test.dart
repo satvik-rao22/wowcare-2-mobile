@@ -214,7 +214,10 @@ class _FakeTaskRepository implements TaskRepository {
     required String assignmentCode,
     String? title,
     String? description,
-    DateTime? dueAt,
+    DateTime? occurrenceDate,
+    String? startTime,
+    DateTime? dueDate,
+    String? dueTime,
     TaskPriority? priority,
     TaskStatus? status,
     double? effort,
@@ -226,7 +229,10 @@ class _FakeTaskRepository implements TaskRepository {
       'code': assignmentCode,
       'title': title,
       'description': description,
-      'dueAt': dueAt,
+      'occurrenceDate': occurrenceDate,
+      'startTime': startTime,
+      'dueDate': dueDate,
+      'dueTime': dueTime,
       'priority': priority,
       'status': status,
       'effort': effort,
@@ -601,8 +607,8 @@ void main() {
     expect(repo.lastUpdateArgs, isNull);
   });
 
-  test('update sends a start/recurrence change as schedule via the assignment '
-      'endpoint', () async {
+  test('update sends a one-off start change as the discrete occurrence fields '
+      'via the assignment endpoint', () async {
     repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
     await cubit.load();
 
@@ -611,9 +617,11 @@ void main() {
     final ok = await cubit.update(edited);
 
     expect(ok, isTrue);
-    final schedule = repo.lastAssignmentPatchArgs!['schedule'] as Task?;
-    expect(schedule, isNotNull);
-    expect(schedule!.startTime, '10:00');
+    // A one-off's own schedule rides occurrenceDate/startTime (§5b), not the
+    // series [schedule] Task (that only carries a recurring series' RRULE).
+    expect(repo.lastAssignmentPatchArgs!['startTime'], '10:00');
+    expect(repo.lastAssignmentPatchArgs!['occurrenceDate'], isNotNull);
+    expect(repo.lastAssignmentPatchArgs!['schedule'], isNull);
     expect(repo.lastUpdateArgs, isNull);
   });
 
@@ -629,7 +637,8 @@ void main() {
 
     expect(ok, isTrue);
     expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
-    expect(repo.lastAssignmentPatchArgs!['dueAt'], isNotNull);
+    expect(repo.lastAssignmentPatchArgs!['dueDate'], DateTime(2026, 7, 20));
+    expect(repo.lastAssignmentPatchArgs!['dueTime'], isNotNull);
     expect(repo.lastUpdateArgs, isNull);
   });
 
@@ -673,6 +682,73 @@ void main() {
     expect(ok, isTrue);
     expect(repo.lastAssignmentPatchArgs!['assignees'], isNotNull);
     expect(repo.lastUpdateArgs, isNull);
+  });
+
+  test('update leaves the roster untouched when only a plain field changes',
+      () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1')];
+    await cubit.load();
+
+    final edited = cubit.state.taskByCode('TSA_1')!.copyWith(title: 'Renamed');
+    final ok = await cubit.update(edited);
+
+    expect(ok, isTrue);
+    // No reassignment and no additions: `assignees` must stay null so the
+    // server doesn't full-replace the roster on an unrelated field edit.
+    expect(repo.lastAssignmentPatchArgs!['assignees'], isNull);
+  });
+
+  test('update appends added assignees to the roster and materializes their '
+      'cards', () async {
+    repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1')];
+    await cubit.load();
+
+    // Mirror the server: after the full-replace roster PATCH a second card is
+    // materialized for the newly-added assignee.
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1'),
+      _card(code: 'TSA_2', taskCode: 'TSK_1', assignee: 'STF_2'),
+    ];
+
+    final edited = cubit.state.taskByCode('TSA_1')!;
+    final ok = await cubit.update(
+      edited,
+      addedAssignees: const [(code: 'STF_2', name: 'Two')],
+    );
+
+    expect(ok, isTrue);
+    // The edit routes through the per-assignment endpoint keyed by this card,
+    // never the series endpoint.
+    expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+    expect(repo.lastUpdateArgs, isNull);
+    // The rebuilt roster keeps the existing assignee and appends the new one.
+    final roster =
+        repo.lastAssignmentPatchArgs!['assignees'] as List<TaskAssignee>;
+    expect(roster.map((a) => a.staffCode), containsAll(['STF_1', 'STF_2']));
+    expect(roster, hasLength(2));
+    // The reload picks up the new assignee's card.
+    expect(cubit.state.tasks.map((t) => t.code), containsAll(['TSA_1', 'TSA_2']));
+  });
+
+  test('update dedupes an added assignee already on the series', () async {
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1'),
+      _card(code: 'TSA_2', taskCode: 'TSK_1', assignee: 'STF_2'),
+    ];
+    await cubit.load();
+
+    final edited = cubit.state.taskByCode('TSA_1')!;
+    // STF_2 is already on the series; re-adding it must not duplicate the row.
+    final ok = await cubit.update(
+      edited,
+      addedAssignees: const [(code: 'STF_2', name: 'Two')],
+    );
+
+    expect(ok, isTrue);
+    final roster =
+        repo.lastAssignmentPatchArgs!['assignees'] as List<TaskAssignee>;
+    expect(roster.map((a) => a.staffCode), ['STF_1', 'STF_2']);
+    expect(roster, hasLength(2));
   });
 
   test('create forwards uploaded assetCodes to the repository (§8/§9)',

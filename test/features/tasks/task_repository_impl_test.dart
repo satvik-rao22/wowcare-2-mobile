@@ -166,7 +166,8 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
           taskCode: 'TSK_1',
           title: 'x',
           occurrenceDate: DateTime(2026, 7, 15),
-          dueAt: DateTime(2026, 7, 17, 17),
+          dueDate: DateTime(2026, 7, 17),
+          dueTime: '17:00',
           status: status.value,
         );
   }
@@ -180,7 +181,8 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
           taskCode: 'TSK_1',
           title: 'x',
           occurrenceDate: DateTime(2026, 7, 15),
-          dueAt: DateTime(2026, 7, 17, 17),
+          dueDate: DateTime(2026, 7, 17),
+          dueTime: '17:00',
         );
   }
 
@@ -189,7 +191,10 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
     required String code,
     String? title,
     String? description,
-    DateTime? dueAt,
+    DateTime? occurrenceDate,
+    String? startTime,
+    DateTime? dueDate,
+    String? dueTime,
     TaskPriority? priority,
     TaskStatus? status,
     double? effort,
@@ -201,7 +206,10 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
       'code': code,
       'title': title,
       'description': description,
-      'dueAt': dueAt,
+      'occurrenceDate': occurrenceDate,
+      'startTime': startTime,
+      'dueDate': dueDate,
+      'dueTime': dueTime,
       'priority': priority,
       'status': status,
       'effort': effort,
@@ -215,7 +223,8 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
           taskCode: 'TSK_1',
           title: 'x',
           occurrenceDate: DateTime(2026, 7, 15),
-          dueAt: dueAt ?? DateTime(2026, 7, 17, 17),
+          dueDate: dueDate ?? DateTime(2026, 7, 17),
+          dueTime: dueTime ?? '17:00',
           priority: (priority ?? TaskPriority.medium).value,
         );
   }
@@ -375,7 +384,9 @@ TaskAssignmentModel _assignment(String code, DateTime due) =>
       taskCode: 'TSK_$code',
       title: code,
       occurrenceDate: DateTime(2026, 7, 15),
-      dueAt: due,
+      dueDate: DateTime(due.year, due.month, due.day),
+      dueTime: '${due.hour.toString().padLeft(2, '0')}:'
+          '${due.minute.toString().padLeft(2, '0')}',
     );
 
 void main() {
@@ -567,16 +578,17 @@ void main() {
     expect(task.code, 'TSA_1');
   });
 
-  test('updateAssignment forwards dueAt/priority and maps the card (§5b)',
+  test('updateAssignment forwards the split due fields + priority (§5b)',
       () async {
-    final due = DateTime.utc(2026, 7, 18, 17);
     final task = await repo.updateAssignment(
       assignmentCode: ' TSA_1 ',
-      dueAt: due,
+      dueDate: DateTime(2026, 7, 18),
+      dueTime: '17:00',
       priority: TaskPriority.high,
     );
     expect(remote.lastAssignmentPatchArgs!['code'], 'TSA_1');
-    expect(remote.lastAssignmentPatchArgs!['dueAt'], due);
+    expect(remote.lastAssignmentPatchArgs!['dueDate'], DateTime(2026, 7, 18));
+    expect(remote.lastAssignmentPatchArgs!['dueTime'], '17:00');
     expect(remote.lastAssignmentPatchArgs!['priority'], TaskPriority.high);
     expect(task.priority, TaskPriority.high);
   });

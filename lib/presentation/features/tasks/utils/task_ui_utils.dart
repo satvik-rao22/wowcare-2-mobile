@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 
 /// Visual mapping for task statuses and priorities, adapted from the Figma
 /// Make tasks design (To Do = amber, In Progress = blue, Completed = green;
@@ -76,6 +77,25 @@ class TaskUiUtils {
     final date = DateFormat('MMM d').format(task.dueDate);
     final time = formatTime(task.dueTime);
     return time.isEmpty ? date : '$date • $time';
+  }
+
+  /// Formats a [TimeOfDay] as `h:mm a` without needing a [BuildContext].
+  static String formatTimeOfDay(TimeOfDay time) {
+    final dt = DateTime(2000, 1, 1, time.hour, time.minute);
+    return DateFormat('h:mm a').format(dt);
+  }
+
+  /// "Jun 19, 4:00 PM" style due label, converted from the wire's UTC
+  /// [Task.dueDate]/[Task.dueTime] into [ianaName]'s school-local wall clock
+  /// first — the date itself can shift a day depending on the school's offset.
+  static String dueLabelInZone(Task task, String ianaName) {
+    final local = TaskTimezone.fromUtcWire(
+      utcDate: task.dueDate,
+      hhmm: task.dueTime,
+      ianaName: ianaName,
+    );
+    final date = DateFormat('MMM d').format(local.$1);
+    return '$date • ${formatTimeOfDay(local.$2)}';
   }
 
   /// "Every Monday", "Monthly (1st–25th)", "Daily" style recurrence summary.

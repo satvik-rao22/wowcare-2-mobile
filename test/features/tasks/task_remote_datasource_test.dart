@@ -103,7 +103,8 @@ void main() {
                 'title': 'A',
                 'assigneeCode': 'STF_1',
                 'occurrenceDate': '2026-07-15',
-                'dueAt': '2026-07-17T17:00:00Z',
+                'dueDate': '2026-07-17',
+                'dueTime': '17:00:00',
                 'priority': 'HIGH',
                 'status': 'TO_DO',
               },
@@ -200,7 +201,8 @@ void main() {
                     'taskCode': 'TSK_1',
                     'title': 'A',
                     'occurrenceDate': '2026-07-15',
-                    'dueAt': '2026-07-17T17:00:00Z',
+                    'dueDate': '2026-07-17',
+                    'dueTime': '17:00:00',
                     'status': 'TO_DO',
                   },
                 ],
@@ -320,7 +322,8 @@ void main() {
       expect(body['dueTime'], '17:00');
     });
 
-    test('serializes RRULE fields for a recurring schedule', () async {
+    test('serializes a single rrule string for a recurring schedule',
+        () async {
       stub((_) => _jsonBody({'data': {'code': 'TSK_1', 'title': 'x'}}));
       final recurring = _draft().copyWith(
         recurring: true,
@@ -332,10 +335,10 @@ void main() {
 
       final body = adapter.captured!.data as Map<String, dynamic>;
       expect(body['recurring'], isTrue);
-      expect(body['rruleFreq'], 'WEEKLY');
-      expect(body['rruleInterval'], 1);
-      expect(body['rruleByDay'], ['MO']);
-      expect(body['rruleUntil'], '2026-09-30');
+      // The API wants ONE RFC 5545 string, not decomposed
+      // rruleFreq/rruleInterval/rruleByDay/rruleUntil fields.
+      expect(body['rrule'], 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;UNTIL=20260930');
+      expect(body.containsKey('rruleFreq'), isFalse);
       expect(body.containsKey('startDate'), isFalse);
     });
   });
@@ -381,7 +384,8 @@ void main() {
             'title': 'Prepare Q3 report',
             'assigneeCode': 'STF_1',
             'occurrenceDate': '2026-07-15',
-            'dueAt': '2026-07-17T17:00:00Z',
+            'dueDate': '2026-07-17',
+            'dueTime': '17:00:00',
             'priority': 'HIGH',
             'status': 'IN_PROGRESS',
           },
@@ -408,16 +412,19 @@ void main() {
   });
 
   group('getTask (§2a)', () {
-    test('GETs /tasks/{code} and parses the full detail', () async {
+    // The real detail response carries ONE `rrule` string + a convenience
+    // `rruleUntil`, not separate rruleInterval/rruleByDay keys — this is the
+    // shape that silently failed to parse before (edit form couldn't
+    // prefill an existing series' recurrence against a real backend).
+    test('GETs /tasks/{code} and parses the rrule string into the recurrence '
+        'breakdown', () async {
       stub(
         (_) => _jsonBody({
           'data': {
             'code': 'TSK_1',
             'title': 'Water plants',
             'recurringFlag': true,
-            'rruleFreq': 'WEEKLY',
-            'rruleInterval': 1,
-            'rruleByDay': 'MO,WE,FR',
+            'rrule': 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR;UNTIL=20260930',
             'rruleUntil': '2026-09-30',
             'seriesStartTime': '08:30',
             'seriesEndTime': '09:00',
@@ -491,7 +498,8 @@ void main() {
             'taskCode': 'TSK_1',
             'title': 'x',
             'occurrenceDate': '2026-07-15',
-            'dueAt': '2026-07-17T17:00:00Z',
+            'dueDate': '2026-07-17',
+            'dueTime': '17:00:00',
             'priority': 'HIGH',
             'status': 'IN_PROGRESS',
           },
@@ -506,15 +514,17 @@ void main() {
       );
     });
 
-    test('updateAssignment PATCHes dueAt (UTC Z) + priority', () async {
+    test('updateAssignment PATCHes the split schedule fields + priority',
+        () async {
       stub(
         (_) => _jsonBody({
           'data': {
             'code': 'TSA_1',
             'taskCode': 'TSK_1',
             'title': 'x',
-            'occurrenceDate': '2026-07-15',
-            'dueAt': '2026-07-18T17:00:00Z',
+            'occurrenceDate': '2026-07-18',
+            'dueDate': '2026-07-18',
+            'dueTime': '17:00:00',
             'priority': 'HIGH',
             'status': 'TO_DO',
           },
@@ -522,7 +532,10 @@ void main() {
       );
       await dataSource.updateAssignment(
         code: 'TSA_1',
-        dueAt: DateTime.utc(2026, 7, 18, 17),
+        occurrenceDate: DateTime(2026, 7, 18),
+        startTime: '10:00',
+        dueDate: DateTime(2026, 7, 18),
+        dueTime: '17:00',
         priority: TaskPriority.high,
       );
       expect(adapter.captured!.method, 'PATCH');
@@ -531,7 +544,10 @@ void main() {
         endsWith('/api/v1/tasks/assignments/TSA_1'),
       );
       final body = adapter.captured!.data as Map<String, dynamic>;
-      expect(body['dueAt'], '2026-07-18T17:00:00Z');
+      expect(body['occurrenceDate'], '2026-07-18');
+      expect(body['startTime'], '10:00');
+      expect(body['dueDate'], '2026-07-18');
+      expect(body['dueTime'], '17:00');
       expect(body['priority'], 'HIGH');
     });
 

@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -10,7 +13,10 @@ import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_form_validation.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/assignee_picker_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 /// Create/edit form for a task. A single scrollable mobile form replaces the
@@ -45,9 +51,19 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   Task? _editing;
 
-  /// code -> name for the chosen assignee(s). Add mode allows many
-  /// (one task per assignee, PRD BR-TASK-01); edit mode keeps a single entry.
+  /// code -> name for the chosen assignee(s). Add mode allows many (one task
+  /// per assignee, PRD BR-TASK-01). Edit mode pre-selects the whole series
+  /// roster: the existing assignees ([_lockedAssignees]) can't be removed, but
+  /// new ones can be added and each becomes its own task card on save.
   final Map<String, String> _assignees = {};
+
+  /// Assignees already on the series when editing — shown checked and locked in
+  /// the picker (can't be unchecked). Empty in add mode.
+  final Set<String> _lockedAssignees = {};
+
+  /// Guards [_prefillFromSeries] so a slow series response can't overwrite the
+  /// form after it has already been applied once.
+  bool _appliedSeriesPrefill = false;
 
   TaskStatus _status = TaskStatus.toDo;
   TaskPriority _priority = TaskPriority.medium;
@@ -55,6 +71,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   TimeOfDay _startTime = const TimeOfDay(hour: 9, minute: 0);
   DateTime _dueDate = DateTime.now();
   TimeOfDay _dueTime = const TimeOfDay(hour: 17, minute: 0);
+
+  /// The school's IANA timezone — every picker's default/bounds and the
+  /// UTC<->local conversion for this form's schedule fields. Seeded from the
+  /// best-known cached value so the first frame isn't device-local, then
+  /// corrected once [_resolveSchoolTimeZone] completes.
+  String _schoolTimeZone = TaskTimezone.lastKnownTimeZone;
 
   bool _recurring = false;
   TaskRecurrence _recurringPattern = TaskRecurrence.monthly;
@@ -64,13 +86,19 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   int _startMonthDay = 1;
   int _dueMonthDay = 25;
 
+  /// Existing remote attachment, shown in edit mode. A freshly picked local
+  /// file overrides it for display and, on save, replaces it.
   String? _attachmentName;
   String? _attachmentUrl;
   String? _attachmentType;
 
-  /// Set once a freshly-picked attachment has been uploaded through the §8/§9
-  /// flow; passed to create as `assetCodes`. Null when no new file is attached.
-  String? _attachmentAssetCode;
+  /// A freshly picked local file, held (not uploaded) until the form is
+  /// submitted. The §8/§9 upload runs inside [_save], right before create/
+  /// update — so nothing is uploaded for a form the user abandons.
+  String? _pickedAttachmentPath;
+  int? _pickedAttachmentSize;
+
+  /// True only while the held file is uploading during save.
   bool _uploadingAttachment = false;
 
   /// Attachment picker limits (mirrors the tile's helper text).
@@ -85,17 +113,49 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   bool get _isEditing => _editing != null;
 
+  /// Assignees picked in edit mode that weren't already on the series — each
+  /// becomes its own task card on save.
+  int get _addedAssigneeCount =>
+      _assignees.keys.where((c) => !_lockedAssignees.contains(c)).length;
+
   @override
   void initState() {
     super.initState();
-    final today = _dateOnly(DateTime.now());
+    final today = TaskTimezone.today(_schoolTimeZone);
     _startDate = today;
     _dueDate = today;
     final code = widget.taskCode?.trim() ?? '';
     if (code.isNotEmpty) {
       final task = context.read<TasksCubit>().state.taskByCode(code);
-      if (task != null) _prefill(task);
+      if (task != null) {
+        _prefill(task);
+        // The flat card carries neither the start time-of-day nor the
+        // recurrence rule (series-only, bridged by taskCode). Without this the
+        // form would show a recurring task as a 09:00 one-off and could drop
+        // its recurrence on save — so pull the series and correct those fields.
+        unawaited(_prefillFromSeries(task.taskCode));
+      }
     }
+    unawaited(_resolveSchoolTimeZone());
+  }
+
+  /// Resolves the school's real timezone (network/storage), correcting the
+  /// cached best-guess seeded in [_schoolTimeZone] and re-deriving every
+  /// schedule field so pickers/labels reflect the right zone.
+  Future<void> _resolveSchoolTimeZone() async {
+    final resolved = await TaskTimezone.resolve();
+    if (!mounted || resolved == _schoolTimeZone) return;
+    setState(() {
+      _schoolTimeZone = resolved;
+      final editing = _editing;
+      if (editing != null) {
+        _applySchedule(editing);
+      } else {
+        final today = TaskTimezone.today(_schoolTimeZone);
+        _startDate = today;
+        _dueDate = today;
+      }
+    });
   }
 
   void _prefill(Task task) {
@@ -104,15 +164,32 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     _descriptionController.text = task.description;
     _effortController.text =
         task.effort > 0 ? TaskUiUtils.effortLabel(task.effort).split(' ').first : '';
+    // Pre-select the whole series roster, not just this card's assignee, so the
+    // picker shows everyone already on the task. Every loaded sibling card of
+    // this series (same taskCode) contributes one assignee; all are locked
+    // (can't be removed here), and the user may add more.
+    for (final sibling in context.read<TasksCubit>().state.tasks) {
+      if (task.taskCode.isEmpty || sibling.taskCode != task.taskCode) continue;
+      if (sibling.assigneeCode.isEmpty) continue;
+      _assignees[sibling.assigneeCode] = sibling.assigneeName.isNotEmpty
+          ? sibling.assigneeName
+          : sibling.assigneeCode;
+      _lockedAssignees.add(sibling.assigneeCode);
+    }
+    // Guarantee this card's own assignee is present even if the series list
+    // hasn't fully loaded.
     if (task.assigneeCode.isNotEmpty) {
-      _assignees[task.assigneeCode] = task.assigneeName;
+      _assignees.putIfAbsent(
+        task.assigneeCode,
+        () => task.assigneeName.isNotEmpty
+            ? task.assigneeName
+            : task.assigneeCode,
+      );
+      _lockedAssignees.add(task.assigneeCode);
     }
     _status = task.status;
     _priority = task.priority;
-    _startDate = _dateOnly(task.startDate);
-    _startTime = _parseTime(task.startTime) ?? _startTime;
-    _dueDate = _dateOnly(task.dueDate);
-    _dueTime = _parseTime(task.dueTime) ?? _dueTime;
+    _applySchedule(task);
     _recurring = task.recurring;
     _recurringPattern = task.recurringPattern ?? TaskRecurrence.monthly;
     _recurringEndDate = task.recurringEndDate;
@@ -126,6 +203,65 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     _attachmentName = task.attachmentName;
     _attachmentUrl = task.attachmentUrl;
     _attachmentType = task.attachmentType;
+  }
+
+  /// Converts [task]'s UTC wire start/due date+time into the school-local
+  /// wall-clock values the pickers show. Split out from [_prefill] so
+  /// [_resolveSchoolTimeZone] can re-derive just the schedule fields once the
+  /// real school timezone loads, without re-running the assignee-roster logic.
+  void _applySchedule(Task task) {
+    final start = TaskTimezone.fromUtcWire(
+      utcDate: task.startDate,
+      hhmm: task.startTime,
+      ianaName: _schoolTimeZone,
+    );
+    _startDate = start.$1;
+    _startTime = start.$2;
+    final due = TaskTimezone.fromUtcWire(
+      utcDate: task.dueDate,
+      hhmm: task.dueTime,
+      ianaName: _schoolTimeZone,
+    );
+    _dueDate = due.$1;
+    _dueTime = due.$2;
+  }
+
+  /// Corrects the recurrence fields from the owning series, which the flat
+  /// assignment card can't provide (the card's own `startTime`/`dueTime`, §5b,
+  /// are already correct and pre-filled by [_prefill] — this must not touch
+  /// them). Applied once, right after the form opens, so it only overwrites
+  /// the placeholder prefill — not any edits the user has since made.
+  Future<void> _prefillFromSeries(String seriesCode) async {
+    final code = seriesCode.trim();
+    if (code.isEmpty || _appliedSeriesPrefill) return;
+    final series = await context.read<TasksCubit>().fetchSeriesDetail(code);
+    if (!mounted || series == null || _appliedSeriesPrefill) return;
+    setState(() {
+      _appliedSeriesPrefill = true;
+      _recurring = series.recurring;
+      if (series.recurring && series.recurrencePattern != null) {
+        _recurringPattern = series.recurrencePattern!;
+        _recurringEndDate = series.recurrenceUntil;
+        switch (series.recurrencePattern!) {
+          case TaskRecurrence.weekly:
+            if (series.recurrenceByDay.isNotEmpty) {
+              _startDay = TaskScheduleUtils.weekdayFromAbbr(
+                      series.recurrenceByDay.first) ??
+                  _startDay;
+            }
+            // The RRULE only persists the start weekday; recover the due
+            // weekday from this occurrence's due date.
+            _dueDay = _weekdays[(_dueDate.weekday - 1).clamp(0, 6)];
+            break;
+          case TaskRecurrence.monthly:
+            _startMonthDay = series.recurrenceByMonthday ?? _startMonthDay;
+            _dueMonthDay = _dueDate.day;
+            break;
+          case TaskRecurrence.daily:
+            break;
+        }
+      }
+    });
   }
 
   @override
@@ -184,16 +320,20 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
               _label('Status'),
               _statusSelector(),
               const SizedBox(height: 14),
-              _switchTile(
-                title: 'Recurring task',
-                value: _recurring,
-                onChanged: (value) => setState(() => _recurring = value),
-              ),
+              // A task's type is fixed at creation: the edit form never lets a
+              // one-off become recurring (or vice versa), so the toggle is
+              // hidden and only the existing type's schedule fields are shown.
+              if (!_isEditing)
+                _switchTile(
+                  title: 'Recurring task',
+                  value: _recurring,
+                  onChanged: (value) => setState(() => _recurring = value),
+                ),
               if (_recurring) ...[
-                const SizedBox(height: 8),
+                if (!_isEditing) const SizedBox(height: 8),
                 _recurrenceFields(),
               ] else ...[
-                const SizedBox(height: 14),
+                if (!_isEditing) const SizedBox(height: 14),
                 _label('Start'),
                 _dateTimeRow(
                   date: _startDate,
@@ -216,6 +356,15 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   onDate: (d) => setState(() => _dueDate = d),
                   onTime: (t) => setState(() => _dueTime = t),
                 ),
+                // Catches a same-day due time earlier than the start time,
+                // which the date-only picker limit can't prevent.
+                if (!TaskFormValidation.isNonNegativeRange(
+                  startDate: _startDate,
+                  startTime: _startTime,
+                  dueDate: _dueDate,
+                  dueTime: _dueTime,
+                ))
+                  _fieldError('Due must be on or after the start time.'),
               ],
               const SizedBox(height: 14),
               _label('Estimated Effort'),
@@ -225,12 +374,23 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                     const TextInputType.numberWithOptions(decimal: true),
                 inputFormatters: [
                   FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
+                  // Digits-only already blocks a leading '-'; also reject a
+                  // second '.' so "1.2.3" can never be entered.
+                  TextInputFormatter.withFunction((oldValue, newValue) =>
+                      '.'.allMatches(newValue.text).length > 1
+                          ? oldValue
+                          : newValue),
                 ],
+                autovalidateMode: AutovalidateMode.onUserInteraction,
+                onChanged: (_) => setState(() {}),
+                validator: (value) => TaskFormValidation.isEffortValid(value ?? '')
+                    ? null
+                    : 'Enter a valid number of hours',
                 decoration: _inputDecoration('in hours'),
               ),
               const SizedBox(height: 14),
               _label('Attachment'),
-              _attachmentTile(),
+              _attachmentSection(),
               const SizedBox(height: 22),
               _saveButton(),
             ],
@@ -323,6 +483,23 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   ),
                 ),
               ),
+            // Edit mode: adding assignees spins up one new task each; existing
+            // assignees are locked and left untouched.
+            if (_isEditing && _addedAssigneeCount > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: 6, left: 2),
+                child: Text(
+                  '$_addedAssigneeCount new '
+                  '${_addedAssigneeCount == 1 ? 'task' : 'tasks'} will be '
+                  'created for the added '
+                  '${_addedAssigneeCount == 1 ? 'assignee' : 'assignees'}',
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: TaskUiUtils.accent,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
           ],
         );
       },
@@ -340,19 +517,26 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (_) => _AssigneeSheet(
+      builder: (_) => AssigneePickerSheet(
         options: options,
         initialSelection: Map.of(_assignees),
         isLoading: isLoading,
-        // Edit mode is single-select (PRD FR-TK-04 / BR-TASK-02).
-        singleSelect: _isEditing,
+        // Edit mode locks the existing series roster (can't be removed here);
+        // add mode has nothing locked. Both allow multi-select.
+        lockedCodes: Set.of(_lockedAssignees),
       ),
     );
     if (result != null) {
       setState(() {
+        final previous = Map.of(_assignees);
         _assignees
           ..clear()
           ..addAll(result);
+        // The picker can't drop locked assignees, but guard against a stale
+        // sheet result so a locked assignee is never lost from the roster.
+        for (final code in _lockedAssignees) {
+          _assignees.putIfAbsent(code, () => previous[code] ?? code);
+        }
       });
     }
   }
@@ -456,6 +640,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   // -------------------------------------------------------- recurrence
 
   Widget _recurrenceFields() {
+    final derived = _resolveDates();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -466,6 +651,16 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             Expanded(child: _recurringEndTile()),
           ],
         ),
+        // The API mandates the RRULE's UNTIL, so an end date is required and
+        // can't precede the derived start.
+        if (_recurringEndDate == null)
+          _fieldError('Select an "Until" end date.')
+        else if (derived != null &&
+            !TaskFormValidation.isEndOnOrAfterStart(
+              start: derived.start,
+              until: _recurringEndDate!,
+            ))
+          _fieldError('End date can\'t be before the start.'),
         const SizedBox(height: 10),
         if (_recurringPattern == TaskRecurrence.weekly) ...[
           _label('Start day'),
@@ -534,6 +729,22 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             ),
           ],
         ),
+        // Shows which actual calendar days the picked times apply to — the
+        // day-of-month/day-of-week pickers alone don't make that obvious, and
+        // a start/due time combination that looks "backwards" (e.g. a due
+        // time earlier than the start time) is perfectly valid whenever the
+        // derived due date falls on a later day than the derived start.
+        if (derived != null) _recurrenceWindowPreview(derived),
+        // On a same-day derivation (daily, or a weekly/monthly start==due) the
+        // due time must be after the start time.
+        if (derived != null &&
+            !TaskFormValidation.isNonNegativeRange(
+              startDate: derived.start,
+              startTime: _startTime,
+              dueDate: derived.due,
+              dueTime: _dueTime,
+            ))
+          _fieldError('Due time must be after the start time.'),
       ],
     );
   }
@@ -565,15 +776,16 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     return _fieldTile(
       icon: Icons.event_repeat_outlined,
       text: _recurringEndDate == null
-          ? 'Until (optional)'
+          ? 'Until date *'
           : DateFormat('MMM d, yyyy').format(_recurringEndDate!),
       onTap: () async {
+        final today = TaskTimezone.today(_schoolTimeZone);
         final picked = await showDatePicker(
           context: context,
           initialDate:
-              _recurringEndDate ?? DateTime.now().add(const Duration(days: 30)),
-          firstDate: _dateOnly(DateTime.now()),
-          lastDate: DateTime(DateTime.now().year + 3),
+              _recurringEndDate ?? today.add(const Duration(days: 30)),
+          firstDate: today,
+          lastDate: DateTime(today.year + 3),
         );
         if (picked != null) {
           setState(() => _recurringEndDate = _dateOnly(picked));
@@ -632,7 +844,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   // ------------------------------------------------------- attachment
 
-  Widget _attachmentTile() {
+  /// Whether any attachment (a freshly picked local file, or an existing remote
+  /// one in edit mode) is currently on the form.
+  bool get _hasAttachment =>
+      _pickedAttachmentPath != null || (_attachmentName ?? '').isNotEmpty;
+
+  Widget _attachmentSection() {
     if (_uploadingAttachment) {
       return Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -656,47 +873,134 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         ),
       );
     }
-    if (_attachmentName != null && _attachmentName!.isNotEmpty) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: _tileDecoration(),
-        child: Row(
-          children: [
-            const Icon(Icons.attach_file,
-                size: 18, color: AppColors.themeColor),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                _attachmentName!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(fontSize: 13, color: Colors.black87),
-              ),
-            ),
-            GestureDetector(
-              onTap: () => setState(() {
-                _attachmentName = null;
-                _attachmentUrl = null;
-                _attachmentType = null;
-                _attachmentAssetCode = null;
-              }),
-              child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
-            ),
-          ],
-        ),
-      );
-    }
+    if (_hasAttachment) return _attachmentPreview();
     return _fieldTile(
       icon: Icons.upload_file_outlined,
       text: 'Add attachment (JPEG, PNG, WebP, PDF • max 10MB)',
-      onTap: _pickAndUploadAttachment,
+      onTap: _pickAttachment,
     );
   }
 
-  /// Picks one file and drives the §8/§9 upload, storing the resulting asset
-  /// code so [_save] can pass it to create. Editing an existing task keeps its
-  /// current attachment display; new attachments apply to newly-created tasks.
-  Future<void> _pickAndUploadAttachment() async {
+  /// Preview card for the chosen attachment: an inline thumbnail for images, a
+  /// file glyph otherwise, plus the name, a size/"uploads on save" hint, and a
+  /// remove control. The actual upload is deferred to [_save].
+  Widget _attachmentPreview() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: _tileDecoration(),
+      child: Row(
+        children: [
+          _attachmentThumbnail(),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _attachmentName ?? 'Attachment',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, color: Colors.black87),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  _attachmentSubtitle(),
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: _pickAttachment,
+            child: const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 6),
+              child: Icon(Icons.swap_horiz,
+                  size: 20, color: AppColors.themeColor),
+            ),
+          ),
+          GestureDetector(
+            onTap: _removeAttachment,
+            child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _attachmentThumbnail() {
+    const double size = 46;
+    final radius = BorderRadius.circular(8);
+    final fallback = Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: AppColors.themeColor.withValues(alpha: 0.08),
+        borderRadius: radius,
+      ),
+      child: Icon(
+        _isImageAttachment(_attachmentType)
+            ? Icons.image_outlined
+            : Icons.description_outlined,
+        size: 22,
+        color: AppColors.themeColor,
+      ),
+    );
+    if (!_isImageAttachment(_attachmentType)) return fallback;
+    Widget? image;
+    if (_pickedAttachmentPath != null) {
+      image = Image.file(
+        File(_pickedAttachmentPath!),
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback,
+      );
+    } else if ((_attachmentUrl ?? '').isNotEmpty) {
+      image = Image.network(
+        _attachmentUrl!,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => fallback,
+      );
+    }
+    return image == null
+        ? fallback
+        : ClipRRect(borderRadius: radius, child: image);
+  }
+
+  String _attachmentSubtitle() {
+    if (_pickedAttachmentSize != null) {
+      final kb = _pickedAttachmentSize! / 1024;
+      final size =
+          kb >= 1024 ? '${(kb / 1024).toStringAsFixed(1)} MB' : '${kb.toStringAsFixed(0)} KB';
+      return '$size • uploads when you save';
+    }
+    final type = (_attachmentType ?? '').replaceAll('.', '').toUpperCase();
+    return type.isEmpty ? 'Attached' : type;
+  }
+
+  void _removeAttachment() {
+    setState(() {
+      _pickedAttachmentPath = null;
+      _pickedAttachmentSize = null;
+      _attachmentName = null;
+      _attachmentUrl = null;
+      _attachmentType = null;
+    });
+  }
+
+  static bool _isImageAttachment(String? type) {
+    final normalized = (type ?? '').toLowerCase().replaceAll('.', '');
+    return normalized == 'jpg' ||
+        normalized == 'jpeg' ||
+        normalized == 'png' ||
+        normalized == 'webp';
+  }
+
+  /// Picks one file and holds it locally for preview. Does NOT upload — that
+  /// happens on submit (§8/§9), inside [_save].
+  Future<void> _pickAttachment() async {
     final picked = await FilePickerUtils.pickFile(
       allowedExtensions: _attachmentExtensions,
       context: context,
@@ -714,46 +1018,36 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       return;
     }
 
-    final cubit = context.read<TasksCubit>();
-    setState(() => _uploadingAttachment = true);
-    final assetCode = await cubit.uploadAttachment(
-      filePath: path,
-      fileName: picked.name,
-      contentType: FilePickerUtils.getMimeType(picked.extension),
-    );
-    if (!mounted) return;
     setState(() {
-      _uploadingAttachment = false;
-      if (assetCode != null && assetCode.isNotEmpty) {
-        _attachmentAssetCode = assetCode;
-        _attachmentName = picked.name;
-        _attachmentType = picked.extension;
-      }
+      _pickedAttachmentPath = path;
+      _pickedAttachmentSize = picked.size;
+      _attachmentName = picked.name;
+      _attachmentType = picked.extension;
+      // A new local file supersedes any existing remote attachment preview.
+      _attachmentUrl = null;
     });
-    if (assetCode == null || assetCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Could not upload the attachment. Please try again.',
-        isError: true,
-      );
-    }
   }
 
   // ------------------------------------------------------------- save
 
   Widget _saveButton() {
-    // Mandatory-field gate (PRD FR-TK-09): title + assignee always; a one-off
-    // task also needs a non-negative start→due window, while a recurring task
-    // derives its window from the recurrence fields.
+    // Mandatory-field gate (PRD FR-TK-09): title + assignee always, plus a
+    // non-negative start→due window. For a recurring task the window is its
+    // *derived* one (resolved from the recurrence fields) and it must also
+    // carry a valid "Until" end date; effort, when present, must be a valid
+    // non-negative number.
+    final window = _windowForValidation();
     final canSave = TaskFormValidation.canSubmit(
-      title: _titleController.text,
-      hasAssignee: _assignees.isNotEmpty,
-      recurring: _recurring,
-      startDate: _startDate,
-      startTime: _startTime,
-      dueDate: _dueDate,
-      dueTime: _dueTime,
-    );
+          title: _titleController.text,
+          hasAssignee: _assignees.isNotEmpty,
+          recurring: _recurring,
+          startDate: window.start,
+          startTime: _startTime,
+          dueDate: window.due,
+          dueTime: _dueTime,
+          recurrenceEnd: _recurring ? _recurringEndDate : null,
+        ) &&
+        TaskFormValidation.isEffortValid(_effortController.text);
     return BlocBuilder<TasksCubit, TasksState>(
       builder: (context, state) {
         final enabled = canSave && !state.isSaving;
@@ -820,14 +1114,51 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     }
 
     final cubit = context.read<TasksCubit>();
+
+    // Upload the held attachment (if any) only now, on submit (§8/§9). A
+    // failed upload aborts the save so the task is never created without its
+    // intended attachment.
+    String? uploadedAssetCode;
+    if (_pickedAttachmentPath != null) {
+      setState(() => _uploadingAttachment = true);
+      uploadedAssetCode = await cubit.uploadAttachment(
+        filePath: _pickedAttachmentPath!,
+        fileName: _attachmentName ?? 'attachment',
+        contentType: FilePickerUtils.getMimeType(_attachmentType),
+      );
+      if (!mounted) return;
+      setState(() => _uploadingAttachment = false);
+      if (uploadedAssetCode == null || uploadedAssetCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Could not upload the attachment. Please try again.',
+          isError: true,
+        );
+        return;
+      }
+    }
+
     final effort = double.tryParse(_effortController.text.trim()) ?? 0;
     final now = DateTime.now();
+    // The form works in school-local wall-clock terms throughout; convert to
+    // the UTC date + `HH:mm` the Tasks API wire format expects only now, right
+    // before building the draft that gets sent.
+    final startUtc = TaskTimezone.toUtcWire(
+      date: dates.start,
+      time: _startTime,
+      ianaName: _schoolTimeZone,
+    );
+    final dueUtc = TaskTimezone.toUtcWire(
+      date: dates.due,
+      time: _dueTime,
+      ianaName: _schoolTimeZone,
+    );
     final base = _editing ??
         Task(
           code: '',
           title: '',
-          startDate: dates.start,
-          dueDate: dates.due,
+          startDate: startUtc.$1,
+          dueDate: dueUtc.$1,
           createdAt: now,
           updatedAt: now,
         );
@@ -837,10 +1168,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       description: _descriptionController.text.trim(),
       status: _status,
       priority: _priority,
-      startDate: dates.start,
-      startTime: _formatTime(_startTime),
-      dueDate: dates.due,
-      dueTime: _formatTime(_dueTime),
+      startDate: startUtc.$1,
+      startTime: startUtc.$2,
+      dueDate: dueUtc.$1,
+      dueTime: dueUtc.$2,
       effort: effort,
       recurring: _recurring,
       recurringPattern: () => _recurring ? _recurringPattern : null,
@@ -854,23 +1185,28 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
     final bool ok;
     if (_isEditing) {
-      final entry = _assignees.entries.first;
       // Attachments persist through the series' assetCodes full-replace (§3c):
       // send the freshly-uploaded asset, an empty list when the existing one
       // was removed, or null to leave attachments untouched.
       List<String>? assetCodes;
-      if (_attachmentAssetCode != null) {
-        assetCodes = [_attachmentAssetCode!];
+      if (uploadedAssetCode != null) {
+        assetCodes = [uploadedAssetCode];
       } else if ((_editing?.attachmentName ?? '').isNotEmpty &&
-          (_attachmentName ?? '').isEmpty) {
+          !_hasAttachment) {
         assetCodes = const <String>[];
       }
+      // The card being edited keeps its own assignee (draft inherits it from
+      // _editing). Anything picked that wasn't already on the series is a new
+      // assignee; the cubit appends each to the roster so the backend
+      // materializes a new task card for them.
+      final added = _assignees.entries
+          .where((e) => !_lockedAssignees.contains(e.key))
+          .map((e) => (code: e.key, name: e.value))
+          .toList();
       ok = await cubit.update(
-        draft.copyWith(
-          assigneeCode: entry.key,
-          assigneeName: entry.value,
-        ),
+        draft,
         assetCodes: assetCodes,
+        addedAssignees: added,
       );
     } else {
       final assignees = _assignees.entries
@@ -879,22 +1215,28 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       ok = await cubit.create(
         draft,
         assignees,
-        assetCodes: _attachmentAssetCode == null
-            ? const []
-            : [_attachmentAssetCode!],
+        assetCodes:
+            uploadedAssetCode == null ? const [] : [uploadedAssetCode],
       );
     }
 
     if (!mounted) return;
     if (ok) {
-      final created = !_isEditing && _assignees.length > 1;
+      final String message;
+      if (_isEditing) {
+        final added = _addedAssigneeCount;
+        message = added > 0
+            ? 'Task updated · $added new ${added == 1 ? 'task' : 'tasks'} '
+                'created'
+            : 'Task updated';
+      } else {
+        message = _assignees.length > 1
+            ? '${_assignees.length} tasks created'
+            : 'Task created';
+      }
       CoreUtils.showTopSnackBar(
         context: context,
-        message: _isEditing
-            ? 'Task updated'
-            : created
-                ? '${_assignees.length} tasks created'
-                : 'Task created',
+        message: message,
         isSuccess: true,
       );
       context.pop();
@@ -905,6 +1247,52 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         isError: true,
       );
     }
+  }
+
+  /// The start/due window the validation gate reasons about: a one-off's own
+  /// dates, or a recurring task's *derived* dates. Never null (unlike
+  /// [_resolveDates], which rejects an invalid one-off window) so the gate can
+  /// evaluate the range itself and surface the reason inline.
+  ({DateTime start, DateTime due}) _windowForValidation() {
+    if (!_recurring) return (start: _startDate, due: _dueDate);
+    return _resolveDates() ?? (start: _startDate, due: _dueDate);
+  }
+
+  /// Shows the concrete calendar dates the recurrence resolves to for its next
+  /// occurrence, alongside the picked times — so it's clear which day each
+  /// time-of-day actually falls on (a due time that reads "earlier" than the
+  /// start time is fine whenever the due date itself is a later day).
+  Widget _recurrenceWindowPreview(({DateTime start, DateTime due}) window) {
+    final startLabel = DateFormat('EEE, MMM d').format(window.start);
+    final dueLabel = DateFormat('EEE, MMM d').format(window.due);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.event_available_outlined, size: 14, color: Colors.grey[600]),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              'Next occurrence: $startLabel, ${_startTime.format(context)} → '
+              '$dueLabel, ${_dueTime.format(context)}',
+              style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A small red field-level error line shown beneath an invalid input.
+  Widget _fieldError(String message) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 6, left: 2),
+      child: Text(
+        message,
+        style: const TextStyle(fontSize: 11.5, color: AppColors.errorColor),
+      ),
+    );
   }
 
   /// Resolves the concrete start/due dates from the form, applying recurring
@@ -926,7 +1314,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     }
     switch (_recurringPattern) {
       case TaskRecurrence.daily:
-        final today = _dateOnly(DateTime.now());
+        final today = TaskTimezone.today(_schoolTimeZone);
         return (start: today, due: today);
       case TaskRecurrence.weekly:
         final start = _nextWeekday(_startDay);
@@ -964,7 +1352,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     required ValueChanged<TimeOfDay> onTime,
     DateTime? firstDate,
   }) {
-    final effectiveFirst = firstDate ?? DateTime(DateTime.now().year - 1);
+    final schoolToday = TaskTimezone.today(_schoolTimeZone);
+    final effectiveFirst = firstDate ?? DateTime(schoolToday.year - 1);
     return Row(
       children: [
         Expanded(
@@ -980,7 +1369,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 initialDate:
                     date.isBefore(effectiveFirst) ? effectiveFirst : date,
                 firstDate: effectiveFirst,
-                lastDate: DateTime(DateTime.now().year + 3),
+                lastDate: DateTime(schoolToday.year + 3),
               );
               if (picked != null) onDate(_dateOnly(picked));
             },
@@ -1121,7 +1510,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   DateTime _nextWeekday(String dayName) {
     final target = _weekdays.indexOf(dayName.toUpperCase()) + 1; // 1..7
-    final now = _dateOnly(DateTime.now());
+    final now = TaskTimezone.today(_schoolTimeZone);
     if (target < 1) return now;
     var diff = (target - now.weekday) % 7;
     if (diff < 0) diff += 7;
@@ -1129,7 +1518,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   }
 
   DateTime _monthlyDate(int day, {int monthOffset = 0}) {
-    final now = DateTime.now();
+    final now = TaskTimezone.today(_schoolTimeZone);
     final base = DateTime(now.year, now.month + monthOffset, 1);
     final lastDay = DateTime(base.year, base.month + 1, 0).day;
     final clamped = day.clamp(1, lastDay);
@@ -1138,19 +1527,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   static DateTime _dateOnly(DateTime dateTime) =>
       DateTime(dateTime.year, dateTime.month, dateTime.day);
-
-  static TimeOfDay? _parseTime(String hhmm) {
-    final parts = hhmm.split(':');
-    if (parts.length != 2) return null;
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null || minute == null) return null;
-    return TimeOfDay(hour: hour, minute: minute);
-  }
-
-  static String _formatTime(TimeOfDay time) =>
-      '${time.hour.toString().padLeft(2, '0')}:'
-      '${time.minute.toString().padLeft(2, '0')}';
 
   static String _titleCase(String value) {
     if (value.isEmpty) return value;
@@ -1170,176 +1546,5 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       default:
         return '${day}th';
     }
-  }
-}
-
-/// Searchable assignee picker. Multi-select in add mode (one task per
-/// assignee, PRD FR-TK-03); single-select in edit mode (PRD FR-TK-04). Only
-/// ACTIVE staff are passed in by the caller.
-class _AssigneeSheet extends StatefulWidget {
-  const _AssigneeSheet({
-    required this.options,
-    required this.initialSelection,
-    required this.isLoading,
-    required this.singleSelect,
-  });
-
-  final List<({String code, String name})> options;
-  final Map<String, String> initialSelection;
-  final bool isLoading;
-  final bool singleSelect;
-
-  @override
-  State<_AssigneeSheet> createState() => _AssigneeSheetState();
-}
-
-class _AssigneeSheetState extends State<_AssigneeSheet> {
-  late final Map<String, String> _selection = Map.of(widget.initialSelection);
-  String _query = '';
-
-  @override
-  Widget build(BuildContext context) {
-    final filtered = widget.options
-        .where((o) =>
-            _query.isEmpty ||
-            o.name.toLowerCase().contains(_query.toLowerCase()))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
-
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(context).viewInsets.bottom,
-        ),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.7,
-          child: Column(
-            children: [
-              const SizedBox(height: 10),
-              Container(
-                width: 38,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    widget.singleSelect ? 'Select assignee' : 'Select assignees',
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
-                  ),
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: TextField(
-                  onChanged: (value) => setState(() => _query = value),
-                  decoration: InputDecoration(
-                    hintText: 'Search staff…',
-                    hintStyle:
-                        TextStyle(fontSize: 13, color: Colors.grey[500]),
-                    prefixIcon: const Icon(Icons.search, size: 19),
-                    isDense: true,
-                    filled: true,
-                    fillColor: Colors.grey[100],
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide.none,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Expanded(
-                child: widget.isLoading && widget.options.isEmpty
-                    ? const Center(child: CircularProgressIndicator())
-                    : filtered.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No active staff found',
-                              style: TextStyle(color: Colors.grey[600]),
-                            ),
-                          )
-                        : ListView.builder(
-                            itemCount: filtered.length,
-                            itemBuilder: (context, index) {
-                              final staff = filtered[index];
-                              final checked =
-                                  _selection.containsKey(staff.code);
-                              return CheckboxListTile(
-                                dense: true,
-                                value: checked,
-                                activeColor: AppColors.themeColor,
-                                controlAffinity:
-                                    ListTileControlAffinity.trailing,
-                                title: Text(
-                                  staff.name.isNotEmpty
-                                      ? staff.name
-                                      : staff.code,
-                                  style: const TextStyle(fontSize: 13.5),
-                                ),
-                                onChanged: (_) {
-                                  setState(() {
-                                    if (widget.singleSelect) {
-                                      _selection
-                                        ..clear()
-                                        ..[staff.code] = staff.name;
-                                    } else if (checked) {
-                                      _selection.remove(staff.code);
-                                    } else {
-                                      _selection[staff.code] = staff.name;
-                                    }
-                                  });
-                                },
-                              );
-                            },
-                          ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 6, 16, 12),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 44,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildPrimaryGradient(),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                        shadowColor: Colors.transparent,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                      ),
-                      onPressed: () => Navigator.pop(context, _selection),
-                      child: Text(
-                        widget.singleSelect
-                            ? 'Done'
-                            : 'Done (${_selection.length})',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13.5,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
   }
 }

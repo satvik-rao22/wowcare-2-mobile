@@ -11,10 +11,12 @@ import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart'
 /// (Tasks API §5–§7). This is the unit the board, the flat assignments list
 /// and the status endpoint all return, and it maps 1:1 onto a UI [Task] card.
 ///
-/// The payload now carries [description] (joined back from the parent series)
-/// and [effort] alongside the core fields, so a card/detail screen no longer
-/// needs a separate series fetch to show them. Recurrence and creator still
-/// live only on [TaskSeriesModel].
+/// The occurrence's schedule now arrives as discrete fields — [occurrenceDate]
+/// (the card's own start day), [startTime], [dueDate] and [dueTime] — rather
+/// than a single combined `dueAt` instant. The payload also carries
+/// [description] (joined back from the parent series) and [effort], so a
+/// card/detail screen no longer needs a separate series fetch to show them.
+/// Recurrence and creator still live only on [TaskSeriesModel].
 class TaskAssignmentModel extends Equatable {
   const TaskAssignmentModel({
     required this.code,
@@ -24,7 +26,9 @@ class TaskAssignmentModel extends Equatable {
     this.assigneeCode = '',
     this.assigneeName = '',
     required this.occurrenceDate,
-    required this.dueAt,
+    this.startTime = '',
+    required this.dueDate,
+    this.dueTime = '',
     this.priority = 'MEDIUM',
     this.status = 'TO_DO',
     this.effort = 0,
@@ -32,10 +36,10 @@ class TaskAssignmentModel extends Equatable {
 
   factory TaskAssignmentModel.fromJson(Map<String, dynamic> json) {
     final occurrence = _parseDate(json['occurrenceDate']) ?? DateTime.now();
-    // `dueAt` is a full instant, usually UTC (`…17:00:00Z`). Convert to the
-    // device's local zone before it is split into a local date/time downstream,
-    // otherwise a 17:00Z due shows/compares as 17:00 local (off by the offset).
-    final due = (_parseDate(json['dueAt']) ?? occurrence).toLocal();
+    // Due date/time are now separate fields (Tasks API §5–§7); the older
+    // combined `dueAt` instant is gone. `dueTime`/`startTime` arrive as
+    // `HH:mm:ss` (or `HH:mm`) wall-clock strings — normalized to `HH:mm` — and
+    // the due date falls back to the occurrence day when the payload omits it.
     return TaskAssignmentModel(
       code: (json['code'] ?? '').toString().trim(),
       taskCode: (json['taskCode'] ?? '').toString().trim(),
@@ -48,7 +52,9 @@ class TaskAssignmentModel extends Equatable {
       // so cards show a name if the backend ever denormalizes one.
       assigneeName: (json['assigneeName'] ?? '').toString(),
       occurrenceDate: occurrence,
-      dueAt: due,
+      startTime: _hhmm(json['startTime']),
+      dueDate: _parseDate(json['dueDate']) ?? occurrence,
+      dueTime: _hhmm(json['dueTime']),
       priority: (json['priority'] ?? 'MEDIUM').toString(),
       status: (json['status'] ?? 'TO_DO').toString(),
       // Estimated hours — per-assignment (the series has no `effort` field).
@@ -65,7 +71,12 @@ class TaskAssignmentModel extends Equatable {
   final String assigneeCode;
   final String assigneeName;
   final DateTime occurrenceDate;
-  final DateTime dueAt;
+
+  /// The occurrence's own start/due wall-clock times as `HH:mm` (empty when the
+  /// payload omits them, so [toEntity] falls back to the entity defaults).
+  final String startTime;
+  final DateTime dueDate;
+  final String dueTime;
   final String priority;
   final String status;
   final double effort;
@@ -81,8 +92,9 @@ class TaskAssignmentModel extends Equatable {
       status: TaskStatus.fromValue(status),
       priority: TaskPriority.fromValue(priority),
       startDate: occurrenceDate,
-      dueDate: DateTime(dueAt.year, dueAt.month, dueAt.day),
-      dueTime: _formatTime(dueAt),
+      startTime: startTime.isEmpty ? '09:00' : startTime,
+      dueDate: dueDate,
+      dueTime: dueTime.isEmpty ? '17:00' : dueTime,
       effort: effort,
       createdAt: occurrenceDate,
       updatedAt: occurrenceDate,
@@ -97,7 +109,9 @@ class TaskAssignmentModel extends Equatable {
         description,
         assigneeCode,
         occurrenceDate,
-        dueAt,
+        startTime,
+        dueDate,
+        dueTime,
         priority,
         status,
         effort,
@@ -148,18 +162,29 @@ class TaskSeriesModel extends Equatable {
       return value.isEmpty ? null : value;
     }
 
+    // Create/update/detail (§1/§2a/§3) return the recurrence as ONE RFC 5545
+    // `rrule` string (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR;UNTIL=20260930`)
+    // plus a convenience `rruleUntil` parsed date — there are no separate
+    // `rruleInterval`/`rruleByDay`/`rruleByMonthday` keys on the wire. The lean
+    // series list (§2) instead sends a bare `rruleFreq` (just the FREQ token,
+    // e.g. `"WEEKLY"`) with nothing else. Parse `rrule` when present and fall
+    // back to the decomposed fields otherwise, so both shapes round-trip.
+    final rrule = _RruleParts.parse(json['rrule']?.toString());
     return TaskSeriesModel(
       code: (json['code'] ?? '').toString().trim(),
       title: (json['title'] ?? '').toString(),
       description: (json['description'] ?? '').toString(),
       recurringFlag: json['recurringFlag'] == true,
-      rruleFreq: emptyToNull(json['rruleFreq']),
-      rruleInterval: parseNullableInt(json['rruleInterval']),
+      rruleFreq: rrule?.freq ?? emptyToNull(json['rruleFreq']),
+      rruleInterval: rrule?.interval ?? parseNullableInt(json['rruleInterval']),
       // Detail (§2a) returns `rruleByDay` comma-joined (`"MO,WE,FR"`); create
       // requests send a list. Accept either so this model round-trips both.
-      rruleByDay: _parseByDay(json['rruleByDay']),
-      rruleByMonthday: parseNullableInt(json['rruleByMonthday']),
-      rruleUntil: _parseDate(json['rruleUntil']),
+      rruleByDay:
+          rrule != null && rrule.byDay.isNotEmpty
+              ? rrule.byDay
+              : _parseByDay(json['rruleByDay']),
+      rruleByMonthday: rrule?.byMonthday ?? parseNullableInt(json['rruleByMonthday']),
+      rruleUntil: rrule?.until ?? _parseDate(json['rruleUntil']),
       seriesStartDate: _parseDate(json['seriesStartDate']),
       seriesStartTime: (json['seriesStartTime'] ?? '').toString().trim(),
       seriesEndTime: (json['seriesEndTime'] ?? '').toString().trim(),
@@ -408,28 +433,48 @@ abstract final class TaskRequestBuilder {
     };
 
     if (task.recurring) {
-      final freq = task.recurringPattern ?? TaskRecurrence.daily;
-      json['rruleFreq'] = freq.value;
-      // The UI only models every-1 cadence; send it explicitly so the wire
-      // matches the API samples (every recurring create/update carries it) and
-      // never relies on a server-side default.
-      json['rruleInterval'] = 1;
-      if (freq == TaskRecurrence.weekly && task.startDay != null) {
-        json['rruleByDay'] = [_weekdayAbbr(task.startDay!)];
-      }
-      if (freq == TaskRecurrence.monthly && task.startDay != null) {
-        final day = int.tryParse(task.startDay!.trim());
-        if (day != null) json['rruleByMonthday'] = day;
-      }
-      if (task.recurringEndDate != null) {
-        json['rruleUntil'] = formatDate(task.recurringEndDate!);
-      }
+      // The API wants ONE RFC 5545 `rrule` string, not decomposed
+      // freq/interval/byDay/byMonthday/until fields — those aren't a
+      // recognized request shape and the server reports "rrule is required"
+      // when they're sent instead.
+      json['rrule'] = _buildRrule(task);
     } else {
       json['startDate'] = formatDate(task.startDate);
       json['dueDate'] = formatDate(task.dueDate);
     }
     return json;
   }
+
+  /// Builds the single RFC 5545 `rrule` string the API requires when
+  /// `recurring = true` (e.g. `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;UNTIL=20260930`).
+  /// `INTERVAL=1` is always sent explicitly (the UI only models every-1
+  /// cadence); `BYDAY`/`BYMONTHDAY` are included only for the matching
+  /// frequency; `UNTIL` (basic `yyyyMMdd` format) is appended whenever an end
+  /// date is set — the API validation notes call `UNTIL` mandatory, so a null
+  /// [Task.recurringEndDate] here surfaces as a clear server-side 400 rather
+  /// than the request silently omitting the whole `rrule` field.
+  static String _buildRrule(Task task) {
+    final freq = task.recurringPattern ?? TaskRecurrence.daily;
+    final parts = <String>['FREQ=${freq.value}', 'INTERVAL=1'];
+    if (freq == TaskRecurrence.weekly && task.startDay != null) {
+      parts.add('BYDAY=${_weekdayAbbr(task.startDay!)}');
+    }
+    if (freq == TaskRecurrence.monthly && task.startDay != null) {
+      final day = int.tryParse(task.startDay!.trim());
+      if (day != null) parts.add('BYMONTHDAY=$day');
+    }
+    if (task.recurringEndDate != null) {
+      parts.add('UNTIL=${_formatBasicDate(task.recurringEndDate!)}');
+    }
+    return parts.join(';');
+  }
+
+  /// `yyyyMMdd` — the basic date format RRULE's `UNTIL` requires (no dashes),
+  /// distinct from [formatDate]'s `yyyy-MM-dd`.
+  static String _formatBasicDate(DateTime date) =>
+      '${date.year.toString().padLeft(4, '0')}'
+      '${date.month.toString().padLeft(2, '0')}'
+      '${date.day.toString().padLeft(2, '0')}';
 
   /// Body for `PATCH /api/v1/tasks/assignments/{code}/status`.
   static Map<String, dynamic> statusBody(TaskStatus status) =>
@@ -442,15 +487,21 @@ abstract final class TaskRequestBuilder {
 
   /// Body for `PATCH /api/v1/tasks/assignments/{code}` (§5b). Every field is
   /// optional — an omitted/null field means "leave unchanged" — so callers send
-  /// only what changed. Beyond the documented `dueAt`/`priority`, the endpoint
-  /// also accepts the full create-time field set ([title], [description],
-  /// [status], [effort], the [schedule] recurrence/dates, roster [assignees] and
-  /// [assetCodes]); the app funnels every edit-form save through here rather than
-  /// the series endpoint. `dueAt` is serialized as a UTC ISO-8601 `Z` instant.
+  /// only what changed. The occurrence's own schedule now travels as the
+  /// discrete [occurrenceDate]/[startTime]/[dueDate]/[dueTime] the endpoint
+  /// documents (no combined `dueAt` instant). Beyond those, the endpoint also
+  /// accepts the rest of the create-time field set ([title], [description],
+  /// [priority], [status], [effort], the [schedule] recurrence rule for a
+  /// recurring series, roster [assignees] and [assetCodes]); the app funnels
+  /// every edit-form save through here rather than the series endpoint. Dates
+  /// serialize as `YYYY-MM-DD`; [startTime]/[dueTime] are `HH:mm` wall-clock.
   static Map<String, dynamic> assignmentPatchBody({
     String? title,
     String? description,
-    DateTime? dueAt,
+    DateTime? occurrenceDate,
+    String? startTime,
+    DateTime? dueDate,
+    String? dueTime,
     TaskPriority? priority,
     TaskStatus? status,
     double? effort,
@@ -461,7 +512,10 @@ abstract final class TaskRequestBuilder {
       <String, dynamic>{
         if (title != null) 'title': title,
         if (description != null) 'description': description,
-        if (dueAt != null) 'dueAt': _formatInstant(dueAt),
+        if (occurrenceDate != null) 'occurrenceDate': formatDate(occurrenceDate),
+        if (startTime != null) 'startTime': startTime,
+        if (dueDate != null) 'dueDate': formatDate(dueDate),
+        if (dueTime != null) 'dueTime': dueTime,
         if (priority != null) 'priority': priority.value,
         if (status != null) 'status': status.value,
         if (effort != null) 'effort': effort,
@@ -491,10 +545,6 @@ abstract final class TaskRequestBuilder {
         if (overrideDescription != null)
           'overrideDescription': overrideDescription,
       };
-
-  /// UTC ISO-8601 instant with a `Z` suffix (e.g. `2026-07-18T17:00:00Z`).
-  static String _formatInstant(DateTime dt) =>
-      '${dt.toUtc().toIso8601String().split('.').first}Z';
 
   /// Query parameters shared by `GET /tasks/assignments` (§7) and
   /// `GET /tasks/board` (§6): assignee/priority/status multi-selects, a due-date
@@ -569,8 +619,94 @@ DateTime? _parseDate(dynamic raw) {
   return DateTime.tryParse(raw.toString());
 }
 
-String _formatTime(DateTime dt) =>
-    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+/// Parsed pieces of an RFC 5545 `rrule` string (e.g.
+/// `FREQ=WEEKLY;INTERVAL=1;BYDAY=MO,WE,FR;UNTIL=20260930`), as returned by the
+/// create/update/detail (§1/§2a/§3) response's `rrule` field. [parse] returns
+/// `null` for a blank/absent string so callers fall back to whatever
+/// decomposed fields the payload carries instead (the lean §2 list shape,
+/// which sends a bare `rruleFreq` and nothing else).
+class _RruleParts {
+  const _RruleParts({
+    this.freq,
+    this.interval,
+    this.byDay = const [],
+    this.byMonthday,
+    this.until,
+  });
+
+  final String? freq;
+  final int? interval;
+  final List<String> byDay;
+  final int? byMonthday;
+  final DateTime? until;
+
+  static _RruleParts? parse(String? raw) {
+    final value = (raw ?? '').trim();
+    if (value.isEmpty) return null;
+
+    String? freq;
+    int? interval;
+    var byDay = const <String>[];
+    int? byMonthday;
+    DateTime? until;
+
+    for (final segment in value.split(';')) {
+      final eq = segment.indexOf('=');
+      if (eq <= 0) continue;
+      final key = segment.substring(0, eq).trim().toUpperCase();
+      final val = segment.substring(eq + 1).trim();
+      if (key == 'FREQ') {
+        freq = val.toUpperCase();
+      } else if (key == 'INTERVAL') {
+        interval = int.tryParse(val);
+      } else if (key == 'BYDAY') {
+        byDay = val
+            .split(',')
+            .map((e) => e.trim().toUpperCase())
+            .where((e) => e.isNotEmpty)
+            .toList();
+      } else if (key == 'BYMONTHDAY') {
+        byMonthday = int.tryParse(val.split(',').first.trim());
+      } else if (key == 'UNTIL') {
+        until = _parseBasicDate(val);
+      }
+    }
+
+    return _RruleParts(
+      freq: freq,
+      interval: interval,
+      byDay: byDay,
+      byMonthday: byMonthday,
+      until: until,
+    );
+  }
+
+  /// `yyyyMMdd` (RRULE's basic date format for `UNTIL`) → [DateTime]. Returns
+  /// null for anything malformed rather than guessing.
+  static DateTime? _parseBasicDate(String raw) {
+    final digits = raw.trim();
+    if (digits.length < 8) return null;
+    final year = int.tryParse(digits.substring(0, 4));
+    final month = int.tryParse(digits.substring(4, 6));
+    final day = int.tryParse(digits.substring(6, 8));
+    if (year == null || month == null || day == null) return null;
+    return DateTime(year, month, day);
+  }
+}
+
+/// Normalizes a wire time (`HH:mm:ss` or `HH:mm`) to the `HH:mm` the entity and
+/// UI expect. Returns `''` when the value is absent or malformed, so [toEntity]
+/// can fall back to the entity's own default.
+String _hhmm(dynamic raw) {
+  final value = (raw ?? '').toString().trim();
+  if (value.isEmpty) return '';
+  final parts = value.split(':');
+  if (parts.length < 2) return '';
+  final hour = int.tryParse(parts[0]);
+  final minute = int.tryParse(parts[1]);
+  if (hour == null || minute == null) return '';
+  return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
+}
 
 int _parseIntOr(dynamic raw, {int fallback = 0}) {
   if (raw is num) return raw.toInt();

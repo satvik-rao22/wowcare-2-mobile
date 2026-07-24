@@ -224,16 +224,20 @@ class Task extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  /// Combined due moment from [dueDate] and [dueTime] (`HH:mm`).
+  /// Combined due moment from [dueDate] and [dueTime] (`HH:mm`) — both wire
+  /// values are UTC, so this is built as a UTC instant ([DateTime.utc]) even
+  /// though [dueDate]/[dueTime] carry no timezone flag of their own.
   DateTime get dueAt {
     final parts = dueTime.split(':');
     final hour = parts.length == 2 ? int.tryParse(parts[0]) ?? 17 : 17;
     final minute = parts.length == 2 ? int.tryParse(parts[1]) ?? 0 : 0;
-    return DateTime(dueDate.year, dueDate.month, dueDate.day, hour, minute);
+    return DateTime.utc(
+        dueDate.year, dueDate.month, dueDate.day, hour, minute);
   }
 
   /// Overdue when the due moment has passed and the task isn't completed
-  /// (PRD FR-TK-18).
+  /// (PRD FR-TK-18). [now] may be any timezone-flagged instant — comparison
+  /// is by absolute instant, not local wall-clock fields.
   bool isOverdueAt(DateTime now) =>
       status != TaskStatus.completed && dueAt.isBefore(now);
 

@@ -25,6 +25,8 @@ class TasksState extends Equatable {
     required this.currentUserName,
     this.currentStaffCode = '',
     this.errorMessage,
+    this.errorNonce = 0,
+    this.schoolTimeZone = TaskTimezone.fallbackTimeZone,
   });
 
   const TasksState.initial()
@@ -43,7 +45,9 @@ class TasksState extends Equatable {
         currentUserCode = '',
         currentUserName = '',
         currentStaffCode = '',
-        errorMessage = null;
+        errorMessage = null,
+        errorNonce = 0,
+        schoolTimeZone = TaskTimezone.fallbackTimeZone;
 
   final List<Task> tasks;
   final bool isLoading;
@@ -76,6 +80,19 @@ class TasksState extends Equatable {
   /// before resolution. Used to match the user against task assignee/creator.
   final String currentStaffCode;
   final String? errorMessage;
+
+  /// The current school's IANA timezone (Tasks-specific fallback: Boston),
+  /// resolved on [TasksCubit.load]. Drives every date/time picker's defaults
+  /// and the UTC-to-local conversion for displayed schedules.
+  final String schoolTimeZone;
+
+  /// Bumped every time [errorMessage] is set to a non-null value. Two
+  /// failures in a row can produce the exact same message text (e.g. the same
+  /// generic "Failed to update task" from two consecutive offline retries);
+  /// listeners key off this instead of the message text so a repeat failure
+  /// still re-triggers its own toast/dismiss-timer rather than being silently
+  /// dropped because the text didn't change.
+  final int errorNonce;
 
   /// Count of active sheet filters shown on the Filters button. Search is
   /// tracked separately by [hasActiveFilters] so the search bar drives the
@@ -248,7 +265,13 @@ class TasksState extends Equatable {
     String? currentUserName,
     String? currentStaffCode,
     String? Function()? errorMessage,
+    String? schoolTimeZone,
   }) {
+    final resolvedError =
+        errorMessage != null ? errorMessage() : this.errorMessage;
+    final bumpedNonce = errorMessage != null && resolvedError != null
+        ? errorNonce + 1
+        : errorNonce;
     return TasksState(
       tasks: tasks ?? this.tasks,
       isLoading: isLoading ?? this.isLoading,
@@ -265,7 +288,9 @@ class TasksState extends Equatable {
       currentUserCode: currentUserCode ?? this.currentUserCode,
       currentUserName: currentUserName ?? this.currentUserName,
       currentStaffCode: currentStaffCode ?? this.currentStaffCode,
-      errorMessage: errorMessage != null ? errorMessage() : this.errorMessage,
+      errorMessage: resolvedError,
+      errorNonce: bumpedNonce,
+      schoolTimeZone: schoolTimeZone ?? this.schoolTimeZone,
     );
   }
 
@@ -287,5 +312,7 @@ class TasksState extends Equatable {
         currentUserName,
         currentStaffCode,
         errorMessage,
+        errorNonce,
+        schoolTimeZone,
       ];
 }

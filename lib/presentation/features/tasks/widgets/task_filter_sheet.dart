@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/debouncer.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 
 /// Bottom-drawer filter panel for tasks. Short, fixed dimensions (status +
@@ -199,6 +200,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                       context: context,
                       label: 'From',
                       value: state.dateFrom,
+                      schoolTimeZone: state.schoolTimeZone,
                       onPicked: (date) => cubit.setDateRange(
                           from: date, to: state.dateTo),
                       onCleared: () => cubit.setDateRange(
@@ -211,6 +213,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
                       context: context,
                       label: 'To',
                       value: state.dateTo,
+                      schoolTimeZone: state.schoolTimeZone,
                       onPicked: (date) => cubit.setDateRange(
                           from: state.dateFrom, to: date),
                       onCleared: () => cubit.setDateRange(
@@ -399,6 +402,7 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
     required BuildContext context,
     required String label,
     required DateTime? value,
+    required String schoolTimeZone,
     required ValueChanged<DateTime> onPicked,
     required VoidCallback onCleared,
   }) {
@@ -408,11 +412,12 @@ class _TaskFilterSheetState extends State<_TaskFilterSheet> {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () async {
+          final today = TaskTimezone.today(schoolTimeZone);
           final picked = await showDatePicker(
             context: context,
-            initialDate: value ?? DateTime.now(),
-            firstDate: DateTime(DateTime.now().year - 2),
-            lastDate: DateTime(DateTime.now().year + 3),
+            initialDate: value ?? today,
+            firstDate: DateTime(today.year - 2),
+            lastDate: DateTime(today.year + 3),
           );
           if (picked != null) {
             onPicked(DateTime(picked.year, picked.month, picked.day));

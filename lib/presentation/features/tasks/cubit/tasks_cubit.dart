@@ -20,6 +20,7 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_st
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 
 part 'tasks_state.dart';
 
@@ -105,6 +106,7 @@ class TasksCubit extends Cubit<TasksState> {
       }
       final tasks = await _getTasks(query: state.searchQuery);
       await _ensureStaffNames();
+      final schoolTimeZone = await TaskTimezone.resolve();
       emit(state.copyWith(
         scope: scope,
         tasks: _withAssigneeNames(tasks),
@@ -112,6 +114,7 @@ class TasksCubit extends Cubit<TasksState> {
         currentUserCode: userCode,
         currentUserName: userName,
         currentStaffCode: staffCode,
+        schoolTimeZone: schoolTimeZone,
         errorMessage: () => null,
       ));
     } catch (e) {
@@ -244,13 +247,23 @@ class TasksCubit extends Cubit<TasksState> {
   /// `PATCH /tasks/assignments/{code}`), keyed by this card's own `TSA_` code —
   /// the single edit endpoint the backend expects the form to use, for **every**
   /// field (title, description, schedule/recurrence, priority, status, effort,
-  /// assignee, attachments), not just `dueAt`/`priority`. Only the fields that
+  /// assignee, attachments), not just the due date/time. Only the fields that
   /// actually changed are sent (null = unchanged), so the wire payload stays
   /// minimal. On a reassignment the roster is rebuilt from sibling cards so a
   /// full-replace never prunes other assignees. [assetCodes] full-replaces
-  /// attachments (`[]` clears, a list sets, null leaves them alone). Reloads on
-  /// success.
-  Future<bool> update(Task task, {List<String>? assetCodes}) async {
+  /// attachments (`[]` clears, a list sets, null leaves them alone).
+  ///
+  /// [addedAssignees] are staff picked in the edit form who weren't already on
+  /// the series. They're appended to the rebuilt roster and sent as a
+  /// full-replace, so the server materializes one new assignment card per added
+  /// assignee (existing assignees and their cards are preserved untouched). The
+  /// card being edited keeps its own assignee — this never reassigns it.
+  /// Reloads on success.
+  Future<bool> update(
+    Task task, {
+    List<String>? assetCodes,
+    List<TaskAssigneeRef> addedAssignees = const [],
+  }) async {
     if (task.code.isEmpty) {
       emit(state.copyWith(errorMessage: () => 'Missing task reference'));
       return false;
@@ -270,32 +283,46 @@ class TasksCubit extends Cubit<TasksState> {
       final dueChanged = previous == null ||
           previous.dueDate != task.dueDate ||
           previous.dueTime != task.dueTime;
-      final startOrRecurrenceChanged = previous == null ||
+      final startChanged = previous == null ||
           previous.startDate != task.startDate ||
-          previous.startTime != task.startTime ||
+          previous.startTime != task.startTime;
+      final recurrenceChanged = previous == null ||
           previous.recurring != task.recurring ||
           previous.recurringPattern != task.recurringPattern ||
           previous.recurringEndDate != task.recurringEndDate ||
           previous.startDay != task.startDay;
+      final oneOff = !task.recurring;
+      // New assignees added in the edit form join the series roster; a
+      // reassignment swaps this card's assignee for another. Either way the
+      // roster is rebuilt from sibling cards and sent as a full-replace so no
+      // existing assignee is pruned.
+      final hasAddedAssignees = addedAssignees.isNotEmpty;
+      final rosterChanged = assigneeChanged || hasAddedAssignees;
 
-      // One PATCH to /tasks/assignments/{code} carrying only what changed. The
-      // schedule (start/recurrence) and the due date/time both ride the
-      // [schedule] Task; a reassignment sends the rebuilt roster.
+      // One PATCH to /tasks/assignments/{code} carrying only what changed
+      // (§5b). A one-off's own schedule rides the discrete occurrenceDate/
+      // startTime/dueDate/dueTime fields; a recurring series' RRULE rides the
+      // [schedule] Task (its per-occurrence due date/time still ride the due
+      // fields). A roster change sends the rebuilt roster.
       await _updateAssignment(
         assignmentCode: task.code,
         title: titleChanged ? task.title : null,
         description: descriptionChanged ? task.description : null,
-        dueAt: dueChanged ? task.dueAt : null,
+        occurrenceDate: (oneOff && startChanged) ? task.startDate : null,
+        startTime: (oneOff && startChanged) ? task.startTime : null,
+        dueDate: dueChanged ? task.dueDate : null,
+        dueTime: dueChanged ? task.dueTime : null,
         priority: priorityChanged ? task.priority : null,
         status: statusChanged ? task.status : null,
         effort: effortChanged ? task.effort : null,
-        schedule: startOrRecurrenceChanged ? task : null,
-        assignees: assigneeChanged
+        schedule: (!oneOff && (startChanged || recurrenceChanged)) ? task : null,
+        assignees: rosterChanged
             ? _rosterFor(
                 task.taskCode,
                 editedAssigneeCode: previous?.assigneeCode ?? task.assigneeCode,
                 newAssigneeCode: task.assigneeCode,
                 newPriority: task.priority,
+                added: addedAssignees,
               )
             : null,
         assetCodes: assetCodes,
@@ -413,13 +440,14 @@ class TasksCubit extends Cubit<TasksState> {
     await updateAssignmentDetails(code, priority: priority);
   }
 
-  /// Edits one occurrence's own due moment/priority in isolation (Tasks API §5b)
-  /// — no effect on the series, roster default, or the assignee's other
+  /// Edits one occurrence's own due date/time/priority in isolation (Tasks API
+  /// §5b) — no effect on the series, roster default, or the assignee's other
   /// occurrences. On success the single card is replaced in place. Returns true
   /// on success.
   Future<bool> updateAssignmentDetails(
     String assignmentCode, {
-    DateTime? dueAt,
+    DateTime? dueDate,
+    String? dueTime,
     TaskPriority? priority,
   }) async {
     if (assignmentCode.trim().isEmpty) {
@@ -429,7 +457,8 @@ class TasksCubit extends Cubit<TasksState> {
     try {
       final updated = await _updateAssignment(
         assignmentCode: assignmentCode,
-        dueAt: dueAt,
+        dueDate: dueDate,
+        dueTime: dueTime,
         priority: priority,
       );
       emit(state.copyWith(tasks: _replace(assignmentCode, updated)));
@@ -554,11 +583,15 @@ class TasksCubit extends Cubit<TasksState> {
   /// Rebuilds the full roster for [taskCode] from the loaded cards so a
   /// single-card edit doesn't prune its siblings on a full-replace `PATCH`.
   /// The edited assignee's code/priority are overridden with the new values.
+  /// [added] carries assignees newly picked in the edit form; each is appended
+  /// (deduped) at the task-level [newPriority] so the server materializes a new
+  /// assignment card for them without touching the existing roster.
   List<TaskAssignee> _rosterFor(
     String taskCode, {
     required String editedAssigneeCode,
     required String newAssigneeCode,
     required TaskPriority newPriority,
+    List<TaskAssigneeRef> added = const [],
   }) {
     final roster = <TaskAssignee>[];
     final seen = <String>{};
@@ -574,6 +607,10 @@ class TasksCubit extends Cubit<TasksState> {
     }
     if (newAssigneeCode.isNotEmpty && seen.add(newAssigneeCode)) {
       roster.add(TaskAssignee(staffCode: newAssigneeCode, priority: newPriority));
+    }
+    for (final a in added) {
+      if (a.code.isEmpty || !seen.add(a.code)) continue;
+      roster.add(TaskAssignee(staffCode: a.code, priority: newPriority));
     }
     return roster;
   }

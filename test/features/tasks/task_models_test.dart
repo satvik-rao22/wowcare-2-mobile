@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 
 void main() {
   group('TaskAssignmentModel.fromJson → toEntity', () {
-    test('maps codes, splits dueAt into dueDate/dueTime, keeps taskCode', () {
+    test('maps codes and the split schedule fields, keeps taskCode', () {
       final model = TaskAssignmentModel.fromJson(const {
         'code': 'TSA_1A2B3C4D5E',
         'taskCode': 'TSK_9F2A1B3C4D',
@@ -16,7 +16,9 @@ void main() {
         'description': 'Q3 attendance summary for the board meeting',
         'assigneeCode': 'STF_1A2B3C',
         'occurrenceDate': '2026-07-15',
-        'dueAt': '2026-07-17T17:00:00Z',
+        'startTime': '09:00:00',
+        'dueDate': '2026-07-17',
+        'dueTime': '17:00:00',
         'priority': 'HIGH',
         'status': 'IN_PROGRESS',
         'effort': 3.5,
@@ -35,18 +37,13 @@ void main() {
       expect(task.status, TaskStatus.inProgress);
       expect(task.priority, TaskPriority.high);
       expect(task.startDate, DateTime(2026, 7, 15));
-      // dueAt is converted to local (Fix A), so assert against the local
-      // wall-clock rather than the raw UTC components (timezone-robust).
-      final localDue = DateTime.parse('2026-07-17T17:00:00Z').toLocal();
-      expect(task.dueDate, DateTime(localDue.year, localDue.month, localDue.day));
-      expect(
-        task.dueTime,
-        '${localDue.hour.toString().padLeft(2, '0')}:'
-        '${localDue.minute.toString().padLeft(2, '0')}',
-      );
+      // `HH:mm:ss` wall-clock times are normalized to the `HH:mm` the UI reads.
+      expect(task.startTime, '09:00');
+      expect(task.dueDate, DateTime(2026, 7, 17));
+      expect(task.dueTime, '17:00');
     });
 
-    test('defaults status/priority and tolerates a missing dueAt', () {
+    test('defaults status/priority and tolerates missing schedule parts', () {
       final model = TaskAssignmentModel.fromJson(const {
         'code': 'TSA_X',
         'taskCode': 'TSK_X',
@@ -56,31 +53,43 @@ void main() {
       final task = model.toEntity();
       expect(task.status, TaskStatus.toDo);
       expect(task.priority, TaskPriority.medium);
-      // dueAt falls back to the occurrence date.
+      // The due date falls back to the occurrence date; times to the entity
+      // defaults, when the payload omits them.
       expect(task.dueDate, DateTime(2026, 7, 15));
+      expect(task.startTime, '09:00');
+      expect(task.dueTime, '17:00');
     });
 
-    // Fix A: a UTC `dueAt` must be converted to the device's local wall-clock
-    // before being split into dueDate/dueTime, otherwise overdue math and the
-    // displayed time are off by the timezone offset.
-    test('converts a UTC dueAt to local before splitting date/time', () {
-      const iso = '2026-07-17T17:00:00Z';
+    test('reads dueTime as a literal wall-clock (no timezone shift)', () {
       final model = TaskAssignmentModel.fromJson(const {
         'code': 'TSA_TZ',
         'taskCode': 'TSK_TZ',
         'title': 'x',
-        'occurrenceDate': '2026-07-15',
-        'dueAt': iso,
+        'occurrenceDate': '2026-07-22',
+        'dueDate': '2026-07-22',
+        'dueTime': '17:38:00',
       });
       final task = model.toEntity();
 
-      final local = DateTime.parse(iso).toLocal();
-      final expectedTime = '${local.hour.toString().padLeft(2, '0')}:'
-          '${local.minute.toString().padLeft(2, '0')}';
-      expect(task.dueTime, expectedTime);
-      expect(task.dueDate, DateTime(local.year, local.month, local.day));
-      // The reconstructed due moment must equal the original instant.
-      expect(task.dueAt, local);
+      // Exactly the entered wall-clock, on any device timezone.
+      expect(task.dueTime, '17:38');
+      expect(task.dueDate, DateTime(2026, 7, 22));
+    });
+
+    // A due date that rolls past the occurrence date (e.g. a next-day due)
+    // keeps its own calendar day, independent of the occurrence day.
+    test('keeps the due calendar day when it differs from occurrenceDate', () {
+      final model = TaskAssignmentModel.fromJson(const {
+        'code': 'TSA_ROLL',
+        'taskCode': 'TSK_ROLL',
+        'title': 'x',
+        'occurrenceDate': '2026-07-22',
+        'dueDate': '2026-07-23',
+        'dueTime': '13:00:00',
+      });
+      final task = model.toEntity();
+      expect(task.dueDate, DateTime(2026, 7, 23));
+      expect(task.dueTime, '13:00');
     });
   });
 
@@ -152,10 +161,10 @@ void main() {
       expect((assignees[1] as Map)['priority'], 'MEDIUM');
       // Dates are omitted for recurring only; no assetCodes when none given.
       expect(body.containsKey('assetCodes'), isFalse);
-      expect(body.containsKey('rruleFreq'), isFalse);
+      expect(body.containsKey('rrule'), isFalse);
     });
 
-    test('weekly: sends rruleFreq/rruleByDay and omits concrete dates', () {
+    test('weekly: sends a single rrule string and omits concrete dates', () {
       final body = TaskRequestBuilder.createBody(
         draft: draft(
           recurring: true,
@@ -167,26 +176,40 @@ void main() {
       );
 
       expect(body['recurring'], true);
-      expect(body['rruleFreq'], 'WEEKLY');
-      expect(body['rruleInterval'], 1);
-      expect(body['rruleByDay'], ['MO']);
-      expect(body['rruleUntil'], '2026-09-30');
+      // The API wants ONE RFC 5545 string, not decomposed rruleFreq/
+      // rruleInterval/rruleByDay/rruleUntil fields.
+      expect(body['rrule'], 'FREQ=WEEKLY;INTERVAL=1;BYDAY=MO;UNTIL=20260930');
+      expect(body.containsKey('rruleFreq'), isFalse);
       expect(body.containsKey('startDate'), isFalse);
       expect(body.containsKey('dueDate'), isFalse);
     });
 
-    test('monthly: sends rruleByMonthday from the day-of-month startDay', () {
+    test('monthly: embeds BYMONTHDAY from the day-of-month startDay', () {
       final body = TaskRequestBuilder.createBody(
         draft: draft(
           recurring: true,
           pattern: TaskRecurrence.monthly,
           startDay: '15',
+          until: DateTime(2026, 12, 31),
         ),
         assignees: const [TaskAssignee(staffCode: 'STF_1A2B3C')],
       );
-      expect(body['rruleFreq'], 'MONTHLY');
-      expect(body['rruleByMonthday'], 15);
-      expect(body.containsKey('rruleByDay'), isFalse);
+      expect(
+        body['rrule'],
+        'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15;UNTIL=20261231',
+      );
+    });
+
+    test('recurring with no end date omits UNTIL from the rrule string', () {
+      final body = TaskRequestBuilder.createBody(
+        draft: draft(
+          recurring: true,
+          pattern: TaskRecurrence.monthly,
+          startDay: '1',
+        ),
+        assignees: const [TaskAssignee(staffCode: 'STF_1A2B3C')],
+      );
+      expect(body['rrule'], 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=1');
     });
 
     test('includes assetCodes only when present', () {
@@ -427,7 +450,8 @@ void main() {
                   'taskCode': 'TSK_1',
                   'title': 'A',
                   'occurrenceDate': '2026-07-15',
-                  'dueAt': '2026-07-17T17:00:00Z',
+                  'dueDate': '2026-07-17',
+                  'dueTime': '17:00:00',
                   'status': 'TO_DO',
                 },
               ],
@@ -546,6 +570,41 @@ void main() {
       });
       expect(model.rruleByDay, ['MO', 'WE']);
     });
+
+    // The real create/update/detail (§1/§2a/§3) response carries ONE `rrule`
+    // string plus a convenience `rruleUntil` — not separate rruleInterval/
+    // rruleByDay/rruleByMonthday keys. This is the shape that was silently
+    // unparsed before (recurrencePattern/interval/byDay all read null against
+    // a real backend), breaking the edit form's recurrence prefill.
+    test('parses the single rrule string from a real detail/create/update '
+        'response (weekly)', () {
+      final model = TaskSeriesModel.fromJson(const {
+        'code': 'TSK_1',
+        'title': 'Water plants',
+        'recurringFlag': true,
+        'rrule': 'FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR;UNTIL=20260930',
+        'rruleUntil': '2026-09-30',
+      });
+      expect(model.rruleFreq, 'WEEKLY');
+      expect(model.rruleInterval, 2);
+      expect(model.rruleByDay, ['MO', 'WE', 'FR']);
+      expect(model.rruleUntil, DateTime(2026, 9, 30));
+    });
+
+    test('parses the single rrule string (monthly, BYMONTHDAY)', () {
+      final model = TaskSeriesModel.fromJson(const {
+        'code': 'TSK_1',
+        'title': 'x',
+        'recurringFlag': true,
+        'rrule': 'FREQ=MONTHLY;INTERVAL=1;BYMONTHDAY=15;UNTIL=20270331',
+      });
+      expect(model.rruleFreq, 'MONTHLY');
+      expect(model.rruleByMonthday, 15);
+      expect(model.rruleByDay, isEmpty);
+      // UNTIL embedded in `rrule` is honored even without a separate
+      // `rruleUntil` convenience field.
+      expect(model.rruleUntil, DateTime(2027, 3, 31));
+    });
   });
 
   group('TaskOccurrenceModel.fromJson → toEntity (§11)', () {
@@ -585,14 +644,21 @@ void main() {
       );
     });
 
-    test('assignmentPatchBody sends dueAt as a UTC Z instant + priority (§5b)',
+    test('assignmentPatchBody sends the split schedule fields + priority (§5b)',
         () {
       final body = TaskRequestBuilder.assignmentPatchBody(
-        dueAt: DateTime.utc(2026, 7, 18, 17),
+        occurrenceDate: DateTime(2026, 7, 18),
+        startTime: '10:00',
+        dueDate: DateTime(2026, 7, 18),
+        dueTime: '17:00',
         priority: TaskPriority.high,
       );
-      expect(body['dueAt'], '2026-07-18T17:00:00Z');
+      expect(body['occurrenceDate'], '2026-07-18');
+      expect(body['startTime'], '10:00');
+      expect(body['dueDate'], '2026-07-18');
+      expect(body['dueTime'], '17:00');
       expect(body['priority'], 'HIGH');
+      expect(body.containsKey('dueAt'), isFalse);
     });
 
     test('assignmentPatchBody omits unset fields', () {

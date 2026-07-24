@@ -59,6 +59,41 @@ void main() {
     });
   });
 
+  group('isEndOnOrAfterStart', () {
+    test('accepts an end on or after the start', () {
+      expect(
+        TaskFormValidation.isEndOnOrAfterStart(start: jul15, until: jul16),
+        isTrue,
+      );
+      expect(
+        TaskFormValidation.isEndOnOrAfterStart(start: jul15, until: jul15),
+        isTrue,
+      );
+    });
+
+    test('rejects an end before the start', () {
+      expect(
+        TaskFormValidation.isEndOnOrAfterStart(start: jul16, until: jul15),
+        isFalse,
+      );
+    });
+  });
+
+  group('isEffortValid', () {
+    test('accepts blank (treated as 0)', () {
+      expect(TaskFormValidation.isEffortValid('  '), isTrue);
+    });
+    test('accepts a non-negative decimal', () {
+      expect(TaskFormValidation.isEffortValid('2.5'), isTrue);
+      expect(TaskFormValidation.isEffortValid('0'), isTrue);
+    });
+    test('rejects a malformed or negative value', () {
+      expect(TaskFormValidation.isEffortValid('1.2.3'), isFalse);
+      expect(TaskFormValidation.isEffortValid('-1'), isFalse);
+      expect(TaskFormValidation.isEffortValid('abc'), isFalse);
+    });
+  });
+
   group('canSubmit', () {
     bool submit({
       String title = 'Task',
@@ -68,6 +103,7 @@ void main() {
       TimeOfDay dueTime = fivePm,
       DateTime? startDate,
       DateTime? dueDate,
+      DateTime? recurrenceEnd,
     }) =>
         TaskFormValidation.canSubmit(
           title: title,
@@ -77,6 +113,7 @@ void main() {
           startTime: startTime,
           dueDate: dueDate ?? DateTime(2026, 7, 17),
           dueTime: dueTime,
+          recurrenceEnd: recurrenceEnd,
         );
 
     test('blocks a blank title', () => expect(submit(title: '   '), isFalse));
@@ -93,16 +130,47 @@ void main() {
 
     test('one-off: allows a valid window', () => expect(submit(), isTrue));
 
-    test('recurring: allowed regardless of the derived window', () {
-      // A backwards start/due window must NOT block a recurring task, since
-      // its dates are derived from the recurrence fields.
+    test('recurring: blocks a negative derived window', () {
+      // The caller resolves the recurrence to concrete dates; a same-day
+      // derivation whose due time precedes the start time is invalid.
       expect(
         submit(
           recurring: true,
-          startDate: DateTime(2026, 7, 16),
-          dueDate: DateTime(2026, 7, 15),
+          startDate: jul15,
+          dueDate: jul15,
+          startTime: fivePm,
+          dueTime: nineAm,
+          recurrenceEnd: jul16,
+        ),
+        isFalse,
+      );
+    });
+
+    test('recurring: allows a valid derived window with an end date', () {
+      expect(
+        submit(
+          recurring: true,
+          startDate: jul15,
+          dueDate: jul16,
+          recurrenceEnd: jul16,
         ),
         isTrue,
+      );
+    });
+
+    test('recurring: blocks a missing "Until" end date', () {
+      expect(submit(recurring: true, recurrenceEnd: null), isFalse);
+    });
+
+    test('recurring: blocks an end date before the start', () {
+      expect(
+        submit(
+          recurring: true,
+          startDate: jul16,
+          dueDate: jul16,
+          recurrenceEnd: jul15,
+        ),
+        isFalse,
       );
     });
 

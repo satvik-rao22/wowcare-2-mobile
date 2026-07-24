@@ -953,8 +953,8 @@ class ApiPaths {
   static const String taskAssignments = '$tasks/assignments';
 
   /// `GET`/`PATCH`/`DELETE` `/api/v1/tasks/assignments/{code}` — one specific
-  /// assignment: fetch (§5a), edit its own `dueAt`/`priority` (§5b), or remove
-  /// one occurrence for one assignee (§5c).
+  /// assignment: fetch (§5a), edit its own occurrenceDate/startTime/dueDate/
+  /// dueTime/priority (§5b), or remove one occurrence for one assignee (§5c).
   static String taskAssignmentByCode(String code) =>
       '$taskAssignments/${Uri.encodeComponent(code.trim())}';
 

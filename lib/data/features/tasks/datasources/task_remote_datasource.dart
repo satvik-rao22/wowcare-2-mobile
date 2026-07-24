@@ -97,14 +97,18 @@ abstract class TaskRemoteDataSource {
   Future<TaskAssignmentModel> getAssignment(String code);
 
   /// `PATCH /api/v1/tasks/assignments/{code}` — edit a single assignment
-  /// (Tasks API §5b). Accepts the full create-time field set, not just
-  /// `dueAt`/`priority`; every field is optional so callers send only what
+  /// (Tasks API §5b). Accepts the full create-time field set; the occurrence's
+  /// own schedule travels as discrete `occurrenceDate`/`startTime`/`dueDate`/
+  /// `dueTime` fields. Every field is optional so callers send only what
   /// changed. The edit form funnels its whole save through here.
   Future<TaskAssignmentModel> updateAssignment({
     required String code,
     String? title,
     String? description,
-    DateTime? dueAt,
+    DateTime? occurrenceDate,
+    String? startTime,
+    DateTime? dueDate,
+    String? dueTime,
     TaskPriority? priority,
     TaskStatus? status,
     double? effort,
@@ -363,7 +367,10 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
     required String code,
     String? title,
     String? description,
-    DateTime? dueAt,
+    DateTime? occurrenceDate,
+    String? startTime,
+    DateTime? dueDate,
+    String? dueTime,
     TaskPriority? priority,
     TaskStatus? status,
     double? effort,
@@ -376,7 +383,10 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
       data: TaskRequestBuilder.assignmentPatchBody(
         title: title,
         description: description,
-        dueAt: dueAt,
+        occurrenceDate: occurrenceDate,
+        startTime: startTime,
+        dueDate: dueDate,
+        dueTime: dueTime,
         priority: priority,
         status: status,
         effort: effort,

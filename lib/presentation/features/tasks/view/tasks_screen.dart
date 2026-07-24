@@ -55,10 +55,12 @@ class _TasksScreenState extends State<TasksScreen> {
       showCustomNavigationBar: true,
       body: BlocConsumer<TasksCubit, TasksState>(
         // Surface failures (e.g. a status/priority change the backend rejects)
-        // instead of silently leaving the card unchanged.
+        // instead of silently leaving the card unchanged. Keyed off errorNonce
+        // (not the message text) so two failures in a row with identical text
+        // (e.g. repeated offline retries) still each show their own toast
+        // instead of the second one being silently dropped.
         listenWhen: (prev, curr) =>
-            curr.errorMessage != null &&
-            curr.errorMessage != prev.errorMessage,
+            curr.errorMessage != null && curr.errorNonce != prev.errorNonce,
         listener: (context, state) => CoreUtils.showTopSnackBar(
           context: context,
           message: state.errorMessage!,
@@ -476,6 +478,7 @@ class _TasksScreenState extends State<TasksScreen> {
     );
     return TaskCard(
       task: task,
+      schoolTimeZone: state.schoolTimeZone,
       onTap: () => _openDetail(context, task),
       onStatusTap:
           canManage ? () => _showStatusPicker(context, task) : null,

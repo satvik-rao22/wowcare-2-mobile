@@ -97,14 +97,18 @@ abstract class TaskRepository {
   Future<Task> getAssignment(String assignmentCode);
 
   /// Edits a single assignment by its own code (Tasks API §5b
-  /// `PATCH /tasks/assignments/{code}`). Accepts the full create-time field set,
-  /// not just `dueAt`/`priority`; every field is optional (null = unchanged).
-  /// Returns the updated card. The edit form routes its whole save through here.
+  /// `PATCH /tasks/assignments/{code}`). Accepts the full create-time field set;
+  /// the occurrence's own schedule travels as discrete occurrenceDate/startTime/
+  /// dueDate/dueTime. Every field is optional (null = unchanged). Returns the
+  /// updated card. The edit form routes its whole save through here.
   Future<Task> updateAssignment({
     required String assignmentCode,
     String? title,
     String? description,
-    DateTime? dueAt,
+    DateTime? occurrenceDate,
+    String? startTime,
+    DateTime? dueDate,
+    String? dueTime,
     TaskPriority? priority,
     TaskStatus? status,
     double? effort,
