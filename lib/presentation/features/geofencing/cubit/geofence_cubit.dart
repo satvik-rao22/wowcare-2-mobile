@@ -263,7 +263,10 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       );
     }
     // ── Then do the full async init (permission + API + stream) ────────────
-    await _checkAndStartMonitoring(schoolCode: schoolCode);
+    // isRefresh: true so app restart — like a dashboard refresh — is one of
+    // the two points where the "you can now Sign In or Sign Out" notification
+    // is (re-)evaluated against current sign-in status, per requirement.
+    await _checkAndStartMonitoring(schoolCode: schoolCode, isRefresh: true);
   }
 
   /// Call after the user taps "retry" on a permission-denied screen.
@@ -746,11 +749,27 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   /// geofence status whenever sign-in status changes (dashboard refresh,
   /// sign-in/sign-out, resume) without a boundary crossing having occurred.
   void _reevaluateNotificationForCurrentStatus() {
+    unawaited(_syncSignInStatusToNative());
     if (!state.isWithinGeofence) return;
     _triggerNotificationIfNeeded(
       GeofenceStatus.within,
       fireFlutterNotification: true,
     );
+  }
+
+  /// Pushes the current "nothing to do" (everyone already signed in) flag to
+  /// the native side, so the notification the OS shows for a real background
+  /// boundary-cross — which Dart cannot intercept while backgrounded/killed —
+  /// can also be suppressed based on sign-in status instead of firing blind.
+  Future<void> _syncSignInStatusToNative() async {
+    if (!(Platform.isIOS || Platform.isAndroid)) return;
+    try {
+      await _nativeGeofenceChannel.invokeMethod('updateSignInStatus', {
+        'nothingToDo': state.isStaffSignedIn || state.allChildrenSignedIn,
+      });
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] Failed to sync sign-in status to native: $e');
+    }
   }
 
   /// Called when the initial medium-accuracy GPS fix lands near the geofence

@@ -39,12 +39,22 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
             val stateChanged = GeofencePrefs.shouldNotify(context, isInside)
             if (stateChanged) {
                 GeofencePrefs.setLastInside(context, isInside)
-                // Native notification — the ONLY path that works when the app is
-                // backgrounded or killed (Flutter EventChannel sink is null then).
-                // When the app IS foreground, Flutter fires its own notification with
-                // the same ID, which replaces this one silently — no visible duplicate.
-                GeofenceNotifications.ensureChannel(context)
-                GeofenceNotifications.show(context, isInside)
+                // "You can now Sign In or Sign Out" is meaningless when staff/admin
+                // is already signed in or a guardian's children are all already
+                // signed in — Flutter pushes this flag whenever sign-in status
+                // changes so the background/killed-app path (which has no other
+                // visibility into sign-in status) can also skip it.
+                val nothingToDo = GeofencePrefs.getNothingToDo(context)
+                if (isInside && nothingToDo) {
+                    Log.d("GeofenceBroadcastReceiver", "Skipping enter notification — nothing to sign in/out")
+                } else {
+                    // Native notification — the ONLY path that works when the app is
+                    // backgrounded or killed (Flutter EventChannel sink is null then).
+                    // When the app IS foreground, Flutter fires its own notification with
+                    // the same ID, which replaces this one silently — no visible duplicate.
+                    GeofenceNotifications.ensureChannel(context)
+                    GeofenceNotifications.show(context, isInside)
+                }
             }
 
             // Always relay to Flutter so the cubit updates button state immediately.

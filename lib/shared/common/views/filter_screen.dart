@@ -95,9 +95,10 @@ class _FilterScreenState extends State<FilterScreen> {
           return CustomDropdown(
             label: section.label,
             hintText: section.hintText,
-            // Show a real "All" option to clear the single-select instead of surfacing the
-            // placeholder hint (e.g. "Select status") as if it were a selectable value.
-            clearItemLabel: 'All',
+            // No "All"/clear entry in the popup — the only single-select
+            // section today is Status (communication module), which should
+            // not offer an unselectable "All" choice.
+            prependHintAsSelectableItem: false,
             items: section.items,
             selectedItem: selected.isNotEmpty ? selected.first : null,
             isField: true,
