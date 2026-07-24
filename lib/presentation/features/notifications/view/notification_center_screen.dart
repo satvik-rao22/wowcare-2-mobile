@@ -64,8 +64,8 @@ class NotificationCenterScreen extends StatelessWidget {
       // `context.go(branchRoot)` (see CustomNavigationBar).
       // This route lives OUTSIDE the shell, so the bar can't read a current
       // branch and would otherwise fall back to highlighting Dashboard (0).
-      // The notification center isn't a tab — force "no active tab" (-1).
-      bottomNavigationBar: const CustomNavigationBar(activeTabIndexOverride: -1),
+      // The notification center isn't a tab — force "no active tab".
+      bottomNavigationBar: const CustomNavigationBar(highlightNone: true),
       body: Stack(
         children: [
           Positioned.fill(

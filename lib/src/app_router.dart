@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
@@ -95,66 +96,74 @@ const List<String> branchRootPaths = <String>[
   AppRoutes.parentBilling, // 4
 ];
 
-/// Map a visual nav-bar tab index → shell branch index. `null` means the tab
-/// is not a branch (e.g. staff/parent index 1 just opens the Attendance popup).
-int? navBranchIndexForTab({required bool isParent, required int tabIndex}) {
+/// Map a bottom-nav [BottomNavigationItem] → shell branch index. `null` means
+/// the item is not a branch (Attendance is a modal popup, not a route).
+int? branchIndexForItem({
+  required bool isParent,
+  required BottomNavigationItem item,
+}) {
   if (isParent) {
-    switch (tabIndex) {
-      case 0:
-        return 0; // Dashboard
-      case 1:
+    switch (item) {
+      case BottomNavigationItem.dashboard:
+        return 0;
+      case BottomNavigationItem.attendance:
         return null; // Attendance popup
-      case 2:
-        return 2; // Activities
-      case 3:
-        return 3; // Messages
-      case 4:
-        return 4; // Billing
+      case BottomNavigationItem.activities:
+        return 2;
+      case BottomNavigationItem.communication:
+        return 3;
+      case BottomNavigationItem.billing:
+        return 4;
+      case BottomNavigationItem.classrooms:
+        return null; // Not a parent tab
     }
   } else {
-    switch (tabIndex) {
-      case 0:
-        return 0; // Dashboard
-      case 1:
+    switch (item) {
+      case BottomNavigationItem.dashboard:
+        return 0;
+      case BottomNavigationItem.attendance:
         return null; // Attendance popup
-      case 2:
-        return 1; // Classrooms
-      case 3:
-        return 2; // Activities
-      case 4:
-        return 3; // Messages
+      case BottomNavigationItem.classrooms:
+        return 1;
+      case BottomNavigationItem.activities:
+        return 2;
+      case BottomNavigationItem.communication:
+        return 3;
+      case BottomNavigationItem.billing:
+        return null; // Not a staff/admin tab
     }
   }
-  return null;
 }
 
-/// Reverse of [navBranchIndexForTab] for highlighting the active tab when
-/// the user navigates programmatically or via a deep link.
-int tabIndexForBranchIndex({required bool isParent, required int branchIndex}) {
+/// Reverse of [branchIndexForItem] for highlighting the active tab when the
+/// user navigates programmatically or via a deep link.
+BottomNavigationItem itemForBranchIndex({
+  required bool isParent,
+  required int branchIndex,
+}) {
   if (isParent) {
     switch (branchIndex) {
-      case 0:
-        return 0;
       case 2:
-        return 2;
+        return BottomNavigationItem.activities;
       case 3:
-        return 3;
+        return BottomNavigationItem.communication;
       case 4:
-        return 4;
+        return BottomNavigationItem.billing;
+      default:
+        return BottomNavigationItem.dashboard;
     }
   } else {
     switch (branchIndex) {
-      case 0:
-        return 0;
       case 1:
-        return 2;
+        return BottomNavigationItem.classrooms;
       case 2:
-        return 3;
+        return BottomNavigationItem.activities;
       case 3:
-        return 4;
+        return BottomNavigationItem.communication;
+      default:
+        return BottomNavigationItem.dashboard;
     }
   }
-  return 0;
 }
 
 /// Stable navigator keys for each shell branch.

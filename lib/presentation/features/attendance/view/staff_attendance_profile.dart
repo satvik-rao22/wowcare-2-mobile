@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -1000,7 +1001,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       // pushed on the root navigator (no shell in context), so the nav bar would
       // otherwise default to highlighting Dashboard. Pin the highlight to the
       // Attendance slot (index 1) — mirrors StudentAttendanceProfile.
-      activeTabIndexOverride: 1,
+      activeItemOverride: BottomNavigationItem.attendance,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(
