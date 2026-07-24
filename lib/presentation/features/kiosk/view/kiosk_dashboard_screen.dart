@@ -77,8 +77,11 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
     // Reload QR on app resume from background
     if (state == AppLifecycleState.resumed) {
+      // `hidden` (Flutter 3.13+) can appear between `inactive` and `paused`
+      // on some platforms, so treat it the same as a real backgrounding.
       final isRealResume = _lastLifecycleState == AppLifecycleState.paused ||
-          _lastLifecycleState == AppLifecycleState.detached;
+          _lastLifecycleState == AppLifecycleState.detached ||
+          _lastLifecycleState == AppLifecycleState.hidden;
 
       if (isRealResume) {
         AppLogger.d('[KIOSK] True app resume - reloading QR');
@@ -135,17 +138,28 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   Widget build(BuildContext context) {
     final bool isTablet = isIpad();
 
-    // Reload QR when returning from navigation (back arrow from sign-in/sign-out)
-    // This ensures fresh QR is displayed when user returns to dashboard
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _qrLoadedOnce) {
-        final currentRoute = ModalRoute.of(context);
-        if (currentRoute?.isCurrent ?? false) {
-          AppLogger.d('[KIOSK] Dashboard returned to view - reloading QR for freshness');
-          _loadQrCode();
+    // Reload QR when returning from navigation (back arrow from sign-in/sign-out).
+    // Gated on `_returningFromSignFlow` (set only when we actually navigate away
+    // to a sign-in/sign-out screen). Sign-in/out routes are nested UNDER /kiosk
+    // in the router, so this dashboard stays mounted beneath them and still
+    // gets rebuilt during the outgoing `context.go()` transition itself - not
+    // just when the user comes back. So the flag must only be consumed once
+    // we've confirmed (inside the post-frame callback) that this route is
+    // actually current again, i.e. we've genuinely returned - resetting it
+    // synchronously here would consume it on the way out and silently skip
+    // the reload on the way back.
+    if (_qrLoadedOnce && _returningFromSignFlow) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          final currentRoute = ModalRoute.of(context);
+          if (currentRoute?.isCurrent ?? false) {
+            _returningFromSignFlow = false;
+            AppLogger.d('[KIOSK] Dashboard returned to view - reloading QR for freshness');
+            _loadQrCode();
+          }
         }
-      }
-    });
+      });
+    }
 
     return _buildScaffold(isTablet);
   }

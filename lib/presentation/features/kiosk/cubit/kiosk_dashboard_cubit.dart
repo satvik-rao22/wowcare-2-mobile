@@ -26,10 +26,20 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
   final VerifyKioskPinUseCase _verifyKioskPin;
   final StorageService _storage;
 
+  /// Guards against overlapping QR fetches when loadQrCode() is triggered
+  /// concurrently (e.g. initState + lifecycle resume + navigation-return
+  /// firing in close succession). Only one request is allowed in flight.
+  bool _isLoadingQr = false;
+
   /// Load the active QR code for the kiosk using the school code from storage.
   /// This bypasses dashboard context and directly fetches the LIVE QR.
   /// Called on every kiosk screen entry to ensure fresh QR code.
   Future<void> loadQrCode() async {
+    if (_isLoadingQr) {
+      AppLogger.d('[Kiosk] ⏭️ QR load already in progress - ignoring duplicate request');
+      return;
+    }
+    _isLoadingQr = true;
     AppLogger.d('[Kiosk] 🔄 Refreshing QR code - fetching FRESH QR from API');
     emit(const KioskDashboardLoading());
 
@@ -76,6 +86,8 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
       emit(
         const KioskDashboardError('Unable to load QR code. Please try again.'),
       );
+    } finally {
+      _isLoadingQr = false;
     }
   }
 

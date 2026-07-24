@@ -94,6 +94,7 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
       AppLogger.d('[KIOSK] AttendanceSuccess=true');
       AppLogger.d('[KIOSK] RedirectingTo=/kiosk');
 
+      if (isClosed) return;
       emit(
         KioskAttendanceSuccessV2(
           message: 'Signed in successfully',
@@ -105,6 +106,7 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
       );
     } catch (e) {
       AppLogger.e('[KIOSK] AttendanceSuccess=false, error=$e');
+      if (isClosed) return;
       emit(KioskAttendanceErrorV2('Failed to sign in: $e'));
     }
   }
@@ -147,6 +149,7 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
       AppLogger.d('[KIOSK] AttendanceSuccess=true');
       AppLogger.d('[KIOSK] RedirectingTo=/kiosk');
 
+      if (isClosed) return;
       emit(
         KioskAttendanceSuccessV2(
           message: 'Signed out successfully',
@@ -158,12 +161,14 @@ class KioskAttendanceCubitV2 extends Cubit<KioskAttendanceStateV2> {
       );
     } catch (e) {
       AppLogger.e('[KIOSK] AttendanceSuccess=false, error=$e');
+      if (isClosed) return;
       emit(KioskAttendanceErrorV2('Failed to sign out: $e'));
     }
   }
 
   /// Reset to initial state (when returning to dashboard).
   void reset() {
+    if (isClosed) return;
     emit(const KioskAttendanceInitialV2());
   }
 }

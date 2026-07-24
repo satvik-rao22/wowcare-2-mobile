@@ -373,7 +373,7 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
 
     _isSubmitting = true;
     AppLogger.d(
-      '[Kiosk Logout] PIN submitted - proceeding with logout: $_currentPin',
+      '[Kiosk Logout] PIN submitted - proceeding with logout: pinLength=${_currentPin.length}',
     );
 
     try {
