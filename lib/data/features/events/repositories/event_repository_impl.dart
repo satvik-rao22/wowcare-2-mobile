@@ -1,5 +1,6 @@
 import 'package:wowcare/data/features/events/datasources/event_remote_datasource.dart';
 import 'package:wowcare/data/features/events/datasources/holiday_remote_datasource.dart';
+import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/domain/features/events/repositories/event_repository.dart';
@@ -52,6 +53,21 @@ class EventRepositoryImpl implements EventRepository {
       partyCode: partyCode,
     );
     return (models.map((m) => m.toEntity()).toList(), hasMore);
+  }
+
+  @override
+  Future<List<CalendarFeedItem>> getCalendarFeed({
+    required DateTime from,
+    required DateTime to,
+    required String scope,
+    String partyCode = '',
+  }) {
+    return _eventRemoteDataSource.getCalendarFeed(
+      from: from,
+      to: to,
+      scope: scope,
+      partyCode: partyCode,
+    );
   }
 
   @override

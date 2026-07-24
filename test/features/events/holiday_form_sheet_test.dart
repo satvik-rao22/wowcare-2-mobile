@@ -7,6 +7,7 @@ import 'package:wowcare/domain/features/events/usecases/create_event_usecase.dar
 import 'package:wowcare/domain/features/events/usecases/delete_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_holiday_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_events_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/get_calendar_feed_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_event_by_code_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_holidays_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
@@ -26,6 +27,7 @@ void main() {
   EventsCubit build() => EventsCubit(
     GetEventsUseCase(repo),
     GetEventByCodeUseCase(repo),
+    GetCalendarFeedUseCase(repo),
     CreateEventUseCase(repo),
     UpdateEventUseCase(repo),
     DeleteEventUseCase(repo),

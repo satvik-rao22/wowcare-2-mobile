@@ -20,6 +20,8 @@ class EventsState extends Equatable {
     this.schoolName = '',
     this.isLoadingMore = false,
     this.hasMoreEvents = true,
+    this.calendarItems = const <CalendarFeedItem>[],
+    this.calendarLoading = false,
     this.errorMessage,
   });
 
@@ -42,6 +44,8 @@ class EventsState extends Equatable {
         schoolName = '',
         isLoadingMore = false,
         hasMoreEvents = true,
+        calendarItems = const <CalendarFeedItem>[],
+        calendarLoading = false,
         errorMessage = null;
 
   final List<Event> events;
@@ -88,7 +92,26 @@ class EventsState extends Equatable {
   final bool isLoadingMore;
   final bool hasMoreEvents;
 
+  /// Unified calendar-feed rows (events + tasks + holidays) for the
+  /// calendar view. Distinct from [events] (rich occurrences) which back
+  /// the grid/list views.
+  final List<CalendarFeedItem> calendarItems;
+  final bool calendarLoading;
+
   final String? errorMessage;
+
+  /// Feed rows on [day], all kinds, sorted all-day-first then by time.
+  List<CalendarFeedItem> calendarItemsOn(DateTime day) {
+    final matches = calendarItems.where((i) => i.occursOn(day)).toList()
+      ..sort((a, b) {
+        if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
+        return a.startTime.compareTo(b.startTime);
+      });
+    return matches;
+  }
+
+  bool calendarHasItems(DateTime day) =>
+      calendarItems.any((i) => i.occursOn(day));
 
   /// Whether the current user is on [occurrence]'s participant roster
   /// (staff or parent — students never RSVP). The roster comes fully
@@ -303,6 +326,8 @@ class EventsState extends Equatable {
     String? schoolName,
     bool? isLoadingMore,
     bool? hasMoreEvents,
+    List<CalendarFeedItem>? calendarItems,
+    bool? calendarLoading,
     String? Function()? errorMessage,
   }) {
     return EventsState(
@@ -324,6 +349,8 @@ class EventsState extends Equatable {
       schoolName: schoolName ?? this.schoolName,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMoreEvents: hasMoreEvents ?? this.hasMoreEvents,
+      calendarItems: calendarItems ?? this.calendarItems,
+      calendarLoading: calendarLoading ?? this.calendarLoading,
       errorMessage:
           errorMessage != null ? errorMessage() : this.errorMessage,
     );
@@ -349,6 +376,8 @@ class EventsState extends Equatable {
         schoolName,
         isLoadingMore,
         hasMoreEvents,
+        calendarItems,
+        calendarLoading,
         errorMessage,
       ];
 }

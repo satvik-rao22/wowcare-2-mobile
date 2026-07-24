@@ -947,6 +947,10 @@ class ApiPaths {
   /// participants) that backs every read screen.
   static const String occurrencesView = '/api/v1/occurrences';
 
+  /// `GET /api/v1/calendar/feed?fromDate=&toDate=&scope=&include=&...` —
+  /// unified calendar feed of events + tasks + holidays.
+  static const String calendarFeed = '/api/v1/calendar/feed';
+
   // —— Scheduler MS — Holidays (Events, Tasks & School Calendar) ——
   /// `GET`/`POST` `/api/v1/holidays`. List supports `?year=&type=&status=`.
   static const String holidays = '/api/v1/holidays';

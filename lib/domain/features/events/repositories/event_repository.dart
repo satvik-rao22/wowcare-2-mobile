@@ -1,3 +1,4 @@
+import '../entities/calendar_feed_item.dart';
 import '../entities/event.dart';
 import '../entities/holiday.dart';
 
@@ -18,6 +19,14 @@ abstract class EventRepository {
     required DateTime to,
     required int page,
     int size,
+    String partyCode,
+  });
+
+  /// Unified calendar feed (events + tasks + holidays) for a window.
+  Future<List<CalendarFeedItem>> getCalendarFeed({
+    required DateTime from,
+    required DateTime to,
+    required String scope,
     String partyCode,
   });
 

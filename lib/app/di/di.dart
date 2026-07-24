@@ -42,6 +42,7 @@ import '../../domain/features/events/usecases/cancel_occurrence_usecase.dart';
 import '../../domain/features/events/usecases/create_event_usecase.dart';
 import '../../domain/features/events/usecases/delete_event_usecase.dart';
 import '../../domain/features/events/usecases/delete_holiday_usecase.dart';
+import '../../domain/features/events/usecases/get_calendar_feed_usecase.dart';
 import '../../domain/features/events/usecases/get_event_by_code_usecase.dart';
 import '../../domain/features/events/usecases/get_events_usecase.dart';
 import '../../domain/features/events/usecases/get_holidays_usecase.dart';
@@ -445,6 +446,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetEventByCodeUseCase>(
     () => GetEventByCodeUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetCalendarFeedUseCase>(
+    () => GetCalendarFeedUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<UpdateOccurrenceUseCase>(
     () => UpdateOccurrenceUseCase(serviceLocator()),
   );
@@ -472,6 +476,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => EventsCubit(
       serviceLocator<GetEventsUseCase>(),
       serviceLocator<GetEventByCodeUseCase>(),
+      serviceLocator<GetCalendarFeedUseCase>(),
       serviceLocator<CreateEventUseCase>(),
       serviceLocator<UpdateEventUseCase>(),
       serviceLocator<DeleteEventUseCase>(),

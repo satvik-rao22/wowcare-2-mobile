@@ -10,6 +10,8 @@ import 'package:wowcare/domain/features/events/usecases/cancel_occurrence_usecas
 import 'package:wowcare/domain/features/events/usecases/create_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_holiday_usecase.dart';
+import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
+import 'package:wowcare/domain/features/events/usecases/get_calendar_feed_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_event_by_code_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_events_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_holidays_usecase.dart';
@@ -25,6 +27,7 @@ class EventsCubit extends Cubit<EventsState> {
   EventsCubit(
     this._getEvents,
     this._getEventByCode,
+    this._getCalendarFeed,
     this._createEvent,
     this._updateEvent,
     this._deleteEvent,
@@ -41,6 +44,7 @@ class EventsCubit extends Cubit<EventsState> {
 
   final GetEventsUseCase _getEvents;
   final GetEventByCodeUseCase _getEventByCode;
+  final GetCalendarFeedUseCase _getCalendarFeed;
   final CreateEventUseCase _createEvent;
   final UpdateEventUseCase _updateEvent;
   final DeleteEventUseCase _deleteEvent;
@@ -61,6 +65,10 @@ class EventsCubit extends Cubit<EventsState> {
   /// Calendar months already fetched (the calendar loads exactly the
   /// visible month; swiping fetches the new month on demand).
   final Set<String> _loadedMonths = {};
+
+  /// Unified-calendar-feed months already fetched, keyed by 'y-m|scope'
+  /// (scope in the key so an admin's My/All toggle refetches).
+  final Set<String> _loadedFeedMonths = {};
 
   /// Grid/list infinite scroll: next page to fetch over a wide window
   /// (the API requires a date range; views paginate rather than filter).
@@ -584,6 +592,46 @@ class EventsCubit extends Cubit<EventsState> {
     } catch (_) {
       _loadedMonths.remove(key); // retry on the next visit
     }
+  }
+
+  /// Loads the unified calendar feed (events + tasks + holidays) for
+  /// [month] once per (month, scope). [scope] is 'ALL_ITEMS' (admin's All
+  /// toggle) or 'MY_ITEMS'; non-admins must always pass 'MY_ITEMS'. Rows
+  /// merge into [EventsState.calendarItems] keyed by code.
+  Future<void> loadCalendarFeed(DateTime month, {required String scope}) async {
+    final key = '${_monthKey(month)}|$scope';
+    if (_loadedFeedMonths.contains(key)) return;
+    _loadedFeedMonths.add(key);
+    emit(state.copyWith(calendarLoading: true));
+    try {
+      final (partyCode, _) = await _partyIdentity();
+      final rows = await _getCalendarFeed(
+        from: DateTime(month.year, month.month, 1),
+        to: DateTime(month.year, month.month + 1, 0),
+        scope: scope,
+        partyCode: partyCode,
+      );
+      final byCode = <String, CalendarFeedItem>{
+        for (final item in state.calendarItems) item.code: item,
+        for (final item in rows) item.code: item,
+      };
+      emit(
+        state.copyWith(
+          calendarItems: byCode.values.toList(),
+          calendarLoading: false,
+        ),
+      );
+    } catch (_) {
+      _loadedFeedMonths.remove(key);
+      emit(state.copyWith(calendarLoading: false));
+    }
+  }
+
+  /// Clears cached feed months (e.g. when the admin flips the My/All
+  /// toggle and the current month must refetch under the new scope).
+  void resetCalendarFeed() {
+    _loadedFeedMonths.clear();
+    emit(state.copyWith(calendarItems: const []));
   }
 
   /// Grid/list infinite scroll: fetch the next page (10 rows) and append.

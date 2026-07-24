@@ -5,12 +5,14 @@ import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
+import 'package:wowcare/presentation/features/events/widgets/calendar_feed_card.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_filter_sheet.dart';
@@ -52,6 +54,20 @@ class _EventsScreenState extends State<EventsScreen> {
   DateTime _selectedDay = DateTime.now();
   CalendarFormat _calendarFormat = CalendarFormat.week;
   final TextEditingController _searchController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    // Load the current month's unified calendar feed once the widget is
+    // mounted (calendar is the default view).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<EventsCubit>().loadCalendarFeed(
+            _focusedDay,
+            scope: _feedScope(context.read<RoleCubit>()),
+          );
+    });
+  }
 
   @override
   void dispose() {
@@ -279,7 +295,7 @@ class _EventsScreenState extends State<EventsScreen> {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _calendarCard(context, state),
+          _calendarCard(context, state, roles),
           const SizedBox(height: 10),
           Expanded(child: _dayList(context, state, roles)),
         ],
@@ -524,7 +540,43 @@ class _EventsScreenState extends State<EventsScreen> {
 
   // ----------------------------------------------------- calendar view
 
-  Widget _calendarCard(BuildContext context, EventsState state) {
+  /// Admins may view the whole school; everyone else is limited to their
+  /// own items (server also enforces this).
+  String _feedScope(RoleCubit roles) =>
+      roles.isAdmin ? 'ALL_ITEMS' : 'MY_ITEMS';
+
+  Color _feedColor(CalendarFeedItem item) {
+    final hex = item.colorHint.replaceAll('#', '');
+    if (hex.length == 6) {
+      final v = int.tryParse('FF\$hex', radix: 16);
+      if (v != null) return Color(v);
+    }
+    return item.isTask
+        ? const Color(0xFFFBBF24)
+        : item.isHoliday
+            ? _holidayRed
+            : AppColors.themeColor;
+  }
+
+  void _openFeedItem(BuildContext context, CalendarFeedItem item) {
+    if (item.isEvent) {
+      context.push(
+        EventDetailScreen.routeName,
+        extra: <String, dynamic>{
+          'eventCode': item.eventCode,
+          'occurrenceCode': item.code,
+        },
+      );
+    } else if (item.isTask) {
+      context.push(
+        '/dashboard/tasks/detail',
+        extra: <String, dynamic>{'taskCode': item.taskCode},
+      );
+    }
+    // Holidays are read-only on the calendar — no navigation.
+  }
+
+  Widget _calendarCard(BuildContext context, EventsState state, RoleCubit roles) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -540,7 +592,7 @@ class _EventsScreenState extends State<EventsScreen> {
           ),
         ],
       ),
-      child: TableCalendar<Event>(
+      child: TableCalendar<CalendarFeedItem>(
         firstDay: DateTime(DateTime.now().year - 2),
         lastDay: DateTime(DateTime.now().year + 3),
         focusedDay: _focusedDay,
@@ -551,8 +603,9 @@ class _EventsScreenState extends State<EventsScreen> {
         },
         startingDayOfWeek: StartingDayOfWeek.monday,
         selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
-        holidayPredicate: state.isHoliday,
-        eventLoader: (day) => _calendarEventsOn(state, day),
+        holidayPredicate: (day) => state.calendarItemsOn(day)
+            .any((i) => i.isHoliday),
+        eventLoader: (day) => state.calendarItemsOn(day),
         onDaySelected: (selectedDay, focusedDay) {
           setState(() {
             _selectedDay = selectedDay;
@@ -562,10 +615,12 @@ class _EventsScreenState extends State<EventsScreen> {
         onFormatChanged: (format) => setState(() => _calendarFormat = format),
         onPageChanged: (focusedDay) {
           _focusedDay = focusedDay;
-          final cubit = context.read<EventsCubit>();
-          cubit.ensureHolidaysForYear(focusedDay.year);
-          // Fetch the newly visible month's occurrences on demand.
-          cubit.ensureMonth(focusedDay);
+          // Load the newly visible month's unified feed (events + tasks +
+          // holidays) on demand.
+          context.read<EventsCubit>().loadCalendarFeed(
+                focusedDay,
+                scope: _feedScope(roles),
+              );
         },
         headerStyle: HeaderStyle(
           titleCentered: true,
@@ -615,21 +670,21 @@ class _EventsScreenState extends State<EventsScreen> {
           ),
           outsideDaysVisible: false,
         ),
-        calendarBuilders: CalendarBuilders<Event>(
-          markerBuilder: (context, day, events) {
-            if (events.isEmpty) return null;
+        calendarBuilders: CalendarBuilders<CalendarFeedItem>(
+          markerBuilder: (context, day, items) {
+            if (items.isEmpty) return null;
             return Positioned(
               bottom: 4,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  for (final event in events.take(3))
+                  for (final item in items.take(3))
                     Container(
                       width: 5,
                       height: 5,
                       margin: const EdgeInsets.symmetric(horizontal: 1),
                       decoration: BoxDecoration(
-                        color: EventUiUtils.typeColor(event.type),
+                        color: _feedColor(item),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -643,57 +698,60 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _dayList(BuildContext context, EventsState state, RoleCubit roles) {
-    final dayEvents = _calendarEventsOn(state, _selectedDay);
-    // Holidays are only relevant to the upcoming/schedule view, not the
-    // completed-events view.
-    final dayHolidays = _showCompleted
-        ? const <Holiday>[]
-        : state.holidaysOn(_selectedDay);
+    final items = state.calendarItemsOn(_selectedDay);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          DateFormat('EEEE, MMM d').format(_selectedDay),
-          style: const TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        Row(
+          children: [
+            Text(
+              DateFormat('EEEE, MMM d').format(_selectedDay),
+              style: const TextStyle(
+                color: AppColors.primaryColor,
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (state.calendarLoading)
+              const SizedBox(
+                width: 14,
+                height: 14,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
         ),
         const SizedBox(height: 8),
         Expanded(
-          child: dayEvents.isEmpty && dayHolidays.isEmpty
+          child: items.isEmpty
               ? _emptyState(
-                  _showCompleted
-                      ? 'No completed events on this day'
+                  state.calendarLoading
+                      ? 'Loading…'
                       : 'Nothing scheduled for this day',
                 )
               : RefreshIndicator(
                   color: AppColors.themeColor,
-                  onRefresh: () =>
-                      context.read<EventsCubit>().load(silent: true),
-                  child: ListView(
+                  onRefresh: () async {
+                    context.read<EventsCubit>().resetCalendarFeed();
+                    await context.read<EventsCubit>().loadCalendarFeed(
+                          _focusedDay,
+                          scope: _feedScope(roles),
+                        );
+                  },
+                  child: ListView.separated(
                     physics: const AlwaysScrollableScrollPhysics(),
                     padding: const EdgeInsets.only(bottom: 90),
-                    children: [
-                      for (final holiday in dayHolidays) ...[
-                        _holidayBanner(holiday),
-                        const SizedBox(height: 8),
-                      ],
-                      for (final event in dayEvents) ...[
-                        EventCard(
-                          event: event,
-                          myRsvp: event.myRsvpStatus,
-                          onRsvp: state.isParticipant(event)
-                              ? (status) => _respond(
-                                  context, event, status, roles.isParent)
-                              : null,
-                          showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
-                          onTap: () => _openDetail(context, event),
-                        ),
-                        const SizedBox(height: 8),
-                      ],
-                    ],
+                    itemCount: items.length,
+                    separatorBuilder: (_, __) => const SizedBox(height: 8),
+                    itemBuilder: (context, index) {
+                      final item = items[index];
+                      return CalendarFeedCard(
+                        item: item,
+                        onTap: item.isHoliday
+                            ? null
+                            : () => _openFeedItem(context, item),
+                      );
+                    },
                   ),
                 ),
         ),

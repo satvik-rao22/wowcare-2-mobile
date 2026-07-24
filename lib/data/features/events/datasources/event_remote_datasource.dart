@@ -2,7 +2,9 @@ import 'package:dio/dio.dart';
 
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
+import '../../../../domain/features/events/entities/calendar_feed_item.dart';
 import '../../../../domain/features/events/entities/event.dart';
+import '../models/calendar_feed_models.dart';
 import '../models/event_models.dart';
 
 /// Talks to the Events API on the Events/Todo microservice
@@ -27,6 +29,16 @@ abstract class EventRemoteDataSource {
     required DateTime to,
     required int page,
     int size,
+    String partyCode,
+  });
+
+  /// `GET /api/v1/calendar/feed` — unified events+tasks+holidays for a
+  /// date window. [scope] is ALL_ITEMS (admins) or MY_ITEMS; [partyCode]
+  /// goes out as `X-Party-Code` (required for MY_ITEMS).
+  Future<List<CalendarFeedItem>> getCalendarFeed({
+    required DateTime from,
+    required DateTime to,
+    required String scope,
     String partyCode,
   });
 
@@ -177,6 +189,47 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
     }
     final totalPages = (data['totalPages'] as num?)?.toInt() ?? 1;
     return (items, page + 1 < totalPages);
+  }
+
+  @override
+  Future<List<CalendarFeedItem>> getCalendarFeed({
+    required DateTime from,
+    required DateTime to,
+    required String scope,
+    String partyCode = '',
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.calendarFeed,
+      ApiConstants.schedulerBaseUrl,
+    );
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{
+        'fromDate': EventModel.formatDate(from),
+        'toDate': EventModel.formatDate(to),
+        'scope': scope,
+      },
+      options: partyCode.trim().isEmpty
+          ? null
+          : Options(
+              headers: <String, dynamic>{'X-Party-Code': partyCode.trim()},
+            ),
+    );
+    final raw = response.data;
+    final data = raw is Map<String, dynamic> ? raw['data'] : null;
+    final items = data is Map<String, dynamic> ? data['items'] : null;
+    if (items is! List) return const <CalendarFeedItem>[];
+    final result = <CalendarFeedItem>[];
+    for (final entry in items.whereType<Map>()) {
+      final item = CalendarFeedItemModel.fromApi(
+        entry.map((k, v) => MapEntry(k.toString(), v)),
+      );
+      // Skip unknown kinds (birthdays / important dates — not built yet).
+      if (item != null && item.kind != CalendarFeedKind.unknown) {
+        result.add(item);
+      }
+    }
+    return result;
   }
 
   @override
