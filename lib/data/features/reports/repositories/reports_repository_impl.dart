@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
@@ -48,10 +50,12 @@ class ReportsRepositoryImpl implements ReportsRepository {
         await _storageService.getString(StorageKeys.organizationCode) ?? '';
     final userCode =
         await _storageService.getString(StorageKeys.userCode) ?? '';
+    final schoolName = await _resolveSchoolName(schoolCode, organizationCode);
 
     requestBody['schoolCode'] = schoolCode;
     requestBody['organizationCode'] = organizationCode;
     requestBody['generatedBy'] = userCode;
+    requestBody['schoolName'] = schoolName;
 
     AppLogger.d('[REPORTS-REPO] Calling remote datasource for fresh API call');
 
@@ -66,6 +70,50 @@ class ReportsRepositoryImpl implements ReportsRepository {
     );
 
     return _mapResponseModelToEntity(response);
+  }
+
+  /// Resolves the human-readable school name for [schoolCode]/[organizationCode]
+  /// from the cached org/school list, since `StorageKeys.selectedSchoolName`
+  /// is sometimes populated with the school code instead of its name.
+  Future<String> _resolveSchoolName(
+    String schoolCode,
+    String organizationCode,
+  ) async {
+    final storedName =
+        await _storageService.getString(StorageKeys.selectedSchoolName) ?? '';
+
+    final raw = await _storageService.getString(
+      StorageKeys.organizationsAndSchools,
+    );
+    if (raw != null && raw.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(raw);
+        if (decoded is List) {
+          final list = decoded
+              .whereType<Map>()
+              .map((e) => Map<String, dynamic>.from(e));
+          final match = list.firstWhere(
+            (e) =>
+                (e['schoolCode']?.toString() ?? '') == schoolCode &&
+                (e['organizationCode']?.toString() ?? '') == organizationCode,
+            orElse: () => const <String, dynamic>{},
+          );
+          final fromList = match['schoolName']?.toString() ?? '';
+          if (fromList.isNotEmpty) {
+            return fromList;
+          }
+        }
+      } catch (e) {
+        AppLogger.e('[REPORTS-REPO] Failed to parse organizationsAndSchools: $e');
+      }
+    }
+
+    // Only trust the stored name if it isn't just the code.
+    if (storedName.isNotEmpty && storedName != schoolCode) {
+      return storedName;
+    }
+
+    return '';
   }
 
   @override

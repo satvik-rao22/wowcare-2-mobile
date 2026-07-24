@@ -15,6 +15,7 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
   private let prefsSchoolRadiusKey = "geofence_school_radius_m"
   private let prefsGpsEnabledKey = "geofence_gps_sign_in_enabled"
   private let prefsLastInsideKey = "geofence_last_notified_inside"
+  private let prefsNothingToDoKey = "geofence_nothing_to_do"
 
   static func initializeWithChannel(_ channel: FlutterMethodChannel) {
     if instance == nil {
@@ -53,6 +54,8 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
         self.handleUpdateSchoolLocation(call: call, result: result)
       case "getGeofenceStatus":
         self.handleGetGeofenceStatus(result: result)
+      case "updateSignInStatus":
+        self.handleUpdateSignInStatus(call: call, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -120,6 +123,16 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       radiusMeters: radiusMeters
     )
 
+    result(true)
+  }
+
+  private func handleUpdateSignInStatus(call: FlutterMethodCall, result: FlutterResult) {
+    guard let args = call.arguments as? [String: Any] else {
+      result(FlutterError(code: "bad_args", message: "Missing args", details: nil))
+      return
+    }
+    let nothingToDo = args["nothingToDo"] as? Bool ?? false
+    UserDefaults.standard.set(nothingToDo, forKey: prefsNothingToDoKey)
     result(true)
   }
 
@@ -328,6 +341,16 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
     channel?.invokeMethod("geofenceStatusChanged", arguments: ["isInside": isInside])
 
     guard shouldNotify else { return }
+
+    // "You can now Sign In or Sign Out" is meaningless when staff/admin is
+    // already signed in or a guardian's children are all already signed in.
+    // Flutter pushes this flag whenever sign-in status changes, so it stays
+    // current even when this event fires in the background/killed app.
+    if isInside && defaults.bool(forKey: prefsNothingToDoKey) {
+      print("[iOS GEOFENCE] Skipping enter notification — nothing to sign in/out")
+      return
+    }
+
     showLocalNotification(isInside: isInside)
   }
 

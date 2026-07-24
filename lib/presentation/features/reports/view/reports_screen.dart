@@ -44,7 +44,31 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // After returning from an externally-launched file viewer (PDF/XLSX),
+    // Android/iOS can resume Flutter without repainting its surface,
+    // leaving a black screen. Force a rebuild on resume to guarantee a
+    // fresh frame is drawn.
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
+  }
+
+  /// Dismiss a dialog shown via [showDialog] (which defaults to the root
+  /// navigator). Popping through the ambient [context] instead would hit
+  /// go_router's branch navigator and pop the screen itself off the page
+  /// stack, which crashes with `currentConfiguration.isNotEmpty` once no
+  /// pages remain — always target the same (root) navigator the dialog was
+  /// pushed on, and never pop when there's nothing left to pop.
+  void _dismissDialog(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
   void _openStudentReportForm(BuildContext context, String name) {
     final reports = context.read<ReportsCubit>().state;
     final cubit = context.read<ReportsCubit>();
@@ -345,11 +369,11 @@ class _ReportsScreenState extends State<ReportsScreen>
   ];
 
   late final TabController _tabController;
-  String? _lastProcessedTabParam;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: _tabs.length, vsync: this);
     // Load recent reports when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -363,14 +387,11 @@ class _ReportsScreenState extends State<ReportsScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final tabParam = GoRouterState.of(context).uri.queryParameters['tab'];
-    if (tabParam != _lastProcessedTabParam) {
-      _lastProcessedTabParam = tabParam;
-      if (tabParam != null) {
-        final tabIndex = int.tryParse(tabParam) ?? 0;
-        if (tabIndex >= 0 && tabIndex < _tabs.length) {
-          if (_tabController.index != tabIndex) {
-            _tabController.animateTo(tabIndex);
-          }
+    if (tabParam != null) {
+      final tabIndex = int.tryParse(tabParam) ?? 0;
+      if (tabIndex >= 0 && tabIndex < _tabs.length) {
+        if (_tabController.index != tabIndex) {
+          _tabController.animateTo(tabIndex);
         }
       }
     }
@@ -378,6 +399,7 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
   }
@@ -710,6 +732,7 @@ class _ReportsScreenState extends State<ReportsScreen>
 
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         content: Column(
@@ -727,7 +750,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       final fileData = await cubit.downloadReport(assetCode);
 
       if (!mounted) return;
-      Navigator.pop(context); // close downloading dialog
+      _dismissDialog(context); // close downloading dialog
 
       if (fileData == null || fileData.isEmpty) {
         AppLogger.e('[REPORTS-UI-DOWN] Bytes empty for assetCode=$assetCode');
@@ -742,6 +765,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       if (mounted) {
         showDialog(
           context: context,
+          useRootNavigator: true,
           barrierDismissible: false,
           builder: (_) => const AlertDialog(
             content: Column(
@@ -763,7 +787,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       );
 
       if (!mounted) return;
-      Navigator.pop(context); // close saving dialog
+      _dismissDialog(context); // close saving dialog
 
       if (filePath == null) {
         AppLogger.e('[REPORTS-UI-DOWN] Save failed for assetCode=$assetCode');
@@ -800,9 +824,7 @@ class _ReportsScreenState extends State<ReportsScreen>
     } catch (e) {
       AppLogger.e('[REPORTS-UI-DOWN] Exception for assetCode=$assetCode: $e');
       if (mounted) {
-        try {
-          Navigator.pop(context);
-        } catch (_) {}
+        _dismissDialog(context);
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Error: $e',
