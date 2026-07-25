@@ -3,6 +3,9 @@ enum FutureAvailabilityShift {
   morning,
   afternoon,
   all,
+  // Request-time sentinel for the "Two Shifts" toggle. The API returns
+  // per-entry MORNING/AFTERNOON rows when queried with shift=TWO_SHIFTS.
+  twoShifts,
 }
 
 class FutureAvailabilityGrid {

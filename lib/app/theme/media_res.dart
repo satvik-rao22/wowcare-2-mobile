@@ -207,6 +207,7 @@ class MediaRes {
   static const String message_panel_icon = '$_baseIcons/message_panel.svg';
   static const String backButton = '$_baseIcons/back-button-icon.svg';
   static const String uploadIcon = '$_baseIcons/upload-icon.svg';
+  static const String uploadCloudIcon = '$_baseIcons/Upload cloud.svg';
 
   static const String Sign_in = '$_baseIcons/Sign_in.svg';
   static const String Sign_out = '$_baseIcons/Sign_out.svg';

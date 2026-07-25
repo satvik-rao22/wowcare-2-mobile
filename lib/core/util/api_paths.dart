@@ -781,6 +781,11 @@ class ApiPaths {
 
   // —— Document host (base path returned by upload-session response) ——
 
+  /// POST — creates a `SCHOOL_CLOUD` scoped upload session for direct image
+  /// uploads to a school's cloud gallery (owner type `SCHOOL`).
+  static String schoolCloudUploadSessionsPath(String schoolCode) =>
+      '/api/v1/document/schools/${Uri.encodeComponent(schoolCode.trim())}/cloud/upload-sessions';
+
   static String get documentUploadSessionsRoot => ApiConstants.isUat
       ? '/api/v1/document/upload-sessions'
       : '/api/v1/upload-sessions';

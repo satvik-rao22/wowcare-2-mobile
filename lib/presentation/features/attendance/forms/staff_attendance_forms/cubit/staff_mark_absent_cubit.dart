@@ -37,7 +37,17 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
 
   /// Seeds the working staff list (single staff or a pre-selected list) and
   /// resolves the persona/timezone flags.
-  void init({StaffEntity? staff, List<StaffEntity>? staffList}) {
+  ///
+  /// [isStaffAdminPersona], when provided, comes from `RoleCubit` — the
+  /// canonical, persona-switch-aware signal the view reads (this cubit has
+  /// no `BuildContext` per the MVVM rule, so it can't read `RoleCubit`
+  /// itself). Falls back to the storage-based resolution only if the caller
+  /// doesn't supply it.
+  void init({
+    StaffEntity? staff,
+    List<StaffEntity>? staffList,
+    bool? isStaffAdminPersona,
+  }) {
     final List<StaffEntity> selected;
     if (staffList != null && staffList.isNotEmpty) {
       selected = List<StaffEntity>.of(staffList);
@@ -48,10 +58,10 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     }
     emit(state.copyWith(selectedStaff: selected));
     // ignore: discarded_futures
-    _loadPersonaFlags();
+    _loadPersonaFlags(isStaffAdminPersona);
   }
 
-  Future<void> _loadPersonaFlags() async {
+  Future<void> _loadPersonaFlags(bool? knownIsStaffAdminPersona) async {
     String? schoolIana;
     try {
       schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
@@ -60,7 +70,8 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
       );
     } catch (_) {}
 
-    final isAdmin = await _resolveIsStaffAdminPersona();
+    final isAdmin =
+        knownIsStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
     final currentStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
     if (isClosed) return;
     final start = (schoolIana != null && schoolIana.isNotEmpty)

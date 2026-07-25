@@ -178,6 +178,8 @@ FutureAvailabilityShift _shiftFromApi(String shift) {
       return FutureAvailabilityShift.afternoon;
     case 'ALL':
       return FutureAvailabilityShift.all;
+    case 'TWO_SHIFTS':
+      return FutureAvailabilityShift.twoShifts;
     case 'FULL_DAY':
     default:
       return FutureAvailabilityShift.fullDay;
@@ -194,6 +196,8 @@ String _shiftToApi(FutureAvailabilityShift shift) {
       return 'ALL';
     case FutureAvailabilityShift.fullDay:
       return 'FULL_DAY';
+    case FutureAvailabilityShift.twoShifts:
+      return 'TWO_SHIFTS';
   }
 }
 

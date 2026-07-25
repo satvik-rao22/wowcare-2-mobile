@@ -30,6 +30,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_t
 import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 class StaffSignOutForm extends StatefulWidget {
   const StaffSignOutForm({
@@ -214,6 +215,14 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
+    // RoleCubit's active persona is the canonical, persona-switch-aware
+    // signal — staffType/roles in storage can lag a beat after a persona
+    // switch and misresolve a staff/teacher persona as admin (see
+    // AttendancePopup._loadStaffPersonaFlags for the same fix).
+    if (mounted) {
+      return !context.read<RoleCubit>().isStaff;
+    }
+
     final storage = serviceLocator<StorageService>();
     final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
         .trim()
@@ -489,16 +498,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
             context.go('/kiosk');
           }
         } else if (!isStaffAdmin) {
-          // Teacher/staff persona: send them to their own attendance
-          // profile, never the admin-only all-staff tabbed view.
-          final selfName = _selectedStaff.isNotEmpty
-              ? _selectedStaff.first.name
-              : '';
-          redirectToOwnStaffAttendanceProfile(
-            context,
-            staffCode: staffCode,
-            staffName: selfName,
-          );
+          // Teacher/staff persona: no forced navigation — stay on
+          // whatever screen this action was started from.
+          Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
               context, StaffAttendanceTabbedView.routeName);

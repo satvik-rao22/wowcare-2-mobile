@@ -147,8 +147,9 @@ class _StudentAttendanceDailyViewScreenState
   final Set<String> _absentToggleClassroomFetchInFlight = {};
 
   /// When the school allows teacher cross-class attendance, a staff/teacher
-  /// persona is treated like an admin for student attendance: summary cards are
-  /// shown and the classroom dropdown lists every classroom (not just theirs).
+  /// persona's classroom dropdown lists every classroom (not just theirs).
+  /// This never affects summary-card visibility — those stay hidden for staff
+  /// regardless of this flag.
   bool _allowCrossClass = false;
 
   @override
@@ -914,10 +915,10 @@ class _StudentAttendanceDailyViewScreenState
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
     
-    // Staff normally don't see the summary count cards, but when the school
-    // enables cross-class attendance they get the admin-like view.
-    final bool hideSummaryCards =
-        context.watch<RoleCubit>().isStaff && !_allowCrossClass;
+    // Staff never see the summary count cards — even when the school enables
+    // cross-class attendance (that flag only relaxes classroom scope, not
+    // exposure of school-wide enrollment/expected counts).
+    final bool hideSummaryCards = context.watch<RoleCubit>().isStaff;
 
     return BlocListener<
       StudentAttendanceAbsentToggleCubit,
@@ -1632,6 +1633,7 @@ class _StudentAttendanceDailyViewScreenState
               StudentFilterSection.classroom,
               StudentFilterSection.tags,
             ],
+            allowCrossClassAttendance: _allowCrossClass,
           ),
         ),
       ),
