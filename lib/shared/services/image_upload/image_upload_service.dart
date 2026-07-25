@@ -615,6 +615,34 @@ class ImageUploadService {
     return attachmentId;
   }
 
+  /// Bootstraps a `SCHOOL_CLOUD` upload session for direct image uploads to
+  /// the school's cloud gallery (owner type `SCHOOL`), reusing the same
+  /// generic presign → S3 PUT → complete flow as every other upload here.
+  Future<UploadSessionResult> createSchoolCloudUploadSession({
+    required String schoolCode,
+  }) async {
+    // Built manually (not via `ApiPaths.urlWithBase`) like every other
+    // document-service call in this file: the UAT gateway's generic
+    // `urlWithBase`/`url()` machinery re-derives the microservice segment
+    // from the path and, seeing this path already starts with `/document`
+    // (itself a recognized microservice segment), treats it as the
+    // ambiguous "resource name == microservice name" case and duplicates
+    // it into `/api/v1/document/document/...`.
+    final origin =
+        ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final endpoint =
+        '$origin${ApiPaths.schoolCloudUploadSessionsPath(schoolCode)}';
+    final response = await _apiClient.client
+        .post<dynamic>(endpoint, data: <String, dynamic>{})
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+    return _parseUploadSessionResponse(response.data);
+  }
+
   Future<UploadSessionResult> createStudentDocumentUploadSession({
     required String studentCode,
     required String schoolCode,

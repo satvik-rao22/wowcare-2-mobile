@@ -37,7 +37,7 @@ class _AvailableCount {
 // Converts a FutureAvailabilityGrid + selected date into display rows.
 //
 // The API returns entries with shift=MORNING and shift=AFTERNOON when called
-// with shift=ALL (isTwoShifts=true). Each classroom gets one row whose
+// with shift=TWO_SHIFTS (isTwoShifts=true). Each classroom gets one row whose
 // firstShiftCount/secondShiftCount map to morning/afternoon availableSpots.
 //
 // When only FULL_DAY entries exist, both columns show the same value so the
@@ -64,7 +64,8 @@ List<_AvailableCount> _buildRows(
         morning[code] = entry.availableSpots;
         afternoon[code] = entry.availableSpots;
       case FutureAvailabilityShift.all:
-        // "all" is a request-time sentinel, not an entry-level shift value.
+      case FutureAvailabilityShift.twoShifts:
+        // Request-time sentinels, not entry-level shift values.
         break;
     }
   }

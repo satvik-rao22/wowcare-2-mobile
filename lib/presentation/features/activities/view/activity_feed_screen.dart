@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -7,10 +8,12 @@ import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign
 import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
+import 'package:wowcare/presentation/features/activities/widgets/school_cloud_image_uploader_dialog.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 import '../../../../app/theme/colors.dart';
+import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../shared/common/widgets/custom_scaffold.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
@@ -203,6 +206,32 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
                     if (allowWrite)
                       Row(
                         children: [
+                          Builder(
+                            builder: (_) {
+                              final isTablet =
+                                  MediaQuery.of(context).size.width >= 600;
+                              final isLargeTablet =
+                                  MediaQuery.of(context).size.width >= 900;
+                              final iconSize = isLargeTablet
+                                  ? 46.0
+                                  : isTablet
+                                  ? 36.0
+                                  : 30.0;
+                              return GestureDetector(
+                                onTap: () =>
+                                    showSchoolCloudImageUploaderDialog(context),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: SvgPicture.asset(
+                                    MediaRes.uploadCloudIcon,
+                                    width: iconSize,
+                                    height: iconSize,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(width: 2),
                           Builder(
                             builder: (btnContext) => GradientAddButton(
                             isDisabled: addBlockedForSignIn,

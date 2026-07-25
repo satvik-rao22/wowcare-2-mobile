@@ -44,6 +44,10 @@ class IndividualMovementFilterCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final fromClassroomItems =
+        classrooms.where((c) => !toClassrooms.contains(c)).toList();
+    final toClassroomItems =
+        classrooms.where((c) => !fromClassrooms.contains(c)).toList();
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -69,7 +73,7 @@ class IndividualMovementFilterCard extends StatelessWidget {
               Expanded(
                 child: CustomMultiSelectDropdown(
                   hintText: 'From Classrooms',
-                  items: classrooms,
+                  items: fromClassroomItems,
                   selectedItems: fromClassrooms,
                   onChanged: onFromClassroomsChanged,
                   showSelectAll: true,
@@ -79,7 +83,7 @@ class IndividualMovementFilterCard extends StatelessWidget {
               Expanded(
                 child: CustomMultiSelectDropdown(
                   hintText: 'To Classrooms',
-                  items: classrooms,
+                  items: toClassroomItems,
                   selectedItems: toClassrooms,
                   onChanged: onToClassroomsChanged,
                   showSelectAll: true,
@@ -131,6 +135,7 @@ class IndividualMovementPager extends StatelessWidget {
     this.onDragEnded,
     this.onDragGlobalUpdate,
     this.highlightCode,
+    this.onStudentNameTap,
   });
 
   /// Movement id (as string) from a notification deep-link, forwarded to rows.
@@ -146,6 +151,7 @@ class IndividualMovementPager extends StatelessWidget {
       onActionSelected;
   final void Function(MovementItem item, MovementBucket targetBucket) onDropToBucket;
   final bool isViewOnly;
+  final ValueChanged<MovementItem>? onStudentNameTap;
   final bool Function(MovementItem item)? canDragItem;
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnded;
@@ -184,6 +190,7 @@ class IndividualMovementPager extends StatelessWidget {
                         onDragEnded: onDragEnded,
                         onDragGlobalUpdate: onDragGlobalUpdate,
                         highlightCode: highlightCode,
+                        onStudentNameTap: onStudentNameTap,
                       ),
                     );
                   },
@@ -250,6 +257,7 @@ class _MovementSectionCard extends StatelessWidget {
     this.onDragEnded,
     this.onDragGlobalUpdate,
     this.highlightCode,
+    this.onStudentNameTap,
   });
 
   final String? highlightCode;
@@ -263,6 +271,7 @@ class _MovementSectionCard extends StatelessWidget {
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnded;
   final ValueChanged<Offset>? onDragGlobalUpdate;
+  final ValueChanged<MovementItem>? onStudentNameTap;
 
   @override
   Widget build(BuildContext context) {
@@ -332,6 +341,7 @@ class _MovementSectionCard extends StatelessWidget {
                             onDragEnded: onDragEnded,
                             onDragGlobalUpdate: onDragGlobalUpdate,
                             highlightCode: highlightCode,
+                            onStudentNameTap: onStudentNameTap,
                           );
                         },
                       ),
@@ -356,6 +366,7 @@ class _MovementRow extends StatelessWidget {
     this.onDragEnded,
     this.onDragGlobalUpdate,
     this.highlightCode,
+    this.onStudentNameTap,
   });
 
   /// Movement id (as string) from a notification deep-link; matching row flashes.
@@ -371,6 +382,7 @@ class _MovementRow extends StatelessWidget {
   final VoidCallback? onDragStarted;
   final VoidCallback? onDragEnded;
   final ValueChanged<Offset>? onDragGlobalUpdate;
+  final ValueChanged<MovementItem>? onStudentNameTap;
 
   List<PopupMenuEntry<IndividualMovementAction>> _buildMenuEntries() {
     final actions = <IndividualMovementAction>[];
@@ -512,15 +524,15 @@ class _MovementRow extends StatelessWidget {
 
     return Row(
       children: <Widget>[
-        Expanded(child: Align(alignment: Alignment.centerLeft, child: left)),
-        const SizedBox(width: 10),
+        Flexible(child: left),
+        const SizedBox(width: 6),
         const Icon(
           Icons.arrow_right_alt_rounded,
           size: 20,
           color: AppColors.primaryColor,
         ),
-        const SizedBox(width: 10),
-        Expanded(child: Align(alignment: Alignment.centerLeft, child: right)),
+        const SizedBox(width: 6),
+        Flexible(child: right),
       ],
     );
   }
@@ -593,13 +605,22 @@ class _MovementRow extends StatelessWidget {
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(
-                  item.name,
-                  style: const TextStyle(
-                    fontFamily: Fonts.manrope,
-                    fontSize: 15,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.primaryColor,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: onStudentNameTap == null
+                      ? null
+                      : () => onStudentNameTap!(item),
+                  child: Text(
+                    item.name,
+                    style: TextStyle(
+                      fontFamily: Fonts.manrope,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.primaryColor,
+                      decoration: onStudentNameTap == null
+                          ? TextDecoration.none
+                          : TextDecoration.underline,
+                    ),
                   ),
                 ),
               ),

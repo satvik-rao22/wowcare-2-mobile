@@ -95,6 +95,15 @@ class ClassroomCubit extends Cubit<ClassroomState> {
 
     final schoolCode =
         await _storageService.getString(StorageKeys.schoolCode) ?? '';
+
+    // Resolve scoping up front. A classroom-scoped staff persona must never
+    // read or write the shared on-disk classroom cache: the cache key isn't
+    // keyed per-user, so a stale entry left by a different staff member (or
+    // an earlier unscoped session on the same device) could otherwise
+    // flash/leak another classroom's data before the live re-fetch corrects it.
+    final shouldScope = applyAttendanceStaffScope &&
+        await isAttendanceScopedStaffPersona(storage: _storageService);
+
     final cacheKey = _activeClassroomsCacheKey(
       schoolCode,
       onlyTypeClassroom,
@@ -102,7 +111,7 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     );
 
     var hydratedClassrooms = <Classroom>[];
-    if (!force && schoolCode.isNotEmpty) {
+    if (!force && !shouldScope && schoolCode.isNotEmpty) {
       final cached = await _cacheManager.loadCache(cacheKey);
       hydratedClassrooms = _decodeClassroomsFromCache(cached);
       if (hydratedClassrooms.isNotEmpty) {
@@ -144,26 +153,21 @@ class ClassroomCubit extends Cubit<ClassroomState> {
           ? filterSelectableClassrooms(classrooms)
           : classrooms.toList(growable: false);
 
-      if (applyAttendanceStaffScope) {
-        final shouldScope = await isAttendanceScopedStaffPersona(
+      if (shouldScope) {
+        final allowedCodes = await resolveAttendanceAllowedClassroomCodes(
           storage: _storageService,
         );
-        if (shouldScope) {
-          final allowedCodes = await resolveAttendanceAllowedClassroomCodes(
-            storage: _storageService,
-          );
-          final allowedSet = allowedCodes.map((e) => e.trim()).toSet();
-          visibleClassrooms = visibleClassrooms
-              .where((c) => allowedSet.contains(c.code.trim()))
-              .toList(growable: false);
-        }
+        final allowedSet = allowedCodes.map((e) => e.trim()).toSet();
+        visibleClassrooms = visibleClassrooms
+            .where((c) => allowedSet.contains(c.code.trim()))
+            .toList(growable: false);
       }
 
       visibleClassrooms.sort(
         (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
       );
 
-      if (schoolCode.isNotEmpty) {
+      if (schoolCode.isNotEmpty && !shouldScope) {
         await _cacheManager.saveCache(
           cacheKey,
           _encodeClassroomsForCache(visibleClassrooms),

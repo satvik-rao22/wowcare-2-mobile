@@ -48,7 +48,7 @@ Future<MovementDragDropDecision?> showMovementRejectDropDialog(
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Reject Movement',
-        message: 'Provide an optional comment for rejection.\n$movementTitle',
+        message: 'Are you sure you want to reject this movement?\n$movementTitle',
         confirmLabel: 'Reject',
         showComment: true,
       );

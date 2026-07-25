@@ -22,6 +22,7 @@ import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
@@ -233,6 +234,14 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
+    // RoleCubit's active persona is the canonical, persona-switch-aware
+    // signal — staffType/roles in storage can lag a beat after a persona
+    // switch and misresolve a staff/teacher persona as admin (see
+    // AttendancePopup._loadStaffPersonaFlags for the same fix).
+    if (mounted) {
+      return !context.read<RoleCubit>().isStaff;
+    }
+
     final storage = serviceLocator<StorageService>();
     final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
         .trim()
@@ -497,16 +506,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isStaffAdmin);
         if (!mounted) return;
         if (!isStaffAdmin) {
-          // Teacher/staff persona: send them to their own attendance
-          // profile, never the admin-only all-staff tabbed view.
-          final selfName = _selectedStaff.isNotEmpty
-              ? _selectedStaff.first.name
-              : '';
-          redirectToOwnStaffAttendanceProfile(
-            context,
-            staffCode: staffCode,
-            staffName: selfName,
-          );
+          // Teacher/staff persona: no forced navigation — stay on
+          // whatever screen this action was started from.
+          Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
         }

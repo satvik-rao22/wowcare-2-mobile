@@ -21,6 +21,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_overview.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -812,6 +813,27 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     return _canMutateMovements(roles);
   }
 
+  Future<void> _onStudentNameTap(MovementItem item) async {
+    final studentCode = item.studentCode.trim();
+    if (studentCode.isEmpty) return;
+    final classroom = item.toClassroom.trim().isNotEmpty
+        ? item.toClassroom.trim()
+        : item.fromClassroom.trim();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentProfileScreen(
+          name: item.name,
+          classroom: classroom,
+          tags: const [],
+          schedule: const [],
+          sibling: const {},
+          studentCode: studentCode,
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleDropToBucket(
     MovementItem item,
     MovementBucket targetBucket,
@@ -829,6 +851,18 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         context: context,
         message: 'Cannot transition from Overdue to Confirmed.',
         isWarning: true,
+      );
+      return;
+    }
+
+    if (sourceBucket == MovementBucket.overdue &&
+        targetBucket == MovementBucket.upcoming) {
+      // Backend disallows this transition outright, so skip the date
+      // prompt entirely and let the backend's validation error surface.
+      await _transitionMovementStatus(
+        id: item.id,
+        status: IndividualMovementWorkflowStatus.pending,
+        comment: item.comment.isEmpty ? 'Moved to pending via drag' : item.comment,
       );
       return;
     }
@@ -1086,6 +1120,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                         onDragEnded: _onCardDragEnded,
                         onDragGlobalUpdate: _onCardDragGlobalUpdate,
                         highlightCode: widget.highlightCode,
+                        onStudentNameTap: _onStudentNameTap,
                       ),
                     const SizedBox(height: 20),
                   ],
