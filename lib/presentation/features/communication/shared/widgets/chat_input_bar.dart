@@ -176,6 +176,16 @@ class _ChatInputBarState extends State<ChatInputBar> {
   void _handleSend() {
     if (widget.isSending) return;
     widget.onSend();
+    // Clear the composer link-preview strip immediately on send. Without this it
+    // lingers until the 600ms detect-debounce fires on the now-empty draft,
+    // which read as the preview being "stuck" above the input after sending.
+    _urlDetectDebounce?.cancel();
+    if (_detectedPreview != null || _linkPreviewDismissed) {
+      setState(() {
+        _detectedPreview = null;
+        _linkPreviewDismissed = false;
+      });
+    }
     if (_emojiPickerVisible) {
       setState(() => _emojiPickerVisible = false);
     }

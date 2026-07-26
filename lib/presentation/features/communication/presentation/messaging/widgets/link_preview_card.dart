@@ -34,11 +34,25 @@ class LinkPreviewCard extends StatelessWidget {
     // Validate URL before attempting to fetch.
     if (!AnyLinkPreview.isValidLink(url)) return const SizedBox.shrink();
 
+    // The enclosing message bubble wraps its content in an IntrinsicWidth so it
+    // hugs the text. AnyLinkPreview renders through an internal LayoutBuilder,
+    // which throws "LayoutBuilder does not support returning intrinsic
+    // dimensions" the instant IntrinsicWidth queries it — the exception
+    // propagates out of RenderFlex.performLayout and tears the whole chat list
+    // subtree off the screen (the "chat area disappears after sending a link"
+    // bug). Giving the card a TIGHT fixed width makes the wrapping
+    // ConstrainedBox answer the intrinsic-width query itself instead of
+    // recursing into the LayoutBuilder, and bounds the card to the bubble.
+    final previewWidth =
+        (MediaQuery.of(context).size.width * 0.72 - 24).clamp(180.0, 320.0);
+
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: GestureDetector(
-        onTap: () => MessageContentProcessor.launchLink(url),
-        child: AnyLinkPreview(
+      child: SizedBox(
+        width: previewWidth,
+        child: GestureDetector(
+          onTap: () => MessageContentProcessor.launchLink(url),
+          child: AnyLinkPreview(
           link: url,
           displayDirection: UIDirection.uiDirectionHorizontal,
           showMultimedia: true,
@@ -80,6 +94,7 @@ class LinkPreviewCard extends StatelessWidget {
                 ),
               ),
             ),
+          ),
           ),
         ),
       ),
