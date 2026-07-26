@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
@@ -250,6 +252,10 @@ class FirebaseConversationRealtimeDataSource
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the current user — the session
+        // may be stale (account/persona switch) or expired. Deduped + no-ops when
+        // already correct, so this is cheap and makes an authStateChanges event fire.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < _retryDelays.length) {
           Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
             if (!controller.isClosed) attach(attempt + 1);
@@ -334,6 +340,10 @@ class FirebaseConversationRealtimeDataSource
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the current user — the session
+        // may be stale (account/persona switch) or expired. Deduped + no-ops when
+        // already correct, so this is cheap and makes an authStateChanges event fire.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < _retryDelays.length) {
           Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
             if (!controller.isClosed) attach(attempt + 1);
@@ -412,6 +422,10 @@ class FirebaseConversationRealtimeDataSource
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the current user — the session
+        // may be stale (account/persona switch) or expired. Deduped + no-ops when
+        // already correct, so this is cheap and makes an authStateChanges event fire.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < _retryDelays.length) {
           Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
             if (!controller.isClosed) attach(attempt + 1);
