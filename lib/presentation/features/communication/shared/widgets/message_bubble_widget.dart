@@ -1246,6 +1246,25 @@ class _MessageBubbleState extends State<MessageBubble>
 
   // ── Attachments ───────────────────────────────────────────────────────────
 
+  /// Fetch a remote attachment image with a few retries + backoff. A just-arrived
+  /// (live-synced) image can momentarily 403/404 on the CloudFront edge before it
+  /// propagates, so a single GET would fail and stick as an empty/blank bubble
+  /// until a manual refresh re-ran the resolver. Retrying lets the live bubble fill
+  /// itself in without the user having to refresh.
+  Future<Uint8List> _fetchImageBytesWithRetry(String url) async {
+    const attempts = 5;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        final r = await http.get(Uri.parse(url));
+        if (r.statusCode == 200) return r.bodyBytes;
+      } catch (_) {}
+      if (i < attempts - 1) {
+        await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
+      }
+    }
+    return Uint8List(0);
+  }
+
   Widget _buildAttachmentsPreview() {
     final attachments = widget.message.attachments;
     if (attachments.isEmpty) return const SizedBox.shrink();
@@ -1383,12 +1402,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                       src.startsWith('http://') ||
                                       src.startsWith('https://');
                                   if (isRemote) {
-                                    try {
-                                      final r = await http.get(Uri.parse(src));
-                                      if (r.statusCode == 200)
-                                        return r.bodyBytes;
-                                    } catch (_) {}
-                                    return Uint8List(0);
+                                    return _fetchImageBytesWithRetry(src);
                                   }
                                   return await File(src).readAsBytes();
                                 },
@@ -1503,14 +1517,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                           src.startsWith('http://') ||
                                           src.startsWith('https://');
                                       if (isRemote) {
-                                        try {
-                                          final r = await http.get(
-                                            Uri.parse(src),
-                                          );
-                                          if (r.statusCode == 200)
-                                            return r.bodyBytes;
-                                        } catch (_) {}
-                                        return Uint8List(0);
+                                        return _fetchImageBytesWithRetry(src);
                                       }
                                       return await File(src).readAsBytes();
                                     },
