@@ -938,6 +938,13 @@ class _MessageBubbleState extends State<MessageBubble>
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: PreviewCard(
+                                // Stable key so the preview (esp. the async
+                                // AnyLinkPreview for URLs) is preserved across the
+                                // frequent live-sync rebuilds instead of being torn
+                                // down + rebuilt mid-frame, which reparents its
+                                // subtree and throws the semantics/_dependents
+                                // assertions (blank on live, error box on refresh).
+                                key: ValueKey('preview_${preview.value}'),
                                 preview: preview,
                                 isMe: useLightText,
                               ),
@@ -1154,6 +1161,10 @@ class _MessageBubbleState extends State<MessageBubble>
     }
 
     return _StableHtml(
+      // Stable key tied to the message identity so the flutter_html subtree (which
+      // owns a GlobalKey anchorKey) is preserved across live-sync rebuilds rather
+      // than recreated/reparented mid-frame — the source of the semantics assertions.
+      key: ValueKey('html_${widget.message.code}'),
       data: MessageContentProcessor.enrich(rawText),
       linkColor: useLightText ? const Color(0xFF64B5F6) : Colors.blue,
       onLinkTap: MessageContentProcessor.launchLink,
@@ -1640,6 +1651,7 @@ class _StableHtml extends StatefulWidget {
   final Color? linkColor;
 
   const _StableHtml({
+    super.key,
     required this.data,
     required this.style,
     this.onLinkTap,
