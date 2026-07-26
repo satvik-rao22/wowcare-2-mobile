@@ -667,7 +667,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   serviceLocator.registerLazySingleton<FirebaseAuthService>(
-    () => FirebaseAuthService(dio: serviceLocator<ApiClient>().client),
+    () => FirebaseAuthService(
+      dio: serviceLocator<ApiClient>().client,
+      storage: serviceLocator<StorageService>(),
+    ),
   );
 
   // ===== COMMUNICATION V2.1 — DATA SOURCES (Phase 1B) =====

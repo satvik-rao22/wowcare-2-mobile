@@ -3,6 +3,8 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
@@ -364,6 +366,11 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the CURRENT user — the session
+        // may be stale (account/persona switch) or expired. signIn() is deduped and
+        // no-ops when already correct, so calling it here is cheap and makes an
+        // authStateChanges event fire so the retry below reconnects.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < retryDelays.length) {
           // Standard exponential backoff while Firebase auth is in progress.
           Future.delayed(
