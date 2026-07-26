@@ -941,10 +941,11 @@ class _MessageBubbleState extends State<MessageBubble>
                                 // Stable key so the preview (esp. the async
                                 // AnyLinkPreview for URLs) is preserved across the
                                 // frequent live-sync rebuilds instead of being torn
-                                // down + rebuilt mid-frame, which reparents its
-                                // subtree and throws the semantics/_dependents
-                                // assertions (blank on live, error box on refresh).
-                                key: ValueKey('preview_${preview.value}'),
+                                // down + rebuilt mid-frame. Key by the MESSAGE code
+                                // (unique) — keying by preview.value would collide
+                                // when two messages share the same link → duplicate
+                                // key crash (whole-screen red).
+                                key: ValueKey('preview_${widget.message.code}'),
                                 preview: preview,
                                 isMe: useLightText,
                               ),
