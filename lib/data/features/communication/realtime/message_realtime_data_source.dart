@@ -1,3 +1,4 @@
+import 'dart:developer';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -430,20 +431,34 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
                   // message list with just the delta — losing all previous
                   // messages. `docs` always delivers the complete set currently
                   // matching the query, which is what the cubit expects.
-                  controller.add(
-                    snapshot.docs
-                        .map((doc) => MessageFirestoreItem.fromFirestore(doc))
-                        .map((item) => item.toEntity())
-                        .where(
-                          (entity) => VisibilityHelper.canViewMessage(
-                            entity,
-                            currentUserCode,
-                            isStaff,
-                            isAdmin,
-                          ),
-                        )
-                        .toList(),
-                  );
+                  // Parse each message defensively: a single unparseable doc (e.g. an
+                  // unexpected attachment shape) must NOT throw out of the snapshot
+                  // handler — with cancelOnError the whole thread's live sync would die
+                  // and stay dead while that doc remains in the query window. Skip the
+                  // bad one and keep delivering the rest.
+                  final entities = <MessageEntity>[];
+                  for (final doc in snapshot.docs) {
+                    try {
+                      final entity =
+                          MessageFirestoreItem.fromFirestore(doc).toEntity();
+                      if (VisibilityHelper.canViewMessage(
+                        entity,
+                        currentUserCode,
+                        isStaff,
+                        isAdmin,
+                      )) {
+                        entities.add(entity);
+                      }
+                    } catch (e, st) {
+                      log(
+                        'Skipped unparseable message ${doc.id}: $e',
+                        name: 'MessageRealtime',
+                        error: e,
+                        stackTrace: st,
+                      );
+                    }
+                  }
+                  controller.add(entities);
                 },
                 onError: (Object error) => retryOrForward(error, attempt),
                 onDone: () {
