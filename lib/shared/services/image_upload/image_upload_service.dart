@@ -656,6 +656,7 @@ class ImageUploadService {
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
       queryParameters: <String, dynamic>{
+        'studentCode': studentCode.trim(),
         'schoolCode': schoolCode.trim(),
         'organizationCode': organizationCode.trim(),
       },
@@ -675,6 +676,7 @@ class ImageUploadService {
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
       queryParameters: <String, dynamic>{
+        'staffCode': staffCode.trim(),
         'schoolCode': schoolCode.trim(),
         'organizationCode': organizationCode.trim(),
       },
@@ -961,12 +963,17 @@ class ImageUploadService {
     final data = body['data'];
     if (data is! Map) return '';
 
+    // Same key set/order the activity feed trusts (attachmentUsableDeliveryUrl
+    // in activity_patch_attachments.dart) — deliberately excludes a plain
+    // `url` field. The document media-assets endpoint can return a stale/raw
+    // `url` (e.g. the original upload reference) while `deliveryUrl` is still
+    // null during processing; trusting it served a non-CDN, unservable link
+    // instead of falling through to the variants below.
     String pickFromMap(Map map) {
       final candidates = <dynamic>[
         map['deliveryUrl'],
-        map['artifactUrl'],
-        map['url'],
         map['thumbnailUrl'],
+        map['artifactUrl'],
         map['originalDownloadUrl'],
       ];
       for (final raw in candidates) {

@@ -13,6 +13,7 @@ import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 enum _DocKind { image, video, pdf, office }
@@ -72,6 +73,10 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   }
 
   Future<void> _prepare() async {
+    AppLogger.d(
+      '[DocumentViewerScreen] preparing kind=$_kind '
+      'mimeType=${widget.mimeType} url=${widget.url}',
+    );
     try {
       switch (_kind) {
         case _DocKind.image:
@@ -100,7 +105,12 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       }
       if (!mounted) return;
       setState(() => _isPreparing = false);
-    } catch (_) {
+    } catch (e, st) {
+      AppLogger.e(
+        '[DocumentViewerScreen] prepare failed kind=$_kind url=${widget.url}',
+        e,
+        st,
+      );
       if (!mounted) return;
       setState(() {
         _prepareError = 'Unable to preview this document.';
@@ -210,8 +220,14 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           backgroundDecoration: const BoxDecoration(color: Colors.black),
           loadingBuilder: (context, event) =>
               const Center(child: PrimaryCircularLoader()),
-          errorBuilder: (context, error, stackTrace) =>
-              _buildFallback('Unable to load image.'),
+          errorBuilder: (context, error, stackTrace) {
+            AppLogger.e(
+              '[DocumentViewerScreen] image load failed url=${widget.url}',
+              error,
+              stackTrace is StackTrace ? stackTrace : null,
+            );
+            return _buildFallback('Unable to load image.');
+          },
         );
       case _DocKind.video:
         final controller = _videoController;
@@ -230,7 +246,11 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           swipeHorizontal: false,
           autoSpacing: true,
           pageFling: true,
-          onError: (_) {
+          onError: (error) {
+            AppLogger.e(
+              '[DocumentViewerScreen] PDF render failed path=$path',
+              error,
+            );
             if (mounted) {
               setState(() => _prepareError = 'Unable to load PDF.');
             }

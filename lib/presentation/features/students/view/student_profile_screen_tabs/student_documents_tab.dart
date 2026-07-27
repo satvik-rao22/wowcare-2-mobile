@@ -27,6 +27,7 @@ import 'package:wowcare/domain/features/student/entities/student_document.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
@@ -281,6 +282,11 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     setState(() => _isResolvingViewUrl = true);
     try {
       final url = await _resolveDocumentUrl(doc);
+      AppLogger.d(
+        '[StudentDocumentsTab] _handleView doc=${doc.documentName} '
+        'assetCode=${doc.assetCode} mimeType=${doc.mimeType} '
+        'resolvedUrl=$url',
+      );
       if (!mounted) return;
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
@@ -299,7 +305,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
           ),
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.e('[StudentDocumentsTab] _handleView failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
