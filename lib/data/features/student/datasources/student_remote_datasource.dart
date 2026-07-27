@@ -1511,34 +1511,54 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
   Future<List<Map<String, dynamic>>> getTagsBySchool({
     required String schoolCode,
   }) async {
-    // Full [Uri] so Dio does not merge with [BaseOptions.baseUrl]
-    // (which would incorrectly yield …/api/v1/user/tags on the user host).
-    final uri = Uri.parse(ApiPaths.url(ApiPaths.tags)).replace(
-      queryParameters: <String, String>{
-        'schoolCode': schoolCode,
-        'page': '0',
-        'size': '100',
-      },
-    );
+    // Page through the FULL tag list. This was previously capped at a single
+    // page (page 0, size 100), so a school with more than 100 tags silently
+    // lost every tag past the first 100 in the filter — hence "all tags not
+    // showing". Loop until the server reports the last page.
+    const pageSize = 200;
+    final all = <Map<String, dynamic>>[];
+    var page = 0;
+    while (true) {
+      // Full [Uri] so Dio does not merge with [BaseOptions.baseUrl]
+      // (which would incorrectly yield …/api/v1/user/tags on the user host).
+      final uri = Uri.parse(ApiPaths.url(ApiPaths.tags)).replace(
+        queryParameters: <String, String>{
+          'schoolCode': schoolCode,
+          'page': '$page',
+          'size': '$pageSize',
+        },
+      );
 
-    final response = await _client.getUri<dynamic>(uri);
+      final response = await _client.getUri<dynamic>(uri);
 
-    if (response.data is! Map<String, dynamic>) {
-      throw Exception('Unexpected tags API response format');
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('Unexpected tags API response format');
+      }
+
+      final root = response.data! as Map<String, dynamic>;
+      final data = root['data'];
+      if (data is! Map<String, dynamic>) break;
+
+      final content = data['content'];
+      if (content is! List) break;
+
+      final pageItems = content.whereType<Map<String, dynamic>>().toList();
+      all.addAll(pageItems);
+
+      // Stop at the last page. Prefer the server's paging flags; fall back to
+      // "a short page means no more".
+      final last = data['last'];
+      final totalPages = data['totalPages'];
+      final isLast = (last is bool && last) ||
+          (totalPages is int && page >= totalPages - 1) ||
+          pageItems.length < pageSize;
+      if (isLast) break;
+
+      page++;
+      if (page > 50) break; // safety cap (>10k tags) — never loop unbounded
     }
 
-    final root = response.data! as Map<String, dynamic>;
-    final data = root['data'];
-    if (data is! Map<String, dynamic>) {
-      return const <Map<String, dynamic>>[];
-    }
-
-    final content = data['content'];
-    if (content is! List) {
-      return const <Map<String, dynamic>>[];
-    }
-
-    return content.whereType<Map<String, dynamic>>().toList(growable: false);
+    return all.toList(growable: false);
   }
 
   @override

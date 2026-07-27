@@ -217,7 +217,6 @@ class _StaffDirectoryReportScreenState
                   labelStyle: _labelStyle(responsive),
                   showAsterisk: true,
                   labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
                   onSelect: (val) => setState(() => _status = val ?? _status),
                 ),
                 SizedBox(height: responsive.verticalSpacing),

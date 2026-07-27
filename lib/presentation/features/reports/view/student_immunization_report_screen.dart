@@ -306,7 +306,6 @@ class _StudentImmunizationReportScreenState
                   labelStyle: _labelStyle(responsive),
                   showAsterisk: true,
                   labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
                   onSelect: (val) {
                     if (val == null) return;
                     setState(() => _vaccine = val);
@@ -321,7 +320,6 @@ class _StudentImmunizationReportScreenState
                   labelStyle: _labelStyle(responsive),
                   showAsterisk: true,
                   labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
                   onSelect: (val) {
                     if (val == null) return;
                     setState(() => _status = val);

@@ -1,5 +1,6 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_document.dart';
@@ -862,8 +863,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     required String staffCode,
     required List<Map<String, String>> dates,
   }) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = AppTime.today();
 
     // Final safety guard: never allow PHYSICAL_CHECKUP Due/Scheduled in past
     // (reverse rule of Completed) even if any UI path misses validation.

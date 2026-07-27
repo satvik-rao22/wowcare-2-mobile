@@ -1260,7 +1260,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   showAsterisk: false,
                   labelBottomSpacing: 6,
                   fieldHeight: 52,
-                  prependHintAsSelectableItem: false,
                   onSelect: (v) {
                     if (v == null) return;
                     setState(() =>
@@ -1283,7 +1282,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         showAsterisk: false,
                         labelBottomSpacing: 6,
                         fieldHeight: 52,
-                        prependHintAsSelectableItem: false,
                         onSelect: (v) {
                           if (v != null) setState(() => _expMonth = v);
                         },
@@ -1301,7 +1299,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         showAsterisk: false,
                         labelBottomSpacing: 6,
                         fieldHeight: 52,
-                        prependHintAsSelectableItem: false,
                         onSelect: (v) {
                           if (v != null) setState(() => _expYear = v);
                         },

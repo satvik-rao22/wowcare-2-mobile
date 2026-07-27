@@ -7,6 +7,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
@@ -94,7 +95,7 @@ class MessageFirestoreItem {
       senderAvatarUrl: d['senderAvatarUrl'] as String?,
       text: d['text'] as String? ?? '',
       messageType: d['messageType'] as String? ?? 'TEXT',
-      sentAt: _parseTimestamp(d['sentAt']) ?? DateTime.now(),
+      sentAt: _parseTimestamp(d['sentAt']) ?? AppTime.nowUtc(),
       organizationCode: d['organizationCode'] as String? ?? '',
       schoolCode: d['schoolCode'] as String? ?? '',
       isDeleted: d['isDeleted'] as bool? ?? false,
@@ -131,7 +132,7 @@ class MessageFirestoreItem {
         d['code'] as String? ?? doc.id,
         d['conversationCode'] as String? ?? '',
         d['senderCode'] as String? ?? '',
-        _parseTimestamp(d['sentAt']) ?? DateTime.now(),
+        _parseTimestamp(d['sentAt']) ?? AppTime.nowUtc(),
       ),
     );
   }

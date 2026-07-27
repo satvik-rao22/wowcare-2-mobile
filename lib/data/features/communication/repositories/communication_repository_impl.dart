@@ -17,6 +17,7 @@ import '../../../../domain/features/communication/repositories/communication_rep
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../models/conversation_collection.dart';
 import '../models/create_conversation_request.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import '../realtime/conversation_realtime_data_source.dart';
 import '../realtime/message_realtime_data_source.dart';
 
@@ -170,7 +171,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       );
       if (results.isNotEmpty) {
         final message = results.first;
-        message.readAt = DateTime.now();
+        message.readAt = AppTime.nowUtc();
         await cacheService.put(message);
       }
 
@@ -534,7 +535,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       originalEditedAt = originalCollection.editedAt;
 
       originalCollection.text = content;
-      originalCollection.editedAt = DateTime.now();
+      originalCollection.editedAt = AppTime.nowUtc();
       await cacheService.put(originalCollection);
     }
 
@@ -744,7 +745,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // `toEntity()` — silently re-enabling Edit/Reply/Delete on a message
       // that visually looks deleted.
       ..deletedAt = entity.isDeleted
-          ? (entity.deletedAt ?? DateTime.now())
+          ? (entity.deletedAt ?? AppTime.nowUtc())
           : existing?.deletedAt
       ..quotedMessageId = existing?.quotedMessageId ?? entity.threadParentCode
       ..senderName = entity.senderName.isNotEmpty

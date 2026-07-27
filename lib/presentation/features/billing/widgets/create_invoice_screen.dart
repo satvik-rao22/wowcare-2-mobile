@@ -488,7 +488,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
             isEnabled: !_isFormLocked,
             labelStyle: labelStyle,
             labelBottomSpacing: labelBottomSpacing,
-            prependHintAsSelectableItem: false,
             onSelect: (value) {
               if (value != null) _updateInvoiceItem(index, type: value);
             },
@@ -508,7 +507,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
               isEnabled: !_isFormLocked && descriptionOptions.isNotEmpty,
               labelStyle: labelStyle,
               labelBottomSpacing: labelBottomSpacing,
-              prependHintAsSelectableItem: false,
               onSelect: (value) {
                 if (value != null) _updateInvoiceItem(index, description: value);
               },
@@ -555,7 +553,6 @@ class _CreateInvoiceScreenState extends State<CreateInvoiceScreen> {
                     isEnabled: !_isFormLocked,
                     labelStyle: labelStyle,
                     labelBottomSpacing: labelBottomSpacing,
-                    prependHintAsSelectableItem: false,
                     onSelect: (value) {
                       if (value != null) {
                         _updateInvoiceItem(

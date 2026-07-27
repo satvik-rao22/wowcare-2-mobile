@@ -750,7 +750,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     final cacheKey = _attendanceCacheKeyForRoomToday();
     final cached = _attendanceCacheByKey[cacheKey];
     if (cached != null &&
-        DateTime.now().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
+        AppTime.nowUtc().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
       if (!mounted) return;
       setState(() {
         _attendanceStatusByStudentCode
@@ -794,7 +794,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         _attendanceStatusError = false;
       });
       _attendanceCacheByKey[cacheKey] = _AttendanceCacheEntry(
-        fetchedAt: DateTime.now(),
+        fetchedAt: AppTime.nowUtc(),
         statusByCode: Map<String, String>.from(map),
       );
     } catch (_) {

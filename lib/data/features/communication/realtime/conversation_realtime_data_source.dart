@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
@@ -135,9 +136,9 @@ class ConversationInboxItem {
       status: isActive ? 'ACTIVE' : 'INACTIVE',
       organizationCode: organizationCode,
       schoolCode: this.schoolCode ?? schoolCode,
-      createdAt: DateTime.now(),
+      createdAt: AppTime.nowUtc(),
       createdBy: '',
-      updatedAt: DateTime.now(),
+      updatedAt: AppTime.nowUtc(),
       updatedBy: '',
       participantCount: 0,
       unreadCount: unreadCount,

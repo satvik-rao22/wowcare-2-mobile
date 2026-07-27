@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:intl/intl.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -352,7 +353,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
         final tempDir = await getTemporaryDirectory();
         var ext = p.extension(Uri.parse(url).path).trim().toLowerCase();
         if (ext.isEmpty) ext = isVideo ? '.mp4' : '.jpg';
-        final stamp = DateTime.now().millisecondsSinceEpoch;
+        final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
         final base = doc.documentName.trim().isNotEmpty
             ? doc.documentName.trim()
             : 'wowcare_document_$stamp';

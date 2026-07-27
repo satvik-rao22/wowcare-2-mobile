@@ -360,13 +360,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         schoolTimeZone,
       );
     } else {
-      occurredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+      occurredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
-        year: selectedDate.year,
-        month: selectedDate.month,
-        day: selectedDate.day,
-        hour: selectedTime.hour,
-        minute: selectedTime.minute,
+        selectedDate: selectedDate,
+        selectedTime: selectedTime,
       );
       attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
         occurredAt,

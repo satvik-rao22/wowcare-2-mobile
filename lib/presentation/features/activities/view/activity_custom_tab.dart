@@ -1077,7 +1077,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!_lastFeedCompletedWithError) return;
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
         return;
       }
     }
@@ -1204,7 +1204,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextRangeFeedPage(),
@@ -1221,7 +1221,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -2440,7 +2440,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
         return;
       }
     }
@@ -2558,7 +2558,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextRangeFeedPage(),
@@ -2679,7 +2679,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }

@@ -605,7 +605,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       final isVideo = forceVideoPayload || isVideoByExt;
       final extension = lower.contains('.') ? lower.split('.').last : (isVideo ? 'mp4' : 'jpg');
       final generatedFileName =
-          '${isVideo ? 'video' : 'photo'}_${DateTime.now().millisecondsSinceEpoch}.$extension';
+          '${isVideo ? 'video' : 'photo'}_${AppTime.nowUtc().millisecondsSinceEpoch}.$extension';
       final contentType = isVideo
           ? (lower.endsWith('.mov')
               ? 'video/quicktime'

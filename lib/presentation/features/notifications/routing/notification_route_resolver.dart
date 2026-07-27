@@ -154,6 +154,28 @@ class NotificationRouteResolver {
       case 'MESSAGING':
       case 'NEWSLETTER':
         return const NotificationDestination(path: AppRoutes.messaging);
+      case 'NEW_MESSAGE':
+      case 'NEW_CONVERSATION':
+        // A real chat push (per new message / new conversation) — deep-link
+        // straight to the conversation thread. conversationCode is required;
+        // the optional conversationType lets the target open the right thread
+        // without an extra lookup. Without a code we can't target anything, so
+        // fall through to the messaging home rather than returning null (which
+        // would make the tap a no-op).
+        final convCode =
+            _firstCode(n, const ['conversationCode', 'conversation_code']);
+        if (convCode == null) {
+          return const NotificationDestination(path: AppRoutes.messaging);
+        }
+        final convType =
+            _firstCode(n, const ['conversationType', 'conversation_type']) ?? '';
+        return NotificationDestination(
+          path: AppRoutes.openConversation,
+          queryParameters: {
+            'conversationCode': convCode,
+            if (convType.isNotEmpty) 'conversationType': convType,
+          },
+        );
       default:
         return null;
     }

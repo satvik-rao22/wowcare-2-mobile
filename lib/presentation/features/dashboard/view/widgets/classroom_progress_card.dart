@@ -69,7 +69,6 @@ class _ClassroomProgressCardState extends State<ClassroomProgressCard> {
                   items: _classrooms,
                   selectedItem: _selectedClassroom,
                   isField: false,
-                  prependHintAsSelectableItem: false,
                   onSelect: (value) {
                     if (value != null) {
                       setState(() => _selectedClassroom = value);

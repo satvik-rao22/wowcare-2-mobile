@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/core/util/app_time.dart';
 // import 'package:schoolerp/core/common/app/providers/auth_providers.dart'; // backend provider not available
 
 class DateUtilsNew {
@@ -23,7 +24,7 @@ class DateUtilsNew {
     String endTime = '06:00:00 PM';
     // Parse all times to DateTime objects for comparison
     // Assuming time format is "HH:MM:SS AM/PM"
-    DateTime now = DateTime.now();
+    DateTime now = AppTime.now();
 
     debugPrint('startTime $startTime');
     debugPrint('endTime $endTime');

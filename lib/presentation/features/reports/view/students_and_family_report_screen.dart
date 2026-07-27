@@ -297,7 +297,6 @@ class _StudentsAndFamilyReportScreenState
                     labelStyle: _labelStyle(responsive),
                     showAsterisk: true,
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                    prependHintAsSelectableItem: false,
                     onSelect: (val) => _status.value = val ?? _status.value,
                   ),
                 ),

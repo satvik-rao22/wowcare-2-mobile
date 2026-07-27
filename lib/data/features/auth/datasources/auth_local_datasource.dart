@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/jwt_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -67,7 +68,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.saveJson(StorageKeys.loginCacheKey, response.toJson());
     await _storage.saveInt(
       StorageKeys.loginCacheTimestamp,
-      DateTime.now().millisecondsSinceEpoch,
+      AppTime.nowUtc().millisecondsSinceEpoch,
     );
 
     // Save individual fields for quick access
@@ -149,7 +150,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     if (timestamp == null) return false;
 
     final cacheTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final now = DateTime.now();
+    final now = AppTime.nowUtc();
     final difference = now.difference(cacheTime);
 
     return difference < StorageKeys.cacheValidDuration;

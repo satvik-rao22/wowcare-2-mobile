@@ -9,6 +9,7 @@ import 'package:wowcare/data/features/communication/datasources/message_entity_l
 import 'package:wowcare/data/features/communication/datasources/message_entity_remote_data_source.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 import 'package:wowcare/domain/features/communication/repositories/reaction_repository.dart';
 
@@ -125,7 +126,7 @@ class ReactionRepositoryImpl implements ReactionRepository {
       entityCode: entityCode,
       status: SyncOperationStatus.pending,
       payload: jsonEncode(payload),
-      createdAt: DateTime.now(),
+      createdAt: AppTime.nowUtc(),
       organizationCode: org,
       schoolCode: school,
     );

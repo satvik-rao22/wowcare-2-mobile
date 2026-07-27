@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 // import 'package:schoolerp/core/extentions/context_extentions.dart'; // backend/context extensions not available
 // import 'package:schoolerp/core/res/colors.dart'; // backend colors not available
@@ -74,7 +75,7 @@ class CoreUtils {
 
     void showBanner(BuildContext ctx) {
       if (!ctx.mounted) return;
-      final now = DateTime.now();
+      final now = AppTime.nowUtc();
       if (_lastOnScreenErrorMessage == trimmed &&
           _lastOnScreenErrorAt != null &&
           now.difference(_lastOnScreenErrorAt!) < dedupeWindow) {
