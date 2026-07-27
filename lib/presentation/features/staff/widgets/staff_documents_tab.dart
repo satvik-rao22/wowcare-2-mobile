@@ -26,6 +26,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 
 class StaffDocumentsTab extends StatefulWidget {
   const StaffDocumentsTab({
@@ -234,6 +235,11 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     setState(() => _isResolvingViewUrl = true);
     try {
       final url = await _resolveDocumentUrl(doc);
+      AppLogger.d(
+        '[StaffDocumentsTab] _handleView doc=${doc.documentName} '
+        'assetCode=${doc.assetCode} mimeType=${doc.mimeType} '
+        'resolvedUrl=$url',
+      );
       if (!mounted) return;
       if (url.isEmpty || Uri.tryParse(url) == null) {
         CoreUtils.showTopSnackBar(
@@ -252,7 +258,8 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
           ),
         ),
       );
-    } catch (e) {
+    } catch (e, st) {
+      AppLogger.e('[StaffDocumentsTab] _handleView failed', e, st);
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
