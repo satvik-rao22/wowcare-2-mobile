@@ -576,6 +576,24 @@ class ConversationEntityRepositoryImpl
   }
 
   @override
+  Stream<int> watchUnreadCountForConversation(String conversationCode) async* {
+    if (conversationCode.isEmpty) {
+      yield 0;
+      return;
+    }
+    final org = await _orgCode;
+    final school = await _schoolCode;
+    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+
+    yield* _realtime.watchUnreadCountForConversation(
+      organizationCode: org,
+      schoolCode: school,
+      userCode: user,
+      conversationCode: conversationCode,
+    );
+  }
+
+  @override
   Stream<int> watchTotalUnreadCount() async* {
     final org = await _orgCode;
     final school = await _schoolCode;
