@@ -7,7 +7,6 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -54,7 +53,9 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     AppLogger.d('[STAFF-ABSENT-UI] Generate button tapped');
 
     if (_toDate.value.isBefore(_fromDate.value)) {
-      AppLogger.w('[STAFF-ABSENT-UI] Generation blocked: To date before From date');
+      AppLogger.w(
+        '[STAFF-ABSENT-UI] Generation blocked: To date before From date',
+      );
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'To date cannot be before From date',
@@ -67,6 +68,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     final cubit = context.read<ReportsCubit>();
     final params = ReportRequestParams(
       reportType: ReportType.staffAbsent,
+      format: _format.value, // PDF or XLSX
       startDate: _fromDate.value,
       endDate: _toDate.value,
       classroomCodes: _selectedClassrooms.value.isEmpty
@@ -164,7 +166,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

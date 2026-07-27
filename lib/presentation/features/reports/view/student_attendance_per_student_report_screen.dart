@@ -1,13 +1,11 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
@@ -77,13 +75,13 @@ class _StudentAttendancePerStudentReportScreenState
 
     final studentCodes = _selectedStudents.isNotEmpty
         ? _selectedStudents
-            .map((name) => reportsState.studentNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.studentNameToCode[name] ?? name)
+              .toList()
         : null;
     final classroomCodes = _selectedClassrooms.isNotEmpty
         ? _selectedClassrooms
-            .map((name) => reportsState.classroomNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.classroomNameToCode[name] ?? name)
+              .toList()
         : null;
 
     final params = ReportRequestParams(

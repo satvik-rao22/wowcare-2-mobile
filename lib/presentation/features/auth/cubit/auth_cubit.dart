@@ -658,7 +658,9 @@ class AuthCubit extends Cubit<AuthState> {
           AppLogger.d('[AUTH] Login flow complete — signing into Firebase');
           _firebaseAuthService.signIn();
         } catch (e) {
-          AppLogger.w('[AUTH] Firebase sign-in after login failed (non-fatal): $e');
+          AppLogger.w(
+            '[AUTH] Firebase sign-in after login failed (non-fatal): $e',
+          );
         }
 
         // Prefetch parent/guardian children upfront so UI doesn't trigger the

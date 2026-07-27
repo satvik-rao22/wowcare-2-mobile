@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
-
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -49,18 +51,44 @@ class _StudentDailyAttendanceReportScreenState
     super.dispose();
   }
 
-  void _onGenerate() {
+  // void _onGenerate() {
+  //   final cubit = context.read<ReportsCubit>();
+  //   final classroomNameToCode = cubit.state.classroomNameToCode;
+  //   final classroomCodes = _selectedClassrooms.value
+  //       .map((name) => classroomNameToCode[name] ?? name)
+  //       .toList();
+
+  //   final params = ReportRequestParams(
+  //     reportType: ReportType.studentDailyAttendance,
+  //     startDate: _date.value,
+  //     endDate: _date.value,
+  //     classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+  //   );
+
+  //   unawaited(cubit.generateReport(params));
+  // }
+  Future<void> _onGenerate() async {
     final cubit = context.read<ReportsCubit>();
+
     final classroomNameToCode = cubit.state.classroomNameToCode;
+
     final classroomCodes = _selectedClassrooms.value
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
+
+    // Resolve school name from storage to ensure the proper name is passed.
+    final storage = serviceLocator<StorageService>();
+
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
 
     final params = ReportRequestParams(
       reportType: ReportType.studentDailyAttendance,
       startDate: _date.value,
       endDate: _date.value,
+      format: _format.value, // PDF or XLSX
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
     );
 
     unawaited(cubit.generateReport(params));
@@ -139,7 +167,7 @@ class _StudentDailyAttendanceReportScreenState
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

@@ -1,22 +1,21 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../domain/features/reports/entities/report_type.dart';
+import '../../../../domain/features/reports/usecases/staff_scheduling_report_params.dart';
+
 class StaffScheduleReportScreen extends StatefulWidget {
-  const StaffScheduleReportScreen({
-    super.key,
-    required this.classrooms,
-  });
+  const StaffScheduleReportScreen({super.key, required this.classrooms});
 
   static const String routeName = '/reports/staff/schedule';
 
@@ -27,8 +26,7 @@ class StaffScheduleReportScreen extends StatefulWidget {
       _StaffScheduleReportScreenState();
 }
 
-class _StaffScheduleReportScreenState
-    extends State<StaffScheduleReportScreen> {
+class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
   List<String> _selectedClassrooms = <String>[];
@@ -42,13 +40,42 @@ class _StaffScheduleReportScreenState
     _endDate = now.add(const Duration(days: 6));
   }
 
+  // void _onGenerate() {
+  //   const message =
+  //       'Staff Scheduling report is currently unavailable because backend endpoint does not exist.';
+  //   CoreUtils.showTopSnackBar(
+  //     context: context,
+  //     message: message,
+  //     isError: true,
+  //   );
+  // }
   void _onGenerate() {
-    const message = 'Staff Scheduling report is currently unavailable because backend endpoint does not exist.';
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: message,
-      isError: true,
+    if (_endDate.isBefore(_startDate)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'End date cannot be before Start date',
+        isError: true,
+      );
+      return;
+    }
+
+    final cubit = context.read<ReportsCubit>();
+    final classroomNameToCode = cubit.state.classroomNameToCode;
+
+    final classroomCodes = _selectedClassrooms
+        .map((name) => classroomNameToCode[name])
+        .whereType<String>()
+        .toList();
+
+    final params = StaffSchedulingReportParams(
+      reportType: ReportType.staffScheduling,
+      startDate: _startDate,
+      endDate: _endDate,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      format: _format,
     );
+
+    unawaited(cubit.generateReport(params));
   }
 
   @override
@@ -99,43 +126,43 @@ class _StaffScheduleReportScreenState
         title: 'Staff Scheduling',
         onGenerate: _onGenerate,
         child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const ReportFieldLabel(label: 'Start Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _startDate,
-            onDateSelected: (d) => setState(() => _startDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          const ReportFieldLabel(label: 'End Date'),
-          CustomDateTimeField(
-            hasLabel: false,
-            fetchInitialTime: false,
-            initialDate: _endDate,
-            onDateSelected: (d) => setState(() => _endDate = d),
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          CustomMultiSelectDropdown(
-            label: 'Classroom',
-            hintText: 'Select Classroom',
-            items: widget.classrooms,
-            selectedItems: _selectedClassrooms,
-            onChanged: (s) => setState(() => _selectedClassrooms = s),
-                  showSelectAll: true,
-          ),
-          const ReportDefaultNote(
-            text: 'Note: All Classrooms will be selected by Default.',
-          ),
-          SizedBox(height: responsive.verticalSpacing),
-          const ReportFieldLabel(label: 'Export Format'),
-          ReportFormatSelector(
-            selectedFormat: _format,
-            onFormatChanged: (value) => setState(() => _format = value),
-            showLabel: false,
-          ),
-        ],
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const ReportFieldLabel(label: 'Start Date'),
+            CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: _startDate,
+              onDateSelected: (d) => setState(() => _startDate = d),
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            const ReportFieldLabel(label: 'End Date'),
+            CustomDateTimeField(
+              hasLabel: false,
+              fetchInitialTime: false,
+              initialDate: _endDate,
+              onDateSelected: (d) => setState(() => _endDate = d),
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            CustomMultiSelectDropdown(
+              label: 'Classroom',
+              hintText: 'Select Classroom',
+              items: widget.classrooms,
+              selectedItems: _selectedClassrooms,
+              onChanged: (s) => setState(() => _selectedClassrooms = s),
+              showSelectAll: true,
+            ),
+            const ReportDefaultNote(
+              text: 'Note: All Classrooms will be selected by Default.',
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+            const ReportFieldLabel(label: 'Export Format'),
+            ReportFormatSelector(
+              selectedFormat: _format,
+              onFormatChanged: (value) => setState(() => _format = value),
+              showLabel: false,
+            ),
+          ],
         ),
       ),
     );

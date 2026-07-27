@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -56,7 +55,9 @@ class _StaffAttendancePerWeekReportScreenState
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Generate button tapped');
 
     if (!_validateInputs()) {
-      AppLogger.w('[STAFF-ATTENDANCE-WEEKLY-UI] Generation blocked by validation');
+      AppLogger.w(
+        '[STAFF-ATTENDANCE-WEEKLY-UI] Generation blocked by validation',
+      );
       return;
     }
 
@@ -67,15 +68,15 @@ class _StaffAttendancePerWeekReportScreenState
     // Convert staff names to codes
     final staffCodes = _selectedStaff.isNotEmpty
         ? _selectedStaff
-            .map((name) => reportsState.staffNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.staffNameToCode[name] ?? name)
+              .toList()
         : null;
 
     // Convert classroom names to codes
     final classroomCodes = _selectedClassrooms.isNotEmpty
         ? _selectedClassrooms
-            .map((name) => reportsState.classroomNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.classroomNameToCode[name] ?? name)
+              .toList()
         : null;
 
     final params = ReportRequestParams(

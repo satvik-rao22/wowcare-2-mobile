@@ -7,11 +7,12 @@ class ReportRequestParams extends Equatable implements ReportParams {
     required this.reportType,
     required this.startDate,
     this.endDate,
-    this.format = 'PDF',
+    this.format = '',
     this.classroomCodes,
     this.studentCodes,
     this.staffCodes,
     this.tagCodes,
+    this.schoolName,
     this.search,
   });
 
@@ -29,6 +30,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
   final List<String>? studentCodes;
   final List<String>? staffCodes;
   final List<String>? tagCodes;
+  final String? schoolName;
   final String? search;
 
   ReportRequestParams copyWith({
@@ -40,6 +42,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     List<String>? studentCodes,
     List<String>? staffCodes,
     List<String>? tagCodes,
+    String? schoolName,
     String? search,
   }) {
     return ReportRequestParams(
@@ -51,6 +54,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
       studentCodes: studentCodes ?? this.studentCodes,
       staffCodes: staffCodes ?? this.staffCodes,
       tagCodes: tagCodes ?? this.tagCodes,
+      schoolName: schoolName ?? this.schoolName,
       search: search ?? this.search,
     );
   }
@@ -61,6 +65,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
       'reportType': reportType.backendValue,
       'startDate': startDate.toIso8601String().split('T')[0],
       if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
+      if (schoolName != null) 'schoolName': schoolName,
       'format': format,
     };
 
@@ -110,7 +115,8 @@ class ReportRequestParams extends Equatable implements ReportParams {
         'students=${studentCodes!.join(',')}',
       if (staffCodes != null && staffCodes!.isNotEmpty)
         'staff=${staffCodes!.join(',')}',
-      if (tagCodes != null && tagCodes!.isNotEmpty) 'tags=${tagCodes!.join(',')}',
+      if (tagCodes != null && tagCodes!.isNotEmpty)
+        'tags=${tagCodes!.join(',')}',
       if (search != null && search!.trim().isNotEmpty)
         'search=${search!.trim().toLowerCase()}',
     ];
@@ -127,6 +133,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     studentCodes,
     staffCodes,
     tagCodes,
+    schoolName,
     search,
   ];
 }

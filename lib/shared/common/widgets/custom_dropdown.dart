@@ -135,6 +135,7 @@ class CustomDropdown extends StatefulWidget {
     this.initialValue,
     this.isField = true,
     this.isEnabled = true,
+    this.showHintInDropdown = true,
     this.border,
     this.onSelect,
     this.selectedItem, // New parameter for the selected item
@@ -168,7 +169,9 @@ class CustomDropdown extends StatefulWidget {
   final bool isRequired;
   final List<String> items;
   final bool isField;
+
   final bool isEnabled;
+  final bool showHintInDropdown;
   final InputBorder? border;
   final ValueChanged<String?>? onSelect;
   final String? selectedItem; // New parameter for the selected item
@@ -215,8 +218,16 @@ class _CustomDropdownState extends State<CustomDropdown> {
 
   @override
   Widget build(BuildContext context) {
+    // final String clearLabel = widget.clearItemLabel ?? widget.hintText;
+    // final List<String> displayItems = widget.prependHintAsSelectableItem
+    //     ? <String>[clearLabel, ...widget.items]
+    //     : List<String>.from(widget.items);
     final String clearLabel = widget.clearItemLabel ?? widget.hintText;
-    final List<String> displayItems = widget.prependHintAsSelectableItem
+
+    final bool shouldShowHintItem =
+        widget.prependHintAsSelectableItem && widget.showHintInDropdown;
+
+    final List<String> displayItems = shouldShowHintItem
         ? <String>[clearLabel, ...widget.items]
         : List<String>.from(widget.items);
 
@@ -280,8 +291,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     ),
                     onSelected: (value) {
                       setState(() {
-                        if (widget.prependHintAsSelectableItem &&
-                            value == clearLabel) {
+                        if (shouldShowHintItem && value == clearLabel) {
                           selectedItem = null;
                         } else {
                           selectedItem = value;
