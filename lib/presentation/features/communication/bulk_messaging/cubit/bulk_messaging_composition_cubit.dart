@@ -1,16 +1,18 @@
 import 'dart:async';
-import 'package:wowcare/core/util/app_time.dart';
 import 'dart:io';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mime/mime.dart';
+import 'package:path/path.dart' as p;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
-import 'package:wowcare/domain/features/communication/usecases/send_message_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 
 class SelectedAttachment extends Equatable {
   final File file;
@@ -115,18 +117,21 @@ class BulkMessagingCompositionState extends Equatable {
 class BulkMessagingCompositionCubit
     extends Cubit<BulkMessagingCompositionState> {
   final CreateOrOpenConversationUseCase _createOrOpenConversationUseCase;
-  final SendMessageUseCase _sendMessageUseCase;
+  final SendMessageEntityUseCase _sendMessageUseCase;
+  final ChatAttachmentUploader _attachmentUploader;
   final StorageService _storageService;
 
   BulkMessagingCompositionCubit({
     required List<Map<String, dynamic>> initialRecipients,
     required bool isStaff,
     required CreateOrOpenConversationUseCase createOrOpenConversationUseCase,
-    required SendMessageUseCase sendMessageUseCase,
+    required SendMessageEntityUseCase sendMessageUseCase,
+    required ChatAttachmentUploader attachmentUploader,
     required StorageService storageService,
     String conversationType = 'ROOM_CHAT',
   }) : _createOrOpenConversationUseCase = createOrOpenConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
+       _attachmentUploader = attachmentUploader,
        _storageService = storageService,
        super(
          BulkMessagingCompositionState(
@@ -223,6 +228,7 @@ class BulkMessagingCompositionCubit
     final messageText = state.messageText.trim();
     final isStaff = state.isStaff;
     final conversationType = state.conversationType;
+    final attachments = List<SelectedAttachment>.from(state.attachments);
 
     // Signal the UI immediately so it can navigate back.
     emit(state.copyWith(isBulkStarted: true));
@@ -236,6 +242,7 @@ class BulkMessagingCompositionCubit
         actualSenderCode: actualSenderCode,
         recipients: recipients,
         messageText: messageText,
+        attachments: attachments,
         isStaff: isStaff,
         conversationType: conversationType,
       ),
@@ -260,9 +267,52 @@ class BulkMessagingCompositionCubit
       actualSenderCode: actualSenderCode,
       recipients: toRetry,
       messageText: state.messageText,
+      attachments: List<SelectedAttachment>.from(state.attachments),
       isStaff: state.isStaff,
       conversationType: state.conversationType,
     ));
+  }
+
+  /// Convert the picker's [SelectedAttachment]s (local files) into unuploaded
+  /// [ChatAttachment]s ready for [_attachmentUploader]. Built once per bulk run.
+  Future<List<ChatAttachment>> _baseAttachments(
+    List<SelectedAttachment> selected,
+  ) async {
+    final result = <ChatAttachment>[];
+    for (final a in selected) {
+      final size = await a.file.length();
+      result.add(
+        ChatAttachment(
+          localPath: a.file.path,
+          name: p.basename(a.file.path),
+          type: a.isImage ? 'image' : 'document',
+          sizeBytes: size,
+          mimeType: lookupMimeType(a.file.path) ?? 'application/octet-stream',
+          remoteUrl: '',
+        ),
+      );
+    }
+    return result;
+  }
+
+  /// Upload [base] into [conversationCode] (session → presign → S3 → complete →
+  /// register, via the same uploader the chat thread uses) and return the
+  /// registered attachmentIds for sendMessage. Throws if any upload fails, so
+  /// the caller marks that recipient failed (all-or-nothing, no partial send).
+  Future<List<int>> _uploadAttachmentsFor(
+    String conversationCode,
+    List<ChatAttachment> base,
+  ) async {
+    if (base.isEmpty) return const [];
+    final uploaded = await Future.wait(
+      base.map(
+        (att) => _attachmentUploader.upload(
+          conversationCode: conversationCode,
+          attachment: att,
+        ),
+      ),
+    );
+    return uploaded.map((a) => a.attachmentId).whereType<int>().toList();
   }
 
   Future<void> _runBulkJob({
@@ -272,10 +322,15 @@ class BulkMessagingCompositionCubit
     required String actualSenderCode,
     required List<Map<String, dynamic>> recipients,
     required String messageText,
+    required List<SelectedAttachment> attachments,
     required bool isStaff,
     required String conversationType,
   }) async {
     final failed = <Map<String, dynamic>>[];
+    // Build the local ChatAttachment list once (picked files → attachments).
+    // Each recipient's conversation uploads its own copy of these below —
+    // attachments are scoped per conversation.
+    final baseAttachments = await _baseAttachments(attachments);
 
     try {
       if (isStaff) {
@@ -313,18 +368,20 @@ class BulkMessagingCompositionCubit
                 }
                 final conversationCode = conv.code;
 
-                if (messageText.isNotEmpty) {
-                  final msg = Message(
-                    id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
-                    code: '',
+                // Upload this message's attachments into THIS conversation, then
+                // send text + attachmentIds. Without this the attachments picked
+                // in the composer were silently dropped (text-only send).
+                final attachmentIds = await _uploadAttachmentsFor(
+                  conversationCode,
+                  baseAttachments,
+                );
+                if (messageText.isNotEmpty || attachmentIds.isNotEmpty) {
+                  final sendResult = await _sendMessageUseCase(
+                    conversationCode: conversationCode,
                     text: messageText,
-                    isSentByMe: true,
-                    senderUserCode: senderUserCode.isNotEmpty
-                        ? senderUserCode
-                        : actualSenderCode,
-                    time: AppTime.now(),
+                    attachmentIds: attachmentIds,
                   );
-                  await _sendMessageUseCase(conversationCode, msg);
+                  sendResult.fold((_) => failed.add(recipient), (_) {});
                 }
               } catch (_) {
                 failed.add(recipient);
@@ -376,18 +433,17 @@ class BulkMessagingCompositionCubit
                   return;
                 }
 
-                if (messageText.isNotEmpty) {
-                  final msg = Message(
-                    id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
-                    code: '',
+                final attachmentIds = await _uploadAttachmentsFor(
+                  conv.code,
+                  baseAttachments,
+                );
+                if (messageText.isNotEmpty || attachmentIds.isNotEmpty) {
+                  final sendResult = await _sendMessageUseCase(
+                    conversationCode: conv.code,
                     text: messageText,
-                    isSentByMe: true,
-                    senderUserCode: senderUserCode.isNotEmpty
-                        ? senderUserCode
-                        : actualSenderCode,
-                    time: AppTime.now(),
+                    attachmentIds: attachmentIds,
                   );
-                  await _sendMessageUseCase(conv.code, msg);
+                  sendResult.fold((_) => failed.add(recipient), (_) {});
                 }
               } catch (_) {
                 failed.add(recipient);

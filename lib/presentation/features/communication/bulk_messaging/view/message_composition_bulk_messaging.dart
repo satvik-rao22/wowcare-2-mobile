@@ -104,6 +104,7 @@ class _MessageCompositionBulkMessagingState
       conversationType: widget.conversationType,
       createOrOpenConversationUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
+      attachmentUploader: serviceLocator(),
       storageService: serviceLocator(),
     );
     _focusNode = FocusNode();
