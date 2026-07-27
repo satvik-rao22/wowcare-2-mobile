@@ -516,7 +516,6 @@ class _DatePickerHeader extends StatelessWidget {
             hintText: 'View',
             items: _viewModeLabels.values.toList(growable: false),
             selectedItem: _viewModeLabels[viewMode],
-            prependHintAsSelectableItem: false,
             fieldHeight: 44,
             onSelect: (label) {
               if (label == null) return;

@@ -65,11 +65,9 @@ String? classroomAgeRangeWarning({
   if (!classroom.isAgeOutsideRange(months)) return null;
 
   final who = (studentName ?? '').trim().isEmpty
-      ? 'This student'
+      ? 'Student'
       : studentName!.trim();
-  final range = formatClassroomAgeRange(classroom);
-  return '$who is ${formatMonthsAsYearMonth(months)} old, which is outside '
-      "${classroom.name}'s age range ($range). You can still continue.";
+  return "$who is outside the classroom's age range. Do you want to continue?";
 }
 
 /// Names of [students] (as `(name, dob)` pairs) that fall outside [classroom].

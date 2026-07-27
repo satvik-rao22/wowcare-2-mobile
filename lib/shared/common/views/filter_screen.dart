@@ -98,7 +98,6 @@ class _FilterScreenState extends State<FilterScreen> {
             // No "All"/clear entry in the popup — the only single-select
             // section today is Status (communication module), which should
             // not offer an unselectable "All" choice.
-            prependHintAsSelectableItem: false,
             items: section.items,
             selectedItem: selected.isNotEmpty ? selected.first : null,
             isField: true,

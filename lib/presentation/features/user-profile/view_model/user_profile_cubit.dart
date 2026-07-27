@@ -5,6 +5,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/login_persona_util.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -595,7 +596,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'staff-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
@@ -737,7 +738,7 @@ class UserProfileCubit extends Cubit<UserProfileState> {
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'guardian-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'guardian-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',

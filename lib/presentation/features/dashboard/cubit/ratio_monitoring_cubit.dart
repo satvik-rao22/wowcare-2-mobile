@@ -74,7 +74,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     }
     // TTL guard: re-fetch after 30 min to pick up shift changes.
     if (_lastFetchAt != null &&
-        DateTime.now().difference(_lastFetchAt!) > _shiftCacheTtl) {
+        AppTime.nowUtc().difference(_lastFetchAt!) > _shiftCacheTtl) {
       return false;
     }
     return true;
@@ -170,7 +170,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
             RatioMonitoringState.loaded(schoolCode: code, classrooms: const []),
           );
         }
-        _lastFetchAt = DateTime.now();
+        _lastFetchAt = AppTime.nowUtc();
         return;
       }
 
@@ -233,7 +233,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
         emit(RatioMonitoringState.loaded(schoolCode: code, classrooms: merged));
       }
 
-      _lastFetchAt = DateTime.now();
+      _lastFetchAt = AppTime.nowUtc();
     } catch (e) {
       if (!isClosed) {
         // On error: if Phase 1 already populated the state with classrooms,

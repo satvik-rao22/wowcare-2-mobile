@@ -1,3 +1,4 @@
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/notifications/entities/app_notification.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 
@@ -129,7 +130,7 @@ class AppNotificationModel extends AppNotification {
       category: NotificationCategory.fromApi(categoryRaw),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
-              DateTime.now(),
+              AppTime.nowUtc(),
       isRead: isRead,
       data: data,
     );
@@ -157,7 +158,7 @@ class AppNotificationModel extends AppNotification {
       createdAt:
           DateTime.tryParse((json['createdAt'] ?? json['createdOn'] ?? '')
                   .toString()) ??
-              DateTime.now(),
+              AppTime.nowUtc(),
       isRead: _asBool(json['isRead'] ?? json['read']),
       data: data,
     );

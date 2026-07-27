@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 
 import 'package:flutter/material.dart';
@@ -528,7 +529,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'student-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'student-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import '../../../../domain/features/communication/entities/conversation.dart';
@@ -126,7 +127,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   static const Duration _localMutationGuardWindow = Duration(seconds: 8);
 
   void _markRecentlyMutated(String messageCode) {
-    _recentLocalMutations[messageCode] = DateTime.now();
+    _recentLocalMutations[messageCode] = AppTime.nowUtc();
   }
 
   /// Starts (or restarts, if already watching a different thread) the
@@ -180,7 +181,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
               (m) => !incomingCodes.contains(m.code),
             );
 
-            final cutoff = DateTime.now().subtract(_localMutationGuardWindow);
+            final cutoff = AppTime.nowUtc().subtract(_localMutationGuardWindow);
             _recentLocalMutations.removeWhere((_, t) => t.isBefore(cutoff));
 
             // For a message that's mid-settling from a local reaction/attachment/

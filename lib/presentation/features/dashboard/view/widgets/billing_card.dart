@@ -174,7 +174,6 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           items: _monthsList,
                           selectedItem: _selectedMonth,
                           isField: false,
-                          prependHintAsSelectableItem: false,
                           onSelect: (value) {
                             if (value != null) {
                               setState(() => _selectedMonth = value);
@@ -237,7 +236,6 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           ),
                           selectedItem: '$_selectedYear',
                           isField: false,
-                          prependHintAsSelectableItem: false,
                           onSelect: (value) {
                             if (value != null) {
                               setState(() => _selectedYear = int.parse(value));

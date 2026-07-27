@@ -380,13 +380,10 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
         _selectedTransferDate.day,
       );
       final safeDay = pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
-      transferredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+      transferredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
-        year: safeDay.year,
-        month: safeDay.month,
-        day: safeDay.day,
-        hour: _selectedTransferTime.hour,
-        minute: _selectedTransferTime.minute,
+        selectedDate: safeDay,
+        selectedTime: _selectedTransferTime,
       );
     } else {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);

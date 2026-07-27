@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/reports/entities/report_entity.dart';
 import '../../../../domain/features/reports/entities/report_type.dart';
 
@@ -93,7 +94,7 @@ class ReportResponseModel extends Equatable {
     return ReportEntity(
       reportId: reportId,
       reportType: reportTypeEnum,
-      generatedAt: DateTime.tryParse(generatedAt) ?? DateTime.now(),
+      generatedAt: DateTime.tryParse(generatedAt) ?? AppTime.nowUtc(),
       assetCode: assetCode,
       fileName: fileName,
     );

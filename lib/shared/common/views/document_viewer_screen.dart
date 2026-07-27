@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -90,7 +91,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           break;
         case _DocKind.pdf:
           final tempDir = await getTemporaryDirectory();
-          final fileName = 'doc_preview_${DateTime.now().millisecondsSinceEpoch}.pdf';
+          final fileName = 'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
           final path = p.join(tempDir.path, fileName);
           await Dio().download(widget.url, path);
           if (!mounted) return;

@@ -315,7 +315,7 @@ class BulkMessagingCompositionCubit
 
                 if (messageText.isNotEmpty) {
                   final msg = Message(
-                    id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                    id: 'bulk-${AppTime.nowUtc().millisecondsSinceEpoch}',
                     code: '',
                     text: messageText,
                     isSentByMe: true,
@@ -378,7 +378,7 @@ class BulkMessagingCompositionCubit
 
                 if (messageText.isNotEmpty) {
                   final msg = Message(
-                    id: 'bulk-${DateTime.now().millisecondsSinceEpoch}',
+                    id: 'bulk-${AppTime.nowUtc().millisecondsSinceEpoch}',
                     code: '',
                     text: messageText,
                     isSentByMe: true,

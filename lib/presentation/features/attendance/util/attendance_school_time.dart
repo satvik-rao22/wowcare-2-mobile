@@ -99,12 +99,9 @@ Future<String> attendanceUtcIsoFromSchoolWallClock({
   required TimeOfDay time,
 }) async {
   final schoolTimeZone = await bootstrapAttendanceSchoolTimezone();
-  return SchoolZoneDateTime.utcFromSchoolWallClock(
+  return SchoolZoneDateTime.resolvePickedInstantUtc(
     schoolTimeZone,
-    year: date.year,
-    month: date.month,
-    day: date.day,
-    hour: time.hour,
-    minute: time.minute,
+    selectedDate: date,
+    selectedTime: time,
   ).toIso8601String();
 }

@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 
 class FutureAvailabilityGridModel {
@@ -161,8 +162,8 @@ class FutureAvailabilityEntryModel {
 
 DateTime _parseDate(dynamic raw) {
   final dateString = (raw ?? '').toString().trim();
-  if (dateString.isEmpty) return DateTime.now();
-  return DateTime.tryParse(dateString) ?? DateTime.now();
+  if (dateString.isEmpty) return AppTime.today();
+  return DateTime.tryParse(dateString) ?? AppTime.today();
 }
 
 int _toInt(dynamic value) {

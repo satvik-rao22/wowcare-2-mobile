@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../../domain/features/notifications/entities/app_notification.dart';
@@ -147,7 +148,7 @@ class NotificationCard extends StatelessWidget {
 
   /// Compact "x mins/hrs/days ago" formatting (no external dependency).
   static String _relativeTime(DateTime time) {
-    final diff = DateTime.now().difference(time);
+    final diff = AppTime.nowUtc().difference(time);
     if (diff.inMinutes < 1) return 'Just now';
     if (diff.inMinutes < 60) {
       final m = diff.inMinutes;

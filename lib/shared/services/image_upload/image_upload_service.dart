@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:crypto/crypto.dart';
+import '../../../core/util/app_time.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
@@ -320,7 +321,7 @@ class ImageUploadService {
         .toSet();
     if (expectedSet.isEmpty) return;
 
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final result = await _getUploadSessionStatus(
         sessionCode: sessionCode,
@@ -330,7 +331,7 @@ class ImageUploadService {
       if (result.failureMessage != null && result.failureMessage!.isNotEmpty) {
         throw Exception(result.failureMessage);
       }
-      if (DateTime.now().isAfter(deadline)) {
+      if (AppTime.nowUtc().isAfter(deadline)) {
         throw Exception('Photo processing is taking too long. Please try again.');
       }
       await Future.delayed(pollEvery);
@@ -838,7 +839,7 @@ class ImageUploadService {
   }) async {
     final normalizedAssetCode = assetCode.trim();
     if (normalizedAssetCode.isEmpty) return '';
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     var hasLoggedFailure = false;
     while (true) {
       try {
@@ -864,7 +865,7 @@ class ImageUploadService {
           AppLogger.e('Media asset lookup failed for $normalizedAssetCode', e);
         }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }
@@ -890,7 +891,7 @@ class ImageUploadService {
     // the calling widget gets rebuilt in the meantime.
     final failedAt = _assetUrlFailedAt[normalized];
     if (failedAt != null &&
-        DateTime.now().difference(failedAt) < _assetUrlFailureCooldown) {
+        AppTime.nowUtc().difference(failedAt) < _assetUrlFailureCooldown) {
       return '';
     }
 
@@ -904,7 +905,7 @@ class ImageUploadService {
         _assetUrlCache[normalized] = url;
         _assetUrlFailedAt.remove(normalized);
       } else {
-        _assetUrlFailedAt[normalized] = DateTime.now();
+        _assetUrlFailedAt[normalized] = AppTime.nowUtc();
       }
       return url;
     }).whenComplete(() => _assetUrlInFlight.remove(normalized));
@@ -1006,7 +1007,7 @@ class ImageUploadService {
       ApiPaths.studentProfilePhotoAssetCodes,
       ApiConstants.studentBaseUrl,
     );
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     final normalizedStudent = studentCode.trim().toUpperCase();
     final normalizedExpectedAsset = expectedAssetCode.trim().toUpperCase();
     while (true) {
@@ -1040,7 +1041,7 @@ class ImageUploadService {
       } catch (_) {
         // Do not fail fast on transient read-after-write lag or temporary fetch issues.
       }
-      if (DateTime.now().isAfter(deadline)) {
+      if (AppTime.nowUtc().isAfter(deadline)) {
         // Mapping can be eventually consistent; continue and let profile URL polling decide readiness.
         return;
       }
@@ -1053,7 +1054,7 @@ class ImageUploadService {
     Duration pollEvery = const Duration(seconds: 1),
     Duration timeout = const Duration(seconds: 12),
   }) async {
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final endpoint = ApiPaths.urlWithBase(
         ApiPaths.studentProfile(studentCode),
@@ -1077,7 +1078,7 @@ class ImageUploadService {
           }
         }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }
@@ -1091,7 +1092,7 @@ class ImageUploadService {
     final normalizedSchoolCode = schoolCode.trim();
     final normalizedUserCode = userCode.trim();
     if (normalizedSchoolCode.isEmpty || normalizedUserCode.isEmpty) return '';
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final endpoint = ApiPaths.urlWithBase(
         ApiPaths.guardianProfile,
@@ -1130,7 +1131,7 @@ class ImageUploadService {
           }
         }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }
@@ -1142,7 +1143,7 @@ class ImageUploadService {
   }) async {
     final normalized = staffCode.trim();
     if (normalized.isEmpty) return '';
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final endpoint = ApiPaths.urlWithBase(
         ApiPaths.staffProfileByCodePath(normalized),
@@ -1177,7 +1178,7 @@ class ImageUploadService {
           }
         }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }

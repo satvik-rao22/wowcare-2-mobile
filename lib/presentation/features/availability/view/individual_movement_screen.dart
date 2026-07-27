@@ -786,7 +786,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     if (_edgeDirection != 0 && _edgeAutoPageTimer == null) {
       final holdStart = _edgeHoldStartedAt;
       if (holdStart != null &&
-          DateTime.now().difference(holdStart).inMilliseconds >= edgeDwellMs) {
+          AppTime.now().difference(holdStart).inMilliseconds >= edgeDwellMs) {
         _startEdgeAutoPaging();
       }
     }

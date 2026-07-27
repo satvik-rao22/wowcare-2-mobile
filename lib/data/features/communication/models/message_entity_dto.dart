@@ -1,6 +1,7 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
+import 'package:wowcare/core/util/app_time.dart';
 
 /// API response DTO for a message.
 class MessageEntityDto {
@@ -103,7 +104,7 @@ class MessageEntityDto {
           ? DateTime.parse(json['createdAt'] as String)
           : json['sentAt'] != null
               ? DateTime.parse(json['sentAt'] as String)
-              : DateTime.now(),
+              : AppTime.nowUtc(),
       editedAt: json['editedAt'] != null
           ? DateTime.parse(json['editedAt'] as String)
           : null,
@@ -256,7 +257,7 @@ class AttachmentEntityDto {
       thumbnailUrl: json['thumbnailUrl'] as String?,
       uploadedBy: json['uploadedBy'] as String? ?? '',
       uploadedAt: DateTime.parse(
-        json['uploadedAt'] as String? ?? DateTime.now().toIso8601String(),
+        json['uploadedAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
       ),
       attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
     );
@@ -316,7 +317,7 @@ class ReactionDto {
       userName: json['userName'] as String? ?? '',
       emoji: json['emoji'] as String? ?? '',
       createdAt: DateTime.parse(
-        json['createdAt'] as String? ?? DateTime.now().toIso8601String(),
+        json['createdAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
       ),
     );
   }

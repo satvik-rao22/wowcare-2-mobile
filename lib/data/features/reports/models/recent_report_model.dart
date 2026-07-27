@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
 import '../../../../domain/features/reports/entities/report_type.dart';
 
@@ -53,7 +54,7 @@ class RecentReportModel extends Equatable {
     return ReportMetadataEntity(
       reportId: reportId,
       reportType: reportTypeEnum,
-      generatedAt: DateTime.tryParse(generatedAt) ?? DateTime.now(),
+      generatedAt: DateTime.tryParse(generatedAt) ?? AppTime.nowUtc(),
       assetCode: assetCode,
       fileName: fileName,
     );

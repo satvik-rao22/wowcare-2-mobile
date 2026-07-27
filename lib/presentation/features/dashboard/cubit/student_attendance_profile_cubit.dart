@@ -1,6 +1,7 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_attendance_absent_toggle_view_usecase.dart';
 part 'student_attendance_profile_state.dart';
@@ -26,7 +27,7 @@ class StudentAttendanceProfileCubit
   static const _cacheTtl = Duration(minutes: 5);
 
   bool _isCacheValid() =>
-      _cachedAt != null && DateTime.now().difference(_cachedAt!) < _cacheTtl;
+      _cachedAt != null && AppTime.nowUtc().difference(_cachedAt!) < _cacheTtl;
 
   Future<void> loadAttendanceProfile({
     required String studentCode,
@@ -117,7 +118,7 @@ class StudentAttendanceProfileCubit
       }
 
       if (!isClosed) {
-        _cachedAt = DateTime.now();
+        _cachedAt = AppTime.nowUtc();
         emit(
           StudentAttendanceProfileState.loaded(
             studentCode: code,

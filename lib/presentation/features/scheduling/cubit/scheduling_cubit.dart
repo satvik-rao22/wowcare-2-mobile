@@ -159,6 +159,7 @@ class SchedulingCubit extends Cubit<SchedulingState> {
             organizationCode: organizationCode,
             startDate: day,
             endDate: day,
+            publishedOnly: false,
             staffCodes: staffCodes,
           );
           hoursByStaff = StaffHoursAggregator.totalsByStaffForDay(

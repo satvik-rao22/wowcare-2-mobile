@@ -252,13 +252,10 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     final nowUtc = ServerTimeService.instance.nowUtc();
 
     final DateTime occurredAt = isStaffPersona
-        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+        ? SchoolZoneDateTime.resolvePickedInstantUtc(
             schoolTimeZone,
-            year: selectedDate.year,
-            month: selectedDate.month,
-            day: selectedDate.day,
-            hour: selectedTime.hour,
-            minute: selectedTime.minute,
+            selectedDate: selectedDate,
+            selectedTime: selectedTime,
           )
         : SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
 

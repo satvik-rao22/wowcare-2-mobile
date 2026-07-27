@@ -1,5 +1,6 @@
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/core/util/app_time.dart';
 
 /// First non-empty (trimmed) string from [values], or '' if none — the avatar-field resolution
 /// mirrors web's pickString(), so mobile reads the same photo fields the backend actually sends.
@@ -184,7 +185,7 @@ class ConversationEntityDto {
   }
 
   static DateTime _parseDate(dynamic value) =>
-      value != null ? DateTime.parse(value as String) : DateTime.now();
+      value != null ? DateTime.parse(value as String) : AppTime.nowUtc();
 }
 
 class ParticipantEntityDto {
@@ -253,13 +254,13 @@ class ParticipantEntityDto {
         json['profileAssetCode'] as String?,
         json['profilePhotoAssetCode'] as String?,
       ]),
-      joinedAt: DateTime.parse(json['joinedAt'] as String? ?? DateTime.now().toIso8601String()),
+      joinedAt: DateTime.parse(json['joinedAt'] as String? ?? AppTime.nowUtc().toIso8601String()),
       leftAt: json['leftAt'] != null ? DateTime.parse(json['leftAt'] as String) : null,
       lastReadAt: json['lastReadAt'] != null ? DateTime.parse(json['lastReadAt'] as String) : null,
       muted: json['muted'] as bool? ?? false,
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
-      createdAt: DateTime.parse(json['createdAt'] as String? ?? DateTime.now().toIso8601String()),
-      updatedAt: DateTime.parse(json['updatedAt'] as String? ?? DateTime.now().toIso8601String()),
+      createdAt: DateTime.parse(json['createdAt'] as String? ?? AppTime.nowUtc().toIso8601String()),
+      updatedAt: DateTime.parse(json['updatedAt'] as String? ?? AppTime.nowUtc().toIso8601String()),
       staffCode: json['staffCode'] as String?,
       guardianCode: json['guardianCode'] as String?,
       adminCode: json['adminCode'] as String?,
@@ -332,7 +333,7 @@ class PrivateModeStateDto {
       enabled: json['enabled'] as bool? ?? false,
       owner: json['owner'] as String? ?? '',
       enabledAt: DateTime.parse(
-        json['enabledAt'] as String? ?? DateTime.now().toIso8601String(),
+        json['enabledAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
       ),
     );
   }

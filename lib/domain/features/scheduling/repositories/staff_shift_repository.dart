@@ -83,11 +83,14 @@ abstract class StaffShiftRepository {
   });
 
   /// `POST /api/v1/staff-shifts/hours/range` — per-staff day hour totals.
+  /// [publishedOnly] should be `true` for the staff persona (published shifts
+  /// only) and `false` for admin personas (includes drafts).
   Future<List<StaffShiftHoursEntry>> getStaffShiftHoursRange({
     required String schoolCode,
     required String organizationCode,
     required DateTime startDate,
     required DateTime endDate,
+    required bool publishedOnly,
     List<String> staffCodes = const <String>[],
   });
 
