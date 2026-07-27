@@ -196,6 +196,15 @@ abstract class ConversationRealtimeDataSource {
     required String userCode,
     required String conversationType,
   });
+
+  /// Lightweight per-conversation unread — reads [unreadCount] for the single
+  /// inbox doc keyed by [conversationCode]. Used for per-classroom badges.
+  Stream<int> watchUnreadCountForConversation({
+    required String organizationCode,
+    required String schoolCode,
+    required String userCode,
+    required String conversationCode,
+  });
 }
 
 // ─── Firebase implementation ─────────────────────────────────────────────────
@@ -413,7 +422,32 @@ class FirebaseConversationRealtimeDataSource
       schoolCode: schoolCode,
       userCode: userCode,
     ).where('conversationType', isEqualTo: conversationType);
+    return _watchInboxUnreadSum(query);
+  }
 
+  @override
+  Stream<int> watchUnreadCountForConversation({
+    required String organizationCode,
+    required String schoolCode,
+    required String userCode,
+    required String conversationCode,
+  }) {
+    // A single inbox doc, keyed by conversationCode (the doc id). Reusing the
+    // same query-snapshot path as the per-type watch keeps the resilient
+    // permission-denied re-auth / backoff behaviour identical (0 or 1 doc →
+    // its unreadCount).
+    final query = _inboxRef(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      userCode: userCode,
+    ).where(FieldPath.documentId, isEqualTo: conversationCode);
+    return _watchInboxUnreadSum(query);
+  }
+
+  /// Resilient sum of `unreadCount` across the docs matched by [query] in the
+  /// user_inbox collection, with the shared permission-denied re-auth + backoff
+  /// retry. Backs both the per-type and per-conversation unread watches.
+  Stream<int> _watchInboxUnreadSum(Query<Map<String, dynamic>> query) {
     final controller = StreamController<int>();
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? inner;
     StreamSubscription<User?>? authWaitSub;

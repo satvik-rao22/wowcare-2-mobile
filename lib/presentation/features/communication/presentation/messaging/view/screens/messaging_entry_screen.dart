@@ -112,6 +112,25 @@ class MessagingEntryScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            // Classroom Chat — staff-internal (each classroom's
+                            // Notes chat). Gated to non-parents so it is hidden
+                            // from the Guardian persona, mirroring the web.
+                            // Routes to the Classrooms list (itself staff/admin
+                            // only); each classroom's Notes tab is its chat.
+                            if (!isParent) ...[
+                              SizedBox(height: responsive.verticalSpacing),
+                              CommunicationLauncherButton(
+                                label: 'Classroom Chat',
+                                iconAsset: MediaRes.classroomIcon,
+                                unreadCount: unread.unreadFor(
+                                  ConversationType.classroomChat,
+                                ),
+                                iconSize: responsive.isTablet ? 30 : 26,
+                                fontSize: responsive.buttonFontSize,
+                                verticalPadding: responsive.isTablet ? 26 : 22,
+                                onTap: () => context.go(AppRoutes.classroom),
+                              ),
+                            ],
                           ],
                         );
                       },

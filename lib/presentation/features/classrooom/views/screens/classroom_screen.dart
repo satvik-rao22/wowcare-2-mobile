@@ -9,6 +9,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_staff_tab_card.dart';
@@ -66,6 +68,11 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   bool _defaultClassroomPrefsResolved = false;
   String? _staffPrimaryClassroomCode;
   bool _defaultClassroomApplied = false;
+  // Notes-tab unread badge: the classroom code the badge stream is currently
+  // bound to (dedup guard), and the live per-classroom CLASSROOM_CHAT unread
+  // stream feeding [getClassroomNotesUnreadCountStream].
+  String? _notesStreamRoomCode;
+  Stream<int>? _notesUnreadStream;
 
   @override
   void initState() {
@@ -194,8 +201,40 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     super.dispose();
   }
 
-  // Backend disabled: always 0 unread
-  Stream<int> getClassroomNotesUnreadCountStream() => Stream.value(0);
+  /// Live unread for the selected classroom's CLASSROOM_CHAT (its Notes chat),
+  /// or a constant 0 stream until one is resolved. Mirrors the web Notes-tab
+  /// badge. Rebound by [_maybeSyncNotesUnread] when the classroom changes.
+  Stream<int> getClassroomNotesUnreadCountStream() =>
+      _notesUnreadStream ?? Stream.value(0);
+
+  /// Resolve the selected classroom's CLASSROOM_CHAT conversation and (re)bind
+  /// the Notes-tab unread stream. Called from build; deduped on [roomCode] so
+  /// it does real work only when the selected classroom actually changes.
+  void _maybeSyncNotesUnread(String roomCode) {
+    if (roomCode == _notesStreamRoomCode) return;
+    _notesStreamRoomCode = roomCode; // plain field: dedups repeated builds
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted || (selectedRoom?.code ?? '') != roomCode) return;
+      Stream<int>? stream;
+      if (roomCode.isNotEmpty) {
+        try {
+          final conv = await serviceLocator<GetOrCreateClassroomChatUseCase>()
+              .findExisting(roomCode);
+          final code = conv?.code ?? '';
+          // Bail if the selection changed while resolving.
+          if (!mounted || (selectedRoom?.code ?? '') != roomCode) return;
+          if (code.isNotEmpty) {
+            stream = serviceLocator<ConversationEntityRepository>()
+                .watchUnreadCountForConversation(code)
+                .asBroadcastStream();
+          }
+        } catch (_) {
+          // No chat yet / transient failure → leave the badge at 0.
+        }
+      }
+      if (mounted) setState(() => _notesUnreadStream = stream);
+    });
+  }
 
   Tab _buildTab({
     required String label,
@@ -299,6 +338,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
 
           final isInitialLoading = state.isLoading && classrooms.isEmpty;
           final dropdownItems = classrooms.map((c) => c.name).toList();
+
+          // Keep the Notes-tab unread badge bound to the current classroom.
+          _maybeSyncNotesUnread(selectedRoom?.code ?? '');
 
           return GlobalScaffold(
             bodyPadding: EdgeInsets.zero,

@@ -32,18 +32,23 @@ class UnreadBadgeState extends Equatable {
   int unreadFor(ConversationType type) =>
       countsByType[type.toApiString()] ?? 0;
 
-  /// Unread counts visible to an admin (all three types).
+  /// Unread counts visible to an admin.
+  /// Includes CLASSROOM_CHAT — it is a staff-internal chat, so it counts toward
+  /// staff/admin badges but is deliberately excluded from [parentTotal].
   int get adminTotal =>
       unreadFor(ConversationType.staffDirect) +
       unreadFor(ConversationType.roomChat) +
-      unreadFor(ConversationType.adminChat);
+      unreadFor(ConversationType.adminChat) +
+      unreadFor(ConversationType.classroomChat);
 
   /// Unread counts visible to a staff member.
   int get staffTotal =>
       unreadFor(ConversationType.staffDirect) +
-      unreadFor(ConversationType.roomChat);
+      unreadFor(ConversationType.roomChat) +
+      unreadFor(ConversationType.classroomChat);
 
-  /// Unread counts visible to a parent.
+  /// Unread counts visible to a parent. Never includes CLASSROOM_CHAT — classroom
+  /// chat is staff-internal and hidden from the Guardian/parent persona.
   int get parentTotal =>
       unreadFor(ConversationType.roomChat) +
       unreadFor(ConversationType.adminChat);

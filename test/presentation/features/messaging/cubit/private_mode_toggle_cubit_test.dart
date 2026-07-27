@@ -44,6 +44,10 @@ class _FakeRepo implements ConversationEntityRepository {
       const Stream.empty();
 
   @override
+  Stream<int> watchUnreadCountForConversation(String conversationCode) =>
+      const Stream.empty();
+
+  @override
   Stream<int> watchTotalUnreadCount() => const Stream.empty();
 
   @override
