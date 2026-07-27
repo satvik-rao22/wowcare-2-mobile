@@ -701,153 +701,158 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     if (isLoading) return const ChatThreadShimmer();
     return Stack(
       children: [
-        ListView.builder(
-          controller: controller,
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-          reverse: true,
-          itemCount: messages.length,
-          itemBuilder: (context, index) {
-            final message = messages[messages.length - 1 - index];
-            final messageId = message.id;
-            bool showDateHeader = false;
-            final prevListIndex = messages.length - 2 - index;
-            if (prevListIndex >= 0) {
-              final prevMessage = messages[prevListIndex];
-              final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
-              final _currDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                message.time,
-                _schoolTz,
-              );
-              final _prevDate = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                prevMessage.time,
-                _schoolTz,
-              );
-              showDateHeader =
-                  _currDate.year != _prevDate.year ||
-                  _currDate.month != _prevDate.month ||
-                  _currDate.day != _prevDate.day;
-            } else {
-              showDateHeader = true;
-            }
-            final prevMessage = prevListIndex >= 0
-                ? messages[prevListIndex]
-                : null;
-            final isGrouped =
-                !showDateHeader && _isSameSender(prevMessage, message);
+        Opacity(
+          opacity: _isPositionedAtBottom ? 1 : 0,
+          child: ListView.builder(
+            controller: controller,
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
+            reverse: true,
+            itemCount: messages.length,
+            itemBuilder: (context, index) {
+              final message = messages[messages.length - 1 - index];
+              final messageId = message.id;
+              bool showDateHeader = false;
+              final prevListIndex = messages.length - 2 - index;
+              if (prevListIndex >= 0) {
+                final prevMessage = messages[prevListIndex];
+                final _schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
+                final _currDate =
+                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                      message.time,
+                      _schoolTz,
+                    );
+                final _prevDate =
+                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                      prevMessage.time,
+                      _schoolTz,
+                    );
+                showDateHeader =
+                    _currDate.year != _prevDate.year ||
+                    _currDate.month != _prevDate.month ||
+                    _currDate.day != _prevDate.day;
+              } else {
+                showDateHeader = true;
+              }
+              final prevMessage = prevListIndex >= 0
+                  ? messages[prevListIndex]
+                  : null;
+              final isGrouped =
+                  !showDateHeader && _isSameSender(prevMessage, message);
 
-            return AutoScrollTag(
-              key: ValueKey(messageId),
-              controller: controller,
-              index: index,
-              highlightColor: Colors.green.withValues(alpha: 0.7),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (showDateHeader)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: _buildDateChip(message.time),
+              return AutoScrollTag(
+                key: ValueKey(messageId),
+                controller: controller,
+                index: index,
+                highlightColor: Colors.green.withValues(alpha: 0.7),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (showDateHeader)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 8.0),
+                          child: _buildDateChip(message.time),
+                        ),
                       ),
-                    ),
-                  if (showDateHeader) const SizedBox(height: 10),
-                  SizedBox(height: isGrouped ? 2.0 : 8.0),
-                  ThreadMessageTile(
-                    threadId: widget.parentInfo['code'] as String,
-                    messageCode: message.code,
-                    quotedMessageId: message.quotedMessageId,
-                    onDeleteAttachment: (attachment) {
-                      if (attachment.attachmentId != null) {
-                        context.read<CommunicationCubit>().deleteAttachment(
-                          widget.parentInfo['code'] as String,
-                          attachment.attachmentId!,
-                        );
-                      }
-                    },
-                    currentUserCode: _currentUserCode,
-                    reactionsController: _reactionsController,
-                    isParentMessaging: true,
-                    participants: _participants,
-                    senderIsOrgSide: _isOrgSideSender(message),
-                    onReply: message.isDeleted
-                        ? null
-                        : () {
-                            setState(() {
-                              _quotedMessageId = message.id;
-                              _quotedMessage = message;
-                            });
-                          },
-                    onReplyFromMenu: message.isDeleted
-                        ? null
-                        : () {
-                            setState(() {
-                              _quotedMessageId = message.id;
-                              _quotedMessage = message;
-                            });
-                          },
-                    onCopy: message.isDeleted
-                        ? null
-                        : () {
-                            Clipboard.setData(
-                              ClipboardData(
-                                text: MessageContentProcessor.stripHtmlTags(
-                                  message.text,
+                    if (showDateHeader) const SizedBox(height: 10),
+                    SizedBox(height: isGrouped ? 2.0 : 8.0),
+                    ThreadMessageTile(
+                      threadId: widget.parentInfo['code'] as String,
+                      messageCode: message.code,
+                      quotedMessageId: message.quotedMessageId,
+                      onDeleteAttachment: (attachment) {
+                        if (attachment.attachmentId != null) {
+                          context.read<CommunicationCubit>().deleteAttachment(
+                            widget.parentInfo['code'] as String,
+                            attachment.attachmentId!,
+                          );
+                        }
+                      },
+                      currentUserCode: _currentUserCode,
+                      reactionsController: _reactionsController,
+                      isParentMessaging: true,
+                      participants: _participants,
+                      senderIsOrgSide: _isOrgSideSender(message),
+                      onReply: message.isDeleted
+                          ? null
+                          : () {
+                              setState(() {
+                                _quotedMessageId = message.id;
+                                _quotedMessage = message;
+                              });
+                            },
+                      onReplyFromMenu: message.isDeleted
+                          ? null
+                          : () {
+                              setState(() {
+                                _quotedMessageId = message.id;
+                                _quotedMessage = message;
+                              });
+                            },
+                      onCopy: message.isDeleted
+                          ? null
+                          : () {
+                              Clipboard.setData(
+                                ClipboardData(
+                                  text: MessageContentProcessor.stripHtmlTags(
+                                    message.text,
+                                  ),
                                 ),
-                              ),
-                            );
-                            CoreUtils.showTopSnackBar(
-                              context: context,
-                              message: 'Message copied successfully',
-                              isSuccess: true,
-                            );
-                          },
-                    onEdit: message.isDeleted
-                        ? null
-                        : () => _startEditing(message),
-                    onDelete: message.isDeleted
-                        ? null
-                        : () => _deleteMessageWithFeedback(message.code),
-                    onInfo: message.isDeleted
-                        ? null
-                        : () => _showMessageStatusDialog(context, message),
-                    onScrollToQuoted: (quoteId) {
-                      _scrollToMessage(quoteId);
-                    },
-                    onReactionAdded: (emoji) {
-                      if (message.userHasReaction(
-                        _currentUserCode ?? '',
-                        emoji,
-                      )) {
+                              );
+                              CoreUtils.showTopSnackBar(
+                                context: context,
+                                message: 'Message copied successfully',
+                                isSuccess: true,
+                              );
+                            },
+                      onEdit: message.isDeleted
+                          ? null
+                          : () => _startEditing(message),
+                      onDelete: message.isDeleted
+                          ? null
+                          : () => _deleteMessageWithFeedback(message.code),
+                      onInfo: message.isDeleted
+                          ? null
+                          : () => _showMessageStatusDialog(context, message),
+                      onScrollToQuoted: (quoteId) {
+                        _scrollToMessage(quoteId);
+                      },
+                      onReactionAdded: (emoji) {
+                        if (message.userHasReaction(
+                          _currentUserCode ?? '',
+                          emoji,
+                        )) {
+                          context.read<CommunicationCubit>().removeReaction(
+                            widget.parentInfo['code'] as String,
+                            message.code,
+                            emoji,
+                            currentUserCode: _currentUserCode,
+                          );
+                        } else {
+                          context.read<CommunicationCubit>().addReaction(
+                            widget.parentInfo['code'] as String,
+                            message.code,
+                            emoji,
+                            currentUserCode: _currentUserCode,
+                          );
+                        }
+                      },
+                      onRemoveReaction: (emoji) {
                         context.read<CommunicationCubit>().removeReaction(
                           widget.parentInfo['code'] as String,
                           message.code,
                           emoji,
                           currentUserCode: _currentUserCode,
                         );
-                      } else {
-                        context.read<CommunicationCubit>().addReaction(
-                          widget.parentInfo['code'] as String,
-                          message.code,
-                          emoji,
-                          currentUserCode: _currentUserCode,
-                        );
-                      }
-                    },
-                    onRemoveReaction: (emoji) {
-                      context.read<CommunicationCubit>().removeReaction(
-                        widget.parentInfo['code'] as String,
-                        message.code,
-                        emoji,
-                        currentUserCode: _currentUserCode,
-                      );
-                    },
-                    onReactionTap: () => _showEmojiPicker(context, message),
-                    isGrouped: isGrouped,
-                  ),
-                ],
-              ),
-            );
-          },
+                      },
+                      onReactionTap: () => _showEmojiPicker(context, message),
+                      isGrouped: isGrouped,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
         Positioned(
           left: 0,
@@ -870,6 +875,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 state is CommunicationLoaded && state.isLoadingOlderMessages,
           ),
         ),
+        if (!_isPositionedAtBottom)
+          const Positioned.fill(child: ChatThreadShimmer()),
       ],
     );
   }
@@ -1081,7 +1088,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
-                                                        participants: _participants,
+                                                        participants:
+                                                            _participants,
                                                         senderIsOrgSide:
                                                             _isOrgSideSender(
                                                               message,
@@ -1380,7 +1388,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
-                                                        participants: _participants,
+                                                        participants:
+                                                            _participants,
                                                         senderIsOrgSide:
                                                             _isOrgSideSender(
                                                               message,
@@ -1684,7 +1693,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
-                                                        participants: _participants,
+                                                        participants:
+                                                            _participants,
                                                         senderIsOrgSide:
                                                             _isOrgSideSender(
                                                               message,
@@ -2092,7 +2102,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _reactionsController,
                                                             isParentMessaging:
                                                                 true,
-                                                            participants: _participants,
+                                                            participants:
+                                                                _participants,
                                                             senderIsOrgSide:
                                                                 _isOrgSideSender(
                                                                   message,
@@ -2395,7 +2406,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _reactionsController,
                                                             isParentMessaging:
                                                                 true,
-                                                            participants: _participants,
+                                                            participants:
+                                                                _participants,
                                                             senderIsOrgSide:
                                                                 _isOrgSideSender(
                                                                   message,
@@ -2708,7 +2720,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _reactionsController,
                                                             isParentMessaging:
                                                                 true,
-                                                            participants: _participants,
+                                                            participants:
+                                                                _participants,
                                                             senderIsOrgSide:
                                                                 _isOrgSideSender(
                                                                   message,
@@ -2923,22 +2936,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   ),
           ), // Padding
         ); // GestureDetector
-        // The list (and its scroll controllers) must stay mounted — and
-        // therefore attached — the whole time, or `scrollToBottom()` has
-        // nothing to scroll and silently no-ops. So instead of swapping the
-        // shimmer in for the real list, keep the real list underneath at
-        // all times and just hide it with opacity until the first
-        // scroll-to-bottom has actually settled, with the shimmer painted
-        // on top in the meantime.
-        final positionedBody = Stack(
-          children: [
-            Opacity(opacity: _isPositionedAtBottom ? 1 : 0, child: threadBody),
-            if (!_isPositionedAtBottom)
-              const Positioned.fill(child: ChatThreadShimmer()),
-          ],
-        );
-        if (!widget.showOwnScaffold) return positionedBody;
-        return Scaffold(body: SafeArea(child: positionedBody));
+        // The message list (and its scroll controllers) must stay mounted — and
+        // therefore attached — the whole time, or `scrollToBottom()` has nothing
+        // to scroll and silently no-ops. The opacity/shimmer that hides the list
+        // until the first scroll-to-bottom settles is scoped to the message pane
+        // itself (see `_buildThreadPane`) so the header, tabs and input bar stay
+        // visible during load instead of the whole screen being covered.
+        if (!widget.showOwnScaffold) return threadBody;
+        return Scaffold(body: SafeArea(child: threadBody));
       },
     );
   }
