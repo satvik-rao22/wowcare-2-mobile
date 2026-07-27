@@ -524,10 +524,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         final bool isLandscape =
             MediaQuery.of(context).orientation == Orientation.landscape;
 
-        if (state is CommunicationLoading && _messages.isEmpty) {
-          return Scaffold(body: const ChatThreadShimmer());
-        }
-
         if (state is CommunicationError && _messages.isEmpty) {
           return Scaffold(
             body: SafeArea(child: _buildErrorState(state.message)),
@@ -549,347 +545,509 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         // on top in the meantime. That's also why this never visibly
         // scrolls into place — the jump already happened before it's shown.
         return Scaffold(
-          body: Stack(
-            children: [
-              Opacity(
-                opacity: _isPositionedAtBottom ? 1 : 0,
-                child: SafeArea(
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.translucent,
-                    onTap: () => FocusScope.of(context).unfocus(),
-                    child: Padding(
-                      padding: const EdgeInsets.all(10.0),
-                      child: isLandscape
-                          ? Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+          body: SafeArea(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () => FocusScope.of(context).unfocus(),
+              child: Padding(
+                padding: const EdgeInsets.all(10.0),
+                child: isLandscape
+                    ? Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Flexible(
+                            child: Stack(
                               children: [
-                                Flexible(
-                                  child: Stack(
-                                    children: [
-                                      Container(
-                                        decoration: BoxDecoration(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          color: const Color(0xFFF4F7FD),
-                                        ),
-                                        child: ListView.builder(
-                                          controller: _scrollController,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 12,
-                                          ),
-                                          reverse: false,
-                                          itemCount: _messages.length,
-                                          itemBuilder: (context, index) {
-                                            final message = _messages[index];
-                                            final messageId = message.id;
-                                            //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                            // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                            // final key = keyMap.putIfAbsent(
-                                            //   messageId,
-                                            //   () => GlobalKey(),
-                                            // );
-                                            bool showDateHeader = false;
-                                            final prevMessageIndex = index - 1;
-
-                                            if (prevMessageIndex >= 0) {
-                                              final prevMessage =
-                                                  _messages[prevMessageIndex];
-                                              final schoolTz =
-                                                  SchoolTimezoneResolver
-                                                      .lastKnownTimeZone;
-                                              final currentDate =
-                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                                                    message.time,
-                                                    schoolTz,
-                                                  );
-                                              final prevDate =
-                                                  SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                                                    prevMessage.time,
-                                                    schoolTz,
-                                                  );
-
-                                              showDateHeader =
-                                                  currentDate.year !=
-                                                      prevDate.year ||
-                                                  currentDate.month !=
-                                                      prevDate.month ||
-                                                  currentDate.day !=
-                                                      prevDate.day;
-                                            } else {
-                                              showDateHeader = true;
-                                            }
-                                            final prevMessage =
-                                                prevMessageIndex >= 0
-                                                ? _messages[prevMessageIndex]
-                                                : null;
-                                            final isGrouped =
-                                                !showDateHeader &&
-                                                _isSameSender(
-                                                  prevMessage,
-                                                  message,
-                                                );
-
-                                            return AutoScrollTag(
-                                              key: ValueKey(messageId),
-                                              controller: _scrollController,
-                                              index: index,
-                                              highlightColor: Colors.green
-                                                  .withValues(alpha: 0.7),
-                                              child: Column(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  if (showDateHeader)
-                                                    Center(
-                                                      child: Padding(
-                                                        padding:
-                                                            const EdgeInsets.only(
-                                                              top: 8.0,
-                                                            ),
-                                                        child: _buildDateChip(
-                                                          message.time,
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  if (showDateHeader)
-                                                    const SizedBox(height: 10),
-                                                  // Spacing: compact for grouped, normal for new group
-                                                  SizedBox(
-                                                    height: isGrouped
-                                                        ? 2.0
-                                                        : 8.0,
-                                                  ),
-                                                  ThreadMessageTile(
-                                                    threadId:
-                                                        widget.staffInfo['code']
-                                                            as String,
-                                                    messageCode: message.code,
-                                                    quotedMessageId:
-                                                        message.quotedMessageId,
-                                                    onDeleteAttachment: (attachment) {
-                                                      if (attachment
-                                                              .attachmentId !=
-                                                          null) {
-                                                        context
-                                                            .read<
-                                                              CommunicationCubit
-                                                            >()
-                                                            .deleteAttachment(
-                                                              widget.staffInfo['code']
-                                                                  as String,
-                                                              attachment
-                                                                  .attachmentId!,
-                                                            );
-                                                      }
-                                                    },
-                                                    currentUserCode:
-                                                        _currentUserCode,
-                                                    reactionsController:
-                                                        _reactionsController,
-                                                    onScrollToQuoted:
-                                                        (quoteId) {
-                                                          _scrollToMessage(
-                                                            quoteId,
-                                                          );
-                                                        },
-                                                    onReply: message.isDeleted
-                                                        ? null
-                                                        : () {
-                                                            setState(() {
-                                                              _quotedMessageCode =
-                                                                  message.id;
-                                                              _quotedMessage =
-                                                                  message;
-                                                            });
-                                                          },
-                                                    onReplyFromMenu:
-                                                        message.isDeleted
-                                                        ? null
-                                                        : () {
-                                                            setState(() {
-                                                              _quotedMessageCode =
-                                                                  message.id;
-                                                              _quotedMessage =
-                                                                  message;
-                                                            });
-                                                          },
-                                                    onCopy: message.isDeleted
-                                                        ? null
-                                                        : () {
-                                                            Clipboard.setData(
-                                                              ClipboardData(
-                                                                text:
-                                                                    MessageContentProcessor.stripHtmlTags(
-                                                                      message
-                                                                          .text,
-                                                                    ),
-                                                              ),
-                                                            );
-                                                            CoreUtils.showTopSnackBar(
-                                                              context: context,
-                                                              message:
-                                                                  'Message copied successfully',
-                                                              isSuccess: true,
-                                                            );
-                                                          },
-                                                    onEdit: message.isDeleted
-                                                        ? null
-                                                        : () => _showEditDialog(
-                                                            context,
-                                                            message,
-                                                          ),
-                                                    onDelete: message.isDeleted
-                                                        ? null
-                                                        : () {
-                                                            context
-                                                                .read<
-                                                                  CommunicationCubit
-                                                                >()
-                                                                .deleteMessage(
-                                                                  widget.staffInfo['code']
-                                                                      as String,
-                                                                  message.code,
-                                                                );
-                                                            CoreUtils.showTopSnackBar(
-                                                              context: context,
-                                                              message:
-                                                                  'Message deleted successfully',
-                                                              isSuccess: true,
-                                                            );
-                                                          },
-                                                    onInfo: message.isDeleted
-                                                        ? null
-                                                        : () =>
-                                                              _showMessageStatusDialog(
-                                                                context,
-                                                                message,
-                                                              ),
-                                                    onReactionAdded: (emoji) =>
-                                                        _onReactionAdded(
-                                                          message,
-                                                          emoji,
-                                                        ),
-                                                    onRemoveReaction: (emoji) {
-                                                      context
-                                                          .read<
-                                                            CommunicationCubit
-                                                          >()
-                                                          .removeReaction(
-                                                            widget.staffInfo['code']
-                                                                as String,
-                                                            message.code,
-                                                            emoji,
-                                                            currentUserCode:
-                                                                _currentUserCode,
-                                                          );
-                                                    },
-                                                    onReactionTap: () =>
-                                                        _showEmojiPicker(
-                                                          context,
-                                                          message,
-                                                        ),
-                                                    isGrouped: isGrouped,
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ),
-                                      Positioned(
-                                        left: 0,
-                                        right: 0,
-                                        bottom: 8,
-                                        child: ValueListenableBuilder<bool>(
-                                          valueListenable: _scrollBehavior
-                                              .showNewMessageIndicator,
-                                          builder: (_, visible, __) =>
-                                              NewMessagesIndicator(
-                                                visible: visible,
-                                                onTap: () => _scrollBehavior
-                                                    .scrollToBottom(),
-                                              ),
-                                        ),
-                                      ),
-                                      Positioned(
-                                        left: 0,
-                                        right: 0,
-                                        top: 0,
-                                        child: LoadingOlderIndicator(
-                                          visible:
-                                              state is CommunicationLoaded &&
-                                              state.isLoadingOlderMessages,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.35,
-                                  child: SingleChildScrollView(
-                                    reverse:
-                                        true, // new messages appear at bottom
-                                    padding: EdgeInsets.only(
-                                      bottom: MediaQuery.of(
-                                        context,
-                                      ).viewInsets.bottom,
-                                    ),
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(12),
-                                        color: Colors.white,
-                                      ),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 16,
-                                        ),
-                                        child: _buildMessageInput(state),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            )
-                          : Column(
-                              mainAxisSize: MainAxisSize.max,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
+                                Opacity(
+                                  opacity: _isPositionedAtBottom ? 1 : 0,
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
                                       color: const Color(0xFFF4F7FD),
                                     ),
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Container(
-                                          decoration: BoxDecoration(
-                                            color: Colors.white,
-                                            border: const Border(
-                                              bottom: BorderSide(
-                                                color: Color(0xFFE9ECEF),
-                                                width: 1,
+                                    child: ListView.builder(
+                                      controller: _scrollController,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 12,
+                                      ),
+                                      reverse: false,
+                                      itemCount: _messages.length,
+                                      itemBuilder: (context, index) {
+                                        final message = _messages[index];
+                                        final messageId = message.id;
+                                        //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                        // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                        // final key = keyMap.putIfAbsent(
+                                        //   messageId,
+                                        //   () => GlobalKey(),
+                                        // );
+                                        bool showDateHeader = false;
+                                        final prevMessageIndex = index - 1;
+
+                                        if (prevMessageIndex >= 0) {
+                                          final prevMessage =
+                                              _messages[prevMessageIndex];
+                                          final schoolTz =
+                                              SchoolTimezoneResolver
+                                                  .lastKnownTimeZone;
+                                          final currentDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                message.time,
+                                                schoolTz,
+                                              );
+                                          final prevDate =
+                                              SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                prevMessage.time,
+                                                schoolTz,
+                                              );
+
+                                          showDateHeader =
+                                              currentDate.year !=
+                                                  prevDate.year ||
+                                              currentDate.month !=
+                                                  prevDate.month ||
+                                              currentDate.day != prevDate.day;
+                                        } else {
+                                          showDateHeader = true;
+                                        }
+                                        final prevMessage =
+                                            prevMessageIndex >= 0
+                                            ? _messages[prevMessageIndex]
+                                            : null;
+                                        final isGrouped =
+                                            !showDateHeader &&
+                                            _isSameSender(prevMessage, message);
+
+                                        return AutoScrollTag(
+                                          key: ValueKey(messageId),
+                                          controller: _scrollController,
+                                          index: index,
+                                          highlightColor: Colors.green
+                                              .withValues(alpha: 0.7),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              if (showDateHeader)
+                                                Center(
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          top: 8.0,
+                                                        ),
+                                                    child: _buildDateChip(
+                                                      message.time,
+                                                    ),
+                                                  ),
+                                                ),
+                                              if (showDateHeader)
+                                                const SizedBox(height: 10),
+                                              // Spacing: compact for grouped, normal for new group
+                                              SizedBox(
+                                                height: isGrouped ? 2.0 : 8.0,
+                                              ),
+                                              ThreadMessageTile(
+                                                threadId:
+                                                    widget.staffInfo['code']
+                                                        as String,
+                                                messageCode: message.code,
+                                                quotedMessageId:
+                                                    message.quotedMessageId,
+                                                onDeleteAttachment: (attachment) {
+                                                  if (attachment.attachmentId !=
+                                                      null) {
+                                                    context
+                                                        .read<
+                                                          CommunicationCubit
+                                                        >()
+                                                        .deleteAttachment(
+                                                          widget.staffInfo['code']
+                                                              as String,
+                                                          attachment
+                                                              .attachmentId!,
+                                                        );
+                                                  }
+                                                },
+                                                currentUserCode:
+                                                    _currentUserCode,
+                                                reactionsController:
+                                                    _reactionsController,
+                                                onScrollToQuoted: (quoteId) {
+                                                  _scrollToMessage(quoteId);
+                                                },
+                                                onReply: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                        setState(() {
+                                                          _quotedMessageCode =
+                                                              message.id;
+                                                          _quotedMessage =
+                                                              message;
+                                                        });
+                                                      },
+                                                onReplyFromMenu:
+                                                    message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                        setState(() {
+                                                          _quotedMessageCode =
+                                                              message.id;
+                                                          _quotedMessage =
+                                                              message;
+                                                        });
+                                                      },
+                                                onCopy: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                        Clipboard.setData(
+                                                          ClipboardData(
+                                                            text:
+                                                                MessageContentProcessor.stripHtmlTags(
+                                                                  message.text,
+                                                                ),
+                                                          ),
+                                                        );
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message copied successfully',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                onEdit: message.isDeleted
+                                                    ? null
+                                                    : () => _showEditDialog(
+                                                        context,
+                                                        message,
+                                                      ),
+                                                onDelete: message.isDeleted
+                                                    ? null
+                                                    : () {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .deleteMessage(
+                                                              widget.staffInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                            );
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message deleted successfully',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                onInfo: message.isDeleted
+                                                    ? null
+                                                    : () =>
+                                                          _showMessageStatusDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                onReactionAdded: (emoji) =>
+                                                    _onReactionAdded(
+                                                      message,
+                                                      emoji,
+                                                    ),
+                                                onRemoveReaction: (emoji) {
+                                                  context
+                                                      .read<
+                                                        CommunicationCubit
+                                                      >()
+                                                      .removeReaction(
+                                                        widget.staffInfo['code']
+                                                            as String,
+                                                        message.code,
+                                                        emoji,
+                                                        currentUserCode:
+                                                            _currentUserCode,
+                                                      );
+                                                },
+                                                onReactionTap: () =>
+                                                    _showEmojiPicker(
+                                                      context,
+                                                      message,
+                                                    ),
+                                                isGrouped: isGrouped,
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  bottom: 8,
+                                  child: ValueListenableBuilder<bool>(
+                                    valueListenable:
+                                        _scrollBehavior.showNewMessageIndicator,
+                                    builder: (_, visible, __) =>
+                                        NewMessagesIndicator(
+                                          visible: visible,
+                                          onTap: () =>
+                                              _scrollBehavior.scrollToBottom(),
+                                        ),
+                                  ),
+                                ),
+                                Positioned(
+                                  left: 0,
+                                  right: 0,
+                                  top: 0,
+                                  child: LoadingOlderIndicator(
+                                    visible:
+                                        state is CommunicationLoaded &&
+                                        state.isLoadingOlderMessages,
+                                  ),
+                                ),
+                                if (!_isPositionedAtBottom)
+                                  const Positioned.fill(
+                                    child: ChatThreadShimmer(),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          SizedBox(
+                            width: MediaQuery.of(context).size.width * 0.35,
+                            child: SingleChildScrollView(
+                              reverse: true, // new messages appear at bottom
+                              padding: EdgeInsets.only(
+                                bottom: MediaQuery.of(
+                                  context,
+                                ).viewInsets.bottom,
+                              ),
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  color: Colors.white,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 16,
+                                  ),
+                                  child: _buildMessageInput(state),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisSize: MainAxisSize.max,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Container(
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                color: const Color(0xFFF4F7FD),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      border: const Border(
+                                        bottom: BorderSide(
+                                          color: Color(0xFFE9ECEF),
+                                          width: 1,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Padding(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 24.0,
+                                        vertical: 16,
+                                      ),
+                                      child: Row(
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.start,
+                                        children: [
+                                          GestureDetector(
+                                            onTap: () =>
+                                                Navigator.of(context).pop(),
+                                            child: Container(
+                                              padding: const EdgeInsets.all(4),
+                                              decoration: BoxDecoration(
+                                                color: AppColors.primaryColor
+                                                    .withValues(alpha: 0.1),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: Icon(
+                                                Icons.arrow_back_rounded,
+                                                size: 20,
+                                                color: AppColors.primaryColor,
                                               ),
                                             ),
                                           ),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 24.0,
-                                              vertical: 16,
-                                            ),
+                                          const SizedBox(width: 12),
+                                          Stack(
+                                            children: [
+                                              DocumentImageWidget(
+                                                fileUuid: '',
+                                                imageUrl:
+                                                    _staffAvatarAsImageUrl,
+                                                mediaAssetCode:
+                                                    _staffAvatarAsMediaAssetCode,
+                                                name: widget.staffInfo['name'],
+                                                size: 45,
+                                              ),
+                                              Positioned(
+                                                right: 0,
+                                                top: 0,
+                                                child: Container(
+                                                  width: 12,
+                                                  height: 12,
+                                                  decoration: BoxDecoration(
+                                                    color:
+                                                        (widget.staffInfo['isSigned'] ??
+                                                            false)
+                                                        ? const Color.fromRGBO(
+                                                            0,
+                                                            177,
+                                                            21,
+                                                            1,
+                                                          )
+                                                        : Colors.transparent,
+                                                    shape: BoxShape.circle,
+                                                    border: Border.all(
+                                                      color:
+                                                          (widget.staffInfo['isSigned'] ??
+                                                              false)
+                                                          ? Colors.white
+                                                          : Colors.transparent,
+                                                      width: 2,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(width: 10),
+                                          Flexible(
                                             child: Row(
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
                                               children: [
+                                                Expanded(
+                                                  child: CustomTextWidget(
+                                                    text: widget
+                                                        .staffInfo['name'],
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 20,
+                                                  ),
+                                                ),
+                                                const SizedBox(width: 8),
                                                 GestureDetector(
-                                                  onTap: () => Navigator.of(
-                                                    context,
-                                                  ).pop(),
+                                                  onTap: () {
+                                                    showDialog(
+                                                      context: context,
+                                                      builder: (context) => AlertDialog(
+                                                        title: CustomTextWidget(
+                                                          text: widget
+                                                              .staffInfo['name'],
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                          fontSize: 18,
+                                                        ),
+                                                        content: Column(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            if (widget
+                                                                    .staffInfo['designation'] !=
+                                                                null)
+                                                              Padding(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      vertical:
+                                                                          4,
+                                                                    ),
+                                                                child: RichText(
+                                                                  text: TextSpan(
+                                                                    children: [
+                                                                      const TextSpan(
+                                                                        text:
+                                                                            'Designation: ',
+                                                                        style: TextStyle(
+                                                                          fontWeight:
+                                                                              FontWeight.w600,
+                                                                          color:
+                                                                              Colors.black87,
+                                                                        ),
+                                                                      ),
+                                                                      TextSpan(
+                                                                        text: widget
+                                                                            .staffInfo['designation']
+                                                                            .toString(),
+                                                                        style: const TextStyle(
+                                                                          color:
+                                                                              Colors.black54,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                            if (widget
+                                                                    .staffInfo['email'] !=
+                                                                null)
+                                                              Padding(
+                                                                padding:
+                                                                    const EdgeInsets.symmetric(
+                                                                      vertical:
+                                                                          4,
+                                                                    ),
+                                                                child: RichText(
+                                                                  text: TextSpan(
+                                                                    children: [
+                                                                      const TextSpan(
+                                                                        text:
+                                                                            'Email: ',
+                                                                        style: TextStyle(
+                                                                          fontWeight:
+                                                                              FontWeight.w600,
+                                                                          color:
+                                                                              Colors.black87,
+                                                                        ),
+                                                                      ),
+                                                                      TextSpan(
+                                                                        text: widget
+                                                                            .staffInfo['email']
+                                                                            .toString(),
+                                                                        style: const TextStyle(
+                                                                          color:
+                                                                              Colors.black54,
+                                                                        ),
+                                                                      ),
+                                                                    ],
+                                                                  ),
+                                                                ),
+                                                              ),
+                                                          ],
+                                                        ),
+                                                        actions: [
+                                                          TextButton(
+                                                            onPressed: () =>
+                                                                Navigator.of(
+                                                                  context,
+                                                                ).pop(),
+                                                            child: const Text(
+                                                              'Close',
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ),
+                                                    );
+                                                  },
                                                   child: Container(
                                                     padding:
                                                         const EdgeInsets.all(4),
@@ -902,483 +1060,295 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                       shape: BoxShape.circle,
                                                     ),
                                                     child: Icon(
-                                                      Icons.arrow_back_rounded,
-                                                      size: 20,
+                                                      Icons
+                                                          .info_outline_rounded,
+                                                      size: 18,
                                                       color: AppColors
                                                           .primaryColor,
                                                     ),
                                                   ),
                                                 ),
-                                                const SizedBox(width: 12),
-                                                Stack(
-                                                  children: [
-                                                    DocumentImageWidget(
-                                                      fileUuid: '',
-                                                      imageUrl:
-                                                          _staffAvatarAsImageUrl,
-                                                      mediaAssetCode:
-                                                          _staffAvatarAsMediaAssetCode,
-                                                      name: widget
-                                                          .staffInfo['name'],
-                                                      size: 45,
-                                                    ),
-                                                    Positioned(
-                                                      right: 0,
-                                                      top: 0,
-                                                      child: Container(
-                                                        width: 12,
-                                                        height: 12,
-                                                        decoration: BoxDecoration(
-                                                          color:
-                                                              (widget.staffInfo['isSigned'] ??
-                                                                  false)
-                                                              ? const Color.fromRGBO(
-                                                                  0,
-                                                                  177,
-                                                                  21,
-                                                                  1,
-                                                                )
-                                                              : Colors
-                                                                    .transparent,
-                                                          shape:
-                                                              BoxShape.circle,
-                                                          border: Border.all(
-                                                            color:
-                                                                (widget.staffInfo['isSigned'] ??
-                                                                    false)
-                                                                ? Colors.white
-                                                                : Colors
-                                                                      .transparent,
-                                                            width: 2,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                                const SizedBox(width: 10),
-                                                Flexible(
-                                                  child: Row(
-                                                    children: [
-                                                      Expanded(
-                                                        child: CustomTextWidget(
-                                                          text: widget
-                                                              .staffInfo['name'],
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontSize: 20,
-                                                        ),
-                                                      ),
-                                                      const SizedBox(width: 8),
-                                                      GestureDetector(
-                                                        onTap: () {
-                                                          showDialog(
-                                                            context: context,
-                                                            builder: (context) => AlertDialog(
-                                                              title: CustomTextWidget(
-                                                                text: widget
-                                                                    .staffInfo['name'],
-                                                                fontWeight:
-                                                                    FontWeight
-                                                                        .w600,
-                                                                fontSize: 18,
-                                                              ),
-                                                              content: Column(
-                                                                mainAxisSize:
-                                                                    MainAxisSize
-                                                                        .min,
-                                                                crossAxisAlignment:
-                                                                    CrossAxisAlignment
-                                                                        .start,
-                                                                children: [
-                                                                  if (widget
-                                                                          .staffInfo['designation'] !=
-                                                                      null)
-                                                                    Padding(
-                                                                      padding: const EdgeInsets.symmetric(
-                                                                        vertical:
-                                                                            4,
-                                                                      ),
-                                                                      child: RichText(
-                                                                        text: TextSpan(
-                                                                          children: [
-                                                                            const TextSpan(
-                                                                              text: 'Designation: ',
-                                                                              style: TextStyle(
-                                                                                fontWeight: FontWeight.w600,
-                                                                                color: Colors.black87,
-                                                                              ),
-                                                                            ),
-                                                                            TextSpan(
-                                                                              text: widget.staffInfo['designation'].toString(),
-                                                                              style: const TextStyle(
-                                                                                color: Colors.black54,
-                                                                              ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                  if (widget
-                                                                          .staffInfo['email'] !=
-                                                                      null)
-                                                                    Padding(
-                                                                      padding: const EdgeInsets.symmetric(
-                                                                        vertical:
-                                                                            4,
-                                                                      ),
-                                                                      child: RichText(
-                                                                        text: TextSpan(
-                                                                          children: [
-                                                                            const TextSpan(
-                                                                              text: 'Email: ',
-                                                                              style: TextStyle(
-                                                                                fontWeight: FontWeight.w600,
-                                                                                color: Colors.black87,
-                                                                              ),
-                                                                            ),
-                                                                            TextSpan(
-                                                                              text: widget.staffInfo['email'].toString(),
-                                                                              style: const TextStyle(
-                                                                                color: Colors.black54,
-                                                                              ),
-                                                                            ),
-                                                                          ],
-                                                                        ),
-                                                                      ),
-                                                                    ),
-                                                                ],
-                                                              ),
-                                                              actions: [
-                                                                TextButton(
-                                                                  onPressed: () =>
-                                                                      Navigator.of(
-                                                                        context,
-                                                                      ).pop(),
-                                                                  child:
-                                                                      const Text(
-                                                                        'Close',
-                                                                      ),
-                                                                ),
-                                                              ],
-                                                            ),
-                                                          );
-                                                        },
-                                                        child: Container(
-                                                          padding:
-                                                              const EdgeInsets.all(
-                                                                4,
-                                                              ),
-                                                          decoration:
-                                                              BoxDecoration(
-                                                                color: AppColors
-                                                                    .primaryColor
-                                                                    .withValues(
-                                                                      alpha:
-                                                                          0.1,
-                                                                    ),
-                                                                shape: BoxShape
-                                                                    .circle,
-                                                              ),
-                                                          child: Icon(
-                                                            Icons
-                                                                .info_outline_rounded,
-                                                            size: 18,
-                                                            color: AppColors
-                                                                .primaryColor,
-                                                          ),
-                                                        ),
-                                                      ),
-                                                    ],
-                                                  ),
-                                                ),
                                               ],
                                             ),
                                           ),
-                                        ),
-                                        Flexible(
-                                          child: Stack(
-                                            children: [
-                                              ListView.builder(
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  Flexible(
+                                    child: Stack(
+                                      children: [
+                                        Opacity(
+                                          opacity: _isPositionedAtBottom
+                                              ? 1
+                                              : 0,
+                                          child: ListView.builder(
+                                            controller: _scrollController,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 12,
+                                            ),
+                                            reverse: false,
+                                            itemCount: _messages.length,
+                                            itemBuilder: (context, index) {
+                                              final message = _messages[index];
+                                              final messageId = message.id;
+                                              //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
+                                              // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
+                                              // final key = keyMap.putIfAbsent(
+                                              //   messageId,
+                                              //   () => GlobalKey(),
+                                              // );
+                                              bool showDateHeader = false;
+                                              final prevMessageIndex =
+                                                  index - 1;
+
+                                              if (prevMessageIndex >= 0) {
+                                                final prevMessage =
+                                                    _messages[prevMessageIndex];
+                                                final schoolTz =
+                                                    SchoolTimezoneResolver
+                                                        .lastKnownTimeZone;
+                                                final currentDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      message.time,
+                                                      schoolTz,
+                                                    );
+                                                final prevDate =
+                                                    SchoolZoneDateTime.dateTimeFromInstantInSchool(
+                                                      prevMessage.time,
+                                                      schoolTz,
+                                                    );
+
+                                                showDateHeader =
+                                                    currentDate.year !=
+                                                        prevDate.year ||
+                                                    currentDate.month !=
+                                                        prevDate.month ||
+                                                    currentDate.day !=
+                                                        prevDate.day;
+                                              } else {
+                                                showDateHeader = true;
+                                              }
+                                              final prevMessage =
+                                                  prevMessageIndex >= 0
+                                                  ? _messages[prevMessageIndex]
+                                                  : null;
+                                              final isGrouped =
+                                                  !showDateHeader &&
+                                                  _isSameSender(
+                                                    prevMessage,
+                                                    message,
+                                                  );
+
+                                              return AutoScrollTag(
+                                                key: ValueKey(messageId),
                                                 controller: _scrollController,
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 8,
-                                                      vertical: 12,
-                                                    ),
-                                                reverse: false,
-                                                itemCount: _messages.length,
-                                                itemBuilder: (context, index) {
-                                                  final message =
-                                                      _messages[index];
-                                                  final messageId = message.id;
-                                                  //final scrollKey = _scrollKeys.putIfAbsent(messageId, () => GlobalKey());
-                                                  // final keyMap = message.isSentByMe ? _messageKeysSent : _messageKeysReceived;
-                                                  // final key = keyMap.putIfAbsent(
-                                                  //   messageId,
-                                                  //   () => GlobalKey(),
-                                                  // );
-                                                  bool showDateHeader = false;
-                                                  final prevMessageIndex =
-                                                      index - 1;
-
-                                                  if (prevMessageIndex >= 0) {
-                                                    final prevMessage =
-                                                        _messages[prevMessageIndex];
-                                                    final schoolTz =
-                                                        SchoolTimezoneResolver
-                                                            .lastKnownTimeZone;
-                                                    final currentDate =
-                                                        SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                                                          message.time,
-                                                          schoolTz,
-                                                        );
-                                                    final prevDate =
-                                                        SchoolZoneDateTime.dateTimeFromInstantInSchool(
-                                                          prevMessage.time,
-                                                          schoolTz,
-                                                        );
-
-                                                    showDateHeader =
-                                                        currentDate.year !=
-                                                            prevDate.year ||
-                                                        currentDate.month !=
-                                                            prevDate.month ||
-                                                        currentDate.day !=
-                                                            prevDate.day;
-                                                  } else {
-                                                    showDateHeader = true;
-                                                  }
-                                                  final prevMessage =
-                                                      prevMessageIndex >= 0
-                                                      ? _messages[prevMessageIndex]
-                                                      : null;
-                                                  final isGrouped =
-                                                      !showDateHeader &&
-                                                      _isSameSender(
-                                                        prevMessage,
-                                                        message,
-                                                      );
-
-                                                  return AutoScrollTag(
-                                                    key: ValueKey(messageId),
-                                                    controller:
-                                                        _scrollController,
-                                                    index: index,
-                                                    highlightColor: Colors.green
-                                                        .withValues(alpha: 0.7),
-                                                    child: Column(
-                                                      mainAxisSize:
-                                                          MainAxisSize.min,
-                                                      children: [
-                                                        if (showDateHeader)
-                                                          Center(
-                                                            child: Padding(
-                                                              padding:
-                                                                  const EdgeInsets.only(
-                                                                    top: 8.0,
-                                                                  ),
-                                                              child:
-                                                                  _buildDateChip(
-                                                                    message
-                                                                        .time,
-                                                                  ),
-                                                            ),
+                                                index: index,
+                                                highlightColor: Colors.green
+                                                    .withValues(alpha: 0.7),
+                                                child: Column(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    if (showDateHeader)
+                                                      Center(
+                                                        child: Padding(
+                                                          padding:
+                                                              const EdgeInsets.only(
+                                                                top: 8.0,
+                                                              ),
+                                                          child: _buildDateChip(
+                                                            message.time,
                                                           ),
-                                                        if (showDateHeader)
-                                                          const SizedBox(
-                                                            height: 10,
-                                                          ),
+                                                        ),
+                                                      ),
+                                                    if (showDateHeader)
+                                                      const SizedBox(
+                                                        height: 10,
+                                                      ),
 
-                                                        ThreadMessageTile(
-                                                          threadId:
+                                                    ThreadMessageTile(
+                                                      threadId:
+                                                          widget.staffInfo['code']
+                                                              as String,
+                                                      messageCode: message.code,
+                                                      quotedMessageId: message
+                                                          .quotedMessageId,
+                                                      onDeleteAttachment: (attachment) {
+                                                        if (attachment
+                                                                .attachmentId !=
+                                                            null) {
+                                                          context
+                                                              .read<
+                                                                CommunicationCubit
+                                                              >()
+                                                              .deleteAttachment(
+                                                                widget.staffInfo['code']
+                                                                    as String,
+                                                                attachment
+                                                                    .attachmentId!,
+                                                              );
+                                                        }
+                                                      },
+                                                      currentUserCode:
+                                                          _currentUserCode,
+                                                      reactionsController:
+                                                          _reactionsController,
+                                                      onScrollToQuoted:
+                                                          (quoteId) {
+                                                            _scrollToMessage(
+                                                              quoteId,
+                                                            );
+                                                          },
+                                                      onReply: message.isDeleted
+                                                          ? null
+                                                          : () {
+                                                              setState(() {
+                                                                _quotedMessageCode =
+                                                                    message.id;
+                                                                _quotedMessage =
+                                                                    message;
+                                                              });
+                                                            },
+                                                      onReplyFromMenu:
+                                                          message.isDeleted
+                                                          ? null
+                                                          : () {
+                                                              setState(() {
+                                                                _quotedMessageCode =
+                                                                    message.id;
+                                                                _quotedMessage =
+                                                                    message;
+                                                              });
+                                                            },
+                                                      onCopy: () {
+                                                        Clipboard.setData(
+                                                          ClipboardData(
+                                                            text: message.text,
+                                                          ),
+                                                        );
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message copied successfully',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onEdit: () =>
+                                                          _showEditDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onDelete: () {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .deleteMessage(
                                                               widget.staffInfo['code']
                                                                   as String,
-                                                          messageCode:
                                                               message.code,
-                                                          quotedMessageId: message
-                                                              .quotedMessageId,
-                                                          onDeleteAttachment: (attachment) {
-                                                            if (attachment
-                                                                    .attachmentId !=
-                                                                null) {
-                                                              context
-                                                                  .read<
-                                                                    CommunicationCubit
-                                                                  >()
-                                                                  .deleteAttachment(
-                                                                    widget.staffInfo['code']
-                                                                        as String,
-                                                                    attachment
-                                                                        .attachmentId!,
-                                                                  );
-                                                            }
-                                                          },
-                                                          currentUserCode:
-                                                              _currentUserCode,
-                                                          reactionsController:
-                                                              _reactionsController,
-                                                          onScrollToQuoted:
-                                                              (quoteId) {
-                                                                _scrollToMessage(
-                                                                  quoteId,
-                                                                );
-                                                              },
-                                                          onReply:
-                                                              message.isDeleted
-                                                              ? null
-                                                              : () {
-                                                                  setState(() {
-                                                                    _quotedMessageCode =
-                                                                        message
-                                                                            .id;
-                                                                    _quotedMessage =
-                                                                        message;
-                                                                  });
-                                                                },
-                                                          onReplyFromMenu:
-                                                              message.isDeleted
-                                                              ? null
-                                                              : () {
-                                                                  setState(() {
-                                                                    _quotedMessageCode =
-                                                                        message
-                                                                            .id;
-                                                                    _quotedMessage =
-                                                                        message;
-                                                                  });
-                                                                },
-                                                          onCopy: () {
-                                                            Clipboard.setData(
-                                                              ClipboardData(
-                                                                text: message
-                                                                    .text,
-                                                              ),
                                                             );
-                                                            CoreUtils.showTopSnackBar(
-                                                              context: context,
-                                                              message:
-                                                                  'Message copied successfully',
-                                                              isSuccess: true,
+                                                        CoreUtils.showTopSnackBar(
+                                                          context: context,
+                                                          message:
+                                                              'Message deleted successfully',
+                                                          isSuccess: true,
+                                                        );
+                                                      },
+                                                      onInfo: () =>
+                                                          _showMessageStatusDialog(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onReactionAdded:
+                                                          (emoji) =>
+                                                              _onReactionAdded(
+                                                                message,
+                                                                emoji,
+                                                              ),
+                                                      onRemoveReaction: (emoji) {
+                                                        context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .removeReaction(
+                                                              widget.staffInfo['code']
+                                                                  as String,
+                                                              message.code,
+                                                              emoji,
+                                                              currentUserCode:
+                                                                  _currentUserCode,
                                                             );
-                                                          },
-                                                          onEdit: () =>
-                                                              _showEditDialog(
-                                                                context,
-                                                                message,
-                                                              ),
-                                                          onDelete: () {
-                                                            context
-                                                                .read<
-                                                                  CommunicationCubit
-                                                                >()
-                                                                .deleteMessage(
-                                                                  widget.staffInfo['code']
-                                                                      as String,
-                                                                  message.code,
-                                                                );
-                                                            CoreUtils.showTopSnackBar(
-                                                              context: context,
-                                                              message:
-                                                                  'Message deleted successfully',
-                                                              isSuccess: true,
-                                                            );
-                                                          },
-                                                          onInfo: () =>
-                                                              _showMessageStatusDialog(
-                                                                context,
-                                                                message,
-                                                              ),
-                                                          onReactionAdded:
-                                                              (emoji) =>
-                                                                  _onReactionAdded(
-                                                                    message,
-                                                                    emoji,
-                                                                  ),
-                                                          onRemoveReaction: (emoji) {
-                                                            context
-                                                                .read<
-                                                                  CommunicationCubit
-                                                                >()
-                                                                .removeReaction(
-                                                                  widget.staffInfo['code']
-                                                                      as String,
-                                                                  message.code,
-                                                                  emoji,
-                                                                  currentUserCode:
-                                                                      _currentUserCode,
-                                                                );
-                                                          },
-                                                          onReactionTap: () =>
-                                                              _showEmojiPicker(
-                                                                context,
-                                                                message,
-                                                              ),
-                                                          isGrouped: isGrouped,
-                                                        ),
-                                                      ],
+                                                      },
+                                                      onReactionTap: () =>
+                                                          _showEmojiPicker(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      isGrouped: isGrouped,
                                                     ),
-                                                  );
-                                                },
-                                              ),
-                                              Positioned(
-                                                left: 0,
-                                                right: 0,
-                                                bottom: 8,
-                                                child: ValueListenableBuilder<bool>(
-                                                  valueListenable: _scrollBehavior
-                                                      .showNewMessageIndicator,
-                                                  builder: (_, visible, __) =>
-                                                      NewMessagesIndicator(
-                                                        visible: visible,
-                                                        onTap: () =>
-                                                            _scrollBehavior
-                                                                .scrollToBottom(),
-                                                      ),
+                                                  ],
                                                 ),
-                                              ),
-                                              Positioned(
-                                                left: 0,
-                                                right: 0,
-                                                top: 0,
-                                                child: LoadingOlderIndicator(
-                                                  visible:
-                                                      state
-                                                          is CommunicationLoaded &&
-                                                      state
-                                                          .isLoadingOlderMessages,
-                                                ),
-                                              ),
-                                            ],
+                                              );
+                                            },
                                           ),
                                         ),
+                                        Positioned(
+                                          left: 0,
+                                          right: 0,
+                                          bottom: 8,
+                                          child: ValueListenableBuilder<bool>(
+                                            valueListenable: _scrollBehavior
+                                                .showNewMessageIndicator,
+                                            builder: (_, visible, __) =>
+                                                NewMessagesIndicator(
+                                                  visible: visible,
+                                                  onTap: () => _scrollBehavior
+                                                      .scrollToBottom(),
+                                                ),
+                                          ),
+                                        ),
+                                        Positioned(
+                                          left: 0,
+                                          right: 0,
+                                          top: 0,
+                                          child: LoadingOlderIndicator(
+                                            visible:
+                                                state is CommunicationLoaded &&
+                                                state.isLoadingOlderMessages,
+                                          ),
+                                        ),
+                                        if (!_isPositionedAtBottom)
+                                          const Positioned.fill(
+                                            child: ChatThreadShimmer(),
+                                          ),
                                       ],
                                     ),
                                   ),
-                                ),
-                                const SizedBox(height: 10),
-                                Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(12),
-                                    color: Colors.white,
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 16,
-                                    ),
-                                    child: _buildMessageInput(state),
-                                  ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                    ),
-                  ),
-                ),
+                          ),
+                          const SizedBox(height: 10),
+                          Container(
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(12),
+                              color: Colors.white,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 16,
+                              ),
+                              child: _buildMessageInput(state),
+                            ),
+                          ),
+                        ],
+                      ),
               ),
-              if (!_isPositionedAtBottom)
-                const Positioned.fill(child: ChatThreadShimmer()),
-            ],
+            ),
           ),
         );
       },
