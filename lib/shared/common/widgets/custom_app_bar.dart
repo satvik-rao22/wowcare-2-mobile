@@ -122,7 +122,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       items: names,
                       selectedItem: state.selectedChild?.name,
                       onSelect: cubit.selectByName,
-                      prependHintAsSelectableItem: false,
                       isEnabled: canPickChild,
                     ),
                   ),

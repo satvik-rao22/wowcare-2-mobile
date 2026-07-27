@@ -136,7 +136,6 @@ class _EditLedgerScreenState extends State<EditLedgerScreen> {
                         selectedItem: _selectedCategory,
                         isRequired: true,
                         showAsterisk: true,
-                        prependHintAsSelectableItem: false,
                         labelStyle: labelStyle,
                         fieldHeight: responsive.inputFieldHeight,
                         onSelect: (val) => _cubit.setCategory(val),

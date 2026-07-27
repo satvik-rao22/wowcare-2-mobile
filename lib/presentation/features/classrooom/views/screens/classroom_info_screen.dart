@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:wowcare/core/util/app_time.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -519,7 +521,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'classroom-logo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'classroom-logo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',

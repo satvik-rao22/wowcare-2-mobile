@@ -12,6 +12,7 @@ import 'package:wowcare/data/features/communication/realtime/message_realtime_da
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/reaction_repository.dart';
 
@@ -138,7 +139,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       text: text,
       messageType: MessageType.text,
       status: MessageStatus.pending,
-      sentAt: DateTime.now(),
+      sentAt: AppTime.nowUtc(),
       organizationCode: org,
       schoolCode: school,
       isPrivate: isPrivate,
@@ -231,7 +232,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       final updatedLocal = cached.toEntity().copyWith(
         text: newText,
         isEdited: true,
-        editedAt: DateTime.now(),
+        editedAt: AppTime.nowUtc(),
       );
       await _local.saveMessage(updatedLocal);
     }
@@ -466,7 +467,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       entityCode: entityCode,
       status: SyncOperationStatus.pending,
       payload: jsonEncode(payload),
-      createdAt: DateTime.now(),
+      createdAt: AppTime.nowUtc(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
     );

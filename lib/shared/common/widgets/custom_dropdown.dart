@@ -150,14 +150,6 @@ class CustomDropdown extends StatefulWidget {
     this.height = null,
     this.leadingIcon,
 
-    /// When true (default), a first menu item is added whose selection clears the current value.
-    /// Set false when a value must always stay chosen (e.g. parent global child picker).
-    this.prependHintAsSelectableItem = true,
-
-    /// Label for that clear item. Defaults to [hintText], but pass a real choice (e.g. "All") so the
-    /// placeholder/hint text does not appear as if it were a selectable option.
-    this.clearItemLabel,
-
     /// Shows a search box at the top of the popup that filters [items] as you
     /// type. Off by default — opt in per-usage (e.g. the existing-parent picker).
     this.enableSearch = false,
@@ -185,8 +177,6 @@ class CustomDropdown extends StatefulWidget {
 
   /// Optional leading widget (e.g. an icon) shown before the text.
   final Widget? leadingIcon;
-  final bool prependHintAsSelectableItem;
-  final String? clearItemLabel;
   final bool enableSearch;
 
   @override
@@ -215,11 +205,6 @@ class _CustomDropdownState extends State<CustomDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    final String clearLabel = widget.clearItemLabel ?? widget.hintText;
-    final List<String> displayItems = widget.prependHintAsSelectableItem
-        ? <String>[clearLabel, ...widget.items]
-        : List<String>.from(widget.items);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -280,12 +265,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     ),
                     onSelected: (value) {
                       setState(() {
-                        if (widget.prependHintAsSelectableItem &&
-                            value == clearLabel) {
-                          selectedItem = null;
-                        } else {
-                          selectedItem = value;
-                        }
+                        selectedItem = value;
                       });
 
                       // Call the onSelect callback if it's provided
@@ -309,7 +289,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                           enabled: false,
                           padding: EdgeInsets.zero,
                           child: _DropdownMenuPanel(
-                            items: displayItems,
+                            items: widget.items,
                             maxWidth: constraints.maxWidth,
                             enableSearch: widget.enableSearch,
                             isField: widget.isField,

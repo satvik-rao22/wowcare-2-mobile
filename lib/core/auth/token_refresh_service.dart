@@ -8,6 +8,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 
@@ -101,7 +102,7 @@ class TokenRefreshService {
   /// Records the absolute deadline for an `expiresIn` (seconds) duration.
   Future<void> saveAccessTokenExpiry(int expiresInSeconds) async {
     if (expiresInSeconds <= 0) return;
-    final deadline = DateTime.now().add(Duration(seconds: expiresInSeconds));
+    final deadline = AppTime.nowUtc().add(Duration(seconds: expiresInSeconds));
     await _storage.saveInt(
       StorageKeys.tokenExpiresAt,
       deadline.millisecondsSinceEpoch,
@@ -244,7 +245,7 @@ class TokenRefreshService {
       return (await refreshSession()) != null;
     }
     final expiresAt = DateTime.fromMillisecondsSinceEpoch(expiryMs);
-    if (DateTime.now().add(skew).isBefore(expiresAt)) return true;
+    if (AppTime.nowUtc().add(skew).isBefore(expiresAt)) return true;
 
     AppLogger.d('[TokenRefresh] token expired/expiring — refreshing on resume');
     return (await refreshSession()) != null;

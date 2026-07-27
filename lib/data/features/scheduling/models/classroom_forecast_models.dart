@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/scheduling/entities/classroom_forecast_block.dart';
 import 'staff_shift_models.dart';
 
@@ -58,7 +59,7 @@ class ClassroomForecastBlockModel {
 
   ClassroomForecastBlock toEntity() {
     return ClassroomForecastBlock(
-      blockDate: DateTime.tryParse(blockDate) ?? DateTime.now(),
+      blockDate: DateTime.tryParse(blockDate) ?? AppTime.today(),
       blockStart: blockStart.toTimeOfDay(),
       blockEnd: blockEnd.toTimeOfDay(),
       classroomCode: classroomCode,

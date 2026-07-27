@@ -1970,7 +1970,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
         _scheduleHighlightScroll();
         return;
       }
@@ -2088,7 +2088,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
       _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
@@ -2107,7 +2107,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -2317,7 +2317,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
         // Throttle repeated failed requests for same filters.
         _scheduleHighlightScroll();
         return;
@@ -2432,7 +2432,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _feedNextPage = _feedHasMore ? 1 : 0;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
       _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
@@ -2451,7 +2451,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }

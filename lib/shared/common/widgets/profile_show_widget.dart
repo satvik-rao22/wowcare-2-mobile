@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -158,7 +159,7 @@ class DocumentImageWidget extends StatefulWidget {
     }
     void prime(String key) {
       _DocumentImageWidgetState._profilePhotoUrlCache[key] = u;
-      _DocumentImageWidgetState._profilePhotoFetchedAt[key] = DateTime.now();
+      _DocumentImageWidgetState._profilePhotoFetchedAt[key] = AppTime.nowUtc();
       _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
     }
 
@@ -311,7 +312,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cached = _profilePhotoUrlCache[key];
     final fetchedAt = _profilePhotoFetchedAt[key];
     if (cached == null || fetchedAt == null) return null;
-    if (DateTime.now().difference(fetchedAt) >
+    if (AppTime.nowUtc().difference(fetchedAt) >
         DocumentImageWidget._profilePhotoCacheTtl) {
       _profilePhotoUrlCache.remove(key);
       _profilePhotoFetchedAt.remove(key);
@@ -377,7 +378,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final resolved = await future;
       if ((resolved ?? '').trim().isNotEmpty) {
         _profilePhotoUrlCache[cacheKey] = resolved!.trim();
-        _profilePhotoFetchedAt[cacheKey] = DateTime.now();
+        _profilePhotoFetchedAt[cacheKey] = AppTime.nowUtc();
       }
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {

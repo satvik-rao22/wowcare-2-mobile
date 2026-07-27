@@ -131,7 +131,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     // Cooldown: avoid hammering the API on rapid lifecycle events.
     final lastFetch = cubit.lastFetchAt;
     if (lastFetch != null &&
-        DateTime.now().difference(lastFetch) < _refreshCooldown) {
+        AppTime.nowUtc().difference(lastFetch) < _refreshCooldown) {
       return;
     }
 

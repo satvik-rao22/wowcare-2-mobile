@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
 
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
 /// Interprets attendance date/times in the **school's** IANA zone so behavior matches
@@ -122,6 +123,48 @@ abstract final class SchoolZoneDateTime {
     return (
       DateTime(sn.year, sn.month, sn.day),
       TimeOfDay(hour: sn.hour, minute: sn.minute),
+    );
+  }
+
+  /// Resolves the UTC instant to submit for a date/time PICKER field.
+  ///
+  /// If [selectedDate]/[selectedTime] still equal the current school wall
+  /// clock (the picker's untouched default), returns the real synced server
+  /// instant — full second precision, not truncated to hh:mm:00. If the user
+  /// explicitly picked a different date/time, honors that picked value
+  /// instead (seconds are 0 — a [TimeOfDay] picker has no seconds to give).
+  ///
+  /// Use this instead of calling [utcFromSchoolWallClock] directly wherever a
+  /// picker's value becomes a submitted "occurred at" timestamp (sign-in/out,
+  /// transfer, activity time, etc.).
+  static DateTime resolvePickedInstantUtc(
+    String ianaName, {
+    required DateTime selectedDate,
+    required TimeOfDay selectedTime,
+  }) {
+    final schoolNow = _nowInZone(locationForIana(ianaName));
+    final isUnchanged = selectedDate.year == schoolNow.year &&
+        selectedDate.month == schoolNow.month &&
+        selectedDate.day == schoolNow.day &&
+        selectedTime.hour == schoolNow.hour &&
+        selectedTime.minute == schoolNow.minute;
+    AppLogger.d(
+      '[resolvePickedInstantUtc] iana=$ianaName '
+      'picked=${selectedDate.year}-${selectedDate.month}-${selectedDate.day} '
+      '${selectedTime.hour}:${selectedTime.minute} '
+      'schoolNow=${schoolNow.year}-${schoolNow.month}-${schoolNow.day} '
+      '${schoolNow.hour}:${schoolNow.minute} '
+      'isUnchanged=$isUnchanged',
+    );
+    if (isUnchanged) return ServerTimeService.instance.nowUtc();
+
+    return utcFromSchoolWallClock(
+      ianaName,
+      year: selectedDate.year,
+      month: selectedDate.month,
+      day: selectedDate.day,
+      hour: selectedTime.hour,
+      minute: selectedTime.minute,
     );
   }
 }

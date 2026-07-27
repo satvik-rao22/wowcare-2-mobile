@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift.dart';
 
 /// Wire-format `{hour, minute, second, nano}` block.
@@ -337,7 +338,7 @@ class StaffShiftModel {
       classroomCode: classroomCode,
       classroomName: classroomName,
       staffName: staffName,
-      shiftDate: DateTime.tryParse(shiftDate) ?? DateTime.now(),
+      shiftDate: DateTime.tryParse(shiftDate) ?? AppTime.today(),
       startTime: startTime.toTimeOfDay(),
       endTime: endTime.toTimeOfDay(),
       breakStartTime: breakStartTime?.toTimeOfDay(),

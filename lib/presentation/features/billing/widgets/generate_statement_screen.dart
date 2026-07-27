@@ -207,7 +207,6 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
             selectedItem: _statementType,
             isRequired: true,
             showAsterisk: true,
-            prependHintAsSelectableItem: false,
             labelStyle: labelStyle,
             fieldHeight: responsive.inputFieldHeight,
             onSelect: (val) => setState(() {
@@ -241,7 +240,6 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                         selectedItem: _selectedMonth,
                         isRequired: true,
                         showAsterisk: true,
-                        prependHintAsSelectableItem: false,
                         labelStyle: labelStyle,
                         fieldHeight: responsive.inputFieldHeight,
                         onSelect: (val) => setState(() {
@@ -265,7 +263,6 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
                         selectedItem: _selectedYear,
                         isRequired: true,
                         showAsterisk: true,
-                        prependHintAsSelectableItem: false,
                         labelStyle: labelStyle,
                         fieldHeight: responsive.inputFieldHeight,
                         onSelect: (val) => setState(() {
@@ -288,7 +285,6 @@ class _GenerateStatementScreenState extends State<GenerateStatementScreen> {
               selectedItem: _selectedYear,
               isRequired: true,
               showAsterisk: true,
-              prependHintAsSelectableItem: false,
               labelStyle: labelStyle,
               fieldHeight: responsive.inputFieldHeight,
               onSelect: (val) => setState(() {

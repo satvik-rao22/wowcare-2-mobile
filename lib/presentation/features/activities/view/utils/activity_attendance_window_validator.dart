@@ -6,38 +6,10 @@ import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
-
-Future<DateTime?> _selectedInstantUtc({
-  required DateTime date,
-  required TimeOfDay time,
-}) async {
-  try {
-    final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-      apiClient: serviceLocator<ApiClient>(),
-    );
-    return SchoolZoneDateTime.utcFromSchoolWallClock(
-      schoolTimeZone,
-      year: date.year,
-      month: date.month,
-      day: date.day,
-      hour: time.hour,
-      minute: time.minute,
-    );
-  } catch (_) {
-    return DateTime.utc(
-      date.year,
-      date.month,
-      date.day,
-      time.hour,
-      time.minute,
-    );
-  }
-}
 
 Future<Map<String, bool>> _fetchStudentSignedInStatusAtTime({
   required ApiClient apiClient,
@@ -152,11 +124,11 @@ Future<bool> validateStudentsWithinAttendanceWindow({
   if (selectedDate == null || selectedTime == null) return true;
   final storage = serviceLocator<StorageService>();
   final apiClient = serviceLocator<ApiClient>();
-  final instantUtc = await _selectedInstantUtc(
-    date: selectedDate,
-    time: selectedTime,
+  final instantUtc = SchoolZoneDateTime.resolvePickedInstantUtc(
+    ServerTimeService.instance.schoolTimeZone,
+    selectedDate: selectedDate,
+    selectedTime: selectedTime,
   );
-  if (instantUtc == null) return true;
   // Always validate attendance against API, including "current minute"/today.
   // This guarantees latest sign-in state is checked on every submit attempt.
   final classroomCode = _resolveClassroomCodeFromSelectedStudents(students);

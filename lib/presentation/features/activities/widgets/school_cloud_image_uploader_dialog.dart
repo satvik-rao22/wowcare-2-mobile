@@ -7,6 +7,7 @@ import 'package:mime/mime.dart';
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../shared/common/widgets/custom_button_layout.dart';
@@ -112,7 +113,7 @@ class _SchoolCloudImageUploaderDialogState
 
           final fileName = image.uri.pathSegments.isNotEmpty
               ? image.uri.pathSegments.last
-              : 'image-${DateTime.now().millisecondsSinceEpoch}.jpg';
+              : 'image-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg';
           final contentType = lookupMimeType(image.path) ?? 'image/jpeg';
           final contentLengthBytes = await image.length();
 

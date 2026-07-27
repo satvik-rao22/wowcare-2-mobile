@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -377,7 +378,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       if (!resolved) return;
     }
 
-    final tempCode = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+    final tempCode = 'temp-${AppTime.nowUtc().millisecondsSinceEpoch}';
 
     AttachmentEntity toOptimisticEntity(ChatAttachment a) =>
         mapChatAttachmentToAttachmentEntity(
@@ -401,7 +402,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       text: text,
       messageType: MessageType.text,
       status: MessageStatus.pending,
-      sentAt: DateTime.now(),
+      sentAt: AppTime.nowUtc(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       isPrivate: isPrivate,
@@ -920,7 +921,7 @@ extension _MessageEntityX on MessageEntity {
     isEdited: true,
     isDeleted: isDeleted,
     deletedPlaceholder: deletedPlaceholder,
-    editedAt: DateTime.now(),
+    editedAt: AppTime.nowUtc(),
     deletedAt: deletedAt,
     attachments: attachments,
     reactions: reactions,
@@ -951,7 +952,7 @@ extension _MessageEntityX on MessageEntity {
     isDeleted: true,
     deletedPlaceholder: 'This message has been deleted.',
     editedAt: editedAt,
-    deletedAt: DateTime.now(),
+    deletedAt: AppTime.nowUtc(),
     attachments: attachments,
     reactions: reactions,
     readReceipts: readReceipts,

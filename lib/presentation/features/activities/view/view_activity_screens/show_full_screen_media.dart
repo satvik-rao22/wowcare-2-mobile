@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
@@ -114,7 +115,7 @@ class _ShowFullScreenMediaState extends State<ShowFullScreenMedia> {
       final isVideo = videoUrl != null && videoUrl.trim().isNotEmpty;
       final ext = path.extension(Uri.parse(raw).path).trim().toLowerCase();
       final safeExt = ext.isNotEmpty ? ext : (isVideo ? '.mp4' : '.jpg');
-      final stamp = DateTime.now().millisecondsSinceEpoch;
+      final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
       final baseName = 'wowcare_${isVideo ? 'video' : 'photo'}_$stamp$safeExt';
       final tempVideoName =
           isVideo && _isHlsUrl(raw) ? 'wowcare_video_$stamp.mp4' : baseName;

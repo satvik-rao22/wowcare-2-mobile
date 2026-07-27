@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -387,7 +388,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'staff-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'staff-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
