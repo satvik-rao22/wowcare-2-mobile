@@ -8,19 +8,14 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class StudentIncidentReportScreen extends StatefulWidget {
-  const StudentIncidentReportScreen({
-    super.key,
-    required this.students,
-  });
+  const StudentIncidentReportScreen({super.key, required this.students});
 
   static const String routeName = '/reports/student/incident';
 
@@ -132,48 +127,48 @@ class _StudentIncidentReportScreenState
             onGenerate: isGenerating ? null : _onGenerate,
             isLoading: isGenerating,
             child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const ReportFieldLabel(label: 'Start Date'),
-              CustomDateTimeField(
-                hasLabel: false,
-                fetchInitialTime: false,
-                initialDate: _startDate,
-                onDateSelected: (d) => setState(() => _startDate = d),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              const ReportFieldLabel(label: 'End Date'),
-              CustomDateTimeField(
-                hasLabel: false,
-                fetchInitialTime: false,
-                initialDate: _endDate,
-                onDateSelected: (d) => setState(() => _endDate = d),
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              MultiSelectFilterField<String>(
-                label: 'Student',
-                hintText: 'Select Students',
-                items: widget.students,
-                selectedItems: _selectedStudents,
-                onChanged: (s) => setState(() => _selectedStudents = s),
-                itemToString: (item) => item,
-                singularLabel: 'Student',
-                pluralLabel: 'Students',
-                showSelectAll: true,
-                enableSearch: true,
-                searchHintText: 'Search Students',
-              ),
-              const ReportDefaultNote(
-                text: 'Note: All Students will be selected by Default.',
-              ),
-              SizedBox(height: responsive.verticalSpacing),
-              const ReportFieldLabel(label: 'Export Format'),
-              ReportFormatSelector(
-                selectedFormat: _format,
-                onFormatChanged: (value) => setState(() => _format = value),
-                showLabel: false,
-              ),
-            ],
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const ReportFieldLabel(label: 'Start Date'),
+                CustomDateTimeField(
+                  hasLabel: false,
+                  fetchInitialTime: false,
+                  initialDate: _startDate,
+                  onDateSelected: (d) => setState(() => _startDate = d),
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                const ReportFieldLabel(label: 'End Date'),
+                CustomDateTimeField(
+                  hasLabel: false,
+                  fetchInitialTime: false,
+                  initialDate: _endDate,
+                  onDateSelected: (d) => setState(() => _endDate = d),
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                MultiSelectFilterField<String>(
+                  label: 'Student',
+                  hintText: 'Select Students',
+                  items: widget.students,
+                  selectedItems: _selectedStudents,
+                  onChanged: (s) => setState(() => _selectedStudents = s),
+                  itemToString: (item) => item,
+                  singularLabel: 'Student',
+                  pluralLabel: 'Students',
+                  showSelectAll: true,
+                  enableSearch: true,
+                  searchHintText: 'Search Students',
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Students will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                const ReportFieldLabel(label: 'Export Format'),
+                ReportFormatSelector(
+                  selectedFormat: _format,
+                  onFormatChanged: (value) => setState(() => _format = value),
+                  showLabel: false,
+                ),
+              ],
             ),
           );
         },

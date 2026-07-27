@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -102,7 +101,9 @@ class _StaffDirectoryReportScreenState
       return;
     }
 
-    AppLogger.d('[STAFF-DETAILS-UI] Creating report params with ${_selectedStaffFields.length} fields');
+    AppLogger.d(
+      '[STAFF-DETAILS-UI] Creating report params with ${_selectedStaffFields.length} fields',
+    );
     final cubit = context.read<ReportsCubit>();
     final params = StaffDetailsReportParams(
       reportType: ReportType.staffDetails,

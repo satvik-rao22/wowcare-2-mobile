@@ -364,7 +364,8 @@ class _ReportsScreenState extends State<ReportsScreen>
     ),
     ReportItem(
       name: 'Students & Billing Mapping',
-      description: 'Each student mapped to their invoices (total, paid, balance).',
+      description:
+          'Each student mapped to their invoices (total, paid, balance).',
     ),
   ];
 
@@ -490,180 +491,177 @@ class _ReportsScreenState extends State<ReportsScreen>
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                    // Header and TabBar
-                    SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      child: Padding(
-                        padding: contentPadding,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              // Header and TabBar
+              SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Padding(
+                  padding: contentPadding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reports',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff573353),
+                          height: titleLineHeight,
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
                           children: [
-                            Text(
-                              'Reports',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
-                                height: titleLineHeight,
+                            IconButton(
+                              tooltip: 'Scroll tabs',
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 26,
+                                height: 32,
                               ),
-                              textAlign: TextAlign.left,
+                              splashRadius: 14,
+                              icon: const Icon(
+                                Icons.chevron_left,
+                                color: Color(0xff573353),
+                                size: 25,
+                              ),
+                              onPressed: () {
+                                final int current = _tabController.index;
+                                if (current > 0) {
+                                  _tabController.animateTo(current - 1);
+                                }
+                              },
                             ),
-                            const SizedBox(height: 12),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
+                            Expanded(
+                              child: TabBar(
+                                controller: _tabController,
+                                isScrollable: true,
+                                padding: EdgeInsets.zero,
+                                labelPadding: EdgeInsets.zero,
+                                tabAlignment: TabAlignment.start,
+                                labelColor: AppColors.themeColor,
+                                unselectedLabelColor: const Color(0xff573353),
+                                dividerColor: Colors.transparent,
+                                indicatorSize: TabBarIndicatorSize.label,
+                                indicator: UnderlineTabIndicator(
+                                  borderSide: BorderSide(
+                                    color: AppColors.themeColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                tabs: List<Widget>.generate(
+                                  _tabs.length,
+                                  (int index) => Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      index == 0 ? 4 : 12,
+                                      6,
+                                      12,
+                                      6,
+                                    ),
+                                    child: Text(
+                                      _tabs[index],
+                                      style: const TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 26,
-                                      height: 32,
-                                    ),
-                                    splashRadius: 14,
-                                    icon: const Icon(
-                                      Icons.chevron_left,
-                                      color: Color(0xff573353),
-                                      size: 25,
-                                    ),
-                                    onPressed: () {
-                                      final int current = _tabController.index;
-                                      if (current > 0) {
-                                        _tabController.animateTo(current - 1);
-                                      }
-                                    },
-                                  ),
-                                  Expanded(
-                                    child: TabBar(
-                                      controller: _tabController,
-                                      isScrollable: true,
-                                      padding: EdgeInsets.zero,
-                                      labelPadding: EdgeInsets.zero,
-                                      tabAlignment: TabAlignment.start,
-                                      labelColor: AppColors.themeColor,
-                                      unselectedLabelColor: const Color(
-                                        0xff573353,
-                                      ),
-                                      dividerColor: Colors.transparent,
-                                      indicatorSize: TabBarIndicatorSize.label,
-                                      indicator: UnderlineTabIndicator(
-                                        borderSide: BorderSide(
-                                          color: AppColors.themeColor,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      tabs: List<Widget>.generate(
-                                        _tabs.length,
-                                        (int index) => Padding(
-                                          padding: EdgeInsets.fromLTRB(
-                                            index == 0 ? 4 : 12,
-                                            6,
-                                            12,
-                                            6,
-                                          ),
-                                          child: Text(
-                                            _tabs[index],
-                                            style: const TextStyle(
-                                              fontFamily: 'Manrope',
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 26,
-                                      height: 32,
-                                    ),
-                                    splashRadius: 14,
-                                    icon: const Icon(
-                                      Icons.chevron_right,
-                                      color: Color(0xff573353),
-                                      size: 25,
-                                    ),
-                                    onPressed: () {
-                                      final int current = _tabController.index;
-                                      if (current < _tabs.length - 1) {
-                                        _tabController.animateTo(current + 1);
-                                      }
-                                    },
-                                  ),
-                                ],
+                            ),
+                            IconButton(
+                              tooltip: 'Scroll tabs',
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 26,
+                                height: 32,
                               ),
+                              splashRadius: 14,
+                              icon: const Icon(
+                                Icons.chevron_right,
+                                color: Color(0xff573353),
+                                size: 25,
+                              ),
+                              onPressed: () {
+                                final int current = _tabController.index;
+                                if (current < _tabs.length - 1) {
+                                  _tabController.animateTo(current + 1);
+                                }
+                              },
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Tab Content - Swipeable
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: contentPadding.left,
-                          vertical: contentPadding.top,
-                        ),
-                        child: TabBarView(
-                          controller: _tabController,
-                          physics: const BouncingScrollPhysics(),
-                          children: [
-                            // Tab 0: Generated Reports
-                            _GeneratedReportsTab(context: context),
-                            // Tab 1: Student Reports
-                            _ReportsTab(
-                              tabIndex: 1,
-                              reports: _studentReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openStudentReportForm,
-                            ),
-                            // Tab 2: Staff Reports
-                            _ReportsTab(
-                              tabIndex: 2,
-                              reports: _staffReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openStaffReportForm,
-                            ),
-                            // Tab 3: Compliance Reports
-                            _ReportsTab(
-                              tabIndex: 3,
-                              reports: _complianceReports,
-                              formats: const [
-                                ReportExportFormat.pdf,
-                                ReportExportFormat.excel,
-                              ],
-                              onGenerate: _openComplianceReportForm,
-                            ),
-                            // Tab 4: Billing Reports
-                            _ReportsTab(
-                              tabIndex: 4,
-                              reports: _billingReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openBillingReportForm,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              // Tab Content - Swipeable
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: contentPadding.left,
+                    vertical: contentPadding.top,
+                  ),
+                  child: TabBarView(
+                    controller: _tabController,
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      // Tab 0: Generated Reports
+                      _GeneratedReportsTab(context: context),
+                      // Tab 1: Student Reports
+                      _ReportsTab(
+                        tabIndex: 1,
+                        reports: _studentReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openStudentReportForm,
+                      ),
+                      // Tab 2: Staff Reports
+                      _ReportsTab(
+                        tabIndex: 2,
+                        reports: _staffReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openStaffReportForm,
+                      ),
+                      // Tab 3: Compliance Reports
+                      _ReportsTab(
+                        tabIndex: 3,
+                        reports: _complianceReports,
+                        formats: const [
+                          // ReportExportFormat.pdf,
+                          ReportExportFormat.excel,
+                        ],
+                        onGenerate: _openComplianceReportForm,
+                      ),
+                      // Tab 4: Billing Reports
+                      _ReportsTab(
+                        tabIndex: 4,
+                        reports: _billingReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openBillingReportForm,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           showCustomNavigationBar: true,
         ),
       ),
     );
   }
-
 
   void _showComingSoon(BuildContext context, String action) {
     CoreUtils.showTopSnackBar(

@@ -3,8 +3,12 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'dart:async';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -53,7 +57,7 @@ class _BillingTransactionReportScreenState
     _endDate = DateTime(now.year, now.month + 1, 0);
   }
 
-  void _onGenerate() {
+  Future<void> _onGenerate() async {
     if (_endDate.isBefore(_startDate)) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -70,14 +74,20 @@ class _BillingTransactionReportScreenState
       );
       return;
     }
+
+    final storage = serviceLocator<StorageService>();
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+
     context.read<ReportsCubit>().generateReport(
-          ReportRequestParams(
-            reportType: ReportType.billingTransaction,
-            startDate: _startDate,
-            endDate: _endDate,
-            format: _format,
-          ),
-        );
+      ReportRequestParams(
+        reportType: ReportType.billingTransaction,
+        startDate: _startDate,
+        endDate: _endDate,
+        format: _format,
+        schoolName: schoolName.isNotEmpty ? schoolName : null,
+      ),
+    );
   }
 
   @override
@@ -147,9 +157,23 @@ class _BillingTransactionReportScreenState
               onDateSelected: (d) => setState(() => _endDate = d),
             ),
             SizedBox(height: responsive.verticalSpacing),
+
+            // Add the Optional filters:  Payment method (Card, ACH, Cash)
+            CustomDropdown(
+              label: 'Payment Method',
+              hintText: "Payment Method",
+              items: ["Card", "ACH", "Cash"],
+              showHintInDropdown: false,
+              onSelect: (value) {
+                // Handle selection
+              },
+            ),
+            SizedBox(height: responsive.verticalSpacing),
+
             CustomDropdown(
               label: 'Transactions',
               hintText: 'Select',
+              showHintInDropdown: false,
               items: _transactionOptions,
               selectedItem: _transactionType,
               labelStyle: TextStyle(

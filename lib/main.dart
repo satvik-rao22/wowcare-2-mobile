@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/app.dart';
 import 'package:wowcare/bootstrap/app_bootstrap.dart';

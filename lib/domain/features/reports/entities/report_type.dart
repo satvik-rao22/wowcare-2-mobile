@@ -8,6 +8,7 @@ enum ReportType {
   staffAbsent('STAFF_ABSENT'),
   staffAttendance('STAFF_ATTENDANCE'),
   staffAttendancePerStaff('STAFF_ATTENDANCE_PER_STAFF'),
+  staffScheduling('STAFF_SCHEDULING'),
 
   // Staff Management (1 type - staffSchedule unavailable)
   staffDetails('STAFF_DETAILS'),

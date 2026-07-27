@@ -249,7 +249,9 @@ class ApiPaths {
         return ApiMicroservices.billing;
       case 'reports':
         // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
-        return nextSeg == 'billing' ? ApiMicroservices.billing : ApiMicroservices.user;
+        return nextSeg == 'billing'
+            ? ApiMicroservices.billing
+            : ApiMicroservices.user;
       default:
         return ApiMicroservices.user;
     }
@@ -479,7 +481,8 @@ class ApiPaths {
 
   /// `POST /api/v1/student/{newStudentCode}/add-sibling` — links siblings onto a
   /// newly created student (used by the add-student dialog flow, not edit profile).
-  static String studentAddSibling(String code) => '$studentList/$code/add-sibling';
+  static String studentAddSibling(String code) =>
+      '$studentList/$code/add-sibling';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
@@ -513,8 +516,10 @@ class ApiPaths {
   static const String guardian = '/api/v1/guardian';
   static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianProfile = '/api/v1/guardian/profile';
+
   /// School-level student settings (health/documents edit permissions).
   static const String studentSettings = '/api/v1/student-settings';
+
   /// PATCH the logged-in guardian's own profile (resolves to
   /// `/api/v1/student/guardian/my-profile`). Identified by schoolCode+userCode
   /// query params, like [guardianProfile].
@@ -708,7 +713,11 @@ class ApiPaths {
 
   /// POST /api/v1/student/settings/immunization/report — Generate immunization reports (student MS).
   static const String studentImmunizationReport =
-      '/api/v1/student/settings/immunization/report';
+      '/api/v1/student/reports/generate';
+
+  // POST /api/v1/staff/staff-shifts/reports/generate - Generate Staff Scheduling reports (staff MS).
+  static const String staffSchedulingReportsGenerate =
+      '/api/v1/staff/staff-shifts/reports/generate';
 
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
@@ -897,6 +906,7 @@ class ApiPaths {
       '$conversations/student/$studentCode';
   static String messagingConversationsByClassroom(String classroomCode) =>
       '$conversations/classroom/$classroomCode';
+
   /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
   static String messagingClassroomReconcile(String classroomCode) =>
       '$conversations/classroom/$classroomCode/reconcile';
@@ -978,7 +988,8 @@ class ApiPaths {
   // —— Billing MS ——
   /// POST /api/v1/reports/billing/generate — generate a billing report (xlsx/pdf); returns the
   /// stored asset metadata so it downloads via the document service like the other reports.
-  static const String billingReportGenerate = '/api/v1/reports/billing/generate';
+  static const String billingReportGenerate =
+      '/api/v1/reports/billing/generate';
   static const String billingStatements = '/api/v1/billing/statements';
   static String billingStatementDownload(String code) =>
       '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
@@ -1008,6 +1019,7 @@ class ApiPaths {
   /// Full invoice detail (incl. line items) for the edit form.
   static String invoiceDetailByCode(String code) =>
       '/api/v1/invoices/by-code/${Uri.encodeComponent(code.trim())}';
+
   /// Edit a draft invoice — `PATCH /api/v1/invoices/{invoiceCode}/draft`.
   static String invoiceDraft(String code) => '${invoiceByCode(code)}/draft';
   static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
@@ -1043,8 +1055,7 @@ class ApiPaths {
   static const String paymentSettings = '/api/v1/payment/settings';
 
   /// Whether auto-pay is enabled for a guardian.
-  static const String autopayStatus =
-      '/api/v1/payment-gateway/autopay/status';
+  static const String autopayStatus = '/api/v1/payment-gateway/autopay/status';
 
   /// List/create saved payment methods (up to 4 per guardian).
   static const String paymentGatewayMethods =

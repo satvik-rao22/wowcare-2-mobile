@@ -69,6 +69,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
       reportType: ReportType.studentAbsent,
       startDate: _fromDate.value,
       endDate: _toDate.value,
+      format: _format.value,
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 
@@ -159,7 +160,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

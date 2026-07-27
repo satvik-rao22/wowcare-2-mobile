@@ -22,10 +22,11 @@ class FakeDio extends Fake implements Dio {
     ProgressCallback? onUploadProgress,
   }) async {
     if (shouldThrow) {
-      throw exception ?? DioException(
-        requestOptions: RequestOptions(path: path),
-        message: 'Network error',
-      );
+      throw exception ??
+          DioException(
+            requestOptions: RequestOptions(path: path),
+            message: 'Network error',
+          );
     }
     final responseData = responseBuilder?.call(path);
     return Response<T>(
@@ -46,10 +47,11 @@ class FakeDio extends Fake implements Dio {
     String? baseUrl,
   }) async {
     if (shouldThrow) {
-      throw exception ?? DioException(
-        requestOptions: RequestOptions(path: path),
-        message: 'Network error',
-      );
+      throw exception ??
+          DioException(
+            requestOptions: RequestOptions(path: path),
+            message: 'Network error',
+          );
     }
     final responseData = responseBuilder?.call(path);
     return Response<T>(
@@ -80,34 +82,40 @@ void main() {
 
   group('ReportsRemoteDataSourceImpl', () {
     group('generateReport', () {
-      test('routes STUDENT_DAILY_ATTENDANCE to student-attendance endpoint', () async {
-        const reportType = ReportType.studentDailyAttendance;
-        final requestBody = <String, dynamic>{'startDate': '2026-01-01', 'endDate': '2026-01-01'};
-        final responseData = {
-          'reportId': 'report-123',
-          'reportType': 'STUDENT_DAILY_ATTENDANCE',
-          'generatedAt': '2026-01-15T10:30:00Z',
-          'assetCode': 'asset-456',
-          'fileName': 'report.xlsx',
-        };
+      test(
+        'routes STUDENT_DAILY_ATTENDANCE to student-attendance endpoint',
+        () async {
+          const reportType = ReportType.studentDailyAttendance;
+          final requestBody = <String, dynamic>{
+            'startDate': '2026-01-01',
+            'endDate': '2026-01-01',
+          };
+          final responseData = {
+            'reportId': 'report-123',
+            'reportType': 'STUDENT_DAILY_ATTENDANCE',
+            'generatedAt': '2026-01-15T10:30:00Z',
+            'assetCode': 'asset-456',
+            'fileName': 'report.xlsx',
+          };
 
-        fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
-            return responseData;
-          }
-          return null;
-        };
+          fakeDio.responseBuilder = (path) {
+            if (path.endsWith('/api/v1/student-attendance/reports/generate')) {
+              return responseData;
+            }
+            return null;
+          };
 
-        final result = await dataSource.generateReport(
-          reportType: reportType,
-          requestBody: requestBody,
-        );
+          final result = await dataSource.generateReport(
+            reportType: reportType,
+            requestBody: requestBody,
+          );
 
-        expect(result.reportId, 'report-123');
-        expect(result.reportType, 'STUDENT_DAILY_ATTENDANCE');
-        expect(result.assetCode, 'asset-456');
-        expect(result.fileName, 'report.xlsx');
-      });
+          expect(result.reportId, 'report-123');
+          expect(result.reportType, 'STUDENT_DAILY_ATTENDANCE');
+          expect(result.assetCode, 'asset-456');
+          expect(result.fileName, 'report.xlsx');
+        },
+      );
 
       test('routes STUDENT_ABSENT to student-attendance endpoint', () async {
         const reportType = ReportType.studentAbsent;
@@ -157,7 +165,9 @@ void main() {
 
       test('routes STAFF_DETAILS to staff endpoint', () async {
         const reportType = ReportType.staffDetails;
-        final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
+        final requestBody = <String, dynamic>{
+          'classroomCodes': ['CLASS-1'],
+        };
 
         fakeDio.responseBuilder = (path) {
           if (path.endsWith('/api/v1/staff/reports/generate')) {
@@ -180,7 +190,9 @@ void main() {
 
       test('routes STUDENTS_AND_FAMILY to student endpoint', () async {
         const reportType = ReportType.studentsAndFamily;
-        final requestBody = <String, dynamic>{'classroomCodes': ['CLASS-1']};
+        final requestBody = <String, dynamic>{
+          'classroomCodes': ['CLASS-1'],
+        };
 
         fakeDio.responseBuilder = (path) {
           if (path.endsWith('/api/v1/student/reports/generate')) {
@@ -226,10 +238,12 @@ void main() {
 
       test('routes IMMUNIZATION to immunization endpoint', () async {
         const reportType = ReportType.immunization;
-        final requestBody = <String, dynamic>{'studentCodes': ['STU-1']};
+        final requestBody = <String, dynamic>{
+          'studentCodes': ['STU-1'],
+        };
 
         fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student/settings/immunization/report')) {
+          if (path.endsWith('/api/v1/student/reports/generate')) {
             return {
               'reportId': 'report-immun-1',
               'reportType': 'IMMUNIZATION',
@@ -254,20 +268,23 @@ void main() {
       // compile time, so the old runtime ArgumentError path is structurally
       // unreachable — there is nothing left for a test to exercise.
 
-      test('throws FormatException when backend response is missing required fields', () async {
-        const reportType = ReportType.studentDailyAttendance;
-        final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
+      test(
+        'throws FormatException when backend response is missing required fields',
+        () async {
+          const reportType = ReportType.studentDailyAttendance;
+          final requestBody = <String, dynamic>{'startDate': '2026-01-01'};
 
-        fakeDio.responseBuilder = (_) => null;
+          fakeDio.responseBuilder = (_) => null;
 
-        expect(
-          () => dataSource.generateReport(
-            reportType: reportType,
-            requestBody: requestBody,
-          ),
-          throwsA(isA<FormatException>()),
-        );
-      });
+          expect(
+            () => dataSource.generateReport(
+              reportType: reportType,
+              requestBody: requestBody,
+            ),
+            throwsA(isA<FormatException>()),
+          );
+        },
+      );
 
       test('propagates DioException from network errors', () async {
         const reportType = ReportType.studentDailyAttendance;
@@ -321,31 +338,34 @@ void main() {
         expect(result[1].reportId, 'recent-2');
       });
 
-      test('returns list of recent student attendance reports with nested data.reports format', () async {
-        final responseData = {
-          'data': {
-            'reports': [
-              {
-                'reportId': 'recent-nested-1',
-                'reportType': 'STUDENT_DAILY_ATTENDANCE',
-                'generatedAt': '2026-01-15T10:30:00Z',
-              },
-            ],
-          },
-        };
+      test(
+        'returns list of recent student attendance reports with nested data.reports format',
+        () async {
+          final responseData = {
+            'data': {
+              'reports': [
+                {
+                  'reportId': 'recent-nested-1',
+                  'reportType': 'STUDENT_DAILY_ATTENDANCE',
+                  'generatedAt': '2026-01-15T10:30:00Z',
+                },
+              ],
+            },
+          };
 
-        fakeDio.responseBuilder = (path) {
-          if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
-            return responseData;
-          }
-          return null;
-        };
+          fakeDio.responseBuilder = (path) {
+            if (path.endsWith('/api/v1/student-attendance/reports/recent')) {
+              return responseData;
+            }
+            return null;
+          };
 
-        final result = await dataSource.getRecentStudentAttendanceReports();
+          final result = await dataSource.getRecentStudentAttendanceReports();
 
-        expect(result, hasLength(1));
-        expect(result[0].reportId, 'recent-nested-1');
-      });
+          expect(result, hasLength(1));
+          expect(result[0].reportId, 'recent-nested-1');
+        },
+      );
 
       test('handles empty reports list', () async {
         fakeDio.responseBuilder = (path) => {'reports': []};

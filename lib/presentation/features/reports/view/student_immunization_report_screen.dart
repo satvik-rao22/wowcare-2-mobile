@@ -6,7 +6,6 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/school_immunization_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -72,6 +71,42 @@ class _StudentImmunizationReportScreenState
     _endDate = now;
   }
 
+  // void _onGenerate() {
+  //   if (_startDate.isAfter(_endDate)) {
+  //     CoreUtils.showTopSnackBar(
+  //       context: context,
+  //       message: 'Start date must be on or before end date',
+  //       isError: true,
+  //     );
+  //     return;
+  //   }
+
+  //   final cubit = context.read<ReportsCubit>();
+  //   final classroomNameToCode = cubit.state.classroomNameToCode;
+  //   final classroomCodes = _selectedClassrooms
+  //       .map((name) => classroomNameToCode[name] ?? name)
+  //       .toList();
+
+  //   // Map vaccine selection to backend codes
+  //   final vaccineCodes = _mapVaccineToCode(_vaccine);
+
+  //   // Map status selection to backend codes
+  //   final statusFilters = _mapStatusToCode(_status);
+
+  //   final params = SchoolImmunizationReportParams(
+  //     reportType: ReportType.immunization,
+  //     startDate: _startDate,
+  //     endDate: _endDate,
+  //     vaccineCodes: vaccineCodes,
+  //     statusFilters: statusFilters,
+  //     includeParentName: _showParentInfo,
+  //     includeParentEmail: _showParentInfo,
+  //     classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+  //     tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
+  //     format: _format,
+  //   );
+  //   unawaited(cubit.generateReport(params));
+  // }
   void _onGenerate() {
     if (_startDate.isAfter(_endDate)) {
       CoreUtils.showTopSnackBar(
@@ -83,29 +118,37 @@ class _StudentImmunizationReportScreenState
     }
 
     final cubit = context.read<ReportsCubit>();
+
     final classroomNameToCode = cubit.state.classroomNameToCode;
+
     final classroomCodes = _selectedClassrooms
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
 
-    // Map vaccine selection to backend codes
+    // Use the existing vaccine selection until the vaccine API/code
+    // mapping is available.
     final vaccineCodes = _mapVaccineToCode(_vaccine);
-
-    // Map status selection to backend codes
-    final statusFilters = _mapStatusToCode(_status);
 
     final params = SchoolImmunizationReportParams(
       reportType: ReportType.immunization,
       startDate: _startDate,
       endDate: _endDate,
       vaccineCodes: vaccineCodes,
-      statusFilters: statusFilters,
+
+      // API expects "Active", not "ACTIVE".
+      statusFilters: <String>[_status],
+
       includeParentName: _showParentInfo,
       includeParentEmail: _showParentInfo,
+
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+
+      // Keep existing values until tag name -> TAG_* mapping is available.
       tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
+
       format: _format,
     );
+
     unawaited(cubit.generateReport(params));
   }
 
@@ -247,8 +290,7 @@ class _StudentImmunizationReportScreenState
                             fetchInitialTime: false,
                             initialDate: _endDate,
                             firstDate: _startDate,
-                            onDateSelected: (d) =>
-                                setState(() => _endDate = d),
+                            onDateSelected: (d) => setState(() => _endDate = d),
                           ),
                         ],
                       ),
