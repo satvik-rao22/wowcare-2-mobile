@@ -13,6 +13,10 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+
 class StaffAbsentReportScreen extends StatefulWidget {
   const StaffAbsentReportScreen({super.key, required this.classrooms});
 
@@ -49,7 +53,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     super.dispose();
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     AppLogger.d('[STAFF-ABSENT-UI] Generate button tapped');
 
     if (_toDate.value.isBefore(_fromDate.value)) {
@@ -63,6 +67,9 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       );
       return;
     }
+    final storage = serviceLocator<StorageService>();
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
 
     AppLogger.d('[STAFF-ABSENT-UI] Creating report params');
     final cubit = context.read<ReportsCubit>();
@@ -74,6 +81,8 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       classroomCodes: _selectedClassrooms.value.isEmpty
           ? null
           : _selectedClassrooms.value,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
+      // Use the school name from the cubit state
     );
 
     AppLogger.d('[STAFF-ABSENT-UI] Calling cubit.generateReport()');

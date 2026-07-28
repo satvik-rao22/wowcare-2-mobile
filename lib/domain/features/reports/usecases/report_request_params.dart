@@ -12,7 +12,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     this.studentCodes,
     this.staffCodes,
     this.tagCodes,
-    this.schoolName,
+    required this.schoolName,
     this.search,
   });
 

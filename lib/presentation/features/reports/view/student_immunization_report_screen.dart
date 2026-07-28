@@ -14,6 +14,10 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+
 class StudentImmunizationReportScreen extends StatefulWidget {
   const StudentImmunizationReportScreen({
     super.key,
@@ -24,6 +28,7 @@ class StudentImmunizationReportScreen extends StatefulWidget {
   static const String routeName = '/reports/student/immunization';
 
   final List<String> classrooms;
+
   final List<String> tags;
 
   @override
@@ -107,7 +112,7 @@ class _StudentImmunizationReportScreenState
   //   );
   //   unawaited(cubit.generateReport(params));
   // }
-  void _onGenerate() {
+  void _onGenerate() async {
     if (_startDate.isAfter(_endDate)) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -124,10 +129,14 @@ class _StudentImmunizationReportScreenState
     final classroomCodes = _selectedClassrooms
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
+    final storage = serviceLocator<StorageService>();
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
 
     // Use the existing vaccine selection until the vaccine API/code
     // mapping is available.
     final vaccineCodes = _mapVaccineToCode(_vaccine);
+    // School Name for the report. Use the first classroom's school name if available, otherwise default to an empty string.
 
     final params = SchoolImmunizationReportParams(
       reportType: ReportType.immunization,
@@ -147,6 +156,7 @@ class _StudentImmunizationReportScreenState
       tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
 
       format: _format,
+      schoolName: schoolName,
     );
 
     unawaited(cubit.generateReport(params));
@@ -185,18 +195,18 @@ class _StudentImmunizationReportScreenState
   }
 
   /// Map UI status selection to backend status codes.
-  List<String> _mapStatusToCode(String status) {
-    switch (status) {
-      case 'Active':
-        return ['ACTIVE'];
-      case 'Upcoming':
-        return ['UPCOMING'];
-      case 'Inactive':
-        return ['INACTIVE'];
-      default:
-        return ['ACTIVE'];
-    }
-  }
+  // List<String> _mapStatusToCode(String status) {
+  //   switch (status) {
+  //     case 'Active':
+  //       return ['ACTIVE'];
+  //     case 'Upcoming':
+  //       return ['UPCOMING'];
+  //     case 'Inactive':
+  //       return ['INACTIVE'];
+  //     default:
+  //       return ['ACTIVE'];
+  //   }
+  // }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
     fontSize: r.labelFontSize,

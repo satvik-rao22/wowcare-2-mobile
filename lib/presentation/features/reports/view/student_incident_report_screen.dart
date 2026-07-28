@@ -14,6 +14,10 @@ import 'package:wowcare/presentation/features/reports/widgets/multi_select_filte
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+
 class StudentIncidentReportScreen extends StatefulWidget {
   const StudentIncidentReportScreen({super.key, required this.students});
 
@@ -41,7 +45,7 @@ class _StudentIncidentReportScreenState
     _endDate = DateTime(now.year, now.month + 1, 0);
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     AppLogger.d('[INCIDENT-UI] Generate button tapped');
 
     if (_toDate.isBefore(_startDate)) {
@@ -61,12 +65,17 @@ class _StudentIncidentReportScreenState
         .map((name) => studentNameToCode[name] ?? name)
         .toList();
 
+    final storage = serviceLocator<StorageService>();
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+
     final params = ReportRequestParams(
       reportType: ReportType.studentIncident,
       startDate: _startDate,
       endDate: _endDate,
       studentCodes: studentCodes.isEmpty ? null : studentCodes,
       format: _format,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
     );
 
     AppLogger.d('[INCIDENT-UI] Calling cubit.generateReport()');

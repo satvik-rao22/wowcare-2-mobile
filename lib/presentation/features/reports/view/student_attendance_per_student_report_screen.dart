@@ -13,6 +13,10 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+
 class StudentAttendancePerStudentReportScreen extends StatefulWidget {
   const StudentAttendancePerStudentReportScreen({
     super.key,
@@ -51,7 +55,7 @@ class _StudentAttendancePerStudentReportScreenState
     _periodDate = DateTime(now.year, now.month, 1);
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -83,6 +87,9 @@ class _StudentAttendancePerStudentReportScreenState
               .map((name) => reportsState.classroomNameToCode[name] ?? name)
               .toList()
         : null;
+    final storage = serviceLocator<StorageService>();
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
 
     final params = ReportRequestParams(
       reportType: ReportType.studentAttendancePerStudent,
@@ -97,6 +104,8 @@ class _StudentAttendancePerStudentReportScreenState
         ),
       ),
       studentCodes: studentCodes,
+      format: _format,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
       classroomCodes: classroomCodes,
     );
 
