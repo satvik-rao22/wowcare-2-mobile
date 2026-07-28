@@ -449,7 +449,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         );
         break;
       case IndividualMovementAction.reject:
-        final String? rejectNote = await _showRejectCommentDialog();
+        final String? rejectNote = await _showRejectCommentDialog(item.name);
         if (rejectNote == null || !mounted) return;
         await _transitionMovementStatus(
           id: item.id,
@@ -685,10 +685,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     }
   }
 
-  Future<String?> _showRejectCommentDialog() async {
+  Future<String?> _showRejectCommentDialog(String movementTitle) async {
     final decision = await showMovementRejectDropDialog(
       context,
-      movementTitle: '',
+      movementTitle: movementTitle,
     );
     if (decision == null || decision.confirmed != true || !mounted) return null;
     return decision.comment.trim();

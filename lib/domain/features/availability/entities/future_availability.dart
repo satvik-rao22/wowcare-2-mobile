@@ -29,11 +29,13 @@ class FutureAvailabilityClassroom {
     required this.code,
     required this.name,
     required this.capacity,
+    this.logoAssetCode = '',
   });
 
   final String code;
   final String name;
   final int capacity;
+  final String logoAssetCode;
 }
 
 class FutureAvailabilityEntry {

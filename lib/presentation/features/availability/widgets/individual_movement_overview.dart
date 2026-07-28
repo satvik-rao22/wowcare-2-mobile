@@ -598,7 +598,11 @@ class _MovementRow extends StatelessWidget {
           Row(
             children: <Widget>[
               DocumentImageWidget(
-                fileUuid: '',
+                fileUuid: item.studentCode,
+                studentCode: item.studentCode.trim().isNotEmpty
+                    ? item.studentCode.trim()
+                    : null,
+                mediaAssetCode: item.profilePhotoAssetCode,
                 name: item.name,
                 size: 30,
                 fontSize: 11,
@@ -612,14 +616,12 @@ class _MovementRow extends StatelessWidget {
                       : () => onStudentNameTap!(item),
                   child: Text(
                     item.name,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: Fonts.manrope,
                       fontSize: 15,
                       fontWeight: FontWeight.w500,
                       color: AppColors.primaryColor,
-                      decoration: onStudentNameTap == null
-                          ? TextDecoration.none
-                          : TextDecoration.underline,
+                      decoration: TextDecoration.none,
                     ),
                   ),
                 ),

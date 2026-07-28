@@ -6,14 +6,15 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/core/util/color_utils.dart';
-import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
+import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_toggle_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class FutureAvailabilityScreen extends StatefulWidget {
   const FutureAvailabilityScreen({super.key});
@@ -432,7 +433,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     if (_isTwoShifts) {
       return TableRow(
         children: <Widget>[
-          _buildClassroomCell(item.roomName),
+          _buildClassroomCell(item),
           _buildValueCell(item.firstShiftCount),
           _buildValueCell(item.secondShiftCount),
         ],
@@ -441,34 +442,58 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
 
     return TableRow(
       children: <Widget>[
-        _buildClassroomCell(item.roomName),
+        _buildClassroomCell(item),
         _buildValueCell(item.firstShiftCount),
       ],
     );
   }
 
-  Widget _buildClassroomCell(String roomName) {
-    return Container(
-      height: _cellHeightRow,
+  void _openClassroomProfile(_AvailabilityRow item) {
+    if (item.roomCode.trim().isEmpty) return;
+    // Pass the classroom directly as route arguments (same as the "Class
+    // profile" info button on the Classrooms screen) rather than relying on
+    // `initialClassroomCode`, which only matches against the staff's
+    // attendance-scoped classroom list. Future Availability shows every
+    // classroom school-wide, so a scoped-out match would leave the profile
+    // screen blank.
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const ClassroomInfoScreen(),
+        settings: RouteSettings(
+          arguments: Classroom(code: item.roomCode, name: item.roomName),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildClassroomCell(_AvailabilityRow item) {
+    return Material(
       color: _classroomColumnBg,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Row(
-        children: <Widget>[
-          _buildClassroomAvatar(roomName),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              roomName,
-              style: TextStyle(
-                fontWeight: FontWeight.w600,
-                fontSize: 13,
-                color: AppColors.primaryColor.withValues(alpha: 0.9),
+      child: InkWell(
+        onTap: () => _openClassroomProfile(item),
+        child: Container(
+          height: _cellHeightRow,
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          child: Row(
+            children: <Widget>[
+              _buildClassroomAvatar(item),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  item.roomName,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppColors.primaryColor.withValues(alpha: 0.9),
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -489,21 +514,15 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     );
   }
 
-  Widget _buildClassroomAvatar(String roomName) {
-    final String initials = StringUtils.getInitials(roomName);
-    final Color color = ColorUtils.getColorFromName(roomName);
-
-    return CircleAvatar(
-      backgroundColor: color.withValues(alpha: 0.85),
-      radius: _avatarRadius,
-      child: Text(
-        initials,
-        style: TextStyle(
-          color: color == Colors.white ? AppColors.primaryColor : Colors.white,
-          fontWeight: FontWeight.w700,
-          fontSize: 10,
-        ),
-      ),
+  Widget _buildClassroomAvatar(_AvailabilityRow item) {
+    return DocumentImageWidget(
+      fileUuid: item.roomCode.isNotEmpty ? item.roomCode : item.roomName,
+      name: item.roomName,
+      mediaAssetCode:
+          item.logoAssetCode.trim().isEmpty ? null : item.logoAssetCode,
+      classroomCode: item.roomCode.isEmpty ? null : item.roomCode,
+      size: _avatarRadius * 2,
+      fontSize: 10,
     );
   }
 
@@ -555,7 +574,9 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
           morning + afternoon;
 
       return _AvailabilityRow(
+        roomCode: classroom.code,
         roomName: classroom.name.trim().isEmpty ? classroom.code : classroom.name,
+        logoAssetCode: classroom.logoAssetCode,
         firstShiftCount: _isTwoShifts ? morning : fullDay,
         secondShiftCount: afternoon,
       );
@@ -577,12 +598,16 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
 
 class _AvailabilityRow {
   const _AvailabilityRow({
+    required this.roomCode,
     required this.roomName,
+    required this.logoAssetCode,
     required this.firstShiftCount,
     required this.secondShiftCount,
   });
 
+  final String roomCode;
   final String roomName;
+  final String logoAssetCode;
   final int firstShiftCount;
   final int secondShiftCount;
 }
