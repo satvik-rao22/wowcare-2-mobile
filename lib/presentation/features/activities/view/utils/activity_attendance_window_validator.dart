@@ -90,6 +90,17 @@ Future<bool> _shouldRunStaffAtTimeValidation(StorageService storage) async {
       (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
   if (staffType.isNotEmpty) return allowedStaffPersonas.contains(staffType);
 
+  // ACTIVE persona (single value), not a scan of the account's full cached
+  // roles list below — that list always contains every role the account has
+  // across every school, so a dual-role user (e.g. GUARDIAN + STAFF in a
+  // different school) would be misdetected as staff regardless of which
+  // persona is actually active right now.
+  final activeRole =
+      (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+          .trim()
+          .toUpperCase();
+  if (activeRole.isNotEmpty) return allowedStaffPersonas.contains(activeRole);
+
   final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
   if (rolesRaw.isEmpty) return false;
   try {

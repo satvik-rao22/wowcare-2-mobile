@@ -507,30 +507,6 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
     }
   }
 
-  void selectStaffByName(String? name) {
-    if (name == null || name.isEmpty || name == 'Select Staff') {
-      emit(
-        state.copyWith(
-          clearSelectedStaffCode: true,
-          shiftSummary: StaffShiftDaySummary.empty,
-        ),
-      );
-      return;
-    }
-
-    StaffMember? match;
-    for (final s in state.staffList) {
-      if (s.name == name) {
-        match = s;
-        break;
-      }
-    }
-    if (match == null) return;
-
-    emit(state.copyWith(selectedStaffCode: match.code));
-    _loadShiftsForSelection();
-  }
-
   /// Selects a staff member by code (notification deep-link). No-op if the code
   /// is empty, already selected, or not present in the loaded roster (the screen
   /// retries once the roster finishes loading).

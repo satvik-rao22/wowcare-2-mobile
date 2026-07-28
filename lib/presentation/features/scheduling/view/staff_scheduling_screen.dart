@@ -858,13 +858,13 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: StaffSchedulingStaffDropdown(
-                      staffNames: state.staffDropdownNames,
-                      selectedStaffName: state.selectedStaffDropdownLabel,
+                      staff: state.staffList,
+                      selectedStaffCode: state.selectedStaffCode,
                       // Keep the dropdown visible during loads — the body shimmer
                       // is the loading indicator; a circular loader here is
                       // redundant (and hides the dropdown).
                       isLoading: false,
-                      onSelected: cubit.selectStaffByName,
+                      onSelected: cubit.selectStaffByCode,
                     ),
                   ),
                   const SizedBox(height: 16),

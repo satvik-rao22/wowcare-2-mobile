@@ -188,7 +188,16 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleCubit>().isParent) return true;
+    final roleCubit = context.read<RoleCubit>();
+    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
+    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
+    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
+    // which persona is currently active, so scanning that list below would
+    // wrongly flip an admin who switched profiles back to a guardian sign-out.
+    // Only fall through to the best-effort scan while RoleCubit is still
+    // bootstrapping (no active persona resolved yet).
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    if (roleCubit.isParent) return true;
 
     try {
       final storage = serviceLocator<StorageService>();
