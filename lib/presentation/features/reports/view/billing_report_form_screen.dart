@@ -140,7 +140,6 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
               label: 'Payment Method',
               hintText: "Payment Method",
               items: ["Card", "ACH", "Cash"],
-              showHintInDropdown: false,
               onSelect: (value) {
                 // Handle selection
               },
