@@ -449,7 +449,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         );
         break;
       case IndividualMovementAction.reject:
-        final String? rejectNote = await _showRejectCommentDialog();
+        final String? rejectNote = await _showRejectCommentDialog(item.name);
         if (rejectNote == null || !mounted) return;
         await _transitionMovementStatus(
           id: item.id,
@@ -685,10 +685,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     }
   }
 
-  Future<String?> _showRejectCommentDialog() async {
+  Future<String?> _showRejectCommentDialog(String movementTitle) async {
     final decision = await showMovementRejectDropDialog(
       context,
-      movementTitle: '',
+      movementTitle: movementTitle,
     );
     if (decision == null || decision.confirmed != true || !mounted) return null;
     return decision.comment.trim();
@@ -867,25 +867,29 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       return;
     }
 
-    if (targetBucket == MovementBucket.confirmed) {
-      DateTime? newDate;
-      if (sourceBucket == MovementBucket.rejected) {
-        final dateDecision = await showMovementDateDropDialog(
-          context,
-          title: 'Revalidate Date',
-          message:
-              'Please select a future date before moving this rejected movement to Confirmed.',
-          mustBeFuture: true,
-        );
-        if (dateDecision == null ||
-            dateDecision.confirmed != true ||
-            !mounted) {
-          return;
-        }
-        newDate = dateDecision.selectedDate;
-        if (newDate == null) return;
-      }
+    // Confirmed -> Upcoming, Confirmed -> Overdue, Rejected -> Overdue,
+    // Rejected -> Confirmed and Upcoming -> Overdue are all invalid
+    // transitions on the backend, so skip the confirmation prompt entirely
+    // and let the backend's validation error surface instead.
+    if ((sourceBucket == MovementBucket.confirmed &&
+            (targetBucket == MovementBucket.upcoming ||
+                targetBucket == MovementBucket.overdue)) ||
+        (sourceBucket == MovementBucket.rejected &&
+            (targetBucket == MovementBucket.overdue ||
+                targetBucket == MovementBucket.confirmed)) ||
+        (sourceBucket == MovementBucket.upcoming &&
+            targetBucket == MovementBucket.overdue)) {
+      await _transitionMovementStatus(
+        id: item.id,
+        status: targetBucket == MovementBucket.confirmed
+            ? IndividualMovementWorkflowStatus.confirmed
+            : IndividualMovementWorkflowStatus.pending,
+        comment: item.comment.isEmpty ? 'Moved via drag' : item.comment,
+      );
+      return;
+    }
 
+    if (targetBucket == MovementBucket.confirmed) {
       final confirmDecision = await showMovementConfirmDropDialog(
         context,
         movementTitle: item.name,
@@ -902,7 +906,6 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         comment: confirmDecision.comment.trim().isNotEmpty
             ? confirmDecision.comment.trim()
             : (item.comment.isEmpty ? 'Moved to confirmed via drag' : item.comment),
-        newMovementDate: newDate,
       );
       return;
     }
@@ -924,14 +927,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       return;
     }
 
-    // Dragging to Upcoming or Overdue requires date confirmation.
+    // Only Rejected -> Upcoming reaches here; it requires date confirmation.
     final dateDecision = await showMovementDateDropDialog(
       context,
       title: 'Confirm Date',
-      message: targetBucket == MovementBucket.upcoming
-          ? 'Select a future date to move this movement to Upcoming.'
-          : 'Select a past date to move this movement to Overdue.',
-      mustBeFuture: targetBucket == MovementBucket.upcoming,
+      message: 'Select a future date to move this movement to Upcoming.',
+      mustBeFuture: true,
     );
     if (dateDecision == null || dateDecision.confirmed != true || !mounted) return;
     final newDate = dateDecision.selectedDate;

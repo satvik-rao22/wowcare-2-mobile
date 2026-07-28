@@ -633,6 +633,49 @@ class AuthCubit extends Cubit<AuthState> {
           // Do not block login if context or staff/profile APIs fail.
         }
 
+        // Safety net: a user who belongs to exactly one organization but
+        // MULTIPLE schools under it never hits the single-org/single-school
+        // auto-select above, and a first-ever login-context response returns
+        // null for both LastLoginOrganizationCode and LastLoginSchoolCode. If
+        // the backend's redirectUrl still says "dashboard" in that case (see
+        // the dashboard branch in sign_in_screen.dart), the app navigates
+        // straight in with NO organizationCode ever persisted. Every
+        // subsequent API call then 400s with "Missing required header:
+        // X-Organization-Code" (including the Firebase token exchange, whose
+        // failure cascades into permission-denied Firestore listeners), and
+        // `loginCompleted` — which setSelectedOrgAndSchool only flips once
+        // BOTH org and school are non-empty — stays false, so FCM
+        // registration is skipped too. Default to the single org + its first
+        // available school so the session always ends up usable.
+        try {
+          final storage = serviceLocator<StorageService>();
+          final storedOrgCode =
+              (await storage.getString(StorageKeys.organizationCode) ?? '')
+                  .trim();
+          if (storedOrgCode.isEmpty) {
+            final orgCodes = response.roles
+                .map((r) => r.organizationCode.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList();
+            if (orgCodes.length == 1) {
+              final fallbackSchoolCode = response.roles
+                  .where((r) => r.organizationCode.trim() == orgCodes.first)
+                  .map((r) => r.schoolCode.trim())
+                  .firstWhere((c) => c.isNotEmpty, orElse: () => '');
+              if (fallbackSchoolCode.isNotEmpty) {
+                await _localDataSource.setSelectedOrgAndSchool(
+                  organizationCode: orgCodes.first,
+                  schoolCode: fallbackSchoolCode,
+                  schoolName: fallbackSchoolCode,
+                );
+              }
+            }
+          }
+        } catch (_) {
+          // Non-blocking
+        }
+
         // Only login + login-context during login flow. No school prefetch.
         emit(
           AuthLoaded(

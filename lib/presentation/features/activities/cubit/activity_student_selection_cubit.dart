@@ -107,9 +107,28 @@ class ActivityStudentSelectionCubit
     ]);
   }
 
-  Future<void> _loadStaffClassroomScope() async {
+  /// Whether the CURRENTLY ACTIVE persona is guardian/parent. Prefers the
+  /// single active-persona value RoleCubit itself derives from — a dual-role
+  /// account (e.g. STAFF + GUARDIAN in a different school) always has
+  /// 'GUARDIAN' somewhere in the full cached roles list regardless of which
+  /// persona is active right now, so that list is only a fallback for while
+  /// no active persona has been resolved/persisted yet (mirrors
+  /// RoleCubit._computeFallbackRole, which this Cubit can't call directly —
+  /// no BuildContext here).
+  Future<bool> _isActivePersonaGuardian() async {
+    final active =
+        (await _storage.getString(StorageKeys.activeSchoolRole) ?? '')
+            .trim()
+            .toUpperCase();
+    if (active.isNotEmpty) {
+      return active.contains('GUARDIAN') || active.contains('PARENT');
+    }
     final roles = (await _storage.getString(StorageKeys.roles) ?? '').toUpperCase();
-    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+    return roles.contains('GUARDIAN') || roles.contains('PARENT');
+  }
+
+  Future<void> _loadStaffClassroomScope() async {
+    if (await _isActivePersonaGuardian()) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
       return;

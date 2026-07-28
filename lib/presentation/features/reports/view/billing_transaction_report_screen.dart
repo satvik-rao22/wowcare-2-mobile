@@ -163,7 +163,6 @@ class _BillingTransactionReportScreenState
               label: 'Payment Method',
               hintText: "Payment Method",
               items: ["Card", "ACH", "Cash"],
-              // showHintInDropdown: false,
               onSelect: (value) {
                 // Handle selection
               },
@@ -173,7 +172,6 @@ class _BillingTransactionReportScreenState
             CustomDropdown(
               label: 'Transactions',
               hintText: 'Select',
-              // showHintInDropdown: false,
               items: _transactionOptions,
               selectedItem: _transactionType,
               labelStyle: TextStyle(
