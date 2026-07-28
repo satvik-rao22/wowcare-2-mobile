@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
@@ -30,7 +32,7 @@ Future<MovementDragDropDecision?> showMovementConfirmDropDialog(
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Confirm Movement',
-        message: 'Are you sure you want to confirm this movement?\n$movementTitle',
+        message: 'Are you sure you want to confirm this movement for $movementTitle?',
         confirmLabel: 'Confirm',
       );
     },
@@ -48,9 +50,11 @@ Future<MovementDragDropDecision?> showMovementRejectDropDialog(
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Reject Movement',
-        message: 'Are you sure you want to reject this movement?\n$movementTitle',
+        message: 'Are you sure you want to reject this movement for $movementTitle?',
         confirmLabel: 'Reject',
         showComment: true,
+        commentLabel: 'Comment (Optional)',
+        commentHint: 'Add a rejection reason...',
       );
     },
   );
@@ -104,6 +108,8 @@ class _MovementDragDropDialogBody extends StatefulWidget {
     required this.message,
     required this.confirmLabel,
     this.showComment = false,
+    this.commentLabel = 'Comment (Optional)',
+    this.commentHint = 'Add a comment...',
     this.requireDate = false,
     this.mustBeFuture = false,
   });
@@ -112,6 +118,8 @@ class _MovementDragDropDialogBody extends StatefulWidget {
   final String message;
   final String confirmLabel;
   final bool showComment;
+  final String commentLabel;
+  final String commentHint;
   final bool requireDate;
   final bool mustBeFuture;
 
@@ -259,7 +267,14 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                       ),
                       child: Row(
                         children: [
-                          const Icon(Icons.calendar_month_rounded, size: 18, color: AppColors.primaryColor),
+                          SvgPicture.asset(
+                            MediaRes.calender_icon,
+                            height: 18,
+                            colorFilter: const ColorFilter.mode(
+                              AppColors.primaryColor,
+                              BlendMode.srcIn,
+                            ),
+                          ),
                           const SizedBox(width: 10),
                           Text(
                             _selectedDate == null
@@ -278,29 +293,42 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                 ),
               if (widget.showComment)
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: TextField(
-                    controller: _commentController,
-                    maxLines: 3,
-                    minLines: 1,
-                    decoration: InputDecoration(
-                      hintText: 'Add a Comment (optional)',
-                      hintStyle: AppTextStyles.body.copyWith(
-                        color: Colors.grey[600],
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.commentLabel,
+                        style: AppTextStyles.body.copyWith(
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xFF424242),
+                        ),
                       ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 12,
+                      const SizedBox(height: 8),
+                      TextField(
+                        controller: _commentController,
+                        maxLines: 3,
+                        minLines: 1,
+                        decoration: InputDecoration(
+                          hintText: widget.commentHint,
+                          hintStyle: AppTextStyles.body.copyWith(
+                            color: Colors.grey[600],
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(10),
+                            borderSide: BorderSide(color: Colors.grey.shade300),
+                          ),
+                        ),
                       ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                    ),
+                    ],
                   ),
                 ),
               if (_error != null)
