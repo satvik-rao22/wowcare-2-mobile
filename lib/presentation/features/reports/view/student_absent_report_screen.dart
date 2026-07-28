@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:go_router/go_router.dart';
@@ -49,7 +52,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     super.dispose();
   }
 
-  void _onGenerate() {
+  Future<void> _onGenerate() async {
     if (_toDate.value.isBefore(_fromDate.value)) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -65,11 +68,17 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
 
+    // Retrieve the school name from storage
+    final storage = serviceLocator<StorageService>();
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+
     final params = ReportRequestParams(
       reportType: ReportType.studentAbsent,
       startDate: _fromDate.value,
       endDate: _toDate.value,
       format: _format.value,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 

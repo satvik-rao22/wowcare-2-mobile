@@ -20,7 +20,9 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       expect(params.reportType, ReportType.immunization);
@@ -44,6 +46,7 @@ void main() {
         classroomCodes: classrooms,
         tagCodes: tags,
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       expect(params.classroomCodes, classrooms);
@@ -58,6 +61,7 @@ void main() {
         vaccineCodes: const ['DTaP', 'Polio'],
         statusFilters: const ['ACTIVE', 'UPCOMING'],
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: false,
         format: 'PDF',
       );
@@ -77,6 +81,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: false,
         format: 'PDF',
       );
@@ -96,6 +101,7 @@ void main() {
         statusFilters: statusFilters,
         includeParentName: true,
         includeParentEmail: true,
+        schoolName: 'Dummy School',
         format: 'PDF',
       );
 
@@ -112,6 +118,7 @@ void main() {
         endDate: endDate,
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
+        schoolName: 'Dummy School',
         includeParentName: true,
         includeParentEmail: true,
         classroomCodes: classrooms,
@@ -135,6 +142,7 @@ void main() {
         includeParentName: true,
         includeParentEmail: true,
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       final identifier = params.toCacheIdentifier();
@@ -154,6 +162,7 @@ void main() {
         includeParentName: true,
         includeParentEmail: true,
         format: 'PDF',
+        schoolName: 'Dummy School',
       );
 
       final params2 = SchoolImmunizationReportParams(
@@ -162,6 +171,7 @@ void main() {
         endDate: endDate,
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
+        schoolName: 'Dummy School',
         includeParentName: true,
         includeParentEmail: true,
         format: 'PDF',
@@ -178,6 +188,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
@@ -189,6 +200,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: false,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
@@ -204,6 +216,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: statusFilters,
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
@@ -218,6 +231,7 @@ void main() {
         reportType: ReportType.immunization,
         startDate: startDate,
         endDate: endDate,
+        schoolName: 'Dummy School',
         vaccineCodes: vaccineCodes,
         statusFilters: const ['ACTIVE', 'UPCOMING', 'INACTIVE'],
         includeParentName: true,
@@ -240,6 +254,7 @@ void main() {
         statusFilters: const ['ACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        schoolName: 'Dummy School',
         format: 'PDF',
       );
 
@@ -256,6 +271,7 @@ void main() {
         vaccineCodes: vaccineCodes,
         statusFilters: const ['UPCOMING'],
         includeParentName: true,
+        schoolName: 'Dummy School',
         includeParentEmail: true,
         format: 'PDF',
       );
@@ -274,6 +290,7 @@ void main() {
         statusFilters: const ['INACTIVE'],
         includeParentName: true,
         includeParentEmail: true,
+        schoolName: 'Dummy School',
         format: 'PDF',
       );
 

@@ -12,6 +12,9 @@ import 'package:wowcare/presentation/features/reports/widgets/multi_select_filte
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
 
 class StaffAttendancePerWeekReportScreen extends StatefulWidget {
   const StaffAttendancePerWeekReportScreen({
@@ -51,7 +54,7 @@ class _StaffAttendancePerWeekReportScreenState
     _periodMonth = DateTime(now.year, now.month, 1);
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Generate button tapped');
 
     if (!_validateInputs()) {
@@ -71,6 +74,9 @@ class _StaffAttendancePerWeekReportScreenState
               .map((name) => reportsState.staffNameToCode[name] ?? name)
               .toList()
         : null;
+    final storage = serviceLocator<StorageService>();
+    final schoolName =
+        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
 
     // Convert classroom names to codes
     final classroomCodes = _selectedClassrooms.isNotEmpty
@@ -86,6 +92,7 @@ class _StaffAttendancePerWeekReportScreenState
       staffCodes: staffCodes,
       classroomCodes: classroomCodes,
       format: _format,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
     );
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);
