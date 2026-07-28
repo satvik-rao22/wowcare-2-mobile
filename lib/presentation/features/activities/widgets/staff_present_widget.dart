@@ -104,6 +104,23 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       return;
     }
 
+    // Admins are never gated on their OWN sign-in — only on who they're
+    // attributing the activity to. Picking themselves must never show the
+    // "not signed in" warning (or fire the status check at all).
+    final storage = serviceLocator<StorageService>();
+    final ownStaffCode =
+        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+    if (ownStaffCode.isNotEmpty &&
+        code.toUpperCase() == ownStaffCode.toUpperCase()) {
+      if (!mounted) return;
+      setState(() {
+        _lastAcceptedStaff = pickedName;
+        _staffSignInError = null;
+        _checkingStaffSignIn = false;
+      });
+      return;
+    }
+
     setState(() {
       _checkingStaffSignIn = true;
       _staffSignInError = null;

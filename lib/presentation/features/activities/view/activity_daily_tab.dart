@@ -42,6 +42,7 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
@@ -590,18 +591,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
     final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
     final staffType =
         (await _storageService.getString(StorageKeys.staffType) ?? '')
             .trim()
             .toUpperCase();
+    // Active-persona check (RoleCubit), not a scan of the account's full
+    // cached roles list — that list always contains every role the account
+    // has across every school, so a dual-role user (e.g. STAFF + SCHOOL_ADMIN
+    // in a different school) would be misdetected as admin regardless of
+    // which persona is actually active right now.
+    final roleCubit = context.read<RoleCubit>();
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
         _viewerStaffCode = viewerStaffCode;
         _isAdminPersona =
-            roles.contains('ADMIN') ||
+            (roleCubit.isAdmin && !roleCubit.isStaff) ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
       });
@@ -812,10 +817,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   Future<void> _loadStaffClassroomScope() async {
-    // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
-    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+    // Scope only applies to staff/teacher personas (not parent/guardian; not
+    // admins). Checked against the ACTIVE persona (RoleCubit), not a scan of
+    // the account's full cached roles list — a dual-role account (e.g.
+    // STAFF + GUARDIAN in a different school) always has 'GUARDIAN' in that
+    // list regardless of which persona is active right now.
+    if (context.read<RoleCubit>().isParent) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
       return;
