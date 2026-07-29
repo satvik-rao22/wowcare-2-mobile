@@ -258,7 +258,6 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     );
 
     final isStaffPersona = _isStaffPersona ?? false;
-    final nowUtc = ServerTimeService.instance.nowUtc();
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.resolvePickedInstantUtc(
@@ -293,19 +292,14 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-    } else if (isStaffPersona) {
-      if (occurredAt.isAfter(nowUtc)) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('You cannot sign out for future date/time.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
     }
+    // Staff future-date/time was previously blocked here client-side by
+    // comparing `occurredAt` against a separately-captured `nowUtc` a few
+    // statements earlier — clock drift (or just the wall clock ticking
+    // forward) between those two reads could false-positive this warning
+    // even for an unmodified, still-defaulted-to-now pick. The backend
+    // already rejects an actually-future sign-out; no need to duplicate
+    // (and potentially misfire) that check here.
 
     final studentCodes = currentStudents
         .map((s) => s.studentCode.trim())

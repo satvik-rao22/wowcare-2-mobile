@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -64,11 +66,23 @@ class AttachmentUrlResolver extends StatefulWidget {
 
 class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
   late Future<String?> _future;
+  Timer? _retryTimer;
+
+  /// How long to wait before re-checking an asset that's still backend-side
+  /// processing. Without this, once [ImageUploadService]'s own 15s poll times
+  /// out, the "Processing…" placeholder is stuck until some UNRELATED widget
+  /// rebuild (scroll, a different message arriving, …) happens to re-create
+  /// this State and re-trigger resolution — which may never happen while the
+  /// user just sits on the thread. [ImageUploadService.getMediaAssetUrlByCode]
+  /// already has its own 30s failure cooldown, so retrying here on a shorter
+  /// cadence is cheap: most retries just re-read that cache with no network
+  /// call, until the cooldown passes and a fresh poll actually runs.
+  static const Duration _processingRetryDelay = Duration(seconds: 5);
 
   @override
   void initState() {
     super.initState();
-    _future = resolveAttachmentUrl(widget.attachment);
+    _startResolving(widget.attachment);
   }
 
   @override
@@ -77,8 +91,36 @@ class _AttachmentUrlResolverState extends State<AttachmentUrlResolver> {
     final old = oldWidget.attachment;
     final next = widget.attachment;
     if (old.code != next.code || old.displaySource != next.displaySource) {
-      _future = resolveAttachmentUrl(next);
+      _startResolving(next);
     }
+  }
+
+  void _startResolving(ChatAttachment attachment) {
+    _retryTimer?.cancel();
+    final future = resolveAttachmentUrl(attachment);
+    _future = future;
+    future.then((url) {
+      if (!mounted || (url != null && url.isNotEmpty)) return;
+      // Still unresolved. Only keep retrying when the backend reported this
+      // specific asset as still processing (not a hard failure) — a genuine
+      // failure should fall through to the broken-image state, not retry
+      // forever.
+      final assetCode = attachment.code?.trim() ?? '';
+      if (assetCode.isEmpty) return;
+      if (!serviceLocator<ImageUploadService>().isAssetProcessing(assetCode)) {
+        return;
+      }
+      _retryTimer = Timer(_processingRetryDelay, () {
+        if (!mounted) return;
+        setState(() => _startResolving(attachment));
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _retryTimer?.cancel();
+    super.dispose();
   }
 
   @override

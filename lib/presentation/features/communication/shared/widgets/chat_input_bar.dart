@@ -617,6 +617,29 @@ class _InputRow extends StatelessWidget {
         minLines: 1,
         maxLines: null,
         maxLength: maxLength,
+        // The default counter counts `controller.text` raw, which includes
+        // the invisible `<b>`/`<i>`/`<u>`/`<s>` formatting markup the rich
+        // text toolbar inserts — so bolding a 4-character word showed
+        // "11/2000" instead of "4/2000". Count the stripped/visible text
+        // the user actually sees instead.
+        buildCounter: (
+          context, {
+          required int currentLength,
+          required bool isFocused,
+          required int? maxLength,
+        }) {
+          if (!showCharCounter) return null;
+          final visibleLength =
+              MessageContentProcessor.stripHtmlTags(controller.text).length;
+          return Text(
+            maxLength != null ? '$visibleLength/$maxLength' : '$visibleLength',
+            style: const TextStyle(
+              fontSize: 12,
+              color: Color(0xFFB2BEC3),
+              fontFamily: 'Manrope',
+            ),
+          );
+        },
         textCapitalization: TextCapitalization.sentences,
         style: const TextStyle(
           fontSize: 15,
@@ -646,7 +669,6 @@ class _InputRow extends StatelessWidget {
             horizontal: 16,
             vertical: 12,
           ),
-          counterText: showCharCounter ? null : '',
         ),
       ),
     );

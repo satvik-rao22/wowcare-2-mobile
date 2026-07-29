@@ -66,12 +66,11 @@ Future<void> openMessagingShortcut(
     // selection, and the bulk compose screen only supports one recipient
     // type at a time — decline gracefully rather than inventing a new,
     // unreviewed mixed-conversation flow.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message:
           'Messaging a mix of students and staff together is not supported yet.',
-        ),
-      ),
+      isWarning: true,
     );
     return;
   }

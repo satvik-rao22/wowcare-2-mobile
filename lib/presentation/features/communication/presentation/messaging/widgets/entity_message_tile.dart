@@ -135,6 +135,13 @@ class EntityMessageTile extends StatelessWidget {
             ? mapMessageEntityToMessage(snapshot.quoted!, currentUserCode)
             : _denormalizedQuote(snapshot.message, currentUserCode);
         return MessageBubble(
+          // Forces a fresh element (not an in-place patch) whenever which
+          // side this bubble renders on changes for the same message code —
+          // e.g. a cached message re-aligning once a corrected isMine value
+          // arrives. Patching a mounted bubble's Row(textDirection: …)/Align
+          // in place for a structural side flip is what was triggering
+          // Flutter's semantics `parentDataDirty` assertion.
+          key: ValueKey('${message.code}-${message.isSentByMe}'),
           message: message,
           isDeleted: snapshot.message.isDeleted,
           quotedMessage: quotedMessage,

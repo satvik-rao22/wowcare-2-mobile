@@ -387,6 +387,7 @@ class StudentRepositoryImpl
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   }) async {
     // Backend expects upper-case enum values for StudentStatus (e.g. ACTIVE).
     final normalizedStatus = status?.trim().toUpperCase();
@@ -404,6 +405,7 @@ class StudentRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowedClassroomCodes,
     );
 
     // Cache only the first page for simplicity, keyed by filters.

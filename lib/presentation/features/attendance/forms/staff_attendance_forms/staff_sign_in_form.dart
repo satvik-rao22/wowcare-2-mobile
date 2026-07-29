@@ -504,7 +504,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final nowUtc = ServerTimeService.instance.nowUtc();
 
     // Teachers:
     // - can only sign in for themselves
@@ -557,29 +556,13 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
     }
 
-    // Admin GPS (picker) cannot sign in for future date/time. QR and the
-    // dashboard's personal GPS sign-in (forceSelf) both use "now" — checking
-    // them here against a separately-captured nowUtc risked a false positive
-    // from clock drift between the two reads, so they're excluded.
-    if (isStaffAdmin &&
-        !isQrForTime &&
-        !widget.forceSelf &&
-        !isSelfTarget &&
-        occurredAt.isAfter(nowUtc)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('You cannot sign in for future date/time.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
+    // Admin GPS (picker) future-date/time was previously blocked here
+    // client-side by comparing `occurredAt` against a separately-captured
+    // `nowUtc` a few statements earlier — clock drift (or just the wall
+    // clock ticking forward) between those two reads could false-positive
+    // this warning even for an unmodified, still-defaulted-to-now pick. The
+    // backend already rejects an actually-future sign-in; no need to
+    // duplicate (and potentially misfire) that check here.
 
     Map<String, bool> expectedFromApi = <String, bool>{};
     try {

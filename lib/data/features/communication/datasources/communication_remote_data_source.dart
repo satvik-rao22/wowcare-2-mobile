@@ -1,12 +1,15 @@
+import '../../../../app/di/di.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/create_conversation_request.dart';
 import '../models/conversation_model.dart';
 import '../models/create_conversation_response.dart';
 import '../models/get_conversations_response.dart';
 import '../models/message_model.dart';
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/user_details_school_roles.dart';
 
 abstract class CommunicationRemoteDataSource {
   Future<List<MessageModel>> getMessages(
@@ -27,6 +30,13 @@ abstract class CommunicationRemoteDataSource {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+  });
+  Future<GetConversationsResponse> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
   });
   Future<void> addReaction(String messageCode, String emoji);
   Future<void> deleteMessage(String messageCode);
@@ -109,6 +119,17 @@ class CommunicationRemoteDataSourceImpl
         .whereType<int>()
         .toList();
 
+    // Belt-and-suspenders alongside the x-role header: the messaging service
+    // has been observed attributing a sent message to a dual-role account's
+    // OTHER persona (e.g. GUARDIAN) even when the request headers are
+    // unambiguously the active persona (e.g. ORGANIZATION_ADMIN) — mirrors
+    // why the notification inbox needed an explicit `role` param, not just
+    // the header, to get a correctly-scoped response. Uses the same active-
+    // persona resolution as the header itself, so the two can never disagree.
+    final activeRole = await resolveActiveBackendRole(
+      serviceLocator<StorageService>(),
+    );
+
     final body = {
       'conversationCode': threadId,
       'type': 'TEXT',
@@ -123,6 +144,7 @@ class CommunicationRemoteDataSourceImpl
       if (message.privateParentUserCode != null &&
           message.privateParentUserCode!.isNotEmpty)
         'privateParentUserCode': message.privateParentUserCode,
+      if (activeRole.isNotEmpty) 'role': activeRole,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -259,6 +281,27 @@ class CommunicationRemoteDataSourceImpl
 
     final endpoint = ApiPaths.urlWithBase(
       '$path?status=$status&page=$page&size=$size',
+      ApiConstants.communicationBaseUrl,
+    );
+
+    final response = await apiClient.client.get(endpoint);
+
+    return GetConversationsResponse.fromJson(response.data);
+  }
+
+  @override
+  Future<GetConversationsResponse> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
+  }) async {
+    final typeParam = type != null ? '&type=$type' : '';
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.messagingConversationsSearch}'
+      '?q=${Uri.encodeQueryComponent(query)}$typeParam'
+      '&status=$status&page=$page&size=$size',
       ApiConstants.communicationBaseUrl,
     );
 

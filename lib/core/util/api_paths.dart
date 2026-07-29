@@ -874,6 +874,11 @@ class ApiPaths {
   static const String messagingCreateMessage = conversations;
   static const String messagingMessages = messages;
 
+  /// Server-side conversation search — GET /conversations/search?q=...&type=...
+  /// Searches ALL of the account's conversations of [type] matching the
+  /// query text, not just whatever page is already loaded client-side.
+  static const String messagingConversationsSearch = '$conversations/search';
+
   // POST /api/v1/messages/conversations/{code}/attachments/upload-session
   // (resolves to .../messaging/messages/conversations/{code}/attachments/
   // upload-session in UAT, confirmed against the working web-app request) —

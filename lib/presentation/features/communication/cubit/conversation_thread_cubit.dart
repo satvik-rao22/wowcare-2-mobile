@@ -423,18 +423,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     // Upload any attachments that aren't already uploaded, mirroring
     // CommunicationCubit.sendMessage's exact pipeline via the same shared
-    // uploader. Parallelised the same way legacy does (Future.wait); if any
-    // attachment fails, abort the send — no partial message is created.
+    // uploader — one batched upload session/presign call for the whole
+    // selection, not one per file; if any attachment fails, abort the send —
+    // no partial message is created.
     List<ChatAttachment> uploadedAttachments = attachments;
     if (attachments.any((a) => !a.isUploaded)) {
       try {
-        uploadedAttachments = await Future.wait(
-          attachments.map(
-            (a) => _attachmentUploader.upload(
-              conversationCode: state.conversationCode,
-              attachment: a,
-            ),
-          ),
+        uploadedAttachments = await _attachmentUploader.uploadAll(
+          conversationCode: state.conversationCode,
+          attachments: attachments,
         );
       } catch (e) {
         if (isClosed) return;

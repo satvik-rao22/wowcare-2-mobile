@@ -88,6 +88,13 @@ class ThreadMessageTile extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot == null) return const SizedBox.shrink();
         return MessageBubble(
+          // Forces a fresh element (not an in-place patch) whenever which
+          // side this bubble renders on changes for the same message code —
+          // e.g. a cached message re-aligning once a corrected isMine value
+          // arrives. Patching a mounted bubble's Row(textDirection: …)/Align
+          // in place for a structural side flip is what was triggering
+          // Flutter's semantics `parentDataDirty` assertion.
+          key: ValueKey('${snapshot.message.code}-${snapshot.message.isSentByMe}'),
           message: snapshot.message,
           isDeleted: snapshot.message.isDeleted,
           quotedMessage: snapshot.quoted,

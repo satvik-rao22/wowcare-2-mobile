@@ -747,13 +747,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     List<ChatAttachment> uploadedAttachments = attachments;
     if (attachments.any((a) => !a.isUploaded)) {
       try {
-        uploadedAttachments = await Future.wait(
-          attachments.map(
-            (a) => attachmentUploader.upload(
-              conversationCode: threadId,
-              attachment: a,
-            ),
-          ),
+        uploadedAttachments = await attachmentUploader.uploadAll(
+          conversationCode: threadId,
+          attachments: attachments,
         );
       } catch (e) {
         if (isClosed) return;

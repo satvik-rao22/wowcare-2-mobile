@@ -17,6 +17,27 @@ class UploadSessionResult {
   final String? ownerCode;
 }
 
+/// One file's worth of request fields for [ImageUploadService.createAssetPresignBatch].
+class AssetPresignRequest {
+  const AssetPresignRequest({
+    required this.fileName,
+    required this.contentType,
+    required this.contentLengthBytes,
+    this.checksumSha256,
+    required this.mediaType,
+    required this.ownerType,
+    required this.ownerCode,
+  });
+
+  final String fileName;
+  final String contentType;
+  final int contentLengthBytes;
+  final String? checksumSha256;
+  final String mediaType;
+  final String ownerType;
+  final String ownerCode;
+}
+
 class AssetPresignResult {
   const AssetPresignResult({
     required this.assetCode,

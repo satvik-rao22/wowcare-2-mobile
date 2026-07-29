@@ -304,13 +304,9 @@ class BulkMessagingCompositionCubit
     List<ChatAttachment> base,
   ) async {
     if (base.isEmpty) return const [];
-    final uploaded = await Future.wait(
-      base.map(
-        (att) => _attachmentUploader.upload(
-          conversationCode: conversationCode,
-          attachment: att,
-        ),
-      ),
+    final uploaded = await _attachmentUploader.uploadAll(
+      conversationCode: conversationCode,
+      attachments: base,
     );
     return uploaded.map((a) => a.attachmentId).whereType<int>().toList();
   }

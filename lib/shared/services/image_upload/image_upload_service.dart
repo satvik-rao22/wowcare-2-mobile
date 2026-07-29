@@ -201,6 +201,100 @@ class ImageUploadService {
     );
   }
 
+  /// Presigns every file in [assets] under one session in a single call to
+  /// the same `assets/presign/batch` endpoint [createAssetPresign] hits with
+  /// just one — sending N separate presign requests (and N separate upload
+  /// sessions, one per file, at the call site) is what the endpoint's own
+  /// name says it isn't meant for. Results come back in the same order as
+  /// [assets].
+  Future<List<AssetPresignResult>> createAssetPresignBatch({
+    required String sessionCode,
+    required String documentApiBasePath,
+    required List<AssetPresignRequest> assets,
+  }) async {
+    if (assets.isEmpty) return const [];
+
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final path = ApiPaths.documentAssetPresignPath(
+      documentApiBasePath: documentApiBasePath,
+      sessionCode: sessionCode,
+    );
+    final endpoint = '$origin$path';
+
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assets': assets
+                .map(
+                  (a) => <String, dynamic>{
+                    'fileName': a.fileName,
+                    'contentType': a.contentType,
+                    'contentLengthBytes': a.contentLengthBytes,
+                    if ((a.checksumSha256 ?? '').trim().isNotEmpty)
+                      'checksumSha256': a.checksumSha256!.trim(),
+                    'mediaType': a.mediaType,
+                    'ownerType': a.ownerType,
+                    'ownerCode': a.ownerCode,
+                  },
+                )
+                .toList(),
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(message.isNotEmpty ? message : 'Assets presign failed');
+    }
+
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API data format');
+    }
+
+    final uploads = data['uploads'];
+    if (uploads is! List || uploads.length != assets.length) {
+      throw Exception('Unexpected assets presign uploads format');
+    }
+
+    return uploads.map((raw) {
+      if (raw is! Map) {
+        throw Exception('Unexpected assets presign upload item format');
+      }
+      final assetCode = (raw['assetCode'] ?? '').toString().trim();
+      final presignedPutUrl = (raw['presignedPutUrl'] ?? '').toString().trim();
+      if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
+        throw Exception('Missing assetCode or presignedPutUrl in presign response');
+      }
+      final rawHeaders = raw['requiredHeaders'];
+      final requiredHeaders = <String, String>{};
+      if (rawHeaders is Map) {
+        rawHeaders.forEach((key, value) {
+          final k = key.toString().trim();
+          final v = value.toString().trim();
+          if (k.isNotEmpty && v.isNotEmpty) {
+            requiredHeaders[k] = v;
+          }
+        });
+      }
+      return AssetPresignResult(
+        assetCode: assetCode,
+        presignedPutUrl: presignedPutUrl,
+        requiredHeaders: requiredHeaders,
+      );
+    }).toList();
+  }
+
   String _extractErrorMessageFromDio(DioException error) {
     final data = error.response?.data;
     if (data is Map) {
