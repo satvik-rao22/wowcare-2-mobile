@@ -91,6 +91,17 @@ class _SchedulingScreenContent extends StatefulWidget {
 class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   bool _expandAll = false;
 
+  /// Set when the WEEK view's tick/red compliance icon is tapped, so DAY
+  /// view opens scrolled/highlighted to that classroom — same mechanism as
+  /// `widget.highlightClassroomCode` (notification deep-link), just sourced
+  /// from an in-app tap instead of route args.
+  String? _tappedHighlightClassroomCode;
+
+  void _openClassroomDayView(String classroomCode) {
+    context.read<SchedulingCubit>().setViewMode(SchedulingViewMode.day);
+    setState(() => _tappedHighlightClassroomCode = classroomCode);
+  }
+
   /// Persists across screen instances so an edit that happened while this
   /// screen was off-stack still triggers a silent staff-list refresh on
   /// the next visit.
@@ -431,6 +442,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
                       highlightShiftCode: widget.highlightShiftCode,
+                      onClassroomStatusTap: _openClassroomDayView,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                             context,
@@ -448,7 +460,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
                       highlightShiftCode: widget.highlightShiftCode,
-                      highlightClassroomCode: widget.highlightClassroomCode,
+                      highlightClassroomCode: _tappedHighlightClassroomCode ??
+                          widget.highlightClassroomCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                             context,
@@ -550,6 +563,7 @@ class _ClassroomListCard extends StatelessWidget {
     required this.onStaffShiftTap,
     this.staffAttendanceStatusByCode,
     this.highlightShiftCode,
+    this.onClassroomStatusTap,
   });
 
   final List<ClassroomDaySchedule> classrooms;
@@ -561,6 +575,9 @@ class _ClassroomListCard extends StatelessWidget {
   onStaffShiftTap;
   final Map<String, String>? staffAttendanceStatusByCode;
   final String? highlightShiftCode;
+
+  /// Tap on the compliance (tick/red) icon — opens DAY view for that classroom.
+  final void Function(String classroomCode)? onClassroomStatusTap;
 
   @override
   Widget build(BuildContext context) {
@@ -592,6 +609,9 @@ class _ClassroomListCard extends StatelessWidget {
                 highlightShiftCode: highlightShiftCode,
                 onStaffShiftTap: (entry) =>
                     onStaffShiftTap(entry, classrooms[i].classroomName),
+                onClassroomStatusTap: onClassroomStatusTap == null
+                    ? null
+                    : () => onClassroomStatusTap!(classrooms[i].classroomCode),
               ),
           ],
         ),

@@ -455,8 +455,13 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         organizationCode: organizationCode,
         dateFrom: day,
         dateTo: day,
-        shiftStatus:
-            _isStaffPersonaScope ? const <String>['PUBLISHED'] : const <String>[],
+        // Published-only for every persona here (admin included) — this
+        // per-staff shift summary should never show unpublished drafts,
+        // matching the hours-range call below (`publishedOnly: true`,
+        // already unconditional). Scoped to Staff Scheduling only; the
+        // classroom-based Scheduling screen (scheduling_cubit.dart) is
+        // intentionally untouched.
+        shiftStatus: const <String>['PUBLISHED'],
       );
 
       if (isClosed) return;
