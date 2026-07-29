@@ -249,14 +249,16 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
             ),
             padding: const EdgeInsets.all(1),
             child: TextButton(
-              onPressed: _isSubmitting ? null : () {
-                _reset();
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'PIN entry cancelled',
-                  isWarning: true,
-                );
-              },
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      _reset();
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: 'PIN entry cancelled',
+                        isWarning: true,
+                      );
+                    },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -296,9 +298,11 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: _isSubmitting ? null : () {
-                _validate(context);
-              },
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      _validate(context);
+                    },
               child: _isSubmitting
                   ? const SizedBox(
                       height: 20,

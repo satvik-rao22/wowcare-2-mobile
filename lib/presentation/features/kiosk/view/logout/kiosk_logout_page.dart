@@ -10,7 +10,6 @@ import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
-
 import '../../../../../core/util/api_error_handler.dart';
 
 class KioskLogoutPage extends StatefulWidget {
