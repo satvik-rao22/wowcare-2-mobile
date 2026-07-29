@@ -1,8 +1,6 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -10,10 +8,10 @@ import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentEmergencyContactReportScreen extends StatefulWidget {
   const StudentEmergencyContactReportScreen({
@@ -62,17 +60,25 @@ class _StudentEmergencyContactReportScreenState
         .toList();
 
     // Retrieve the school name from storage
-    final storage = serviceLocator<StorageService>();
-    final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.emergencyContacts,
       startDate: AppTime.now(),
       endDate: AppTime.now(),
       format: _format.value, // PDF or XLSX
       classroomCodes: classroomCodes,
-      schoolName: schoolName.isNotEmpty ? schoolName : null,
+      schoolName: schoolName,
     );
     cubit.generateReport(params);
   }

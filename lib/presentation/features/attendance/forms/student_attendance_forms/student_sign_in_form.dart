@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -695,7 +694,10 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       if (!mounted) return;
 
       // Normalize success messages for better UX
-      if (success && (message.toLowerCase().contains('sign in') || message.toLowerCase().contains('sign-in') || message.toLowerCase().contains('signed in'))) {
+      if (success &&
+          (message.toLowerCase().contains('sign in') ||
+              message.toLowerCase().contains('sign-in') ||
+              message.toLowerCase().contains('signed in'))) {
         message = 'Sign in successfully';
       }
 
@@ -742,7 +744,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           );
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -908,6 +912,12 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
                     !_unexpectedSignInAcknowledged))
             ? null
             : _submitSignIn,
+        showCancelButton: widget.isKiosk,
+        onPressedCancel: widget.isKiosk
+            ? () {
+                context.go('/kiosk');
+              }
+            : null,
       ),
     );
   }

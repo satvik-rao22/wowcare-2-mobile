@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
-
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
@@ -143,7 +142,8 @@ abstract final class SchoolZoneDateTime {
     required TimeOfDay selectedTime,
   }) {
     final schoolNow = _nowInZone(locationForIana(ianaName));
-    final isUnchanged = selectedDate.year == schoolNow.year &&
+    final isUnchanged =
+        selectedDate.year == schoolNow.year &&
         selectedDate.month == schoolNow.month &&
         selectedDate.day == schoolNow.day &&
         selectedTime.hour == schoolNow.hour &&

@@ -795,7 +795,8 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
+                        isDisabled:
+                            _isStaffAdminPersona != true || _isSelfTarget,
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -858,7 +859,12 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                     !_unexpectedSignInAcknowledged))
             ? null
             : _handleSubmit,
-        showCancelButton: false,
+        showCancelButton: widget.isKiosk,
+        onPressedCancel: widget.isKiosk
+            ? () {
+                context.go('/kiosk');
+              }
+            : null,
       ),
     );
   }

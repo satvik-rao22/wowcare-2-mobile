@@ -669,7 +669,12 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-Out',
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
-        showCancelButton: false,
+        showCancelButton: widget.isKiosk,
+        onPressedCancel: widget.isKiosk
+            ? () {
+                context.go('/kiosk');
+              }
+            : null,
       ),
     );
   }

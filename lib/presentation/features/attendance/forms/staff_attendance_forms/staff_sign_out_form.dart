@@ -102,9 +102,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     final staffCode = widget.isKiosk && widget.staffCode != null
         ? widget.staffCode!.trim()
         : (await serviceLocator<StorageService>().getString(
-              StorageKeys.staffCode,
-            ))?.trim() ??
-            '';
+                StorageKeys.staffCode,
+              ))?.trim() ??
+              '';
     if (!mounted) return;
     setState(() {
       _currentStaffCode = staffCode.isNotEmpty ? staffCode : null;
@@ -171,7 +171,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         ? 'Staff'
         : (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
 
-    AppLogger.d('[StaffSignOut] Kiosk=${widget.isKiosk}, DisplayName=$displayName, StaffName=${widget.staffName}');
+    AppLogger.d(
+      '[StaffSignOut] Kiosk=${widget.isKiosk}, DisplayName=$displayName, StaffName=${widget.staffName}',
+    );
 
     if (!mounted) return;
 
@@ -250,7 +252,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
   Future<String> _resolveStaffCode() async {
     // In kiosk mode, use the staff code from PIN verification
-    if (widget.isKiosk && widget.staffCode != null && widget.staffCode!.isNotEmpty) {
+    if (widget.isKiosk &&
+        widget.staffCode != null &&
+        widget.staffCode!.isNotEmpty) {
       return widget.staffCode!.trim();
     }
     // Otherwise, resolve from logged-in user
@@ -327,7 +331,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     // An admin acting on their OWN record (My Attendance/My Day, or a bulk
     // form where they only selected themselves) must not be able to pick a
     // date/time either — only admin-managed OTHER-staff attendance allows it.
-    final bool isSelfTarget = widget.isKiosk ||
+    final bool isSelfTarget =
+        widget.isKiosk ||
         widget.qrToken.isNotEmpty ||
         (targetStaffCodes.length == 1 && targetStaffCodes.first == staffCode);
 
@@ -424,7 +429,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     }
 
     final bool isQrSignOut = widget.qrToken.isNotEmpty;
-    final String signOutMethod = isQrSignOut ? 'QR' : (isStaffAdmin ? 'APP' : 'GPS');
+    final String signOutMethod = isQrSignOut
+        ? 'QR'
+        : (isStaffAdmin ? 'APP' : 'GPS');
 
     // QR scan is always self sign-out — the person holding the phone is signing
     // themselves out. Kiosk is always self sign-out (staff member via PIN).
@@ -460,7 +467,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       if (!mounted) return;
 
       // Normalize success messages for better UX
-      if (success && (message.toLowerCase().contains('sign out') || message.toLowerCase().contains('sign-out') || message.toLowerCase().contains('signed out'))) {
+      if (success &&
+          (message.toLowerCase().contains('sign out') ||
+              message.toLowerCase().contains('sign-out') ||
+              message.toLowerCase().contains('signed out'))) {
         message = 'Sign out successfully';
       }
 
@@ -490,7 +500,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StaffAttendanceTabbedView.routeName);
+            context,
+            StaffAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -564,7 +576,8 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
+                        isDisabled:
+                            _isStaffAdminPersona != true || _isSelfTarget,
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -619,7 +632,12 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-Out',
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
-        showCancelButton: false,
+        showCancelButton: widget.isKiosk,
+        onPressedCancel: widget.isKiosk
+            ? () {
+                context.go('/kiosk');
+              }
+            : null,
       ),
     );
   }

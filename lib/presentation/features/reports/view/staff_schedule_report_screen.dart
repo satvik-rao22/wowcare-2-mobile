@@ -11,6 +11,8 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 import '../../../../domain/features/reports/entities/report_type.dart';
 import '../../../../domain/features/reports/usecases/staff_scheduling_report_params.dart';
 
@@ -49,7 +51,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
   //     isError: true,
   //   );
   // }
-  void _onGenerate() {
+  Future<void> _onGenerate() async {
     if (_endDate.isBefore(_startDate)) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -66,13 +68,26 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
         .map((name) => classroomNameToCode[name])
         .whereType<String>()
         .toList();
+// Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = StaffSchedulingReportParams(
       reportType: ReportType.staffScheduling,
       startDate: _startDate,
       endDate: _endDate,
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       format: _format,
+      schoolName: schoolName,
     );
 
     unawaited(cubit.generateReport(params));

@@ -10,6 +10,7 @@ class StaffSchedulingReportParams extends Equatable implements ReportParams {
     required this.startDate,
     required this.endDate,
     required this.format,
+    required this.schoolName,
     this.classroomCodes,
   });
 
@@ -18,6 +19,7 @@ class StaffSchedulingReportParams extends Equatable implements ReportParams {
 
   @override
   final DateTime startDate;
+  final String schoolName;
 
   final DateTime endDate;
 
@@ -37,6 +39,7 @@ class StaffSchedulingReportParams extends Equatable implements ReportParams {
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
         'classroomCodes': classroomCodes,
       'format': format,
+      'schoolName': schoolName,
     };
   }
 
@@ -53,6 +56,7 @@ class StaffSchedulingReportParams extends Equatable implements ReportParams {
       if (sortedClassrooms.isNotEmpty)
         'classrooms=${sortedClassrooms.join(',')}',
       'format=$format',
+      'schoolName=$schoolName',
     ];
 
     return parts.join('|');

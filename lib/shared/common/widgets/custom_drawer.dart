@@ -121,6 +121,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final selectedName = await storage.getString(
         StorageKeys.selectedSchoolName,
       );
+      print(
+        'CustomDrawer: _loadSchoolContext: orgCode=$orgCode, schoolCode=$schoolCode, selectedName=$selectedName',
+      );
       List<Map<String, String>> schoolsForOrg = const <Map<String, String>>[];
 
       // Primary source: API-backed school list
@@ -1163,7 +1166,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.staffMessagingRoute);
+                                    context.go(
+                                      MessagingScreen.staffMessagingRoute,
+                                    );
                                   },
                                 ),
                               if (showParentMessagingDrawer ||

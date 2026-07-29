@@ -18,6 +18,7 @@ void main() {
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       expect(params.reportType, ReportType.staffDetails);
@@ -36,6 +37,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       expect(params.classroomCodes, classrooms);
@@ -48,6 +50,7 @@ void main() {
         endDate: endDate,
         staffFieldsSelected: const {'Name', 'Email ID'},
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -68,6 +71,7 @@ void main() {
         staffFieldsSelected: staffFields,
         statusFilter: 'Active Staff',
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       final body = params.toRequestBody();
@@ -83,6 +87,7 @@ void main() {
         staffFieldsSelected: staffFields,
         statusFilter: 'Inactive Staff',
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       final body = params.toRequestBody();
@@ -96,6 +101,7 @@ void main() {
         startDate: startDate,
         endDate: endDate,
         staffFieldsSelected: staffFields,
+        schoolName: 'Test School',
         statusFilter: 'All Staff',
         format: 'PDF',
       );
@@ -113,6 +119,7 @@ void main() {
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       final body = params.toRequestBody();
@@ -129,6 +136,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       final body = params.toRequestBody();
@@ -140,6 +148,7 @@ void main() {
       final params = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         staffFieldsSelected: const {
           'Name',
@@ -181,6 +190,7 @@ void main() {
       final params = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         staffFieldsSelected: const {'Name', 'Email ID'},
         statusFilter: statusFilter,
@@ -199,6 +209,7 @@ void main() {
         reportType: ReportType.staffDetails,
         startDate: startDate,
         endDate: endDate,
+        schoolName: 'Test School',
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
         format: 'PDF',
@@ -207,6 +218,7 @@ void main() {
       final params2 = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
@@ -221,6 +233,7 @@ void main() {
         reportType: ReportType.staffDetails,
         startDate: startDate,
         endDate: endDate,
+        schoolName: 'Test School',
         staffFieldsSelected: const {'Name', 'Email ID'},
         statusFilter: statusFilter,
         format: 'PDF',
@@ -231,6 +244,7 @@ void main() {
         startDate: startDate,
         endDate: endDate,
         staffFieldsSelected: const {'Name'},
+        schoolName: 'Test School',
         statusFilter: statusFilter,
         format: 'PDF',
       );
@@ -242,6 +256,7 @@ void main() {
       final params = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
