@@ -1,6 +1,6 @@
 FLUTTER ?= flutter
 
-.PHONY: help clean get upgrade doctor fix analyze test format \
+.PHONY: help clean get upgrade doctor fix analyze test test-tasks format \
 	uat-run local-run prod-run \
 	uat-run-profile local-run-profile prod-run-profile \
 	uat-run-release local-run-release prod-run-release \
@@ -31,6 +31,7 @@ help:
 	@echo "  make fix"
 	@echo "  make analyze"
 	@echo "  make test"
+	@echo "  make test-tasks"
 	@echo "  make format"
 	@echo ""
 	@echo "Run:"
@@ -118,6 +119,9 @@ analyze:
 
 test:
 	$(FLUTTER) test
+
+test-tasks:
+	$(FLUTTER) test test/features/tasks/
 
 format:
 	dart format .

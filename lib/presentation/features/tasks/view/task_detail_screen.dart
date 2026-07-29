@@ -82,6 +82,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
             );
           }
+          // Read gate (PRD §5.2): a staff member may only open their own tasks,
+          // parents none at all — so a deep link or a stale push can't surface
+          // someone else's task even though the card came from the shared cubit.
+          if (!TaskAccess.canViewTask(
+            roles: roles,
+            task: task,
+            userCode: state.currentUserCode,
+            staffCode: state.currentStaffCode,
+          )) {
+            return _noAccess();
+          }
           final canManage = TaskAccess.canManageTask(
             roles: roles,
             task: task,
@@ -143,6 +154,28 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Shown instead of the task when the persona has no read access to it
+  /// (PRD §5.2). Deliberately reveals nothing about the task itself.
+  Widget _noAccess() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_outline, size: 44, color: Colors.grey[400]),
+            const SizedBox(height: 10),
+            Text(
+              'You do not have access to this task.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13.5, color: Colors.grey[700]),
+            ),
+          ],
+        ),
       ),
     );
   }

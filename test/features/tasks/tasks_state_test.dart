@@ -42,6 +42,7 @@ TasksState _state({
   bool overdueOnly = false,
   String currentUserCode = '',
   String currentStaffCode = '',
+  TaskPersona persona = TaskPersona.admin,
 }) =>
     TasksState(
       tasks: tasks,
@@ -59,6 +60,7 @@ TasksState _state({
       currentUserCode: currentUserCode,
       currentUserName: '',
       currentStaffCode: currentStaffCode,
+      persona: persona,
     );
 
 void main() {
@@ -91,11 +93,13 @@ void main() {
       expect(s.filteredTasks.map((t) => t.code), ['2']);
     });
 
-    test('mine/byMe are permissive while identity is unresolved', () {
+    test('mine/byMe fail closed while identity is unresolved', () {
+      // RBAC: "my tasks" with an unknown identity must not fall back to
+      // everyone's tasks (PRD §5.2) — an empty board is the safe answer.
       expect(_state(tasks: tasks, scope: TaskScope.mine).filteredTasks,
-          hasLength(3));
+          isEmpty);
       expect(_state(tasks: tasks, scope: TaskScope.byMe).filteredTasks,
-          hasLength(3));
+          isEmpty);
     });
 
     test('mine also matches on the currentUserCode', () {
@@ -105,6 +109,67 @@ void main() {
         currentUserCode: 'USR_ME',
       );
       expect(s.filteredTasks, hasLength(1));
+    });
+  });
+
+  group('visibleTasks — persona read boundary (PRD §5.2)', () {
+    final tasks = [
+      _card(code: '1', assignee: 'STF_ME', createdBy: 'STF_OTHER'),
+      _card(code: '2', assignee: 'STF_OTHER', createdBy: 'STF_ME'),
+      _card(code: '3', assignee: 'STF_OTHER', createdBy: 'STF_OTHER'),
+    ];
+
+    test('admin sees every loaded task', () {
+      final s = _state(tasks: tasks, currentStaffCode: 'STF_ME');
+      expect(s.visibleTasks.map((t) => t.code), ['1', '2', '3']);
+    });
+
+    test('staff sees only tasks assigned to or created by them', () {
+      final s = _state(
+        tasks: tasks,
+        currentStaffCode: 'STF_ME',
+        persona: TaskPersona.staff,
+      );
+      expect(s.visibleTasks.map((t) => t.code), ['1', '2']);
+    });
+
+    test('staff scope "all" cannot widen past their own tasks', () {
+      final s = _state(
+        tasks: tasks,
+        scope: TaskScope.all,
+        currentStaffCode: 'STF_ME',
+        persona: TaskPersona.staff,
+      );
+      expect(s.filteredTasks.map((t) => t.code), ['1', '2']);
+    });
+
+    test('staff with unresolved identity sees nothing', () {
+      final s = _state(tasks: tasks, persona: TaskPersona.staff);
+      expect(s.visibleTasks, isEmpty);
+      expect(s.filteredTasks, isEmpty);
+    });
+
+    test('filter dropdown options never leak invisible tasks', () {
+      // STF_THIRD is referenced only by a task this staff member cannot see, so
+      // their name must not surface in the Assignee / Created By dropdowns.
+      final withThirdParty = [
+        _card(code: '1', assignee: 'STF_ME', createdBy: 'STF_ME'),
+        _card(code: '3', assignee: 'STF_THIRD', createdBy: 'STF_THIRD'),
+      ];
+      final s = _state(
+        tasks: withThirdParty,
+        currentStaffCode: 'STF_ME',
+        persona: TaskPersona.staff,
+      );
+      expect(s.assigneeOptions.map((o) => o.code), <String>['STF_ME']);
+      expect(s.createdByOptions.map((o) => o.code), <String>['STF_ME']);
+
+      final adminState =
+          _state(tasks: withThirdParty, currentStaffCode: 'STF_ME');
+      expect(
+        adminState.assigneeOptions.map((o) => o.code),
+        unorderedEquals(<String>['STF_ME', 'STF_THIRD']),
+      );
     });
   });
 

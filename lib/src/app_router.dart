@@ -508,7 +508,13 @@ final GoRouter appRouter = GoRouter(
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     BlocProvider<TasksCubit>.value(
-                      value: serviceLocator<TasksCubit>()..load(silent: true),
+                      // The persona is applied before the fetch so the read
+                      // boundary (PRD §5.2 — staff see only their own tasks) is
+                      // in place for the very first frame, and the My/All
+                      // default matches the persona.
+                      value: serviceLocator<TasksCubit>()
+                        ..applyPersona(context.read<RoleCubit>().role)
+                        ..load(silent: true),
                       child: const TasksScreen(),
                     ),
                   ),
@@ -521,7 +527,8 @@ final GoRouter appRouter = GoRouter(
                     return _fastPage(
                       state,
                       BlocProvider<TasksCubit>.value(
-                        value: serviceLocator<TasksCubit>(),
+                        value: serviceLocator<TasksCubit>()
+                          ..applyPersona(context.read<RoleCubit>().role),
                         child: TaskDetailScreen(
                           taskCode: args?['taskCode'] as String? ?? '',
                         ),
@@ -539,7 +546,8 @@ final GoRouter appRouter = GoRouter(
                       MultiBlocProvider(
                         providers: [
                           BlocProvider<TasksCubit>.value(
-                            value: serviceLocator<TasksCubit>(),
+                            value: serviceLocator<TasksCubit>()
+                              ..applyPersona(context.read<RoleCubit>().role),
                           ),
                           // Assignee picker shows ACTIVE staff only
                           // (PRD BR-ATT-01 / FR-TK-02), scoped to the

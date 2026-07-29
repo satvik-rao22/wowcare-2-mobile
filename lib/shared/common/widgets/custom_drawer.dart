@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
@@ -701,6 +702,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final canViewActivities = roleProvider.canReadModule(
       AppAccessModules.dailyActivity,
     );
+    final canViewTasks = TaskAccess.canAccessModule(roleProvider);
     final showParentMessagingDrawer = roleProvider.canReadModule(
       AppAccessModules.parentMessaging,
     );
@@ -1079,18 +1081,22 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             }
                           },
                         ),
-                        _CustomExpansionTile(
-                          title: 'Tasks',
-                          icon: MediaRes.tasksIcon,
-                          isCurrentRoute:
-                              _currentRoute == TasksScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (_currentRoute != TasksScreen.routeName) {
-                              context.go(TasksScreen.routeName);
-                            }
-                          },
-                        ),
+                        // Guardians/parents have no Tasks access at all
+                        // (PRD §5.2: "No" on every row), so the entry point
+                        // itself must not exist for them.
+                        if (canViewTasks)
+                          _CustomExpansionTile(
+                            title: 'Tasks',
+                            icon: MediaRes.tasksIcon,
+                            isCurrentRoute:
+                                _currentRoute == TasksScreen.routeName,
+                            onTap: () {
+                              Navigator.pop(context);
+                              if (_currentRoute != TasksScreen.routeName) {
+                                context.go(TasksScreen.routeName);
+                              }
+                            },
+                          ),
                         // Assessments — temporarily hidden from the drawer
                         // while kept in the codebase; re-enable by
                         // uncommenting.

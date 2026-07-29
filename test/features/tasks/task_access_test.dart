@@ -164,6 +164,85 @@ void main() {
     });
   });
 
+  group('canViewTask (PRD §5.2 "View All Tasks")', () {
+    test('admin views any task, including another staff member\'s', () {
+      expect(
+        TaskAccess.canViewTask(
+          roles: admin,
+          task: _task(assigneeCode: 'STF_OTHER', createdBy: 'STF_OTHER'),
+          userCode: 'USR_ADMIN',
+          staffCode: '',
+        ),
+        isTrue,
+      );
+    });
+
+    test('parent can never view a task', () {
+      expect(
+        TaskAccess.canViewTask(
+          roles: parent,
+          task: _task(assigneeCode: 'STF_ME'),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+        ),
+        isFalse,
+      );
+    });
+
+    test('staff views a task assigned to them or created by them', () {
+      expect(
+        TaskAccess.canViewTask(
+          roles: staff,
+          task: _task(assigneeCode: 'STF_ME'),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+        ),
+        isTrue,
+      );
+      expect(
+        TaskAccess.canViewTask(
+          roles: staff,
+          task: _task(assigneeCode: 'STF_OTHER', createdBy: 'STF_ME'),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+        ),
+        isTrue,
+      );
+    });
+
+    test('staff CANNOT view another staff member\'s task', () {
+      expect(
+        TaskAccess.canViewTask(
+          roles: staff,
+          task: _task(assigneeCode: 'STF_OTHER', createdBy: 'STF_OTHER'),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+        ),
+        isFalse,
+      );
+    });
+
+    test('staff with unresolved identity is denied (fail closed)', () {
+      expect(
+        TaskAccess.canViewTask(
+          roles: staff,
+          task: _task(assigneeCode: 'STF_OTHER'),
+          userCode: '',
+          staffCode: '',
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('canViewAllTasks (PRD §5.2 "View All / My toggle")', () {
+    test('only admins may see the whole school\'s tasks', () {
+      expect(TaskAccess.canViewAllTasks(admin), isTrue);
+      expect(TaskAccess.canViewAllTasks(staff), isFalse);
+      expect(TaskAccess.canViewAllTasks(parent), isFalse);
+    });
+  });
+
   group('isAdmin compares the raw role (staff is not admin here)', () {
     test('true only for the admin role', () {
       expect(TaskAccess.isAdmin(admin), isTrue);

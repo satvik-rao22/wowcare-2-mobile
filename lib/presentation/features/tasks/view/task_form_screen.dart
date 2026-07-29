@@ -12,11 +12,13 @@ import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_form_validation.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/assignee_picker_sheet.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 /// Create/edit form for a task. A single scrollable mobile form replaces the
@@ -64,6 +66,12 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   /// Guards [_prefillFromSeries] so a slow series response can't overwrite the
   /// form after it has already been applied once.
   bool _appliedSeriesPrefill = false;
+
+  /// True when the form was opened for a task this persona may not edit
+  /// (PRD §5.2 "Edit Task — staff: own tasks only"). Resolved in [initState],
+  /// before any prefill, so a deep link never even loads the task's fields; the
+  /// body then renders a no-access notice instead of the form.
+  bool _accessDenied = false;
 
   TaskStatus _status = TaskStatus.toDo;
   TaskPriority _priority = TaskPriority.medium;
@@ -126,8 +134,17 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     _dueDate = today;
     final code = widget.taskCode?.trim() ?? '';
     if (code.isNotEmpty) {
-      final task = context.read<TasksCubit>().state.taskByCode(code);
-      if (task != null) {
+      final tasksState = context.read<TasksCubit>().state;
+      final task = tasksState.taskByCode(code);
+      if (task != null &&
+          !TaskAccess.canManageTask(
+            roles: context.read<RoleCubit>(),
+            task: task,
+            userCode: tasksState.currentUserCode,
+            staffCode: tasksState.currentStaffCode,
+          )) {
+        _accessDenied = true;
+      } else if (task != null) {
         _prefill(task);
         // The flat card carries neither the start time-of-day nor the
         // recurrence rule (series-only, bridged by taskCode). Without this the
@@ -274,6 +291,17 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final roles = context.watch<RoleCubit>();
+    // Write gate (PRD §5.2): parents may never create a task, and a staff
+    // member may only edit their own. Both cases render a notice rather than an
+    // editable form, so no save path exists for them at all.
+    if (_accessDenied || (!_isEditing && !TaskAccess.canCreateTasks(roles))) {
+      return const GlobalScaffold(
+        hasBackButton: true,
+        showCustomNavigationBar: false,
+        body: _TaskFormNoAccess(),
+      );
+    }
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: false,
@@ -1556,5 +1584,32 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       default:
         return '${day}th';
     }
+  }
+}
+
+/// Body shown in place of the form when the persona may not create this task or
+/// edit this one (PRD §5.2). Shows no task fields at all.
+class _TaskFormNoAccess extends StatelessWidget {
+  const _TaskFormNoAccess();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.lock_outline, size: 44, color: Colors.grey[400]),
+            const SizedBox(height: 10),
+            Text(
+              'You do not have permission to edit this task.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13.5, color: Colors.grey[700]),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

@@ -29,14 +29,17 @@ import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 /// SharedPreferences or the network staff-code resolver (a non-empty staffCode
 /// short-circuits that resolver).
 class _FakeStorage implements StorageService {
-  final Map<String, Object> _data = {
-    StorageKeys.userCode: 'USR_ME',
-    StorageKeys.displayName: 'Me',
-    StorageKeys.staffCode: 'STF_ME',
-    StorageKeys.activeSchoolRole: 'ADMIN',
-    StorageKeys.organizationCode: 'ORG_1',
-    StorageKeys.schoolCode: 'SCH_1',
-  };
+  _FakeStorage({String activeSchoolRole = 'ADMIN'})
+      : _data = {
+          StorageKeys.userCode: 'USR_ME',
+          StorageKeys.displayName: 'Me',
+          StorageKeys.staffCode: 'STF_ME',
+          StorageKeys.activeSchoolRole: activeSchoolRole,
+          StorageKeys.organizationCode: 'ORG_1',
+          StorageKeys.schoolCode: 'SCH_1',
+        };
+
+  final Map<String, Object> _data;
 
   @override
   Future<String?> getString(String key) async => _data[key] as String?;
@@ -383,6 +386,7 @@ Task _card({
 TasksCubit _buildCubit(
   _FakeTaskRepository repo, {
   List<StaffMember> staff = const [],
+  String activeSchoolRole = 'ADMIN',
 }) =>
     TasksCubit(
       GetTasksUseCase(repo),
@@ -392,7 +396,7 @@ TasksCubit _buildCubit(
       UpdateTaskAssignmentStatusUseCase(repo),
       UploadTaskAttachmentUseCase(repo),
       GetAllStaffUseCase(_FakeStaffRepository(staff)),
-      _FakeStorage(),
+      _FakeStorage(activeSchoolRole: activeSchoolRole),
       UpdateTaskAssignmentUseCase(repo),
       DeleteTaskAssignmentUseCase(repo),
       GetTaskUseCase(repo),
@@ -798,6 +802,105 @@ void main() {
     expect(code, 'AST_READY');
     expect(repo.lastUploadArgs!['fileName'], 'notes.pdf');
     expect(repo.lastUploadArgs!['contentType'], 'application/pdf');
+  });
+
+  // ------------------------------------------------------------- persona
+
+  group('applyPersona (PRD §5.2 read boundary)', () {
+    test('staff persona defaults to "My" and marks the read boundary',
+        () async {
+      cubit.applyPersona('staff');
+      expect(cubit.state.persona, TaskPersona.staff);
+      expect(cubit.state.scope, TaskScope.mine);
+
+      repo.tasks = [
+        _card(code: 'TSA_MINE', taskCode: 'TSK_1', assignee: 'STF_ME'),
+        _card(code: 'TSA_OTHER', taskCode: 'TSK_2', assignee: 'STF_OTHER'),
+      ];
+      await cubit.load();
+
+      expect(cubit.state.persona, TaskPersona.staff);
+      expect(cubit.state.scope, TaskScope.mine);
+      // The list endpoint is not persona-filtered; the client boundary is.
+      expect(cubit.state.visibleTasks.map((t) => t.code), ['TSA_MINE']);
+    });
+
+    test('admin persona defaults to "All" and keeps no read boundary',
+        () async {
+      cubit.applyPersona('admin');
+      expect(cubit.state.persona, TaskPersona.admin);
+      expect(cubit.state.scope, TaskScope.all);
+
+      repo.tasks = [
+        _card(code: 'TSA_MINE', taskCode: 'TSK_1', assignee: 'STF_ME'),
+        _card(code: 'TSA_OTHER', taskCode: 'TSK_2', assignee: 'STF_OTHER'),
+      ];
+      await cubit.load();
+
+      expect(cubit.state.visibleTasks, hasLength(2));
+    });
+
+    test('parent persona is treated as no-access (no tasks visible)', () async {
+      cubit.applyPersona('parent');
+      expect(cubit.state.persona, TaskPersona.none);
+      repo.tasks = [
+        _card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_ME'),
+      ];
+      await cubit.load();
+      expect(cubit.state.persona, TaskPersona.none);
+      expect(cubit.state.visibleTasks, isEmpty);
+      expect(cubit.state.filteredTasks, isEmpty);
+    });
+
+    test('switching persona drops the previous session\'s cached tasks',
+        () async {
+      // The cubit is a singleton that outlives a logout, and the tasks route
+      // reloads silently — so without this, a staff member could briefly see the
+      // admin session's board (and its own identity match) before the fetch.
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_ME')];
+      await cubit.load();
+      expect(cubit.state.tasks, hasLength(1));
+      expect(cubit.state.currentStaffCode, 'STF_ME');
+
+      cubit.applyPersona('staff');
+
+      expect(cubit.state.tasks, isEmpty);
+      expect(cubit.state.currentUserCode, isEmpty);
+      expect(cubit.state.currentStaffCode, isEmpty);
+      // The new persona's toggle has different tabs, so its default is
+      // re-derived rather than inheriting the admin session's "All".
+      expect(cubit.state.scope, TaskScope.mine);
+    });
+
+    test('re-applying the same persona keeps the loaded board', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+      cubit.applyPersona('admin');
+      expect(cubit.state.tasks, hasLength(1));
+      expect(cubit.state.currentUserCode, 'USR_ME');
+    });
+
+    test('a later load never clobbers the user\'s own scope choice', () async {
+      cubit.applyPersona('staff');
+      cubit.setScope(TaskScope.byMe);
+      await cubit.load();
+      expect(cubit.state.scope, TaskScope.byMe);
+    });
+
+    test('falls back to the stored active-school role when no persona is '
+        'applied', () async {
+      cubit = _buildCubit(repo, activeSchoolRole: 'STAFF');
+      repo.tasks = [
+        _card(code: 'TSA_MINE', taskCode: 'TSK_1', assignee: 'STF_ME'),
+        _card(code: 'TSA_OTHER', taskCode: 'TSK_2', assignee: 'STF_OTHER'),
+      ];
+
+      await cubit.load();
+
+      expect(cubit.state.scope, TaskScope.mine);
+      expect(cubit.state.persona, TaskPersona.staff);
+      expect(cubit.state.visibleTasks.map((t) => t.code), ['TSA_MINE']);
+    });
   });
 
   // ------------------------------------------------ filter & scope mutators

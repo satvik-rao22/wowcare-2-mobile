@@ -83,6 +83,58 @@ class TasksCubit extends Cubit<TasksState> {
     super.emit(state);
   }
 
+  /// Records the signed-in persona (PRD §5.2) so the board applies the right
+  /// read boundary and default scope. Called from the route that opens the
+  /// module, which is where [RoleCubit] — the app's single source of persona
+  /// truth — is available; [load] only falls back to the stored active-school
+  /// role when this was never called.
+  ///
+  /// A staff/teacher persona reads only their own tasks and defaults to "For
+  /// me"; anyone else (admin personas) defaults to "All Tasks". The default is
+  /// applied once per cubit lifetime so it never clobbers the user's own toggle.
+  void applyPersona(String role) {
+    final persona = _personaFromRole(role);
+    final changed = persona != state.persona;
+    var scope = state.scope;
+    // A persona switch re-derives the default scope too: the new persona's
+    // toggle has different tabs ("For me"/"By Me" vs "My"/"All"), so carrying the
+    // old selection over would leave neither tab selected.
+    if (!_audienceDefaultApplied || changed) {
+      _audienceDefaultApplied = true;
+      scope = persona == TaskPersona.admin ? TaskScope.all : TaskScope.mine;
+    }
+    if (changed) {
+      // Persona changed within this cubit's lifetime — i.e. a different user
+      // signed in, since this cubit is a singleton that survives logout. Drop
+      // the previous session's board and identity so the (silent) reload can't
+      // show one persona's tasks to another.
+      emit(state.copyWith(
+        persona: persona,
+        scope: scope,
+        tasks: const [],
+        currentUserCode: '',
+        currentUserName: '',
+        currentStaffCode: '',
+      ));
+      return;
+    }
+    emit(state.copyWith(persona: persona, scope: scope));
+  }
+
+  /// Maps a [RoleCubit] role (or a backend active-school role string) onto the
+  /// task read boundary. Anything that isn't recognisably staff or guardian is
+  /// an admin persona, matching how [RoleCubit] itself resolves roles.
+  static TaskPersona _personaFromRole(String role) {
+    final normalized = role.trim().toLowerCase();
+    if (normalized.contains('guardian') || normalized.contains('parent')) {
+      return TaskPersona.none;
+    }
+    if (normalized.contains('staff') || normalized.contains('teacher')) {
+      return TaskPersona.staff;
+    }
+    return TaskPersona.admin;
+  }
+
   Future<void> load({bool silent = false}) async {
     if (!silent) {
       emit(state.copyWith(isLoading: true, errorMessage: () => null));
@@ -104,22 +156,24 @@ class TasksCubit extends Cubit<TasksState> {
         } catch (_) {}
       }
       var scope = state.scope;
+      var persona = state.persona;
       if (!_audienceDefaultApplied) {
         _audienceDefaultApplied = true;
-        // Staff/teacher personas default to "For me" / "My Tasks"
-        // (PRD FR-TK-19); admins default to "All Tasks".
-        final role =
-            (await _storageService.getString(StorageKeys.activeSchoolRole) ??
-                    '')
-                .toUpperCase();
-        final isStaff = role.contains('STAFF') || role.contains('TEACHER');
-        scope = isStaff ? TaskScope.mine : TaskScope.all;
+        // No persona applied by the route yet: fall back to the stored
+        // active-school role. Staff/teacher personas default to "For me" /
+        // "My Tasks" (PRD FR-TK-19) and read only their own tasks; admins
+        // default to "All Tasks".
+        persona = _personaFromRole(
+          await _storageService.getString(StorageKeys.activeSchoolRole) ?? '',
+        );
+        scope = persona == TaskPersona.admin ? TaskScope.all : TaskScope.mine;
       }
       final tasks = await _getTasks(query: state.searchQuery);
       await _ensureStaffNames();
       final schoolTimeZone = await TaskTimezone.resolve();
       emit(state.copyWith(
         scope: scope,
+        persona: persona,
         tasks: _withAssigneeNames(tasks),
         isLoading: false,
         currentUserCode: userCode,

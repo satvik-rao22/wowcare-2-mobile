@@ -7,6 +7,15 @@ part of 'tasks_cubit.dart';
 /// ("By Me" — created by them). See [TasksState.filteredTasks].
 enum TaskScope { all, mine, byMe }
 
+/// The signed-in persona's task read boundary (PRD §5.2 "View All Tasks").
+///
+/// [admin] covers Org Admin, School Admin and CWW Super Admin (impersonation
+/// lands as the impersonated school's admin) — full read across the school.
+/// [staff] is Staff/Teacher — reads only tasks assigned to or created by them.
+/// [none] is Guardian/Parent — no task read at all; the module, its navigation
+/// entry and its data are hidden from them entirely.
+enum TaskPersona { admin, staff, none }
+
 class TasksState extends Equatable {
   const TasksState({
     required this.tasks,
@@ -27,6 +36,7 @@ class TasksState extends Equatable {
     this.errorMessage,
     this.errorNonce = 0,
     this.schoolTimeZone = TaskTimezone.fallbackTimeZone,
+    this.persona = TaskPersona.admin,
   });
 
   const TasksState.initial()
@@ -47,7 +57,8 @@ class TasksState extends Equatable {
         currentStaffCode = '',
         errorMessage = null,
         errorNonce = 0,
-        schoolTimeZone = TaskTimezone.fallbackTimeZone;
+        schoolTimeZone = TaskTimezone.fallbackTimeZone,
+        persona = TaskPersona.admin;
 
   final List<Task> tasks;
   final bool isLoading;
@@ -94,6 +105,15 @@ class TasksState extends Equatable {
   /// dropped because the text didn't change.
   final int errorNonce;
 
+  /// The signed-in persona's read boundary (PRD §5.2), which narrows
+  /// [visibleTasks] regardless of which scope the toggle is on. Set by
+  /// [TasksCubit.applyPersona] from [RoleCubit] when the module opens, and
+  /// derived from the stored active-school role by [TasksCubit.load] otherwise.
+  /// Defaults to [TaskPersona.admin] so the board behaves exactly as before for
+  /// admin sessions; staff/parent sessions are narrowed the moment the persona
+  /// is known (before the first fetch resolves).
+  final TaskPersona persona;
+
   /// Count of active sheet filters shown on the Filters button. Search is
   /// tracked separately by [hasActiveFilters] so the search bar drives the
   /// Clear affordance without bumping this badge (PRD FR-TK-24).
@@ -107,17 +127,37 @@ class TasksState extends Equatable {
 
   bool get hasActiveFilters => filterCount > 0 || searchQuery.trim().isNotEmpty;
 
+  /// The tasks this persona is allowed to see at all, before any scope toggle
+  /// or filter (PRD §5.2 "View All Tasks"). The `/tasks/assignments` endpoint
+  /// is not persona-filtered, so this is the client-side read boundary:
+  ///
+  /// - [TaskPersona.admin] → every loaded task.
+  /// - [TaskPersona.staff] → only tasks assigned to or created by them; nothing
+  ///   at all while their identity is unresolved (fail closed — never fall back
+  ///   to the whole school).
+  /// - [TaskPersona.none] (guardian/parent) → nothing.
+  List<Task> get visibleTasks {
+    switch (persona) {
+      case TaskPersona.admin:
+        return tasks;
+      case TaskPersona.staff:
+        return tasks.where((task) => _isMine(task) || _isByMe(task)).toList();
+      case TaskPersona.none:
+        return const [];
+    }
+  }
+
   /// Tasks passing the scope / assignee / priority / status / date / overdue
-  /// filters. The free-text search is applied server-side (Tasks API §7 `q`),
-  /// so [tasks] is already the search result set — no client-side text match
-  /// here.
+  /// filters, within [visibleTasks]. The free-text search is applied
+  /// server-side (Tasks API §7 `q`), so [tasks] is already the search result
+  /// set — no client-side text match here.
   ///
   /// This iterates the full list, so callers that need it several times in one
   /// build (the status tabs, the Kanban column and the list view) should
   /// compute it once and reuse it rather than reading this getter repeatedly.
   List<Task> get filteredTasks {
     final now = DateTime.now();
-    return tasks.where((task) {
+    return visibleTasks.where((task) {
       if (scope == TaskScope.mine && !_isMine(task)) return false;
       if (scope == TaskScope.byMe && !_isByMe(task)) return false;
       if (assigneeFilter.isNotEmpty &&
@@ -211,32 +251,40 @@ class TasksState extends Equatable {
     return [...overdue, ...rest];
   }
 
+  /// The current user's identity codes (empty entries dropped) — a task matches
+  /// "mine"/"by me" on either the staff code or the user code, since the two
+  /// spellings appear in different payloads.
+  Set<String> get _identityCodes =>
+      <String>{currentUserCode, currentStaffCode}
+        ..removeWhere((code) => code.isEmpty);
+
   /// Whether [task] is assigned to the current user. "My Tasks" shows only
   /// tasks assigned to the current user (PRD FR-TK-19) — note this is the
   /// *view* scope and is intentionally narrower than manage-ownership in
   /// `TaskAccess` (which also covers tasks the staff member created).
-  /// Permissive while the user identity hasn't resolved yet.
+  ///
+  /// Fails closed while the identity is unresolved: "my tasks" for an unknown
+  /// user must never widen to everyone else's tasks.
   bool _isMine(Task task) {
-    final codes = <String>{currentUserCode, currentStaffCode}
-      ..removeWhere((code) => code.isEmpty);
-    if (codes.isEmpty) return true;
+    final codes = _identityCodes;
+    if (codes.isEmpty) return false;
     return codes.contains(task.assigneeCode);
   }
 
   /// Whether [task] was created by the current user — backs the staff "By Me"
-  /// scope. Permissive while the user identity hasn't resolved yet.
+  /// scope. Fails closed while the identity is unresolved, as [_isMine] does.
   bool _isByMe(Task task) {
-    final codes = <String>{currentUserCode, currentStaffCode}
-      ..removeWhere((code) => code.isEmpty);
-    if (codes.isEmpty) return true;
+    final codes = _identityCodes;
+    if (codes.isEmpty) return false;
     return codes.contains(task.createdBy);
   }
 
-  /// Distinct assignees referenced by any task — offline-safe options for the
-  /// assignee filter dropdown.
+  /// Distinct assignees referenced by a task this persona can see — offline-safe
+  /// options for the assignee filter dropdown. Built from [visibleTasks] so a
+  /// staff persona's dropdown never lists colleagues off their own tasks.
   List<TaskAssigneeRef> get assigneeOptions {
     final byCode = <String, String>{};
-    for (final task in tasks) {
+    for (final task in visibleTasks) {
       if (task.assigneeCode.isNotEmpty) {
         byCode[task.assigneeCode] = task.assigneeName;
       }
@@ -248,11 +296,11 @@ class TasksState extends Equatable {
     return options;
   }
 
-  /// Distinct creators referenced by any task — offline-safe options for the
-  /// "Created By" filter dropdown.
+  /// Distinct creators referenced by a task this persona can see — offline-safe
+  /// options for the "Created By" filter dropdown (see [assigneeOptions]).
   List<TaskAssigneeRef> get createdByOptions {
     final byCode = <String, String>{};
-    for (final task in tasks) {
+    for (final task in visibleTasks) {
       if (task.createdBy.isNotEmpty) {
         byCode[task.createdBy] =
             task.createdByName.isNotEmpty ? task.createdByName : task.createdBy;
@@ -290,6 +338,7 @@ class TasksState extends Equatable {
     String? currentStaffCode,
     String? Function()? errorMessage,
     String? schoolTimeZone,
+    TaskPersona? persona,
   }) {
     final resolvedError =
         errorMessage != null ? errorMessage() : this.errorMessage;
@@ -315,6 +364,7 @@ class TasksState extends Equatable {
       errorMessage: resolvedError,
       errorNonce: bumpedNonce,
       schoolTimeZone: schoolTimeZone ?? this.schoolTimeZone,
+      persona: persona ?? this.persona,
     );
   }
 
@@ -338,5 +388,6 @@ class TasksState extends Equatable {
         errorMessage,
         errorNonce,
         schoolTimeZone,
+        persona,
       ];
 }

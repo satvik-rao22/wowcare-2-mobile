@@ -53,43 +53,57 @@ class _TasksScreenState extends State<TasksScreen> {
     return GlobalScaffold(
       hasBackButton: false,
       showCustomNavigationBar: true,
-      body: BlocConsumer<TasksCubit, TasksState>(
-        // Surface failures (e.g. a status/priority change the backend rejects)
-        // instead of silently leaving the card unchanged. Keyed off errorNonce
-        // (not the message text) so two failures in a row with identical text
-        // (e.g. repeated offline retries) still each show their own toast
-        // instead of the second one being silently dropped.
-        listenWhen: (prev, curr) =>
-            curr.errorMessage != null && curr.errorNonce != prev.errorNonce,
-        listener: (context, state) => CoreUtils.showTopSnackBar(
-          context: context,
-          message: state.errorMessage!,
-          isError: true,
-        ),
-        builder: (context, state) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _header(context, roles),
-                const SizedBox(height: 10),
-                _controlsRow(context, state, roles),
-                const SizedBox(height: 10),
-                _toolbar(context, state),
-                const SizedBox(height: 10),
-                if (state.isLoading)
-                  const Expanded(
-                    child: Center(child: PrimaryCircularLoader()),
-                  )
-                else if (_viewMode == _TasksViewMode.kanban)
-                  Expanded(child: _kanbanView(context, state, roles))
-                else
-                  Expanded(child: _listView(context, state, roles)),
-              ],
-            ),
-          );
+      // RoleCubit resolves the persona asynchronously (it starts on its
+      // 'admin' default and settles once /users/details answers). The route
+      // applies whatever persona is known when the board opens, so re-apply it
+      // whenever the role actually changes — otherwise a staff session that
+      // opened Tasks before its role landed would keep the admin read scope
+      // (PRD §5.2). applyPersona clears the previous persona's board, so refetch.
+      body: BlocListener<RoleCubit, RoleState>(
+        listenWhen: (prev, curr) => prev.role != curr.role,
+        listener: (context, roleState) {
+          final cubit = context.read<TasksCubit>();
+          cubit.applyPersona(roleState.role);
+          cubit.load(silent: true);
         },
+        child: BlocConsumer<TasksCubit, TasksState>(
+          // Surface failures (e.g. a status/priority change the backend
+          // rejects) instead of silently leaving the card unchanged. Keyed off
+          // errorNonce (not the message text) so two failures in a row with
+          // identical text (e.g. repeated offline retries) still each show their
+          // own toast instead of the second one being silently dropped.
+          listenWhen: (prev, curr) =>
+              curr.errorMessage != null && curr.errorNonce != prev.errorNonce,
+          listener: (context, state) => CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage!,
+            isError: true,
+          ),
+          builder: (context, state) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _header(context, roles),
+                  const SizedBox(height: 10),
+                  _controlsRow(context, state, roles),
+                  const SizedBox(height: 10),
+                  _toolbar(context, state),
+                  const SizedBox(height: 10),
+                  if (state.isLoading)
+                    const Expanded(
+                      child: Center(child: PrimaryCircularLoader()),
+                    )
+                  else if (_viewMode == _TasksViewMode.kanban)
+                    Expanded(child: _kanbanView(context, state, roles))
+                  else
+                    Expanded(child: _listView(context, state, roles)),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -129,10 +143,12 @@ class _TasksScreenState extends State<TasksScreen> {
   /// admins switch between "My Tasks" and "All Tasks".
   Widget _controlsRow(BuildContext context, TasksState state, RoleCubit roles) {
     final cubit = context.read<TasksCubit>();
-    final isStaff = roles.isStaff;
-    final leftLabel = isStaff ? 'For me' : 'My Tasks';
-    final rightLabel = isStaff ? 'By Me' : 'All Tasks';
-    final rightScope = isStaff ? TaskScope.byMe : TaskScope.all;
+    // Only admins may see the whole school (PRD §5.2); a staff persona's second
+    // tab is "By Me" (tasks they created), never everyone's tasks.
+    final scopedToOwn = !TaskAccess.canViewAllTasks(roles);
+    final leftLabel = scopedToOwn ? 'For me' : 'My Tasks';
+    final rightLabel = scopedToOwn ? 'By Me' : 'All Tasks';
+    final rightScope = scopedToOwn ? TaskScope.byMe : TaskScope.all;
     return Row(
       children: [
         Expanded(
