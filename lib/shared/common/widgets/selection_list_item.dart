@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../../app/theme/colors.dart';
 import 'custom_checkbox.dart';
+import 'ellipsis_tooltip_text.dart';
 import 'profile_show_widget.dart';
 
 class CommonSelectionItem extends StatelessWidget {
@@ -64,10 +65,10 @@ class CommonSelectionItem extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  name.trim().isEmpty ? 'Student' : name.trim(),
+                child: EllipsisTooltipText(
+                  text: name.trim().isEmpty ? 'Student' : name.trim(),
                   maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  preferLongPress: true,
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     color: AppColors.primaryColor,

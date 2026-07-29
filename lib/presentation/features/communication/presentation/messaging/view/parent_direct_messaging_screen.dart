@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
@@ -417,10 +418,14 @@ class _ParentDirectMessagingScreenState
       context,
       onAttachmentsSelected: (attachments) {
         if (attachments.isEmpty) return;
-        // Only one attachment may be pending at a time, matching the
-        // existing in-thread composer's behavior.
+        // Add to whatever's already staged — picking multiple photos/videos
+        // together (or picking again before sending) must accumulate, not
+        // discard everything but the newest single file.
         setState(
-          () => _pendingNewConversationAttachments = [attachments.first],
+          () => _pendingNewConversationAttachments = [
+            ..._pendingNewConversationAttachments,
+            ...attachments,
+          ],
         );
       },
       onEmojiSelected: (emoji) {
@@ -478,12 +483,10 @@ class _ParentDirectMessagingScreenState
     await createResult.fold(
       (failure) async {
         setState(() => _isStartingConversation = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              failure.message ?? 'Could not start the conversation. Try again.',
-            ),
-          ),
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: failure.message ?? 'Could not start the conversation. Try again.',
+          isError: true,
         );
       },
       (conversation) async {

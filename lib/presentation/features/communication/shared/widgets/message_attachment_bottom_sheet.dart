@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 
@@ -64,18 +65,33 @@ class _MessageAttachmentBottomSheetState
 
   // ── Attachment actions ────────────────────────────────────────────────────
 
+  static const int _imageMaxSizeBytes = 10 * 1024 * 1024;
+  static const int _videoMaxSizeBytes = 200 * 1024 * 1024;
+
   Future<void> _pickCamera() async {
     Navigator.of(context).pop();
     final file = await _picker.pickImage(source: ImageSource.camera);
     if (file == null) return;
-    await _processFiles([File(file.path)], isPhoto: true);
+    await _processFiles([File(file.path)]);
   }
 
+  Future<void> _pickRecordVideo() async {
+    Navigator.of(context).pop();
+    final file = await _picker.pickVideo(source: ImageSource.camera);
+    if (file == null) return;
+    await _processFiles([File(file.path)]);
+  }
+
+  /// Photos AND videos together, in one gallery browse — every format either
+  /// type supports, not just images.
   Future<void> _pickGallery() async {
     Navigator.of(context).pop();
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
-      allowedExtensions: FilePickerUtils.allowedImageExtensions,
+      allowedExtensions: [
+        ...FilePickerUtils.allowedImageExtensions,
+        ...FilePickerUtils.allowedVideoExtensions,
+      ],
       allowMultiple: true,
     );
     if (result == null || result.files.isEmpty) return;
@@ -85,7 +101,7 @@ class _MessageAttachmentBottomSheetState
         .map((p) => File(p))
         .toList();
     if (files.isEmpty) return;
-    await _processFiles(files, isPhoto: true);
+    await _processFiles(files);
   }
 
   Future<void> _pickDocument() async {
@@ -102,40 +118,38 @@ class _MessageAttachmentBottomSheetState
         .map((p) => File(p))
         .toList();
     if (files.isEmpty) return;
-    await _processFiles(files, isPhoto: false);
-  }
-
-  // ignore: unused_element
-  Future<void> _pickVideo() async {
-    Navigator.of(context).pop();
-    final file = await _picker.pickVideo(source: ImageSource.gallery);
-    if (file == null) return;
-    await _processFiles([File(file.path)], isPhoto: false);
+    await _processFiles(files);
   }
 
   // ignore: unused_element
   Future<void> _notImplemented(String feature) async {
     Navigator.of(context).pop();
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('$feature coming soon'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    CoreUtils.showTopSnackBar(context: context, message: '$feature coming soon');
   }
 
-  Future<void> _processFiles(List<File> files, {required bool isPhoto}) async {
+  /// Classifies each file by its own extension (image / video / document)
+  /// rather than a single blanket type for the whole batch — [_pickGallery]
+  /// can hand back a mix of photos and videos in one call.
+  Future<void> _processFiles(List<File> files) async {
     final valid = <ChatAttachment>[];
     for (final file in files) {
+      final ext = p.extension(file.path).toLowerCase().replaceFirst('.', '');
+      final isImage = FilePickerUtils.allowedImageExtensions.contains(ext);
+      final isVideo = FilePickerUtils.allowedVideoExtensions.contains(ext);
+      final type = isImage ? 'image' : (isVideo ? 'video' : 'document');
+
       final size = await file.length();
-      if (size > 10 * 1024 * 1024) continue;
-      final mime = lookupMimeType(file.path) ?? 'application/octet-stream';
+      final maxSize = isVideo ? _videoMaxSizeBytes : _imageMaxSizeBytes;
+      if (size > maxSize) continue;
+
+      final mime = lookupMimeType(file.path) ??
+          FilePickerUtils.getMimeType(ext);
       valid.add(
         ChatAttachment(
           localPath: file.path,
           name: p.basename(file.path),
-          type: isPhoto ? 'image' : 'document',
+          type: type,
           sizeBytes: size,
           mimeType: mime,
           remoteUrl: '',
@@ -252,12 +266,12 @@ class _MessageAttachmentBottomSheetState
                   color: const Color(0xFFF59E0B),
                   onTap: _pickDocument,
                 ),
-                // _AttachmentGridItem(
-                //   icon: Icons.videocam_rounded,
-                //   label: 'Video',
-                //   color: const Color(0xFFEC4899),
-                //   onTap: _pickVideo,
-                // ),
+                _AttachmentGridItem(
+                  icon: Icons.videocam_rounded,
+                  label: 'Video',
+                  color: const Color(0xFFEC4899),
+                  onTap: _pickRecordVideo,
+                ),
                 // _AttachmentGridItem(
                 //   icon: Icons.audiotrack_rounded,
                 //   label: 'Audio',

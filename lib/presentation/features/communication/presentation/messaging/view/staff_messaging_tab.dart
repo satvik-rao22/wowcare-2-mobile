@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
@@ -14,6 +15,7 @@ import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.da
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import '../../../../../../app/theme/media_res.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
+import '../../../../../../domain/features/communication/repositories/communication_repository.dart';
 import '../../../../../../shared/common/views/filter_screen.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/custom_toggle.dart';
@@ -192,21 +194,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// across the Staff and Parent tabs since both go through this one path.
   Future<void> _startConversationWith(String code, String name) async {
     if (_currentUserCode != null && code == _currentUserCode) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('You can\'t start a conversation with yourself'),
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'You can\'t start a conversation with yourself',
+        isWarning: true,
       );
       return;
     }
     if (_startingConversationWith.contains(code)) return;
     _startingConversationWith.add(code);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Creating conversation with $name…'),
-        duration: const Duration(seconds: 2),
-      ),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Creating conversation with $name…',
     );
 
     final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
@@ -221,13 +221,17 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     if (!mounted) return;
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start a conversation with $name')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not start a conversation with $name',
+        isError: true,
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Chat with $name created successfully')),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Chat with $name created successfully',
+      isSuccess: true,
     );
     _openThread(
       // [name] is the counterpart the creator explicitly picked, so it is the
@@ -247,12 +251,59 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     setState(() {}); // Trigger rebuild to re-filter in build
   }
 
+  /// Rapid search: hits the staff/student list API on every keystroke (no
+  /// debounce) — mirrors StaffScreen/StudentScreen's own search bars, which
+  /// use the same `searchStaff`/`updateSearch`+`refresh` pattern. Without
+  /// this, "Start new chat" only ever filtered whatever page `loadInitial()`
+  /// happened to load, so searching for someone outside that first page
+  /// silently found nothing and never queried the backend at all.
+  void _onSearchTextChanged() {
+    _applyFilters();
+    final query = _searchController.text.trim();
+    if (widget.isStaffMessaging) {
+      context.read<StaffCubit>().searchStaff(query);
+    } else {
+      context.read<StudentCubit>().updateSearch(query);
+      context.read<StudentCubit>().refresh(ignoreRefreshingGuard: true);
+    }
+    _searchConversations(query);
+  }
+
+  /// Existing conversations matching the current search text, sourced from
+  /// the server (`GET /conversations/search?q=...`) rather than filtering
+  /// only whatever page of conversations happens to already be loaded
+  /// client-side — a query can match a conversation that hasn't been
+  /// fetched into [CommunicationCubit]'s state yet.
+  List<Conversation>? _serverSearchResults;
+
+  /// Guards against an older, slower keystroke's response overwriting a
+  /// newer one's — only the response matching [_searchController]'s CURRENT
+  /// text at completion time is applied.
+  int _searchRequestToken = 0;
+
+  Future<void> _searchConversations(String query) async {
+    final token = ++_searchRequestToken;
+    if (query.isEmpty) {
+      if (mounted) setState(() => _serverSearchResults = null);
+      return;
+    }
+    final result = await serviceLocator<CommunicationRepository>()
+        .searchConversations(query: query, type: _conversationType);
+    if (!mounted || token != _searchRequestToken) return;
+    result.fold(
+      (_) {}, // Keep showing the previous (or empty) results on failure.
+      (conversations) => setState(() => _serverSearchResults = conversations),
+    );
+  }
+
   void _clearAllFilters() {
     setState(() {
       _currentFilters.clear();
       _showUnread = false;
       _currentFilters['Unread'] = [];
       _searchController.clear();
+      _serverSearchResults = null;
+      _searchRequestToken++;
     });
     if (!mounted) return;
     _applyFilters();
@@ -304,7 +355,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       }
     });
 
-    _searchController.addListener(_applyFilters);
+    _searchController.addListener(_onSearchTextChanged);
     _conversationScrollController.addListener(_onConversationScroll);
 
     // Reload the conversation list when the background bulk-send job finishes.
@@ -339,7 +390,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   @override
   void dispose() {
     _conversationListChangedSub?.cancel();
-    _searchController.removeListener(_applyFilters);
+    _searchController.removeListener(_onSearchTextChanged);
     _searchController.dispose();
     _conversationScrollController.removeListener(_onConversationScroll);
     _conversationScrollController.dispose();
@@ -398,14 +449,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                             type: _conversationType,
                             size: _conversationPageSize,
                           );
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(
-                              const SnackBar(
-                                content: Text('Refreshing conversations…'),
-                                duration: Duration(milliseconds: 1200),
-                              ),
-                            );
+                          CoreUtils.showTopSnackBar(
+                            context: context,
+                            message: 'Refreshing conversations…',
+                            duration: const Duration(milliseconds: 1200),
+                          );
                         },
                         child: Container(
                           padding: const EdgeInsets.all(10),
@@ -737,7 +785,19 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               .toSet();
                         }
 
-                        conversationsToDisplay = allConversationsForType.where((
+                        // Once the server search for the current query has
+                        // resolved, search the account's full conversation
+                        // history instead of only what's already loaded
+                        // locally — a match may not be among the
+                        // (recency-ordered) conversations fetched so far.
+                        // Falls back to filtering the local list by title
+                        // while that request is still in flight.
+                        final conversationsBaseList =
+                            (query.isNotEmpty && _serverSearchResults != null)
+                            ? _serverSearchResults!
+                            : allConversationsForType;
+
+                        conversationsToDisplay = conversationsBaseList.where((
                           conv,
                         ) {
                           if (query.isNotEmpty &&
@@ -1130,7 +1190,18 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   Widget _buildContactRow(_FilteredContact contact, {Key? key}) {
     return InkWell(
       key: key,
-      onTap: () => _startConversationWith(contact.userCode, contact.name),
+      // Staff contacts: userCode (USR_*) is the STAFF_DIRECT participant.
+      // Student contacts deliberately leave userCode empty (see
+      // _FilteredContact doc comment below) — contact.code (the student's
+      // own code) is what _startConversationWith sends as ROOM_CHAT's
+      // required studentCode. Passing the empty userCode unconditionally
+      // sent ROOM_CHAT with no studentCode, which the backend 500s on —
+      // this is the same conversation-creation path the New Message screen
+      // uses correctly, just reached by searching here instead.
+      onTap: () => _startConversationWith(
+        widget.isStaffMessaging ? contact.userCode : contact.code,
+        contact.name,
+      ),
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,
       child: Container(

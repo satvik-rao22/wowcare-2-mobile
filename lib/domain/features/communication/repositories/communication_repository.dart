@@ -36,6 +36,18 @@ abstract class CommunicationRepository {
     int page = 0,
     int size = 20,
   });
+
+  /// Server-side search across ALL of the account's conversations of [type]
+  /// matching [query] — not limited to whatever's already loaded/cached
+  /// client-side. Read-only: unlike [getConversations], results are never
+  /// written to the conversations cache.
+  Future<Either<Failure, List<Conversation>>> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
+  });
   Future<Either<Failure, List<Conversation>>> loadCachedConversations();
   Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId, {String? currentUserId});
   Future<Either<Failure, void>> addReaction(

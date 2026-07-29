@@ -312,6 +312,32 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
+  Future<Either<Failure, List<Conversation>>> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
+  }) async {
+    try {
+      final response = await remoteDataSource.searchConversations(
+        query: query,
+        type: type,
+        status: status,
+        page: page,
+        size: size,
+      );
+
+      if (response.success && response.data != null) {
+        return Right(response.data!.content);
+      }
+      return Left(ServerFailure(response.message));
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<Conversation>>> loadCachedConversations() async {
     try {
       final cachedItems = await cacheService.getAll<ConversationCollection>();

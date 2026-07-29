@@ -22,6 +22,7 @@ abstract class StudentRemoteDataSource {
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   });
 
   Future<StudentProfileModel> getStudentProfile(String code);
@@ -427,6 +428,7 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   }) async {
     final queryParameters = <String, dynamic>{
       'schoolCode': schoolCode,
@@ -434,6 +436,17 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       'size': size,
       'sort': 'firstName,asc',
     };
+
+    // Hard security scope for a restricted staff/teacher persona — sent as
+    // its own param (distinct from classroomCodes, the optional user-chosen
+    // filter) so the backend enforces it regardless of what's selected.
+    // Mirrors the attendance module's proven allowedClassroomCodes contract.
+    final allowedCodes = allowedClassroomCodes
+        ?.where((c) => c.trim().isNotEmpty)
+        .toList();
+    if (allowedCodes != null && allowedCodes.isNotEmpty) {
+      queryParameters['allowedClassroomCodes'] = allowedCodes;
+    }
 
     if (code != null && code.isNotEmpty) {
       queryParameters['code'] = code;

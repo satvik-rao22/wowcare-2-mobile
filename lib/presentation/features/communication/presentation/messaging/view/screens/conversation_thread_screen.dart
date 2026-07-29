@@ -1082,8 +1082,16 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // meantime.
     return Stack(
       children: [
-        Opacity(
-          opacity: _isPositionedAtBottom ? 1 : 0,
+        // Visibility (not Opacity) so the hidden list is excluded from the
+        // semantics tree while off-screen — a reverse:true ListView whose
+        // hidden subtree still participates in semantics while this Stack's
+        // visible child flips is what was triggering Flutter's
+        // `!semantics.parentDataDirty` assertion crash on open.
+        Visibility(
+          visible: _isPositionedAtBottom,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
           child: _buildRealMessageList(messages),
         ),
         if (!_isPositionedAtBottom)

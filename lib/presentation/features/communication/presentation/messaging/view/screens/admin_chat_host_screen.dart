@@ -1,9 +1,12 @@
 import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -18,7 +21,6 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
 import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
@@ -279,11 +281,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     _startingConversationWith.add(code);
 
     final name = '${student.firstName} ${student.lastName}'.trim();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Creating conversation with $name…'),
-        duration: const Duration(seconds: 2),
-      ),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Creating conversation with $name…',
     );
 
     final storage = serviceLocator<StorageService>();
@@ -301,13 +301,17 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     if (!mounted) return;
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start a conversation with $name')),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not start a conversation with $name',
+        isError: true,
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Chat with $name created successfully')),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Chat with $name created successfully',
+      isSuccess: true,
     );
     unawaited(_cubit.refresh());
     _openThread(conversation);
@@ -407,13 +411,74 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
+                            // Discoverable manual refresh — mirrors the pull-to-refresh
+                            // (ConversationListCubit.refresh) so users aren't limited to
+                            // the pull gesture, which isn't obvious and can't be
+                            // triggered on a short/empty list. Matches Staff/Parent
+                            // Messaging's search bar.
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () {
+                                  context.read<ConversationListCubit>().refresh();
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: 'Refreshing conversations…',
+                                    duration: const Duration(milliseconds: 1200),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: const Color(0x33B1AFE9),
+                                  ),
+                                  child: Icon(
+                                    Icons.refresh,
+                                    color: AppColors.primaryColor,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             // Non-parents only (the parent branch returns early above).
-                            FilterIndicator(
-                              hasActiveFilters: _hasStudentFilters,
-                              filterCount: (_selectedClassrooms.isNotEmpty ? 1 : 0) +
-                                  (_selectedTags.isNotEmpty ? 1 : 0) +
-                                  (_selectedStatus != null ? 1 : 0),
-                              onTap: _showFilterSheet,
+                            // Same SVG icon + active-filter dot used by Staff/Parent
+                            // Messaging's filter button, instead of FilterIndicator's
+                            // generic Icons.tune, which didn't match the rest of the
+                            // messaging tabs.
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _showFilterSheet,
+                                borderRadius: BorderRadius.circular(100),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      SvgPicture.asset(
+                                        MediaRes.filterIcon,
+                                        height: 20,
+                                      ),
+                                      if (_hasStudentFilters)
+                                        Positioned(
+                                          top: -2,
+                                          right: -2,
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.red,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -852,7 +917,12 @@ class _ConversationTileContent extends StatelessWidget {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          '${conversation.participantCount} participants',
+                          // The list endpoint sends participantCount as null
+                          // for ADMIN_CHAT (always parses to 0) even though
+                          // it embeds the full participants array correctly —
+                          // count active participants directly instead of
+                          // trusting that separate, unpopulated field.
+                          '${conversation.participants.where((p) => p.leftAt == null).length} participants',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFB2BEC3),

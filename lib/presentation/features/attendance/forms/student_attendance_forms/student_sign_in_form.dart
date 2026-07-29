@@ -493,7 +493,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
     final isStaffPersona = _isStaffPersona ?? await _resolveIsStaffPersona();
-    final nowUtc = ServerTimeService.instance.nowUtc();
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.resolvePickedInstantUtc(
@@ -528,20 +527,16 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         );
         return;
       }
-    } else if (isStaffPersona) {
-      // Staff cannot sign in for a future date/time
-      if (occurredAt.isAfter(nowUtc)) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('You cannot sign in for future date/time.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
     }
+    // Staff future-date/time was previously blocked here client-side, but
+    // `occurredAt` and `nowUtc` come from two separately-captured "now"
+    // reads a few statements apart — clock drift between them (or just the
+    // wall clock ticking forward between the reads) could make an
+    // unmodified, still-defaulted-to-now pick register as "after now" and
+    // false-positive this warning even though nothing was actually set to
+    // the future. The backend is the source of truth for this and already
+    // rejects an actually-future sign-in; no need to duplicate (and
+    // potentially misfire) that check here.
 
     final studentCodes = currentStudents
         .map((s) => s.studentCode.trim())

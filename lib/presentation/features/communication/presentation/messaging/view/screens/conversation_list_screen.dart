@@ -725,7 +725,10 @@ class _ConversationTileContent extends StatelessWidget {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          '${conversation.participantCount}',
+                          // participantCount comes back null/0 from the list
+                          // endpoint even when participants is fully
+                          // populated — count active participants directly.
+                          '${conversation.participants.where((p) => p.leftAt == null).length}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFB2BEC3),

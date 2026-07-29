@@ -319,7 +319,6 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final nowUtc = ServerTimeService.instance.nowUtc();
 
     // Teachers can only sign out themselves and cannot modify time.
     late final DateTime occurredAt;
@@ -371,22 +370,13 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       );
     }
 
-    // Admin cannot sign out for future date/time.
-    if (isStaffAdmin && !isSelfTarget && occurredAt.isAfter(nowUtc)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('You cannot sign out for future date/time.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
+    // Admin future-date/time was previously blocked here client-side by
+    // comparing `occurredAt` against a separately-captured `nowUtc` a few
+    // statements earlier — clock drift (or just the wall clock ticking
+    // forward) between those two reads could false-positive this warning
+    // even for an unmodified, still-defaulted-to-now pick. The backend
+    // already rejects an actually-future sign-out; no need to duplicate
+    // (and potentially misfire) that check here.
 
     final staffCodes = targetStaffCodes;
     final classroomCodeByStaffCode = <String, String>{

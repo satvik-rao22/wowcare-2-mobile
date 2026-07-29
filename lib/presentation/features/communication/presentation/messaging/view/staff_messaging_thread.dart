@@ -526,13 +526,29 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
         if (state is CommunicationError && _messages.isEmpty) {
           return Scaffold(
-            body: SafeArea(child: _buildErrorState(state.message)),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  _buildThreadHeader(context),
+                  Expanded(child: _buildErrorState(state.message)),
+                ],
+              ),
+            ),
           );
         }
 
         if (state is CommunicationLoaded && _messages.isEmpty) {
           return Scaffold(
-            body: SafeArea(child: _buildEmptyConversationState(context, state)),
+            body: SafeArea(
+              child: Column(
+                children: [
+                  _buildThreadHeader(context),
+                  Expanded(
+                    child: _buildEmptyConversationState(context, state),
+                  ),
+                ],
+              ),
+            ),
           );
         }
 
@@ -558,8 +574,16 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                           Flexible(
                             child: Stack(
                               children: [
-                                Opacity(
-                                  opacity: _isPositionedAtBottom ? 1 : 0,
+                                // Visibility (not Opacity) excludes the
+                                // hidden list from semantics while off-screen
+                                // — avoids the `!semantics.parentDataDirty`
+                                // assertion this Stack+Opacity+ListView shape
+                                // can trigger when the visible child flips.
+                                Visibility(
+                                  visible: _isPositionedAtBottom,
+                                  maintainState: true,
+                                  maintainAnimation: true,
+                                  maintainSize: true,
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
@@ -851,237 +875,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Container(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      border: const Border(
-                                        bottom: BorderSide(
-                                          color: Color(0xFFE9ECEF),
-                                          width: 1,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 24.0,
-                                        vertical: 16,
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.start,
-                                        children: [
-                                          GestureDetector(
-                                            onTap: () =>
-                                                Navigator.of(context).pop(),
-                                            child: Container(
-                                              padding: const EdgeInsets.all(4),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.1),
-                                                shape: BoxShape.circle,
-                                              ),
-                                              child: Icon(
-                                                Icons.arrow_back_rounded,
-                                                size: 20,
-                                                color: AppColors.primaryColor,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 12),
-                                          Stack(
-                                            children: [
-                                              DocumentImageWidget(
-                                                fileUuid: '',
-                                                imageUrl:
-                                                    _staffAvatarAsImageUrl,
-                                                mediaAssetCode:
-                                                    _staffAvatarAsMediaAssetCode,
-                                                name: widget.staffInfo['name'],
-                                                size: 45,
-                                              ),
-                                              Positioned(
-                                                right: 0,
-                                                top: 0,
-                                                child: Container(
-                                                  width: 12,
-                                                  height: 12,
-                                                  decoration: BoxDecoration(
-                                                    color:
-                                                        (widget.staffInfo['isSigned'] ??
-                                                            false)
-                                                        ? const Color.fromRGBO(
-                                                            0,
-                                                            177,
-                                                            21,
-                                                            1,
-                                                          )
-                                                        : Colors.transparent,
-                                                    shape: BoxShape.circle,
-                                                    border: Border.all(
-                                                      color:
-                                                          (widget.staffInfo['isSigned'] ??
-                                                              false)
-                                                          ? Colors.white
-                                                          : Colors.transparent,
-                                                      width: 2,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(width: 10),
-                                          Flexible(
-                                            child: Row(
-                                              children: [
-                                                Expanded(
-                                                  child: CustomTextWidget(
-                                                    text: widget
-                                                        .staffInfo['name'],
-                                                    fontWeight: FontWeight.w600,
-                                                    fontSize: 20,
-                                                  ),
-                                                ),
-                                                const SizedBox(width: 8),
-                                                GestureDetector(
-                                                  onTap: () {
-                                                    showDialog(
-                                                      context: context,
-                                                      builder: (context) => AlertDialog(
-                                                        title: CustomTextWidget(
-                                                          text: widget
-                                                              .staffInfo['name'],
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          fontSize: 18,
-                                                        ),
-                                                        content: Column(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          crossAxisAlignment:
-                                                              CrossAxisAlignment
-                                                                  .start,
-                                                          children: [
-                                                            if (widget
-                                                                    .staffInfo['designation'] !=
-                                                                null)
-                                                              Padding(
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      vertical:
-                                                                          4,
-                                                                    ),
-                                                                child: RichText(
-                                                                  text: TextSpan(
-                                                                    children: [
-                                                                      const TextSpan(
-                                                                        text:
-                                                                            'Designation: ',
-                                                                        style: TextStyle(
-                                                                          fontWeight:
-                                                                              FontWeight.w600,
-                                                                          color:
-                                                                              Colors.black87,
-                                                                        ),
-                                                                      ),
-                                                                      TextSpan(
-                                                                        text: widget
-                                                                            .staffInfo['designation']
-                                                                            .toString(),
-                                                                        style: const TextStyle(
-                                                                          color:
-                                                                              Colors.black54,
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                            if (widget
-                                                                    .staffInfo['email'] !=
-                                                                null)
-                                                              Padding(
-                                                                padding:
-                                                                    const EdgeInsets.symmetric(
-                                                                      vertical:
-                                                                          4,
-                                                                    ),
-                                                                child: RichText(
-                                                                  text: TextSpan(
-                                                                    children: [
-                                                                      const TextSpan(
-                                                                        text:
-                                                                            'Email: ',
-                                                                        style: TextStyle(
-                                                                          fontWeight:
-                                                                              FontWeight.w600,
-                                                                          color:
-                                                                              Colors.black87,
-                                                                        ),
-                                                                      ),
-                                                                      TextSpan(
-                                                                        text: widget
-                                                                            .staffInfo['email']
-                                                                            .toString(),
-                                                                        style: const TextStyle(
-                                                                          color:
-                                                                              Colors.black54,
-                                                                        ),
-                                                                      ),
-                                                                    ],
-                                                                  ),
-                                                                ),
-                                                              ),
-                                                          ],
-                                                        ),
-                                                        actions: [
-                                                          TextButton(
-                                                            onPressed: () =>
-                                                                Navigator.of(
-                                                                  context,
-                                                                ).pop(),
-                                                            child: const Text(
-                                                              'Close',
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    );
-                                                  },
-                                                  child: Container(
-                                                    padding:
-                                                        const EdgeInsets.all(4),
-                                                    decoration: BoxDecoration(
-                                                      color: AppColors
-                                                          .primaryColor
-                                                          .withValues(
-                                                            alpha: 0.1,
-                                                          ),
-                                                      shape: BoxShape.circle,
-                                                    ),
-                                                    child: Icon(
-                                                      Icons
-                                                          .info_outline_rounded,
-                                                      size: 18,
-                                                      color: AppColors
-                                                          .primaryColor,
-                                                    ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
+                                  _buildThreadHeader(context),
                                   Flexible(
                                     child: Stack(
                                       children: [
-                                        Opacity(
-                                          opacity: _isPositionedAtBottom
-                                              ? 1
-                                              : 0,
+                                        // See the landscape branch above for
+                                        // why this is Visibility, not Opacity.
+                                        Visibility(
+                                          visible: _isPositionedAtBottom,
+                                          maintainState: true,
+                                          maintainAnimation: true,
+                                          maintainSize: true,
                                           child: ListView.builder(
                                             controller: _scrollController,
                                             padding: const EdgeInsets.symmetric(
@@ -1427,6 +1231,179 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         lower.contains('403');
   }
 
+  /// Back button, avatar + online dot, name, and info icon — shown above the
+  /// message list on every state (loading/error/empty/loaded) so opening a
+  /// brand-new conversation (which starts out empty) still shows who you're
+  /// talking to instead of a bare screen with no way back but the OS gesture.
+  Widget _buildThreadHeader(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () => Navigator.of(context).pop(),
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withValues(alpha: 0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.arrow_back_rounded,
+                  size: 20,
+                  color: AppColors.primaryColor,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Stack(
+              children: [
+                DocumentImageWidget(
+                  fileUuid: '',
+                  imageUrl: _staffAvatarAsImageUrl,
+                  mediaAssetCode: _staffAvatarAsMediaAssetCode,
+                  name: widget.staffInfo['name'],
+                  size: 45,
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: (widget.staffInfo['isSigned'] ?? false)
+                          ? const Color.fromRGBO(0, 177, 21, 1)
+                          : Colors.transparent,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: (widget.staffInfo['isSigned'] ?? false)
+                            ? Colors.white
+                            : Colors.transparent,
+                        width: 2,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: CustomTextWidget(
+                      text: widget.staffInfo['name'],
+                      fontWeight: FontWeight.w600,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  GestureDetector(
+                    onTap: () {
+                      showDialog(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: CustomTextWidget(
+                            text: widget.staffInfo['name'],
+                            fontWeight: FontWeight.w600,
+                            fontSize: 18,
+                          ),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (widget.staffInfo['designation'] != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        const TextSpan(
+                                          text: 'Designation: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: widget.staffInfo['designation']
+                                              .toString(),
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              if (widget.staffInfo['email'] != null)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: RichText(
+                                    text: TextSpan(
+                                      children: [
+                                        const TextSpan(
+                                          text: 'Email: ',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            color: Colors.black87,
+                                          ),
+                                        ),
+                                        TextSpan(
+                                          text: widget.staffInfo['email']
+                                              .toString(),
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              child: const Text('Close'),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.info_outline_rounded,
+                        size: 18,
+                        color: AppColors.primaryColor,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   /// Shown when [CommunicationCubit] has no cached history to fall back on
   /// and the latest fetch failed — gives the user a way to retry instead of
   /// staring at a blank screen. A 403/"not authorized" failure means this
@@ -1525,9 +1502,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         context,
         onAttachmentsSelected: (attachments) {
           if (attachments.isEmpty) return;
-          // Only one attachment may be pending at a time — a new pick
-          // replaces whatever was previously staged.
-          setState(() => _pendingAttachments = [attachments.first]);
+          // Add to whatever's already staged — picking multiple photos/
+          // videos together (or picking again before sending) must
+          // accumulate, not discard everything but the newest single file.
+          setState(
+            () => _pendingAttachments = [..._pendingAttachments, ...attachments],
+          );
         },
         onEmojiSelected: (emoji) {
           final pos = _controller.selection.isValid
@@ -1727,51 +1707,44 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   }
 
   Widget _buildStatusSection(Message message) {
-    final hasDelivery = message.isDelivered;
-    final hasRead = message.isRead;
-
+    // A message only reaches this dialog once it already exists in the
+    // thread — i.e. it has been sent. Empty delivered/read lists mean no one
+    // has seen it yet, NOT that it's still sending; show that distinction
+    // per-section (matching the web client) instead of a blanket
+    // "still sending" that was wrong for every already-sent message with no
+    // receipts yet.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasDelivery || hasRead) ...[
-          const CustomTextWidget(
-            text: 'Status',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-          const SizedBox(height: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              if (hasDelivery)
-                _buildRecipientList(
-                  title: 'Delivered To',
-                  icon: Icons.check_circle_outline,
-                  recipients: message.deliveredTo,
-                  fallbackTime: message.deliveredAt,
-                  color: Colors.blueGrey,
-                ),
-
-              if (hasRead) ...[
-                const SizedBox(height: 8),
-                _buildRecipientList(
-                  title: 'Read By',
-                  icon: Icons.done_all,
-                  recipients: message.readBy,
-                  fallbackTime: message.readAt,
-                  color: AppColors.primaryColor,
-                ),
-              ],
-            ],
-          ),
-        ] else ...[
-          const CustomTextWidget(
-            text: 'Message is still sending...',
-            fontSize: 14,
-            fontColor: Colors.grey,
-          ),
-        ],
+        const CustomTextWidget(
+          text: 'Status',
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        const SizedBox(height: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            _buildRecipientList(
+              title: 'Delivered To',
+              icon: Icons.check_circle_outline,
+              recipients: message.deliveredTo,
+              fallbackTime: message.deliveredAt,
+              color: Colors.blueGrey,
+              emptyText: 'Not yet delivered',
+            ),
+            const SizedBox(height: 8),
+            _buildRecipientList(
+              title: 'Read By',
+              icon: Icons.done_all,
+              recipients: message.readBy,
+              fallbackTime: message.readAt,
+              color: AppColors.primaryColor,
+              emptyText: 'No one has read this message yet',
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -1796,6 +1769,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     required List<RecipientStatus> recipients,
     DateTime? fallbackTime,
     required Color color,
+    required String emptyText,
   }) {
     final count = recipients.length + (fallbackTime != null ? 1 : 0);
 
@@ -1890,6 +1864,15 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               text: 'Recipient • ${_formatFullTime(fallbackTime)}',
               fontSize: 13,
               fontColor: Colors.grey.shade700,
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(left: 32),
+            child: CustomTextWidget(
+              text: emptyText,
+              fontSize: 13,
+              fontColor: Colors.grey.shade500,
             ),
           ),
       ],

@@ -93,6 +93,17 @@ class StudentCubit extends Cubit<StudentState> {
         .toList(growable: false);
   }
 
+  /// Hard security scope for a restricted staff/teacher persona, sent as its
+  /// own `allowedClassroomCodes` request param (distinct from the
+  /// user-chosen `classroomCodes` filter above) so the backend enforces it
+  /// regardless of what's selected — e.g. messaging's "start new chat"
+  /// student search, which lets a staff persona search freely and must not
+  /// surface students from classrooms they aren't assigned to.
+  List<String>? _effectiveAllowedClassroomCodesForRequest() {
+    if (_isScopedStaffPersona != true) return null;
+    return _allowedClassroomCodes;
+  }
+
   Future<void> loadInitial() async {
     final schoolCode = await _resolveSchoolCode();
     await _ensureClassroomScopeResolved();
@@ -202,6 +213,7 @@ class StudentCubit extends Cubit<StudentState> {
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
         code: state.codeFilter,
+        allowedClassroomCodes: _effectiveAllowedClassroomCodesForRequest(),
       );
 
       if (isClosed) return;
@@ -227,6 +239,7 @@ class StudentCubit extends Cubit<StudentState> {
           firstName: state.firstNameFilter,
           lastName: state.lastNameFilter,
           code: state.codeFilter,
+          allowedClassroomCodes: _effectiveAllowedClassroomCodesForRequest(),
         );
 
         if (isClosed) return;
@@ -329,6 +342,7 @@ class StudentCubit extends Cubit<StudentState> {
         firstName: state.firstNameFilter,
         lastName: state.lastNameFilter,
         code: state.codeFilter,
+        allowedClassroomCodes: _effectiveAllowedClassroomCodesForRequest(),
       );
 
       if (isClosed) return;

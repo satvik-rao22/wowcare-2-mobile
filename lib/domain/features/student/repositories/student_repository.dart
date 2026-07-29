@@ -33,6 +33,7 @@ abstract class StudentRepository {
     String? search,
     int page,
     int size,
+    List<String>? allowedClassroomCodes,
   });
 
   Future<String> deactivateStudent({

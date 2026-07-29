@@ -223,22 +223,19 @@ class _MessageBubbleState extends State<MessageBubble>
       (widget.currentUserCode != null &&
           widget.currentUserCode == widget.message.senderUserCode);
 
-  /// Which side this bubble renders on. Role ([MessageBubble.senderIsOrgSide])
-  /// dictates alignment for Room Chat (org side on right, parent on left).
-  /// Falls back to identity (_isMe) for Staff Direct.
-  bool get _alignRight {
-    // If the current user is a guardian/parent (indicated by isParentMessaging)
-    if (widget.isParentMessaging) {
-      // Their own messages go right, all others (staff or other parents) go left.
-      return _isMe;
-    } else {
-      // For other user roles (e.g., staff, admin), the existing logic applies.
-      if (widget.senderIsOrgSide != null) {
-        return widget.senderIsOrgSide!;
-      }
-      return _isMe;
-    }
-  }
+  /// Which side this bubble renders on. Always identity-based ([_isMe]) —
+  /// matches the documented contract on [MessageBubble.senderIsOrgSide]
+  /// ("it never drives alignment"). A message the client can verify is the
+  /// current user's own (by [Message.senderUserCode]/[currentUserCode])
+  /// always renders on their side, regardless of what `senderRole` the
+  /// backend attributes to it — a dual-role account (e.g. SCHOOL_ADMIN +
+  /// GUARDIAN) has been observed getting a message it just sent back
+  /// attributed to its OTHER persona, which previously flipped the sender's
+  /// own bubble onto the opposite side because [senderIsOrgSide] (derived
+  /// from that same unreliable `senderRole`) was trusted over identity.
+  /// [senderIsOrgSide] still drives bubble *colour* for messages that
+  /// aren't mine, per its own doc comment.
+  bool get _alignRight => _isMe;
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info and no reactions — there's no
@@ -261,10 +258,12 @@ class _MessageBubbleState extends State<MessageBubble>
     if (widget.isInactive) {
       return ChatReactionsConfig(
         availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
-        menuItems: const [
-          MenuItem(label: 'Reply', icon: Icons.reply_rounded),
-          MenuItem(label: 'Copy', icon: Icons.copy_outlined),
-          MenuItem(label: 'Info', icon: Icons.info_outline),
+        menuItems: [
+          const MenuItem(label: 'Reply', icon: Icons.reply_rounded),
+          const MenuItem(label: 'Copy', icon: Icons.copy_outlined),
+          // Delivered/read info only makes sense for a message THIS user
+          // sent — never shown on a received (left-side) bubble.
+          if (isMe) const MenuItem(label: 'Info', icon: Icons.info_outline),
         ],
         enableLongPress: true,
         enableDoubleTap: true,
@@ -287,7 +286,9 @@ class _MessageBubbleState extends State<MessageBubble>
           ),
         const MenuItem(label: 'Reply', icon: Icons.reply_rounded),
         const MenuItem(label: 'Copy', icon: Icons.copy_outlined),
-        const MenuItem(label: 'Info', icon: Icons.info_outline),
+        // Delivered/read info only makes sense for a message THIS user sent
+        // — never shown on a received (left-side) bubble.
+        if (isMe) const MenuItem(label: 'Info', icon: Icons.info_outline),
       ],
       enableLongPress: true,
       enableDoubleTap: true,
@@ -1460,137 +1461,144 @@ class _MessageBubbleState extends State<MessageBubble>
               },
             )
           else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.0,
-              ),
-              itemCount: displayImages.length,
-              itemBuilder: (context, index) {
+            // Wrap (not GridView) — a message bubble is wrapped in
+            // IntrinsicWidth above to shrink-fit its content, and
+            // IntrinsicWidth cannot measure through a RenderViewport, which
+            // is what backs GridView/ListView even with shrinkWrap: true.
+            // That combination is exactly what threw Flutter's "does not
+            // support returning intrinsic dimensions" assertion (and the
+            // semantics-layer crash cascading from it) on every message with
+            // 2+ images. displayImages is capped at 4, so a Wrap of
+            // fixed-size tiles gives the identical 2-column look without a
+            // viewport ever entering the tree.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(displayImages.length, (index) {
                 final rawAtt = displayImages[index];
                 final isLast = index == displayImages.length - 1;
                 final remaining = images.length - 4;
 
-                return AttachmentUrlResolver(
-                  attachment: rawAtt,
-                  builder: (context, resolvedUrl, isLoading, isProcessing) {
-                    final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
-                        ? rawAtt.copyWith(remoteUrl: resolvedUrl)
-                        : rawAtt;
-                    final hasSource = att.displaySource != null;
-                    return GestureDetector(
-                      onTap: () {
-                        if (hasMoreImages && isLast) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FullAttachmentViewer(
-                                attachments: attachments,
-                              ),
-                            ),
-                          );
-                        } else if (hasSource) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ShowFullScreenMediaView(
-                                imageUrl: att.remoteUrl,
-                                imageFile: att.localPath != null
-                                    ? File(att.localPath!)
-                                    : null,
-                                title: att.name,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: hasSource
-                                ? Thumbnail(
-                                    mimeType: att.mimeType.isNotEmpty
-                                        ? att.mimeType
-                                        : 'image/jpeg',
-                                    dataResolver: () async {
-                                      final src = att.displaySource!;
-                                      // See single-image branch above: decide
-                                      // remote-vs-local from `src` itself, not
-                                      // `remoteUrl.isNotEmpty` (wrong whenever
-                                      // localPath is also set, which is what
-                                      // `displaySource` actually returns).
-                                      final isRemote =
-                                          src.startsWith('http://') ||
-                                          src.startsWith('https://');
-                                      if (isRemote) {
-                                        return _fetchImageBytesWithRetry(src);
-                                      }
-                                      return await File(src).readAsBytes();
-                                    },
-                                    widgetSize: multiImageWidth,
-                                    decoration: WidgetDecoration(
-                                      backgroundColor: Colors.white,
-                                      iconColor: Colors.green,
-                                    ),
-                                    errorBuilder: (context, error) => Container(
-                                      color: Colors.grey[300],
-                                      child: const Icon(
-                                        Icons.image,
-                                        size: 50,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  )
-                                : Container(
-                                    color: Colors.grey[300],
-                                    child: Center(
-                                      child: isLoading
-                                          ? const SizedBox(
-                                              width: 22,
-                                              height: 22,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : isProcessing
-                                          ? const _AttachmentProcessingPlaceholder(
-                                              compact: true,
-                                            )
-                                          : const Icon(
-                                              Icons.broken_image,
-                                              size: 50,
-                                              color: Colors.grey,
-                                            ),
-                                    ),
-                                  ),
-                          ),
-                          if (hasMoreImages && isLast)
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: CustomTextWidget(
-                                  text: '+$remaining',
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  fontColor: Colors.white,
+                return SizedBox(
+                  width: multiImageWidth,
+                  height: multiImageWidth,
+                  child: AttachmentUrlResolver(
+                    attachment: rawAtt,
+                    builder: (context, resolvedUrl, isLoading, isProcessing) {
+                      final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
+                          ? rawAtt.copyWith(remoteUrl: resolvedUrl)
+                          : rawAtt;
+                      final hasSource = att.displaySource != null;
+                      return GestureDetector(
+                        onTap: () {
+                          if (hasMoreImages && isLast) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FullAttachmentViewer(
+                                  attachments: attachments,
                                 ),
                               ),
+                            );
+                          } else if (hasSource) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ShowFullScreenMediaView(
+                                  imageUrl: att.remoteUrl,
+                                  imageFile: att.localPath != null
+                                      ? File(att.localPath!)
+                                      : null,
+                                  title: att.name,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: hasSource
+                                  ? Thumbnail(
+                                      mimeType: att.mimeType.isNotEmpty
+                                          ? att.mimeType
+                                          : 'image/jpeg',
+                                      dataResolver: () async {
+                                        final src = att.displaySource!;
+                                        // See single-image branch above: decide
+                                        // remote-vs-local from `src` itself, not
+                                        // `remoteUrl.isNotEmpty` (wrong whenever
+                                        // localPath is also set, which is what
+                                        // `displaySource` actually returns).
+                                        final isRemote =
+                                            src.startsWith('http://') ||
+                                            src.startsWith('https://');
+                                        if (isRemote) {
+                                          return _fetchImageBytesWithRetry(src);
+                                        }
+                                        return await File(src).readAsBytes();
+                                      },
+                                      widgetSize: multiImageWidth,
+                                      decoration: WidgetDecoration(
+                                        backgroundColor: Colors.white,
+                                        iconColor: Colors.green,
+                                      ),
+                                      errorBuilder: (context, error) => Container(
+                                        color: Colors.grey[300],
+                                        child: const Icon(
+                                          Icons.image,
+                                          size: 50,
+                                          color: Colors.grey,
+                                        ),
+                                      ),
+                                    )
+                                  : Container(
+                                      color: Colors.grey[300],
+                                      child: Center(
+                                        child: isLoading
+                                            ? const SizedBox(
+                                                width: 22,
+                                                height: 22,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                ),
+                                              )
+                                            : isProcessing
+                                            ? const _AttachmentProcessingPlaceholder(
+                                                compact: true,
+                                              )
+                                            : const Icon(
+                                                Icons.broken_image,
+                                                size: 50,
+                                                color: Colors.grey,
+                                              ),
+                                      ),
+                                    ),
                             ),
-                        ],
-                      ),
-                    );
-                  },
+                            if (hasMoreImages && isLast)
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: CustomTextWidget(
+                                    text: '+$remaining',
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    fontColor: Colors.white,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 );
-              },
+              }),
             ),
         ],
       ],

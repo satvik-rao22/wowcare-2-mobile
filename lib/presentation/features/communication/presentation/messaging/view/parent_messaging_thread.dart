@@ -701,8 +701,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     if (isLoading) return const ChatThreadShimmer();
     return Stack(
       children: [
-        Opacity(
-          opacity: _isPositionedAtBottom ? 1 : 0,
+        // Visibility (not Opacity) excludes the hidden list from semantics
+        // while off-screen — a reverse:true ListView whose hidden subtree
+        // still participates in semantics while this Stack's visible child
+        // flips is what triggers Flutter's `!semantics.parentDataDirty`
+        // assertion crash on open.
+        Visibility(
+          visible: _isPositionedAtBottom,
+          maintainState: true,
+          maintainAnimation: true,
+          maintainSize: true,
           child: ListView.builder(
             controller: controller,
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -3206,10 +3214,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       context,
       onAttachmentsSelected: (attachments) {
         if (attachments.isEmpty) return;
-        // Only one attachment may be pending at a time — a new pick
-        // replaces whatever was previously staged.
+        // Add to whatever's already staged — picking multiple photos/videos
+        // together (or picking again before sending) must accumulate, not
+        // discard everything but the newest single file.
         setState(() {
-          _pendingAttachments = [attachments.first];
+          _pendingAttachments = [..._pendingAttachments, ...attachments];
         });
       },
       onEmojiSelected: (emoji) {
@@ -3640,51 +3649,44 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   Widget _buildStatusSection(Message message) {
-    final hasDelivery = message.isDelivered;
-    final hasRead = message.isRead;
-
+    // A message only reaches this dialog once it already exists in the
+    // thread — i.e. it has been sent. Empty delivered/read lists mean no one
+    // has seen it yet, NOT that it's still sending; show that distinction
+    // per-section (matching the web client) instead of a blanket
+    // "still sending" that was wrong for every already-sent message with no
+    // receipts yet.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (hasDelivery || hasRead) ...[
-          const CustomTextWidget(
-            text: 'Status',
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
-          const SizedBox(height: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              if (hasDelivery)
-                _buildRecipientList(
-                  title: 'Delivered To',
-                  icon: Icons.check_circle_outline,
-                  recipients: message.deliveredTo,
-                  fallbackTime: message.deliveredAt,
-                  color: Colors.blueGrey,
-                ),
-
-              if (hasRead) ...[
-                const SizedBox(height: 8),
-                _buildRecipientList(
-                  title: 'Read By',
-                  icon: Icons.done_all,
-                  recipients: message.readBy,
-                  fallbackTime: message.readAt,
-                  color: AppColors.primaryColor,
-                ),
-              ],
-            ],
-          ),
-        ] else ...[
-          const CustomTextWidget(
-            text: 'Message is still sending...',
-            fontSize: 14,
-            fontColor: Colors.grey,
-          ),
-        ],
+        const CustomTextWidget(
+          text: 'Status',
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+        ),
+        const SizedBox(height: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            _buildRecipientList(
+              title: 'Delivered To',
+              icon: Icons.check_circle_outline,
+              recipients: message.deliveredTo,
+              fallbackTime: message.deliveredAt,
+              color: Colors.blueGrey,
+              emptyText: 'Not yet delivered',
+            ),
+            const SizedBox(height: 8),
+            _buildRecipientList(
+              title: 'Read By',
+              icon: Icons.done_all,
+              recipients: message.readBy,
+              fallbackTime: message.readAt,
+              color: AppColors.primaryColor,
+              emptyText: 'No one has read this message yet',
+            ),
+          ],
+        ),
       ],
     );
   }
@@ -3712,6 +3714,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     required List<RecipientStatus> recipients,
     DateTime? fallbackTime,
     required Color color,
+    required String emptyText,
   }) {
     final count = recipients.length + (fallbackTime != null ? 1 : 0);
 
@@ -3806,6 +3809,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
               text: 'Recipient • ${_formatFullTime(fallbackTime)}',
               fontSize: 13,
               fontColor: Colors.grey.shade700,
+            ),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.only(left: 32),
+            child: CustomTextWidget(
+              text: emptyText,
+              fontSize: 13,
+              fontColor: Colors.grey.shade500,
             ),
           ),
       ],

@@ -1,6 +1,9 @@
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/models/message_entity_dto.dart';
 
 abstract class MessageEntityRemoteDataSource {
@@ -86,6 +89,18 @@ class MessageEntityRemoteDataSourceImpl
     String? threadParentCode,
   }) async {
     final endpoint = _url(ApiPaths.messagingMessages);
+
+    // Belt-and-suspenders alongside the x-role header: the messaging service
+    // has been observed attributing a sent message to a dual-role account's
+    // OTHER persona (e.g. GUARDIAN) even when the request headers are
+    // unambiguously the active persona (e.g. ORGANIZATION_ADMIN) — mirrors
+    // why the notification inbox needed an explicit `role` param, not just
+    // the header, to get a correctly-scoped response. Uses the same active-
+    // persona resolution as the header itself, so the two can never disagree.
+    final activeRole = await resolveActiveBackendRole(
+      serviceLocator<StorageService>(),
+    );
+
     final body = <String, dynamic>{
       'conversationCode': conversationCode,
       'type': 'TEXT',
@@ -101,6 +116,7 @@ class MessageEntityRemoteDataSourceImpl
         'privateParentUserCode': privateParentUserCode,
       // Backend uses 'replyToMessageId' (confirmed from MessageModel.fromJson)
       if (threadParentCode != null) 'replyToMessageId': threadParentCode,
+      if (activeRole.isNotEmpty) 'role': activeRole,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);

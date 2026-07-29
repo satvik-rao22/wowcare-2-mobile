@@ -183,6 +183,8 @@ class ChatAttachment extends Equatable {
 
   bool get isImage => type == 'image' || mimeType.startsWith('image/');
 
+  bool get isVideo => type == 'video' || mimeType.startsWith('video/');
+
   String? get displaySource => localPath ?? (remoteUrl.isNotEmpty ? remoteUrl : null);
 
   bool get isUploaded => (code ?? '').isNotEmpty && attachmentId != null;
