@@ -15,6 +15,7 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
     required this.parentFieldsSelected,
     required this.statusFilter,
     required this.format,
+    required this.schoolName,
     this.classroomCodes,
     this.tagCodes,
   });
@@ -38,6 +39,8 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
 
   @override
   final String format;
+
+  final String schoolName;
 
   /// Optional classroom codes (empty = all classrooms)
   final List<String>? classroomCodes;
@@ -63,7 +66,9 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
       'medications': studentFieldsSelected.contains('Medications'),
       'note': studentFieldsSelected.contains('Note'),
       'schedule': studentFieldsSelected.contains('Schedule'),
-      'schoolLeavingDate': studentFieldsSelected.contains('School Leaving Date'),
+      'schoolLeavingDate': studentFieldsSelected.contains(
+        'School Leaving Date',
+      ),
       'status': studentFieldsSelected.contains('Status'),
       'tags': studentFieldsSelected.contains('Tags'),
 
@@ -73,7 +78,9 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
       'guardianRelation': parentFieldsSelected.contains('Relation'),
       'guardianEmail': parentFieldsSelected.contains('Email'),
       'guardianPhoneNumber': parentFieldsSelected.contains('Phone number'),
-      'guardianEmergencyContact': parentFieldsSelected.contains('Emergency Contact'),
+      'guardianEmergencyContact': parentFieldsSelected.contains(
+        'Emergency Contact',
+      ),
       'guardianSignInPin': parentFieldsSelected.contains('Sign-in-Pin'),
 
       // Pickup field selections (7 fields - mapped to guardian prefix)
@@ -82,19 +89,21 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
       'pickupRelation': parentFieldsSelected.contains('Pickup Relation'),
       'pickupEmail': parentFieldsSelected.contains('Pickup Email'),
       'pickupPhoneNumber': parentFieldsSelected.contains('Pickup Phone number'),
-      'pickupEmergencyContact': parentFieldsSelected.contains('Pickup Emergency Contact'),
+      'pickupEmergencyContact': parentFieldsSelected.contains(
+        'Pickup Emergency Contact',
+      ),
       'pickupSignInPin': parentFieldsSelected.contains('Pickup Sign-in-Pin'),
 
       // Optional filters
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
         'roomCodes': classroomCodes,
-      if (tagCodes != null && tagCodes!.isNotEmpty)
-        'tagCodes': tagCodes,
+      if (tagCodes != null && tagCodes!.isNotEmpty) 'tagCodes': tagCodes,
 
       // Backend expects an array even though the UI is single-select
       // (confirmed against the web client's payload for this report type).
       'statusFilter': [statusFilter],
       'format': format,
+      'schoolName': schoolName,
     };
   }
 
@@ -124,6 +133,7 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
     parentFieldsSelected,
     statusFilter,
     format,
+    schoolName,
     classroomCodes,
     tagCodes,
   ];

@@ -77,7 +77,7 @@ class _BillingTransactionReportScreenState
 
     final storage = serviceLocator<StorageService>();
     final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+        (await storage.getString(StorageKeys.schoolName) ?? '').trim();
 
     context.read<ReportsCubit>().generateReport(
       ReportRequestParams(

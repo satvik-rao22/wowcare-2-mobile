@@ -1,15 +1,14 @@
 import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 
 /// The five `x-role` buckets the backend validates against. Finer backend roles
 /// (TEACHER, DIRECTOR, ASSOCIATE_TEACHER …) are normalised into one of these so
 /// `x-role` is always one of the accepted values.
+
 enum _RoleBucket {
   guardian,
   staff,

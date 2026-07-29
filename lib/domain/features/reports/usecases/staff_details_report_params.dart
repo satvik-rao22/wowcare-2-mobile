@@ -14,6 +14,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
     required this.staffFieldsSelected,
     required this.statusFilter,
     required this.format,
+    required this.schoolName,
     this.classroomCodes,
   });
 
@@ -22,6 +23,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
 
   @override
   final DateTime startDate;
+  final String schoolName;
 
   final DateTime endDate;
 
@@ -51,13 +53,22 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
       'includeEmailId': staffFieldsSelected.contains('Email ID'),
       'includePhoneNumber': staffFieldsSelected.contains('Phone Number'),
       'includeAddress': staffFieldsSelected.contains('Address'),
-      'includePrimaryClassroom': staffFieldsSelected.contains('Primary Classroom'),
+      'includePrimaryClassroom': staffFieldsSelected.contains(
+        'Primary Classroom',
+      ),
+
       'includeClockInOutPin': staffFieldsSelected.contains('Clock-In-Out Pin'),
       'includeHireDate': staffFieldsSelected.contains('Hire Date'),
       'includeDesignation': staffFieldsSelected.contains('Designation'),
-      'includeCdaExpirationDate': staffFieldsSelected.contains('CDA Expiration Date'),
-      'includeCprExpirationDate': staffFieldsSelected.contains('CPR Expiration Date'),
-      'includeLastPhysicalDate': staffFieldsSelected.contains('Last Physical Date'),
+      'includeCdaExpirationDate': staffFieldsSelected.contains(
+        'CDA Expiration Date',
+      ),
+      'includeCprExpirationDate': staffFieldsSelected.contains(
+        'CPR Expiration Date',
+      ),
+      'includeLastPhysicalDate': staffFieldsSelected.contains(
+        'Last Physical Date',
+      ),
       'includeIsActive': staffFieldsSelected.contains('Is Active'),
 
       // Optional classrooms
@@ -65,6 +76,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
         'classroomCodes': classroomCodes,
 
       'format': format,
+      'schoolName': schoolName,
     };
   }
 
@@ -93,6 +105,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
         'classrooms=${classroomCodes!.join(',')}',
     ];
+
     return parts.join('|');
   }
 
@@ -104,6 +117,7 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
     staffFieldsSelected,
     statusFilter,
     format,
+    schoolName,
     classroomCodes,
   ];
 }

@@ -50,6 +50,7 @@ class StorageKeys {
   /// Distinct from [schoolName] to avoid ambiguity.
   static const String selectedSchoolCode = 'selectedSchoolCode';
   static const String selectedSchoolName = 'selectedSchoolName';
+  static const String schoolName = 'schoolName';
 
   /// Cached IANA timezone from `GET /api/v1/schools/{code}/timezone` (invalidated when school changes).
   static const String schoolTimeZone = 'schoolTimeZone';

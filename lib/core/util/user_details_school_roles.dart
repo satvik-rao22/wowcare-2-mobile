@@ -1,5 +1,4 @@
 import 'dart:convert';
-
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 
@@ -26,8 +25,7 @@ List<String> distinctActiveRolesForCurrentSchoolFromUserDetails(
       final m = Map<String, dynamic>.from(s);
       final sc = (m['schoolCode'] ?? '').toString().trim();
       if (sc != school) continue;
-      final status =
-          (m['status'] ?? 'ACTIVE').toString().toUpperCase().trim();
+      final status = (m['status'] ?? 'ACTIVE').toString().toUpperCase().trim();
       if (status.isNotEmpty && status != 'ACTIVE') continue;
       final role = (m['role'] ?? '').toString().trim();
       if (role.isEmpty) continue;
