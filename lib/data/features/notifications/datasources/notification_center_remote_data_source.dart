@@ -106,14 +106,42 @@ class NotificationCenterRemoteDataSource implements NotificationCenterDataSource
       );
       if (distinctRoles.isNotEmpty) {
         final activeUpper = activeStored.toUpperCase();
-        final backendRole = distinctRoles.firstWhere(
-          (r) => r.trim().toUpperCase() == activeUpper,
-          orElse: () => distinctRoles.first,
-        );
-        return backendRole.trim();
+        // 1. Exact backend-role match (keeps ORGANIZATION_ADMIN vs
+        //    SCHOOL_ADMIN distinct).
+        for (final r in distinctRoles) {
+          if (r.trim().toUpperCase() == activeUpper) return r.trim();
+        }
+        // 2. Persona-family match — tolerates stored aliases (e.g. 'PARENT'
+        //    for 'GUARDIAN', 'ADMIN' for 'SCHOOL_ADMIN') so a format drift in
+        //    activeSchoolRole never silently falls through to the wrong
+        //    role, mirroring RoleCubit's own active-persona resolution.
+        if (activeUpper.isNotEmpty) {
+          final wantFamily = _personaFamily(activeStored);
+          for (final r in distinctRoles) {
+            if (_personaFamily(r) == wantFamily) return r.trim();
+          }
+        }
+        // 3. No active persona resolved for this dual/multi-role account: an
+        //    arbitrary (array-order) pick can send a role the backend
+        //    session doesn't recognize and 401. Only auto-pick when there's
+        //    just one possible role for this school; otherwise omit the
+        //    param rather than guess wrong.
+        if (distinctRoles.length == 1) return distinctRoles.first.trim();
+        return '';
       }
     }
 
     return activeStored;
+  }
+
+  /// Coarse persona bucket for a raw backend role string. Mirrors
+  /// `RoleCubit._personaFamily` — kept local since that one is private and
+  /// this data source has no BuildContext to read the cubit directly.
+  String _personaFamily(String backendRole) {
+    final r = backendRole.trim().toLowerCase();
+    if (r.contains('kiosk')) return 'kiosk';
+    if (r.contains('guardian') || r.contains('parent')) return 'parent';
+    if (r.contains('staff') || r.contains('teacher')) return 'staff';
+    return 'admin';
   }
 }
