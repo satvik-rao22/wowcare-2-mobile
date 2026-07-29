@@ -1,7 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:timezone/timezone.dart' as tz;
-
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -89,8 +88,9 @@ class ServerTimeService {
   Future<void> hydrateSchoolTimeZoneFromStorage() async {
     try {
       final schoolTz =
-          (await serviceLocator<StorageService>()
-                      .getString(StorageKeys.schoolTimeZone) ??
+          (await serviceLocator<StorageService>().getString(
+                    StorageKeys.schoolTimeZone,
+                  ) ??
                   '')
               .trim();
       if (schoolTz.isNotEmpty) {
@@ -120,8 +120,9 @@ class ServerTimeService {
       // Read straight from storage rather than via SchoolTimezoneResolver —
       // that resolver calls THIS service, so importing it here would be a cycle.
       final schoolTz =
-          (await serviceLocator<StorageService>()
-                      .getString(StorageKeys.schoolTimeZone) ??
+          (await serviceLocator<StorageService>().getString(
+                    StorageKeys.schoolTimeZone,
+                  ) ??
                   '')
               .trim();
       final requestTimeZone = schoolTz.isNotEmpty ? schoolTz : 'UTC';
@@ -142,7 +143,9 @@ class ServerTimeService {
       }
 
       final root = response.data;
-      final data = (root is Map && root['data'] is Map) ? root['data'] as Map : null;
+      final data = (root is Map && root['data'] is Map)
+          ? root['data'] as Map
+          : null;
       if (data == null) {
         AppLogger.d('[ServerTime] sync: unexpected body');
         return;

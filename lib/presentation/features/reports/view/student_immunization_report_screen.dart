@@ -13,10 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
-import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentImmunizationReportScreen extends StatefulWidget {
   const StudentImmunizationReportScreen({
@@ -129,10 +127,18 @@ class _StudentImmunizationReportScreenState
     final classroomCodes = _selectedClassrooms
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
-    final storage = serviceLocator<StorageService>();
-    final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('[ImmunizationReport] resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     // Use the existing vaccine selection until the vaccine API/code
     // mapping is available.
     final vaccineCodes = _mapVaccineToCode(_vaccine);
@@ -158,6 +164,8 @@ class _StudentImmunizationReportScreenState
       format: _format,
       schoolName: schoolName,
     );
+
+    AppLogger.d('[ImmunizationReport] params=$params');
 
     unawaited(cubit.generateReport(params));
   }

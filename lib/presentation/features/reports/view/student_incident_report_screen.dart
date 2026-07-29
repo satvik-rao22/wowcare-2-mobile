@@ -13,10 +13,7 @@ import 'package:wowcare/presentation/features/reports/widgets/report_form_layout
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
-import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentIncidentReportScreen extends StatefulWidget {
   const StudentIncidentReportScreen({super.key, required this.students});
@@ -65,17 +62,26 @@ class _StudentIncidentReportScreenState
         .map((name) => studentNameToCode[name] ?? name)
         .toList();
 
-    final storage = serviceLocator<StorageService>();
-    final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.studentIncident,
       startDate: _startDate,
       endDate: _endDate,
       studentCodes: studentCodes.isEmpty ? null : studentCodes,
       format: _format,
-      schoolName: schoolName.isNotEmpty ? schoolName : null,
+      schoolName: schoolName,
     );
 
     AppLogger.d('[INCIDENT-UI] Calling cubit.generateReport()');

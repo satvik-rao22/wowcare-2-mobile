@@ -1,8 +1,5 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -14,6 +11,8 @@ import 'package:wowcare/presentation/features/reports/widgets/report_form_layout
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentDailyAttendanceReportScreen extends StatefulWidget {
   const StudentDailyAttendanceReportScreen({
@@ -76,19 +75,26 @@ class _StudentDailyAttendanceReportScreenState
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
 
-    // Resolve school name from storage to ensure the proper name is passed.
-    final storage = serviceLocator<StorageService>();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
-    final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
-
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.studentDailyAttendance,
       startDate: _date.value,
       endDate: _date.value,
       format: _format.value, // PDF or XLSX
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
-      schoolName: schoolName.isNotEmpty ? schoolName : null,
+      schoolName: schoolName,
     );
 
     unawaited(cubit.generateReport(params));

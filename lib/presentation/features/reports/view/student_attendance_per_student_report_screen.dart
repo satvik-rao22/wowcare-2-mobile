@@ -12,10 +12,8 @@ import 'package:wowcare/presentation/features/reports/widgets/multi_select_filte
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
-import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentAttendancePerStudentReportScreen extends StatefulWidget {
   const StudentAttendancePerStudentReportScreen({
@@ -87,10 +85,19 @@ class _StudentAttendancePerStudentReportScreenState
               .map((name) => reportsState.classroomNameToCode[name] ?? name)
               .toList()
         : null;
-    final storage = serviceLocator<StorageService>();
-    final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.studentAttendancePerStudent,
       startDate: _periodDate,

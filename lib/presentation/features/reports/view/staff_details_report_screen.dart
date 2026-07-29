@@ -13,6 +13,8 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../core/util/school_context_helper.dart';
+
 class StaffDirectoryReportScreen extends StatefulWidget {
   const StaffDirectoryReportScreen({super.key, required this.classrooms});
 
@@ -88,7 +90,7 @@ class _StaffDirectoryReportScreenState
     });
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     AppLogger.d('[STAFF-DETAILS-UI] Generate button tapped');
 
     if (_selectedStaffFields.isEmpty) {
@@ -96,6 +98,20 @@ class _StaffDirectoryReportScreenState
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please select at least one field',
+        isError: true,
+      );
+      return;
+    }
+
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
         isError: true,
       );
       return;
@@ -113,6 +129,7 @@ class _StaffDirectoryReportScreenState
       statusFilter: _status,
       classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
       format: _format,
+      schoolName: schoolName,
     );
     AppLogger.d('[STAFF-DETAILS-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);

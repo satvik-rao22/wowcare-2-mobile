@@ -12,9 +12,7 @@ import 'package:wowcare/presentation/features/reports/widgets/multi_select_filte
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StaffAttendancePerWeekReportScreen extends StatefulWidget {
   const StaffAttendancePerWeekReportScreen({
@@ -74,10 +72,19 @@ class _StaffAttendancePerWeekReportScreenState
               .map((name) => reportsState.staffNameToCode[name] ?? name)
               .toList()
         : null;
-    final storage = serviceLocator<StorageService>();
-    final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     // Convert classroom names to codes
     final classroomCodes = _selectedClassrooms.isNotEmpty
         ? _selectedClassrooms
@@ -92,7 +99,7 @@ class _StaffAttendancePerWeekReportScreenState
       staffCodes: staffCodes,
       classroomCodes: classroomCodes,
       format: _format,
-      schoolName: schoolName.isNotEmpty ? schoolName : null,
+      schoolName: schoolName,
     );
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);

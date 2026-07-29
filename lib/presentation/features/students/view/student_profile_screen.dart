@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -191,8 +189,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   Future<void> _loadStudentSettings() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (school.isEmpty) return;
       final settings = await serviceLocator<StudentRemoteDataSource>()
           .getStudentSettings(schoolCode: school);
@@ -1219,10 +1217,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     String studentCode,
   ) async {
     final storage = serviceLocator<StorageService>();
-    final org =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (!context.mounted) return;
     if (org.isEmpty || school.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -1261,8 +1259,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => TransactionDetailsScreen(
-            ownerType:
-                resolved.ownerType.isNotEmpty ? resolved.ownerType : 'FAMILY',
+            ownerType: resolved.ownerType.isNotEmpty
+                ? resolved.ownerType
+                : 'FAMILY',
             ownerCode: resolved.ownerCode,
             familyName: resolved.familyName.isNotEmpty
                 ? resolved.familyName

@@ -12,6 +12,9 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
+
 class StudentsAndFamilyReportScreen extends StatefulWidget {
   const StudentsAndFamilyReportScreen({
     super.key,
@@ -117,7 +120,7 @@ class _StudentsAndFamilyReportScreenState
     _selectedParentFields.value = next;
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     if (_selectedStudentFields.value.isEmpty &&
         _selectedParentFields.value.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -133,6 +136,19 @@ class _StudentsAndFamilyReportScreenState
     final classroomCodes = _selectedClassrooms.value
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = StudentsAndFamilyReportParams(
       reportType: ReportType.studentsAndFamily,
       startDate: AppTime.now(),
@@ -143,6 +159,7 @@ class _StudentsAndFamilyReportScreenState
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       tagCodes: _selectedTags.value.isEmpty ? null : _selectedTags.value,
       format: _format.value,
+      schoolName: schoolName,
     );
     cubit.generateReport(params);
   }

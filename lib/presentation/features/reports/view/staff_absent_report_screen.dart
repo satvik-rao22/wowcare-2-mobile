@@ -12,10 +12,7 @@ import 'package:wowcare/presentation/features/reports/widgets/report_form_layout
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
-import '../../../../app/di/di.dart';
-import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/storage_keys.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StaffAbsentReportScreen extends StatefulWidget {
   const StaffAbsentReportScreen({super.key, required this.classrooms});
@@ -67,9 +64,19 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       );
       return;
     }
-    final storage = serviceLocator<StorageService>();
-    final schoolName =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
 
     AppLogger.d('[STAFF-ABSENT-UI] Creating report params');
     final cubit = context.read<ReportsCubit>();
@@ -81,7 +88,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       classroomCodes: _selectedClassrooms.value.isEmpty
           ? null
           : _selectedClassrooms.value,
-      schoolName: schoolName.isNotEmpty ? schoolName : null,
+      schoolName: schoolName,
       // Use the school name from the cubit state
     );
 
