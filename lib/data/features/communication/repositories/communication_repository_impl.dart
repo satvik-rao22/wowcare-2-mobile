@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
+import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../core/util/school_zone_datetime.dart';
@@ -16,6 +17,7 @@ import '../../../../domain/features/communication/repositories/communication_rep
 import '../../../../domain/features/communication/entities/conversation.dart';
 import '../models/conversation_collection.dart';
 import '../models/create_conversation_request.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import '../realtime/conversation_realtime_data_source.dart';
 import '../realtime/message_realtime_data_source.dart';
 
@@ -113,7 +115,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       if (fallbackMessages.isNotEmpty) {
         return Right(fallbackMessages);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -150,7 +152,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
 
       return Right(sentMessage);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -169,13 +171,13 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       );
       if (results.isNotEmpty) {
         final message = results.first;
-        message.readAt = DateTime.now();
+        message.readAt = AppTime.nowUtc();
         await cacheService.put(message);
       }
 
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -185,7 +187,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       await remoteDataSource.markAllAsDelivered(threadId);
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -213,7 +215,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       } catch (_) {}
       return Right(conversation);
     } catch (e) {
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -248,12 +250,34 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
 
         // 3. Update cache (for first page)
         if (page == 0) {
+          // Firestore is the source of truth for the live fields (unreadCount +
+          // lastMessagePreview). The REST list returns the conversation-level,
+          // shared-across-all-participants preview — which is the neutral
+          // "Private message" placeholder for private messages — whereas the
+          // per-user Firestore inbox carries the REAL last message for the
+          // parent/staff who may see it. So DON'T let this REST refresh clobber
+          // those fields on conversations we already have cached (that would make
+          // a read private message revert from its real text to "Private
+          // message"). Preserve them from the existing row; refresh everything
+          // else from REST. New conversations take the REST value until the next
+          // Firestore snapshot fills in the real preview.
+          final existingByCode = {
+            for (final c in await cacheService.getAll<ConversationCollection>())
+              c.code: c,
+          };
+          final toStore = conversations.map((e) {
+            final col = ConversationCollection.fromEntity(e);
+            final prev = existingByCode[e.code];
+            if (prev != null) {
+              col.lastMessagePreview = prev.lastMessagePreview;
+              col.unreadCount = prev.unreadCount;
+              col.lastMessageAt = prev.lastMessageAt;
+              col.lastMessageBy = prev.lastMessageBy;
+            }
+            return col;
+          }).toList();
           await cacheService.clear<ConversationCollection>();
-          await cacheService.putAll(
-            conversations
-                .map((e) => ConversationCollection.fromEntity(e))
-                .toList(),
-          );
+          await cacheService.putAll(toStore);
         }
 
         return Right(
@@ -283,7 +307,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           ),
         );
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -359,7 +383,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions = originalReactions;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -390,7 +414,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.deletedAt = originalDeletedAt;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -428,7 +452,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.reactions = originalReactions;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -462,7 +486,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.attachments = originalAttachments;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -511,7 +535,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       originalEditedAt = originalCollection.editedAt;
 
       originalCollection.text = content;
-      originalCollection.editedAt = DateTime.now();
+      originalCollection.editedAt = AppTime.nowUtc();
       await cacheService.put(originalCollection);
     }
 
@@ -538,7 +562,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         originalCollection.editedAt = originalEditedAt;
         await cacheService.put(originalCollection);
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -721,7 +745,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // `toEntity()` — silently re-enabling Edit/Reply/Delete on a message
       // that visually looks deleted.
       ..deletedAt = entity.isDeleted
-          ? (entity.deletedAt ?? DateTime.now())
+          ? (entity.deletedAt ?? AppTime.nowUtc())
           : existing?.deletedAt
       ..quotedMessageId = existing?.quotedMessageId ?? entity.threadParentCode
       ..senderName = entity.senderName.isNotEmpty

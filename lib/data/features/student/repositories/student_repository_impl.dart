@@ -1,7 +1,6 @@
 import 'package:intl/intl.dart';
 
 import '../../../../core/storage/storage_service.dart';
-import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/student/entities/student.dart';
 import '../../../../domain/features/student/entities/student_settings.dart';
@@ -469,10 +468,13 @@ class StudentRepositoryImpl
     StudentDocumentsPageModel model,
   ) {
     final items = model.items.map((m) {
+      // storagePath is just a bare file name (e.g. "IMG_0005.JPG"), not a
+      // link — prepending the API base produced an unservable URL and skipped
+      // resolving the real delivery link via assetCode. Pass it through
+      // as-is (unless it's already an absolute URL) so the Documents tab's
+      // assetCode-based resolution runs, matching the staff-document path.
       final storagePath = m.storagePath;
-      final documentUrl = storagePath.startsWith('http')
-          ? storagePath
-          : '${ApiConstants.studentBaseUrl}${storagePath.startsWith('/') ? '' : '/'}$storagePath';
+      final documentUrl = storagePath;
       return StudentDocument(
         documentUuid: m.code,
         documentType: m.type,

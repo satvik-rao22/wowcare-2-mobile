@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -11,6 +11,8 @@ import 'package:wowcare/presentation/features/reports/widgets/report_form_layout
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentDailyAttendanceReportScreen extends StatefulWidget {
   const StudentDailyAttendanceReportScreen({
@@ -37,7 +39,7 @@ class _StudentDailyAttendanceReportScreenState
   @override
   void initState() {
     super.initState();
-    _date = ValueNotifier<DateTime>(DateTime.now());
+    _date = ValueNotifier<DateTime>(AppTime.now());
   }
 
   @override
@@ -48,18 +50,51 @@ class _StudentDailyAttendanceReportScreenState
     super.dispose();
   }
 
-  void _onGenerate() {
+  // void _onGenerate() {
+  //   final cubit = context.read<ReportsCubit>();
+  //   final classroomNameToCode = cubit.state.classroomNameToCode;
+  //   final classroomCodes = _selectedClassrooms.value
+  //       .map((name) => classroomNameToCode[name] ?? name)
+  //       .toList();
+
+  //   final params = ReportRequestParams(
+  //     reportType: ReportType.studentDailyAttendance,
+  //     startDate: _date.value,
+  //     endDate: _date.value,
+  //     classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+  //   );
+
+  //   unawaited(cubit.generateReport(params));
+  // }
+  Future<void> _onGenerate() async {
     final cubit = context.read<ReportsCubit>();
+
     final classroomNameToCode = cubit.state.classroomNameToCode;
+
     final classroomCodes = _selectedClassrooms.value
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
 
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.studentDailyAttendance,
       startDate: _date.value,
       endDate: _date.value,
+      format: _format.value, // PDF or XLSX
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      schoolName: schoolName,
     );
 
     unawaited(cubit.generateReport(params));
@@ -138,7 +173,7 @@ class _StudentDailyAttendanceReportScreenState
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

@@ -13,6 +13,7 @@ import 'package:wowcare/domain/features/student/entities/student_guardian.dart';
 import 'package:wowcare/domain/features/student/entities/student_regular_schedule.dart';
 
 import '../../../../core/util/storage_keys.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'my_childs_day_state.dart';
 
@@ -173,7 +174,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
           todayScheduleRange: todayRange,
           allRegularSchedules: regularSchedules,
           schoolNow: SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            DateTime.now().toUtc(),
+            ServerTimeService.instance.nowUtc(),
             tz,
           ),
           guardianClockPin: guardianClockPin,
@@ -210,7 +211,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
       _safeEmit(
         state.copyWith(
           schoolNow: SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            DateTime.now().toUtc(),
+            ServerTimeService.instance.nowUtc(),
             iana,
           ),
         ),
@@ -231,7 +232,7 @@ class MyChildsDayCubit extends Cubit<MyChildsDayState> {
 
   String _schoolDowKey(String iana) {
     final schoolNow = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       iana,
     );
     switch (schoolNow.weekday) {

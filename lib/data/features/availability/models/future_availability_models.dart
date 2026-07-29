@@ -1,3 +1,4 @@
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 
 class FutureAvailabilityGridModel {
@@ -74,24 +75,37 @@ class FutureAvailabilityClassroomModel {
     required this.code,
     required this.name,
     required this.capacity,
+    this.logoAssetCode = '',
   });
 
   final String code;
   final String name;
   final int capacity;
+  final String logoAssetCode;
 
   factory FutureAvailabilityClassroomModel.fromJson(Map<String, dynamic> json) {
     return FutureAvailabilityClassroomModel(
       code: (json['code'] ?? '').toString(),
       name: (json['name'] ?? '').toString(),
       capacity: _toInt(json['capacity']),
+      logoAssetCode: (json['logoAssetCode'] ?? '').toString(),
     );
   }
 
-  Map<String, dynamic> toJson() => <String, dynamic>{'code': code, 'name': name, 'capacity': capacity};
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'code': code,
+        'name': name,
+        'capacity': capacity,
+        'logoAssetCode': logoAssetCode,
+      };
 
   FutureAvailabilityClassroom toEntity() {
-    return FutureAvailabilityClassroom(code: code, name: name, capacity: capacity);
+    return FutureAvailabilityClassroom(
+      code: code,
+      name: name,
+      capacity: capacity,
+      logoAssetCode: logoAssetCode,
+    );
   }
 }
 
@@ -161,8 +175,8 @@ class FutureAvailabilityEntryModel {
 
 DateTime _parseDate(dynamic raw) {
   final dateString = (raw ?? '').toString().trim();
-  if (dateString.isEmpty) return DateTime.now();
-  return DateTime.tryParse(dateString) ?? DateTime.now();
+  if (dateString.isEmpty) return AppTime.today();
+  return DateTime.tryParse(dateString) ?? AppTime.today();
 }
 
 int _toInt(dynamic value) {
@@ -178,6 +192,8 @@ FutureAvailabilityShift _shiftFromApi(String shift) {
       return FutureAvailabilityShift.afternoon;
     case 'ALL':
       return FutureAvailabilityShift.all;
+    case 'TWO_SHIFTS':
+      return FutureAvailabilityShift.twoShifts;
     case 'FULL_DAY':
     default:
       return FutureAvailabilityShift.fullDay;
@@ -194,6 +210,8 @@ String _shiftToApi(FutureAvailabilityShift shift) {
       return 'ALL';
     case FutureAvailabilityShift.fullDay:
       return 'FULL_DAY';
+    case FutureAvailabilityShift.twoShifts:
+      return 'TWO_SHIFTS';
   }
 }
 

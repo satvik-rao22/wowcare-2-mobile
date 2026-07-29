@@ -1,17 +1,19 @@
-import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/students_and_family_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentsAndFamilyReportScreen extends StatefulWidget {
   const StudentsAndFamilyReportScreen({
@@ -118,7 +120,7 @@ class _StudentsAndFamilyReportScreenState
     _selectedParentFields.value = next;
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     if (_selectedStudentFields.value.isEmpty &&
         _selectedParentFields.value.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -134,16 +136,30 @@ class _StudentsAndFamilyReportScreenState
     final classroomCodes = _selectedClassrooms.value
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = StudentsAndFamilyReportParams(
       reportType: ReportType.studentsAndFamily,
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
+      startDate: AppTime.now(),
+      endDate: AppTime.now(),
       studentFieldsSelected: _selectedStudentFields.value,
       parentFieldsSelected: _selectedParentFields.value,
       statusFilter: _status.value,
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       tagCodes: _selectedTags.value.isEmpty ? null : _selectedTags.value,
       format: _format.value,
+      schoolName: schoolName,
     );
     cubit.generateReport(params);
   }
@@ -266,7 +282,7 @@ class _StudentsAndFamilyReportScreenState
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
@@ -281,7 +297,7 @@ class _StudentsAndFamilyReportScreenState
                     items: widget.tags,
                     selectedItems: selected,
                     onChanged: (s) => _selectedTags.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(
@@ -298,7 +314,6 @@ class _StudentsAndFamilyReportScreenState
                     labelStyle: _labelStyle(responsive),
                     showAsterisk: true,
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                    prependHintAsSelectableItem: false,
                     onSelect: (val) => _status.value = val ?? _status.value,
                   ),
                 ),

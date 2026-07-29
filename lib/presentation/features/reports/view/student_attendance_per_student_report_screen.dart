@@ -1,18 +1,19 @@
 import 'dart:async';
-
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentAttendancePerStudentReportScreen extends StatefulWidget {
   const StudentAttendancePerStudentReportScreen({
@@ -48,11 +49,11 @@ class _StudentAttendancePerStudentReportScreenState
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _periodDate = DateTime(now.year, now.month, 1);
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     if (_selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -76,15 +77,27 @@ class _StudentAttendancePerStudentReportScreenState
 
     final studentCodes = _selectedStudents.isNotEmpty
         ? _selectedStudents
-            .map((name) => reportsState.studentNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.studentNameToCode[name] ?? name)
+              .toList()
         : null;
     final classroomCodes = _selectedClassrooms.isNotEmpty
         ? _selectedClassrooms
-            .map((name) => reportsState.classroomNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.classroomNameToCode[name] ?? name)
+              .toList()
         : null;
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.studentAttendancePerStudent,
       startDate: _periodDate,
@@ -98,6 +111,8 @@ class _StudentAttendancePerStudentReportScreenState
         ),
       ),
       studentCodes: studentCodes,
+      format: _format,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
       classroomCodes: classroomCodes,
     );
 
@@ -177,7 +192,6 @@ class _StudentAttendancePerStudentReportScreenState
                         labelStyle: _labelStyle(responsive),
                         showAsterisk: true,
                         labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                        prependHintAsSelectableItem: false,
                         onSelect: (val) {
                           if (val == null) return;
                           setState(() => _frequency = val);

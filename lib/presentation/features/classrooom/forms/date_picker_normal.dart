@@ -29,6 +29,7 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 
 /// Normal (single) date picker used across the app.
@@ -42,7 +43,7 @@ Future<DateTime?> pickNormalDate({
   DateTime? firstDate,
   DateTime? lastDate,
 }) async {
-  final now = DateTime.now();
+  final now = AppTime.now();
   final result = await showDialog<Map<String, dynamic>>(
     context: context,
     builder: (_) => CalendarDialog(
@@ -78,7 +79,7 @@ Future<DateTime?> pickNormalDate({
 //     selectedDate = widget.initialDate;
 
 //     // For range picker, initialize with provided dates or defaults
-//     rangeStartDate = widget.initialDate ?? DateTime.now();
+//     rangeStartDate = widget.initialDate ?? AppTime.now();
 //     rangeEndDate = widget.initialEndDate;
 
 //     // Use provided initialTime or default to current time

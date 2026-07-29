@@ -27,6 +27,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/gradient_circular_progress.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class TransactionDetailsScreen extends StatefulWidget {
   /// Optional source transaction (when opened from a transaction card).
@@ -344,7 +345,7 @@ class _TransactionDetailsScreenState extends State<TransactionDetailsScreen>
     return TransactionItem(
       id: 0,
       transactionType: 'Payment',
-      date: DateTime.now(),
+      date: billingSchoolNow(),
       amount: outstanding,
       status: '',
       description: 'Receive Payment',

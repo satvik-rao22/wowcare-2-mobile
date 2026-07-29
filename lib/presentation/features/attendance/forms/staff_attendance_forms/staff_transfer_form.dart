@@ -16,11 +16,13 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'staff_entity.dart';
@@ -41,14 +43,26 @@ class StaffTransferForm extends StatefulWidget {
 }
 
 class _StaffTransferFormState extends State<StaffTransferForm> {
-  DateTime _selectedTransferDate = DateTime.now();
-  TimeOfDay _selectedTransferTime = TimeOfDay.now();
+  DateTime _selectedTransferDate = ServerTimeService.instance.now();
+  TimeOfDay _selectedTransferTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
   String? _selectedToClassroomCode;
   final Map<String, String> _classroomNameToCode = <String, String>{};
   List<StaffEntity> _selectedStaff = [];
   bool _isSubmitting = false;
   bool? _isStaffAdminPersona;
+  String? _currentStaffCode; // Current user's staff code
+
+  /// True when this form targets the logged-in user's own attendance record
+  /// (My Attendance) rather than another staff member's. Self attendance can
+  /// never have its date/time edited, even by an admin persona — only
+  /// admin-managed OTHER-staff attendance allows picking a date/time.
+  bool get _isSelfTarget {
+    final code = _currentStaffCode;
+    if (code == null || code.isEmpty) return false;
+    return _selectedStaff.length == 1 &&
+        (_selectedStaff.first.staffCode ?? '').trim() == code;
+  }
   // The staff member's latest/current classroom code. Seeded from the
   // entity (transfer-list API) for an instant first paint, then overridden
   // by the staff's attendance/transfer history (the `isLastSequenceEntry`
@@ -94,18 +108,19 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
+    final currentStaffCode = (await serviceLocator<StorageService>()
+                .getString(StorageKeys.staffCode) ??
+            '')
+        .trim();
     if (!mounted) return;
     setState(() {
       _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
-      if (schoolIana != null && schoolIana.isNotEmpty) {
-        final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolIana);
-        _selectedTransferDate = dt.$1;
-        _selectedTransferTime = dt.$2;
-      } else {
-        _selectedTransferDate = DateTime.now();
-        _selectedTransferTime = TimeOfDay.now();
-      }
+      _currentStaffCode =
+          currentStaffCode.isNotEmpty ? currentStaffCode : null;
+      final now = ServerTimeService.instance.now();
+      _selectedTransferDate = now;
+      _selectedTransferTime = TimeOfDay(hour: now.hour, minute: now.minute);
     });
     await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isAdmin);
   }
@@ -149,7 +164,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
 
     var resolved = '';
     try {
-      final now = DateTime.now();
+      final now = ServerTimeService.instance.now();
       final attendanceRepo = serviceLocator<AttendanceRepository>();
       final dailyPage = await attendanceRepo.getStaffAttendanceDaily(
         // A wide lookback, not just "today" — the most recent transfer may
@@ -214,6 +229,14 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
   }
 
   Future<bool> _resolveIsStaffAdminPersona() async {
+    // RoleCubit's active persona is the canonical, persona-switch-aware
+    // signal — staffType/roles in storage can lag a beat after a persona
+    // switch and misresolve a staff/teacher persona as admin (see
+    // AttendancePopup._loadStaffPersonaFlags for the same fix).
+    if (mounted) {
+      return !context.read<RoleCubit>().isStaff;
+    }
+
     final storage = serviceLocator<StorageService>();
     final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
         .trim()
@@ -403,21 +426,24 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
       schoolTimeZone,
     );
 
+    // An admin acting on their OWN record (My Attendance/My Day, or a bulk
+    // form where they only selected themselves) must not be able to pick a
+    // date/time either — only admin-managed OTHER-staff transfers allow it.
+    final bool isSelfTarget =
+        targetStaffCodes.length == 1 && targetStaffCodes.first == staffCode;
+
     final DateTime transferredAt;
-    if (isStaffAdmin) {
+    if (isStaffAdmin && !isSelfTarget) {
       final pickedDay = DateTime(
         _selectedTransferDate.year,
         _selectedTransferDate.month,
         _selectedTransferDate.day,
       );
       final safeDay = pickedDay.isAfter(schoolToday) ? schoolToday : pickedDay;
-      transferredAt = SchoolZoneDateTime.utcFromSchoolWallClock(
+      transferredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
-        year: safeDay.year,
-        month: safeDay.month,
-        day: safeDay.day,
-        hour: _selectedTransferTime.hour,
-        minute: _selectedTransferTime.minute,
+        selectedDate: safeDay,
+        selectedTime: _selectedTransferTime,
       );
     } else {
       transferredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
@@ -471,7 +497,13 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
         // away.
         await _hydrateSelfStaffClassroomDataIfNeeded(isAdmin: isStaffAdmin);
         if (!mounted) return;
-        redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+        if (!isStaffAdmin) {
+          // Teacher/staff persona: no forced navigation — stay on
+          // whatever screen this action was started from.
+          Navigator.of(context).pop();
+        } else {
+          redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+        }
       }
     } catch (e) {
       if (!mounted) return;
@@ -582,7 +614,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                               isTime: false,
                               fetchInitialTime: false,
                               initialDate: _selectedTransferDate,
-                              isDisabled: _isStaffAdminPersona == false,
+                              isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
                               onDateSelected: (date) {
                                 setState(() {
                                   final iana = _schoolIana;
@@ -591,9 +623,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                           iana,
                                         )
                                       : DateTime(
-                                          DateTime.now().year,
-                                          DateTime.now().month,
-                                          DateTime.now().day,
+                                          ServerTimeService.instance.now().year,
+                                          ServerTimeService.instance.now().month,
+                                          ServerTimeService.instance.now().day,
                                         );
                                   final picked = DateTime(
                                     date.year,
@@ -617,7 +649,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const AppText.label('Time'),
                             const SizedBox(height: 8),
                             IgnorePointer(
-                              ignoring: _isStaffAdminPersona == false,
+                              ignoring: _isStaffAdminPersona != true || _isSelfTarget,
                               child: GradientTimePickerField(
                                 time: _selectedTransferTime,
                                 onTimeSelected: (t) {

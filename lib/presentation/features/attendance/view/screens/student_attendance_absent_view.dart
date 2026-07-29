@@ -419,31 +419,43 @@ class _StudentAttendanceAbsentViewState
     bool reset = false,
     bool fromBackground = false,
   }) async {
-    // Try cache first to mirror cache integration used in student lists.
+    // Try cache first to mirror cache integration used in student lists — but
+    // never for a classroom-scoped staff persona. This cache key isn't keyed
+    // per-user/per-scope, so serving it directly could leak another
+    // classroom's absent students (or a stale unscoped/admin payload from an
+    // earlier session on the same device) straight into a restricted view.
     if (!reset) {
-      final from = _rangeStart ?? attendanceSchoolToday();
-      final to = _rangeEnd ?? attendanceSchoolToday();
-      final classroomCodes = _effectiveClassroomCodes();
-      final tagCodes = _resolveSelectedTagCodes();
-      final trimmedSearch = _searchQuery.trim();
-      final hasActiveFilters =
-          (classroomCodes != null && classroomCodes.isNotEmpty) ||
-          (tagCodes != null && tagCodes.isNotEmpty) ||
-          trimmedSearch.isNotEmpty;
+      final scoped = await isStudentAttendanceScopedStaffPersona(
+        storage: serviceLocator<StorageService>(),
+      );
+      if (!mounted) return;
 
-      if (!hasActiveFilters) {
-        final cacheKey = _studentAttendanceAbsentCacheKey(
-          from,
-          to,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
-        );
+      if (!scoped) {
+        final from = _rangeStart ?? attendanceSchoolToday();
+        final to = _rangeEnd ?? attendanceSchoolToday();
+        final classroomCodes = _effectiveClassroomCodes();
+        final tagCodes = _resolveSelectedTagCodes();
+        final trimmedSearch = _searchQuery.trim();
+        final hasActiveFilters =
+            (classroomCodes != null && classroomCodes.isNotEmpty) ||
+            (tagCodes != null && tagCodes.isNotEmpty) ||
+            trimmedSearch.isNotEmpty;
 
-        final cachedPayload = await _cacheManager.loadCache(cacheKey);
-        if (cachedPayload != null) {
-          _applyPagePayload(cachedPayload, reset: true);
-          return;
+        if (!hasActiveFilters) {
+          final cacheKey = _studentAttendanceAbsentCacheKey(
+            from,
+            to,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+          );
+
+          final cachedPayload = await _cacheManager.loadCache(cacheKey);
+          if (!mounted) return;
+          if (cachedPayload != null) {
+            _applyPagePayload(cachedPayload, reset: true);
+            return;
+          }
         }
       }
     }
@@ -529,18 +541,28 @@ class _StudentAttendanceAbsentViewState
 
       final root = data['data'] as Map<String, dynamic>? ?? {};
 
-      // Cache first page keyed by filters so it can be reused on next load.
+      // Cache first page keyed by filters so it can be reused on next load —
+      // but only when this persona is unrestricted. A scoped staff member's
+      // results must never be persisted to the shared cache: another user
+      // (or this same user after their access changes) could otherwise read
+      // back a payload that doesn't reflect their current classroom scope.
       if (_studentsPage == 0) {
-        final from = _rangeStart ?? attendanceSchoolToday();
-        final to = _rangeEnd ?? attendanceSchoolToday();
-        final cacheKey = _studentAttendanceAbsentCacheKey(
-          from,
-          to,
-          classroomCodes: classroomCodes,
-          tagCodes: tagCodes,
-          search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+        final scoped = await isStudentAttendanceScopedStaffPersona(
+          storage: serviceLocator<StorageService>(),
         );
-        await _cacheManager.saveCache(cacheKey, root);
+        if (!mounted) return;
+        if (!scoped) {
+          final from = _rangeStart ?? attendanceSchoolToday();
+          final to = _rangeEnd ?? attendanceSchoolToday();
+          final cacheKey = _studentAttendanceAbsentCacheKey(
+            from,
+            to,
+            classroomCodes: classroomCodes,
+            tagCodes: tagCodes,
+            search: trimmedSearch.isNotEmpty ? trimmedSearch : null,
+          );
+          await _cacheManager.saveCache(cacheKey, root);
+        }
       }
 
       _applyPagePayload(root, reset: reset);

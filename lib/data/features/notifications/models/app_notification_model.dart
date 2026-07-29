@@ -1,3 +1,4 @@
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/notifications/entities/app_notification.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 
@@ -85,6 +86,18 @@ class AppNotificationModel extends AppNotification {
       }
     }
 
+    // Expose the inbox item's own timestamp as a LAST-RESORT date for
+    // date-targeted deep links. Older ACTIVITY notifications predate the
+    // backend's `activityMarkedDate` field and carry no date whatsoever, so a
+    // tap had nothing to open the feed on and fell back to "today" — landing on
+    // the wrong day with no card to highlight. The item is created when the
+    // event is recorded, so `createdAt` is a close proxy. `putIfAbsent` keeps a
+    // real payload date authoritative whenever one exists.
+    final createdAtRaw = (json['createdAt'] ?? '').toString().trim();
+    if (createdAtRaw.isNotEmpty) {
+      data.putIfAbsent('notificationCreatedAt', () => createdAtRaw);
+    }
+
     final subjectName = _firstNonEmpty([
       data['studentName'],
       data['staffName'],
@@ -117,7 +130,7 @@ class AppNotificationModel extends AppNotification {
       category: NotificationCategory.fromApi(categoryRaw),
       createdAt:
           DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
-              DateTime.now(),
+              AppTime.nowUtc(),
       isRead: isRead,
       data: data,
     );
@@ -145,7 +158,7 @@ class AppNotificationModel extends AppNotification {
       createdAt:
           DateTime.tryParse((json['createdAt'] ?? json['createdOn'] ?? '')
                   .toString()) ??
-              DateTime.now(),
+              AppTime.nowUtc(),
       isRead: _asBool(json['isRead'] ?? json['read']),
       data: data,
     );

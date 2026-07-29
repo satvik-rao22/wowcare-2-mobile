@@ -4,6 +4,7 @@ import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 
 class TimeWidget extends StatefulWidget {
@@ -51,7 +52,7 @@ class _TimeWidgetState extends State<TimeWidget> {
         _selectedTime =
             SchoolZoneDateTime.schoolCalendarDateAndTimeNow(tz).$2;
       } else {
-        _selectedTime = TimeOfDay.now();
+        _selectedTime = ServerTimeService.instance.timeOfDayNow();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onTimeChanged?.call(_selectedTime);

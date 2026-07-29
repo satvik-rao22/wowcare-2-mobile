@@ -127,6 +127,17 @@ class MessagingListTile extends StatelessWidget {
           ),
           subtitle: Row(
             children: [
+              // Lock icon when the conversation is in private mode — the preview
+              // still shows the real last message (for those allowed to see it).
+              if (conversation.privateModeActive)
+                const Padding(
+                  padding: EdgeInsets.only(right: 4),
+                  child: Icon(
+                    Icons.lock,
+                    size: 13,
+                    color: Color(0xFF636E72),
+                  ),
+                ),
               Flexible(
                 fit: FlexFit.tight,
                 child: Text(

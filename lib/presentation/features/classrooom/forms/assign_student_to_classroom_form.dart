@@ -15,12 +15,16 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_page_usecase.dart';
 import 'package:wowcare/domain/features/student_classroom/usecases/assign_students_to_classroom_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
+import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
 
 // UI-only lightweight types
 class _TagEntity {
@@ -36,6 +40,10 @@ class StudentEntity {
   final String? profilePhotoAssetCode;
   final String? roomName;
   final List<_TagEntity> tags;
+
+  /// Raw DOB string from the student list (may be empty / unparseable). Kept so
+  /// the assign flow can WARN when a student's age is outside the target room.
+  final String dob;
   const StudentEntity({
     required this.id,
     required this.code,
@@ -44,6 +52,7 @@ class StudentEntity {
     this.profilePhotoAssetCode,
     this.roomName,
     this.tags = const [],
+    this.dob = '',
   });
 }
 
@@ -156,6 +165,7 @@ class _AssignStudentToClassroomFormState
                   : s.profilePhotoAssetCode!.trim(),
               roomName: s.classroom,
               tags: tagEntities,
+              dob: s.dob,
             ),
           );
           if (s.classroom.trim().isNotEmpty) {
@@ -524,10 +534,86 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
   late Set<StudentEntity> currentSelectedStudents;
   bool _isSubmitting = false;
 
+  /// Target classroom (with age bounds), loaded once on init. Null while loading
+  /// or if the fetch fails — either way the age warning is simply skipped.
+  Classroom? _targetClassroom;
+
   @override
   void initState() {
     super.initState();
     currentSelectedStudents = Set.from(widget.selectedStudents);
+    unawaited(_loadTargetClassroom());
+  }
+
+  /// Resolves the target classroom's age bounds. Self-contained (uses the
+  /// use case directly) so it doesn't depend on a ClassroomCubit being in scope.
+  Future<void> _loadTargetClassroom() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isEmpty) return;
+      final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+        schoolCode: schoolCode,
+      );
+      if (!mounted) return;
+      for (final c in classrooms) {
+        if (c.code.trim() == widget.classroomCode.trim()) {
+          setState(() => _targetClassroom = c);
+          return;
+        }
+      }
+    } catch (_) {
+      // Bounds unknown → the warning is skipped (never blocks the assign).
+    }
+  }
+
+  /// Shows an amber confirm listing any selected students whose age is outside
+  /// the target room. Returns true to proceed (including when there's nothing to
+  /// warn about, or the room's bounds/DOBs are unknown).
+  Future<bool> _confirmIfAnyOutsideAgeRange() async {
+    final classroom = _targetClassroom;
+    if (classroom == null) return true; // bounds unknown → don't block
+
+    final outside = studentsOutsideAgeRange(
+      classroom: classroom,
+      students: currentSelectedStudents
+          .map((s) => (name: s.fullName.trim(), dob: _parseDob(s.dob)))
+          .toList(),
+    );
+    if (outside.isEmpty) return true;
+
+    final names = outside.where((n) => n.isNotEmpty).toList();
+    final subject = names.isEmpty
+        ? '${outside.length} selected student(s)'
+        : (names.length == 1 ? names.first : names.join(', '));
+    final range = formatClassroomAgeRange(classroom);
+    final message =
+        "$subject ${names.length == 1 ? 'is' : 'are'} outside "
+        "${classroom.name}'s age range${range.isEmpty ? '' : ' ($range)'}. "
+        'You can still assign them.';
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ConfirmationBottomSheet(
+        icon: Icons.warning_amber_rounded,
+        title: message,
+        confirmText: 'Assign anyway',
+        cancelText: 'Cancel',
+        onConfirm: () => Navigator.of(ctx).pop(true),
+        onCancel: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    return result == true;
+  }
+
+  /// Parses the raw DOB string; null when empty / unparseable (skip the check).
+  DateTime? _parseDob(String raw) {
+    final t = raw.trim();
+    if (t.isEmpty) return null;
+    return DateTime.tryParse(t);
   }
 
   void removeStudent(StudentEntity student) {
@@ -653,6 +739,11 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                       );
                       return;
                     }
+
+                    // WARN (never block) if any selected student is outside the
+                    // target room's age range — matching web "warn but allow".
+                    final proceed = await _confirmIfAnyOutsideAgeRange();
+                    if (!proceed || !mounted) return;
 
                     setState(() => _isSubmitting = true);
                     try {

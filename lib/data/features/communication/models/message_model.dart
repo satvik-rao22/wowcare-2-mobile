@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
@@ -55,11 +56,11 @@ class MessageModel extends Message {
       isSentByMe: isMine,
       time: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
+          : AppTime.nowUtc(),
       deliveredAt: json['status'] == 'DELIVERED' || json['status'] == 'READ'
-          ? DateTime.now()
+          ? AppTime.nowUtc()
           : null,
-      readAt: json['status'] == 'READ' ? DateTime.now() : null,
+      readAt: json['status'] == 'READ' ? AppTime.nowUtc() : null,
       editedAt: json['editedAt'] != null
           ? DateTime.parse(json['editedAt'] as String)
           : null,

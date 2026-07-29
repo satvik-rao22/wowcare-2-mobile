@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -51,7 +52,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   static const int _initialDisplayCount = 7;
 
   // ── UI state ───────────────────────────────────────────────────────────────
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = AppTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
 
@@ -130,7 +131,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
     // Cooldown: avoid hammering the API on rapid lifecycle events.
     final lastFetch = cubit.lastFetchAt;
     if (lastFetch != null &&
-        DateTime.now().difference(lastFetch) < _refreshCooldown) {
+        AppTime.nowUtc().difference(lastFetch) < _refreshCooldown) {
       return;
     }
 
@@ -339,6 +340,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                   DocumentImageWidget(
                     fileUuid: '',
                     name: room.name,
+                    classroomCode: room.code,
                     size: 30,
                     fontSize: 12,
                     disableProfileLookupFallback: true,

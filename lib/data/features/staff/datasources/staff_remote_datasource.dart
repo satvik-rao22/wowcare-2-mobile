@@ -1,6 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import '../models/staff_models.dart';
 import '../models/staff_count_models.dart';
@@ -843,8 +844,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     required String staffCode,
     required List<ImportantDateRequestModel> dates,
   }) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = AppTime.today();
 
     // Absolute safety check at data-source layer.
     // Due/Scheduled must never be past; Completed must never be future.

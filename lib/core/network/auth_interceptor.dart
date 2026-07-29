@@ -1,15 +1,14 @@
 import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/api_paths.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 
 /// The five `x-role` buckets the backend validates against. Finer backend roles
 /// (TEACHER, DIRECTOR, ASSOCIATE_TEACHER …) are normalised into one of these so
 /// `x-role` is always one of the accepted values.
+
 enum _RoleBucket {
   guardian,
   staff,
@@ -54,6 +53,23 @@ class AuthInterceptor extends Interceptor {
     final path = options.uri.path;
     final shouldSkip = _skipAuthPaths.any((p) => path.contains(p));
     if (shouldSkip) {
+      handler.next(options);
+      return;
+    }
+
+    // Token refresh rides the gateway's RELAXED path and must stay there.
+    //
+    // Strict validation is keyed on the PRESENCE of `x-sub-channel`: send it
+    // and the gateway then demands the full role-scoped matrix (x-role +
+    // x-staff-code/x-guardian-code + x-school-code). A PARTIAL strict set is
+    // 4xx'd — which the 401 handler would turn into a logout loop. So refresh
+    // sends Content-Type only, exactly like the web client's `refreshSession`,
+    // which uses a raw fetch to bypass its own header injection.
+    //
+    // Matched by suffix, not by the full ApiPaths constant: on UAT the path is
+    // `/api/v1/user/auth/refresh`, which does NOT contain `/api/v1/auth/refresh`
+    // — the same reason [_skipAuthPaths] silently no-ops on UAT.
+    if (path.contains('/auth/refresh')) {
       handler.next(options);
       return;
     }

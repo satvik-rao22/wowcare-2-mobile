@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -12,6 +13,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/messa
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
@@ -69,6 +71,15 @@ class _ParentDirectMessagingScreenState
   List<ChatAttachment> _pendingNewConversationAttachments = [];
   bool _isStartingConversation = false;
 
+  // Authoritative, server-side resolve of the existing conversation for the
+  // selected child. The Firestore/Isar list match (_syncToChild) can be stale
+  // (cached before a backfill), missing a denormalized field, or simply race
+  // the first frame — which made an existing chat open in the "start a chat"
+  // draft view. This lookup is the source of truth; while it's in flight we
+  // hold the shimmer instead of prematurely showing the draft view.
+  String? _resolvedForChildCode;
+  bool _resolvingExistence = false;
+
   @override
   void initState() {
     super.initState();
@@ -82,6 +93,15 @@ class _ParentDirectMessagingScreenState
       storageService: serviceLocator(),
     );
     _listCubit.startWatching();
+    // If a child is already selected when this screen mounts, the child listener
+    // won't fire a transition — resolve its existing conversation from the server
+    // directly so we don't briefly show the draft view for an existing chat.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _resolveExistingConversation(
+        context.read<ParentChildCubit>().state.selectedChild,
+      );
+    });
   }
 
   @override
@@ -124,6 +144,41 @@ class _ParentDirectMessagingScreenState
     }
   }
 
+  /// Authoritatively resolve the child's existing conversation from the server
+  /// (the same lookup the send flow uses), independent of the Firestore/Isar
+  /// list. This is what prevents an existing chat from opening in the draft
+  /// view when the list is stale or hasn't matched yet. Runs once per child.
+  Future<void> _resolveExistingConversation(ParentChildRef? child) async {
+    final code = child?.code.trim() ?? '';
+    if (code.isEmpty || _resolvedForChildCode == code) return;
+    _resolvedForChildCode = code;
+    if (mounted) setState(() => _resolvingExistence = true);
+
+    final repo = serviceLocator<ConversationEntityRepository>();
+    final isAdmin = widget.conversationType == 'ADMIN_CHAT';
+    final result = isAdmin
+        ? await repo.findAdminChatConversation(studentCode: code)
+        : await repo.findRoomChatConversation(studentCode: code);
+
+    if (!mounted) return;
+    // Ignore if the selected child changed while the lookup was in flight.
+    final currentCode =
+        context.read<ParentChildCubit>().state.selectedChild?.code.trim();
+    if (currentCode != code) {
+      setState(() => _resolvingExistence = false);
+      return;
+    }
+    result.fold(
+      (_) {}, // on failure keep whatever the list match found; draft stays a fallback
+      (conv) {
+        if (conv != null && conv.code != _selectedConversation?.code) {
+          _selectedConversation = conv;
+        }
+      },
+    );
+    setState(() => _resolvingExistence = false);
+  }
+
   /// Converts a v2 [ConversationEntity] into the legacy [parentInfo] map that
   /// [ParentMessagingThread] expects.
   Map<String, dynamic> _buildParentInfo(ConversationEntity conv) {
@@ -137,11 +192,11 @@ class _ParentDirectMessagingScreenState
         userCode: p.userCode,
         userName: p.userName,
         role: roleStr,
-        joinedAt: DateTime.now(),
+        joinedAt: AppTime.now(),
         muted: false,
         notificationsEnabled: true,
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
+        createdAt: AppTime.now(),
+        updatedAt: AppTime.now(),
         privateModeEnabled: conv.isPrivateModeEnabledFor(p.userCode),
         avatarUrl: p.avatarUrl,
         staffCode: p.staffCode,
@@ -217,6 +272,7 @@ class _ParentDirectMessagingScreenState
             _listCubit.state.conversations,
             explicit: true,
           );
+          _resolveExistingConversation(childState.selectedChild);
         },
         child: BlocConsumer<ConversationListCubit, ConversationListState>(
           listener: (context, state) {
@@ -235,6 +291,12 @@ class _ParentDirectMessagingScreenState
             }
           },
           builder: (context, state) {
+            final childState = context.watch<ParentChildCubit>().state;
+            debugPrint(
+              'ParentLoaded=${childState.isLoaded}, '
+              'ConversationLoading=${state.isLoading}, '
+              'SelectedConversation=${_selectedConversation?.code}',
+            );
             return RefreshIndicator(
               onRefresh: _listCubit.refresh,
               child: Column(
@@ -242,7 +304,12 @@ class _ParentDirectMessagingScreenState
                 children: [
                   if (state.errorMessage != null)
                     _buildErrorBanner(state.errorMessage!),
-                  Expanded(child: _buildThreadArea(state)),
+                  Expanded(
+                    child: _buildThreadArea(
+                      state,
+                      isChildLoaded: childState.isLoaded,
+                    ),
+                  ),
                 ],
               ),
             );
@@ -285,11 +352,17 @@ class _ParentDirectMessagingScreenState
     );
   }
 
-  Widget _buildThreadArea(ConversationListState state) {
+  Widget _buildThreadArea(
+    ConversationListState state, {
+    required bool isChildLoaded,
+  }) {
     final selected = _selectedConversation;
 
     if (selected == null) {
-      if (state.isLoading) {
+      // Hold the shimmer while the list is loading, the child isn't ready, OR
+      // the authoritative server existence-check is still in flight — so the
+      // "start a chat" draft view only appears once we're sure none exists.
+      if (state.isLoading || !isChildLoaded || _resolvingExistence) {
         return const ChatThreadShimmer();
       }
       if (state.errorMessage != null) {

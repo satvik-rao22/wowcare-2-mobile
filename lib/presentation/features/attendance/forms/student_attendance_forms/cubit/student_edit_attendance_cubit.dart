@@ -10,6 +10,7 @@ import '../../../../../../core/util/staff_code_resolver.dart';
 import '../../../../../../domain/features/attendance/usecases/update_student_attendance_record_usecase.dart';
 import '../../attendance_time_parse_util.dart';
 import '../../edit_attendance_submit_outcome.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'student_edit_attendance_state.dart';
 
@@ -36,7 +37,7 @@ class StudentEditAttendanceFormCubit
   TimeOfDay? _initialSignInTime;
   TimeOfDay? _initialSignOutTime;
   String? _attendanceRecordCode;
-  DateTime _attendanceDate = DateTime.now();
+  DateTime _attendanceDate = ServerTimeService.instance.now();
 
   /// Resolves the school timezone, prefills the time pickers from the record's
   /// raw strings, and remembers the identifiers needed at submit time.

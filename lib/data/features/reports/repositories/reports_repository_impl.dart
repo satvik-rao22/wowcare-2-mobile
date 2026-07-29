@@ -2,6 +2,7 @@ import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/reports/entities/report_entity.dart';
 import '../../../../domain/features/reports/entities/report_metadata_entity.dart';
@@ -48,10 +49,12 @@ class ReportsRepositoryImpl implements ReportsRepository {
         await _storageService.getString(StorageKeys.organizationCode) ?? '';
     final userCode =
         await _storageService.getString(StorageKeys.userCode) ?? '';
-
+    // Pass the schoolName properly insted of the schoolCode in the SchoolName field
+    final schoolName = await SchoolContextHelper.getSchoolName();
     requestBody['schoolCode'] = schoolCode;
     requestBody['organizationCode'] = organizationCode;
     requestBody['generatedBy'] = userCode;
+    requestBody['schoolName'] = schoolName;
 
     AppLogger.d('[REPORTS-REPO] Calling remote datasource for fresh API call');
 
@@ -67,6 +70,48 @@ class ReportsRepositoryImpl implements ReportsRepository {
 
     return _mapResponseModelToEntity(response);
   }
+
+  /// Resolves the human-readable school name for [schoolCode]/[organizationCode]
+  /// from the cached org/school list, since `StorageKeys.selectedSchoolName`
+  /// is sometimes populated with the school code instead of its name.
+  // Future<String> _resolveSchoolName(
+  //   String schoolCode,
+  //   String organizationCode,
+  // ) async {
+  //   final storedName =
+  //       await _storageService.getString(StorageKeys.selectedSchoolName) ?? '';
+
+  //   final raw = await _storageService.getString(
+  //     StorageKeys.organizationsAndSchools,
+  //   );
+  //   if (raw != null && raw.isNotEmpty) {
+  //     try {
+  //       final decoded = jsonDecode(raw);
+  //       if (decoded is List) {
+  //         final list = decoded.whereType<Map>().map(
+  //           (e) => Map<String, dynamic>.from(e),
+  //         );
+  //         final match = list.firstWhere(
+  //           (e) =>
+  //               (e['schoolCode']?.toString() ?? '') == schoolCode &&
+  //               (e['organizationCode']?.toString() ?? '') == organizationCode,
+  //           orElse: () => const <String, dynamic>{},
+  //         );
+  //         final fromList = match['schoolName']?.toString() ?? '';
+  //         if (fromList.isNotEmpty) {
+  //           return fromList;
+  //         }
+  //       }
+  //     } catch (e) {
+  //       AppLogger.e(
+  //         '[REPORTS-REPO] Failed to parse organizationsAndSchools: $e',
+  //       );
+  //     }
+  //   }
+
+  //   // Fallback to stored name or the code itself if no better name is found.
+  //   return storedName.isNotEmpty ? storedName : schoolCode;
+  // }
 
   @override
   Future<List<ReportMetadataEntity>> getRecentReports() async {
@@ -84,7 +129,10 @@ class ReportsRepositoryImpl implements ReportsRepository {
         'Staff Attendance',
         _remoteDataSource.getRecentStaffAttendanceReports,
       ),
-      _RecentReportsSource('Staff Reports', _remoteDataSource.getRecentStaffReports),
+      _RecentReportsSource(
+        'Staff Reports',
+        _remoteDataSource.getRecentStaffReports,
+      ),
       _RecentReportsSource(
         'Student Management',
         _remoteDataSource.getRecentStudentManagementReports,
@@ -102,7 +150,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
       if (result.error != null) {
         failures.add('${result.label}: ${result.error}');
       } else {
-        AppLogger.d('[REPORTS] ${result.label} Reports Count: ${result.data.length}');
+        AppLogger.d(
+          '[REPORTS] ${result.label} Reports Count: ${result.data.length}',
+        );
         allReports.addAll(result.data);
       }
     }
@@ -114,7 +164,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
       );
     }
     if (failures.isNotEmpty) {
-      AppLogger.e('[REPORTS] Some recent-report sources failed: ${failures.join('; ')}');
+      AppLogger.e(
+        '[REPORTS] Some recent-report sources failed: ${failures.join('; ')}',
+      );
     }
 
     AppLogger.d('[REPORTS] Total Merged Reports Count: ${allReports.length}');
@@ -127,7 +179,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
         final entity = _mapRecentModelToEntity(model);
         unique[entity.reportId] = entity;
       } catch (e) {
-        AppLogger.w('[REPORTS] Skipping unparseable recent report (${model.reportId}): $e');
+        AppLogger.w(
+          '[REPORTS] Skipping unparseable recent report (${model.reportId}): $e',
+        );
       }
     }
 
@@ -145,7 +199,9 @@ class ReportsRepositoryImpl implements ReportsRepository {
     return sorted;
   }
 
-  Future<_RecentFetchResult> _safeFetchRecent(_RecentReportsSource source) async {
+  Future<_RecentFetchResult> _safeFetchRecent(
+    _RecentReportsSource source,
+  ) async {
     try {
       final data = await source.fetch();
       return _RecentFetchResult(label: source.label, data: data);

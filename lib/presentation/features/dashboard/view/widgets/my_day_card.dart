@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -28,12 +29,14 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 // ---------------------------------------------------------------------------
 // MyDayCard
@@ -70,6 +73,16 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   // ---- sign-in status ----
   bool _isSignedIn = false;
 
+  // True once the async today-sign-in-status fetch in `_loadStaffIdentity`
+  // has resolved (success or failure) at least once. `_isSignedIn` defaults
+  // to false until then, so the geofence-entry popup must not trust it (and
+  // must not decide "show" or "don't show") until this is true — otherwise
+  // an already-signed-in user restarting the app inside the geofence (e.g.
+  // GeofenceCubit reporting `withinRange` from a cached last-known location
+  // before the attendance API call resolves) would incorrectly see the
+  // Sign-In sheet.
+  bool _signInStatusLoaded = false;
+
   // Raw today-status string from the API (e.g. SIGNED_IN, ABSENT,
   // SIGNED_OUT). Kept alongside `_isSignedIn` because the boolean alone
   // can't distinguish "not signed in" from "already marked absent today",
@@ -101,12 +114,22 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
 
   bool _markAbsentDisabled(GeofenceState geofenceState) =>
       !_staffIdentityLoaded ||
-      _staffCode.isEmpty ||
+      _effectiveStaffCode.isEmpty ||
       !_availability(geofenceState).absentEnabled;
 
   // Cached staff identity — loaded once in initState so button taps never hit
   // a timing window where storage hasn't resolved yet.
   String _staffCode = '';
+  // Pure admins (role == 'admin', not also 'staff') have no staff profile, so
+  // StorageKeys.staffCode is legitimately empty for them — StorageKeys.userCode
+  // is used as their self-attendance identity instead.
+  String _userCode = '';
+
+  /// The identity used for self-attendance actions (Sign-In/Sign-Out/Transfer/
+  /// Mark Absent): the real staffCode when the user has a staff profile,
+  /// falling back to their userCode for staff-less personas (pure admins).
+  String get _effectiveStaffCode =>
+      _staffCode.isNotEmpty ? _staffCode : _userCode;
   String _staffDisplayName = '';
   String _staffDesignation = '';
   bool _staffIdentityLoaded = false;
@@ -368,6 +391,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   Future<void> _loadStaffIdentity() async {
     final storage = serviceLocator<StorageService>();
     final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    final userCode =
+        (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
     final name = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
     final designation =
@@ -375,26 +400,67 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     if (!mounted) return;
     setState(() {
       _staffCode = code;
+      _userCode = userCode;
       _staffDisplayName = name;
       _staffDesignation = designation;
       _staffIdentityLoaded = true;
     });
-    if (code.isEmpty) return;
+    final effectiveCode = _effectiveStaffCode;
+    if (effectiveCode.isEmpty) {
+      if (mounted) setState(() => _signInStatusLoaded = true);
+      return;
+    }
     try {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
-      final status = await useCase(staffCode: code);
+      final status = await useCase(staffCode: effectiveCode);
       if (!mounted) return;
       setState(() {
         _todayStatusRaw = status;
         _isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
+        _signInStatusLoaded = true;
       });
     } catch (_) {
       // sign-in status check is best-effort
+      if (mounted) setState(() => _signInStatusLoaded = true);
     }
+    // Covers the race where the geofence-entry listener fired (and skipped
+    // showing the sheet) while this fetch was still in flight — re-evaluate
+    // now that the real sign-in status is known.
+    _maybeShowSignInPopup();
+  }
+
+  /// Shows the geofence Sign-In sheet only when: the staff/admin is
+  /// currently within the school geofence, their today-sign-in status has
+  /// finished loading and shows them as not signed in, and the popup hasn't
+  /// already been shown for this geofence entry. Called both from the
+  /// [GeofenceCubit] entry-transition listener and right after
+  /// [_loadStaffIdentity]'s async status fetch resolves, so whichever of the
+  /// two finishes last is the one that actually decides whether to show it.
+  void _maybeShowSignInPopup() {
+    if (!mounted || !_signInStatusLoaded) return;
+    if (_geofencePopupShownThisEntry) return;
+    // TODO: Temporarily disabled Sign Out bottom sheet when signed in.
+    // Only show the sheet if user is signed out (needs to sign in).
+    if (_isSignedIn) return;
+    final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    _geofencePopupShownThisEntry = true;
+    // GeofenceCubit already fires the notification via
+    // _triggerNotificationIfNeeded — no need to do it here too.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      unawaited(
+        GeofenceSignInSheet.show(
+          context,
+          role: 'staff',
+          isSignedIn: _isSignedIn,
+        ),
+      );
+    });
   }
 
   Future<void> _openTransferForSelf() async {
-    if (_staffCode.isEmpty) {
+    if (_effectiveStaffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Unable to find your staff profile to transfer.',
@@ -413,7 +479,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
             designation: _staffDesignation.isNotEmpty
                 ? _staffDesignation
                 : 'Staff',
-            staffCode: _staffCode,
+            staffCode: _effectiveStaffCode,
           ),
         ),
       ),
@@ -458,13 +524,13 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   }
 
   StaffEntity? _buildSelfStaffEntity() {
-    if (_staffCode.isEmpty) return null;
+    if (_effectiveStaffCode.isEmpty) return null;
     return StaffEntity(
       id: 0,
       name: _staffDisplayName.isNotEmpty ? _staffDisplayName : '—',
       primaryRoomId: 0,
       designation: _staffDesignation.isNotEmpty ? _staffDesignation : 'Staff',
-      staffCode: _staffCode,
+      staffCode: _effectiveStaffCode,
     );
   }
 
@@ -486,6 +552,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     );
     if (mounted) {
       unawaited(_loadStaffIdentity());
+      // Keep GeofenceCubit.isStaffSignedIn in sync immediately after sign-in —
+      // it now also drives suppressing the "you can now Sign In or Sign Out"
+      // notification, so leaving it stale here would let that notification
+      // wrongly fire again right after the user just signed in.
       unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
     }
   }
@@ -534,10 +604,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     // Get current time in SCHOOL TIMEZONE (for accurate countdown)
     final now = schoolTimeZone.isNotEmpty
         ? SchoolZoneDateTime.dateTimeFromInstantInSchool(
-            DateTime.now().toUtc(),
+            ServerTimeService.instance.nowUtc(),
             schoolTimeZone,
           )
-        : DateTime.now();
+        : AppTime.now();
 
     final todayWeekday = now.weekday; // 1 = Monday, 7 = Sunday
 
@@ -898,23 +968,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
         return prev.status != GeofenceCubitStatus.withinRange &&
             curr.status == GeofenceCubitStatus.withinRange;
       },
-      listener: (context, _) {
-        if (_geofencePopupShownThisEntry) return;
-        _geofencePopupShownThisEntry = true;
-        // GeofenceCubit already fires the notification via
-        // _triggerNotificationIfNeeded — no need to do it here too.
-        if (!context.mounted) return;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          unawaited(
-            GeofenceSignInSheet.show(
-              context,
-              role: 'staff',
-              isSignedIn: _isSignedIn,
-            ),
-          );
-        });
-      },
+      listener: (context, _) => _maybeShowSignInPopup(),
       child: BlocConsumer<MyDayCubit, MyDayState>(
         // Re-compute countdown whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>
@@ -1044,8 +1098,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                           final roleProvider = context.watch<RoleCubit>();
                           final bool isStaff = roleProvider.isStaff;
                           final bool isAdmin = roleProvider.isAdmin;
-                          final StaffAttendanceActionAvailability
-                          availability = _availability(geofenceState);
+                          final StaffAttendanceActionAvailability availability =
+                              _availability(geofenceState);
                           final Map<String, String> disabledReasons =
                               _disabledReasons(geofenceState);
                           final bool markAbsentDisabled = _markAbsentDisabled(
@@ -1076,14 +1130,15 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                       if (showSecondaryButtons && _isSignedIn)
                                         Expanded(
                                           child: Tooltip(
-                                            message: availability.transferEnabled
+                                            message:
+                                                availability.transferEnabled
                                                 ? ''
                                                 : disabledReasons['Transfer'] ??
                                                       '',
                                             child: OutlinedButton.icon(
                                               onPressed:
                                                   (!_staffIdentityLoaded ||
-                                                      _staffCode.isEmpty ||
+                                                      _effectiveStaffCode.isEmpty ||
                                                       !availability
                                                           .transferEnabled)
                                                   ? null
@@ -1134,7 +1189,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 ? _handleMarkAbsentDisabledTap
                                                 : null,
                                             child: Tooltip(
-                                              message: availability.absentEnabled
+                                              message:
+                                                  availability.absentEnabled
                                                   ? ''
                                                   : disabledReasons['Absent'] ??
                                                         '',
@@ -1513,6 +1569,9 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   StreamSubscription<List<ConversationEntity>>? _sub;
   List<ConversationEntity> _items = const [];
   bool _loading = true;
+  // Logged-in user's code — used to resolve viewer-relative 1:1 conversation
+  // titles (the other participant's name) instead of the frozen stored title.
+  String _currentUserCode = '';
 
   @override
   void initState() {
@@ -1530,6 +1589,11 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   /// Firestore inbox in realtime. Uses type: null so ALL conversation types are included — the REST
   /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
   Future<void> _init() async {
+    _currentUserCode =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.userCode,
+        ))?.trim() ??
+        '';
     try {
       final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
           .call();
@@ -1582,7 +1646,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   String _formatTime(DateTime? dt) {
     if (dt == null) return '';
     final local = dt.toLocal();
-    final now = DateTime.now();
+    final now = AppTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final msgDay = DateTime(local.year, local.month, local.day);
     final diff = today.difference(msgDay).inDays;
@@ -1656,6 +1720,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             conversation: _items[i],
             timeLabel: _formatTime(_items[i].lastMessageAt),
             onTap: () => _openConversation(_items[i]),
+            currentUserCode: _currentUserCode,
           ),
         ],
       ],
@@ -1668,11 +1733,13 @@ class _RecentChatRow extends StatelessWidget {
     required this.conversation,
     required this.timeLabel,
     required this.onTap,
+    required this.currentUserCode,
   });
 
   final ConversationEntity conversation;
   final String timeLabel;
   final VoidCallback onTap;
+  final String currentUserCode;
 
   @override
   Widget build(BuildContext context) {
@@ -1686,7 +1753,7 @@ class _RecentChatRow extends StatelessWidget {
           children: [
             DocumentImageWidget(
               fileUuid: conversation.avatarUrl,
-              name: conversation.title,
+              name: conversation.displayTitle(currentUserCode),
               size: 50,
               fontSize: 20,
               disableProfileLookupFallback: true,
@@ -1701,9 +1768,7 @@ class _RecentChatRow extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          conversation.title.isNotEmpty
-                              ? conversation.title
-                              : 'Conversation',
+                          conversation.displayTitle(currentUserCode),
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: AppColors.primaryColor,

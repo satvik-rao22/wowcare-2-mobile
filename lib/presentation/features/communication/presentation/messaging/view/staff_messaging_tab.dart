@@ -8,6 +8,7 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
+import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
@@ -381,6 +382,42 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                             Colors.transparent,
                           ),
                           borderColor: Colors.transparent,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    // Discoverable manual refresh — mirrors the pull-to-refresh
+                    // (loadConversations) so users aren't limited to the pull gesture,
+                    // which isn't obvious and can't be triggered on a short/empty list.
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: () {
+                          context.read<CommunicationCubit>().loadConversations(
+                            type: _conversationType,
+                            size: _conversationPageSize,
+                          );
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              const SnackBar(
+                                content: Text('Refreshing conversations…'),
+                                duration: Duration(milliseconds: 1200),
+                              ),
+                            );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            color: const Color(0x33B1AFE9),
+                          ),
+                          child: Icon(
+                            Icons.refresh,
+                            color: AppColors.primaryColor,
+                            size: 22,
+                          ),
                         ),
                       ),
                     ),

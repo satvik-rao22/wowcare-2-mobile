@@ -27,6 +27,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -120,7 +121,16 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleCubit>().isParent) return true;
+    final roleCubit = context.read<RoleCubit>();
+    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
+    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
+    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
+    // which persona is currently active, so scanning that list below would
+    // wrongly flip an admin who switched profiles back to the guardian view.
+    // Only fall through to the best-effort scan while RoleCubit is still
+    // bootstrapping (no active persona resolved yet).
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    if (roleCubit.isParent) return true;
     try {
       final storage = serviceLocator<StorageService>();
       final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
@@ -337,7 +347,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
                 child: _showBars
-                    ? const CustomNavigationBar(activeTabIndexOverride: 1)
+                    ? const CustomNavigationBar(
+                        activeItemOverride: BottomNavigationItem.attendance,
+                      )
                     : const SizedBox.shrink(),
               ),
             ),

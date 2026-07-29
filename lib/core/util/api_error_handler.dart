@@ -35,12 +35,25 @@ class ApiErrorHandler {
           break;
       }
 
-      // Prefer a human-readable message from the API response body.
-      final bodyMessage = _messageFromBody(error.response?.data);
-      if (bodyMessage != null) return bodyMessage;
+      final status = error.response?.statusCode;
 
-      // No usable body message → map by HTTP status code.
-      final byStatus = _messageForStatus(error.response?.statusCode);
+      // Our backend wraps both success and error responses in a consistent
+      // `{success, message, data, timestamp}` envelope — including business
+      // validation failures it (mis)reports with a 500 status, e.g. "Cannot
+      // transition from REJECTED to CONFIRMED." A raw framework crash / gateway
+      // error page won't have this envelope shape, so gate on that instead of
+      // the status code: any well-formed envelope message is safe to surface,
+      // regardless of whether it arrived as 4xx or 5xx.
+      final envelopeMessage = _envelopeErrorMessage(error.response?.data);
+      if (envelopeMessage != null) return envelopeMessage;
+
+      if (status != null && status >= 400 && status < 500) {
+        final bodyMessage = _messageFromBody(error.response?.data);
+        if (bodyMessage != null) return bodyMessage;
+      }
+
+      // No usable body message → map by HTTP status code (5xx → generic).
+      final byStatus = _messageForStatus(status);
       if (byStatus != null) return byStatus;
 
       // Last resort: sanitize whatever Dio produced.
@@ -48,6 +61,17 @@ class ApiErrorHandler {
     }
 
     return sanitizeMessage(error?.toString() ?? '');
+  }
+
+  /// Extracts `message` from a response body only when it carries our
+  /// backend's standard `{success: false, message: ...}` error envelope —
+  /// this distinguishes an intentional business-error response (safe to show,
+  /// even under a 500 status) from a raw framework crash or gateway page.
+  static String? _envelopeErrorMessage(dynamic data) {
+    if (data is! Map || data['success'] != false) return null;
+    final message = data['message']?.toString().trim() ?? '';
+    if (message.isEmpty) return null;
+    return sanitizeMessage(message);
   }
 
   static String? _messageFromBody(dynamic data) {

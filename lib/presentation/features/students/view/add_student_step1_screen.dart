@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
@@ -23,6 +24,7 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
@@ -109,7 +111,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   }
 
   void _calculateAge(DateTime birthdate) {
-    final now = DateTime.now();
+    final now = AppTime.now();
     int years = now.year - birthdate.year;
     int months = now.month - birthdate.month;
     if (now.day < birthdate.day) {
@@ -184,7 +186,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         // Validate: must be past date only
@@ -209,7 +211,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _selectSchoolStartDate() async {
     try {
-      final now = DateTime.now();
+      final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final initial = _selectedSchoolStartDate;
       final DateTime? initialForPicker = _isUpcoming
@@ -365,6 +367,19 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       return;
     }
 
+    // WARN (never block) when the DOB is outside the classroom's age range.
+    // An out-of-range placement is a legitimate staff decision, so we surface it
+    // and let them proceed — matching the web "warn but allow" behaviour.
+    final ageWarning = classroomAgeRangeWarning(
+      classroom: selectedClassroom.first,
+      birthDate: _selectedBirthdate,
+      studentName: _firstNameController.text.trim(),
+    );
+    if (ageWarning != null) {
+      final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
+      if (!proceedAnyway || !mounted) return;
+    }
+
     final step1Data = {
       'status': _selectedStatus,
       'firstName': _firstNameController.text.trim(),
@@ -393,6 +408,24 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         _handleStep2Result(step1Data, [step2Result]);
       }
     });
+  }
+
+  /// Amber confirm for an out-of-range DOB. Returns true to proceed anyway.
+  Future<bool> _confirmAgeOutsideRange(String message) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ConfirmationBottomSheet(
+        icon: Icons.warning_amber_rounded,
+        title: message,
+        confirmText: 'Continue anyway',
+        cancelText: 'Cancel',
+        onConfirm: () => Navigator.of(ctx).pop(true),
+        onCancel: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    return result == true;
   }
 
   Future<bool> _confirmIfDuplicateNameExists({

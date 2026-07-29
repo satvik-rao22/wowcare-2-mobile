@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
@@ -35,6 +36,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/open_conversation_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
@@ -59,6 +61,7 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
+import 'package:wowcare/presentation/features/kiosk/view/logout/kiosk_logout_page.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -81,6 +84,7 @@ class AppRoutes {
   static const String messaging = MessagingScreen.routeName;
   static const String adminChat = AdminChatHostScreen.routeName;
   static const String messagingEntry = MessagingEntryScreen.routeName;
+  static const String openConversation = OpenConversationScreen.routeName;
   static const String parentBilling = ParentBillingScreen.routeName;
 }
 
@@ -94,66 +98,74 @@ const List<String> branchRootPaths = <String>[
   AppRoutes.parentBilling, // 4
 ];
 
-/// Map a visual nav-bar tab index → shell branch index. `null` means the tab
-/// is not a branch (e.g. staff/parent index 1 just opens the Attendance popup).
-int? navBranchIndexForTab({required bool isParent, required int tabIndex}) {
+/// Map a bottom-nav [BottomNavigationItem] → shell branch index. `null` means
+/// the item is not a branch (Attendance is a modal popup, not a route).
+int? branchIndexForItem({
+  required bool isParent,
+  required BottomNavigationItem item,
+}) {
   if (isParent) {
-    switch (tabIndex) {
-      case 0:
-        return 0; // Dashboard
-      case 1:
+    switch (item) {
+      case BottomNavigationItem.dashboard:
+        return 0;
+      case BottomNavigationItem.attendance:
         return null; // Attendance popup
-      case 2:
-        return 2; // Activities
-      case 3:
-        return 3; // Messages
-      case 4:
-        return 4; // Billing
+      case BottomNavigationItem.activities:
+        return 2;
+      case BottomNavigationItem.communication:
+        return 3;
+      case BottomNavigationItem.billing:
+        return 4;
+      case BottomNavigationItem.classrooms:
+        return null; // Not a parent tab
     }
   } else {
-    switch (tabIndex) {
-      case 0:
-        return 0; // Dashboard
-      case 1:
+    switch (item) {
+      case BottomNavigationItem.dashboard:
+        return 0;
+      case BottomNavigationItem.attendance:
         return null; // Attendance popup
-      case 2:
-        return 1; // Classrooms
-      case 3:
-        return 2; // Activities
-      case 4:
-        return 3; // Messages
+      case BottomNavigationItem.classrooms:
+        return 1;
+      case BottomNavigationItem.activities:
+        return 2;
+      case BottomNavigationItem.communication:
+        return 3;
+      case BottomNavigationItem.billing:
+        return null; // Not a staff/admin tab
     }
   }
-  return null;
 }
 
-/// Reverse of [navBranchIndexForTab] for highlighting the active tab when
-/// the user navigates programmatically or via a deep link.
-int tabIndexForBranchIndex({required bool isParent, required int branchIndex}) {
+/// Reverse of [branchIndexForItem] for highlighting the active tab when the
+/// user navigates programmatically or via a deep link.
+BottomNavigationItem itemForBranchIndex({
+  required bool isParent,
+  required int branchIndex,
+}) {
   if (isParent) {
     switch (branchIndex) {
-      case 0:
-        return 0;
       case 2:
-        return 2;
+        return BottomNavigationItem.activities;
       case 3:
-        return 3;
+        return BottomNavigationItem.communication;
       case 4:
-        return 4;
+        return BottomNavigationItem.billing;
+      default:
+        return BottomNavigationItem.dashboard;
     }
   } else {
     switch (branchIndex) {
-      case 0:
-        return 0;
       case 1:
-        return 2;
+        return BottomNavigationItem.classrooms;
       case 2:
-        return 3;
+        return BottomNavigationItem.activities;
       case 3:
-        return 4;
+        return BottomNavigationItem.communication;
+      default:
+        return BottomNavigationItem.dashboard;
     }
   }
-  return 0;
 }
 
 /// Stable navigator keys for each shell branch.
@@ -243,6 +255,30 @@ final GoRouter appRouter = GoRouter(
           '[KioskAccess] Blocking access to $currentRoute - kiosk user, redirecting to /kiosk',
         );
         return '/kiosk';
+      }
+    }
+
+    // Billing is persona-split: the admin billing screen has no data for a
+    // guardian. Anything that lands a guardian on /dashboard/billing — most
+    // notably a notification deep-link resolved before the persona was known
+    // (the killed-state launch path bakes its location in `main()`, long before
+    // login/school-switch settle the role) — is rewritten to the parent billing
+    // screen. Query params (e.g. `highlightCode`) are preserved so the target
+    // invoice still flashes.
+    if (state.uri.path == BillingScreen.routeName) {
+      try {
+        if (context.read<RoleCubit>().isParent) {
+          final q = state.uri.queryParameters;
+          AppLogger.d(
+            '[Billing] Guardian on ${state.uri} → redirecting to parent billing',
+          );
+          return Uri(
+            path: AppRoutes.parentBilling,
+            queryParameters: q.isEmpty ? null : q,
+          ).toString();
+        }
+      } catch (_) {
+        // RoleCubit not reachable/resolved yet — leave routing untouched.
       }
     }
 
@@ -491,6 +527,15 @@ final GoRouter appRouter = GoRouter(
                 pin: pin,
               ),
             );
+          },
+        ),
+
+        // Kiosk logout confirmation page
+        GoRoute(
+          path: 'logout',
+          pageBuilder: (context, state) {
+            AppLogger.d('[Kiosk] Building logout page');
+            return _fastPage(state, const KioskLogoutPage());
           },
         ),
       ],
@@ -1071,12 +1116,30 @@ final GoRouter appRouter = GoRouter(
           routes: [
             GoRoute(
               path: AppRoutes.activityFeed,
-              builder: (context, state) => ActivityFeedScreen(
-                highlightCode: state.uri.queryParameters['highlightCode'],
-                highlightDate: DateTime.tryParse(
-                  state.uri.queryParameters['date'] ?? '',
-                ),
-              ),
+              builder: (context, state) {
+                final q = state.uri.queryParameters;
+                final highlight = (q['highlightCode'] ?? '').trim();
+                final date = q['date'] ?? '';
+                final room = q['classroomCode'] ?? '';
+                return ActivityFeedScreen(
+                  // The Activities tab lives in an indexed-stack branch and its
+                  // Daily tab is keep-alive, so a notification tap into an
+                  // already-visited tab reuses the old State — leaving the feed
+                  // on the previously selected DAY/room. Keying a deep-link by
+                  // its target forces a remount, so initState re-runs and
+                  // applies the notification's date, classroom and highlight.
+                  // Normal tab navigation carries no highlightCode and keeps a
+                  // null key, so ordinary browsing state is preserved.
+                  key: highlight.isEmpty
+                      ? null
+                      : ValueKey('activityFeed-$highlight-$date-$room'),
+                  highlightCode: q['highlightCode'],
+                  highlightDate: DateTime.tryParse(date),
+                  // The deep-linked activity's classroom, so the feed opens on
+                  // the room that actually contains the card to highlight.
+                  highlightClassroomCode: q['classroomCode'],
+                );
+              },
             ),
           ],
         ),
@@ -1114,7 +1177,11 @@ final GoRouter appRouter = GoRouter(
               path: AppRoutes.parentBilling,
               builder: (context, state) => BlocProvider(
                 create: (_) => serviceLocator<ParentBillingCubit>(),
-                child: const ParentBillingScreen(),
+                // Billing notification deep-link: the invoice's card is revealed
+                // (page window grown), scrolled to and flashed.
+                child: ParentBillingScreen(
+                  highlightCode: state.uri.queryParameters['highlightCode'],
+                ),
               ),
             ),
           ],
@@ -1133,6 +1200,16 @@ final GoRouter appRouter = GoRouter(
     GoRoute(
       path: AppRoutes.messagingEntry,
       builder: (context, state) => const MessagingEntryScreen(),
+    ),
+    // Deep-link target for a tapped chat push notification: fetches the
+    // conversation by code and shows the correct thread.
+    GoRoute(
+      path: AppRoutes.openConversation,
+      builder: (context, state) => OpenConversationScreen(
+        conversationCode:
+            state.uri.queryParameters['conversationCode'] ?? '',
+        conversationType: state.uri.queryParameters['conversationType'],
+      ),
     ),
   ],
 );

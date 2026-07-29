@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -6,12 +7,12 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StaffAbsentReportScreen extends StatefulWidget {
   const StaffAbsentReportScreen({super.key, required this.classrooms});
@@ -35,7 +36,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
   }
@@ -49,14 +50,29 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     super.dispose();
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     AppLogger.d('[STAFF-ABSENT-UI] Generate button tapped');
 
     if (_toDate.value.isBefore(_fromDate.value)) {
-      AppLogger.w('[STAFF-ABSENT-UI] Generation blocked: To date before From date');
+      AppLogger.w(
+        '[STAFF-ABSENT-UI] Generation blocked: To date before From date',
+      );
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'To date cannot be before From date',
+        isError: true,
+      );
+      return;
+    }
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
         isError: true,
       );
       return;
@@ -66,11 +82,14 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     final cubit = context.read<ReportsCubit>();
     final params = ReportRequestParams(
       reportType: ReportType.staffAbsent,
+      format: _format.value, // PDF or XLSX
       startDate: _fromDate.value,
       endDate: _toDate.value,
       classroomCodes: _selectedClassrooms.value.isEmpty
           ? null
           : _selectedClassrooms.value,
+      schoolName: schoolName,
+      // Use the school name from the cubit state
     );
 
     AppLogger.d('[STAFF-ABSENT-UI] Calling cubit.generateReport()');
@@ -163,7 +182,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

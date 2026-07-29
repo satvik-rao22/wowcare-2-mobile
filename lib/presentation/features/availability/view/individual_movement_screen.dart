@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -20,6 +21,7 @@ import 'package:wowcare/presentation/features/availability/widgets/individual_mo
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_overview.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
+import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -447,7 +449,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         );
         break;
       case IndividualMovementAction.reject:
-        final String? rejectNote = await _showRejectCommentDialog();
+        final String? rejectNote = await _showRejectCommentDialog(item.name);
         if (rejectNote == null || !mounted) return;
         await _transitionMovementStatus(
           id: item.id,
@@ -683,10 +685,10 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     }
   }
 
-  Future<String?> _showRejectCommentDialog() async {
+  Future<String?> _showRejectCommentDialog(String movementTitle) async {
     final decision = await showMovementRejectDropDialog(
       context,
-      movementTitle: '',
+      movementTitle: movementTitle,
     );
     if (decision == null || decision.confirmed != true || !mounted) return null;
     return decision.comment.trim();
@@ -775,7 +777,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
 
     if (nextDirection != _edgeDirection) {
       _edgeDirection = nextDirection;
-      _edgeHoldStartedAt = nextDirection == 0 ? null : DateTime.now();
+      _edgeHoldStartedAt = nextDirection == 0 ? null : AppTime.now();
       _stopEdgeAutoPaging();
       return;
     }
@@ -784,7 +786,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     if (_edgeDirection != 0 && _edgeAutoPageTimer == null) {
       final holdStart = _edgeHoldStartedAt;
       if (holdStart != null &&
-          DateTime.now().difference(holdStart).inMilliseconds >= edgeDwellMs) {
+          AppTime.now().difference(holdStart).inMilliseconds >= edgeDwellMs) {
         _startEdgeAutoPaging();
       }
     }
@@ -811,6 +813,27 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     return _canMutateMovements(roles);
   }
 
+  Future<void> _onStudentNameTap(MovementItem item) async {
+    final studentCode = item.studentCode.trim();
+    if (studentCode.isEmpty) return;
+    final classroom = item.toClassroom.trim().isNotEmpty
+        ? item.toClassroom.trim()
+        : item.fromClassroom.trim();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentProfileScreen(
+          name: item.name,
+          classroom: classroom,
+          tags: const [],
+          schedule: const [],
+          sibling: const {},
+          studentCode: studentCode,
+        ),
+      ),
+    );
+  }
+
   Future<void> _handleDropToBucket(
     MovementItem item,
     MovementBucket targetBucket,
@@ -820,7 +843,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       _toastViewOnly(context);
       return;
     }
-    final sourceBucket = item.bucketFor(DateTime.now());
+    final sourceBucket = item.bucketFor(AppTime.now());
     if (sourceBucket == targetBucket) return;
     if (sourceBucket == MovementBucket.overdue &&
         targetBucket == MovementBucket.confirmed) {
@@ -832,25 +855,41 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       return;
     }
 
-    if (targetBucket == MovementBucket.confirmed) {
-      DateTime? newDate;
-      if (sourceBucket == MovementBucket.rejected) {
-        final dateDecision = await showMovementDateDropDialog(
-          context,
-          title: 'Revalidate Date',
-          message:
-              'Please select a future date before moving this rejected movement to Confirmed.',
-          mustBeFuture: true,
-        );
-        if (dateDecision == null ||
-            dateDecision.confirmed != true ||
-            !mounted) {
-          return;
-        }
-        newDate = dateDecision.selectedDate;
-        if (newDate == null) return;
-      }
+    if (sourceBucket == MovementBucket.overdue &&
+        targetBucket == MovementBucket.upcoming) {
+      // Backend disallows this transition outright, so skip the date
+      // prompt entirely and let the backend's validation error surface.
+      await _transitionMovementStatus(
+        id: item.id,
+        status: IndividualMovementWorkflowStatus.pending,
+        comment: item.comment.isEmpty ? 'Moved to pending via drag' : item.comment,
+      );
+      return;
+    }
 
+    // Confirmed -> Upcoming, Confirmed -> Overdue, Rejected -> Overdue,
+    // Rejected -> Confirmed and Upcoming -> Overdue are all invalid
+    // transitions on the backend, so skip the confirmation prompt entirely
+    // and let the backend's validation error surface instead.
+    if ((sourceBucket == MovementBucket.confirmed &&
+            (targetBucket == MovementBucket.upcoming ||
+                targetBucket == MovementBucket.overdue)) ||
+        (sourceBucket == MovementBucket.rejected &&
+            (targetBucket == MovementBucket.overdue ||
+                targetBucket == MovementBucket.confirmed)) ||
+        (sourceBucket == MovementBucket.upcoming &&
+            targetBucket == MovementBucket.overdue)) {
+      await _transitionMovementStatus(
+        id: item.id,
+        status: targetBucket == MovementBucket.confirmed
+            ? IndividualMovementWorkflowStatus.confirmed
+            : IndividualMovementWorkflowStatus.pending,
+        comment: item.comment.isEmpty ? 'Moved via drag' : item.comment,
+      );
+      return;
+    }
+
+    if (targetBucket == MovementBucket.confirmed) {
       final confirmDecision = await showMovementConfirmDropDialog(
         context,
         movementTitle: item.name,
@@ -867,7 +906,6 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
         comment: confirmDecision.comment.trim().isNotEmpty
             ? confirmDecision.comment.trim()
             : (item.comment.isEmpty ? 'Moved to confirmed via drag' : item.comment),
-        newMovementDate: newDate,
       );
       return;
     }
@@ -889,14 +927,12 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
       return;
     }
 
-    // Dragging to Upcoming or Overdue requires date confirmation.
+    // Only Rejected -> Upcoming reaches here; it requires date confirmation.
     final dateDecision = await showMovementDateDropDialog(
       context,
       title: 'Confirm Date',
-      message: targetBucket == MovementBucket.upcoming
-          ? 'Select a future date to move this movement to Upcoming.'
-          : 'Select a past date to move this movement to Overdue.',
-      mustBeFuture: targetBucket == MovementBucket.upcoming,
+      message: 'Select a future date to move this movement to Upcoming.',
+      mustBeFuture: true,
     );
     if (dateDecision == null || dateDecision.confirmed != true || !mounted) return;
     final newDate = dateDecision.selectedDate;
@@ -1085,6 +1121,7 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
                         onDragEnded: _onCardDragEnded,
                         onDragGlobalUpdate: _onCardDragGlobalUpdate,
                         highlightCode: widget.highlightCode,
+                        onStudentNameTap: _onStudentNameTap,
                       ),
                     const SizedBox(height: 20),
                   ],

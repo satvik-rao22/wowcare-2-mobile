@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:io';
-
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -164,14 +163,34 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     });
   }
 
+  /// Resolves the active student's classroom NAME ([_displayClassroom]) to its
+  /// classroom CODE via the loaded [ClassroomCubit] list. The activity flow needs
+  /// the code — the feed to pre-filter to this student's room, and the add-flow
+  /// to load per-classroom activity settings — but the profile only carries the
+  /// name. Returns '' when it can't be resolved (list not loaded / no match).
+  String _resolveClassroomCode(BuildContext context) {
+    final name = _displayClassroom.trim();
+    if (name.isEmpty) return '';
+    try {
+      final classrooms = context.read<ClassroomCubit>().state.classrooms;
+      final needle = name.toLowerCase();
+      for (final c in classrooms) {
+        if (c.name.trim().toLowerCase() == needle) return c.code.trim();
+      }
+    } catch (_) {
+      // ClassroomCubit not available / not loaded yet — fall through.
+    }
+    return '';
+  }
+
   /// Loads school-level student settings so the Health/Documents tabs know
   /// whether the current persona may edit. Best-effort: on failure editing
   /// stays disabled for guardian/staff (admins keep their module-access default).
   Future<void> _loadStudentSettings() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (school.isEmpty) return;
       final settings = await serviceLocator<StudentRemoteDataSource>()
           .getStudentSettings(schoolCode: school);
@@ -182,10 +201,25 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     }
   }
 
-  /// Whether the current persona may edit the Health tab and Documents:
+  /// Whether the current persona may edit a student's Health tab: guardian →
+  /// [StudentSettings.canParentEditChildHealthRecords], staff → also
+  /// [StudentSettings.canParentEditChildHealthRecords] (per backend contract,
+  /// this single toggle governs Health-tab edit access for both guardian and
+  /// staff personas — [StudentSettings.canStaffEditTheirOwnHealthRecords] is
+  /// reserved for Documents, see [_canEditDocuments]), admin → module access.
+  bool _canEditHealth(RoleCubit role) {
+    if (role.isParent || role.isStaff) {
+      return _studentSettings?.canParentEditChildHealthRecords ?? false;
+    }
+    return ModuleAccess.mayWrite(role, AppAccessModules.student);
+  }
+
+  /// Whether the current persona may add/edit/delete a student's Documents:
   /// guardian → [StudentSettings.canParentEditChildHealthRecords], staff →
-  /// [StudentSettings.canStaffEditTheirOwnHealthRecords], admin → module access.
-  bool _canEditHealthAndDocuments(RoleCubit role) {
+  /// [StudentSettings.canStaffEditTheirOwnHealthRecords] (despite its
+  /// health-records name, this field is the backend's toggle for whether
+  /// staff may add/edit student documents), admin → module access.
+  bool _canEditDocuments(RoleCubit role) {
     if (role.isParent) {
       return _studentSettings?.canParentEditChildHealthRecords ?? false;
     }
@@ -493,7 +527,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
         documentApiBasePath: '/api/v1',
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'student-profile-photo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'student-profile-photo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
@@ -605,7 +639,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       role,
       AppAccessModules.student,
     );
-    final canEditHealthDocs = _canEditHealthAndDocuments(role);
+    final canEditHealth = _canEditHealth(role);
+    final canEditDocuments = _canEditDocuments(role);
 
     return GlobalScaffold(
       hasBackButton: true,
@@ -678,7 +713,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
-                  canEdit: canEditHealthDocs,
+                  canEdit: canEditHealth,
                   onHealthChanged: _refreshHeaderHealth,
                 ),
                 StudentImportantDatesTab(
@@ -698,7 +733,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   name: _displayName,
                   classroom: _displayClassroom,
                   studentCode: _activeStudentCode,
-                  canEdit: canEditHealthDocs,
+                  canEdit: canEditDocuments,
                   highlightCode: widget.highlightCode,
                 ),
               ],
@@ -1050,6 +1085,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                 role,
                 AppAccessModules.dailyActivity,
                 () {
+                  // Resolve the classroom NAME → CODE so the activity feed can
+                  // filter to this student's room and the add-activity flow can
+                  // load per-classroom activity settings (the profile only holds
+                  // the name; without the code the add screen shows "No
+                  // activities available from API").
+                  final classroomCode = _resolveClassroomCode(context);
                   Navigator.of(context).push(
                     MaterialPageRoute(
                       builder: (_) => ActivityFeedScreen(
@@ -1064,6 +1105,8 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                               _activeStudentCode!.trim().isNotEmpty)
                             'studentCode': _activeStudentCode!.trim(),
                           'classroom': _displayClassroom,
+                          if (classroomCode.isNotEmpty)
+                            'classroomCode': classroomCode,
                           'tags': _profileTags,
                           'nappingStatus': false,
                         },
@@ -1174,10 +1217,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
     String studentCode,
   ) async {
     final storage = serviceLocator<StorageService>();
-    final org =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (!context.mounted) return;
     if (org.isEmpty || school.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -1216,8 +1259,9 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       Navigator.of(context).push(
         MaterialPageRoute<void>(
           builder: (_) => TransactionDetailsScreen(
-            ownerType:
-                resolved.ownerType.isNotEmpty ? resolved.ownerType : 'FAMILY',
+            ownerType: resolved.ownerType.isNotEmpty
+                ? resolved.ownerType
+                : 'FAMILY',
             ownerCode: resolved.ownerCode,
             familyName: resolved.familyName.isNotEmpty
                 ? resolved.familyName

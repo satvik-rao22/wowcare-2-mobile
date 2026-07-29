@@ -1,4 +1,5 @@
 import '../../../../domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/core/util/app_time.dart';
 
 class ConversationModel extends Conversation {
   const ConversationModel({
@@ -39,11 +40,11 @@ class ConversationModel extends Conversation {
       avatarUrl: json['avatarUrl'] as String? ?? '',
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
+          : AppTime.nowUtc(),
       createdBy: json['createdBy'] as String? ?? '',
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
-          : DateTime.now(),
+          : AppTime.nowUtc(),
       updatedBy: json['updatedBy'] as String? ?? '',
       lastMessageAt: json['lastMessageAt'] != null
           ? DateTime.parse(json['lastMessageAt'] as String)
@@ -128,17 +129,17 @@ class ConversationParticipantModel extends ConversationParticipant {
           'STAFF',
       joinedAt: json['joinedAt'] != null
           ? DateTime.parse(json['joinedAt'] as String)
-          : DateTime.now(),
+          : AppTime.nowUtc(),
       leftAt: json['leftAt'] != null ? DateTime.parse(json['leftAt'] as String) : null,
       lastReadAt: json['lastReadAt'] != null ? DateTime.parse(json['lastReadAt'] as String) : null,
       muted: json['muted'] as bool? ?? false,
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
       createdAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
-          : DateTime.now(),
+          : AppTime.nowUtc(),
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
-          : DateTime.now(),
+          : AppTime.nowUtc(),
     );
   }
 

@@ -44,7 +44,31 @@ class ReportsScreen extends StatefulWidget {
 }
 
 class _ReportsScreenState extends State<ReportsScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // After returning from an externally-launched file viewer (PDF/XLSX),
+    // Android/iOS can resume Flutter without repainting its surface,
+    // leaving a black screen. Force a rebuild on resume to guarantee a
+    // fresh frame is drawn.
+    if (state == AppLifecycleState.resumed && mounted) {
+      setState(() {});
+    }
+  }
+
+  /// Dismiss a dialog shown via [showDialog] (which defaults to the root
+  /// navigator). Popping through the ambient [context] instead would hit
+  /// go_router's branch navigator and pop the screen itself off the page
+  /// stack, which crashes with `currentConfiguration.isNotEmpty` once no
+  /// pages remain — always target the same (root) navigator the dialog was
+  /// pushed on, and never pop when there's nothing left to pop.
+  void _dismissDialog(BuildContext context) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    if (navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+
   void _openStudentReportForm(BuildContext context, String name) {
     final reports = context.read<ReportsCubit>().state;
     final cubit = context.read<ReportsCubit>();
@@ -340,16 +364,17 @@ class _ReportsScreenState extends State<ReportsScreen>
     ),
     ReportItem(
       name: 'Students & Billing Mapping',
-      description: 'Each student mapped to their invoices (total, paid, balance).',
+      description:
+          'Each student mapped to their invoices (total, paid, balance).',
     ),
   ];
 
   late final TabController _tabController;
-  String? _lastProcessedTabParam;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _tabController = TabController(length: _tabs.length, vsync: this);
     // Load recent reports when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -363,14 +388,11 @@ class _ReportsScreenState extends State<ReportsScreen>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final tabParam = GoRouterState.of(context).uri.queryParameters['tab'];
-    if (tabParam != _lastProcessedTabParam) {
-      _lastProcessedTabParam = tabParam;
-      if (tabParam != null) {
-        final tabIndex = int.tryParse(tabParam) ?? 0;
-        if (tabIndex >= 0 && tabIndex < _tabs.length) {
-          if (_tabController.index != tabIndex) {
-            _tabController.animateTo(tabIndex);
-          }
+    if (tabParam != null) {
+      final tabIndex = int.tryParse(tabParam) ?? 0;
+      if (tabIndex >= 0 && tabIndex < _tabs.length) {
+        if (_tabController.index != tabIndex) {
+          _tabController.animateTo(tabIndex);
         }
       }
     }
@@ -378,6 +400,7 @@ class _ReportsScreenState extends State<ReportsScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     super.dispose();
   }
@@ -468,180 +491,177 @@ class _ReportsScreenState extends State<ReportsScreen>
           body: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-                    // Header and TabBar
-                    SingleChildScrollView(
-                      physics: const ClampingScrollPhysics(),
-                      child: Padding(
-                        padding: contentPadding,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+              // Header and TabBar
+              SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: Padding(
+                  padding: contentPadding,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Reports',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: titleFontSize,
+                          fontWeight: FontWeight.w600,
+                          color: const Color(0xff573353),
+                          height: titleLineHeight,
+                        ),
+                        textAlign: TextAlign.left,
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        padding: const EdgeInsets.symmetric(vertical: 8),
+                        child: Row(
                           children: [
-                            Text(
-                              'Reports',
-                              style: TextStyle(
-                                fontFamily: 'Manrope',
-                                fontSize: titleFontSize,
-                                fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
-                                height: titleLineHeight,
+                            IconButton(
+                              tooltip: 'Scroll tabs',
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 26,
+                                height: 32,
                               ),
-                              textAlign: TextAlign.left,
+                              splashRadius: 14,
+                              icon: const Icon(
+                                Icons.chevron_left,
+                                color: Color(0xff573353),
+                                size: 25,
+                              ),
+                              onPressed: () {
+                                final int current = _tabController.index;
+                                if (current > 0) {
+                                  _tabController.animateTo(current - 1);
+                                }
+                              },
                             ),
-                            const SizedBox(height: 12),
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.transparent,
-                                borderRadius: BorderRadius.circular(12),
+                            Expanded(
+                              child: TabBar(
+                                controller: _tabController,
+                                isScrollable: true,
+                                padding: EdgeInsets.zero,
+                                labelPadding: EdgeInsets.zero,
+                                tabAlignment: TabAlignment.start,
+                                labelColor: AppColors.themeColor,
+                                unselectedLabelColor: const Color(0xff573353),
+                                dividerColor: Colors.transparent,
+                                indicatorSize: TabBarIndicatorSize.label,
+                                indicator: UnderlineTabIndicator(
+                                  borderSide: BorderSide(
+                                    color: AppColors.themeColor,
+                                    width: 2,
+                                  ),
+                                ),
+                                tabs: List<Widget>.generate(
+                                  _tabs.length,
+                                  (int index) => Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      index == 0 ? 4 : 12,
+                                      6,
+                                      12,
+                                      6,
+                                    ),
+                                    child: Text(
+                                      _tabs[index],
+                                      style: const TextStyle(
+                                        fontFamily: 'Manrope',
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ),
                               ),
-                              padding: const EdgeInsets.symmetric(vertical: 8),
-                              child: Row(
-                                children: [
-                                  IconButton(
-                                    tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 26,
-                                      height: 32,
-                                    ),
-                                    splashRadius: 14,
-                                    icon: const Icon(
-                                      Icons.chevron_left,
-                                      color: Color(0xff573353),
-                                      size: 25,
-                                    ),
-                                    onPressed: () {
-                                      final int current = _tabController.index;
-                                      if (current > 0) {
-                                        _tabController.animateTo(current - 1);
-                                      }
-                                    },
-                                  ),
-                                  Expanded(
-                                    child: TabBar(
-                                      controller: _tabController,
-                                      isScrollable: true,
-                                      padding: EdgeInsets.zero,
-                                      labelPadding: EdgeInsets.zero,
-                                      tabAlignment: TabAlignment.start,
-                                      labelColor: AppColors.themeColor,
-                                      unselectedLabelColor: const Color(
-                                        0xff573353,
-                                      ),
-                                      dividerColor: Colors.transparent,
-                                      indicatorSize: TabBarIndicatorSize.label,
-                                      indicator: UnderlineTabIndicator(
-                                        borderSide: BorderSide(
-                                          color: AppColors.themeColor,
-                                          width: 2,
-                                        ),
-                                      ),
-                                      tabs: List<Widget>.generate(
-                                        _tabs.length,
-                                        (int index) => Padding(
-                                          padding: EdgeInsets.fromLTRB(
-                                            index == 0 ? 4 : 12,
-                                            6,
-                                            12,
-                                            6,
-                                          ),
-                                          child: Text(
-                                            _tabs[index],
-                                            style: const TextStyle(
-                                              fontFamily: 'Manrope',
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    tooltip: 'Scroll tabs',
-                                    padding: EdgeInsets.zero,
-                                    visualDensity: VisualDensity.compact,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 26,
-                                      height: 32,
-                                    ),
-                                    splashRadius: 14,
-                                    icon: const Icon(
-                                      Icons.chevron_right,
-                                      color: Color(0xff573353),
-                                      size: 25,
-                                    ),
-                                    onPressed: () {
-                                      final int current = _tabController.index;
-                                      if (current < _tabs.length - 1) {
-                                        _tabController.animateTo(current + 1);
-                                      }
-                                    },
-                                  ),
-                                ],
+                            ),
+                            IconButton(
+                              tooltip: 'Scroll tabs',
+                              padding: EdgeInsets.zero,
+                              visualDensity: VisualDensity.compact,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 26,
+                                height: 32,
                               ),
+                              splashRadius: 14,
+                              icon: const Icon(
+                                Icons.chevron_right,
+                                color: Color(0xff573353),
+                                size: 25,
+                              ),
+                              onPressed: () {
+                                final int current = _tabController.index;
+                                if (current < _tabs.length - 1) {
+                                  _tabController.animateTo(current + 1);
+                                }
+                              },
                             ),
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    // Tab Content - Swipeable
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(
-                          horizontal: contentPadding.left,
-                          vertical: contentPadding.top,
-                        ),
-                        child: TabBarView(
-                          controller: _tabController,
-                          physics: const BouncingScrollPhysics(),
-                          children: [
-                            // Tab 0: Generated Reports
-                            _GeneratedReportsTab(context: context),
-                            // Tab 1: Student Reports
-                            _ReportsTab(
-                              tabIndex: 1,
-                              reports: _studentReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openStudentReportForm,
-                            ),
-                            // Tab 2: Staff Reports
-                            _ReportsTab(
-                              tabIndex: 2,
-                              reports: _staffReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openStaffReportForm,
-                            ),
-                            // Tab 3: Compliance Reports
-                            _ReportsTab(
-                              tabIndex: 3,
-                              reports: _complianceReports,
-                              formats: const [
-                                ReportExportFormat.pdf,
-                                ReportExportFormat.excel,
-                              ],
-                              onGenerate: _openComplianceReportForm,
-                            ),
-                            // Tab 4: Billing Reports
-                            _ReportsTab(
-                              tabIndex: 4,
-                              reports: _billingReports,
-                              formats: const [ReportExportFormat.excel],
-                              onGenerate: _openBillingReportForm,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
+              ),
+              const SizedBox(height: 12),
+              // Tab Content - Swipeable
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: contentPadding.left,
+                    vertical: contentPadding.top,
+                  ),
+                  child: TabBarView(
+                    controller: _tabController,
+                    physics: const BouncingScrollPhysics(),
+                    children: [
+                      // Tab 0: Generated Reports
+                      _GeneratedReportsTab(context: context),
+                      // Tab 1: Student Reports
+                      _ReportsTab(
+                        tabIndex: 1,
+                        reports: _studentReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openStudentReportForm,
+                      ),
+                      // Tab 2: Staff Reports
+                      _ReportsTab(
+                        tabIndex: 2,
+                        reports: _staffReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openStaffReportForm,
+                      ),
+                      // Tab 3: Compliance Reports
+                      _ReportsTab(
+                        tabIndex: 3,
+                        reports: _complianceReports,
+                        formats: const [
+                          // ReportExportFormat.pdf,
+                          ReportExportFormat.excel,
+                        ],
+                        onGenerate: _openComplianceReportForm,
+                      ),
+                      // Tab 4: Billing Reports
+                      _ReportsTab(
+                        tabIndex: 4,
+                        reports: _billingReports,
+                        formats: const [ReportExportFormat.excel],
+                        onGenerate: _openBillingReportForm,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
           showCustomNavigationBar: true,
         ),
       ),
     );
   }
-
 
   void _showComingSoon(BuildContext context, String action) {
     CoreUtils.showTopSnackBar(
@@ -710,6 +730,7 @@ class _ReportsScreenState extends State<ReportsScreen>
 
     showDialog(
       context: context,
+      useRootNavigator: true,
       barrierDismissible: false,
       builder: (_) => AlertDialog(
         content: Column(
@@ -727,7 +748,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       final fileData = await cubit.downloadReport(assetCode);
 
       if (!mounted) return;
-      Navigator.pop(context); // close downloading dialog
+      _dismissDialog(context); // close downloading dialog
 
       if (fileData == null || fileData.isEmpty) {
         AppLogger.e('[REPORTS-UI-DOWN] Bytes empty for assetCode=$assetCode');
@@ -742,6 +763,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       if (mounted) {
         showDialog(
           context: context,
+          useRootNavigator: true,
           barrierDismissible: false,
           builder: (_) => const AlertDialog(
             content: Column(
@@ -763,7 +785,7 @@ class _ReportsScreenState extends State<ReportsScreen>
       );
 
       if (!mounted) return;
-      Navigator.pop(context); // close saving dialog
+      _dismissDialog(context); // close saving dialog
 
       if (filePath == null) {
         AppLogger.e('[REPORTS-UI-DOWN] Save failed for assetCode=$assetCode');
@@ -800,9 +822,7 @@ class _ReportsScreenState extends State<ReportsScreen>
     } catch (e) {
       AppLogger.e('[REPORTS-UI-DOWN] Exception for assetCode=$assetCode: $e');
       if (mounted) {
-        try {
-          Navigator.pop(context);
-        } catch (_) {}
+        _dismissDialog(context);
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Error: $e',

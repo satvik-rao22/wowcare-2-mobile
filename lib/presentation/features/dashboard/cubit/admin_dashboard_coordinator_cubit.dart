@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -77,7 +78,7 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
 
     await Future.wait([
       dashboardCubit.loadUserName(),
-      classroomShiftsCubit.load(DateTime.now()),
+      classroomShiftsCubit.load(AppTime.now()),
       attentionCubit.load(),
       myDayCubit.load(),
       _initSchoolDependentCubits(),
@@ -90,7 +91,7 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final schoolCode = await _resolveSchoolCode();
     await Future.wait([
       movementsCubit.loadInitial(),
-      availabilityCubit.load(date: DateTime.now(), isTwoShifts: true),
+      availabilityCubit.load(date: AppTime.now(), isTwoShifts: true),
       if (schoolCode != null && schoolCode.isNotEmpty) ...[
         schoolStatusCubit.loadSchoolStatus(
           schoolCode: schoolCode,
@@ -217,10 +218,10 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
           schoolCode: schoolCode,
           forceRefresh: true,
         ),
-        classroomShiftsCubit.load(DateTime.now()),
+        classroomShiftsCubit.load(AppTime.now()),
         movementsCubit.refresh(),
         availabilityCubit.refresh(
-          date: availabilityCubit.state.selectedDate ?? DateTime.now(),
+          date: availabilityCubit.state.selectedDate ?? AppTime.now(),
           isTwoShifts: true,
         ),
         attentionCubit.refresh(),
@@ -228,10 +229,10 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
       ]);
     } else {
       await Future.wait([
-        classroomShiftsCubit.load(DateTime.now()),
+        classroomShiftsCubit.load(AppTime.now()),
         movementsCubit.refresh(),
         availabilityCubit.refresh(
-          date: availabilityCubit.state.selectedDate ?? DateTime.now(),
+          date: availabilityCubit.state.selectedDate ?? AppTime.now(),
           isTwoShifts: true,
         ),
         attentionCubit.refresh(),

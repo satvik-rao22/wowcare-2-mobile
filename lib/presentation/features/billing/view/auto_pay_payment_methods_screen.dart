@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -1194,7 +1195,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
   @override
   Widget build(BuildContext context) {
     final months = List<String>.generate(12, (i) => '${i + 1}'.padLeft(2, '0'));
-    final currentYear = DateTime.now().year;
+    final currentYear = billingSchoolCurrentYear();
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
     return Padding(
@@ -1259,7 +1260,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   showAsterisk: false,
                   labelBottomSpacing: 6,
                   fieldHeight: 52,
-                  prependHintAsSelectableItem: false,
                   onSelect: (v) {
                     if (v == null) return;
                     setState(() =>
@@ -1282,7 +1282,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         showAsterisk: false,
                         labelBottomSpacing: 6,
                         fieldHeight: 52,
-                        prependHintAsSelectableItem: false,
                         onSelect: (v) {
                           if (v != null) setState(() => _expMonth = v);
                         },
@@ -1300,7 +1299,6 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         showAsterisk: false,
                         labelBottomSpacing: 6,
                         fieldHeight: 52,
-                        prependHintAsSelectableItem: false,
                         onSelect: (v) {
                           if (v != null) setState(() => _expYear = v);
                         },

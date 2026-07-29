@@ -16,6 +16,7 @@ void main() {
       final params = StudentsAndFamilyReportParams(
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
@@ -41,6 +42,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         tagCodes: tags,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -57,6 +59,7 @@ void main() {
         parentFieldsSelected: const {'First name'},
         statusFilter: statusFilter,
         format: 'PDF',
+        schoolName: 'Test School',
       );
 
       final body = params.toRequestBody();
@@ -76,6 +79,7 @@ void main() {
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
+        schoolName: 'Test School',
         statusFilter: statusFilter,
         format: 'PDF',
       );
@@ -96,6 +100,7 @@ void main() {
         statusFilter: statusFilter,
         classroomCodes: classrooms,
         tagCodes: tags,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -109,6 +114,7 @@ void main() {
       final params = StudentsAndFamilyReportParams(
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
@@ -131,6 +137,7 @@ void main() {
         studentFieldsSelected: const {'Full Name', 'DOB'},
         parentFieldsSelected: const {'First name'},
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -150,6 +157,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -160,6 +168,7 @@ void main() {
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -171,6 +180,7 @@ void main() {
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
         endDate: endDate,
+        schoolName: 'Test School',
         studentFieldsSelected: const {'Full Name', 'DOB'},
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
@@ -184,6 +194,7 @@ void main() {
         studentFieldsSelected: const {'Full Name'},
         parentFieldsSelected: parentFields,
         statusFilter: statusFilter,
+        schoolName: 'Test School',
         format: 'PDF',
       );
 
@@ -194,6 +205,7 @@ void main() {
       final params = StudentsAndFamilyReportParams(
         reportType: ReportType.studentsAndFamily,
         startDate: startDate,
+        schoolName: 'Test School',
         endDate: endDate,
         studentFieldsSelected: studentFields,
         parentFieldsSelected: parentFields,

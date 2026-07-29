@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -18,7 +19,7 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/admin_chat_filter_sheet.dart';
+import 'package:wowcare/shared/common/views/filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -56,6 +57,11 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   Set<String> _selectedTags = {};
   String? _selectedStatus;
 
+  /// All tag names for the school (full list from the tags API) so the filter
+  /// shows EVERY tag — not only those on the currently-loaded (paginated)
+  /// students, which was dropping most tags from the Admin filter.
+  List<String> _schoolTagNames = [];
+
   /// Backs the "Start new chat" section shown when searching matches a
   /// student who has no admin-chat conversation yet.
   late final StudentCubit _studentCubit;
@@ -76,6 +82,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       storageService: serviceLocator(),
     );
     _studentCubit = serviceLocator<StudentCubit>()..loadInitial();
+    unawaited(_loadSchoolTags());
     _scrollController.addListener(_onScroll);
     _searchController.addListener(_onSearchChanged);
     unawaited(_cubit.startWatching());
@@ -127,9 +134,24 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     return list;
   }
 
-  /// Distinct tag names across the loaded students, for the filter sheet.
+  /// Load the FULL school tag-name list for the filter sheet (same source Room
+  /// Chat uses) so every tag is selectable, not just tags on loaded students.
+  Future<void> _loadSchoolTags() async {
+    final schoolCode = await serviceLocator<StorageService>()
+            .getString(StorageKeys.schoolCode) ??
+        '';
+    if (schoolCode.isEmpty) return;
+    final map = await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
+      schoolCode: schoolCode,
+    );
+    if (!mounted) return;
+    setState(() => _schoolTagNames = map.keys.toList());
+  }
+
+  /// Tag names for the filter sheet — the full school tag list, unioned with any
+  /// tag present on a loaded student (covers a stray tag not in the school list).
   List<String> _tagOptions() {
-    final set = <String>{};
+    final set = <String>{..._schoolTagNames};
     for (final s in _studentCubit.state.items) {
       set.addAll(s.tags.where((t) => t.trim().isNotEmpty));
     }
@@ -173,31 +195,48 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     }).toList();
   }
 
+  /// Opens the same full-screen Filter UI used by Parent Messaging (Room Chat)
+  /// — Classroom + Status + Tags — instead of a bottom sheet, so both screens
+  /// share one filter experience.
   void _showFilterSheet() {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => AdminChatFilterSheet(
-        classroomOptions: _classroomOptions(),
-        tagOptions: _tagOptions(),
-        statusOptions: const ['ACTIVE', 'UPCOMING'],
-        selectedClassrooms: _selectedClassrooms,
-        selectedTags: _selectedTags,
-        selectedStatus: _selectedStatus,
-        onApply: (classrooms, tags, status) => setState(() {
-          _selectedClassrooms = classrooms;
-          _selectedTags = tags;
-          _selectedStatus = status;
-        }),
-        onClear: () => setState(() {
-          _selectedClassrooms = {};
-          _selectedTags = {};
-          _selectedStatus = null;
-        }),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => FilterScreen(
+          sections: [
+            FilerSection(
+              label: 'Classroom',
+              hintText: 'Select classroom',
+              items: _classroomOptions(),
+              initialSelected: _selectedClassrooms.toList(),
+              isMultiSelectDropDown: true,
+            ),
+            FilerSection(
+              label: 'Status',
+              hintText: 'Select status',
+              items: const ['Active', 'Upcoming', 'Inactive'],
+              initialSelected:
+                  _selectedStatus != null ? [_selectedStatus!] : const [],
+              isSingleSelect: true,
+            ),
+            FilerSection(
+              label: 'Tags',
+              hintText: 'Select tags',
+              items: _tagOptions(),
+              initialSelected: _selectedTags.toList(),
+              isMultiSelectDropDown: true,
+            ),
+          ],
+          onApply: (filters) {
+            if (!mounted) return;
+            setState(() {
+              _selectedClassrooms = (filters['Classroom'] ?? const []).toSet();
+              _selectedTags = (filters['Tags'] ?? const []).toSet();
+              final status = filters['Status'] ?? const [];
+              _selectedStatus = status.isEmpty ? null : status.first;
+            });
+          },
+        ),
       ),
     );
   }

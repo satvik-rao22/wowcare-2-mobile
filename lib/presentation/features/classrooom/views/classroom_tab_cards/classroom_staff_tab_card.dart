@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
@@ -364,7 +365,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
 
   String _attendanceCacheKeyForRoomToday() {
     final classroomCode = (widget.selectedRoom?.code ?? '').trim();
-    final date = _formatDate(DateTime.now());
+    final date = _formatDate(AppTime.now());
     return 'staff:$classroomCode:$date';
   }
 
@@ -417,7 +418,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     final cacheKey = _attendanceCacheKeyForRoomToday();
     final cached = _attendanceCacheByKey[cacheKey];
     if (cached != null &&
-        DateTime.now().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
+        AppTime.nowUtc().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
       if (!mounted) return;
       setState(() {
         _attendanceStatusByStaffCode
@@ -461,7 +462,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         _attendanceStatusError = false;
       });
       _attendanceCacheByKey[cacheKey] = _StaffAttendanceCacheEntry(
-        fetchedAt: DateTime.now(),
+        fetchedAt: AppTime.nowUtc(),
         statusByCode: Map<String, String>.from(map),
       );
     } catch (_) {
@@ -568,7 +569,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       return;
     }
 
-    final date = _formatDate(DateTime.now());
+    final date = _formatDate(AppTime.now());
     final roomCode = (widget.selectedRoom?.code ?? '').trim();
     final classroomCodes = roomCode.isEmpty ? null : <String>[roomCode];
     try {

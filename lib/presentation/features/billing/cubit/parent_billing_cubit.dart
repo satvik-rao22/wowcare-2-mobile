@@ -71,6 +71,28 @@ class ParentBillingCubit extends Cubit<ParentBillingState> {
     emit(state.copyWith(displayCount: state.displayCount + _pageSize));
   }
 
+  /// Expands the client-side page window until the invoice deep-linked from a
+  /// billing notification is inside it.
+  ///
+  /// Transactions are windowed by [ParentBillingState.displayCount] (10 at a
+  /// time), so a notification targeting an older invoice would never mount its
+  /// card — and an unmounted card can't flash. Returns true when the invoice is
+  /// present in the ledger (already visible, or now revealed).
+  bool revealTransaction(String invoiceCode) {
+    final code = invoiceCode.trim();
+    if (code.isEmpty) return false;
+    final all = state.filteredTransactions;
+    final index = all.indexWhere(
+      (t) => t.invoiceCode.trim().toUpperCase() == code.toUpperCase(),
+    );
+    if (index < 0) return false; // not in this ledger / outside the date range
+    if (index < state.displayCount) return true; // already rendered
+    // Grow to a whole page boundary past the target.
+    final needed = (((index + 1) / _pageSize).ceil()) * _pageSize;
+    emit(state.copyWith(displayCount: needed));
+    return true;
+  }
+
   void setDateRange(DateTime startDate, DateTime? endDate) {
     emit(
       state.copyWith(

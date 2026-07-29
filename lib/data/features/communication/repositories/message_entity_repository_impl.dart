@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:dartz/dartz.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/core/errors/failures.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/communication/datasources/message_entity_local_data_source.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/data/features/communication/realtime/message_realtime_da
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/reaction_repository.dart';
 
@@ -85,7 +87,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       if (cached.isNotEmpty) {
         return Right(cached.map((c) => c.toEntity()).toList());
       }
-      return Left(ServerFailure(e.toString()));
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -137,7 +139,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       text: text,
       messageType: MessageType.text,
       status: MessageStatus.pending,
-      sentAt: DateTime.now(),
+      sentAt: AppTime.nowUtc(),
       organizationCode: org,
       schoolCode: school,
       isPrivate: isPrivate,
@@ -193,7 +195,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         },
       );
 
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -230,7 +232,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       final updatedLocal = cached.toEntity().copyWith(
         text: newText,
         isEdited: true,
-        editedAt: DateTime.now(),
+        editedAt: AppTime.nowUtc(),
       );
       await _local.saveMessage(updatedLocal);
     }
@@ -257,7 +259,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         schoolCode: school,
         payload: {'messageCode': messageCode, 'newText': newText},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -286,7 +288,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         schoolCode: school,
         payload: {'messageCode': messageCode},
       );
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -318,7 +320,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       if (originalEntity != null) {
         await _local.saveMessage(originalEntity);
       }
-      return Left(NetworkFailure(e.toString()));
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -465,7 +467,7 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       entityCode: entityCode,
       status: SyncOperationStatus.pending,
       payload: jsonEncode(payload),
-      createdAt: DateTime.now(),
+      createdAt: AppTime.nowUtc(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
     );

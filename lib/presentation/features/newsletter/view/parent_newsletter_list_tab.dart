@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -161,7 +162,7 @@ class _ParentNewsletterListTabState extends State<ParentNewsletterListTab> {
                                       ).format(
                                         entity.updatedAt ??
                                             entity.createdAt ??
-                                            DateTime.now(),
+                                            AppTime.now(),
                                       );
                                       final createdBy =
                                           entity.createdByName.trim().isNotEmpty

@@ -1,5 +1,6 @@
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 /// Single source of truth for all messaging timestamp formatting.
 ///
@@ -16,7 +17,7 @@ abstract final class MessagingTimeFormatter {
   /// • < 30 s old → "Now"
   /// • Otherwise  → "h:mm AM/PM" in the school's timezone
   static String bubbleTime(DateTime dt) {
-    final diff = DateTime.now().toUtc().difference(dt.toUtc());
+    final diff = ServerTimeService.instance.nowUtc().difference(dt.toUtc());
     if (diff.inSeconds < 30) return 'Now';
     final local = _toSchool(dt);
     return _format12h(local);
@@ -33,7 +34,7 @@ abstract final class MessagingTimeFormatter {
     final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
     final local = _toSchool(dt);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       schoolTz,
     );
     final diff = _daysDiff(now, local);
@@ -60,7 +61,7 @@ abstract final class MessagingTimeFormatter {
     final schoolTz = SchoolTimezoneResolver.lastKnownTimeZone;
     final local = _toSchool(dt);
     final now = SchoolZoneDateTime.dateTimeFromInstantInSchool(
-      DateTime.now().toUtc(),
+      ServerTimeService.instance.nowUtc(),
       schoolTz,
     );
     final diff = _daysDiff(now, local);

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -119,6 +120,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final schoolCode = await storage.getString(StorageKeys.schoolCode);
       final selectedName = await storage.getString(
         StorageKeys.selectedSchoolName,
+      );
+      print(
+        'CustomDrawer: _loadSchoolContext: orgCode=$orgCode, schoolCode=$schoolCode, selectedName=$selectedName',
       );
       List<Map<String, String>> schoolsForOrg = const <Map<String, String>>[];
 
@@ -488,7 +492,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       try {
         final signOutFormList =
             serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = DateTime.now();
+        final now = AppTime.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final signedInPage = await signOutFormList(
@@ -1162,7 +1166,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      MessagingScreen.staffMessagingRoute,
+                                    );
                                   },
                                 ),
                               if (showParentMessagingDrawer ||

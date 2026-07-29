@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
@@ -18,11 +19,19 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
   final Message? quotedMessage;
   final String? currentUserCode;
+
+  /// Conversation participants — used to resolve the sender's real avatar
+  /// (imageUrl/staffCode) for the Parent Messaging sender header. Without
+  /// this, the header row has only [Message.senderName], which
+  /// [DocumentImageWidget] cannot resolve a photo from, so it always fell
+  /// back to initials even when the sender has a real profile photo.
+  final List<ConversationParticipant>? participants;
   final ReactionsController reactionsController;
   final void Function(String quotedId)? onScrollToQuoted;
   // Swipe-to-reply
@@ -60,6 +69,7 @@ class MessageBubble extends StatefulWidget {
     required this.reactionsController,
     this.quotedMessage,
     this.currentUserCode,
+    this.participants,
     this.onScrollToQuoted,
     this.onReply,
     this.onReplyFromMenu,
@@ -177,7 +187,7 @@ class _MessageBubbleState extends State<MessageBubble>
         return Reaction(
           emoji: r.emoji,
           userId: r.userCode,
-          timestamp: DateTime.now(),
+          timestamp: AppTime.now(),
         );
       }).toList();
       widget.reactionsController.loadReactions(messageId, reactions);
@@ -231,18 +241,18 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
-    // Deleted messages: no Reply/Copy/Edit/Delete/Info regardless of who
-    // sent it — there's no content left to act on. Reacting is still
-    // allowed (matches WhatsApp/Telegram behavior for deleted messages).
+    // Deleted messages: no Reply/Copy/Edit/Delete/Info and no reactions — there's no
+    // content left to act on, and we don't show reaction pills on a deleted message, so
+    // reacting is disabled entirely (no long-press picker / double-tap) to stay consistent.
     if (widget.isDeleted) {
       return const ChatReactionsConfig(
-        availableReactions: ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
+        availableReactions: [],
         menuItems: [],
-        enableLongPress: true,
-        enableDoubleTap: true,
+        enableLongPress: false,
+        enableDoubleTap: false,
         showAddReactionButton: false,
-        showContextMenu: true,
-        enableHapticFeedback: true,
+        showContextMenu: false,
+        enableHapticFeedback: false,
         reactionSize: 24,
       );
     }
@@ -576,6 +586,18 @@ class _MessageBubbleState extends State<MessageBubble>
     return false;
   }
 
+  /// Looks up the sender's participant record (for [avatarUrl]/[staffCode])
+  /// by matching [Message.senderUserCode] — the message itself carries no
+  /// avatar data, only a name.
+  ConversationParticipant? _senderParticipant() {
+    final code = widget.message.senderUserCode;
+    if (code == null || code.isEmpty) return null;
+    for (final p in widget.participants ?? const <ConversationParticipant>[]) {
+      if (p.userCode == code) return p;
+    }
+    return null;
+  }
+
   // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
@@ -664,13 +686,37 @@ class _MessageBubbleState extends State<MessageBubble>
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.center,
+                            // Mirror the header on right-aligned bubbles so the avatar sits on
+                            // the outer edge (the bubble's side), matching the web chat.
+                            textDirection: alignRight
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
                             children: [
-                              if (widget.isParentMessaging) ...[
-                                DocumentImageWidget(
-                                  fileUuid: widget.message.senderName ?? '',
-                                  name: widget.message.senderName ?? '',
-                                  size: 20,
-                                  fontSize: 10,
+                              // Show the sender's avatar for everyone EXCEPT the viewer's own
+                              // messages (no avatar for "You"). Parent Messaging keeps its avatar;
+                              // Room/Admin now show it too, on both sides.
+                              if (widget.isParentMessaging || !isMe) ...[
+                                Builder(
+                                  builder: (_) {
+                                    final sender = _senderParticipant();
+                                    final avatarUrl =
+                                        sender?.avatarUrl?.trim() ?? '';
+                                    return DocumentImageWidget(
+                                      fileUuid: '',
+                                      imageUrl: avatarUrl.startsWith('http')
+                                          ? avatarUrl
+                                          : null,
+                                      mediaAssetCode:
+                                          avatarUrl.isNotEmpty &&
+                                              !avatarUrl.startsWith('http')
+                                          ? avatarUrl
+                                          : null,
+                                      staffCode: sender?.staffCode,
+                                      name: widget.message.senderName ?? '',
+                                      size: 20,
+                                      fontSize: 10,
+                                    );
+                                  },
                                 ),
                                 const SizedBox(width: 6.0),
                               ],
@@ -738,6 +784,8 @@ class _MessageBubbleState extends State<MessageBubble>
                       // _AnimatedReactionBadge preserves its own state across
                       // AnimatedBuilder rebuilds so per-emoji spring animations
                       // fire only for newly added/removed reactions.
+                      // Deleted messages show no reaction pills.
+                      if (!widget.isDeleted)
                       AnimatedBuilder(
                         animation: widget.reactionsController,
                         builder: (context, _) {
@@ -890,6 +938,14 @@ class _MessageBubbleState extends State<MessageBubble>
                             return Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: PreviewCard(
+                                // Stable key so the preview (esp. the async
+                                // AnyLinkPreview for URLs) is preserved across the
+                                // frequent live-sync rebuilds instead of being torn
+                                // down + rebuilt mid-frame. Key by the MESSAGE code
+                                // (unique) — keying by preview.value would collide
+                                // when two messages share the same link → duplicate
+                                // key crash (whole-screen red).
+                                key: ValueKey('preview_${widget.message.code}'),
                                 preview: preview,
                                 isMe: useLightText,
                               ),
@@ -1106,6 +1162,10 @@ class _MessageBubbleState extends State<MessageBubble>
     }
 
     return _StableHtml(
+      // Stable key tied to the message identity so the flutter_html subtree (which
+      // owns a GlobalKey anchorKey) is preserved across live-sync rebuilds rather
+      // than recreated/reparented mid-frame — the source of the semantics assertions.
+      key: ValueKey('html_${widget.message.code}'),
       data: MessageContentProcessor.enrich(rawText),
       linkColor: useLightText ? const Color(0xFF64B5F6) : Colors.blue,
       onLinkTap: MessageContentProcessor.launchLink,
@@ -1197,6 +1257,25 @@ class _MessageBubbleState extends State<MessageBubble>
   }
 
   // ── Attachments ───────────────────────────────────────────────────────────
+
+  /// Fetch a remote attachment image with a few retries + backoff. A just-arrived
+  /// (live-synced) image can momentarily 403/404 on the CloudFront edge before it
+  /// propagates, so a single GET would fail and stick as an empty/blank bubble
+  /// until a manual refresh re-ran the resolver. Retrying lets the live bubble fill
+  /// itself in without the user having to refresh.
+  Future<Uint8List> _fetchImageBytesWithRetry(String url) async {
+    const attempts = 5;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        final r = await http.get(Uri.parse(url));
+        if (r.statusCode == 200) return r.bodyBytes;
+      } catch (_) {}
+      if (i < attempts - 1) {
+        await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
+      }
+    }
+    return Uint8List(0);
+  }
 
   Widget _buildAttachmentsPreview() {
     final attachments = widget.message.attachments;
@@ -1335,12 +1414,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                       src.startsWith('http://') ||
                                       src.startsWith('https://');
                                   if (isRemote) {
-                                    try {
-                                      final r = await http.get(Uri.parse(src));
-                                      if (r.statusCode == 200)
-                                        return r.bodyBytes;
-                                    } catch (_) {}
-                                    return Uint8List(0);
+                                    return _fetchImageBytesWithRetry(src);
                                   }
                                   return await File(src).readAsBytes();
                                 },
@@ -1455,14 +1529,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                           src.startsWith('http://') ||
                                           src.startsWith('https://');
                                       if (isRemote) {
-                                        try {
-                                          final r = await http.get(
-                                            Uri.parse(src),
-                                          );
-                                          if (r.statusCode == 200)
-                                            return r.bodyBytes;
-                                        } catch (_) {}
-                                        return Uint8List(0);
+                                        return _fetchImageBytesWithRetry(src);
                                       }
                                       return await File(src).readAsBytes();
                                     },
@@ -1585,6 +1652,7 @@ class _StableHtml extends StatefulWidget {
   final Color? linkColor;
 
   const _StableHtml({
+    super.key,
     required this.data,
     required this.style,
     this.onLinkTap,

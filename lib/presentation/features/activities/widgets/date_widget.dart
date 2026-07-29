@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -30,7 +31,7 @@ class DateWidget extends StatefulWidget {
 }
 
 class _DateWidgetState extends State<DateWidget> {
-  //DateTime? _selectedDate = DateTime.now();
+  //DateTime? _selectedDate = AppTime.now();
   late DateTime? _selectedDate;
 
   @override
@@ -49,7 +50,7 @@ class _DateWidgetState extends State<DateWidget> {
             'MMM dd, yyyy',
           ).parseLoose(widget.initialDate!.trim());
         } catch (e) {
-          _selectedDate = DateTime.now(); // fallback
+          _selectedDate = AppTime.now(); // fallback
         }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -64,7 +65,7 @@ class _DateWidgetState extends State<DateWidget> {
               SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
         _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(tz);
       } else {
-        _selectedDate = DateTime.now();
+        _selectedDate = AppTime.now();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onDateChanged?.call(_selectedDate);

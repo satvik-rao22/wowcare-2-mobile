@@ -14,6 +14,7 @@ class RoleState extends Equatable {
     this.modulesWithRead = const <String>{},
     this.modulesWithWrite = const <String>{},
     this.granularModuleAccess = false,
+    this.activeSchoolRoleRaw = '',
   });
 
   final String role;
@@ -26,23 +27,37 @@ class RoleState extends Equatable {
   /// access.
   final bool granularModuleAccess;
 
+  /// The raw backend role string for the matched school entry (e.g.
+  /// `ORGANIZATION_ADMIN`, `SCHOOL_ADMIN`, `STAFF`) before it's collapsed into
+  /// [role]'s coarse persona bucket. Additive — [role] remains the source of
+  /// truth for all existing staff/admin/parent/kiosk gating; this only backs
+  /// finer-grained getters like [RoleCubit.isOrganizationAdmin].
+  final String activeSchoolRoleRaw;
+
   RoleState copyWith({
     String? role,
     Set<String>? modulesWithRead,
     Set<String>? modulesWithWrite,
     bool? granularModuleAccess,
+    String? activeSchoolRoleRaw,
   }) {
     return RoleState(
       role: role ?? this.role,
       modulesWithRead: modulesWithRead ?? this.modulesWithRead,
       modulesWithWrite: modulesWithWrite ?? this.modulesWithWrite,
       granularModuleAccess: granularModuleAccess ?? this.granularModuleAccess,
+      activeSchoolRoleRaw: activeSchoolRoleRaw ?? this.activeSchoolRoleRaw,
     );
   }
 
   @override
-  List<Object?> get props =>
-      <Object?>[role, modulesWithRead, modulesWithWrite, granularModuleAccess];
+  List<Object?> get props => <Object?>[
+    role,
+    modulesWithRead,
+    modulesWithWrite,
+    granularModuleAccess,
+    activeSchoolRoleRaw,
+  ];
 }
 
 /// Bloc replacement for the old `RoleCubit` (a `ChangeNotifier`).
@@ -64,9 +79,17 @@ class RoleCubit extends Cubit<RoleState> {
 
   String get role => state.role;
   bool get isParent => state.role == 'parent';
+  /// Alias for [isParent] — guardian and parent are the same persona bucket.
+  bool get isGuardian => isParent;
   bool get isAdmin => state.role == 'admin' || state.role == 'staff';
   bool get isStaff => state.role == 'staff';
   bool get isKiosk => state.role == 'kiosk';
+  /// True specifically for the `ORGANIZATION_ADMIN` backend role. Does not
+  /// change [isAdmin] (still true for org admins, as before) — this is an
+  /// additive, finer-grained check for callers that need to distinguish
+  /// organization-level admins from school-level admins.
+  bool get isOrganizationAdmin =>
+      state.activeSchoolRoleRaw.toUpperCase().contains('ORGANIZATION');
   bool get hasResolvedAccess => _initialized;
 
   /// Whether the active school context uses API module rows for this user.
@@ -172,11 +195,26 @@ class RoleCubit extends Cubit<RoleState> {
       return;
     } catch (_) {}
 
+    // `/users/details` failed (offline / 5xx). Keep the persona we already
+    // resolved rather than recomputing — re-deriving here previously flipped a
+    // signed-in admin who is ALSO a guardian over to the guardian UI on a
+    // transient error, since the fallback has no permissions payload to match.
+    if (state.granularModuleAccess) return;
+
     final fallbackRole = await _computeFallbackRole(storage);
     _safeEmit(state.copyWith(role: fallbackRole));
   }
 
   Future<String> _computeFallbackRole(StorageService storage) async {
+    // The persona the user is ACTUALLY in wins. A dual-role account (e.g.
+    // SCHOOL_ADMIN + GUARDIAN) would otherwise be demoted to 'parent' by the
+    // least-privilege scan below purely because 'GUARDIAN' appears in `roles`,
+    // flipping an admin session to the guardian UI. Only guess when no active
+    // persona has been resolved/persisted yet.
+    final active =
+        (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+    if (active.isNotEmpty) return _personaFamily(active);
+
     // Fallback derives role from API-provided roles only.
     final roleJson =
         (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
@@ -307,6 +345,7 @@ class RoleCubit extends Cubit<RoleState> {
       modulesWithRead: modulesWithRead,
       modulesWithWrite: modulesWithWrite,
       granularModuleAccess: granularModuleAccess,
+      activeSchoolRoleRaw: chosenRole,
     );
   }
 

@@ -1,4 +1,4 @@
-import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/reports/widgets/multi_select_filte
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StaffAttendancePerWeekReportScreen extends StatefulWidget {
   const StaffAttendancePerWeekReportScreen({
@@ -47,15 +48,17 @@ class _StaffAttendancePerWeekReportScreenState
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _periodMonth = DateTime(now.year, now.month, 1);
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Generate button tapped');
 
     if (!_validateInputs()) {
-      AppLogger.w('[STAFF-ATTENDANCE-WEEKLY-UI] Generation blocked by validation');
+      AppLogger.w(
+        '[STAFF-ATTENDANCE-WEEKLY-UI] Generation blocked by validation',
+      );
       return;
     }
 
@@ -66,15 +69,27 @@ class _StaffAttendancePerWeekReportScreenState
     // Convert staff names to codes
     final staffCodes = _selectedStaff.isNotEmpty
         ? _selectedStaff
-            .map((name) => reportsState.staffNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.staffNameToCode[name] ?? name)
+              .toList()
         : null;
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     // Convert classroom names to codes
     final classroomCodes = _selectedClassrooms.isNotEmpty
         ? _selectedClassrooms
-            .map((name) => reportsState.classroomNameToCode[name] ?? name)
-            .toList()
+              .map((name) => reportsState.classroomNameToCode[name] ?? name)
+              .toList()
         : null;
 
     final params = ReportRequestParams(
@@ -84,6 +99,7 @@ class _StaffAttendancePerWeekReportScreenState
       staffCodes: staffCodes,
       classroomCodes: classroomCodes,
       format: _format,
+      schoolName: schoolName,
     );
     AppLogger.d('[STAFF-ATTENDANCE-WEEKLY-UI] Calling cubit.generateReport()');
     cubit.generateReport(params);
@@ -176,7 +192,6 @@ class _StaffAttendancePerWeekReportScreenState
                         labelStyle: _labelStyle(responsive),
                         showAsterisk: true,
                         labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                        prependHintAsSelectableItem: false,
                         onSelect: (val) {
                           if (val == null) return;
                           setState(() => _frequency = val);

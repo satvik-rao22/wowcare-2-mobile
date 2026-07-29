@@ -1,12 +1,13 @@
 import 'dart:async';
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/firebase/firebase_auth_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
 // ─── Lightweight DTO for Firestore user_inbox data ──────────────────────────
-
 /// Represents the per-user conversation record stored in Firestore
 /// under orgs/{org}/schools/{school}/user_inbox/{user}/conversations/{code}.
 ///
@@ -16,6 +17,7 @@ class ConversationInboxItem {
   const ConversationInboxItem({
     required this.conversationCode,
     required this.conversationType,
+    this.title = '',
     required this.lastMessagePreview,
     required this.unreadCount,
     required this.isActive,
@@ -32,6 +34,11 @@ class ConversationInboxItem {
 
   final String conversationCode;
   final String conversationType;
+
+  /// The conversation's stored title from the inbox doc (room/student/classroom name, or the frozen
+  /// counterpart name for STAFF_DIRECT). Parsed so the no-cache [toMinimalEntity] can show it instead
+  /// of the "Conversation" placeholder until the participant roster loads from the Isar cache.
+  final String title;
   final String lastMessagePreview;
   final int unreadCount;
   final bool isActive;
@@ -60,6 +67,7 @@ class ConversationInboxItem {
     return ConversationInboxItem(
       conversationCode: d['conversationCode'] as String? ?? doc.id,
       conversationType: d['conversationType'] as String? ?? 'ROOM_CHAT',
+      title: d['title'] as String? ?? '',
       lastMessagePreview: d['lastMessagePreview'] as String? ?? '',
       unreadCount: (d['unreadCount'] as num?)?.toInt() ?? 0,
       isActive: d['isActive'] as bool? ?? true,
@@ -122,15 +130,15 @@ class ConversationInboxItem {
       id: 0,
       code: conversationCode,
       type: ConversationType.fromApiString(conversationType),
-      title: '',
+      title: title,
       description: '',
       avatarUrl: '',
       status: isActive ? 'ACTIVE' : 'INACTIVE',
       organizationCode: organizationCode,
       schoolCode: this.schoolCode ?? schoolCode,
-      createdAt: DateTime.now(),
+      createdAt: AppTime.nowUtc(),
       createdBy: '',
-      updatedAt: DateTime.now(),
+      updatedAt: AppTime.nowUtc(),
       updatedBy: '',
       participantCount: 0,
       unreadCount: unreadCount,
@@ -189,6 +197,15 @@ abstract class ConversationRealtimeDataSource {
     required String userCode,
     required String conversationType,
   });
+
+  /// Lightweight per-conversation unread — reads [unreadCount] for the single
+  /// inbox doc keyed by [conversationCode]. Used for per-classroom badges.
+  Stream<int> watchUnreadCountForConversation({
+    required String organizationCode,
+    required String schoolCode,
+    required String userCode,
+    required String conversationCode,
+  });
 }
 
 // ─── Firebase implementation ─────────────────────────────────────────────────
@@ -209,15 +226,14 @@ class FirebaseConversationRealtimeDataSource
     required String organizationCode,
     required String schoolCode,
     required String userCode,
-  }) =>
-      firestore
-          .collection('orgs')
-          .doc(organizationCode)
-          .collection('schools')
-          .doc(schoolCode)
-          .collection('user_inbox')
-          .doc(userCode)
-          .collection('conversations');
+  }) => firestore
+      .collection('orgs')
+      .doc(organizationCode)
+      .collection('schools')
+      .doc(schoolCode)
+      .collection('user_inbox')
+      .doc(userCode)
+      .collection('conversations');
 
   @override
   Stream<List<ConversationInboxItem>> watchInbox({
@@ -246,17 +262,21 @@ class FirebaseConversationRealtimeDataSource
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the current user — the session
+        // may be stale (account/persona switch) or expired. Deduped + no-ops when
+        // already correct, so this is cheap and makes an authStateChanges event fire.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < _retryDelays.length) {
-          Future.delayed(
-            Duration(seconds: _retryDelays[attempt]),
-            () {
-              if (!controller.isClosed) attach(attempt + 1);
-            },
-          );
+          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+            if (!controller.isClosed) attach(attempt + 1);
+          });
         } else {
           authWaitSub?.cancel();
           authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
             if (user != null) {
               authWaitSub?.cancel();
               authWaitSub = null;
@@ -272,34 +292,32 @@ class FirebaseConversationRealtimeDataSource
 
     attach = (int attempt) {
       inner?.cancel();
-      runZonedGuarded(
-        () {
-          inner = query.snapshots().listen(
-            (snapshot) {
-              if (controller.isClosed) return;
-              final items = snapshot.docs
-                  .map(ConversationInboxItem.fromFirestore)
-                  .where((item) => item.isActive)
-                  .toList()
-                ..sort((a, b) {
-                  if (a.lastMessageAt == null && b.lastMessageAt == null) {
-                    return 0;
-                  }
-                  if (a.lastMessageAt == null) return 1;
-                  if (b.lastMessageAt == null) return -1;
-                  return b.lastMessageAt!.compareTo(a.lastMessageAt!);
-                });
-              controller.add(items);
-            },
-            onError: (Object error) => retryOrForward(error, attempt),
-            onDone: () {
-              if (!controller.isClosed) controller.close();
-            },
-            cancelOnError: true,
-          );
-        },
-        (Object error, StackTrace _) => retryOrForward(error, attempt),
-      );
+      runZonedGuarded(() {
+        inner = query.snapshots().listen(
+          (snapshot) {
+            if (controller.isClosed) return;
+            final items =
+                snapshot.docs
+                    .map(ConversationInboxItem.fromFirestore)
+                    .where((item) => item.isActive)
+                    .toList()
+                  ..sort((a, b) {
+                    if (a.lastMessageAt == null && b.lastMessageAt == null) {
+                      return 0;
+                    }
+                    if (a.lastMessageAt == null) return 1;
+                    if (b.lastMessageAt == null) return -1;
+                    return b.lastMessageAt!.compareTo(a.lastMessageAt!);
+                  });
+            controller.add(items);
+          },
+          onError: (Object error) => retryOrForward(error, attempt),
+          onDone: () {
+            if (!controller.isClosed) controller.close();
+          },
+          cancelOnError: true,
+        );
+      }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
     controller.onListen = () => attach(0);
@@ -332,17 +350,21 @@ class FirebaseConversationRealtimeDataSource
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the current user — the session
+        // may be stale (account/persona switch) or expired. Deduped + no-ops when
+        // already correct, so this is cheap and makes an authStateChanges event fire.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < _retryDelays.length) {
-          Future.delayed(
-            Duration(seconds: _retryDelays[attempt]),
-            () {
-              if (!controller.isClosed) attach(attempt + 1);
-            },
-          );
+          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+            if (!controller.isClosed) attach(attempt + 1);
+          });
         } else {
           authWaitSub?.cancel();
           authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
             if (user != null) {
               authWaitSub?.cancel();
               authWaitSub = null;
@@ -358,29 +380,25 @@ class FirebaseConversationRealtimeDataSource
 
     attach = (int attempt) {
       inner?.cancel();
-      runZonedGuarded(
-        () {
-          inner = ref.snapshots().listen(
-            (snapshot) {
-              if (controller.isClosed) return;
-              controller.add(
-                snapshot.docs.fold<int>(
-                  0,
-                  (sum, doc) =>
-                      sum +
-                      ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
-                ),
-              );
-            },
-            onError: (Object error) => retryOrForward(error, attempt),
-            onDone: () {
-              if (!controller.isClosed) controller.close();
-            },
-            cancelOnError: true,
-          );
-        },
-        (Object error, StackTrace _) => retryOrForward(error, attempt),
-      );
+      runZonedGuarded(() {
+        inner = ref.snapshots().listen(
+          (snapshot) {
+            if (controller.isClosed) return;
+            controller.add(
+              snapshot.docs.fold<int>(
+                0,
+                (sum, doc) =>
+                    sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+              ),
+            );
+          },
+          onError: (Object error) => retryOrForward(error, attempt),
+          onDone: () {
+            if (!controller.isClosed) controller.close();
+          },
+          cancelOnError: true,
+        );
+      }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
     controller.onListen = () => attach(0);
@@ -405,7 +423,32 @@ class FirebaseConversationRealtimeDataSource
       schoolCode: schoolCode,
       userCode: userCode,
     ).where('conversationType', isEqualTo: conversationType);
+    return _watchInboxUnreadSum(query);
+  }
 
+  @override
+  Stream<int> watchUnreadCountForConversation({
+    required String organizationCode,
+    required String schoolCode,
+    required String userCode,
+    required String conversationCode,
+  }) {
+    // A single inbox doc, keyed by conversationCode (the doc id). Reusing the
+    // same query-snapshot path as the per-type watch keeps the resilient
+    // permission-denied re-auth / backoff behaviour identical (0 or 1 doc →
+    // its unreadCount).
+    final query = _inboxRef(
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      userCode: userCode,
+    ).where(FieldPath.documentId, isEqualTo: conversationCode);
+    return _watchInboxUnreadSum(query);
+  }
+
+  /// Resilient sum of `unreadCount` across the docs matched by [query] in the
+  /// user_inbox collection, with the shared permission-denied re-auth + backoff
+  /// retry. Backs both the per-type and per-conversation unread watches.
+  Stream<int> _watchInboxUnreadSum(Query<Map<String, dynamic>> query) {
     final controller = StreamController<int>();
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? inner;
     StreamSubscription<User?>? authWaitSub;
@@ -414,17 +457,21 @@ class FirebaseConversationRealtimeDataSource
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the current user — the session
+        // may be stale (account/persona switch) or expired. Deduped + no-ops when
+        // already correct, so this is cheap and makes an authStateChanges event fire.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < _retryDelays.length) {
-          Future.delayed(
-            Duration(seconds: _retryDelays[attempt]),
-            () {
-              if (!controller.isClosed) attach(attempt + 1);
-            },
-          );
+          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+            if (!controller.isClosed) attach(attempt + 1);
+          });
         } else {
           authWaitSub?.cancel();
           authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) { authWaitSub?.cancel(); return; }
+            if (controller.isClosed) {
+              authWaitSub?.cancel();
+              return;
+            }
             if (user != null) {
               authWaitSub?.cancel();
               authWaitSub = null;
@@ -440,29 +487,25 @@ class FirebaseConversationRealtimeDataSource
 
     attach = (int attempt) {
       inner?.cancel();
-      runZonedGuarded(
-        () {
-          inner = query.snapshots().listen(
-            (snapshot) {
-              if (controller.isClosed) return;
-              controller.add(
-                snapshot.docs.fold<int>(
-                  0,
-                  (sum, doc) =>
-                      sum +
-                      ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
-                ),
-              );
-            },
-            onError: (Object error) => retryOrForward(error, attempt),
-            onDone: () {
-              if (!controller.isClosed) controller.close();
-            },
-            cancelOnError: true,
-          );
-        },
-        (Object error, StackTrace _) => retryOrForward(error, attempt),
-      );
+      runZonedGuarded(() {
+        inner = query.snapshots().listen(
+          (snapshot) {
+            if (controller.isClosed) return;
+            controller.add(
+              snapshot.docs.fold<int>(
+                0,
+                (sum, doc) =>
+                    sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+              ),
+            );
+          },
+          onError: (Object error) => retryOrForward(error, attempt),
+          onDone: () {
+            if (!controller.isClosed) controller.close();
+          },
+          cancelOnError: true,
+        );
+      }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
     controller.onListen = () => attach(0);

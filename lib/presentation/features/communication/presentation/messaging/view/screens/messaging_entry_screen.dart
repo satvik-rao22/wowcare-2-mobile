@@ -54,7 +54,7 @@ class MessagingEntryScreen extends StatelessWidget {
                           children: [
                             if (!isParent) ...[
                               CommunicationLauncherButton(
-                                label: 'Staff Messaging',
+                                label: 'Staff',
                                 iconAsset: MediaRes.staffMessaging,
                                 unreadCount: unread.unreadFor(
                                   ConversationType.staffDirect,
@@ -62,7 +62,9 @@ class MessagingEntryScreen extends StatelessWidget {
                                 iconSize: responsive.isTablet ? 30 : 26,
                                 fontSize: responsive.buttonFontSize,
                                 verticalPadding: responsive.isTablet ? 26 : 22,
-                                onTap: () => context.go(AppRoutes.messaging),
+                                onTap: () => context.go(
+                                  MessagingScreen.staffMessagingRoute,
+                                ),
                               ),
                               SizedBox(height: responsive.verticalSpacing),
                             ],
@@ -71,8 +73,8 @@ class MessagingEntryScreen extends StatelessWidget {
                               children: [
                                 Expanded(
                                   child: CommunicationLauncherButton(
-                                    label: 'Admin Chat',
-                                    iconAsset: MediaRes.classroomIcon,
+                                    label: 'Admin',
+                                    iconAsset: MediaRes.chatsIcon,
                                     unreadCount: unread.unreadFor(
                                       ConversationType.adminChat,
                                     ),
@@ -89,8 +91,8 @@ class MessagingEntryScreen extends StatelessWidget {
                                 SizedBox(width: responsive.horizontalSpacing),
                                 Expanded(
                                   child: CommunicationLauncherButton(
-                                    label: 'Room Chats',
-                                    iconAsset: MediaRes.classroomIcon,
+                                    label: 'Student',
+                                    iconAsset: MediaRes.chatsIcon,
                                     unreadCount: unread.unreadFor(
                                       ConversationType.roomChat,
                                     ),
@@ -111,6 +113,25 @@ class MessagingEntryScreen extends StatelessWidget {
                                 ),
                               ],
                             ),
+                            // Classroom Notes — staff-internal (each classroom's
+                            // Notes chat). Gated to non-parents so it is hidden
+                            // from the Guardian persona, mirroring the web.
+                            // Routes to the Classrooms list (itself staff/admin
+                            // only); each classroom's Notes tab is its chat.
+                            if (!isParent) ...[
+                              SizedBox(height: responsive.verticalSpacing),
+                              CommunicationLauncherButton(
+                                label: 'Classroom Notes',
+                                iconAsset: MediaRes.classroomIcon,
+                                unreadCount: unread.unreadFor(
+                                  ConversationType.classroomChat,
+                                ),
+                                iconSize: responsive.isTablet ? 30 : 26,
+                                fontSize: responsive.buttonFontSize,
+                                verticalPadding: responsive.isTablet ? 26 : 22,
+                                onTap: () => context.go(AppRoutes.classroom),
+                              ),
+                            ],
                           ],
                         );
                       },

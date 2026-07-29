@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -41,6 +42,7 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
@@ -109,6 +111,7 @@ class ActivityDailyTab extends StatefulWidget {
     this.allowActivityWrite = true,
     this.highlightCode,
     this.highlightDate,
+    this.highlightClassroomCode,
   });
 
   /// Activity code from a notification deep-link; the matching feed card is
@@ -118,6 +121,11 @@ class ActivityDailyTab extends StatefulWidget {
   /// Date of the deep-linked activity (yyyy-MM-dd) so the feed opens on that
   /// day rather than today — otherwise the highlighted card isn't in view.
   final DateTime? highlightDate;
+
+  /// Classroom of the deep-linked activity. The feed loads ONE classroom at a
+  /// time, so without selecting this room the target card isn't in the list and
+  /// the highlight silently no-ops.
+  final String? highlightClassroomCode;
 
   final bool fromStudentProfile;
 
@@ -155,7 +163,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   late bool isNotParent;
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
-  DateTime? _selectedDate = DateTime.now();
+  DateTime? _selectedDate = AppTime.now();
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
   String? _selectdClassroom;
   String? _selectedStudent;
@@ -583,18 +591,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
     final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
     final staffType =
         (await _storageService.getString(StorageKeys.staffType) ?? '')
             .trim()
             .toUpperCase();
+    // Active-persona check (RoleCubit), not a scan of the account's full
+    // cached roles list — that list always contains every role the account
+    // has across every school, so a dual-role user (e.g. STAFF + SCHOOL_ADMIN
+    // in a different school) would be misdetected as admin regardless of
+    // which persona is actually active right now.
+    final roleCubit = context.read<RoleCubit>();
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
         _viewerStaffCode = viewerStaffCode;
         _isAdminPersona =
-            roles.contains('ADMIN') ||
+            (roleCubit.isAdmin && !roleCubit.isStaff) ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
       });
@@ -660,6 +672,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
             _classroomOptions = scoped.map((c) => c['name']!).toList()..sort();
             _feedError = null;
             if (_classroomOptions.isNotEmpty) {
+              _applyDeepLinkClassroom();
               final keep =
                   _selectdClassroom != null &&
                   _classroomOptions.contains(_selectdClassroom);
@@ -752,6 +765,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _classroomOptions = scoped.map((c) => c.name).toList()..sort();
         _feedError = null;
         if (_classroomOptions.isNotEmpty) {
+          _applyDeepLinkClassroom();
           final keep =
               _selectdClassroom != null &&
               _classroomOptions.contains(_selectdClassroom);
@@ -803,10 +817,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   Future<void> _loadStaffClassroomScope() async {
-    // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
-    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+    // Scope only applies to staff/teacher personas (not parent/guardian; not
+    // admins). Checked against the ACTIVE persona (RoleCubit), not a scan of
+    // the account's full cached roles list — a dual-role account (e.g.
+    // STAFF + GUARDIAN in a different school) always has 'GUARDIAN' in that
+    // list regardless of which persona is active right now.
+    if (context.read<RoleCubit>().isParent) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
       return;
@@ -1149,6 +1165,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _pinProfileStudent();
     });
   }
 
@@ -1387,6 +1404,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         .toList();
     if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
 
+    // Opened from a student profile: the profile passes the student's classroom
+    // CODE directly. Use it as the final fallback so the feed resolves this
+    // student's room even when the name→code maps / _classroomStudents haven't
+    // populated yet (otherwise _loadDailyFeed early-returns an empty feed).
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final cc = widget.studentProfile!['classroomCode'];
+      if (cc is String && cc.trim().isNotEmpty) {
+        return <String>[cc.trim()];
+      }
+    }
+
     return const <String>[];
   }
 
@@ -1485,7 +1513,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   ) {
     if (!_shouldIncludeAttendanceEntries()) return const <ActivityItem>[];
     final eventFilter = _selectedAttendanceEventFilter();
-    final day = _selectedDate ?? DateTime.now();
+    final day = _selectedDate ?? AppTime.now();
     final selectedClassroomName = _selectdClassroom;
     final selectedClassroomCode = selectedClassroomName != null
         ? _classroomCodeByName[selectedClassroomName]
@@ -1675,10 +1703,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       try {
         final src = row.absenceDate.trim();
         recordDay = src.isEmpty
-            ? (_selectedDate ?? DateTime.now())
+            ? (_selectedDate ?? AppTime.now())
             : DateTime.parse(src);
       } catch (_) {
-        recordDay = _selectedDate ?? DateTime.now();
+        recordDay = _selectedDate ?? AppTime.now();
       }
       final at =
           _absentClockToDateTime(row.markedAbsentTime, recordDay) ?? recordDay;
@@ -1940,11 +1968,17 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     ].join('|');
 
     if (!refresh && _lastFeedRequestKey == requestKey) {
+      // Already-loaded feed: skip the refetch, but still honour a pending
+      // deep-link scroll (the rows are on screen; only the trigger was missing).
       if (_isFeedRequestInFlight) return;
-      if (!_lastFeedCompletedWithError) return;
+      if (!_lastFeedCompletedWithError) {
+        _scheduleHighlightScroll();
+        return;
+      }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -2061,8 +2095,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _feedNextPage = merged.last ? 0 : merged.pageNumber + 1;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
@@ -2079,7 +2114,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -2280,13 +2315,18 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       if (!_lastFeedCompletedWithError) {
         // Last identical request already completed successfully
-        // (including empty-result success). No need to refetch.
+        // (including empty-result success). No need to refetch — but the rows
+        // ARE already loaded, so a pending deep-link still needs its scroll.
+        // Returning here previously skipped it entirely, which is why a cached
+        // feed highlighted without ever scrolling.
+        _scheduleHighlightScroll();
         return;
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
         // Throttle repeated failed requests for same filters.
+        _scheduleHighlightScroll();
         return;
       }
     }
@@ -2399,8 +2439,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _feedNextPage = _feedHasMore ? 1 : 0;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
+      _scheduleHighlightScroll();
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextDailyFeedPage(),
       );
@@ -2417,7 +2458,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -2452,14 +2493,23 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _cacheManager = CacheManager(_storageService);
 
     isNotParent = widget.isNotParent;
-    if (widget.fromStudentProfile) {
-      final n = widget.studentName;
-      if (n != null && n.trim().isNotEmpty) {
-        _selectedStudent = n.trim();
-      }
-    }
+    _seedProfileContext();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // Opened from a student profile: we already have the classroom + student
+      // codes, so kick off the feed right away instead of waiting for the full
+      // classroom/student bootstrap. The dropdown option lists fill in behind
+      // it. _loadDailyFeed de-dupes by request key, so the later bootstrap call
+      // with the same classroom won't refetch.
+      if (widget.fromStudentProfile && widget.studentProfile != null) {
+        final school =
+            (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+                .trim();
+        if (school.isNotEmpty && mounted) {
+          _schoolCode = school;
+          unawaited(_loadDailyFeed(refresh: true));
+        }
+      }
       await _bootstrap();
     });
     _feedScrollController.addListener(_onFeedScroll);
@@ -2468,6 +2518,38 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         _loadDailyFeed(refresh: true);
       }
     });
+  }
+
+  /// Handles a NEW notification deep-link arriving into an already-live tab.
+  ///
+  /// This tab is `AutomaticKeepAliveClientMixin` and sits in an indexed-stack
+  /// shell branch, so once Activities has been visited the State is reused:
+  /// [initState] never runs again, every one-shot latch is still set from the
+  /// previous visit, and no feed reload is triggered. The card still flashed
+  /// (that reads `widget.highlightCode` live during paint) but nothing ever
+  /// asked for a scroll — the "cached / already open" case.
+  ///
+  /// Resetting the latches and reloading on the target's day + room restores
+  /// the same path a cold open takes.
+  @override
+  void didUpdateWidget(covariant ActivityDailyTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final changed = widget.highlightCode != oldWidget.highlightCode ||
+        widget.highlightDate != oldWidget.highlightDate ||
+        widget.highlightClassroomCode != oldWidget.highlightClassroomCode;
+    if (!changed) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+
+    setState(() {
+      _highlightApplied = false;
+      _highlightScrollScheduled = false;
+      _deepLinkClassroomApplied = false;
+      if (widget.highlightDate != null) _selectedDate = widget.highlightDate;
+      _applyDeepLinkClassroom();
+    });
+    // refresh: true bypasses the de-dupe, so the load always completes and
+    // fires the scroll even when the same day/room was already showing.
+    _loadDailyFeed(refresh: true);
   }
 
   Future<void> _bootstrapSchoolZone() async {
@@ -2548,6 +2630,154 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           .toList();
       _selectedStudent = null;
     }
+    _pinProfileStudent();
+  }
+
+  /// Seeds the classroom + student the screen was opened for (from a student
+  /// profile) into the dropdown state up-front — using the name/code already
+  /// carried in [ActivityFeedScreen.studentName] — so both dropdowns display
+  /// their selection on the first frame instead of appearing empty while the
+  /// classroom and student lists load in the background. The feed is filtered by
+  /// the student's code separately, so this is purely to preload the UI.
+  void _seedProfileContext() {
+    if (!widget.fromStudentProfile) return;
+    final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+    final clsCode =
+        (widget.studentProfile?['classroomCode'] as String?)?.trim() ?? '';
+    if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+      if (clsCode.isNotEmpty) {
+        _classroomCodeByName[cls] = clsCode;
+        _classroomNameByCode[clsCode] = cls;
+      }
+      if (!_classroomOptions.contains(cls)) {
+        _classroomOptions = <String>[..._classroomOptions, cls]..sort();
+      }
+      _selectdClassroom = cls;
+      _selectedClassrooms = <String>[cls];
+    }
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isNotEmpty) {
+      _selectedStudent = name;
+      _selectedStudents = <String>[name];
+    }
+    _pinProfileStudent();
+  }
+
+  bool _highlightScrollScheduled = false;
+
+  /// Scrolls the deep-linked card into view.
+  ///
+  /// Driven by the DATA (the target's index in [_activities]), never by the
+  /// item builder. `ListView.builder` builds lazily, so a target further down
+  /// the list is never built while off-screen — its `itemBuilder` doesn't run,
+  /// and `Scrollable.ensureVisible` has no element to scroll to. That's why the
+  /// card only ever flashed once the user scrolled to it by hand.
+  ///
+  /// Converges in two phases: jump proportionally to bring the target into the
+  /// build window, then fine-tune with `ensureVisible` once it exists, plus a
+  /// settle pass for rows that grow when attachment thumbnails resolve.
+  void _scheduleHighlightScroll() {
+    if (_highlightApplied || _highlightScrollScheduled) return;
+    if ((widget.highlightCode ?? '').trim().isEmpty) return;
+    final index =
+        _activities.indexWhere((a) => _isHighlightTarget(a.activityCode));
+    if (index < 0) return; // not in this page yet — retried on the next load
+    _highlightScrollScheduled = true;
+
+    var passes = 0;
+    void step() {
+      if (!mounted) return;
+      if (passes++ > 25) {
+        _highlightScrollScheduled = false; // let a later load try again
+        return;
+      }
+      if (!_feedScrollController.hasClients) {
+        Future.delayed(const Duration(milliseconds: 100), step);
+        return;
+      }
+
+      final ctx = _highlightCardKey.currentContext;
+      if (ctx != null) {
+        // Built: fine-tune to the exact position.
+        _highlightApplied = true;
+        Scrollable.ensureVisible(
+          ctx,
+          duration: const Duration(milliseconds: 350),
+          alignment: 0.1,
+          curve: Curves.easeOut,
+        );
+        // One settle pass after layout stabilises.
+        Future.delayed(const Duration(milliseconds: 700), () {
+          if (!mounted) return;
+          final c = _highlightCardKey.currentContext;
+          if (c != null) {
+            Scrollable.ensureVisible(
+              c,
+              duration: const Duration(milliseconds: 200),
+              alignment: 0.1,
+              curve: Curves.easeOut,
+            );
+          }
+        });
+        return;
+      }
+
+      // Not built yet: jump proportionally so it enters the build window.
+      final pos = _feedScrollController.position;
+      final total = _activities.length;
+      final target = total <= 1
+          ? 0.0
+          : pos.maxScrollExtent * (index / (total - 1)).clamp(0.0, 1.0);
+      if ((target - pos.pixels).abs() > 1) {
+        _feedScrollController.jumpTo(
+          target.clamp(0.0, pos.maxScrollExtent),
+        );
+      }
+      WidgetsBinding.instance.addPostFrameCallback((_) => step());
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => step());
+  }
+
+  /// Selects the classroom of a notification-deep-linked activity, so the feed
+  /// loads the room that actually contains the card being highlighted rather
+  /// than the viewer's default room.
+  ///
+  /// Called from [_bootstrap] once `_classroomNameByCode` is populated and
+  /// BEFORE the default-classroom `keep` check, so the resolved name survives as
+  /// the selection. No-op when there's no deep link or the code isn't in the
+  /// viewer's (possibly staff-scoped) classroom list.
+  void _applyDeepLinkClassroom() {
+    final code = (widget.highlightClassroomCode ?? '').trim();
+    if (code.isEmpty) return;
+    if (_deepLinkClassroomApplied) return;
+    final name = (_classroomNameByCode[code] ?? '').trim();
+    if (name.isEmpty || !_classroomOptions.contains(name)) return;
+    _deepLinkClassroomApplied = true;
+    _selectdClassroom = name;
+    _selectedClassrooms = <String>[name];
+  }
+
+  /// Applied once, so a later refresh can't yank the user off a room they
+  /// switched to after arriving via the deep link.
+  bool _deepLinkClassroomApplied = false;
+
+  /// Keeps the profile student present in the options + selection when launched
+  /// from a student profile. Both this widget's pruning and
+  /// [CustomMultiSelectDropdown] drop selections absent from the options list,
+  /// so without this the pre-selected student silently disappears once the real
+  /// student list loads.
+  void _pinProfileStudent() {
+    if (!widget.fromStudentProfile) return;
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isEmpty) return;
+    if (!_availableStudents.contains(name)) {
+      _availableStudents = <String>[..._availableStudents, name]..sort();
+    }
+    if (!_selectedStudents.contains(name)) {
+      _selectedStudents = <String>[..._selectedStudents, name];
+    }
+    _selectedStudent ??= name;
   }
 
   Future<void> _openActivityFilter() async {
@@ -2959,7 +3189,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     CustomClearAllChip(
                                       onTap: () async {
                                         setState(() {
-                                          final now = DateTime.now();
+                                          final now = AppTime.now();
                                           _selectedDate = DateTime(
                                             now.year,
                                             now.month,
@@ -3092,20 +3322,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         final bool isHighlightTarget = _isHighlightTarget(
                           activity.activityCode,
                         );
-                        if (isHighlightTarget && !_highlightApplied) {
-                          _highlightApplied = true;
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            final ctx = _highlightCardKey.currentContext;
-                            if (ctx != null) {
-                              Scrollable.ensureVisible(
-                                ctx,
-                                duration: const Duration(milliseconds: 400),
-                                alignment: 0.1,
-                                curve: Curves.easeOut,
-                              );
-                            }
-                          });
-                        }
+                        if (isHighlightTarget) _scheduleHighlightScroll();
 
                         return HighlightableCard(
                           key: isHighlightTarget ? _highlightCardKey : null,
@@ -4614,7 +4831,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   CustomClearAllChip(
                                     onTap: () async {
                                       setState(() {
-                                        final now = DateTime.now();
+                                        final now = AppTime.now();
                                         _selectedDate = DateTime(
                                           now.year,
                                           now.month,
@@ -4727,24 +4944,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     _colorPalette[index % _colorPalette.length];
                                 final bool isHighlightTarget =
                                     _isHighlightTarget(activity.activityCode);
-                                if (isHighlightTarget && !_highlightApplied) {
-                                  _highlightApplied = true;
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    final ctx =
-                                        _highlightCardKey.currentContext;
-                                    if (ctx != null) {
-                                      Scrollable.ensureVisible(
-                                        ctx,
-                                        duration: const Duration(
-                                          milliseconds: 400,
-                                        ),
-                                        alignment: 0.1,
-                                        curve: Curves.easeOut,
-                                      );
-                                    }
-                                  });
+                                if (isHighlightTarget) {
+                                  _scheduleHighlightScroll();
                                 }
 
                                 return HighlightableCard(
@@ -6386,7 +6587,7 @@ ActivityItem activityItemFromFeedRow(
         ? parsed.toLocal()
         : SchoolZoneDateTime.dateTimeFromInstantInSchool(parsed, iana);
   } catch (_) {
-    dt = DateTime.now();
+    dt = AppTime.now();
   }
   final time = DateFormat.jm().format(dt);
   final date = DateFormat('MMMM d, yyyy').format(dt);

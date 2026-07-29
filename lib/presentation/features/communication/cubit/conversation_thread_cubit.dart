@@ -1,8 +1,9 @@
 import 'dart:async';
-
 import 'package:bloc/bloc.dart';
-import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/core/util/app_time.dart';
+import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -377,7 +378,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       if (!resolved) return;
     }
 
-    final tempCode = 'temp-${DateTime.now().millisecondsSinceEpoch}';
+    final tempCode = 'temp-${AppTime.nowUtc().millisecondsSinceEpoch}';
 
     AttachmentEntity toOptimisticEntity(ChatAttachment a) =>
         mapChatAttachmentToAttachmentEntity(
@@ -401,7 +402,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       text: text,
       messageType: MessageType.text,
       status: MessageStatus.pending,
-      sentAt: DateTime.now(),
+      sentAt: AppTime.nowUtc(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       isPrivate: isPrivate,
@@ -446,7 +447,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           state.copyWith(
             messages: failed,
             isSending: false,
-            sendError: 'Failed to upload attachment: $e',
+            sendError: ApiErrorHandler.extractErrorMessage(e),
           ),
         );
         return;
@@ -754,6 +755,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   // ─── Private helpers ─────────────────────────────────────────────────────────
 
   Future<void> _markRead() async {
+    // Only mark read while the app is actually in the foreground. This is triggered off Firestore
+    // snapshot emissions, so without the gate a message arriving while the recipient's app is
+    // backgrounded would be stamped read — zeroing their unread badge for a message they never
+    // actually saw (the unread badges are receipt-based).
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    if (lifecycle == AppLifecycleState.paused ||
+        lifecycle == AppLifecycleState.detached) {
+      return;
+    }
     final result = await _markConversationReadUseCase(state.conversationCode);
     // Publish event so ConversationListCubit zeroes the badge immediately —
     // before Firestore confirms the read receipt.
@@ -823,6 +833,12 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           deletedAt: old.deletedAt,
           deletedPlaceholder: old.deletedPlaceholder,
         );
+      }
+
+      // Preserve attachments if a realtime update arrives without them (a legacy Firestore doc, or
+      // any emission that dropped them) so an existing message's image doesn't vanish on live update.
+      if (result.attachments.isEmpty && old.attachments.isNotEmpty) {
+        result = result.copyWith(attachments: old.attachments);
       }
 
       return result;
@@ -905,7 +921,7 @@ extension _MessageEntityX on MessageEntity {
     isEdited: true,
     isDeleted: isDeleted,
     deletedPlaceholder: deletedPlaceholder,
-    editedAt: DateTime.now(),
+    editedAt: AppTime.nowUtc(),
     deletedAt: deletedAt,
     attachments: attachments,
     reactions: reactions,
@@ -936,7 +952,7 @@ extension _MessageEntityX on MessageEntity {
     isDeleted: true,
     deletedPlaceholder: 'This message has been deleted.',
     editedAt: editedAt,
-    deletedAt: DateTime.now(),
+    deletedAt: AppTime.nowUtc(),
     attachments: attachments,
     reactions: reactions,
     readReceipts: readReceipts,

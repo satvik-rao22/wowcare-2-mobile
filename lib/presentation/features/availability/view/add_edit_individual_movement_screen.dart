@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_validators.dart';
@@ -47,7 +48,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
   String? _selectedStudent;
   String? _currentClassroom;
   String? _nextClassroom;
-  DateTime _movementDate = DateTime.now();
+  DateTime _movementDate = AppTime.now();
   late final TextEditingController _commentController;
 
   String _nameForStudentCode(String code) {
@@ -108,7 +109,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
     _selectedStudent = widget.initialData?.student;
     _currentClassroom = widget.initialData?.currentClassroom;
     _nextClassroom = widget.initialData?.nextClassroom;
-    _movementDate = widget.initialData?.movementDate ?? DateTime.now();
+    _movementDate = widget.initialData?.movementDate ?? AppTime.now();
     _commentController = TextEditingController(text: widget.initialData?.comment ?? '');
 
     // Normalize for movement types where one side is expected to be empty.
@@ -282,7 +283,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                   name: '',
                   fromClassroom: '',
                   toClassroom: '',
-                  movementDate: DateTime.now(),
+                  movementDate: AppTime.now(),
                   workflowStatus: MovementWorkflowStatus.pending,
                   movementType: widget.movementType,
                 ).movementTypeLabel,
@@ -455,7 +456,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
               initialDate: _movementDate,
               fetchInitialTime: false,
               firstDate: widget.disablePastDates
-                  ? DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day)
+                  ? DateTime(AppTime.now().year, AppTime.now().month, AppTime.now().day)
                   : null,
               onDateSelected: (date) => setState(() => _movementDate = date),
             ),

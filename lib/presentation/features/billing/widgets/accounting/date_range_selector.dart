@@ -5,6 +5,7 @@ import 'package:wowcare/presentation/features/billing/cubit/date_range_cubit.dar
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class AccountingDateRangeSelector extends StatefulWidget {
   const AccountingDateRangeSelector({
@@ -76,9 +77,12 @@ class _AccountingDateRangeSelectorState
   }
 
   Future<void> _openPicker() async {
+    // Default window anchored to the SCHOOL calendar, so "last 7 days" means the
+    // school's last 7 days regardless of the device's zone.
+    final DateTime today = billingSchoolToday();
     final DateTime start =
-        _startDate ?? DateTime.now().subtract(const Duration(days: 7));
-    final DateTime end = _endDate ?? DateTime.now();
+        _startDate ?? today.subtract(const Duration(days: 7));
+    final DateTime end = _endDate ?? today;
     final result = await showDialog<Map<String, dynamic>>(
       context: context,
       builder: (context) => CalendarDialog(

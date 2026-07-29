@@ -24,12 +24,44 @@ class SessionExpiredCoordinator {
 
   bool _busy = false;
 
+  /// True when the app is already on an auth-entry route — the sign-in screen or
+  /// the splash (`/`, which runs its own auth check and routes) — or there is no
+  /// navigator yet. Used to avoid a redirect/snackbar loop when a burst of 401s
+  /// lands after we've already bounced the user out, and to avoid interrupting
+  /// the boot/login flow that splash drives.
+  bool _isOnSignInRoute() {
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return true;
+    try {
+      final location =
+          GoRouter.of(ctx).routerDelegate.currentConfiguration.uri.path;
+      return location == SignInScreen.routeName || location == '/';
+    } catch (_) {
+      // Router not ready — treat as "can't navigate" so we don't thrash.
+      return true;
+    }
+  }
+
   /// Best-effort backend logout (plain Dio — no auth interceptors), then clear cache
   /// and return user to sign-in.
+  ///
+  /// [fromEntryRoute] must be true for DELIBERATE callers that run on an
+  /// auth-entry route — notably the splash, which detects an expired session at
+  /// route `/` and calls this to log out + route to sign-in. Without it the
+  /// route guard below (meant to absorb a burst of background 401s once we've
+  /// already bounced) would treat the splash's own call as a no-op and leave the
+  /// app stuck on the splash.
   Future<void> performLogoutDueToExpiredSession({
     String userMessage = 'Your session has expired. Please sign in again.',
+    bool fromEntryRoute = false,
   }) async {
     if (_busy) return;
+    // Already on the sign-in screen (or no navigator yet): nothing to bounce.
+    // This guard makes the coordinator safe to call on EVERY 401 — including the
+    // case where the session was already cleared underneath a stuck authenticated
+    // screen — without re-clearing/re-navigating and spamming the snackbar on
+    // each subsequent 401. Deliberate entry-route callers (splash) opt out.
+    if (!fromEntryRoute && _isOnSignInRoute()) return;
     _busy = true;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();

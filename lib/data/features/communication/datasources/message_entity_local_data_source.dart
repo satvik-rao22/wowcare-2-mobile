@@ -3,6 +3,7 @@ import 'package:wowcare/data/features/communication/models/message_entity_collec
 import 'package:wowcare/data/features/communication/models/sync_queue_collection.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
+import 'package:wowcare/core/util/app_time.dart';
 
 abstract class MessageEntityLocalDataSource {
   /// Returns up to [limit] cached messages for [conversationCode], newest
@@ -226,7 +227,7 @@ class MessageEntityLocalDataSourceImpl
       op.status = 'FAILED';
       op.lastError = error;
       op.attempts = attempts;
-      op.lastAttemptAt = DateTime.now();
+      op.lastAttemptAt = AppTime.nowUtc();
       await cacheService.put(op);
     }
   }
@@ -237,7 +238,7 @@ class MessageEntityLocalDataSourceImpl
     required String schoolCode,
     int olderThanDays = 7,
   }) async {
-    final cutoff = DateTime.now().subtract(Duration(days: olderThanDays));
+    final cutoff = AppTime.nowUtc().subtract(Duration(days: olderThanDays));
     final all = await cacheService.getAll<SyncQueueCollection>();
     final toDelete = all.where(
       (op) =>

@@ -1,5 +1,5 @@
 import 'dart:async';
-
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -11,6 +11,9 @@ import 'package:wowcare/presentation/features/reports/widgets/report_form_layout
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentAbsentReportScreen extends StatefulWidget {
   const StudentAbsentReportScreen({super.key, required this.classrooms});
@@ -34,7 +37,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
   }
@@ -48,7 +51,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     super.dispose();
   }
 
-  void _onGenerate() {
+  Future<void> _onGenerate() async {
     if (_toDate.value.isBefore(_fromDate.value)) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -63,11 +66,25 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     final classroomCodes = _selectedClassrooms.value
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
     final params = ReportRequestParams(
       reportType: ReportType.studentAbsent,
       startDate: _fromDate.value,
       endDate: _toDate.value,
+      format: _format.value,
+      schoolName: schoolName.isNotEmpty ? schoolName : null,
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 
@@ -158,7 +175,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                     items: widget.classrooms,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
-                  showSelectAll: true,
+                    showSelectAll: true,
                   ),
                 ),
                 const ReportDefaultNote(

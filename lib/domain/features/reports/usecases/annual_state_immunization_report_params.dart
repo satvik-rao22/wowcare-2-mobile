@@ -14,6 +14,7 @@ class AnnualStateImmunizationReportParams extends Equatable
     required this.startDate,
     required this.endDate,
     required this.format,
+    required this.schoolName,
   });
 
   @override
@@ -27,6 +28,8 @@ class AnnualStateImmunizationReportParams extends Equatable
   @override
   final String format;
 
+  final String schoolName;
+
   @override
   Map<String, dynamic> toRequestBody() {
     return {
@@ -34,6 +37,7 @@ class AnnualStateImmunizationReportParams extends Equatable
       'startDate': startDate.toIso8601String().split('T')[0],
       'endDate': endDate.toIso8601String().split('T')[0],
       'format': format,
+      'schoolName': schoolName,
     };
   }
 
@@ -47,5 +51,11 @@ class AnnualStateImmunizationReportParams extends Equatable
   }
 
   @override
-  List<Object?> get props => [reportType, startDate, endDate, format];
+  List<Object?> get props => [
+    reportType,
+    startDate,
+    endDate,
+    format,
+    schoolName,
+  ];
 }

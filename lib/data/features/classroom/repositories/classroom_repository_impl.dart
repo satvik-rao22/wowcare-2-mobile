@@ -39,6 +39,8 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
           (model) => Classroom(
             code: model.code,
             name: model.name,
+            minAgeMonths: model.minAgeMonths,
+            maxAgeMonths: model.maxAgeMonths,
           ),
         )
         .toList();
@@ -69,6 +71,7 @@ class ClassroomRepositoryImpl implements ClassroomRepository {
       createdAt: details.createdAt,
       updatedBy: details.updatedBy,
       updatedAt: details.updatedAt,
+      logoAssetCode: details.logoAssetCode,
     );
   }
 

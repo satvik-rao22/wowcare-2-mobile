@@ -29,12 +29,23 @@ class StudentFilterScreen extends StatefulWidget {
       StudentFilterSection.parents,
       StudentFilterSection.attendance,
     ],
+    this.allowCrossClassAttendance,
   });
 
   static const String routeName = '/student-filter';
 
   final Map<String, List<String>>? initialFilters;
   final List<StudentFilterSection> sections;
+
+  /// Non-null only when this screen is opened from a STUDENT ATTENDANCE
+  /// context (Daily view). When set, the Classroom section's accessibility
+  /// follows the school's `allowTeacherCrossClassAttendance` setting instead
+  /// of the legacy per-designation restriction below: `true` means the
+  /// classroom list is unrestricted (like an admin), `false` means it's
+  /// scoped to the staff member's allowed classrooms. Left `null` for other
+  /// callers (e.g. the general Students roster), which keep their existing
+  /// designation-based behavior unchanged.
+  final bool? allowCrossClassAttendance;
 
   @override
   State<StudentFilterScreen> createState() => _StudentFilterScreenState();
@@ -177,9 +188,13 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   }
 
   void _fetchFilterData() {
+    final crossClass = widget.allowCrossClassAttendance;
     context.read<ClassroomCubit>().loadActiveClassrooms(
       force: true,
-      applyAttendanceStaffScope: true,
+      // Student-attendance context: honor the resolved cross-class flag from
+      // the Daily view instead of always scoping. Other callers (crossClass
+      // == null) keep the original always-scoped behavior.
+      applyAttendanceStaffScope: crossClass == null ? true : !crossClass,
     );
   }
 
@@ -280,7 +295,12 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
     return BlocBuilder<ClassroomCubit, ClassroomState>(
       builder: (context, classroomState) {
         final role = context.watch<RoleCubit>();
+        // In the student-attendance context, the ClassroomCubit state passed
+        // in already reflects the correct scope (allowed-only, or unrestricted
+        // when cross-class attendance is enabled) — the legacy per-designation
+        // restriction below must not re-narrow or bypass that.
         final restrictToAllowed =
+            widget.allowCrossClassAttendance == null &&
             role.isStaff &&
             _restrictedDesignationLabelsLower.contains(
               _staffDesignationLower,

@@ -10,6 +10,12 @@ class StorageKeys {
   static const String accessToken = 'accessToken';
   static const String refreshToken = 'refreshToken';
   static const String tokenExpiresIn = 'tokenExpiresIn';
+
+  /// Absolute epoch-ms deadline for the access token. [tokenExpiresIn] alone is
+  /// a duration and says nothing about WHEN it was issued, so it cannot answer
+  /// "is the token still valid?" — this can, which is what proactive refresh
+  /// (refresh-before-expiry on resume) needs.
+  static const String tokenExpiresAt = 'tokenExpiresAt';
   static const String refreshExpiresIn = 'refreshExpiresIn';
   static const String tokenType = 'tokenType';
   static const String userCode = 'userCode';
@@ -23,6 +29,7 @@ class StorageKeys {
   static const String displayName = 'displayName';
   static const String firstLogin = 'firstLogin';
   static const String roles = 'roles';
+
   /// Backend role for the active org+school when the user has multiple (e.g. STAFF + GUARDIAN).
   static const String activeSchoolRole = 'activeSchoolRole';
   static const String rememberMe = 'rememberMe';
@@ -34,10 +41,16 @@ class StorageKeys {
   static const String legacyPasswordPurgeKey = 'password';
   static const String loginCacheKey = 'login_cache';
   static const String loginCacheTimestamp = 'login_cache_timestamp';
+
   /// Currently selected org/school (used for API calls).
   static const String organizationCode = 'organizationCode';
   static const String schoolCode = 'schoolCode';
+
+  /// Currently selected school's unique code (e.g., 'SCH_...').
+  /// Distinct from [schoolName] to avoid ambiguity.
+  static const String selectedSchoolCode = 'selectedSchoolCode';
   static const String selectedSchoolName = 'selectedSchoolName';
+  static const String schoolName = 'schoolName';
 
   /// Cached IANA timezone from `GET /api/v1/schools/{code}/timezone` (invalidated when school changes).
   static const String schoolTimeZone = 'schoolTimeZone';
@@ -45,20 +58,26 @@ class StorageKeys {
 
   /// Optional cached staffCode for the logged-in user (when they have a staff profile).
   static const String staffCode = 'staffCode';
+
   /// Cached staffType from staff profile API (e.g. ORGANIZATION_ADMIN → shown as role).
   static const String staffType = 'staffType';
+
   /// Cached designation from staff profile API (e.g. ASSOCIATE_TEACHER → shown as role).
   static const String staffDesignation = 'staffDesignation';
+
   /// JSON array string of classroom codes from staff profile (`allowedClassroomCodes`).
   /// Used to scope attendance APIs for teacher/staff personas.
   static const String staffAllowedClassroomCodes = 'staffAllowedClassroomCodes';
+
   /// UserCode that owns the cached staffCode; used to invalidate
   /// staffCode when a different user logs in.
   static const String staffCodeUser = 'staffCodeUser';
+
   /// Org/school context that owns the cached staffCode.
   /// Prevents reusing a staffCode resolved under a different selection.
   static const String staffCodeOrganization = 'staffCodeOrganization';
   static const String staffCodeSchool = 'staffCodeSchool';
+
   /// Optional cached staff sign-in PIN (from my-profile pin API).
   static const String staffPin = 'staffPin';
 
@@ -83,7 +102,8 @@ class StorageKeys {
   static const String userAccessDetails = 'userAccessDetails';
 
   /// JSON map of Individual Movement filter state (multi-select + optional date range).
-  static const String individualMovementFilters = 'individual_movement_filters_v1';
+  static const String individualMovementFilters =
+      'individual_movement_filters_v1';
 
   // Cache Duration
   static const Duration cacheValidDuration = Duration(minutes: 5);
@@ -94,9 +114,6 @@ class StorageKeys {
 
   /// Incremented when activities are created/updated/deleted so cached feed
   /// snapshots are ignored until refetched.
-  static const String activityFeedCacheRevision = 'activity_feed_cache_revision';
-
-
+  static const String activityFeedCacheRevision =
+      'activity_feed_cache_revision';
 }
-
-

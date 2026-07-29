@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/jwt_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
 
@@ -12,7 +15,11 @@ abstract class AuthLocalDataSource {
   Future<void> clearCache();
   Future<void> saveLoginContext(Map<String, dynamic> context);
   Future<Map<String, dynamic>?> getLoginContext();
-  Future<void> saveCredentials(String username, String password, bool rememberMe);
+  Future<void> saveCredentials(
+    String username,
+    String password,
+    bool rememberMe,
+  );
   Future<Map<String, String?>> getSavedCredentials();
   Future<void> clearCredentials();
   Future<void> saveOrgAndSchoolSelection({
@@ -20,6 +27,7 @@ abstract class AuthLocalDataSource {
     required String schoolName,
     String? schoolCode,
   });
+
   /// Saves org/school from login-context API (last school) and marks login completed.
   /// Returns true if context had valid org/school, false otherwise.
   Future<bool> saveOrgAndSchoolFromContext(Map<String, dynamic> context);
@@ -65,14 +73,25 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     await _storage.saveJson(StorageKeys.loginCacheKey, response.toJson());
     await _storage.saveInt(
       StorageKeys.loginCacheTimestamp,
-      DateTime.now().millisecondsSinceEpoch,
+      AppTime.nowUtc().millisecondsSinceEpoch,
     );
 
     // Save individual fields for quick access
     await _storage.saveString(StorageKeys.accessToken, response.accessToken);
     await _storage.saveString(StorageKeys.refreshToken, response.refreshToken);
     await _storage.saveInt(StorageKeys.tokenExpiresIn, response.expiresIn);
-    await _storage.saveInt(StorageKeys.refreshExpiresIn, response.refreshExpiresIn);
+    // Mirror the refresh token into the Keychain / EncryptedSharedPreferences
+    // (SharedPreferences is plaintext) and record an ABSOLUTE deadline —
+    // `expiresIn` is only a duration and can't answer "is it still valid?",
+    // which proactive refresh-on-resume needs.
+    await TokenRefreshService.instance.saveRefreshToken(response.refreshToken);
+    await TokenRefreshService.instance.saveAccessTokenExpiry(
+      response.expiresIn,
+    );
+    await _storage.saveInt(
+      StorageKeys.refreshExpiresIn,
+      response.refreshExpiresIn,
+    );
     await _storage.saveString(StorageKeys.tokenType, response.tokenType);
     await _storage.saveString(StorageKeys.userCode, response.userCode);
 
@@ -99,8 +118,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     for (final r in response.roles) {
       if (r.organizationCode.isEmpty) continue;
       final schoolCode = r.schoolCode.trim();
-      final isOrgAdmin =
-          r.role.toUpperCase() == 'ORGANIZATION_ADMIN';
+      final schoolName = r.schoolName.trim();
+      final isOrgAdmin = r.role.toUpperCase() == 'ORGANIZATION_ADMIN';
       if (isOrgAdmin) {
         orgSchoolList.add({
           'organizationCode': r.organizationCode,
@@ -111,7 +130,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         orgSchoolList.add({
           'organizationCode': r.organizationCode,
           'schoolCode': schoolCode,
-          'schoolName': schoolCode,
+          'schoolName': schoolName,
         });
       }
     }
@@ -141,7 +160,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     if (timestamp == null) return false;
 
     final cacheTime = DateTime.fromMillisecondsSinceEpoch(timestamp);
-    final now = DateTime.now();
+    final now = AppTime.nowUtc();
     final difference = now.difference(cacheTime);
 
     return difference < StorageKeys.cacheValidDuration;
@@ -158,11 +177,22 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final seenOnboarding =
         await _storage.getBool(StorageKeys.onboardingSeen) ?? false;
     final rememberMe = await _storage.getBool(StorageKeys.rememberMe) ?? false;
-    final savedUsername =
-        rememberMe ? await _storage.getString(StorageKeys.username) : null;
+    final savedUsername = rememberMe
+        ? await _storage.getString(StorageKeys.username)
+        : null;
+    // CRITICAL: the fresh-install marker must survive logout. It lives in
+    // SharedPreferences and is what tells main() this is NOT a fresh install.
+    // If it were wiped here, the next cold start would think the app was newly
+    // installed and WIPE the Keychain "Remember me" password — which silently
+    // broke the whole feature after any logout / session-expiry.
+    final installedMarker =
+        await _storage.getBool(StorageKeys.appInstalledMarker) ?? false;
     await _storage.clear();
     if (seenOnboarding) {
       await _storage.saveBool(StorageKeys.onboardingSeen, true);
+    }
+    if (installedMarker) {
+      await _storage.saveBool(StorageKeys.appInstalledMarker, true);
     }
     if (rememberMe) {
       await _storage.saveBool(StorageKeys.rememberMe, true);
@@ -170,6 +200,17 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
         await _storage.saveString(StorageKeys.username, savedUsername);
       }
     }
+    AppLogger.d(
+      '[RememberMe] clearCache → preserved rememberMe=$rememberMe '
+      'user="${savedUsername ?? ''}" installMarker=$installedMarker '
+      '(password in Keychain is untouched)',
+    );
+    // The refresh token also lives in the secure store, which `_storage.clear()`
+    // does not touch — without this it would survive logout and could renew the
+    // previous user's session on a shared device.
+    try {
+      await TokenRefreshService.instance.clear();
+    } catch (_) {}
     try {
       await _sessionLocalCacheWiper?.wipe();
     } catch (_) {}
@@ -183,8 +224,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }) async {
     final prevOrg =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final prevSchool =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final prevSchool = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final orgChanged = prevOrg != orgCode.trim();
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.selectedSchoolName, schoolName);
@@ -213,8 +254,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final orgCode = _str(context['LastLoginOrganizationCode']);
     final schoolCode = _str(context['LastLoginSchoolCode']);
     final schoolName = _str(context['schoolName']);
-    final displayName =
-        schoolName.isNotEmpty ? schoolName : schoolCode;
+    final displayName = schoolName.isNotEmpty ? schoolName : schoolCode;
 
     if (orgCode.isEmpty || schoolCode.isEmpty) {
       return false;
@@ -222,8 +262,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
     final prevOrg =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final prevSchool =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final prevSchool = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final schoolChanged = prevSchool != schoolCode;
     final orgChanged = prevOrg != orgCode;
     if (schoolChanged) {
@@ -237,10 +277,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     // Save selected
     await _storage.saveString(StorageKeys.organizationCode, orgCode);
     await _storage.saveString(StorageKeys.schoolCode, schoolCode);
-    await _storage.saveString(
-      StorageKeys.selectedSchoolName,
-      displayName,
-    );
+    await _storage.saveString(StorageKeys.selectedSchoolName, displayName);
 
     // Merge into organizationsAndSchools list (dedupe by org+school)
     final list = await _getOrganizationsAndSchoolsRaw();
@@ -249,8 +286,9 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       'schoolCode': schoolCode,
       'schoolName': displayName,
     };
-    list.removeWhere((e) =>
-        e['organizationCode'] == orgCode && e['schoolCode'] == schoolCode);
+    list.removeWhere(
+      (e) => e['organizationCode'] == orgCode && e['schoolCode'] == schoolCode,
+    );
     list.insert(0, entry); // put current first
     await _storage.saveString(
       StorageKeys.organizationsAndSchools,
@@ -265,12 +303,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     if (raw == null) return [];
     if (raw is List) {
       return raw
-          .map((e) => (e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}))
-          .map((m) => {
-                'organizationCode': (m['organizationCode'] ?? '').toString(),
-                'schoolCode': (m['schoolCode'] ?? '').toString(),
-                'schoolName': (m['schoolName'] ?? m['schoolCode'] ?? '').toString(),
-              })
+          .map(
+            (e) =>
+                (e is Map ? Map<String, dynamic>.from(e) : <String, dynamic>{}),
+          )
+          .map(
+            (m) => {
+              'organizationCode': (m['organizationCode'] ?? '').toString(),
+              'schoolCode': (m['schoolCode'] ?? '').toString(),
+              'schoolName': (m['schoolName'] ?? m['schoolCode'] ?? '')
+                  .toString(),
+            },
+          )
           .where((m) => m['organizationCode']!.isNotEmpty)
           .toList();
     }
@@ -302,7 +346,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> saveOrganizationsAndSchools(
-      List<Map<String, String>> list) async {
+    List<Map<String, String>> list,
+  ) async {
     await _storage.saveString(
       StorageKeys.organizationsAndSchools,
       jsonEncode(list),
@@ -318,8 +363,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final prevOrg =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final newOrg = organizationCode.trim();
-    final prev =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final prev = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final next = schoolCode.trim();
     if (prev != next) {
       await _storage.remove(StorageKeys.schoolTimeZone);
@@ -365,10 +410,10 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
 
   @override
   Future<void> persistActiveSchoolPersonaRole(String backendRole) async {
-    final org =
-        (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final school =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+        .trim();
+    final school = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final normalizedRole = backendRole.trim();
     if (normalizedRole.isEmpty || org.isEmpty || school.isEmpty) return;
 
@@ -412,8 +457,8 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }) async {
     final organizationCode =
         (await _storage.getString(StorageKeys.organizationCode) ?? '').trim();
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await _storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     await _storage.saveString(StorageKeys.staffCode, staffCode);
     await _storage.saveString(StorageKeys.staffCodeUser, userCode);
@@ -421,10 +466,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       StorageKeys.staffCodeOrganization,
       organizationCode,
     );
-    await _storage.saveString(
-      StorageKeys.staffCodeSchool,
-      schoolCode,
-    );
+    await _storage.saveString(StorageKeys.staffCodeSchool, schoolCode);
   }
 
   @override
@@ -438,7 +480,11 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   }
 
   @override
-  Future<void> saveCredentials(String username, String password, bool rememberMe) async {
+  Future<void> saveCredentials(
+    String username,
+    String password,
+    bool rememberMe,
+  ) async {
     // SECURITY: the password is never persisted. "Remember me" only stores the
     // username for convenience; the session is restored from the cached
     // access/refresh token, never from saved credentials. Any password value
@@ -457,10 +503,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final username = await _storage.getString(StorageKeys.username);
     // SECURITY: passwords are never read back. Purge any legacy stored value.
     await _storage.remove(StorageKeys.legacyPasswordPurgeKey);
-    return {
-      'username': username,
-      'password': null,
-    };
+    return {'username': username, 'password': null};
   }
 
   @override

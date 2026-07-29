@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class SendInvoiceScreen extends StatefulWidget {
   const SendInvoiceScreen({super.key, required this.transaction});
@@ -72,8 +73,9 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   }
 
   void _initializeFormData() {
-    // Generate invoice number based on current date
-    final now = DateTime.now();
+    // Generate invoice number based on the current SCHOOL date, so the number
+    // doesn't jump a day for a device in another zone.
+    final now = billingSchoolToday();
     _invoiceNumber =
         'INV${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
     _invoiceNumberController.text = _invoiceNumber;

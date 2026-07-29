@@ -1,9 +1,13 @@
+import 'dart:developer';
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message_visibility_helper.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
@@ -41,6 +45,7 @@ class MessageFirestoreItem {
     this.privateParentUserCode,
     this.deliveredTo = const {},
     this.readBy = const {},
+    this.attachments = const [],
   });
 
   final String code;
@@ -73,6 +78,10 @@ class MessageFirestoreItem {
   final Map<String, DateTime> deliveredTo;
   final Map<String, DateTime> readBy;
 
+  /// Attachments written on the message doc by the backend (fileUrl/mimeType/...), so a
+  /// live-received image/file renders immediately instead of only after a REST refetch.
+  final List<AttachmentEntity> attachments;
+
   factory MessageFirestoreItem.fromFirestore(
     DocumentSnapshot<Map<String, dynamic>> doc,
   ) {
@@ -86,7 +95,7 @@ class MessageFirestoreItem {
       senderAvatarUrl: d['senderAvatarUrl'] as String?,
       text: d['text'] as String? ?? '',
       messageType: d['messageType'] as String? ?? 'TEXT',
-      sentAt: _parseTimestamp(d['sentAt']) ?? DateTime.now(),
+      sentAt: _parseTimestamp(d['sentAt']) ?? AppTime.nowUtc(),
       organizationCode: d['organizationCode'] as String? ?? '',
       schoolCode: d['schoolCode'] as String? ?? '',
       isDeleted: d['isDeleted'] as bool? ?? false,
@@ -118,7 +127,50 @@ class MessageFirestoreItem {
       privateParentUserCode: d['privateParentUserCode'] as String?,
       deliveredTo: _parseReceiptMap(d['deliveredTo']),
       readBy: _parseReceiptMap(d['readBy']),
+      attachments: _parseAttachments(
+        d['attachments'],
+        d['code'] as String? ?? doc.id,
+        d['conversationCode'] as String? ?? '',
+        d['senderCode'] as String? ?? '',
+        _parseTimestamp(d['sentAt']) ?? AppTime.nowUtc(),
+      ),
     );
+  }
+
+  /// Parse the backend's Firestore attachment array into [AttachmentEntity]s. Only fileUrl/mimeType
+  /// are needed to render; the rest is best-effort so a missing field never drops the image.
+  static List<AttachmentEntity> _parseAttachments(
+    dynamic raw,
+    String messageCode,
+    String conversationCode,
+    String senderCode,
+    DateTime sentAt,
+  ) {
+    if (raw is! List) return const [];
+    final result = <AttachmentEntity>[];
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final m = item.cast<String, dynamic>();
+      final fileUrl = m['fileUrl'] as String?;
+      if (fileUrl == null || fileUrl.isEmpty) continue;
+      final mimeType = m['mimeType'] as String? ?? 'application/octet-stream';
+      final rawId = m['attachmentId'];
+      result.add(AttachmentEntity(
+        code: rawId?.toString() ?? '',
+        messageCode: messageCode,
+        conversationCode: conversationCode,
+        fileName: m['fileName'] as String? ?? '',
+        fileUrl: fileUrl,
+        mimeType: mimeType,
+        fileSizeBytes: (m['fileSizeBytes'] as num?)?.toInt() ?? 0,
+        attachmentType: AttachmentType.fromMimeType(mimeType),
+        thumbnailUrl: m['thumbnailUrl'] as String?,
+        uploadedBy: senderCode,
+        uploadedAt: sentAt,
+        attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
+      ));
+    }
+    return result;
   }
 
   MessageEntity toEntity() {
@@ -149,6 +201,7 @@ class MessageFirestoreItem {
       threadParentSenderName: threadParentSenderName,
       threadParentText: threadParentText,
       privateParentUserCode: privateParentUserCode,
+      attachments: attachments,
     );
   }
 
@@ -314,6 +367,11 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
       if (error is FirebaseException && error.code == 'permission-denied') {
+        // Proactively (re)establish Firebase auth for the CURRENT user — the session
+        // may be stale (account/persona switch) or expired. signIn() is deduped and
+        // no-ops when already correct, so calling it here is cheap and makes an
+        // authStateChanges event fire so the retry below reconnects.
+        unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < retryDelays.length) {
           // Standard exponential backoff while Firebase auth is in progress.
           Future.delayed(
@@ -381,20 +439,34 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
                   // message list with just the delta — losing all previous
                   // messages. `docs` always delivers the complete set currently
                   // matching the query, which is what the cubit expects.
-                  controller.add(
-                    snapshot.docs
-                        .map((doc) => MessageFirestoreItem.fromFirestore(doc))
-                        .map((item) => item.toEntity())
-                        .where(
-                          (entity) => VisibilityHelper.canViewMessage(
-                            entity,
-                            currentUserCode,
-                            isStaff,
-                            isAdmin,
-                          ),
-                        )
-                        .toList(),
-                  );
+                  // Parse each message defensively: a single unparseable doc (e.g. an
+                  // unexpected attachment shape) must NOT throw out of the snapshot
+                  // handler — with cancelOnError the whole thread's live sync would die
+                  // and stay dead while that doc remains in the query window. Skip the
+                  // bad one and keep delivering the rest.
+                  final entities = <MessageEntity>[];
+                  for (final doc in snapshot.docs) {
+                    try {
+                      final entity =
+                          MessageFirestoreItem.fromFirestore(doc).toEntity();
+                      if (VisibilityHelper.canViewMessage(
+                        entity,
+                        currentUserCode,
+                        isStaff,
+                        isAdmin,
+                      )) {
+                        entities.add(entity);
+                      }
+                    } catch (e, st) {
+                      log(
+                        'Skipped unparseable message ${doc.id}: $e',
+                        name: 'MessageRealtime',
+                        error: e,
+                        stackTrace: st,
+                      );
+                    }
+                  }
+                  controller.add(entities);
                 },
                 onError: (Object error) => retryOrForward(error, attempt),
                 onDone: () {

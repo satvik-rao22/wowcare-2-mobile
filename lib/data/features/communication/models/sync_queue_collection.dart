@@ -1,7 +1,6 @@
 import 'package:isar/isar.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
-
 part 'sync_queue_collection.g.dart';
 
 /// Isar collection for offline sync operations awaiting retry.

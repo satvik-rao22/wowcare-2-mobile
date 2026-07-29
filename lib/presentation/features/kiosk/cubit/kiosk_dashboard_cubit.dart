@@ -144,7 +144,11 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
   }
 
   /// Submit PIN for verification
-  Future<KioskPinResultEntity?> submitPin(String pin) async {
+  /// [isLogout] indicates if this PIN verification is for logout (default: false)
+  Future<KioskPinResultEntity?> submitPin(
+    String pin, {
+    bool isLogout = false,
+  }) async {
     if (pin.isEmpty || pin.length != 4) {
       return null;
     }
@@ -174,7 +178,11 @@ class KioskDashboardCubit extends Cubit<KioskDashboardState> {
         return null;
       }
 
-      final result = await _verifyKioskPin(pin: pin, schoolCode: schoolCode);
+      final result = await _verifyKioskPin(
+        pin: pin,
+        schoolCode: schoolCode,
+        isLogout: isLogout,
+      );
 
       if (isClosed) return result;
 

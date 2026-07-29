@@ -10,11 +10,13 @@ class KioskPinPadWidget extends StatefulWidget {
   const KioskPinPadWidget({
     required this.onPinSubmit,
     this.maxPinLength = 4,
+    this.isLogout = false,
     super.key,
   });
 
-  final Function(String pin) onPinSubmit;
+  final Function(String pin, {bool isLogout}) onPinSubmit;
   final int maxPinLength;
+  final bool isLogout;
 
   @override
   State<KioskPinPadWidget> createState() => _KioskPinPadWidgetState();
@@ -36,14 +38,16 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
         _pin += digit;
       });
 
+      // TODO: Temporarily disabled auto-trigger for Next button.
+      // User must explicitly tap the Next button.
       // Auto-submit when max PIN length is reached
-      if (_pin.length == widget.maxPinLength) {
-        Future.delayed(const Duration(milliseconds: 300), () {
-          if (mounted && !_isSubmitting) {
-            _submitPinInternal();
-          }
-        });
-      }
+      // if (_pin.length == widget.maxPinLength) {
+      //   Future.delayed(const Duration(milliseconds: 300), () {
+      //     if (mounted && !_isSubmitting) {
+      //       _submitPinInternal();
+      //     }
+      //   });
+      // }
     }
   }
 
@@ -67,7 +71,7 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       setState(() {
         _isSubmitting = true;
       });
-      widget.onPinSubmit(_pin);
+      widget.onPinSubmit(_pin, isLogout: widget.isLogout);
     }
   }
 
@@ -85,8 +89,8 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
       _isSubmitting = true;
     });
 
-    // Call parent callback
-    widget.onPinSubmit(_pin);
+    // Call parent callback with isLogout flag
+    widget.onPinSubmit(_pin, isLogout: widget.isLogout);
   }
 
   @override
@@ -245,14 +249,16 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
             ),
             padding: const EdgeInsets.all(1),
             child: TextButton(
-              onPressed: _isSubmitting ? null : () {
-                _reset();
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message: 'PIN entry cancelled',
-                  isWarning: true,
-                );
-              },
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      _reset();
+                      CoreUtils.showTopSnackBar(
+                        context: context,
+                        message: 'PIN entry cancelled',
+                        isWarning: true,
+                      );
+                    },
               style: TextButton.styleFrom(
                 backgroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 10),
@@ -292,9 +298,11 @@ class _KioskPinPadWidgetState extends State<KioskPinPadWidget> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onPressed: _isSubmitting ? null : () {
-                _validate(context);
-              },
+              onPressed: _isSubmitting
+                  ? null
+                  : () {
+                      _validate(context);
+                    },
               child: _isSubmitting
                   ? const SizedBox(
                       height: 20,

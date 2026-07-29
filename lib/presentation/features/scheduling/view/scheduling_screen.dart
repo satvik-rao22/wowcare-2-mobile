@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
@@ -90,6 +91,17 @@ class _SchedulingScreenContent extends StatefulWidget {
 class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   bool _expandAll = false;
 
+  /// Set when the WEEK view's tick/red compliance icon is tapped, so DAY
+  /// view opens scrolled/highlighted to that classroom — same mechanism as
+  /// `widget.highlightClassroomCode` (notification deep-link), just sourced
+  /// from an in-app tap instead of route args.
+  String? _tappedHighlightClassroomCode;
+
+  void _openClassroomDayView(String classroomCode) {
+    context.read<SchedulingCubit>().setViewMode(SchedulingViewMode.day);
+    setState(() => _tappedHighlightClassroomCode = classroomCode);
+  }
+
   /// Persists across screen instances so an edit that happened while this
   /// screen was off-stack still triggers a silent staff-list refresh on
   /// the next visit.
@@ -112,7 +124,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _initialDeviceToday = DateTime(now.year, now.month, now.day);
     // Fire the cubit's entry-load exactly once per screen entry. First time
     // runs the full visible load; subsequent entries run a silent
@@ -430,6 +442,7 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
                       highlightShiftCode: widget.highlightShiftCode,
+                      onClassroomStatusTap: _openClassroomDayView,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                             context,
@@ -447,7 +460,8 @@ class _SchedulingScreenContentState extends State<_SchedulingScreenContent> {
                           setState(() => _expandAll = !_expandAll),
                       staffAttendanceStatusByCode: _staffSignInStatusByCode,
                       highlightShiftCode: widget.highlightShiftCode,
-                      highlightClassroomCode: widget.highlightClassroomCode,
+                      highlightClassroomCode: _tappedHighlightClassroomCode ??
+                          widget.highlightClassroomCode,
                       onStaffShiftTap: (entry, classroomName) =>
                           _openStaffShiftFromEntry(
                             context,
@@ -515,7 +529,6 @@ class _DatePickerHeader extends StatelessWidget {
             hintText: 'View',
             items: _viewModeLabels.values.toList(growable: false),
             selectedItem: _viewModeLabels[viewMode],
-            prependHintAsSelectableItem: false,
             fieldHeight: 44,
             onSelect: (label) {
               if (label == null) return;
@@ -550,6 +563,7 @@ class _ClassroomListCard extends StatelessWidget {
     required this.onStaffShiftTap,
     this.staffAttendanceStatusByCode,
     this.highlightShiftCode,
+    this.onClassroomStatusTap,
   });
 
   final List<ClassroomDaySchedule> classrooms;
@@ -561,6 +575,9 @@ class _ClassroomListCard extends StatelessWidget {
   onStaffShiftTap;
   final Map<String, String>? staffAttendanceStatusByCode;
   final String? highlightShiftCode;
+
+  /// Tap on the compliance (tick/red) icon — opens DAY view for that classroom.
+  final void Function(String classroomCode)? onClassroomStatusTap;
 
   @override
   Widget build(BuildContext context) {
@@ -592,6 +609,9 @@ class _ClassroomListCard extends StatelessWidget {
                 highlightShiftCode: highlightShiftCode,
                 onStaffShiftTap: (entry) =>
                     onStaffShiftTap(entry, classrooms[i].classroomName),
+                onClassroomStatusTap: onClassroomStatusTap == null
+                    ? null
+                    : () => onClassroomStatusTap!(classrooms[i].classroomCode),
               ),
           ],
         ),

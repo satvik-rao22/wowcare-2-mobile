@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -39,6 +40,7 @@ import '../../../../domain/features/student/usecases/get_student_codes_for_activ
 import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
 import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
@@ -73,12 +75,18 @@ class ActivityCustomTab extends StatefulWidget {
     super.key,
     this.fromStudentProfile = false,
     this.studentName,
+    this.studentProfile,
     this.isNotParent = true,
     this.allowActivityWrite = true,
   });
 
   final bool fromStudentProfile;
   final String? studentName;
+
+  /// Full student context ({name, studentCode, classroom, classroomCode, …})
+  /// when launched from a student profile. Used to lock the feed to that student
+  /// (by studentCode) and resolve its classroom, mirroring [ActivityDailyTab].
+  final Map<String, dynamic>? studentProfile;
   final bool isNotParent;
 
   /// Edit / delete; false when [DAILY_ACTIVITY] has `write: false`.
@@ -99,13 +107,13 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   bool get _parentHome => !isNotParent && !widget.fromStudentProfile;
 
   DateTime? _selectedStartDate = DateTime(
-    DateTime.now().year,
-    DateTime.now().month,
+    AppTime.now().year,
+    AppTime.now().month,
     1,
   );
   DateTime? _selectedEndDate = DateTime(
-    DateTime.now().year,
-    DateTime.now().month + 1,
+    AppTime.now().year,
+    AppTime.now().month + 1,
     0,
   );
   String _schoolIana = SchoolTimezoneResolver.fallbackTimeZone;
@@ -338,12 +346,29 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
 
-    _updateAvailableStudents();
     isNotParent = widget.isNotParent;
+    // Opened from a student profile: pre-select that student (and their
+    // classroom) in the admin filter row so the range feed is filtered to them
+    // and the dropdowns reflect it on the first frame, instead of showing an
+    // empty "Select Student" while the lists load.
+    _seedProfileContext();
+    _updateAvailableStudents();
     //_selectedStudent = _allStudents[0];
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
+      // Feed is locked to the profile student's code + classroom already, so
+      // load it right away rather than waiting for the classroom/student
+      // bootstrap; _loadRangeFeed de-dupes so the later bootstrap won't refetch.
+      if (widget.fromStudentProfile && widget.studentProfile != null) {
+        final school =
+            (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+                .trim();
+        if (school.isNotEmpty && mounted) {
+          _schoolCode = school;
+          unawaited(_loadRangeFeed(refresh: true));
+        }
+      }
       await _bootstrapRangeFeed();
     });
     _feedScrollController.addListener(_onFeedScroll);
@@ -442,6 +467,16 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   List<String>? _selectedStudentCodesForAttendanceFilter() {
+    // Opened from a student profile: lock the feed to that student's code so the
+    // range feed only shows their activities (name→code resolution can miss
+    // before the student list loads, which let other students' activities leak
+    // through).
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final sc = widget.studentProfile!['studentCode'];
+      if (sc is String && sc.trim().isNotEmpty) {
+        return <String>[sc.trim()];
+      }
+    }
     final selectedNames = _selectedStudents.isNotEmpty
         ? _selectedStudents
         : ((_selectedStudent?.trim().isNotEmpty ?? false)
@@ -497,6 +532,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         .toSet()
         .toList();
     if (fromSelectedStudents.isNotEmpty) return fromSelectedStudents;
+
+    // Opened from a student profile: fall back to the student's classroom CODE
+    // so the range feed resolves the room even before the name→code maps load.
+    if (widget.fromStudentProfile && widget.studentProfile != null) {
+      final cc = widget.studentProfile!['classroomCode'];
+      if (cc is String && cc.trim().isNotEmpty) {
+        return <String>[cc.trim()];
+      }
+    }
 
     return const <String>[];
   }
@@ -594,14 +638,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         } else {
           final src = (row.signedInAt ?? row.signedOutAt ?? '').trim();
           rowDay = src.isEmpty
-              ? (_selectedStartDate ?? DateTime.now())
+              ? (_selectedStartDate ?? AppTime.now())
               : SchoolZoneDateTime.dateTimeFromInstantInSchool(
                   DateTime.parse(src),
                   _schoolIana,
                 );
         }
       } catch (_) {
-        rowDay = _selectedStartDate ?? DateTime.now();
+        rowDay = _selectedStartDate ?? AppTime.now();
       }
       final studentName = row.studentName.trim().isEmpty
           ? 'Student'
@@ -786,10 +830,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       try {
         final src = row.absenceDate.trim();
         rowDay = src.isEmpty
-            ? (_selectedStartDate ?? DateTime.now())
+            ? (_selectedStartDate ?? AppTime.now())
             : DateTime.parse(src);
       } catch (_) {
-        rowDay = _selectedStartDate ?? DateTime.now();
+        rowDay = _selectedStartDate ?? AppTime.now();
       }
       final at = _absentClockToDateTime(row.markedAbsentTime, rowDay) ?? rowDay;
       final studentName = row.studentName.trim().isEmpty
@@ -1034,7 +1078,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!_lastFeedCompletedWithError) return;
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
         return;
       }
     }
@@ -1161,7 +1205,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextRangeFeedPage(),
@@ -1178,7 +1222,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -1367,6 +1411,56 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           .toList();
       _selectedStudent = null;
     }
+    _pinProfileStudent();
+  }
+
+  /// Seeds the classroom + student the screen was opened for (from a student
+  /// profile) into the dropdown state up-front — using the name/code already
+  /// carried in [ActivityFeedScreen.studentName] — so both dropdowns display
+  /// their selection on the first frame instead of appearing empty while the
+  /// classroom and student lists load in the background. The feed is filtered by
+  /// the student's code separately, so this is purely to preload the UI.
+  void _seedProfileContext() {
+    if (!widget.fromStudentProfile) return;
+    final cls = (widget.studentProfile?['classroom'] as String?)?.trim() ?? '';
+    final clsCode =
+        (widget.studentProfile?['classroomCode'] as String?)?.trim() ?? '';
+    if (cls.isNotEmpty && !cls.startsWith('CLS_')) {
+      if (clsCode.isNotEmpty) {
+        _classroomCodeByName[cls] = clsCode;
+        _classroomNameByCode[clsCode] = cls;
+      }
+      if (!_classroomOptions.contains(cls)) {
+        _classroomOptions.add(cls);
+        _classroomOptions.sort();
+      }
+      _selectdClassroom = cls;
+      _selectedClassrooms = <String>[cls];
+    }
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isNotEmpty) {
+      _selectedStudent = name;
+      _selectedStudents = <String>[name];
+    }
+    _pinProfileStudent();
+  }
+
+  /// Keeps the profile student present in the options + selection when launched
+  /// from a student profile. Both this widget's pruning and
+  /// [CustomMultiSelectDropdown] drop selections absent from the options list,
+  /// so without this the pre-selected student silently disappears once the real
+  /// student list loads.
+  void _pinProfileStudent() {
+    if (!widget.fromStudentProfile) return;
+    final name = widget.studentName?.trim() ?? '';
+    if (name.isEmpty) return;
+    if (!_availableStudents.contains(name)) {
+      _availableStudents = <String>[..._availableStudents, name]..sort();
+    }
+    if (!_selectedStudents.contains(name)) {
+      _selectedStudents = <String>[..._selectedStudents, name];
+    }
+    _selectedStudent ??= name;
   }
 
   Future<void> _openActivityFilter() async {
@@ -1452,6 +1546,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           !_availableStudents.contains(_selectedStudent)) {
         _selectedStudent = null;
       }
+      _pinProfileStudent();
     });
   }
 
@@ -1786,18 +1881,22 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     final viewerName =
         (await _storageService.getString(StorageKeys.displayName) ?? '').trim();
     final viewerStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
     final staffType =
         (await _storageService.getString(StorageKeys.staffType) ?? '')
             .trim()
             .toUpperCase();
+    // Active-persona check (RoleCubit), not a scan of the account's full
+    // cached roles list — that list always contains every role the account
+    // has across every school, so a dual-role user (e.g. STAFF + SCHOOL_ADMIN
+    // in a different school) would be misdetected as admin regardless of
+    // which persona is actually active right now.
+    final roleCubit = context.read<RoleCubit>();
     if (mounted) {
       setState(() {
         _viewerStaffDisplayName = viewerName;
         _viewerStaffCode = viewerStaffCode;
         _isAdminPersona =
-            roles.contains('ADMIN') ||
+            (roleCubit.isAdmin && !roleCubit.isStaff) ||
             staffType == 'SCHOOL_ADMIN' ||
             staffType == 'ORGANIZATION_ADMIN';
       });
@@ -1995,10 +2094,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   Future<void> _loadStaffClassroomScope() async {
-    // Scope only applies to staff/teacher personas (not parent/guardian; not admins).
-    final roles = (await _storageService.getString(StorageKeys.roles) ?? '')
-        .toUpperCase();
-    if (roles.contains('GUARDIAN') || roles.contains('PARENT')) {
+    // Scope only applies to staff/teacher personas (not parent/guardian; not
+    // admins). Checked against the ACTIVE persona (RoleCubit), not a scan of
+    // the account's full cached roles list — a dual-role account (e.g.
+    // STAFF + GUARDIAN in a different school) always has 'GUARDIAN' in that
+    // list regardless of which persona is active right now.
+    if (context.read<RoleCubit>().isParent) {
       _allowedClassroomCodes = const [];
       _primaryClassroomCode = null;
       return;
@@ -2346,7 +2447,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          DateTime.now().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
         return;
       }
     }
@@ -2464,7 +2565,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         _loadingMoreFeed = false;
       });
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = false;
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _maybeLoadNextRangeFeedPage(),
@@ -2585,7 +2686,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       });
       CoreUtils.logApiError(msg, showOnScreen: true, context: context);
       _isFeedRequestInFlight = false;
-      _lastFeedCompletedAt = DateTime.now();
+      _lastFeedCompletedAt = AppTime.nowUtc();
       _lastFeedCompletedWithError = true;
     }
   }
@@ -2707,7 +2808,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                       borderRadius: BorderRadius.circular(12),
                       color: Colors.white,
                     ),
-                    child: widget.fromStudentProfile
+                    child: widget.fromStudentProfile && !isNotParent
                         ? Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [

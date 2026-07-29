@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -368,7 +369,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                   ),
                                 ),
                                 onTap: () async {
-                                  final now = DateTime.now();
+                                  final now = AppTime.now();
                                   final today = DateTime(
                                     now.year,
                                     now.month,
@@ -441,7 +442,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 onChanged: (v) {
                                   setLocalState(() => statusUi = v);
                                   if (selectedDate == null) return;
-                                  final now = DateTime.now();
+                                  final now = AppTime.now();
                                   final today = DateTime(
                                     now.year,
                                     now.month,
@@ -503,7 +504,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 ),
                               ),
                               onTap: () async {
-                                final now = DateTime.now();
+                                final now = AppTime.now();
                                 final today = DateTime(
                                   now.year,
                                   now.month,
@@ -570,7 +571,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               onChanged: (v) {
                                 setLocalState(() => statusUi = v);
                                 if (selectedDate == null) return;
-                                final now = DateTime.now();
+                                final now = AppTime.now();
                                 final today = DateTime(
                                   now.year,
                                   now.month,
@@ -617,7 +618,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                       SizedBox(height: verticalPadding),
                       Builder(
                         builder: (_) {
-                          final now = DateTime.now();
+                          final now = AppTime.now();
                           final today = DateTime(now.year, now.month, now.day);
                           final hasDate = selectedDate != null;
                           final picked = selectedDate;

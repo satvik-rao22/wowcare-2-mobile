@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -8,6 +9,9 @@ import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class AnnualStateImmunizationReportScreen extends StatefulWidget {
   const AnnualStateImmunizationReportScreen({super.key});
@@ -29,16 +33,30 @@ class _AnnualStateImmunizationReportScreenState
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _startDate = DateTime(now.year, 1, 1);
     _endDate = DateTime(now.year, 12, 31);
   }
 
-  void _onGenerate() {
+  void _onGenerate() async {
     if (_endDate.isBefore(_startDate)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'End date cannot be before Start date',
+        isError: true,
+      );
+      return;
+    }
+
+    // Retrieve the school name from storage
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
+
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
         isError: true,
       );
       return;
@@ -49,6 +67,7 @@ class _AnnualStateImmunizationReportScreenState
       startDate: _startDate,
       endDate: _endDate,
       format: _format,
+      schoolName: schoolName,
     );
     context.read<ReportsCubit>().generateReport(params);
   }

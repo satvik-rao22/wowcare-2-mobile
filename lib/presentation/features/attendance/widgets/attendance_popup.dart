@@ -38,6 +38,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_attendance_action_availability.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 class AttendancePopupManager {
   // Guards against the bottom-nav Attendance tab being tapped multiple times
@@ -123,7 +124,7 @@ class AttendancePopupManager {
 
       try {
         final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = DateTime.now();
+        final now = ServerTimeService.instance.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final page = await useCase(
@@ -207,7 +208,13 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
   // (alongside geofencing) to gate Sign-In/Sign-Out/Transfer/Mark-Absent in
   // the "My Attendance" tab. Not used for the admin staff-selection flow.
   String? _todayStatusRaw;
-  bool _isTodayStatusLoading = false;
+  // Starts true (rather than false) so Sign-In/Sign-Out/Transfer/Mark-Absent
+  // in the "My Attendance" tab render disabled until the real today-status
+  // has been fetched. Defaulting to false let the gate fall back to its
+  // "not signed in" assumption (which enables Sign-In + Mark-Absent) during
+  // the fetch window right after the popup opens, so an already-signed-in
+  // staff member briefly saw those actions as tappable.
+  bool _isTodayStatusLoading = true;
 
   StaffAttendanceGate get _todayGate => staffAttendanceGateFromTodayStatus(
     isActiveProfile: true,
@@ -1409,7 +1416,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
 
       try {
         final useCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = DateTime.now();
+        final now = ServerTimeService.instance.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final page = await useCase(

@@ -28,6 +28,7 @@ import '../../domain/features/notifications/usecases/mark_all_notifications_read
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
 import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
 import '../../domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
+import '../../data/features/notifications/realtime/notification_realtime_data_source.dart';
 import '../../presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
@@ -141,6 +142,7 @@ import '../../domain/features/kiosk/usecases/sign_in_staff_usecase.dart';
 import '../../domain/features/kiosk/usecases/sign_out_staff_usecase.dart';
 import '../../data/features/kiosk/repositories/kiosk_attendance_repository_impl.dart';
 import '../../presentation/features/kiosk/cubit/kiosk_attendance_cubit_v2.dart';
+import '../../presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
 import '../../presentation/features/kiosk/utils/kiosk_access_control.dart';
 import '../../presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
 import '../../presentation/features/scheduling/cubit/add_shift_cubit.dart';
@@ -488,7 +490,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
       baseUrl: apiBaseUrl,
       interceptors: <Interceptor>[
         AuthInterceptor(serviceLocator<StorageService>()),
-        SessionExpiredInterceptor(serviceLocator<StorageService>()),
+      ],
+      // Needs its own Dio so it can replay a request after a token refresh.
+      interceptorsBuilder: (dio) => <Interceptor>[
+        SessionExpiredInterceptor(dio),
       ],
     ),
   );
@@ -662,7 +667,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   serviceLocator.registerLazySingleton<FirebaseAuthService>(
-    () => FirebaseAuthService(dio: serviceLocator<ApiClient>().client),
+    () => FirebaseAuthService(
+      dio: serviceLocator<ApiClient>().client,
+      storage: serviceLocator<StorageService>(),
+    ),
   );
 
   // ===== COMMUNICATION V2.1 — DATA SOURCES (Phase 1B) =====
@@ -1850,10 +1858,21 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getUnreadCountsUseCase: serviceLocator(),
     ),
   );
+  // Live signal source for the bell badge: a Firestore listener on
+  // userNotifications/{userCode}/notifications that only triggers a REST refresh.
+  serviceLocator.registerLazySingleton<NotificationRealtimeDataSource>(
+    () => FirebaseNotificationRealtimeDataSource(
+      firestore: FirebaseFirestore.instance,
+    ),
+  );
   // Shared app-session singleton powering the app-bar bell badge (mirrors
-  // UnreadBadgeCubit). Provided at the app root; reloaded on GlobalScaffold mount.
+  // UnreadBadgeCubit). Provided at the app root; started on GlobalScaffold mount.
   serviceLocator.registerLazySingleton<NotificationBadgeCubit>(
-    () => NotificationBadgeCubit(getUnreadCounts: serviceLocator()),
+    () => NotificationBadgeCubit(
+      getUnreadCounts: serviceLocator(),
+      realtime: serviceLocator<NotificationRealtimeDataSource>(),
+      storage: serviceLocator<StorageService>(),
+    ),
   );
 
   // Notification preferences (settings screen) — GET/PATCH /preferences.
@@ -1966,6 +1985,16 @@ Future<void> configureDependencies({String? baseUrl}) async {
       signOutStaffUseCase: serviceLocator<SignOutStaffUseCase>(),
       storageService: serviceLocator(),
       apiClient: serviceLocator(),
+    ),
+  );
+
+  // Kiosk logout cubit
+  serviceLocator.registerFactory<KioskLogoutCubit>(
+    () => KioskLogoutCubit(
+      authCubit: serviceLocator<AuthCubit>(),
+      verifyKioskPinUseCase: serviceLocator<VerifyKioskPinUseCase>(),
+      storageService: serviceLocator<StorageService>(),
+      kioskAccessControl: serviceLocator<KioskAccessControl>(),
     ),
   );
 

@@ -16,6 +16,12 @@ class AnalyticsState extends Equatable {
           errorMessage: null,
         );
 
+  /// Returns the effective year to use for data fetches — defaults to the
+  /// current year in the SCHOOL calendar when [selectedYear] is null (the
+  /// initial state), so a device in another zone can't request the wrong year
+  /// across a New Year boundary.
+  int get effectiveYear => selectedYear ?? billingSchoolCurrentYear();
+
   final bool isLoading;
   final int? selectedYear;
   final InvoiceAnalyticsEntity? analytics;

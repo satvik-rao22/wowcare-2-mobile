@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -24,6 +25,7 @@ import '../../../../../domain/features/activity/entities/activity_type_details.d
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../domain/features/activity/repositories/activity_repository.dart';
 import '../../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
@@ -202,10 +204,22 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' || _isAcknowledged;
   }
 
+  /// Whether the CURRENTLY ACTIVE persona is guardian. Once RoleCubit has
+  /// resolved the active persona it is authoritative — a dual-role account
+  /// (e.g. SCHOOL_ADMIN + GUARDIAN) always has 'GUARDIAN' somewhere in the
+  /// raw cached roles list regardless of which persona is active right now,
+  /// so [rolesRaw]'s naive scan (via [incidentRolesJsonIndicatesGuardianLogin])
+  /// is only a best-effort fallback for while RoleCubit is still bootstrapping.
+  bool _resolveIsGuardianPersona(String rolesRaw) {
+    final roleCubit = context.read<RoleCubit>();
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    return incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+  }
+
   Future<String> _resolveParentSignerCode() async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+    if (!_resolveIsGuardianPersona(rolesRaw)) {
       return '';
     }
     var guardianCode =
@@ -255,7 +269,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<ActivityDetail> _getActivityDetailRespectingPersona(String code) async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    final isGuardian = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+    final isGuardian = _resolveIsGuardianPersona(rolesRaw);
     if (mounted) {
       setState(() => _isGuardianPersona = isGuardian);
     }
@@ -298,7 +312,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<void> _resolveLoggedInGuardianPresentIfNeeded() async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) return;
+    if (!_resolveIsGuardianPersona(rolesRaw)) return;
     await _resolveLoggedInGuardianPresentLabel();
   }
 
@@ -1047,8 +1061,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           (await serviceLocator<StorageService>().getString(StorageKeys.roles) ??
                   '')
               .trim();
-      final guardianViewer =
-          incidentRolesJsonIndicatesGuardianLogin(rolesPrefetch);
+      final guardianViewer = _resolveIsGuardianPersona(rolesPrefetch);
       final detail = await _getActivityDetailRespectingPersona(code);
       if (!mounted) return;
       final firstAidFromApi = _pickFirstAidGivenFromActivityDetail(detail);
@@ -1260,10 +1273,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     );
 
     if (!mounted) return;
+    final isGuardianPersona = _resolveIsGuardianPersona(rolesRaw);
     setState(() {
       _staffName = resolvedDisplayName.isNotEmpty ? resolvedDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
-      _isGuardianPersona = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+      _isGuardianPersona = isGuardianPersona;
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -1271,7 +1285,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     unawaited(
       _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
     );
-    if (incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+    if (isGuardianPersona) {
       unawaited(_resolveLoggedInGuardianPresentLabel().catchError((_) {}));
     } else if (mounted) {
       setState(() {
@@ -1466,14 +1480,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
         isWarning: true,
       );
       return;
@@ -1816,14 +1822,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
         isWarning: true,
       );
       return;

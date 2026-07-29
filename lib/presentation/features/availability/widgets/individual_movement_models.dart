@@ -18,6 +18,8 @@ class MovementItem {
   const MovementItem({
     required this.id,
     required this.name,
+    this.studentCode = '',
+    this.profilePhotoAssetCode,
     required this.fromClassroom,
     required this.toClassroom,
     required this.movementDate,
@@ -28,6 +30,8 @@ class MovementItem {
 
   final int id;
   final String name;
+  final String studentCode;
+  final String? profilePhotoAssetCode;
   final String fromClassroom;
   final String toClassroom;
   final DateTime movementDate;
@@ -39,6 +43,8 @@ class MovementItem {
     return MovementItem(
       id: movement.id,
       name: movement.studentName,
+      studentCode: movement.studentCode,
+      profilePhotoAssetCode: movement.profilePhotoAssetCode,
       fromClassroom: movement.fromClassroomName,
       toClassroom: movement.toClassroomName,
       movementDate: movement.movementDate,
@@ -86,6 +92,8 @@ class MovementItem {
     return MovementItem(
       id: id,
       name: name ?? this.name,
+      studentCode: studentCode,
+      profilePhotoAssetCode: profilePhotoAssetCode,
       fromClassroom: fromClassroom ?? this.fromClassroom,
       toClassroom: toClassroom ?? this.toClassroom,
       movementDate: movementDate ?? this.movementDate,

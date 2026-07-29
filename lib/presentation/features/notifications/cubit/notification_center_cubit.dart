@@ -1,6 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 
 import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/notifications/entities/app_notification.dart';
@@ -172,6 +174,10 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
         isMutating: false,
         serverUnreadCount: c == null ? null : (c > 0 ? c - 1 : 0),
       ));
+      // Keep the app-bar bell badge in step with the read action.
+      try {
+        serviceLocator<NotificationBadgeCubit>().markOneReadLocally();
+      } catch (_) {}
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());
@@ -193,6 +199,10 @@ class NotificationCenterCubit extends Cubit<NotificationCenterState> {
       await _markAllRead();
       if (isClosed) return;
       emit(state.copyWith(isMutating: false, serverUnreadCount: 0));
+      // Keep the app-bar bell badge in step with mark-all-read.
+      try {
+        serviceLocator<NotificationBadgeCubit>().markAllReadLocally();
+      } catch (_) {}
     } catch (e) {
       if (isClosed) return;
       CoreUtils.logApiError(e.toString());

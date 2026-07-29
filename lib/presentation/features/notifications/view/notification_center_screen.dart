@@ -5,6 +5,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/active_school_switcher.dart';
+import 'package:wowcare/core/util/notification_events.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -62,8 +64,8 @@ class NotificationCenterScreen extends StatelessWidget {
       // `context.go(branchRoot)` (see CustomNavigationBar).
       // This route lives OUTSIDE the shell, so the bar can't read a current
       // branch and would otherwise fall back to highlighting Dashboard (0).
-      // The notification center isn't a tab — force "no active tab" (-1).
-      bottomNavigationBar: const CustomNavigationBar(activeTabIndexOverride: -1),
+      // The notification center isn't a tab — force "no active tab".
+      bottomNavigationBar: const CustomNavigationBar(highlightNone: true),
       body: Stack(
         children: [
           Positioned.fill(
@@ -236,10 +238,19 @@ class _NotificationsListState extends State<_NotificationsList> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    // Reload the list live when a new notification arrives while this screen
+    // is open (fired by the FCM foreground handler).
+    NotificationEvents.inboxChanged.addListener(_onInboxChanged);
+  }
+
+  void _onInboxChanged() {
+    if (!mounted) return;
+    context.read<NotificationCenterCubit>().refresh();
   }
 
   @override
   void dispose() {
+    NotificationEvents.inboxChanged.removeListener(_onInboxChanged);
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
     super.dispose();
@@ -267,15 +278,16 @@ class _NotificationsListState extends State<_NotificationsList> {
       type: n.data['module'],
       data: n.data,
     );
-    final destination = NotificationRouteResolver.resolve(message);
-    if (destination == null) return;
-    unawaited(_navigate(message, destination));
+    // Cheap, persona-independent check first so we don't switch school for an
+    // action that has no in-app destination (mirrors [NotificationNavigator]).
+    if (NotificationRouteResolver.resolve(message) == null) return;
+    unawaited(_navigate(message));
   }
 
-  Future<void> _navigate(
-    PushNotification message,
-    NotificationDestination destination,
-  ) async {
+  Future<void> _navigate(PushNotification message) async {
+    // Capture the role cubit before the async gap; reading `.isParent` after the
+    // switch then reflects the TARGET school's persona.
+    final roleCubit = context.read<RoleCubit>();
     // Switch the active org/school first if the notification targets a different
     // school the user belongs to, so the destination loads the right data.
     if (mounted) {
@@ -285,6 +297,14 @@ class _NotificationsListState extends State<_NotificationsList> {
         schoolCode: message.schoolCode,
       );
     }
+    // Resolve with the persona: billing opens the PARENT billing screen for
+    // guardians and the admin billing screen for staff/admins. Without this a
+    // parent landed on the admin billing screen, which shows no data for them.
+    final destination = NotificationRouteResolver.resolve(
+      message,
+      isGuardian: roleCubit.isParent,
+    );
+    if (destination == null) return;
     appRouter.go(destination.location);
   }
 

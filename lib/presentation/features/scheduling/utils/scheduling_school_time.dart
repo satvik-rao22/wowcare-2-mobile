@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -24,7 +25,7 @@ DateTime schedulingSchoolToday() {
   if (tz.isEmpty ||
       tz.toUpperCase() ==
           SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
-    final n = DateTime.now();
+    final n = AppTime.now();
     return DateTime(n.year, n.month, n.day);
   }
   return SchoolZoneDateTime.schoolCalendarTodayOnly(tz);

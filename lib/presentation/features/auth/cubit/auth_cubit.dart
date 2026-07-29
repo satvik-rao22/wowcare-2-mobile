@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -23,6 +24,7 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'auth_state.dart';
 
@@ -107,6 +109,10 @@ class AuthCubit extends Cubit<AuthState> {
       }
 
       AppLogger.d('[AUTH-FCM] Session ready — registering FCM token');
+      // Session just became ready (fresh login or restore) — align "now" with
+      // the server clock now that a token is available, since there's no
+      // app-resume event on a cold login. Fire-and-forget; device time otherwise.
+      unawaited(ServerTimeService.instance.sync());
       await _registerDeviceFcmToken();
     } catch (e) {
       // Non-fatal: FCM registration errors should not interrupt auth flow
@@ -627,6 +633,49 @@ class AuthCubit extends Cubit<AuthState> {
           // Do not block login if context or staff/profile APIs fail.
         }
 
+        // Safety net: a user who belongs to exactly one organization but
+        // MULTIPLE schools under it never hits the single-org/single-school
+        // auto-select above, and a first-ever login-context response returns
+        // null for both LastLoginOrganizationCode and LastLoginSchoolCode. If
+        // the backend's redirectUrl still says "dashboard" in that case (see
+        // the dashboard branch in sign_in_screen.dart), the app navigates
+        // straight in with NO organizationCode ever persisted. Every
+        // subsequent API call then 400s with "Missing required header:
+        // X-Organization-Code" (including the Firebase token exchange, whose
+        // failure cascades into permission-denied Firestore listeners), and
+        // `loginCompleted` — which setSelectedOrgAndSchool only flips once
+        // BOTH org and school are non-empty — stays false, so FCM
+        // registration is skipped too. Default to the single org + its first
+        // available school so the session always ends up usable.
+        try {
+          final storage = serviceLocator<StorageService>();
+          final storedOrgCode =
+              (await storage.getString(StorageKeys.organizationCode) ?? '')
+                  .trim();
+          if (storedOrgCode.isEmpty) {
+            final orgCodes = response.roles
+                .map((r) => r.organizationCode.trim())
+                .where((c) => c.isNotEmpty)
+                .toSet()
+                .toList();
+            if (orgCodes.length == 1) {
+              final fallbackSchoolCode = response.roles
+                  .where((r) => r.organizationCode.trim() == orgCodes.first)
+                  .map((r) => r.schoolCode.trim())
+                  .firstWhere((c) => c.isNotEmpty, orElse: () => '');
+              if (fallbackSchoolCode.isNotEmpty) {
+                await _localDataSource.setSelectedOrgAndSchool(
+                  organizationCode: orgCodes.first,
+                  schoolCode: fallbackSchoolCode,
+                  schoolName: fallbackSchoolCode,
+                );
+              }
+            }
+          }
+        } catch (_) {
+          // Non-blocking
+        }
+
         // Only login + login-context during login flow. No school prefetch.
         emit(
           AuthLoaded(
@@ -638,6 +687,24 @@ class AuthCubit extends Cubit<AuthState> {
             redirectUrl: redirectUrl,
           ),
         );
+
+        // Sign into Firebase Auth for Firestore realtime (live sync). This login
+        // path auto-resolves org/school from the login-context and navigates
+        // straight in WITHOUT going through the school-selection screen (which is
+        // the only place that called completeLogin/setSelectedOrgAndSchool → signIn).
+        // Without this, an auto-navigated login (e.g. org-admin with a last-login
+        // school) never authenticates to Firestore, so message/inbox live sync stays
+        // dead (silent permission-denied) until a re-login. Session + org/school are
+        // persisted above, so the AuthInterceptor injects the right token + headers.
+        // Non-fatal: failures only affect realtime; REST APIs keep working.
+        try {
+          AppLogger.d('[AUTH] Login flow complete — signing into Firebase');
+          _firebaseAuthService.signIn();
+        } catch (e) {
+          AppLogger.w(
+            '[AUTH] Firebase sign-in after login failed (non-fatal): $e',
+          );
+        }
 
         // Prefetch parent/guardian children upfront so UI doesn't trigger the
         // guardian/children APIs on first open of dropdown/profile screens.

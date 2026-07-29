@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -98,27 +99,97 @@ class DocumentImageWidget extends StatefulWidget {
     _attendanceStatusRefreshTick.value++;
   }
 
-  static void clearProfilePhotoCache({String? studentCode, String? staffCode}) {
+  /// Bumped whenever a profile photo is updated so every currently-mounted
+  /// avatar re-resolves its image. Clearing the URL cache alone is not enough:
+  /// avatars already on screen keep the URL they resolved earlier and only
+  /// re-fetch on rebuild — which is why a new photo used to appear only after
+  /// re-navigating or restarting the app.
+  static final ValueNotifier<int> _profilePhotoRefreshTick =
+      ValueNotifier<int>(0);
+
+  static void _removeProfilePhotoKey(String key) {
+    _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
+    _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
+    _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
+  }
+
+  /// Drops the cached photo URL for the given owner (or everyone when no code
+  /// is passed) AND notifies every mounted avatar to re-resolve, so a
+  /// just-updated photo shows immediately across the whole app.
+  static void clearProfilePhotoCache({
+    String? studentCode,
+    String? staffCode,
+    String? classroomCode,
+  }) {
     final student = (studentCode ?? '').trim();
     final staff = (staffCode ?? '').trim();
-    if (student.isEmpty && staff.isEmpty) {
+    final classroom = (classroomCode ?? '').trim();
+    if (student.isEmpty && staff.isEmpty && classroom.isEmpty) {
       _DocumentImageWidgetState._profilePhotoUrlCache.clear();
       _DocumentImageWidgetState._profilePhotoFetchedAt.clear();
       _DocumentImageWidgetState._profilePhotoInFlight.clear();
+    } else {
+      if (student.isNotEmpty) _removeProfilePhotoKey('student:$student');
+      if (staff.isNotEmpty) _removeProfilePhotoKey('staff:$staff');
+      if (classroom.isNotEmpty) _removeProfilePhotoKey('classroom:$classroom');
+    }
+    // Wake every mounted avatar so the change is visible immediately.
+    _profilePhotoRefreshTick.value++;
+  }
+
+  /// Seeds the freshly-resolved [url] into the cache for the given owner and
+  /// wakes every mounted avatar, so a just-uploaded photo/logo shows
+  /// immediately WITHOUT each avatar re-hitting the (eventually-consistent)
+  /// resolve endpoint — which could otherwise re-cache the old image. Falls
+  /// back to a plain cache-clear when [url] is empty.
+  static void primeProfilePhotoUrl({
+    String? studentCode,
+    String? staffCode,
+    String? classroomCode,
+    required String url,
+  }) {
+    final u = url.trim();
+    if (u.isEmpty) {
+      clearProfilePhotoCache(
+        studentCode: studentCode,
+        staffCode: staffCode,
+        classroomCode: classroomCode,
+      );
       return;
     }
-    if (student.isNotEmpty) {
-      final key = 'student:$student';
-      _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
-      _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
+    void prime(String key) {
+      _DocumentImageWidgetState._profilePhotoUrlCache[key] = u;
+      _DocumentImageWidgetState._profilePhotoFetchedAt[key] = AppTime.nowUtc();
       _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
     }
-    if (staff.isNotEmpty) {
-      final key = 'staff:$staff';
-      _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
-      _DocumentImageWidgetState._profilePhotoFetchedAt.remove(key);
-      _DocumentImageWidgetState._profilePhotoInFlight.remove(key);
-    }
+
+    final student = (studentCode ?? '').trim();
+    final staff = (staffCode ?? '').trim();
+    final classroom = (classroomCode ?? '').trim();
+    if (student.isNotEmpty) prime('student:$student');
+    if (staff.isNotEmpty) prime('staff:$staff');
+    if (classroom.isNotEmpty) prime('classroom:$classroom');
+
+    // Evict any previously-cached load of this URL from Flutter's image cache.
+    // Right after an upload the CDN can briefly 4xx the object; Flutter caches
+    // that failed load and never retries, so the avatar would keep showing the
+    // fallback even once the image is live. Evicting forces Image.network to
+    // re-fetch it fresh on the next paint (triggered by the tick below).
+    try {
+      PaintingBinding.instance.imageCache.evict(NetworkImage(u));
+    } catch (_) {}
+
+    _profilePhotoRefreshTick.value++;
+
+    // The CDN can still be propagating the freshly-processed image for a second
+    // or two after finalize. Retry the evict + refresh once shortly after so the
+    // avatar appears on its own if the first paint raced ahead of availability.
+    Future.delayed(const Duration(milliseconds: 1500), () {
+      try {
+        PaintingBinding.instance.imageCache.evict(NetworkImage(u));
+      } catch (_) {}
+      _profilePhotoRefreshTick.value++;
+    });
   }
 
   @override
@@ -151,18 +222,31 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     _loadAttendanceStatusIfNeeded();
     DocumentImageWidget._attendanceStatusRefreshTick
         .addListener(_onAttendanceStatusRefreshTick);
+    DocumentImageWidget._profilePhotoRefreshTick
+        .addListener(_onProfilePhotoRefreshTick);
   }
 
   @override
   void dispose() {
     DocumentImageWidget._attendanceStatusRefreshTick
         .removeListener(_onAttendanceStatusRefreshTick);
+    DocumentImageWidget._profilePhotoRefreshTick
+        .removeListener(_onProfilePhotoRefreshTick);
     super.dispose();
   }
 
   void _onAttendanceStatusRefreshTick() {
     if (!mounted) return;
     _loadAttendanceStatusIfNeeded();
+  }
+
+  void _onProfilePhotoRefreshTick() {
+    if (!mounted) return;
+    // The URL cache for this avatar's owner may have just been cleared. Re-run
+    // resolution: cleared keys re-fetch the new photo (and setState to it),
+    // while still-cached ones return unchanged — so the new image appears
+    // immediately without a flash of the initials fallback.
+    _resolveProfilePhotoIfNeeded();
   }
 
   @override
@@ -228,7 +312,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     final cached = _profilePhotoUrlCache[key];
     final fetchedAt = _profilePhotoFetchedAt[key];
     if (cached == null || fetchedAt == null) return null;
-    if (DateTime.now().difference(fetchedAt) >
+    if (AppTime.nowUtc().difference(fetchedAt) >
         DocumentImageWidget._profilePhotoCacheTtl) {
       _profilePhotoUrlCache.remove(key);
       _profilePhotoFetchedAt.remove(key);
@@ -294,7 +378,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
       final resolved = await future;
       if ((resolved ?? '').trim().isNotEmpty) {
         _profilePhotoUrlCache[cacheKey] = resolved!.trim();
-        _profilePhotoFetchedAt[cacheKey] = DateTime.now();
+        _profilePhotoFetchedAt[cacheKey] = AppTime.nowUtc();
       }
       if (!mounted) return;
       if ((resolved ?? '').trim().isNotEmpty) {

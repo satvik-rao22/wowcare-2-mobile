@@ -530,9 +530,6 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
 
   String? _validateDescription(String description) {
     if (description.isEmpty) return 'Please enter description';
-    if (description.length < 5) {
-      return 'Description must be at least 5 characters long';
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       return ActivityDescriptionLimits.maxLengthMessage;
     }

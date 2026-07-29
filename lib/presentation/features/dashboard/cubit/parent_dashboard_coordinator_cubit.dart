@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -84,7 +85,7 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
       // Trigger loads on feature cubits
       myChildsDayCubit.loadForChild(studentCode: studentCode);
 
-      final now = DateTime.now();
+      final now = AppTime.now();
       final fromDate = DateTime(now.year, now.month, 1);
       final toDate = now;
       studentAttendanceProfileCubit.loadAttendanceProfile(
@@ -190,7 +191,7 @@ class ParentDashboardCoordinatorCubit extends Cubit<DashboardState> {
     unawaited(geofenceCubit.refreshSettings());
     unawaited(parentBillingCubit.refresh());
 
-    final now = DateTime.now();
+    final now = AppTime.now();
     final fromDate = DateTime(now.year, now.month, 1);
     final toDate = now;
 

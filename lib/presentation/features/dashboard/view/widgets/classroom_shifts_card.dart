@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
@@ -42,7 +43,7 @@ class ClassroomShiftsCard extends StatefulWidget {
 class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
   static const int _initialDisplayCount = 6;
 
-  DateTime _selectedDate = DateTime.now();
+  DateTime _selectedDate = AppTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
 
@@ -112,17 +113,21 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
         _NavArrow(icon: Icons.arrow_back_ios_new, onTap: () => _changeDate(-1)),
         const SizedBox(width: 2),
         Flexible(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: AppColors.primaryColor,
-              fontSize: _bodyFontSize,
-              fontWeight: FontWeight.w600,
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.center,
+            child: Text(
+              label,
+              maxLines: 1,
+              style: TextStyle(
+                color: AppColors.primaryColor,
+                fontSize: _bodyFontSize,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            overflow: TextOverflow.ellipsis,
           ),
         ),
-        const SizedBox(width: 4),
+        const SizedBox(width: 2),
         _NavArrow(icon: Icons.arrow_forward_ios, onTap: () => _changeDate(1)),
       ],
     );
@@ -278,7 +283,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                       ),
                                       right: Padding(
                                         padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
+                                          horizontal: 2,
                                         ),
                                         child: _buildDateNavigator(),
                                       ),
@@ -550,8 +555,8 @@ class _NavArrow extends StatelessWidget {
         borderRadius: BorderRadius.circular(100),
         splashColor: AppColors.primaryColor.withValues(alpha: 0.1),
         child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: Icon(icon, size: 16, color: AppColors.primaryColor),
+          padding: const EdgeInsets.all(2),
+          child: Icon(icon, size: 14, color: AppColors.primaryColor),
         ),
       ),
     );

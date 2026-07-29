@@ -11,6 +11,7 @@ import '../../../../../../core/util/staff_code_resolver.dart';
 import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../domain/features/attendance/usecases/mark_staff_absent_usecase.dart';
 import '../staff_entity.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 part 'staff_mark_absent_state.dart';
 
@@ -36,7 +37,17 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
 
   /// Seeds the working staff list (single staff or a pre-selected list) and
   /// resolves the persona/timezone flags.
-  void init({StaffEntity? staff, List<StaffEntity>? staffList}) {
+  ///
+  /// [isStaffAdminPersona], when provided, comes from `RoleCubit` — the
+  /// canonical, persona-switch-aware signal the view reads (this cubit has
+  /// no `BuildContext` per the MVVM rule, so it can't read `RoleCubit`
+  /// itself). Falls back to the storage-based resolution only if the caller
+  /// doesn't supply it.
+  void init({
+    StaffEntity? staff,
+    List<StaffEntity>? staffList,
+    bool? isStaffAdminPersona,
+  }) {
     final List<StaffEntity> selected;
     if (staffList != null && staffList.isNotEmpty) {
       selected = List<StaffEntity>.of(staffList);
@@ -47,10 +58,10 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     }
     emit(state.copyWith(selectedStaff: selected));
     // ignore: discarded_futures
-    _loadPersonaFlags();
+    _loadPersonaFlags(isStaffAdminPersona);
   }
 
-  Future<void> _loadPersonaFlags() async {
+  Future<void> _loadPersonaFlags(bool? knownIsStaffAdminPersona) async {
     String? schoolIana;
     try {
       schoolIana = await SchoolTimezoneResolver.resolveForCurrentSchool(
@@ -59,7 +70,9 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
       );
     } catch (_) {}
 
-    final isAdmin = await _resolveIsStaffAdminPersona();
+    final isAdmin =
+        knownIsStaffAdminPersona ?? await _resolveIsStaffAdminPersona();
+    final currentStaffCode = (await resolveStaffCodeForLoggedInUser()).trim();
     if (isClosed) return;
     final start = (schoolIana != null && schoolIana.isNotEmpty)
         ? SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana)
@@ -67,6 +80,8 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
     emit(state.copyWith(
       schoolIana: schoolIana,
       isStaffAdminPersona: isAdmin,
+      currentStaffCode:
+          currentStaffCode.isNotEmpty ? currentStaffCode : null,
       startDate: start,
       endDate: start,
     ));
@@ -166,13 +181,24 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
       for (final code in targetStaffCodes) code: true,
     };
 
+    // Self attendance (even for an admin persona) is always "today" —
+    // defense in depth alongside the UI's disabled date pickers.
+    final isSelfTarget = targetStaffCodes.length == 1 &&
+        targetStaffCodes.first == markerStaffCode;
+    final iana = state.schoolIana;
+    final today = (iana != null && iana.isNotEmpty)
+        ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
+        : _localToday();
+    final absenceFromDate = isSelfTarget ? today : state.startDate;
+    final absenceToDate = isSelfTarget ? today : state.endDate;
+
     emit(state.copyWith(isSubmitting: true));
     try {
       final message = await _markStaffAbsentUseCase(
         staffCode: markerStaffCode,
         staffCodes: targetStaffCodes,
-        absenceFromDate: _formatDate(state.startDate),
-        absenceToDate: _formatDate(state.endDate),
+        absenceFromDate: _formatDate(absenceFromDate),
+        absenceToDate: _formatDate(absenceToDate),
         absenceReason: absenceReason,
         absenceType: absenceType,
         absenceNotes: absenceNotes,
@@ -191,7 +217,7 @@ class StaffMarkAbsentFormCubit extends Cubit<StaffMarkAbsentState> {
   }
 
   static DateTime _localToday() {
-    final now = DateTime.now();
+    final now = ServerTimeService.instance.now();
     return DateTime(now.year, now.month, now.day);
   }
 

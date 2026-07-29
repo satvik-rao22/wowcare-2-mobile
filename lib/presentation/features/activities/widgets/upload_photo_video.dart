@@ -1653,18 +1653,13 @@ class _MediaUploaderState extends State<MediaUploader> {
         errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
       ),
       onRemove: () => _removeExistingPhoto(url),
-      onTap: () => _showImageFullscreen(
-        Image.network(
-          url,
-          fit: BoxFit.contain,
-          loadingBuilder: (_, child, progress) => progress == null
-              ? child
-              : const Center(
-                  child: CircularProgressIndicator(color: Colors.white),
-                ),
-          errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image, color: Colors.white70, size: 60),
-          ),
+      // Open the shared full-screen viewer so a saved (network) photo gets the
+      // SAME experience as the feed list: full-screen zoom viewport + a
+      // download button. (Local, not-yet-uploaded files keep the lightweight
+      // dialog since there is nothing to download.)
+      onTap: () => Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => ShowFullScreenMedia(photoUrl: url),
         ),
       ),
       canRemove: !widget.readOnly,

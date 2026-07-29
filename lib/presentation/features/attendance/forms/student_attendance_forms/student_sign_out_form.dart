@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -16,9 +17,12 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_dashboard_cubit.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/guardian_code_resolver.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -110,12 +114,12 @@ class StudentSignOutForm extends StatefulWidget {
 }
 
 class _StudentSignOutFormState extends State<StudentSignOutForm> {
-  DateTime selectedDate = DateTime.now();
-  TimeOfDay selectedTime = TimeOfDay.now();
+  DateTime selectedDate = ServerTimeService.instance.now();
+  TimeOfDay selectedTime = ServerTimeService.instance.timeOfDayNow();
   String? _schoolIana;
   List<StudentEntity> currentStudents = [];
   bool _isSubmitting = false;
-  bool? _isStaffAdminPersona;
+  bool? _isStaffPersona;
 
   @override
   void initState() {
@@ -150,11 +154,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
 
       final storage = serviceLocator<StorageService>();
       final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-          .trim()
-          .toUpperCase();
-      bool isAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-      if (!isAdmin) {
+          .trim();
+      // True for any staff-side login (school/org admin or regular staff);
+      // false for guardian/parent and kiosk-PIN access. Gates date/time editing.
+      bool isStaff = staffType.isNotEmpty;
+      if (!isStaff) {
         final rolesJson = await storage.getString(StorageKeys.roles);
         if (rolesJson != null && rolesJson.trim().isNotEmpty) {
           final List<dynamic> roles = (jsonDecode(rolesJson) as List<dynamic>);
@@ -162,33 +166,38 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
             final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
                 .toString()
                 .toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' ||
-                roleCode == 'ORGANIZATION_ADMIN') {
-              isAdmin = true;
-              break;
+            if (roleCode.contains('GUARDIAN') ||
+                roleCode.contains('PARENT') ||
+                roleCode.contains('KIOSK')) {
+              continue;
             }
+            isStaff = true;
+            break;
           }
         }
       }
       if (!mounted) return;
       setState(() {
         _schoolIana = iana;
-        _isStaffAdminPersona = isAdmin;
-        if (iana != null && iana.isNotEmpty) {
-          final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(iana);
-          selectedDate = dt.$1;
-          selectedTime = dt.$2;
-        } else {
-          final now = DateTime.now();
-          selectedDate = now;
-          selectedTime = TimeOfDay.fromDateTime(now);
-        }
+        _isStaffPersona = isStaff;
+        final now = ServerTimeService.instance.now();
+        selectedDate = now;
+        selectedTime = TimeOfDay(hour: now.hour, minute: now.minute);
       });
     } catch (_) {}
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleCubit>().isParent) return true;
+    final roleCubit = context.read<RoleCubit>();
+    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
+    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
+    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
+    // which persona is currently active, so scanning that list below would
+    // wrongly flip an admin who switched profiles back to a guardian sign-out.
+    // Only fall through to the best-effort scan while RoleCubit is still
+    // bootstrapping (no active persona resolved yet).
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    if (roleCubit.isParent) return true;
 
     try {
       final storage = serviceLocator<StorageService>();
@@ -248,17 +257,14 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       apiClient: serviceLocator<ApiClient>(),
     );
 
-    final isAdmin = _isStaffAdminPersona ?? false;
-    final nowUtc = DateTime.now().toUtc();
+    final isStaffPersona = _isStaffPersona ?? false;
+    final nowUtc = ServerTimeService.instance.nowUtc();
 
-    final DateTime occurredAt = isAdmin
-        ? SchoolZoneDateTime.utcFromSchoolWallClock(
+    final DateTime occurredAt = isStaffPersona
+        ? SchoolZoneDateTime.resolvePickedInstantUtc(
             schoolTimeZone,
-            year: selectedDate.year,
-            month: selectedDate.month,
-            day: selectedDate.day,
-            hour: selectedTime.hour,
-            minute: selectedTime.minute,
+            selectedDate: selectedDate,
+            selectedTime: selectedTime,
           )
         : SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
 
@@ -287,7 +293,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
         );
         return;
       }
-    } else if (isAdmin) {
+    } else if (isStaffPersona) {
       if (occurredAt.isAfter(nowUtc)) {
         if (!mounted) return;
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -498,6 +504,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
         } else if (widget.isKiosk) {
+          // Reload QR code before returning to dashboard
+          AppLogger.d('[Kiosk] Student sign-out success - reloading QR code');
+          unawaited(context.read<KioskDashboardCubit>().loadQrCode());
           context.go('/kiosk');
         } else if (isParent) {
           final s = currentStudents.first;
@@ -572,6 +581,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
     return StaffFormLayout(
       isKiosk: widget.isKiosk,
       showKioskBackButton: widget.isKiosk,
+      showKioskLogoutMenu: widget.isKiosk,
       title: 'Sign-Out',
       child: SingleChildScrollView(
         child: Column(
@@ -608,7 +618,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled: !(_isStaffAdminPersona ?? false),
+                        isDisabled: !(_isStaffPersona ?? false),
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -617,9 +627,9 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                                     iana,
                                   )
                                 : DateTime(
-                                    DateTime.now().year,
-                                    DateTime.now().month,
-                                    DateTime.now().day,
+                                    ServerTimeService.instance.now().year,
+                                    ServerTimeService.instance.now().month,
+                                    ServerTimeService.instance.now().day,
                                   );
                             final pickedDay = DateTime(
                               date.year,
@@ -643,7 +653,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: !(_isStaffAdminPersona ?? false),
+                        ignoring: !(_isStaffPersona ?? false),
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {
@@ -665,7 +675,12 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       bottomBar: CustomButtonLayout(
         confirmButtonLabel: 'Sign-Out',
         onPressedConfirm: _isSubmitting ? null : _handleSubmit,
-        showCancelButton: false,
+        showCancelButton: widget.isKiosk,
+        onPressedCancel: widget.isKiosk
+            ? () {
+                context.go('/kiosk');
+              }
+            : null,
       ),
     );
   }

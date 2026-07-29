@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +12,7 @@ import 'package:wowcare/presentation/features/availability/view/future_availabil
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer model — one row in the classroom availability table.
@@ -32,31 +34,10 @@ class _AvailableCount {
 }
 
 // ---------------------------------------------------------------------------
-// Inline colour helper — deterministic colour from room name.
-// ---------------------------------------------------------------------------
-Color _colorFromName(String name) {
-  final palette = AppColors.profileAvatarColors;
-  if (name.isEmpty) return palette.first;
-  final index = name.codeUnitAt(0) % palette.length;
-  return palette[index];
-}
-
-// ---------------------------------------------------------------------------
-// Inline initials helper.
-// ---------------------------------------------------------------------------
-String _initialsFromName(String name) {
-  final parts = name.trim().split(RegExp(r'\s+'));
-  if (parts.isEmpty || parts.first.isEmpty) return '?';
-  if (parts.length == 1) return parts.first.characters.first.toUpperCase();
-  return (parts.first.characters.first + parts.last.characters.first)
-      .toUpperCase();
-}
-
-// ---------------------------------------------------------------------------
 // Converts a FutureAvailabilityGrid + selected date into display rows.
 //
 // The API returns entries with shift=MORNING and shift=AFTERNOON when called
-// with shift=ALL (isTwoShifts=true). Each classroom gets one row whose
+// with shift=TWO_SHIFTS (isTwoShifts=true). Each classroom gets one row whose
 // firstShiftCount/secondShiftCount map to morning/afternoon availableSpots.
 //
 // When only FULL_DAY entries exist, both columns show the same value so the
@@ -83,7 +64,8 @@ List<_AvailableCount> _buildRows(
         morning[code] = entry.availableSpots;
         afternoon[code] = entry.availableSpots;
       case FutureAvailabilityShift.all:
-        // "all" is a request-time sentinel, not an entry-level shift value.
+      case FutureAvailabilityShift.twoShifts:
+        // Request-time sentinels, not entry-level shift values.
         break;
     }
   }
@@ -124,7 +106,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   static const double cellHeightRow = 48;
   static const int _initialDisplayCount = 7;
 
-  DateTime _selectedAvailabilityDate = DateTime.now();
+  DateTime _selectedAvailabilityDate = AppTime.now();
   bool _showAllClassrooms = false;
   bool _minimized = false;
 
@@ -461,7 +443,15 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  _buildClassroomAvatar(item.roomName),
+                  DocumentImageWidget(
+                    fileUuid: '',
+                    name: item.roomName,
+                    classroomCode: item.roomId,
+                    size: 32,
+                    fontSize: 12,
+                    disableProfileLookupFallback: true,
+                    disableAttendanceStatusLookup: true,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Tooltip(
@@ -532,28 +522,6 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
           ),
         ),
       ],
-    );
-  }
-
-  // -------------------------------------------------------------------------
-  // Classroom avatar
-  // -------------------------------------------------------------------------
-
-  Widget _buildClassroomAvatar(String roomName) {
-    final String initials = _initialsFromName(roomName);
-    final Color color = _colorFromName(roomName);
-
-    return CircleAvatar(
-      backgroundColor: color.withValues(alpha: 0.8),
-      radius: 16,
-      child: Text(
-        initials,
-        style: TextStyle(
-          color: color == Colors.white ? AppColors.primaryColor : Colors.white,
-          fontWeight: FontWeight.bold,
-          fontSize: 12,
-        ),
-      ),
     );
   }
 

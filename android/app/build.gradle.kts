@@ -1,6 +1,7 @@
 import java.util.Base64
 import java.util.Properties
 
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -24,6 +25,18 @@ val flutterProguardRules: java.io.File =
         val sdk = props.getProperty("flutter.sdk") ?: error("flutter.sdk not set in local.properties")
         rootProject.file("$sdk/packages/flutter_tools/gradle/flutter_proguard_rules.pro")
     }
+
+    // ---------------------------------------------------------------------------
+// Android Release Signing
+// ---------------------------------------------------------------------------
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+
+if (keystorePropertiesFile.exists()) {
+    keystorePropertiesFile.inputStream().use {
+        keystoreProperties.load(it)
+    }
+}
 
 // ---------------------------------------------------------------------------
 // Firebase multi-environment: decode --dart-define=ENVIRONMENT passed by Flutter.
@@ -121,11 +134,31 @@ android {
         // }
     }
 
+     // -----------------------------------------------------------------------
+    // Release Signing
+    // -----------------------------------------------------------------------
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties.getProperty("keyAlias")
+                keyPassword = keystoreProperties.getProperty("keyPassword")
+                storePassword = keystoreProperties.getProperty("storePassword")
+
+                val keystorePath =
+                    keystoreProperties.getProperty("storeFile")
+
+                if (!keystorePath.isNullOrBlank()) {
+                    storeFile = file(keystorePath)
+                }
+            }
+        }
+    }
+
+
     buildTypes {
         release {
             // ⚠️ Replace with your release keystore later
-            signingConfig = signingConfigs.getByName("debug")
-
+            signingConfig = signingConfigs.getByName("release")
             // ✅ Enable shrinking
             isMinifyEnabled = true
             isShrinkResources = true

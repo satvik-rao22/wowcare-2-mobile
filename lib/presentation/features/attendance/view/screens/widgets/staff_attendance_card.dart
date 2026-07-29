@@ -4,6 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 enum SignMethod { gps, qr, pin, kiosk, direct, web }
 
@@ -580,7 +581,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     try {
       final parts = timeString.split(' ');
       if (parts.length < 2) {
-        return DateTime.now();
+        return ServerTimeService.instance.now();
       }
 
       final timePart = parts[0];
@@ -588,7 +589,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
 
       final timeComponents = timePart.split(':');
       if (timeComponents.length < 2) {
-        return DateTime.now();
+        return ServerTimeService.instance.now();
       }
 
       int hour = int.parse(timeComponents[0]);
@@ -597,9 +598,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       if (period == 'PM' && hour != 12) hour += 12;
       if (period == 'AM' && hour == 12) hour = 0;
 
-      return DateTime.now().copyWith(hour: hour, minute: minute);
+      return ServerTimeService.instance.now().copyWith(hour: hour, minute: minute);
     } catch (e) {
-      return DateTime.now();
+      return ServerTimeService.instance.now();
     }
   }
 }

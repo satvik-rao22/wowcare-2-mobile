@@ -1,11 +1,16 @@
 import 'dart:io';
+import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
 class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
   final File? imageFile;
   final String? videoUrl;
+  /// A local video file (e.g. a pending composer attachment not yet uploaded),
+  /// played in-app with a Chewie player. Prefer [videoUrl] for remote/HLS video.
+  final File? videoFile;
   final String? title;
   final String? heroTag;
 
@@ -14,10 +19,11 @@ class ShowFullScreenMediaView extends StatefulWidget {
     this.imageUrl,
     this.imageFile,
     this.videoUrl,
+    this.videoFile,
     this.title,
     this.heroTag,
   }) : assert(
-    (imageUrl != null || imageFile != null || videoUrl != null),
+    (imageUrl != null || imageFile != null || videoUrl != null || videoFile != null),
     'Provide at least one media source',
   );
 
@@ -31,7 +37,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   late Animation<double> _fadeAnimation;
 
   bool get hasImage => widget.imageUrl != null || widget.imageFile != null;
-  bool get hasVideo => widget.videoUrl != null;
+  bool get hasVideo => widget.videoUrl != null || widget.videoFile != null;
 
   @override
   void initState() {
@@ -173,7 +179,9 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
             : null,
       ),
       body: hasVideo
-          ? HlsWebPlayer(videoUrl: widget.videoUrl!)
+          ? (widget.videoUrl != null
+              ? HlsWebPlayer(videoUrl: widget.videoUrl!)
+              : _LocalVideoPlayer(file: widget.videoFile!))
           : Center(
               child: hasImage
                   ? FadeTransition(
@@ -201,5 +209,84 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                     ),
             ),
     );
+  }
+}
+
+/// In-app player for a LOCAL video file (e.g. a pending composer attachment).
+/// Uses video_player + Chewie; owns and disposes its controllers.
+class _LocalVideoPlayer extends StatefulWidget {
+  const _LocalVideoPlayer({required this.file});
+
+  final File file;
+
+  @override
+  State<_LocalVideoPlayer> createState() => _LocalVideoPlayerState();
+}
+
+class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
+  VideoPlayerController? _videoController;
+  ChewieController? _chewieController;
+  bool _initError = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    try {
+      final controller = VideoPlayerController.file(widget.file);
+      await controller.initialize();
+      if (!mounted) {
+        await controller.dispose();
+        return;
+      }
+      setState(() {
+        _videoController = controller;
+        _chewieController = ChewieController(
+          videoPlayerController: controller,
+          autoPlay: true,
+          looping: false,
+          allowFullScreen: false,
+          aspectRatio: controller.value.aspectRatio == 0
+              ? 16 / 9
+              : controller.value.aspectRatio,
+          materialProgressColors: ChewieProgressColors(
+            playedColor: Colors.white,
+            handleColor: Colors.white,
+            bufferedColor: Colors.white54,
+            backgroundColor: Colors.white24,
+          ),
+        );
+      });
+    } catch (_) {
+      if (mounted) setState(() => _initError = true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _chewieController?.dispose();
+    _videoController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_initError) {
+      return const Center(
+        child: Icon(Icons.error_outline, color: Colors.white54, size: 80),
+      );
+    }
+    if (_chewieController == null) {
+      return const Center(
+        child: CircularProgressIndicator(
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+          strokeWidth: 2,
+        ),
+      );
+    }
+    return Center(child: Chewie(controller: _chewieController!));
   }
 }

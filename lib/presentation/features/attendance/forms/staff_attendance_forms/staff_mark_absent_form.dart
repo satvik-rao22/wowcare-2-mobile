@@ -11,6 +11,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/cubit/staff_mark_absent_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'staff_entity.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
@@ -36,8 +37,16 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
   @override
   void initState() {
     super.initState();
+    // RoleCubit's active persona is the canonical, persona-switch-aware
+    // signal for admin-vs-staff — passed in here since the cubit itself has
+    // no BuildContext (see cubit's init() doc).
+    final isStaffAdminPersona = !context.read<RoleCubit>().isStaff;
     _cubit = serviceLocator<StaffMarkAbsentFormCubit>()
-      ..init(staff: widget.staff, staffList: widget.staffList);
+      ..init(
+        staff: widget.staff,
+        staffList: widget.staffList,
+        isStaffAdminPersona: isStaffAdminPersona,
+      );
   }
 
   @override
@@ -64,7 +73,13 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
           backgroundColor: AppColors.successColor,
         ),
       );
-      redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+      if (outcome.returnToTabbedView) {
+        redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+      } else if (mounted) {
+        // Teacher/staff persona: no forced navigation — stay on whatever
+        // screen this action was started from.
+        Navigator.of(context).maybePop();
+      }
     } else {
       final message = outcome.error != null
           ? ApiErrorHandler.extractErrorMessage(outcome.error)
@@ -119,7 +134,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.startDate,
-                        isDisabled: !(state.isStaffAdminPersona ?? false),
+                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
                         onDateSelected: _cubit.selectStartDate,
                       ),
                     ],
@@ -138,7 +153,7 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.endDate,
-                        isDisabled: !(state.isStaffAdminPersona ?? false),
+                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
                         onDateSelected: _cubit.selectEndDate,
                       ),
                     ],

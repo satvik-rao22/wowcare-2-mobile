@@ -23,6 +23,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:provider/provider.dart';
@@ -41,6 +42,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as student_absent;
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 enum ProfileAbsentMarkMethod { gps, qr, kiosk, app, web, system }
 
@@ -554,7 +556,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
     _activeStudentCode = widget.studentCode.trim();
-    final now = DateTime.now();
+    final now = ServerTimeService.instance.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
 
@@ -642,7 +644,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     try {
       final signOutFormList =
           serviceLocator<GetStudentSignOutFormListUseCase>();
-      final now = DateTime.now();
+      final now = ServerTimeService.instance.now();
       final date =
           '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
       final signedInPage = await signOutFormList(
@@ -707,7 +709,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     // Load today's status first so action menu enablement is correct.
     await _loadTodayStatus();
 
-    final from = _startDate ?? DateTime.now();
+    final from = _startDate ?? ServerTimeService.instance.now();
     final to = _endDate ?? from;
 
     final fromStr = DateFormat('yyyy-MM-dd').format(from);
@@ -751,8 +753,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['attendanceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
           final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
@@ -896,8 +898,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['absenceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           loadedAbsentDays.add(
             _AbsentDayModel(
@@ -1156,7 +1158,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       hasBackButton: true,
       showCustomNavigationBar: true,
       // Highlight the Attendance tab while a parent views their child's profile.
-      activeTabIndexOverride: isParentPersona ? 1 : null,
+      activeItemOverride:
+          isParentPersona ? BottomNavigationItem.attendance : null,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(

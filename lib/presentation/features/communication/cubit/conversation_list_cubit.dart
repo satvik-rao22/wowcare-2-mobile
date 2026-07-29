@@ -71,6 +71,8 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   /// badge immediately when the user opens that thread — before Firestore
   /// confirms the read receipt (~1-3 s later).
   Future<void> startWatching() async {
+    emit(state.copyWith(isLoading: true));
+
     final String debugUserCode =
         (await _storageService.getString(StorageKeys.userCode)) ?? '';
     final String debugOrgCode =

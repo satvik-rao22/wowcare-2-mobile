@@ -2,14 +2,17 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
+import 'package:wowcare/core/background/geofence_background_task.dart';
 import '../../../../domain/features/geofencing/entities/geofence_config.dart';
 import '../../../../domain/features/geofencing/entities/geofence_status.dart';
+import '../../../../domain/features/geofencing/entities/location_permission_level.dart';
 import '../../../../domain/features/geofencing/usecases/check_location_permission_usecase.dart';
 import '../../../../domain/features/geofencing/usecases/get_school_location_usecase.dart';
 import '../../../../domain/features/geofencing/usecases/request_location_permission_usecase.dart';
@@ -22,7 +25,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 part 'geofence_state.dart';
 
-class GeofenceCubit extends Cubit<GeofenceState> {
+class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   static const _nativeGeofenceChannel = MethodChannel(
     'com.wowcare.geofencing/native',
   );
@@ -53,6 +56,7 @@ class GeofenceCubit extends Cubit<GeofenceState> {
        _notifications = notificationService,
        super(const GeofenceState.initial()) {
     _nativeGeofenceChannel.setMethodCallHandler(_handleNativeCallbacks);
+    WidgetsBinding.instance.addObserver(this);
   }
 
   final CheckLocationPermissionUseCase _checkPerm;
@@ -81,6 +85,114 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     if (state.status != newCubitStatus) {
       emit(state.copyWith(status: newCubitStatus));
       _triggerNotificationIfNeeded(newStatus);
+    }
+  }
+
+  // ── App lifecycle (foreground-only tracking gate) ──────────────────────────
+  //
+  // Background/terminated tracking is only ever appropriate for `always`.
+  // Everything else (denied, permanentlyDenied, whileInUse — including iOS's
+  // "Allow Once") must stop tracking the instant the app leaves the
+  // foreground, and only whileInUse resumes it automatically on return (denied/
+  // permanentlyDenied have nothing to resume until the user re-grants access).
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState lifecycleState) {
+    // Deliberately keyed off `.paused` only (not `.inactive`/`.hidden`, which
+    // also fire on trivial transient interruptions like Control Center or an
+    // incoming call banner) so foreground-only users aren't stop/restarted on
+    // every brief interruption — only on an actual background transition.
+    if (lifecycleState == AppLifecycleState.paused) {
+      if (state.permissionLevel != LocationPermissionLevel.always) {
+        AppLogger.d(
+          '[GeofenceCubit] App paused (permissionLevel=${state.permissionLevel}) — stopping monitoring',
+        );
+        stopMonitoring();
+      }
+      return;
+    }
+    if (lifecycleState == AppLifecycleState.resumed) {
+      // Reconcile first (permission/GPS may have changed in Settings while
+      // backgrounded) — it owns deciding whether/how to resume monitoring,
+      // including the whileInUse-only lightweight resume, so this is the
+      // only call needed here.
+      unawaited(_reconcilePermissionState());
+    }
+  }
+
+  /// Restarts the lightweight listeners only — school config is already
+  /// cached from the last successful init, so this does not re-request
+  /// permission or re-fetch school location.
+  void _resumeForegroundMonitoring() {
+    if (_config == null || isClosed) return;
+    _startNativeEvents();
+    _startStream();
+  }
+
+  // ── Permission reconciliation (Phase 4) ─────────────────────────────────────
+  //
+  // Detects permission/GPS-service changes made outside the app (e.g. via
+  // Settings) and brings monitoring back in line with the current OS state.
+  // Read-only with respect to permission requests — never triggers a fresh
+  // OS prompt, since this runs automatically on every resume, not from an
+  // explicit user action.
+  Future<void> _reconcilePermissionState() async {
+    if (isClosed || state.schoolCode.isEmpty) return;
+
+    final check = await _checkPerm();
+    final previousLevel = state.permissionLevel;
+    final wasServiceDisabled = state.status == GeofenceCubitStatus.locationDisabled;
+    final permissionChanged = check.permissionLevel != previousLevel;
+
+    AppLogger.d(
+      '[GeofenceCubit] Reconcile — permission: $previousLevel → ${check.permissionLevel}, '
+      'serviceEnabled: ${check.serviceEnabled}, changed=$permissionChanged',
+    );
+
+    // ── Location services turned off ──
+    if (!check.serviceEnabled) {
+      if (!wasServiceDisabled) stopMonitoring();
+      emit(
+        state.copyWith(
+          status: GeofenceCubitStatus.locationDisabled,
+          permissionLevel: check.permissionLevel,
+        ),
+      );
+      unawaited(_syncBackgroundHealthCheck());
+      return;
+    }
+
+    // ── Downgraded to denied/permanentlyDenied — settle without re-prompting.
+    // The user must use the existing "tap to enable" retry flow to re-request. ──
+    if (!_hasUsablePermission(check.permissionLevel)) {
+      if (permissionChanged) stopMonitoring();
+      emit(
+        state.copyWith(
+          status: GeofenceCubitStatus.permissionDenied,
+          permissionLevel: check.permissionLevel,
+        ),
+      );
+      unawaited(_syncBackgroundHealthCheck());
+      return;
+    }
+
+    // ── Services just came back on, or permission moved between whileInUse
+    // and always — both already-granted levels, so re-running the full init
+    // is safe: it will not hit the request-permission branch. ──
+    if (wasServiceDisabled || permissionChanged) {
+      AppLogger.d(
+        '[GeofenceCubit] Reconcile — re-initializing (servicesResumed=$wasServiceDisabled, permissionChanged=$permissionChanged)',
+      );
+      stopMonitoring();
+      await _checkAndStartMonitoring(schoolCode: state.schoolCode, isRefresh: true);
+      return;
+    }
+
+    // ── Nothing changed — just resume the lightweight listeners Phase 3.1
+    // stopped on pause (only relevant for whileInUse; `always` was never
+    // stopped, denied/permanentlyDenied have nothing to resume). ──
+    if (check.permissionLevel == LocationPermissionLevel.whileInUse) {
+      _resumeForegroundMonitoring();
     }
   }
 
@@ -133,6 +245,12 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           schoolCode: schoolCode,
           gpsSignInEnabled: prefs.getBool(_prefsGpsSignInEnabledKey) ?? true,
           radiusMeters: prefs.getDouble(_prefsSchoolRadiusKey),
+          // Preserve the already-known permission level (freshly set by the
+          // checkStaffSignInStatus()/prior init above) instead of silently
+          // resetting it to the class default (denied) — an unguarded reset
+          // here fed a stale value into the next resume's reconciliation
+          // comparison, spuriously triggering an unnecessary re-init.
+          permissionLevel: state.permissionLevel,
         ),
       );
     } else {
@@ -140,11 +258,15 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         GeofenceState(
           status: GeofenceCubitStatus.checkingPermission,
           schoolCode: schoolCode,
+          permissionLevel: state.permissionLevel,
         ),
       );
     }
     // ── Then do the full async init (permission + API + stream) ────────────
-    await _checkAndStartMonitoring(schoolCode: schoolCode);
+    // isRefresh: true so app restart — like a dashboard refresh — is one of
+    // the two points where the "you can now Sign In or Sign Out" notification
+    // is (re-)evaluated against current sign-in status, per requirement.
+    await _checkAndStartMonitoring(schoolCode: schoolCode, isRefresh: true);
   }
 
   /// Call after the user taps "retry" on a permission-denied screen.
@@ -168,6 +290,13 @@ class GeofenceCubit extends Cubit<GeofenceState> {
 
   // ── Private helpers ────────────────────────────────────────────────────────
 
+  /// Equivalent to the previous boolean `hasPermission` check: any granted
+  /// level (foreground or background) counts as usable; denied/permanently
+  /// denied do not.
+  bool _hasUsablePermission(LocationPermissionLevel level) =>
+      level == LocationPermissionLevel.whileInUse ||
+      level == LocationPermissionLevel.always;
+
   Future<void> _requestAllPermissions() async {
     await _requestPerm();
     // Request notification permission so background geofence notifications
@@ -189,7 +318,49 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     } catch (_) {}
   }
 
+  // Reentrancy guard for _doCheckAndStartMonitoring. That method mutates
+  // shared fields (_config, _subscription, _nativeSubscription) across
+  // multiple await points (permission check, school-location API, GPS
+  // fetch). initForSchool/retryPermission/refreshSettings and the
+  // resume-triggered _reconcilePermissionState can all call it, and since
+  // app-resume is an automatic trigger (not user-serialized like the others),
+  // two invocations can genuinely overlap — e.g. a resume firing while a
+  // cold-start init is still awaiting a network call. An overlapping call
+  // would cancel/overwrite the first call's in-flight subscriptions and
+  // config, leaving the cubit stuck on a stale or incorrect status.
+  //
+  // Strategy: AWAIT, not ignore or queue-a-second-run. A second caller waits
+  // for the in-flight call to finish, then returns — it does not start its
+  // own redundant run. This guarantees at most one execution at a time,
+  // never silently drops a caller's request (unlike "ignore"), and never
+  // needs a second full network+GPS round trip (unlike "queue").
+  Completer<void>? _monitoringLock;
+
   Future<void> _checkAndStartMonitoring({
+    required String schoolCode,
+    bool isRefresh = false,
+  }) async {
+    if (_monitoringLock != null) {
+      AppLogger.d(
+        '[GeofenceCubit] _checkAndStartMonitoring already in progress — awaiting existing call instead of running concurrently',
+      );
+      await _monitoringLock!.future;
+      return;
+    }
+    final completer = Completer<void>();
+    _monitoringLock = completer;
+    try {
+      await _doCheckAndStartMonitoring(
+        schoolCode: schoolCode,
+        isRefresh: isRefresh,
+      );
+    } finally {
+      _monitoringLock = null;
+      completer.complete();
+    }
+  }
+
+  Future<void> _doCheckAndStartMonitoring({
     required String schoolCode,
     bool isRefresh = false,
   }) async {
@@ -197,21 +368,33 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       debugPrint('[GeofenceCubit] ▶ _checkAndStartMonitoring start — schoolCode="$schoolCode"');
 
       final permCheck = await _checkPerm();
-      debugPrint('[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} hasPermission=${permCheck.hasPermission}');
+      debugPrint('[GeofenceCubit] permCheck → serviceEnabled=${permCheck.serviceEnabled} permissionLevel=${permCheck.permissionLevel}');
 
       if (!permCheck.serviceEnabled) {
         debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — location service is DISABLED on device. User must enable in Settings > Privacy > Location Services.');
-        emit(state.copyWith(status: GeofenceCubitStatus.locationDisabled));
+        emit(
+          state.copyWith(
+            status: GeofenceCubitStatus.locationDisabled,
+            permissionLevel: permCheck.permissionLevel,
+          ),
+        );
         return;
       }
-      if (!permCheck.hasPermission) {
+      var permissionLevel = permCheck.permissionLevel;
+      if (!_hasUsablePermission(permissionLevel)) {
         debugPrint('[GeofenceCubit] No location permission — requesting now...');
         await _requestAllPermissions();
         final recheck = await _checkPerm();
-        debugPrint('[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} hasPermission=${recheck.hasPermission}');
-        if (!recheck.hasPermission) {
+        permissionLevel = recheck.permissionLevel;
+        debugPrint('[GeofenceCubit] recheck after request → serviceEnabled=${recheck.serviceEnabled} permissionLevel=${recheck.permissionLevel}');
+        if (!_hasUsablePermission(permissionLevel)) {
           debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — location permission DENIED after request. User tapped "Don\'t Allow".');
-          emit(state.copyWith(status: GeofenceCubitStatus.permissionDenied));
+          emit(
+            state.copyWith(
+              status: GeofenceCubitStatus.permissionDenied,
+              permissionLevel: permissionLevel,
+            ),
+          );
           return;
         }
         debugPrint('[GeofenceCubit] ✅ Permission granted after request');
@@ -222,7 +405,12 @@ class GeofenceCubit extends Cubit<GeofenceState> {
         unawaited(_ensureNotificationsInitialised());
       }
 
-      emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
+      emit(
+        state.copyWith(
+          status: GeofenceCubitStatus.fetchingSchoolLocation,
+          permissionLevel: permissionLevel,
+        ),
+      );
 
       // ── Kick off GPS fetch NOW, in parallel with the school-location API ──
       // This way both complete at the same time instead of one after the other.
@@ -266,8 +454,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
             gpsSignInEnabled: false,
             parentGpsSignInEnabled: _config!.parentGpsSignInEnabled,
             radiusMeters: _config!.radiusMeters,
+            permissionLevel: permissionLevel,
           ),
         );
+        unawaited(_syncBackgroundHealthCheck());
         return;
       }
 
@@ -355,8 +545,10 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           gpsSignInEnabled: true,
           parentGpsSignInEnabled: _config!.parentGpsSignInEnabled,
           radiusMeters: _config!.radiusMeters,
+          permissionLevel: permissionLevel,
         ),
       );
+      unawaited(_syncBackgroundHealthCheck());
       if (immediateGeofenceStatus != null) {
         _triggerNotificationIfNeeded(
           immediateGeofenceStatus,
@@ -507,20 +699,38 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     GeofenceStatus newStatus, {
     bool fireFlutterNotification = false,
   }) {
-    if (_lastNotifiedStatus == newStatus) return;
-    _lastNotifiedStatus = newStatus;
+    // "You can now Sign In or Sign Out" is meaningless noise when there's
+    // nothing left to act on: a staff/admin/student user already signed in
+    // for the day, or a guardian whose children are all already signed in.
+    final nothingToDo = state.isStaffSignedIn || state.allChildrenSignedIn;
 
     // On an actual zone crossing the native layer fires the notification
-    // (Android → GeofenceBroadcastReceiver, iOS → GeofencePlugin). On a
-    // dashboard refresh there is no boundary crossing so native is silent —
-    // fire the Flutter-side notification instead to inform the user.
+    // (Android → GeofenceBroadcastReceiver, iOS → GeofencePlugin) with no
+    // awareness of sign-in status. On a dashboard refresh/resume/sign-in-status
+    // change there is no boundary crossing so native stays silent — Dart must
+    // independently decide to show/cancel every time, which is why this whole
+    // block runs ahead of (and independent from) the transition-dedup below:
+    // dashboard refreshes must be able to re-notify even when the geofence
+    // status itself hasn't changed since the last notification.
     if (fireFlutterNotification) {
       if (newStatus == GeofenceStatus.within) {
-        unawaited(_notifications.showEnteredZoneNotification());
+        if (!nothingToDo) {
+          unawaited(_notifications.showEnteredZoneNotification());
+        } else {
+          unawaited(_notifications.cancelEnteredZoneNotification());
+        }
       } else {
         unawaited(_notifications.showExitedZoneNotification());
       }
+    } else if (newStatus == GeofenceStatus.within && nothingToDo) {
+      // Real boundary-cross relayed from native: native may have already
+      // posted the "entered zone" notification since it can't see sign-in
+      // status — cancel it now that Dart knows there's nothing actionable.
+      unawaited(_notifications.cancelEnteredZoneNotification());
     }
+
+    if (_lastNotifiedStatus == newStatus) return;
+    _lastNotifiedStatus = newStatus;
 
     unawaited(
       SharedPreferences.getInstance()
@@ -533,6 +743,33 @@ class GeofenceCubit extends Cubit<GeofenceState> {
           })
           .catchError((_) {}),
     );
+  }
+
+  /// Re-evaluates the "entered zone" notification against the current
+  /// geofence status whenever sign-in status changes (dashboard refresh,
+  /// sign-in/sign-out, resume) without a boundary crossing having occurred.
+  void _reevaluateNotificationForCurrentStatus() {
+    unawaited(_syncSignInStatusToNative());
+    if (!state.isWithinGeofence) return;
+    _triggerNotificationIfNeeded(
+      GeofenceStatus.within,
+      fireFlutterNotification: true,
+    );
+  }
+
+  /// Pushes the current "nothing to do" (everyone already signed in) flag to
+  /// the native side, so the notification the OS shows for a real background
+  /// boundary-cross — which Dart cannot intercept while backgrounded/killed —
+  /// can also be suppressed based on sign-in status instead of firing blind.
+  Future<void> _syncSignInStatusToNative() async {
+    if (!(Platform.isIOS || Platform.isAndroid)) return;
+    try {
+      await _nativeGeofenceChannel.invokeMethod('updateSignInStatus', {
+        'nothingToDo': state.isStaffSignedIn || state.allChildrenSignedIn,
+      });
+    } catch (e) {
+      AppLogger.d('[GeofenceCubit] Failed to sync sign-in status to native: $e');
+    }
   }
 
   /// Called when the initial medium-accuracy GPS fix lands near the geofence
@@ -744,7 +981,45 @@ class GeofenceCubit extends Cubit<GeofenceState> {
     _subscription = null;
     unawaited(_nativeSubscription?.cancel());
     _nativeSubscription = null;
-    _lastNotifiedStatus = null;
+    // Deliberately NOT resetting _lastNotifiedStatus here — it tracks the
+    // last geofence status the user was actually notified about for the
+    // whole session, independent of listener lifecycle. stopMonitoring() is
+    // called on every dashboard refresh/reinit (initForSchool, refreshSettings,
+    // pause/resume reconciliation); resetting the dedup flag here caused the
+    // "Sign In/Out — you can now Sign In or Sign Out" notification to re-fire
+    // on every refresh even when the user's status hadn't actually changed.
+  }
+
+  // ── WorkManager health check (Phase 5) ──────────────────────────────────────
+  //
+  // NOT the primary tracking mechanism — real-time geofencing, GPS polling and
+  // attendance decisions stay entirely native (region monitoring/GeofencingClient)
+  // and in this cubit's own listeners. WorkManager only runs a periodic
+  // best-effort recovery task (re-registers native monitoring if the OS
+  // silently dropped it) while the app is terminated, and only when the user
+  // has actually granted background access and the school has GPS sign-in on.
+  Future<void> _syncBackgroundHealthCheck() async {
+    final shouldRun =
+        state.permissionLevel == LocationPermissionLevel.always &&
+        state.gpsSignInEnabled;
+    try {
+      if (shouldRun) {
+        await Workmanager().registerPeriodicTask(
+          geofenceHealthCheckTaskUniqueName,
+          geofenceHealthCheckTaskName,
+          frequency: const Duration(minutes: 15),
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
+        );
+        AppLogger.d('[GeofenceCubit] WorkManager health check registered');
+      } else {
+        await Workmanager().cancelByUniqueName(geofenceHealthCheckTaskUniqueName);
+        AppLogger.d('[GeofenceCubit] WorkManager health check cancelled');
+      }
+    } catch (e) {
+      // Best-effort — WorkManager is a recovery aid, never allow it to affect
+      // the primary foreground/native monitoring flow.
+      AppLogger.d('[GeofenceCubit] WorkManager sync failed (non-fatal): $e');
+    }
   }
 
   Future<void> _updateNativeGeofence(GeofenceConfig config) async {
@@ -808,17 +1083,30 @@ class GeofenceCubit extends Cubit<GeofenceState> {
       final status = await getStaffStatusUseCase(staffCode: staffCode);
       final isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
       emit(state.copyWith(isStaffSignedIn: isSignedIn));
+      _reevaluateNotificationForCurrentStatus();
     } catch (_) {
       emit(state.copyWith(isStaffSignedIn: false));
+      _reevaluateNotificationForCurrentStatus();
     }
   }
 
   Future<void> updateStaffSignInStatus(bool isSignedIn) async {
     emit(state.copyWith(isStaffSignedIn: isSignedIn));
+    _reevaluateNotificationForCurrentStatus();
+  }
+
+  /// Guardian/parent equivalent of [updateStaffSignInStatus] — called by
+  /// MyChildsDayCard whenever it refreshes children's sign-in status, so the
+  /// "you can now Sign In or Sign Out" notification can be suppressed once
+  /// nothing is left to act on for this guardian.
+  Future<void> updateChildrenSignInStatus(bool allSignedIn) async {
+    emit(state.copyWith(allChildrenSignedIn: allSignedIn));
+    _reevaluateNotificationForCurrentStatus();
   }
 
   @override
   Future<void> close() {
+    WidgetsBinding.instance.removeObserver(this);
     stopMonitoring();
     return super.close();
   }

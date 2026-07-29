@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -33,6 +34,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
 // enum StaffProfileAbsentMarkMethod { gps, qr, kiosk, app, web }
 enum StaffProfileAbsentMarkMethod {
@@ -451,7 +453,12 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   _StaffModel? staff;
   _AttendanceReportModel? attendanceReport;
   String? _todayStatusRaw;
-  bool _isTodayStatusLoading = false;
+  // Starts true (rather than false) so Sign-In/Sign-Out/Transfer/Mark-Absent
+  // render disabled until the real today-status has been fetched — defaulting
+  // to false let the gate fall back to its "not signed in" assumption during
+  // the fetch window, wrongly enabling Sign-In/Mark-Absent for staff who were
+  // already signed in.
+  bool _isTodayStatusLoading = true;
 
   /// Helper to format API time (either a string or {hour, minute, ...} map)
   /// into 'hh:mm:ss a' which works with the existing `formatTime` helper.
@@ -549,7 +556,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
   void initState() {
     super.initState();
     showAbsentDays = widget.initialShowAbsentDays;
-    final now = DateTime.now();
+    final now = ServerTimeService.instance.now();
     _startDate = _startOfMonth(now);
     _endDate = _endOfMonth(now);
 
@@ -627,7 +634,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       return;
     }
 
-    final from = _startDate ?? DateTime.now();
+    final from = _startDate ?? ServerTimeService.instance.now();
     final to = _endDate ?? from;
 
     setState(() {
@@ -679,8 +686,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
 
           final dateStr = m['attendanceDate'] as String? ?? '';
           final parsedDate = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           final int sequenceNumber = m['sequenceNumber'] as int? ?? 1;
           final int totalSequenceCount = m['totalSequenceCount'] as int? ?? 1;
@@ -815,8 +822,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           final m = e as Map<String, dynamic>;
           final dateStr = m['absenceDate'] as String? ?? '';
           final date = dateStr.isNotEmpty
-              ? DateTime.tryParse(dateStr) ?? DateTime.now()
-              : DateTime.now();
+              ? DateTime.tryParse(dateStr) ?? ServerTimeService.instance.now()
+              : ServerTimeService.instance.now();
 
           return _AbsentDayModel(
             startDate: date,
@@ -994,7 +1001,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       // pushed on the root navigator (no shell in context), so the nav bar would
       // otherwise default to highlighting Dashboard. Pin the highlight to the
       // Attendance slot (index 1) — mirrors StudentAttendanceProfile.
-      activeTabIndexOverride: 1,
+      activeItemOverride: BottomNavigationItem.attendance,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(

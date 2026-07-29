@@ -227,7 +227,6 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                             hintText: 'All Categories',
                             items: _categories,
                             selectedItem: _selectedCategory,
-                            prependHintAsSelectableItem: true,
                             onSelect: (value) {
                               _cubit.setCategory(value);
                             },

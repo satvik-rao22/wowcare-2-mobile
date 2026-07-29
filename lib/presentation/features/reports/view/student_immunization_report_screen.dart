@@ -1,17 +1,20 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/school_immunization_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/school_context_helper.dart';
 
 class StudentImmunizationReportScreen extends StatefulWidget {
   const StudentImmunizationReportScreen({
@@ -23,6 +26,7 @@ class StudentImmunizationReportScreen extends StatefulWidget {
   static const String routeName = '/reports/student/immunization';
 
   final List<String> classrooms;
+
   final List<String> tags;
 
   @override
@@ -59,36 +63,111 @@ class _StudentImmunizationReportScreenState
   List<String> _selectedTags = <String>[];
   bool _showParentInfo = false;
   String _format = 'PDF';
+  late DateTime _startDate;
+  late DateTime _endDate;
 
-  void _onGenerate() {
+  @override
+  void initState() {
+    super.initState();
+    final now = AppTime.now();
+    _startDate = DateTime(now.year, now.month, 1);
+    _endDate = now;
+  }
+
+  // void _onGenerate() {
+  //   if (_startDate.isAfter(_endDate)) {
+  //     CoreUtils.showTopSnackBar(
+  //       context: context,
+  //       message: 'Start date must be on or before end date',
+  //       isError: true,
+  //     );
+  //     return;
+  //   }
+
+  //   final cubit = context.read<ReportsCubit>();
+  //   final classroomNameToCode = cubit.state.classroomNameToCode;
+  //   final classroomCodes = _selectedClassrooms
+  //       .map((name) => classroomNameToCode[name] ?? name)
+  //       .toList();
+
+  //   // Map vaccine selection to backend codes
+  //   final vaccineCodes = _mapVaccineToCode(_vaccine);
+
+  //   // Map status selection to backend codes
+  //   final statusFilters = _mapStatusToCode(_status);
+
+  //   final params = SchoolImmunizationReportParams(
+  //     reportType: ReportType.immunization,
+  //     startDate: _startDate,
+  //     endDate: _endDate,
+  //     vaccineCodes: vaccineCodes,
+  //     statusFilters: statusFilters,
+  //     includeParentName: _showParentInfo,
+  //     includeParentEmail: _showParentInfo,
+  //     classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+  //     tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
+  //     format: _format,
+  //   );
+  //   unawaited(cubit.generateReport(params));
+  // }
+  void _onGenerate() async {
+    if (_startDate.isAfter(_endDate)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Start date must be on or before end date',
+        isError: true,
+      );
+      return;
+    }
+
     final cubit = context.read<ReportsCubit>();
+
     final classroomNameToCode = cubit.state.classroomNameToCode;
+
     final classroomCodes = _selectedClassrooms
         .map((name) => classroomNameToCode[name] ?? name)
         .toList();
+    final schoolName = await SchoolContextHelper.getSchoolName();
+    AppLogger.d('[ImmunizationReport] resolvedSchoolName=$schoolName');
+    if (schoolName == null || schoolName.isEmpty) {
+      if (!mounted) return;
 
-    // Map vaccine selection to backend codes
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Unable to resolve school name',
+        isError: true,
+      );
+      return;
+    }
+    // Use the existing vaccine selection until the vaccine API/code
+    // mapping is available.
     final vaccineCodes = _mapVaccineToCode(_vaccine);
-
-    // Map status selection to backend codes
-    final statusFilters = _mapStatusToCode(_status);
+    // School Name for the report. Use the first classroom's school name if available, otherwise default to an empty string.
 
     final params = SchoolImmunizationReportParams(
       reportType: ReportType.immunization,
-      startDate: DateTime.now(),
-      endDate: DateTime.now(),
+      startDate: _startDate,
+      endDate: _endDate,
       vaccineCodes: vaccineCodes,
-      statusFilters: statusFilters,
+
+      // API expects "Active", not "ACTIVE".
+      statusFilters: <String>[_status],
+
       includeParentName: _showParentInfo,
       includeParentEmail: _showParentInfo,
+
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+
+      // Keep existing values until tag name -> TAG_* mapping is available.
       tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
+
       format: _format,
+      schoolName: schoolName,
     );
-    cubit.generateReport(params);
-    if (mounted) {
-      Navigator.of(context).pop(true);
-    }
+
+    AppLogger.d('[ImmunizationReport] params=$params');
+
+    unawaited(cubit.generateReport(params));
   }
 
   /// Map UI vaccine selection to backend vaccine codes.
@@ -124,18 +203,18 @@ class _StudentImmunizationReportScreenState
   }
 
   /// Map UI status selection to backend status codes.
-  List<String> _mapStatusToCode(String status) {
-    switch (status) {
-      case 'Active':
-        return ['ACTIVE'];
-      case 'Upcoming':
-        return ['UPCOMING'];
-      case 'Inactive':
-        return ['INACTIVE'];
-      default:
-        return ['ACTIVE'];
-    }
-  }
+  // List<String> _mapStatusToCode(String status) {
+  //   switch (status) {
+  //     case 'Active':
+  //       return ['ACTIVE'];
+  //     case 'Upcoming':
+  //       return ['UPCOMING'];
+  //     case 'Inactive':
+  //       return ['INACTIVE'];
+  //     default:
+  //       return ['ACTIVE'];
+  //   }
+  // }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
     fontSize: r.labelFontSize,
@@ -199,6 +278,44 @@ class _StudentImmunizationReportScreenState
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ReportFieldLabel(label: 'Start Date'),
+                          CustomDateTimeField(
+                            hasLabel: false,
+                            fetchInitialTime: false,
+                            initialDate: _startDate,
+                            lastDate: _endDate,
+                            onDateSelected: (d) =>
+                                setState(() => _startDate = d),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const ReportFieldLabel(label: 'End Date'),
+                          CustomDateTimeField(
+                            hasLabel: false,
+                            fetchInitialTime: false,
+                            initialDate: _endDate,
+                            firstDate: _startDate,
+                            onDateSelected: (d) => setState(() => _endDate = d),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: responsive.verticalSpacing),
                 CustomDropdown(
                   label: 'Vaccines',
                   hintText: 'Select',
@@ -207,7 +324,6 @@ class _StudentImmunizationReportScreenState
                   labelStyle: _labelStyle(responsive),
                   showAsterisk: true,
                   labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
                   onSelect: (val) {
                     if (val == null) return;
                     setState(() => _vaccine = val);
@@ -222,7 +338,6 @@ class _StudentImmunizationReportScreenState
                   labelStyle: _labelStyle(responsive),
                   showAsterisk: true,
                   labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  prependHintAsSelectableItem: false,
                   onSelect: (val) {
                     if (val == null) return;
                     setState(() => _status = val);

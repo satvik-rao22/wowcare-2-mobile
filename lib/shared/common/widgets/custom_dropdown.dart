@@ -150,10 +150,6 @@ class CustomDropdown extends StatefulWidget {
     this.height = null,
     this.leadingIcon,
 
-    /// When true (default), [hintText] is the first menu item; choosing it clears the selection.
-    /// Set false when a value must always stay chosen (e.g. parent global child picker).
-    this.prependHintAsSelectableItem = true,
-
     /// Shows a search box at the top of the popup that filters [items] as you
     /// type. Off by default — opt in per-usage (e.g. the existing-parent picker).
     this.enableSearch = false,
@@ -181,7 +177,6 @@ class CustomDropdown extends StatefulWidget {
 
   /// Optional leading widget (e.g. an icon) shown before the text.
   final Widget? leadingIcon;
-  final bool prependHintAsSelectableItem;
   final bool enableSearch;
 
   @override
@@ -210,10 +205,6 @@ class _CustomDropdownState extends State<CustomDropdown> {
 
   @override
   Widget build(BuildContext context) {
-    final List<String> displayItems = widget.prependHintAsSelectableItem
-        ? <String>[widget.hintText, ...widget.items]
-        : List<String>.from(widget.items);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -274,12 +265,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                     ),
                     onSelected: (value) {
                       setState(() {
-                        if (widget.prependHintAsSelectableItem &&
-                            value == widget.hintText) {
-                          selectedItem = null;
-                        } else {
-                          selectedItem = value;
-                        }
+                        selectedItem = value;
                       });
 
                       // Call the onSelect callback if it's provided
@@ -303,7 +289,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                           enabled: false,
                           padding: EdgeInsets.zero,
                           child: _DropdownMenuPanel(
-                            items: displayItems,
+                            items: widget.items,
                             maxWidth: constraints.maxWidth,
                             enableSearch: widget.enableSearch,
                             isField: widget.isField,

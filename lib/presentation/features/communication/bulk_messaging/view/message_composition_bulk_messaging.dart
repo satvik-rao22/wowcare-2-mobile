@@ -104,6 +104,7 @@ class _MessageCompositionBulkMessagingState
       conversationType: widget.conversationType,
       createOrOpenConversationUseCase: serviceLocator(),
       sendMessageUseCase: serviceLocator(),
+      attachmentUploader: serviceLocator(),
       storageService: serviceLocator(),
     );
     _focusNode = FocusNode();
@@ -400,8 +401,7 @@ class _MessageCompositionBulkMessagingState
                                               },
                                               maxLength: maxChars,
                                               decoration: const InputDecoration(
-                                                hintText:
-                                                    'Hello Parents, children had a good day today!',
+                                                hintText: 'Type a message…',
                                                 border: InputBorder.none,
                                                 contentPadding: EdgeInsets.all(
                                                   16,

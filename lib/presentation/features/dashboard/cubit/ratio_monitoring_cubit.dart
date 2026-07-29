@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
@@ -64,7 +65,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
   bool _isShiftCacheValid() {
     final cached = _shiftCacheWeekStart;
     if (cached == null) return false;
-    final currentWeekStart = _mondayOf(DateTime.now());
+    final currentWeekStart = _mondayOf(AppTime.now());
     // Invalidate if the Monday has changed or TTL has expired.
     if (cached.year != currentWeekStart.year ||
         cached.month != currentWeekStart.month ||
@@ -73,7 +74,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
     }
     // TTL guard: re-fetch after 30 min to pick up shift changes.
     if (_lastFetchAt != null &&
-        DateTime.now().difference(_lastFetchAt!) > _shiftCacheTtl) {
+        AppTime.nowUtc().difference(_lastFetchAt!) > _shiftCacheTtl) {
       return false;
     }
     return true;
@@ -169,7 +170,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
             RatioMonitoringState.loaded(schoolCode: code, classrooms: const []),
           );
         }
-        _lastFetchAt = DateTime.now();
+        _lastFetchAt = AppTime.nowUtc();
         return;
       }
 
@@ -232,7 +233,7 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
         emit(RatioMonitoringState.loaded(schoolCode: code, classrooms: merged));
       }
 
-      _lastFetchAt = DateTime.now();
+      _lastFetchAt = AppTime.nowUtc();
     } catch (e) {
       if (!isClosed) {
         // On error: if Phase 1 already populated the state with classrooms,
@@ -365,11 +366,11 @@ class RatioMonitoringCubit extends Cubit<RatioMonitoringState> {
 
     if (staffCode.isEmpty || organizationCode.isEmpty) {
       _cachedShiftClassroomCodes = const {};
-      _shiftCacheWeekStart = _mondayOf(DateTime.now());
+      _shiftCacheWeekStart = _mondayOf(AppTime.now());
       return const {};
     }
 
-    final weekStart = _mondayOf(DateTime.now());
+    final weekStart = _mondayOf(AppTime.now());
     final weekEnd = weekStart.add(const Duration(days: 6));
 
     try {

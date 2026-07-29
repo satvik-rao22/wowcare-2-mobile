@@ -10,10 +10,7 @@ import '../models/recent_report_model.dart';
 import 'reports_remote_datasource.dart';
 
 class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
-  ReportsRemoteDataSourceImpl(
-    this._dio,
-    this._storageService,
-  );
+  ReportsRemoteDataSourceImpl(this._dio, this._storageService);
 
   final Dio _dio;
   final StorageService _storageService;
@@ -81,6 +78,8 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       case ReportType.staffAttendance:
       case ReportType.staffAttendancePerStaff:
         return ApiPaths.staffAttendanceReportsGenerate;
+      case ReportType.staffScheduling:
+        return ApiPaths.staffSchedulingReportsGenerate;
       case ReportType.staffDetails:
         return ApiPaths.staffReportsGenerate;
       case ReportType.studentsAndFamily:
@@ -149,8 +148,9 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     required String label,
     required String endpoint,
   }) async {
-    final schoolCode =
-        await _storageService.getString(storage_keys.StorageKeys.schoolCode);
+    final schoolCode = await _storageService.getString(
+      storage_keys.StorageKeys.schoolCode,
+    );
     AppLogger.d('[REPORTS] $label API: Loading with schoolCode=$schoolCode');
 
     final response = await _dio.get<Map<String, dynamic>>(
@@ -159,7 +159,9 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     );
 
     final data = response.data ?? {};
-    AppLogger.d('[REPORTS] $label API: Raw response keys=${data.keys.toList()}');
+    AppLogger.d(
+      '[REPORTS] $label API: Raw response keys=${data.keys.toList()}',
+    );
 
     // The backend's envelope shape for this family of endpoints hasn't been
     // confirmed (see audit), so we still try the three observed shapes
@@ -230,7 +232,9 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     downloadUrl = _sanitizeDownloadUrlHost(downloadUrl);
 
-    AppLogger.d('Asset resolved successfully, download URL obtained: $downloadUrl');
+    AppLogger.d(
+      'Asset resolved successfully, download URL obtained: $downloadUrl',
+    );
     return downloadUrl;
   }
 
@@ -262,8 +266,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     if (variants is List) {
       for (final row in variants.whereType<Map>()) {
         final isDefault =
-            (row['defaultVariant'] ?? false).toString().toLowerCase() ==
-                'true';
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
         if (!isDefault) continue;
         final fromDefault = pickFromMap(row);
         if (fromDefault.isNotEmpty) return fromDefault;
@@ -287,9 +290,8 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     final uri = Uri.tryParse(url);
     if (uri == null || !uri.hasAuthority) return url;
 
-    final isLoopback = uri.host.isEmpty ||
-        uri.host == 'localhost' ||
-        uri.host == '127.0.0.1';
+    final isLoopback =
+        uri.host.isEmpty || uri.host == 'localhost' || uri.host == '127.0.0.1';
     if (!isLoopback) return url;
 
     final documentBase = Uri.tryParse(ApiConstants.documentMsBaseUrl);
@@ -320,7 +322,9 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       throw Exception('Failed to download report: No data received');
     }
 
-    AppLogger.d('Report file downloaded successfully: ${response.data!.length} bytes');
+    AppLogger.d(
+      'Report file downloaded successfully: ${response.data!.length} bytes',
+    );
     return response.data!;
   }
 }

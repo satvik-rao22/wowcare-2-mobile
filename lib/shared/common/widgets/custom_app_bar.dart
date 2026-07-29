@@ -25,7 +25,6 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
@@ -123,7 +122,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       items: names,
                       selectedItem: state.selectedChild?.name,
                       onSelect: cubit.selectByName,
-                      prependHintAsSelectableItem: false,
                       isEnabled: canPickChild,
                     ),
                   ),
@@ -176,19 +174,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       width: 22,
                       height: 22,
                     ),
-                    // Route directly by role to the user's primary messaging surface,
-                    // matching the role-based unread total shown on this icon (instead of
-                    // always opening the launcher/picker). isStaff is checked before the
-                    // admin fallback because isAdmin == (admin || staff).
-                    onPressed: () {
-                      if (role.isParent) {
-                        context.go(MessagingScreen.parentMessagingRoute); // Room Chats
-                      } else if (role.isStaff) {
-                        context.go(AppRoutes.messaging); // Staff Messaging
-                      } else {
-                        context.push(AppRoutes.adminChat); // Admin Chat
-                      }
-                    },
+                    // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
+                    // role-gated, each with its unread badge) instead of jumping straight to
+                    // one surface — so the user can pick which messaging area to open, as on web.
+                    onPressed: () => context.push(AppRoutes.messagingEntry),
                   ),
                   if (unreadCount > 0)
                     Positioned(

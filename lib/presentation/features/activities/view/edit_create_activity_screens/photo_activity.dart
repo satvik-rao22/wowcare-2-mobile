@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -19,6 +20,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -604,7 +606,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       final isVideo = forceVideoPayload || isVideoByExt;
       final extension = lower.contains('.') ? lower.split('.').last : (isVideo ? 'mp4' : 'jpg');
       final generatedFileName =
-          '${isVideo ? 'video' : 'photo'}_${DateTime.now().millisecondsSinceEpoch}.$extension';
+          '${isVideo ? 'video' : 'photo'}_${AppTime.nowUtc().millisecondsSinceEpoch}.$extension';
       final contentType = isVideo
           ? (lower.endsWith('.mov')
               ? 'video/quicktime'
@@ -710,7 +712,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           'mediaType': widget.isPhoto ? 'PHOTO' : 'VIDEO',
           'sessionCode': sessionCode,
           'assetCodes': assetCodes,
-          'savedAt': DateTime.now().toIso8601String(),
+          'savedAt': AppTime.now().toIso8601String(),
         }),
       );
     } catch (_) {}
@@ -894,14 +896,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
     final descriptionTrim = _descriptionController.text.trim();
     final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
-    if (descriptionTrim.isNotEmpty && descriptionTrim.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (descriptionTrim.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1145,14 +1139,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     );
 
     final desc = _descriptionController.text.trim();
-    if (desc.isNotEmpty && desc.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (desc.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1294,6 +1280,37 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
   Future<void> _onSaveOrAddPressed() async {
     if (widget.readOnly) return;
+
+    // Admin picked a staff member other than themselves on create: verify
+    // that staff is signed in right now, same use case + true/false check the
+    // staff persona's own + button is gated on. Admins are never gated on
+    // their OWN sign-in — only on who they're attributing the activity to.
+    if (!widget.isEdit && _isAdminDesignation) {
+      final pickedStaffCode = (_staffPresentCode ?? '').trim();
+      final ownStaffCode = (_staffCode ?? '').trim();
+      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
+        try {
+          final status =
+              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
+            staffCode: pickedStaffCode,
+          );
+          if (status?.toUpperCase() != 'SIGNED_IN') {
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message:
+                  'Staff is not signed in. You can only add an activity for '
+                  'staff who are signed in.',
+              isWarning: true,
+            );
+            return;
+          }
+        } catch (_) {
+          // Best-effort: a failed status check shouldn't block the admin.
+        }
+      }
+    }
+
     if (widget.isEdit) {
       await _submitUpdateActivity();
       return;

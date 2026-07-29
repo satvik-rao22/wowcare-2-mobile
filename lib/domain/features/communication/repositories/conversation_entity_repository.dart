@@ -204,6 +204,10 @@ abstract class ConversationEntityRepository {
   /// Use this in badge cubits to avoid duplicating the full stream pipeline.
   Stream<int> watchUnreadCountForType(ConversationType type);
 
+  /// Lightweight per-conversation unread — reads Firestore only. Used for
+  /// per-classroom (CLASSROOM_CHAT) badges keyed by [conversationCode].
+  Stream<int> watchUnreadCountForConversation(String conversationCode);
+
   /// Realtime stream of total unread count across all conversations.
   Stream<int> watchTotalUnreadCount();
 }

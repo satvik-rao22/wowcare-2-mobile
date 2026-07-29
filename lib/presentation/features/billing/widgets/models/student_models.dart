@@ -1,3 +1,5 @@
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+
 /// Lightweight view models for the billing "Select Students" flow.
 ///
 /// Populated from the real student-overview API (see [SelectStudentsCubit]).
@@ -45,7 +47,9 @@ class Student {
     } catch (_) {
       return '';
     }
-    final now = DateTime.now();
+    // Age against the SCHOOL calendar day, not the device's.
+
+    final now = billingSchoolToday();
     if (parsed.isAfter(now)) return '';
 
     int years = now.year - parsed.year;
