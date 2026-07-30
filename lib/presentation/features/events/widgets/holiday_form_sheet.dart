@@ -14,15 +14,42 @@ Future<void> showHolidayFormSheet(BuildContext context, {Holiday? holiday}) {
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.white,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-    ),
-    builder: (_) => BlocProvider.value(
-      value: cubit,
-      child: _HolidayFormSheet(holiday: holiday),
+    backgroundColor: Colors.transparent,
+    builder: (_) => Container(
+      decoration: BoxDecoration(
+        gradient: AppColors.buildScaffoldGradient(),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      child: BlocProvider.value(
+        value: cubit,
+        child: _HolidayFormSheet(holiday: holiday),
+      ),
     ),
   );
+}
+
+/// Keyboard-level guard for the date fields: keeps digits only and
+/// re-inserts the DD-MM-YYYY dashes at fixed positions, so no other shape
+/// of input can ever reach the parser.
+class _DateTextInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final digits = newValue.text.replaceAll(RegExp('[^0-9]'), '');
+    final capped = digits.length > 8 ? digits.substring(0, 8) : digits;
+    final buffer = StringBuffer();
+    for (var i = 0; i < capped.length; i++) {
+      buffer.write(capped[i]);
+      if ((i == 1 || i == 3) && i != capped.length - 1) buffer.write('-');
+    }
+    final text = buffer.toString();
+    return TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(offset: text.length),
+    );
+  }
 }
 
 class _HolidayFormSheet extends StatefulWidget {
@@ -41,14 +68,29 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   static const int _kNameMaxLength = 80;
   static const int _kDescriptionMaxLength = 500;
 
+  static final DateFormat _dateFormat = DateFormat('dd-MM-yyyy');
+
   late final TextEditingController _nameController = TextEditingController(
     text: widget.holiday?.name ?? '',
   );
   late final TextEditingController _descriptionController =
       TextEditingController(text: widget.holiday?.description ?? '');
-  late DateTime _startDate =
-      widget.holiday?.startDate ?? _dateOnly(DateTime.now());
-  late DateTime _endDate = widget.holiday?.endDate ?? _dateOnly(DateTime.now());
+  late final TextEditingController _startDateController =
+      TextEditingController(
+        text: _dateFormat.format(
+          widget.holiday?.startDate ?? _dateOnly(DateTime.now()),
+        ),
+      );
+  late final TextEditingController _endDateController = TextEditingController(
+    text: _dateFormat.format(
+      widget.holiday?.endDate ?? _dateOnly(DateTime.now()),
+    ),
+  );
+
+  /// Parsed from the date fields' text; null while the text isn't a valid
+  /// DD-MM-YYYY calendar date, which blocks saving.
+  late DateTime? _startDate = widget.holiday?.startDate ?? _dateOnly(DateTime.now());
+  late DateTime? _endDate = widget.holiday?.endDate ?? _dateOnly(DateTime.now());
 
   /// Single Date vs Date Range (FR §7/8). Defaults to Single Date; when
   /// editing a multi-day holiday it opens in Range mode.
@@ -59,35 +101,48 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   bool get _isEditing => widget.holiday != null;
 
   /// Name is mandatory and within the length cap; description (optional) must
-  /// also fit the cap; a range can never end before it starts (FR §7/8).
+  /// also fit the cap; both dates must be valid DD-MM-YYYY calendar dates and
+  /// a range can never end before it starts — whether picked or typed
+  /// (FR §7/8).
   bool get _isFormValid =>
       _nameController.text.trim().isNotEmpty &&
       _nameController.text.characters.length <= _kNameMaxLength &&
       _descriptionController.text.characters.length <= _kDescriptionMaxLength &&
-      !(_isRange && _endDate.isBefore(_startDate));
+      _startDate != null &&
+      (!_isRange ||
+          (_endDate != null && !_endDate!.isBefore(_startDate!)));
 
   @override
   void initState() {
     super.initState();
     _nameController.addListener(_onFieldChanged);
     _descriptionController.addListener(_onFieldChanged);
+    _startDateController.addListener(_onFieldChanged);
+    _endDateController.addListener(_onFieldChanged);
   }
 
-  void _onFieldChanged() => setState(() {});
+  void _onFieldChanged() => setState(() {
+    _startDate = _parseDate(_startDateController.text);
+    _endDate = _parseDate(_endDateController.text);
+  });
 
   @override
   void dispose() {
     _nameController.removeListener(_onFieldChanged);
     _descriptionController.removeListener(_onFieldChanged);
+    _startDateController.removeListener(_onFieldChanged);
+    _endDateController.removeListener(_onFieldChanged);
     _nameController.dispose();
     _descriptionController.dispose();
+    _startDateController.dispose();
+    _endDateController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: EdgeInsets.only(
           left: 16,
           right: 16,
@@ -110,7 +165,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
             ),
             const SizedBox(height: 12),
             Text(
-              _isEditing ? 'Edit School Holiday' : 'New School Holiday',
+              _isEditing ? 'Edit Holiday' : 'Add Holiday',
               style: const TextStyle(
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
@@ -118,25 +173,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
               ),
             ),
             const SizedBox(height: 14),
-            const Padding(
-              padding: EdgeInsets.only(bottom: 6),
-              child: Text.rich(
-                TextSpan(
-                  text: 'Holiday name',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryColor,
-                  ),
-                  children: [
-                    TextSpan(
-                      text: ' *',
-                      style: TextStyle(color: AppColors.errorColor),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            _fieldLabel('Holiday name'),
             TextField(
               controller: _nameController,
               textCapitalization: TextCapitalization.words,
@@ -149,38 +186,36 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
             const SizedBox(height: 10),
             if (_isRange)
               Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    child: _dateTile(
+                    child: _dateField(
                       label: 'Starts',
-                      value: _startDate,
-                      onPicked: (date) => setState(() {
-                        _startDate = date;
-                        if (_endDate.isBefore(_startDate)) {
-                          _endDate = _startDate;
-                        }
-                      }),
+                      controller: _startDateController,
+                      errorText: _dateError(
+                        _startDateController.text,
+                        _startDate,
+                      ),
+                      onPickTap: _pickStartDate,
                     ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: _dateTile(
+                    child: _dateField(
                       label: 'Ends',
-                      value: _endDate,
-                      minDate: _startDate,
-                      onPicked: (date) => setState(() => _endDate = date),
+                      controller: _endDateController,
+                      errorText: _endDateError(),
+                      onPickTap: _pickEndDate,
                     ),
                   ),
                 ],
               )
             else
-              _dateTile(
+              _dateField(
                 label: 'Date',
-                value: _startDate,
-                onPicked: (date) => setState(() {
-                  _startDate = date;
-                  _endDate = date;
-                }),
+                controller: _startDateController,
+                errorText: _dateError(_startDateController.text, _startDate),
+                onPickTap: _pickStartDate,
               ),
             const SizedBox(height: 10),
             TextField(
@@ -246,14 +281,16 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   Future<void> _save() async {
     if (!_isFormValid) return;
     final name = _nameController.text.trim();
+    final startDate = _startDate!;
+    final endDate = _isRange ? _endDate! : startDate;
     final now = DateTime.now();
     final base =
         widget.holiday ??
         Holiday(
           code: '',
           name: '',
-          startDate: _startDate,
-          endDate: _endDate,
+          startDate: startDate,
+          endDate: endDate,
           type: HolidayType.school,
           createdAt: now,
           updatedAt: now,
@@ -261,8 +298,8 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
     final (ok, message) = await context.read<EventsCubit>().saveHoliday(
       base.copyWith(
         name: name,
-        startDate: _startDate,
-        endDate: _endDate,
+        startDate: startDate,
+        endDate: endDate,
         description: _descriptionController.text.trim(),
         updatedAt: now,
       ),
@@ -277,7 +314,8 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
     if (ok) Navigator.pop(context);
   }
 
-  /// Single Date / Date Range radio group (FR §7/8).
+  /// Single Date / Date Range radio group (FR §7/8). The selected pill takes
+  /// the app's primary gradient, matching the tab switchers elsewhere.
   Widget _dateTypeSelector() {
     Widget option(String label, bool rangeValue) {
       final selected = _isRange == rangeValue;
@@ -286,17 +324,16 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
           borderRadius: BorderRadius.circular(8),
           onTap: () => setState(() {
             _isRange = rangeValue;
-            if (!_isRange) _endDate = _startDate;
+            if (!_isRange) _endDateController.text = _startDateController.text;
           }),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 9),
             decoration: BoxDecoration(
-              color: selected
-                  ? AppColors.primaryColor.withValues(alpha: 0.10)
-                  : Colors.grey[100],
+              gradient: selected ? AppColors.buildPrimaryGradient() : null,
+              color: selected ? null : Colors.white,
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: selected ? AppColors.primaryColor : Colors.transparent,
+                color: selected ? Colors.transparent : Colors.grey.shade300,
               ),
             ),
             child: Row(
@@ -307,7 +344,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
                       ? Icons.radio_button_checked
                       : Icons.radio_button_unchecked,
                   size: 15,
-                  color: selected ? AppColors.primaryColor : Colors.grey,
+                  color: selected ? Colors.white : Colors.grey,
                 ),
                 const SizedBox(width: 6),
                 Text(
@@ -315,7 +352,7 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
                   style: TextStyle(
                     fontSize: 12.5,
                     fontWeight: FontWeight.w600,
-                    color: selected ? AppColors.primaryColor : Colors.grey[700],
+                    color: selected ? Colors.white : Colors.grey[700],
                   ),
                 ),
               ],
@@ -337,65 +374,159 @@ class _HolidayFormSheetState extends State<_HolidayFormSheet> {
   static bool _isSameDay(DateTime a, DateTime b) =>
       a.year == b.year && a.month == b.month && a.day == b.day;
 
+  Widget _fieldLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Text.rich(
+        TextSpan(
+          text: text,
+          style: const TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primaryColor,
+          ),
+          children: const [
+            TextSpan(
+              text: ' *',
+              style: TextStyle(color: AppColors.errorColor),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   InputDecoration _decoration(String hint) {
     return InputDecoration(
       hintText: hint,
       hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
       filled: true,
-      fillColor: Colors.grey[100],
+      fillColor: Colors.white,
       isDense: true,
       contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide.none,
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: BorderSide(color: Colors.grey.shade300),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(10),
+        borderSide: const BorderSide(color: AppColors.themeColor),
       ),
     );
   }
 
-  Widget _dateTile({
+  /// Manually editable date field (strictly DD-MM-YYYY) with a trailing
+  /// calendar icon that opens the date picker.
+  Widget _dateField({
     required String label,
-    required DateTime value,
-    required ValueChanged<DateTime> onPicked,
-    DateTime? minDate,
+    required TextEditingController controller,
+    required VoidCallback onPickTap,
+    String? errorText,
   }) {
-    return Material(
-      color: Colors.grey[100],
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: () async {
-          final firstDate = minDate ?? DateTime(DateTime.now().year - 1);
-          final picked = await showDatePicker(
-            context: context,
-            initialDate: value.isBefore(firstDate) ? firstDate : value,
-            firstDate: firstDate,
-            lastDate: DateTime(DateTime.now().year + 3),
-          );
-          if (picked != null) onPicked(_dateOnly(picked));
-        },
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 11),
-          child: Row(
-            children: [
-              Icon(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _fieldLabel(label),
+        TextField(
+          controller: controller,
+          keyboardType: TextInputType.number,
+          inputFormatters: [_DateTextInputFormatter()],
+          style: const TextStyle(fontSize: 12.5, color: Colors.black87),
+          decoration: _decoration('DD-MM-YYYY').copyWith(
+            errorText: errorText,
+            errorStyle: const TextStyle(
+              fontSize: 10.5,
+              color: AppColors.errorColor,
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.errorColor),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(10),
+              borderSide: const BorderSide(color: AppColors.errorColor),
+            ),
+            suffixIconConstraints: const BoxConstraints(
+              minWidth: 36,
+              minHeight: 36,
+            ),
+            suffixIcon: IconButton(
+              visualDensity: VisualDensity.compact,
+              icon: const Icon(
                 Icons.calendar_today_outlined,
-                size: 15,
-                color: Colors.grey[600],
+                size: 17,
+                color: AppColors.themeColor,
               ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  '$label  ${DateFormat('MMM d').format(value)}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 12.5, color: Colors.black87),
-                ),
-              ),
-            ],
+              onPressed: onPickTap,
+            ),
           ),
         ),
-      ),
+      ],
     );
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await _showPicker(initial: _startDate);
+    if (picked == null) return;
+    _startDateController.text = _dateFormat.format(picked);
+    // Picking a start past the current end drags the end along so the range
+    // can't go negative (typed input is instead blocked by validation).
+    if (_isRange && _endDate != null && _endDate!.isBefore(picked)) {
+      _endDateController.text = _dateFormat.format(picked);
+    }
+  }
+
+  Future<void> _pickEndDate() async {
+    final picked = await _showPicker(initial: _endDate, minDate: _startDate);
+    if (picked == null) return;
+    _endDateController.text = _dateFormat.format(picked);
+  }
+
+  Future<DateTime?> _showPicker({DateTime? initial, DateTime? minDate}) async {
+    final firstDate = minDate ?? DateTime(DateTime.now().year - 1);
+    final base = initial ?? _dateOnly(DateTime.now());
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: base.isBefore(firstDate) ? firstDate : base,
+      firstDate: firstDate,
+      lastDate: DateTime(DateTime.now().year + 3),
+    );
+    return picked == null ? null : _dateOnly(picked);
+  }
+
+  String? _dateError(String text, DateTime? parsed) {
+    if (text.isEmpty) return 'Required';
+    if (parsed == null) return 'Use DD-MM-YYYY';
+    return null;
+  }
+
+  String? _endDateError() {
+    final formatError = _dateError(_endDateController.text, _endDate);
+    if (formatError != null) return formatError;
+    if (_startDate != null && _endDate!.isBefore(_startDate!)) {
+      return "Can't be before start date";
+    }
+    return null;
+  }
+
+  /// Strict DD-MM-YYYY parse: exact shape, then a round-trip check so
+  /// rollover dates like 31-02-2026 are rejected instead of silently
+  /// becoming another day.
+  static DateTime? _parseDate(String text) {
+    final match = RegExp(r'^(\d{2})-(\d{2})-(\d{4})$').firstMatch(text);
+    if (match == null) return null;
+    final day = int.parse(match.group(1)!);
+    final month = int.parse(match.group(2)!);
+    final year = int.parse(match.group(3)!);
+    final date = DateTime(year, month, day);
+    if (date.year != year || date.month != month || date.day != day) {
+      return null;
+    }
+    return date;
   }
 
   static DateTime _dateOnly(DateTime dateTime) =>

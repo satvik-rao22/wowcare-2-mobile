@@ -62,6 +62,39 @@ enum TaskPriority {
   }
 }
 
+/// How a recurring task treats a date that lands on a school holiday
+/// (Tasks API `TaskHolidayPolicy`). [skip] materializes the occurrence as
+/// SKIPPED with no assignments; [keep] generates it normally.
+enum TaskHolidayPolicy {
+  skip('SKIP'),
+  keep('KEEP');
+
+  const TaskHolidayPolicy(this.value);
+
+  final String value;
+
+  static TaskHolidayPolicy fromValue(String? raw) {
+    final normalized = (raw ?? '').trim().toUpperCase();
+    return TaskHolidayPolicy.values.firstWhere(
+      (p) => p.value == normalized,
+      orElse: () => TaskHolidayPolicy.skip,
+    );
+  }
+}
+
+/// Scope of a series update (Tasks API §3 `?scope=`). [all] regenerates future
+/// occurrences from today (the whole-series default); [thisAndFuture] reanchors
+/// that regeneration at a specific occurrence, leaving everything before it
+/// untouched (§3d — requires an `anchorOccurrenceCode`).
+enum TaskUpdateScope {
+  all('ALL'),
+  thisAndFuture('THIS_AND_FUTURE');
+
+  const TaskUpdateScope(this.value);
+
+  final String value;
+}
+
 /// Repeat cadence for recurring tasks (PRD §11.1 Cycle).
 enum TaskRecurrence {
   daily('DAILY'),
@@ -101,6 +134,7 @@ enum TaskRecurrence {
 class Task extends Equatable {
   const Task({
     required this.code,
+    this.taskCode = '',
     required this.title,
     this.description = '',
     this.assigneeCode = '',
@@ -127,7 +161,15 @@ class Task extends Equatable {
     required this.updatedAt,
   });
 
+  /// Identity of this card. When loaded from the Tasks API this is the
+  /// **task assignment** code (`TSA_…`) — one person on one occurrence — which
+  /// is what status changes act on. Empty for an unsaved draft.
   final String code;
+
+  /// The owning **task series** code (`TSK_…`). Series-level operations
+  /// (update / delete) act on this, not [code]. Empty for an unsaved draft.
+  final String taskCode;
+
   final String title;
   final String description;
 
@@ -182,16 +224,20 @@ class Task extends Equatable {
   final DateTime createdAt;
   final DateTime updatedAt;
 
-  /// Combined due moment from [dueDate] and [dueTime] (`HH:mm`).
+  /// Combined due moment from [dueDate] and [dueTime] (`HH:mm`) — both wire
+  /// values are UTC, so this is built as a UTC instant ([DateTime.utc]) even
+  /// though [dueDate]/[dueTime] carry no timezone flag of their own.
   DateTime get dueAt {
     final parts = dueTime.split(':');
     final hour = parts.length == 2 ? int.tryParse(parts[0]) ?? 17 : 17;
     final minute = parts.length == 2 ? int.tryParse(parts[1]) ?? 0 : 0;
-    return DateTime(dueDate.year, dueDate.month, dueDate.day, hour, minute);
+    return DateTime.utc(
+        dueDate.year, dueDate.month, dueDate.day, hour, minute);
   }
 
   /// Overdue when the due moment has passed and the task isn't completed
-  /// (PRD FR-TK-18).
+  /// (PRD FR-TK-18). [now] may be any timezone-flagged instant — comparison
+  /// is by absolute instant, not local wall-clock fields.
   bool isOverdueAt(DateTime now) =>
       status != TaskStatus.completed && dueAt.isBefore(now);
 
@@ -199,6 +245,7 @@ class Task extends Equatable {
 
   Task copyWith({
     String? code,
+    String? taskCode,
     String? title,
     String? description,
     String? assigneeCode,
@@ -226,6 +273,7 @@ class Task extends Equatable {
   }) {
     return Task(
       code: code ?? this.code,
+      taskCode: taskCode ?? this.taskCode,
       title: title ?? this.title,
       description: description ?? this.description,
       assigneeCode: assigneeCode ?? this.assigneeCode,
@@ -263,6 +311,7 @@ class Task extends Equatable {
   @override
   List<Object?> get props => [
         code,
+        taskCode,
         title,
         description,
         assigneeCode,

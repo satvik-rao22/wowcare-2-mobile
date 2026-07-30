@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -5,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -99,6 +101,12 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
     String? redirectUrl;
     bool hasCachedLogin = false;
+    // Set when the cached session is rejected on launch (login-context 401).
+    // The SessionExpiredInterceptor ignores `/auth/login*`, so it never fires
+    // for login-context — the splash detects the dead session itself and runs
+    // the full logout cascade below instead of falling through to a dashboard
+    // that would immediately 401.
+    bool sessionExpired = false;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
       final cachedLogin = await authLocal.getCachedLoginResponse();
@@ -137,11 +145,28 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
           }
         }
       }
+    } on DioException catch (e) {
+      // A 401 on login-context means the cached access/refresh session is dead.
+      // Anything else (timeout, 5xx) is non-fatal — fall through and decide
+      // navigation below without forcing a logout.
+      if (hasCachedLogin && e.response?.statusCode == 401) {
+        sessionExpired = true;
+      }
     } catch (_) {
       // Non-fatal: still decide navigation below.
     }
 
     if (!mounted) return;
+
+    if (sessionExpired) {
+      // Full logout cascade: best-effort backend logout, clear cached session
+      // (profile name, roles, tokens), reset auth cubits, show the "session
+      // expired" snackbar, and navigate to sign-in. Return so we never fall
+      // through to the dashboard with a dead session.
+      await SessionExpiredCoordinator.instance
+          .performLogoutDueToExpiredSession(fromSplash: true);
+      return;
+    }
 
     if (hasCachedLogin) {
       await context.read<RoleCubit>().refreshAccessFromServer(force: true);

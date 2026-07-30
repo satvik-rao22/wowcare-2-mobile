@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
+import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
 
 /// One card in the calendar's selected-day list — renders any feed kind
 /// (event / task / holiday) with a color accent from the server's
@@ -12,17 +15,23 @@ class CalendarFeedCard extends StatelessWidget {
   final CalendarFeedItem item;
   final VoidCallback? onTap;
 
+  /// Task status/priority parsed into the Tasks module's own enums so the
+  /// card reuses [TaskUiUtils] colors and [TaskStatusBadge]/[TaskPriorityBadge]
+  /// instead of duplicating that mapping.
+  TaskStatus get _taskStatus => TaskStatus.fromValue(item.status);
+
+  TaskPriority get _taskPriority => TaskPriority.fromValue(item.priority);
+
   Color get _accent {
+    // Tasks use the Tasks module's purple accent for consistency with the
+    // Tasks tab; events/holidays use the server's colorHint.
+    if (item.isTask) return TaskUiUtils.accent;
     final hex = item.colorHint.replaceAll('#', '');
     if (hex.length == 6) {
       final v = int.tryParse('FF$hex', radix: 16);
       if (v != null) return Color(v);
     }
-    return item.isTask
-        ? const Color(0xFFFBBF24)
-        : item.isHoliday
-            ? const Color(0xFFF87171)
-            : const Color(0xFF2563EB);
+    return item.isHoliday ? const Color(0xFFF87171) : const Color(0xFF2563EB);
   }
 
   String get _timeLabel {
@@ -42,10 +51,6 @@ class CalendarFeedCard extends StatelessWidget {
   }
 
   String get _summary {
-    if (item.isTask) {
-      final p = item.priority.isEmpty ? '' : '${_titleCase(item.priority)} • ';
-      return '$p${item.completedAssignees}/${item.totalAssignees} done';
-    }
     if (item.isHoliday) return _titleCase(item.holidayType);
     // Event
     return '${item.attendingCount}/${item.totalAttendee} attending';
@@ -135,7 +140,7 @@ class CalendarFeedCard extends StatelessWidget {
                               style:
                                   TextStyle(fontSize: 11.5, color: Colors.grey[700]),
                             ),
-                            if (!item.isHoliday) ...[
+                            if (item.isEvent) ...[
                               const SizedBox(width: 8),
                               Flexible(
                                 child: Text(
@@ -151,6 +156,18 @@ class CalendarFeedCard extends StatelessWidget {
                             ],
                           ],
                         ),
+                        if (item.isTask) ...[
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 6,
+                            runSpacing: 4,
+                            children: [
+                              TaskStatusBadge(status: _taskStatus),
+                              TaskPriorityBadge(priority: _taskPriority),
+                              if (item.overdue) const TaskOverdueBadge(),
+                            ],
+                          ),
+                        ],
                       ],
                     ),
                   ),

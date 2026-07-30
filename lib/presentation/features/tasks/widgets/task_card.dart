@@ -10,6 +10,7 @@ import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
 class TaskCard extends StatelessWidget {
   const TaskCard({
     required this.task,
+    required this.schoolTimeZone,
     required this.onTap,
     this.onStatusTap,
     this.onPriorityTap,
@@ -18,6 +19,10 @@ class TaskCard extends StatelessWidget {
   });
 
   final Task task;
+
+  /// School's IANA timezone — converts [task]'s UTC due date/time into the
+  /// local wall-clock label shown on the card.
+  final String schoolTimeZone;
   final VoidCallback onTap;
 
   /// Inline status/priority editing (PRD FR-TK-16) — null hides the affordance
@@ -109,7 +114,7 @@ class TaskCard extends StatelessWidget {
                       size: 13, color: Colors.grey[600]),
                   const SizedBox(width: 4),
                   Text(
-                    TaskUiUtils.dueLabel(task),
+                    TaskUiUtils.dueLabelInZone(task, schoolTimeZone),
                     style: TextStyle(
                       fontSize: 11.5,
                       color: overdue ? TaskUiUtils.overdueColor : Colors.grey[700],

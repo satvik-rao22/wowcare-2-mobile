@@ -9,8 +9,11 @@ class CalendarFeedItemModel {
     final code = (json['code'] ?? '').toString().trim();
     if (code.isEmpty) return null;
 
+    // Tasks use a different field schema than events/holidays:
+    // occurrenceDate/startTime/dueTime/title vs scheduledStartDate/
+    // scheduledStartTime/displayName. Accept both.
     final date = DateTime.tryParse(
-      (json['scheduledStartDate'] ?? '').toString(),
+      (json['scheduledStartDate'] ?? json['occurrenceDate'] ?? '').toString(),
     );
     if (date == null) return null;
 
@@ -22,13 +25,18 @@ class CalendarFeedItemModel {
     return CalendarFeedItem(
       kind: kind,
       code: code,
-      name: (json['displayName'] ?? '').toString(),
-      description: (json['displayDescription'] ?? '').toString(),
+      name: (json['displayName'] ?? json['title'] ?? '').toString(),
+      description:
+          (json['displayDescription'] ?? json['description'] ?? '').toString(),
       location: (json['displayLocation'] ?? '').toString(),
       date: DateTime(date.year, date.month, date.day),
-      allDay: json['allDayFlag'] == true,
-      startTime: _hhmm(json['scheduledStartTime']),
-      endTime: _hhmm(json['scheduledEndTime']),
+      // Tasks have no allDayFlag — treat a task without a start time as
+      // all-day so the card shows a sensible label.
+      allDay: json['allDayFlag'] == true ||
+          (kind == CalendarFeedKind.task &&
+              (json['startTime'] ?? '').toString().trim().isEmpty),
+      startTime: _hhmm(json['scheduledStartTime'] ?? json['startTime']),
+      endTime: _hhmm(json['scheduledEndTime'] ?? json['dueTime']),
       status: (json['status'] ?? '').toString().toUpperCase(),
       recurring: json['recurring'] == true,
       colorHint: (json['colorHint'] ?? '').toString().trim(),
@@ -48,6 +56,9 @@ class CalendarFeedItemModel {
       totalAssignees: (json['totalAssignees'] as num?)?.toInt() ?? 0,
       completedAssignees:
           (json['completedAssignees'] as num?)?.toInt() ?? 0,
+      assigneeCode: (json['assigneeCode'] ?? '').toString().trim(),
+      dueDate: DateTime.tryParse((json['dueDate'] ?? '').toString()),
+      overdue: json['overdue'] == true,
       // Holiday
       holidayType: (json['holidayType'] ?? '').toString().toUpperCase(),
     );

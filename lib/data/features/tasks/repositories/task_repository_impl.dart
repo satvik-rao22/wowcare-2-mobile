@@ -1,79 +1,322 @@
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/data/features/tasks/datasources/task_local_datasource.dart';
-import 'package:wowcare/data/features/tasks/datasources/task_seed_datasource.dart';
-import 'package:wowcare/data/features/tasks/models/task_collection.dart';
-import 'package:wowcare/domain/features/tasks/entities/task.dart';
-import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
+import 'dart:io';
 
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/data/features/tasks/datasources/task_remote_datasource.dart';
+import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
+import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+
+/// Remote-only implementation backed by the events-todo Tasks API. No Isar
+/// persistence or mock seeding — mirrors the Events/Holidays modules. Attachment
+/// uploads (§8/§9) reuse the shared [ImageUploadService] for the document-
+/// microservice half of the round trip.
 class TaskRepositoryImpl implements TaskRepository {
   TaskRepositoryImpl(
-    this._localDataSource,
-    this._seedDataSource,
-    this._storageService,
+    this._remoteDataSource,
+    this._imageUploadService,
+    this._storage,
   );
 
-  final TaskLocalDataSource _localDataSource;
-  final TaskSeedDataSource _seedDataSource;
-  final StorageService _storageService;
+  final TaskRemoteDataSource _remoteDataSource;
+  final ImageUploadService _imageUploadService;
+  final StorageService _storage;
 
-  /// One-shot flag so user deletions aren't resurrected by reseeding.
-  static const String _seededFlagKey = 'tasks_mock_seeded_v1';
+  /// Page size used when exhausting the flat assignments endpoint. Kept modest
+  /// so a small school pays for one round trip while a large one still loads
+  /// completely across a bounded number of pages.
+  static const int _assignmentPageSize = 100;
+
+  /// Hard ceiling on pages walked (safety valve against a misbehaving server
+  /// that never shortens a page) — 100 pages × 100 rows = 10k assignments.
+  static const int _maxAssignmentPages = 100;
 
   @override
-  Future<List<Task>> getTasks() async {
-    await _seedIfNeeded();
-    final rows = await _localDataSource.getAll();
-    final tasks = rows.map((r) => r.toEntity()).toList()
+  Future<List<Task>> getTasks({String? query}) async {
+    // Defensive de-duplication by assignment code: a single assignment must
+    // never surface as two cards even if the API echoes a row twice or across
+    // page boundaries.
+    final seen = <String>{};
+    final tasks = <Task>[];
+    var page = 0;
+    while (page < _maxAssignmentPages) {
+      final models = await _remoteDataSource.getAssignments(
+        TaskQuery(query: query, page: page, size: _assignmentPageSize),
+      );
+      for (final model in models) {
+        if (seen.add(model.code)) tasks.add(model.toEntity());
+      }
+      if (models.length < _assignmentPageSize) break;
+      page++;
+    }
+    return tasks
       ..sort((a, b) {
         final byDue = a.dueDate.compareTo(b.dueDate);
         if (byDue != 0) return byDue;
         return a.dueTime.compareTo(b.dueTime);
       });
-    return tasks;
   }
 
   @override
-  Future<Task?> getTaskByCode(String code) async {
-    final trimmed = code.trim();
-    if (trimmed.isEmpty) return null;
-    final rows = await _localDataSource.getAll();
-    for (final row in rows) {
-      if (row.code == trimmed) return row.toEntity();
-    }
-    return null;
+  Future<TaskSeriesPage> getTaskSeries({
+    TaskSeriesStatus? seriesStatus,
+    bool? recurring,
+    String? query,
+    int page = 0,
+    int size = 20,
+  }) {
+    return _remoteDataSource.getTaskSeries(
+      seriesStatus: seriesStatus,
+      recurring: recurring,
+      q: query,
+      page: page,
+      size: size,
+    );
   }
 
   @override
-  Future<Task> createTask(Task task) async {
-    await _localDataSource.upsert(TaskCollection.fromEntity(task));
-    return task;
+  Future<TaskSeries> getTask(String seriesCode) async {
+    final model = await _remoteDataSource.getTask(seriesCode.trim());
+    return model.toSeries();
   }
 
   @override
-  Future<Task> updateTask(Task task) async {
-    final updated = task.copyWith(updatedAt: DateTime.now());
-    await _localDataSource.upsert(TaskCollection.fromEntity(updated));
-    return updated;
+  Future<TaskBoard> getBoard(TaskQuery query) {
+    return _remoteDataSource.getBoard(query);
   }
 
   @override
-  Future<void> deleteTask(String code) {
-    return _localDataSource.deleteByCode(code.trim());
+  Future<void> createTask({
+    required Task draft,
+    required List<TaskAssignee> assignees,
+    TaskHolidayPolicy? holidayPolicy,
+    List<String> assetCodes = const [],
+  }) async {
+    await _remoteDataSource.createTask(
+      draft: draft,
+      assignees: assignees,
+      holidayPolicy: holidayPolicy,
+      assetCodes: assetCodes,
+    );
   }
 
-  Future<void> _seedIfNeeded() async {
-    final alreadySeeded =
-        await _storageService.getBool(_seededFlagKey) ?? false;
-    if (alreadySeeded) return;
-    final existing = await _localDataSource.getAll();
-    if (existing.isEmpty) {
-      final seeds = await _seedDataSource.fetchTasks();
-      if (seeds.isNotEmpty) {
-        await _localDataSource.upsertAll(
-          seeds.map((m) => TaskCollection.fromEntity(m.toEntity())).toList(),
-        );
-      }
-    }
-    await _storageService.saveBool(_seededFlagKey, true);
+  @override
+  Future<void> updateTask({
+    required String seriesCode,
+    String? title,
+    String? description,
+    TaskHolidayPolicy? holidayPolicy,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+    String? parentTaskCode,
+    TaskUpdateScope scope = TaskUpdateScope.all,
+    String? anchorOccurrenceCode,
+  }) async {
+    await _remoteDataSource.updateTask(
+      code: seriesCode.trim(),
+      title: title,
+      description: description,
+      holidayPolicy: holidayPolicy,
+      schedule: schedule,
+      assignees: assignees,
+      assetCodes: assetCodes,
+      parentTaskCode: parentTaskCode,
+      scope: scope,
+      anchorOccurrenceCode: anchorOccurrenceCode,
+    );
+  }
+
+  @override
+  Future<void> deleteTask(String seriesCode) {
+    return _remoteDataSource.deleteTask(seriesCode.trim());
+  }
+
+  @override
+  Future<void> removeAssignee({
+    required String seriesCode,
+    required String staffCode,
+  }) {
+    return _remoteDataSource.removeAssignee(
+      code: seriesCode.trim(),
+      staffCode: staffCode.trim(),
+    );
+  }
+
+  @override
+  Future<void> updateAssigneePriority({
+    required String seriesCode,
+    required String staffCode,
+    required TaskPriority priority,
+  }) {
+    return _remoteDataSource.updateAssigneePriority(
+      code: seriesCode.trim(),
+      staffCode: staffCode.trim(),
+      priority: priority,
+    );
+  }
+
+  @override
+  Future<Task> updateAssignmentStatus({
+    required String assignmentCode,
+    required TaskStatus status,
+  }) async {
+    final model = await _remoteDataSource.updateAssignmentStatus(
+      code: assignmentCode.trim(),
+      status: status,
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<Task> getAssignment(String assignmentCode) async {
+    final model = await _remoteDataSource.getAssignment(assignmentCode.trim());
+    return model.toEntity();
+  }
+
+  @override
+  Future<Task> updateAssignment({
+    required String assignmentCode,
+    String? title,
+    String? description,
+    DateTime? occurrenceDate,
+    String? startTime,
+    DateTime? dueDate,
+    String? dueTime,
+    TaskPriority? priority,
+    TaskStatus? status,
+    double? effort,
+    Task? schedule,
+    List<TaskAssignee>? assignees,
+    List<String>? assetCodes,
+  }) async {
+    final model = await _remoteDataSource.updateAssignment(
+      code: assignmentCode.trim(),
+      title: title,
+      description: description,
+      occurrenceDate: occurrenceDate,
+      startTime: startTime,
+      dueDate: dueDate,
+      dueTime: dueTime,
+      priority: priority,
+      status: status,
+      effort: effort,
+      schedule: schedule,
+      assignees: assignees,
+      assetCodes: assetCodes,
+    );
+    return model.toEntity();
+  }
+
+  @override
+  Future<void> deleteAssignment(String assignmentCode) {
+    return _remoteDataSource.deleteAssignment(assignmentCode.trim());
+  }
+
+  @override
+  Future<List<TaskOccurrence>> getOccurrences(String seriesCode) {
+    return _remoteDataSource.getOccurrences(seriesCode.trim());
+  }
+
+  @override
+  Future<TaskOccurrence> getOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+  }) {
+    return _remoteDataSource.getOccurrence(
+      code: seriesCode.trim(),
+      occurrenceCode: occurrenceCode.trim(),
+    );
+  }
+
+  @override
+  Future<TaskOccurrence> updateOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+    String? overrideTitle,
+    String? overrideDescription,
+  }) {
+    return _remoteDataSource.updateOccurrence(
+      code: seriesCode.trim(),
+      occurrenceCode: occurrenceCode.trim(),
+      scheduledStartDate: scheduledStartDate,
+      scheduledStartTime: scheduledStartTime,
+      scheduledEndTime: scheduledEndTime,
+      overrideTitle: overrideTitle,
+      overrideDescription: overrideDescription,
+    );
+  }
+
+  @override
+  Future<TaskOccurrence> cancelOccurrence({
+    required String seriesCode,
+    required String occurrenceCode,
+    String? reason,
+  }) {
+    return _remoteDataSource.cancelOccurrence(
+      code: seriesCode.trim(),
+      occurrenceCode: occurrenceCode.trim(),
+      reason: reason,
+    );
+  }
+
+  @override
+  Future<String> uploadAttachment({
+    required String filePath,
+    required String fileName,
+    required String contentType,
+  }) async {
+    // 1. Open the school-wide task upload session on events-todo-service (§8).
+    final session = await _remoteDataSource.createUploadSession();
+
+    final file = File(filePath);
+    final lengthBytes = await file.length();
+    final ownerCode =
+        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final mediaType =
+        contentType.toLowerCase().startsWith('image/') ? 'IMAGE' : 'DOCUMENT';
+
+    // 2. Presign against document-microservice (§9.2).
+    final presign = await _imageUploadService.createAssetPresign(
+      sessionCode: session.sessionCode,
+      documentApiBasePath: session.documentApiBasePath,
+      fileName: fileName,
+      contentType: contentType,
+      contentLengthBytes: lengthBytes,
+      mediaType: mediaType,
+      ownerType: 'SCHOOL',
+      ownerCode: ownerCode,
+    );
+
+    // 3. Upload the raw bytes straight to storage (§9.3).
+    await _imageUploadService.uploadFileToPresignedUrl(
+      file: file,
+      presignedPutUrl: presign.presignedPutUrl,
+      requiredHeaders: presign.requiredHeaders,
+      fallbackContentType: contentType,
+    );
+
+    // 4. Mark the asset complete (§9.4).
+    await _imageUploadService.completeAssetUpload(
+      sessionCode: session.sessionCode,
+      assetCode: presign.assetCode,
+      documentApiBasePath: session.documentApiBasePath,
+    );
+
+    // 5. Poll until the asset is READY before it can be attached (§9.5).
+    await _imageUploadService.waitUntilAssetsReady(
+      sessionCode: session.sessionCode,
+      expectedAssetCodes: [presign.assetCode],
+    );
+
+    return presign.assetCode;
   }
 }

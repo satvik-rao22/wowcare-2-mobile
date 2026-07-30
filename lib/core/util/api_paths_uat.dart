@@ -72,7 +72,7 @@ class ApiPathsUat {
     },
     ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
     // Scheduler MS — Events, Tasks & School Calendar (holidays).
-    ApiMicroservices.scheduler: {'holidays'},
+    ApiMicroservices.scheduler: {'holidays', 'tasks'},
     // Document endpoints in this app are handled separately via `/document-ms/...`.
     ApiMicroservices.document: {},
 
@@ -183,6 +183,7 @@ class ApiPathsUat {
       case 'notification':
         return ApiMicroservices.notification;
       case 'holidays':
+      case 'tasks':
         return ApiMicroservices.scheduler;
       case 'newsletters':
         return ApiMicroservices.newsLatter;

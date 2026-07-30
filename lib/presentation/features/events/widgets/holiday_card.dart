@@ -116,6 +116,7 @@ class HolidayCard extends StatelessWidget {
                     label: const Text('Edit',
                         style: TextStyle(fontSize: 12)),
                     style: TextButton.styleFrom(
+                      foregroundColor: AppColors.themeColor,
                       visualDensity: VisualDensity.compact,
                     ),
                   ),

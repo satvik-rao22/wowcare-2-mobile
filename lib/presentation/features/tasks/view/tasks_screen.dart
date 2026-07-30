@@ -2,9 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/debouncer.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_option_picker.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
@@ -33,8 +36,13 @@ class _TasksScreenState extends State<TasksScreen> {
   TaskStatus _kanbanStatus = TaskStatus.toDo;
   final TextEditingController _searchController = TextEditingController();
 
+  /// Debounces the search field so a burst of keystrokes triggers a single
+  /// re-filter (and board rebuild) once typing settles (PRD FR-TK-20).
+  final Debouncer _searchDebouncer = Debouncer();
+
   @override
   void dispose() {
+    _searchDebouncer.dispose();
     _searchController.dispose();
     super.dispose();
   }
@@ -45,31 +53,57 @@ class _TasksScreenState extends State<TasksScreen> {
     return GlobalScaffold(
       hasBackButton: false,
       showCustomNavigationBar: true,
-      body: BlocBuilder<TasksCubit, TasksState>(
-        builder: (context, state) {
-          return Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _header(context, roles),
-                const SizedBox(height: 10),
-                _controlsRow(context, state, roles),
-                const SizedBox(height: 10),
-                _toolbar(context, state),
-                const SizedBox(height: 10),
-                if (state.isLoading)
-                  const Expanded(
-                    child: Center(child: PrimaryCircularLoader()),
-                  )
-                else if (_viewMode == _TasksViewMode.kanban)
-                  Expanded(child: _kanbanView(context, state, roles))
-                else
-                  Expanded(child: _listView(context, state, roles)),
-              ],
-            ),
-          );
+      // RoleCubit resolves the persona asynchronously (it starts on its
+      // 'admin' default and settles once /users/details answers). The route
+      // applies whatever persona is known when the board opens, so re-apply it
+      // whenever the role actually changes — otherwise a staff session that
+      // opened Tasks before its role landed would keep the admin read scope
+      // (PRD §5.2). applyPersona clears the previous persona's board, so refetch.
+      body: BlocListener<RoleCubit, RoleState>(
+        listenWhen: (prev, curr) => prev.role != curr.role,
+        listener: (context, roleState) {
+          final cubit = context.read<TasksCubit>();
+          cubit.applyPersona(roleState.role);
+          cubit.load(silent: true);
         },
+        child: BlocConsumer<TasksCubit, TasksState>(
+          // Surface failures (e.g. a status/priority change the backend
+          // rejects) instead of silently leaving the card unchanged. Keyed off
+          // errorNonce (not the message text) so two failures in a row with
+          // identical text (e.g. repeated offline retries) still each show their
+          // own toast instead of the second one being silently dropped.
+          listenWhen: (prev, curr) =>
+              curr.errorMessage != null && curr.errorNonce != prev.errorNonce,
+          listener: (context, state) => CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.errorMessage!,
+            isError: true,
+          ),
+          builder: (context, state) {
+            return Padding(
+              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _header(context, roles),
+                  const SizedBox(height: 10),
+                  _controlsRow(context, state, roles),
+                  const SizedBox(height: 10),
+                  _toolbar(context, state),
+                  const SizedBox(height: 10),
+                  if (state.isLoading)
+                    const Expanded(
+                      child: Center(child: PrimaryCircularLoader()),
+                    )
+                  else if (_viewMode == _TasksViewMode.kanban)
+                    Expanded(child: _kanbanView(context, state, roles))
+                  else
+                    Expanded(child: _listView(context, state, roles)),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -109,10 +143,12 @@ class _TasksScreenState extends State<TasksScreen> {
   /// admins switch between "My Tasks" and "All Tasks".
   Widget _controlsRow(BuildContext context, TasksState state, RoleCubit roles) {
     final cubit = context.read<TasksCubit>();
-    final isStaff = roles.isStaff;
-    final leftLabel = isStaff ? 'For me' : 'My Tasks';
-    final rightLabel = isStaff ? 'By Me' : 'All Tasks';
-    final rightScope = isStaff ? TaskScope.byMe : TaskScope.all;
+    // Only admins may see the whole school (PRD §5.2); a staff persona's second
+    // tab is "By Me" (tasks they created), never everyone's tasks.
+    final scopedToOwn = !TaskAccess.canViewAllTasks(roles);
+    final leftLabel = scopedToOwn ? 'For me' : 'My Tasks';
+    final rightLabel = scopedToOwn ? 'By Me' : 'All Tasks';
+    final rightScope = scopedToOwn ? TaskScope.byMe : TaskScope.all;
     return Row(
       children: [
         Expanded(
@@ -226,7 +262,8 @@ class _TasksScreenState extends State<TasksScreen> {
             height: 38,
             child: TextField(
               controller: _searchController,
-              onChanged: cubit.setSearchQuery,
+              onChanged: (value) =>
+                  _searchDebouncer.run(() => cubit.setSearchQuery(value)),
               decoration: InputDecoration(
                 hintText: 'Search tasks…',
                 hintStyle: TextStyle(fontSize: 13, color: Colors.grey[500]),
@@ -237,6 +274,9 @@ class _TasksScreenState extends State<TasksScreen> {
                         icon: const Icon(Icons.close,
                             size: 16, color: Colors.grey),
                         onPressed: () {
+                          // Clear immediately and drop any pending debounce so
+                          // a late keystroke can't re-populate the query.
+                          _searchDebouncer.cancel();
                           _searchController.clear();
                           cubit.setSearchQuery('');
                         },
@@ -324,21 +364,31 @@ class _TasksScreenState extends State<TasksScreen> {
   // ------------------------------------------------------- kanban view
 
   Widget _kanbanView(BuildContext context, TasksState state, RoleCubit roles) {
+    // One filter pass shared by the tab counts and the visible column, instead
+    // of re-running the full filter for each (3 counts + the column).
+    final filtered = state.filteredTasks;
+    final counts = <TaskStatus, int>{
+      for (final status in TaskStatus.values)
+        status: filtered.where((t) => t.status == status).length,
+    };
+    final columnTasks = TasksState.orderColumn(filtered, _kanbanStatus);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _statusTabs(state),
+        _statusTabs(counts),
         const SizedBox(height: 10),
-        Expanded(child: _statusColumn(context, state, roles, _kanbanStatus)),
+        Expanded(
+          child: _statusColumn(context, state, roles, _kanbanStatus, columnTasks),
+        ),
       ],
     );
   }
 
-  Widget _statusTabs(TasksState state) {
+  Widget _statusTabs(Map<TaskStatus, int> counts) {
     Widget tab(TaskStatus status) {
       final selected = _kanbanStatus == status;
       final color = TaskUiUtils.statusColor(status);
-      final count = state.countWithStatus(status);
+      final count = counts[status] ?? 0;
       return Expanded(
         child: GestureDetector(
           onTap: () => setState(() => _kanbanStatus = status),
@@ -398,8 +448,8 @@ class _TasksScreenState extends State<TasksScreen> {
     TasksState state,
     RoleCubit roles,
     TaskStatus status,
+    List<Task> tasks,
   ) {
-    final tasks = state.orderedTasksWithStatus(status);
     if (tasks.isEmpty) {
       return _emptyState('No ${status.label.toLowerCase()} tasks');
     }
@@ -421,8 +471,9 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _listView(BuildContext context, TasksState state, RoleCubit roles) {
     // Completed tasks are surfaced via the status filter rather than a
-    // dedicated section, so the list simply shows all filtered tasks.
-    final tasks = state.listTasksOrdered;
+    // dedicated section, so the list simply shows all filtered tasks. One
+    // filter pass, reused for both the active and completed orderings.
+    final tasks = TasksState.listFrom(state.filteredTasks);
     if (tasks.isEmpty) {
       return _emptyState('No tasks match the current filters');
     }
@@ -453,7 +504,11 @@ class _TasksScreenState extends State<TasksScreen> {
       staffCode: state.currentStaffCode,
     );
     return TaskCard(
+      // Stable identity so Flutter reuses elements when the overdue-first
+      // ordering reorders cards, instead of mismatching them to stale data.
+      key: ValueKey(task.code),
       task: task,
+      schoolTimeZone: state.schoolTimeZone,
       onTap: () => _openDetail(context, task),
       onStatusTap:
           canManage ? () => _showStatusPicker(context, task) : null,
@@ -467,7 +522,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Future<void> _showStatusPicker(BuildContext context, Task task) async {
     final cubit = context.read<TasksCubit>();
-    await _showOptionsSheet<TaskStatus>(
+    final picked = await showTaskOptionPicker<TaskStatus>(
       context: context,
       title: 'Move task to',
       options: TaskStatus.values,
@@ -475,14 +530,13 @@ class _TasksScreenState extends State<TasksScreen> {
       colorOf: TaskUiUtils.statusColor,
       iconOf: TaskUiUtils.statusIcon,
       labelOf: (s) => s.label,
-    ).then((picked) {
-      if (picked != null) cubit.changeStatus(task.code, picked);
-    });
+    );
+    if (picked != null) cubit.changeStatus(task.code, picked);
   }
 
   Future<void> _showPriorityPicker(BuildContext context, Task task) async {
     final cubit = context.read<TasksCubit>();
-    await _showOptionsSheet<TaskPriority>(
+    final picked = await showTaskOptionPicker<TaskPriority>(
       context: context,
       title: 'Set priority',
       options: TaskPriority.values,
@@ -490,70 +544,8 @@ class _TasksScreenState extends State<TasksScreen> {
       colorOf: TaskUiUtils.priorityColor,
       iconOf: TaskUiUtils.priorityIcon,
       labelOf: (p) => p.label,
-    ).then((picked) {
-      if (picked != null) cubit.changePriority(task.code, picked);
-    });
-  }
-
-  Future<T?> _showOptionsSheet<T>({
-    required BuildContext context,
-    required String title,
-    required List<T> options,
-    required T current,
-    required Color Function(T) colorOf,
-    required IconData Function(T) iconOf,
-    required String Function(T) labelOf,
-  }) {
-    return showModalBottomSheet<T>(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (sheetContext) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const SizedBox(height: 10),
-            Container(
-              width: 38,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 6),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.primaryColor,
-                  ),
-                ),
-              ),
-            ),
-            for (final option in options)
-              ListTile(
-                leading: Icon(iconOf(option), color: colorOf(option)),
-                title: Text(
-                  labelOf(option),
-                  style: const TextStyle(fontSize: 14),
-                ),
-                trailing: option == current
-                    ? const Icon(Icons.check, color: AppColors.themeColor)
-                    : null,
-                onTap: () => Navigator.pop(sheetContext, option),
-              ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
     );
+    if (picked != null) cubit.changePriority(task.code, picked);
   }
 
   Future<void> _showCardActions(BuildContext context, Task task) async {

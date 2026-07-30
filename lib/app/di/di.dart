@@ -52,14 +52,27 @@ import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
 import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
 import '../../domain/features/events/usecases/update_event_usecase.dart';
 import '../../presentation/features/events/cubit/events_cubit.dart';
-import '../../data/features/tasks/datasources/task_local_datasource.dart';
-import '../../data/features/tasks/datasources/task_seed_datasource.dart';
+import '../../data/features/tasks/datasources/task_remote_datasource.dart';
 import '../../data/features/tasks/repositories/task_repository_impl.dart';
 import '../../domain/features/tasks/repositories/task_repository.dart';
+import '../../domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
 import '../../domain/features/tasks/usecases/create_task_usecase.dart';
+import '../../domain/features/tasks/usecases/delete_task_assignment_usecase.dart';
 import '../../domain/features/tasks/usecases/delete_task_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_board_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_occurrence_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_occurrences_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_series_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_usecase.dart';
 import '../../domain/features/tasks/usecases/get_tasks_usecase.dart';
+import '../../domain/features/tasks/usecases/remove_task_assignee_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignee_priority_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_assignment_usecase.dart';
+import '../../domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
+import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
 import '../../data/features/assessments/datasources/assessment_seed_datasource.dart';
@@ -492,23 +505,28 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Tasks (local-first: Isar persistence seeded from bundled mock JSON
-  // until the tasks backend is available — mirrors the Events module).
-  serviceLocator.registerLazySingleton<TaskLocalDataSource>(
-    () => TaskLocalDataSourceImpl(serviceLocator<CacheService>()),
-  );
-  serviceLocator.registerLazySingleton<TaskSeedDataSource>(
-    () => TaskSeedDataSourceImpl(),
+  // Tasks are remote-only (no Isar/mock), live on the events-todo MS.
+  serviceLocator.registerLazySingleton<TaskRemoteDataSource>(
+    () => TaskRemoteDataSourceImpl(
+      serviceLocator<ApiClient>().client,
+      serviceLocator<StorageService>(),
+    ),
   );
   serviceLocator.registerLazySingleton<TaskRepository>(
     () => TaskRepositoryImpl(
-      serviceLocator<TaskLocalDataSource>(),
-      serviceLocator<TaskSeedDataSource>(),
+      serviceLocator<TaskRemoteDataSource>(),
+      serviceLocator<ImageUploadService>(),
       serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<GetTasksUseCase>(
     () => GetTasksUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskSeriesUseCase>(
+    () => GetTaskSeriesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskBoardUseCase>(
+    () => GetTaskBoardUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<CreateTaskUseCase>(
     () => CreateTaskUseCase(serviceLocator()),
@@ -519,15 +537,60 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<DeleteTaskUseCase>(
     () => DeleteTaskUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<RemoveTaskAssigneeUseCase>(
+    () => RemoveTaskAssigneeUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssignmentStatusUseCase>(
+    () => UpdateTaskAssignmentStatusUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadTaskAttachmentUseCase>(
+    () => UploadTaskAttachmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskUseCase>(
+    () => GetTaskUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssigneePriorityUseCase>(
+    () => UpdateTaskAssigneePriorityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskAssignmentUseCase>(
+    () => GetTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskAssignmentUseCase>(
+    () => UpdateTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DeleteTaskAssignmentUseCase>(
+    () => DeleteTaskAssignmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskOccurrencesUseCase>(
+    () => GetTaskOccurrencesUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskOccurrenceUseCase>(
+    () => GetTaskOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UpdateTaskOccurrenceUseCase>(
+    () => UpdateTaskOccurrenceUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CancelTaskOccurrenceUseCase>(
+    () => CancelTaskOccurrenceUseCase(serviceLocator()),
+  );
   // Singleton so the tasks board, detail and form screens (separate routes)
   // share one state and edits reflect everywhere without refetching.
   serviceLocator.registerLazySingleton<TasksCubit>(
     () => TasksCubit(
       serviceLocator<GetTasksUseCase>(),
       serviceLocator<CreateTaskUseCase>(),
-      serviceLocator<UpdateTaskUseCase>(),
       serviceLocator<DeleteTaskUseCase>(),
+      serviceLocator<RemoveTaskAssigneeUseCase>(),
+      serviceLocator<UpdateTaskAssignmentStatusUseCase>(),
+      serviceLocator<UploadTaskAttachmentUseCase>(),
+      serviceLocator<GetAllStaffUseCase>(),
       serviceLocator<StorageService>(),
+      serviceLocator<UpdateTaskAssignmentUseCase>(),
+      serviceLocator<DeleteTaskAssignmentUseCase>(),
+      serviceLocator<GetTaskUseCase>(),
+      serviceLocator<GetTaskOccurrencesUseCase>(),
+      serviceLocator<UpdateTaskOccurrenceUseCase>(),
+      serviceLocator<CancelTaskOccurrenceUseCase>(),
     ),
   );
 

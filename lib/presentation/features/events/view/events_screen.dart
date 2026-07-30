@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/presentation/features/events/widgets/calendar_feed_card.dart';
+import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_filter_sheet.dart';
@@ -568,9 +569,12 @@ class _EventsScreenState extends State<EventsScreen> {
         },
       );
     } else if (item.isTask) {
+      // TaskDetailScreen resolves via TasksState.taskByCode, which matches
+      // the ASSIGNMENT code (TSA_…) — the feed's `code` — not the series
+      // code (TSK_…). The tasks list must be loaded for the lookup to hit.
       context.push(
-        '/dashboard/tasks/detail',
-        extra: <String, dynamic>{'taskCode': item.taskCode},
+        TaskDetailScreen.routeName,
+        extra: <String, dynamic>{'taskCode': item.code},
       );
     }
     // Holidays are read-only on the calendar — no navigation.
@@ -1164,9 +1168,9 @@ class _EventsScreenState extends State<EventsScreen> {
     return Align(
       alignment: Alignment.centerRight,
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
         decoration: BoxDecoration(
-          color: Colors.grey[100],
+          gradient: AppColors.buildPrimaryGradient(),
           borderRadius: BorderRadius.circular(10),
         ),
         child: DropdownButtonHideUnderline(
@@ -1175,12 +1179,32 @@ class _EventsScreenState extends State<EventsScreen> {
                 ? state.selectedYear
                 : currentYear,
             isDense: true,
-            icon: const Icon(Icons.arrow_drop_down, size: 20),
+            dropdownColor: Colors.white,
+            icon: const Icon(
+              Icons.arrow_drop_down,
+              size: 20,
+              color: Colors.white,
+            ),
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
               color: AppColors.primaryColor,
             ),
+            // The closed pill sits on the gradient, so its label is white;
+            // the open menu is on white, so items keep the dark style above.
+            selectedItemBuilder: (context) => [
+              for (final year in years)
+                Center(
+                  child: Text(
+                    '$year',
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+            ],
             items: [
               for (final year in years)
                 DropdownMenuItem<int>(value: year, child: Text('$year')),

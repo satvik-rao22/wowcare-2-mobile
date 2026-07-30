@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -54,6 +55,7 @@ class CoreUtils {
   static String? _lastOnScreenErrorMessage;
   static DateTime? _lastOnScreenErrorAt;
   static OverlayEntry? _activeTopBannerEntry;
+  static Timer? _activeTopBannerTimer;
 
   /// Log API or application errors and optionally surface them in a top banner.
   ///
@@ -193,7 +195,11 @@ class CoreUtils {
     const horizontalMargin = 16.0;
 
     // Ensure only one banner is visible at a time (prevents "double banners"
-    // when multiple events fire back-to-back during login/navigation).
+    // when multiple events fire back-to-back during login/navigation). Cancel
+    // the outgoing banner's own dismiss timer explicitly instead of leaving it
+    // to expire on its own — a bare `Future.delayed` can't be cancelled, so a
+    // fast burst of banners left stale callbacks racing the current one.
+    _activeTopBannerTimer?.cancel();
     if (_activeTopBannerEntry?.mounted == true) {
       _activeTopBannerEntry!.remove();
     }
@@ -265,12 +271,13 @@ class CoreUtils {
     overlay.insert(overlayEntry);
     _activeTopBannerEntry = overlayEntry;
 
-    Future.delayed(duration, () {
-      if (_activeTopBannerEntry == overlayEntry && overlayEntry.mounted) {
+    _activeTopBannerTimer = Timer(duration, () {
+      if (overlayEntry.mounted) {
         overlayEntry.remove();
       }
       if (_activeTopBannerEntry == overlayEntry) {
         _activeTopBannerEntry = null;
+        _activeTopBannerTimer = null;
       }
     });
   }

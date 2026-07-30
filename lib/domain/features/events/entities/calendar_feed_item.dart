@@ -54,6 +54,9 @@ class CalendarFeedItem extends Equatable {
     this.priority = '',
     this.totalAssignees = 0,
     this.completedAssignees = 0,
+    this.assigneeCode = '',
+    this.dueDate,
+    this.overdue = false,
     // Holiday-only
     this.holidayType = '',
   });
@@ -90,6 +93,11 @@ class CalendarFeedItem extends Equatable {
   final String priority;
   final int totalAssignees;
   final int completedAssignees;
+
+  /// Task-occurrence assignee (the feed returns one row per assignee).
+  final String assigneeCode;
+  final DateTime? dueDate;
+  final bool overdue;
 
   final String holidayType;
 
