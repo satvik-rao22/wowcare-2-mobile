@@ -2,6 +2,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/data/features/events/datasources/event_remote_datasource.dart';
 import 'package:wowcare/data/features/events/datasources/holiday_remote_datasource.dart';
 import 'package:wowcare/data/features/events/models/holiday_models.dart';
+import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/domain/features/events/repositories/event_repository.dart';
@@ -15,6 +16,12 @@ import 'package:wowcare/domain/features/events/repositories/event_repository.dar
 /// holiday suite never touches them.
 class FakeEventRepository implements EventRepository {
   // ---- staged results ----
+  List<Event> nextEvents = const [];
+
+  /// One entry per page index; requests beyond the list return empty/none.
+  List<(List<Event>, bool)> pageResults = const [];
+  final List<int> requestedPages = [];
+  DateTime? lastPageFrom;
   List<Holiday> nextHolidays = const [];
   (Holiday, String)? nextCreate;
   (Holiday, String)? nextUpdate;
@@ -98,9 +105,39 @@ class FakeEventRepository implements EventRepository {
     return nextDeleteMessage;
   }
 
-  // ---- events: only getEvents is exercised (by cubit.load) ----
+  // ---- events ----
   @override
-  Future<List<Event>> getEvents() async => const [];
+  Future<List<Event>> getEvents({
+    required DateTime from,
+    required DateTime to,
+    String partyCode = '',
+  }) async {
+    _maybeThrow();
+    return nextEvents;
+  }
+
+  @override
+  Future<(List<Event>, bool)> getEventsPage({
+    required DateTime from,
+    required DateTime to,
+    required int page,
+    int size = 10,
+    String partyCode = '',
+  }) async {
+    _maybeThrow();
+    requestedPages.add(page);
+    lastPageFrom = from;
+    if (page >= pageResults.length) return (const <Event>[], false);
+    return pageResults[page];
+  }
+
+  @override
+  Future<List<CalendarFeedItem>> getCalendarFeed({
+    required DateTime from,
+    required DateTime to,
+    required String scope,
+    String partyCode = '',
+  }) async => const [];
 
   @override
   Future<Event?> getEventByCode(String code) async => null;
@@ -109,15 +146,40 @@ class FakeEventRepository implements EventRepository {
   Future<Event> createEvent(Event event) => throw UnimplementedError();
 
   @override
-  Future<Event> updateEvent(Event event) => throw UnimplementedError();
+  Future<Event> updateEvent(
+    Event event, {
+    String splitFromOccurrenceCode = '',
+  }) => throw UnimplementedError();
 
   @override
-  Future<void> deleteEvent(String code) => throw UnimplementedError();
+  Future<void> deleteEvent(String code, {String fromOccurrenceCode = ''}) =>
+      throw UnimplementedError();
 
   @override
-  Future<Event> respondToEvent({
+  Future<void> respondToOccurrence({
     required String eventCode,
-    required EventRsvp rsvp,
+    required String occurrenceCode,
+    required String partyCode,
+    required String partyType,
+    required EventRsvpStatus status,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> updateOccurrence({
+    required String eventCode,
+    required String occurrenceCode,
+    String? overrideName,
+    String? overrideDescription,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<void> cancelOccurrence({
+    required String eventCode,
+    required String occurrenceCode,
+    String reason = '',
   }) => throw UnimplementedError();
 }
 

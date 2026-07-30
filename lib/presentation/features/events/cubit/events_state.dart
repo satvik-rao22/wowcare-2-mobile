@@ -16,6 +16,12 @@ class EventsState extends Equatable {
     required this.currentUserCode,
     required this.currentUserName,
     this.currentStaffCode = '',
+    this.currentGuardianCode = '',
+    this.schoolName = '',
+    this.isLoadingMore = false,
+    this.hasMoreEvents = true,
+    this.calendarItems = const <CalendarFeedItem>[],
+    this.calendarLoading = false,
     this.errorMessage,
   });
 
@@ -34,6 +40,12 @@ class EventsState extends Equatable {
         currentUserCode = '',
         currentUserName = '',
         currentStaffCode = '',
+        currentGuardianCode = '',
+        schoolName = '',
+        isLoadingMore = false,
+        hasMoreEvents = true,
+        calendarItems = const <CalendarFeedItem>[],
+        calendarLoading = false,
         errorMessage = null;
 
   final List<Event> events;
@@ -65,7 +77,65 @@ class EventsState extends Equatable {
   /// empty for guardians or when not resolved yet. Used to match the user
   /// against event staff attendees / `createdBy`.
   final String currentStaffCode;
+
+  /// Guardian record code of the logged-in parent; empty for staff/admin
+  /// personas. RSVP roster rows are keyed by party code (staff or
+  /// guardian), so "my RSVP" lookups check these identities.
+  final String currentGuardianCode;
+
+  /// Display name of the active school — shown as the audience of
+  /// school-wide events. Empty until resolved from storage.
+  final String schoolName;
+
+  /// Grid/list infinite scroll: a next page is being fetched (bottom
+  /// spinner) / more pages exist.
+  final bool isLoadingMore;
+  final bool hasMoreEvents;
+
+  /// Unified calendar-feed rows (events + tasks + holidays) for the
+  /// calendar view. Distinct from [events] (rich occurrences) which back
+  /// the grid/list views.
+  final List<CalendarFeedItem> calendarItems;
+  final bool calendarLoading;
+
   final String? errorMessage;
+
+  /// Feed rows on [day], all kinds, sorted all-day-first then by time.
+  List<CalendarFeedItem> calendarItemsOn(DateTime day) {
+    final matches = calendarItems.where((i) => i.occursOn(day)).toList()
+      ..sort((a, b) {
+        if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
+        return a.startTime.compareTo(b.startTime);
+      });
+    return matches;
+  }
+
+  bool calendarHasItems(DateTime day) =>
+      calendarItems.any((i) => i.occursOn(day));
+
+  /// Whether the current user is on [occurrence]'s participant roster
+  /// (staff or parent — students never RSVP). The roster comes fully
+  /// hydrated with every occurrence row, so this is a local check.
+  bool isParticipant(Event occurrence) {
+    final staffCode = currentStaffCode.trim();
+    if (staffCode.isNotEmpty &&
+        occurrence.staff.any((s) => s.code == staffCode)) {
+      return true;
+    }
+    final guardianCode = currentGuardianCode.trim();
+    return guardianCode.isNotEmpty &&
+        occurrence.parents.any((p) => p.code == guardianCode);
+  }
+
+  /// The occurrence row with [occurrenceCode]; falls back to the first
+  /// row of [eventCode] (e.g. optimistic rows without occurrence codes).
+  Event? eventByOccurrence(String occurrenceCode, {String eventCode = ''}) {
+    final trimmed = occurrenceCode.trim();
+    for (final event in events) {
+      if (trimmed.isNotEmpty && event.occurrenceCode == trimmed) return event;
+    }
+    return eventCode.trim().isEmpty ? null : eventByCode(eventCode);
+  }
 
   bool get isSearching => searchQuery.length >= 2;
 
@@ -87,24 +157,20 @@ class EventsState extends Equatable {
           !event.classrooms.any((c) => classroomFilter.contains(c.code))) {
         return false;
       }
-      if (dateFrom != null) {
-        // Recurring events still match if any occurrence can fall in range.
-        final lastDay = event.recurring
-            ? (event.recurringEndDate ?? dateFrom!)
-            : event.date;
-        if (lastDay.isBefore(dateFrom!)) return false;
-      }
+      // Occurrence rows carry their own concrete date — range-match it
+      // directly (no series expansion involved).
+      if (dateFrom != null && event.date.isBefore(dateFrom!)) return false;
       if (dateTo != null && event.date.isAfter(dateTo!)) return false;
       return true;
     }).toList();
   }
 
-  /// Upcoming (not-yet-completed) filtered events, ordered by occurrence
-  /// date ascending then start time — today's events first, then the next
-  /// day, and so on (FR list-view sort).
+  /// Upcoming filtered occurrences ordered date-wise (every occurrence is
+  /// its own card on the list/grid views, like the calendar).
   List<Event> get upcomingEvents {
     final now = DateTime.now();
-    return filteredEvents.where((e) => !e.isCompletedAsOf(now)).toList()
+    final today = DateTime(now.year, now.month, now.day);
+    return filteredEvents.where((e) => !e.date.isBefore(today)).toList()
       ..sort((a, b) {
         final byDate = a.date.compareTo(b.date);
         if (byDate != 0) return byDate;
@@ -112,24 +178,29 @@ class EventsState extends Equatable {
       });
   }
 
-  /// Completed (fully past) filtered events, most recently completed first.
-  /// Backs the collapsible "Completed Events" section.
+  /// Past filtered occurrences, most recent first. Backs the collapsible
+  /// "Completed Events" section.
   List<Event> get completedEvents {
     final now = DateTime.now();
-    return filteredEvents.where((e) => e.isCompletedAsOf(now)).toList()
+    final today = DateTime(now.year, now.month, now.day);
+    return filteredEvents.where((e) => e.date.isBefore(today)).toList()
       ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   /// Whether [event] belongs to the current user's "My Events" scope:
-  /// created by them, invites them as staff, or is school-wide. Permissive
-  /// when the user identity hasn't resolved yet.
+  /// created by them, or they are on the occurrence roster (staff or
+  /// parent — the server resolves audience expansion). Permissive when the
+  /// user identity hasn't resolved yet.
   bool _isMine(Event event) {
     final codes = <String>{currentUserCode, currentStaffCode}
       ..removeWhere((code) => code.isEmpty);
-    if (codes.isEmpty) return true;
+    final guardianCode = currentGuardianCode.trim();
+    if (codes.isEmpty && guardianCode.isEmpty) return true;
     if (event.type == EventType.school) return true;
     if (codes.contains(event.createdBy)) return true;
-    return event.staff.any((s) => codes.contains(s.code));
+    if (event.staff.any((s) => codes.contains(s.code))) return true;
+    return guardianCode.isNotEmpty &&
+        event.parents.any((p) => p.code == guardianCode);
   }
 
   /// Filtered events matching the search query in name or description.
@@ -210,7 +281,11 @@ class EventsState extends Equatable {
     final byCode = <String, EventAttendee>{};
     for (final event in events) {
       for (final classroom in event.classrooms) {
-        byCode[classroom.code] = classroom;
+        // API events carry codes without names — fall back to the code so
+        // the filter sheet never shows a blank chip.
+        byCode[classroom.code] = classroom.name.trim().isNotEmpty
+            ? classroom
+            : EventAttendee(code: classroom.code, name: classroom.code);
       }
     }
     final options = byCode.values.toList()
@@ -247,6 +322,12 @@ class EventsState extends Equatable {
     String? currentUserCode,
     String? currentUserName,
     String? currentStaffCode,
+    String? currentGuardianCode,
+    String? schoolName,
+    bool? isLoadingMore,
+    bool? hasMoreEvents,
+    List<CalendarFeedItem>? calendarItems,
+    bool? calendarLoading,
     String? Function()? errorMessage,
   }) {
     return EventsState(
@@ -264,6 +345,12 @@ class EventsState extends Equatable {
       currentUserCode: currentUserCode ?? this.currentUserCode,
       currentUserName: currentUserName ?? this.currentUserName,
       currentStaffCode: currentStaffCode ?? this.currentStaffCode,
+      currentGuardianCode: currentGuardianCode ?? this.currentGuardianCode,
+      schoolName: schoolName ?? this.schoolName,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMoreEvents: hasMoreEvents ?? this.hasMoreEvents,
+      calendarItems: calendarItems ?? this.calendarItems,
+      calendarLoading: calendarLoading ?? this.calendarLoading,
       errorMessage:
           errorMessage != null ? errorMessage() : this.errorMessage,
     );
@@ -285,6 +372,12 @@ class EventsState extends Equatable {
         currentUserCode,
         currentUserName,
         currentStaffCode,
+        currentGuardianCode,
+        schoolName,
+        isLoadingMore,
+        hasMoreEvents,
+        calendarItems,
+        calendarLoading,
         errorMessage,
       ];
 }

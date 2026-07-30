@@ -446,12 +446,17 @@ final GoRouter appRouter = GoRouter(
                   path: 'events/detail',
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
+                    // Occurrence rows arrive fully hydrated (roster, names,
+                    // myRsvp) — the detail screen needs no extra cubits or
+                    // hydration calls.
                     return _fastPage(
                       state,
                       BlocProvider<EventsCubit>.value(
                         value: serviceLocator<EventsCubit>(),
                         child: EventDetailScreen(
                           eventCode: args?['eventCode'] as String? ?? '',
+                          occurrenceCode:
+                              args?['occurrenceCode'] as String? ?? '',
                         ),
                       ),
                     );
@@ -493,6 +498,13 @@ final GoRouter appRouter = GoRouter(
                         child: EventFormScreen(
                           eventCode: args?['eventCode'] as String?,
                           initialDate: initialDate,
+                          splitFromOccurrenceCode:
+                              args?['splitFromOccurrence'] as String?,
+                          splitFromDate: DateTime.tryParse(
+                            args?['splitFromDate'] as String? ?? '',
+                          ),
+                          editOccurrenceCode:
+                              args?['editOccurrence'] as String?,
                         ),
                       ),
                     );
@@ -528,8 +540,13 @@ final GoRouter appRouter = GoRouter(
                     return _fastPage(
                       state,
                       BlocProvider<TasksCubit>.value(
+                        // Loaded silently as well: opening this screen
+                        // directly from the calendar feed skips the Tasks
+                        // tab, so the list may still be empty and
+                        // taskByCode would miss.
                         value: serviceLocator<TasksCubit>()
-                          ..applyPersona(context.read<RoleCubit>().role),
+                          ..applyPersona(context.read<RoleCubit>().role)
+                          ..load(silent: true),
                         child: TaskDetailScreen(
                           taskCode: args?['taskCode'] as String? ?? '',
                         ),

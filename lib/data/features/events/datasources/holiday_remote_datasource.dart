@@ -5,10 +5,11 @@ import '../../../../core/util/api_paths.dart';
 import '../../../../domain/features/events/entities/holiday.dart';
 import '../models/holiday_models.dart';
 
-/// Talks to the Holidays API on the scheduler microservice
+/// Talks to the Holidays API on the Events/Todo microservice
 /// (`/api/v1/holidays`). Org/school scoping headers are attached globally by
-/// [AuthInterceptor]; only the per-request `If-Match` header is set here for
-/// optimistic locking on `PATCH` endpoints.
+/// [AuthInterceptor]. V14 of the API removed If-Match / ETag optimistic
+/// locking — the `version` params are kept for signature stability but no
+/// longer sent.
 abstract class HolidayRemoteDataSource {
   /// `GET /api/v1/holidays?year=&type=&status=`. Flattens the grouped
   /// response (`pendingFederal` + `active` + `rejectedFederal`).
@@ -140,11 +141,7 @@ class HolidayRemoteDataSourceImpl implements HolidayRemoteDataSource {
       },
     };
 
-    final response = await _client.patch<dynamic>(
-      endpoint,
-      data: body,
-      options: _ifMatch(version),
-    );
+    final response = await _client.patch<dynamic>(endpoint, data: body);
 
     return _parseSingle(
       response.data,
@@ -167,7 +164,6 @@ class HolidayRemoteDataSourceImpl implements HolidayRemoteDataSource {
     final response = await _client.patch<dynamic>(
       endpoint,
       data: <String, dynamic>{'action': action.value},
-      options: _ifMatch(version),
     );
 
     return _parseSingle(
@@ -191,9 +187,6 @@ class HolidayRemoteDataSourceImpl implements HolidayRemoteDataSource {
     }
     return 'Holiday deleted successfully';
   }
-
-  Options _ifMatch(int version) =>
-      Options(headers: <String, dynamic>{'If-Match': version.toString()});
 
   static List<HolidayModel> _parseList(dynamic raw) {
     if (raw is! Map<String, dynamic>) return const <HolidayModel>[];

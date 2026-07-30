@@ -9,6 +9,9 @@ import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
+import 'package:wowcare/presentation/features/events/utils/recurrence_summary.dart';
+import 'package:wowcare/presentation/features/events/widgets/entity_list_sheet.dart';
+import 'package:wowcare/presentation/features/events/widgets/occurrence_scope_sheet.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_rsvp_bar.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_rsvp_summary.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_type_chip.dart';
@@ -16,11 +19,19 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 class EventDetailScreen extends StatelessWidget {
-  const EventDetailScreen({required this.eventCode, super.key});
+  const EventDetailScreen({
+    required this.eventCode,
+    this.occurrenceCode = '',
+    super.key,
+  });
 
   static const String routeName = '/dashboard/events/detail';
 
   final String eventCode;
+
+  /// The specific occurrence being viewed (occurrence-based reads return
+  /// one row per occurrence). Empty falls back to the series' first row.
+  final String occurrenceCode;
 
   @override
   Widget build(BuildContext context) {
@@ -31,7 +42,8 @@ class EventDetailScreen extends StatelessWidget {
       showCustomNavigationBar: false,
       body: BlocBuilder<EventsCubit, EventsState>(
         builder: (context, state) {
-          final event = state.eventByCode(eventCode);
+          final event =
+              state.eventByOccurrence(occurrenceCode, eventCode: eventCode);
           if (event == null) {
             // Deleted (possibly by this screen) or unknown code.
             return const Center(
@@ -48,12 +60,9 @@ class EventDetailScreen extends StatelessWidget {
             userCode: state.currentUserCode,
             staffCode: state.currentStaffCode,
           );
-          final canRsvp = EventAccess.canRsvp(
-            roles: roles,
-            event: event,
-            userCode: state.currentUserCode,
-            staffCode: state.currentStaffCode,
-          );
+          // Occurrence rows carry the full roster — only people on it may
+          // RSVP (server rule; students respond implicitly, never manually).
+          final canRsvp = state.isParticipant(event);
           final canSeeSummary = EventAccess.canSeeRsvpSummary(roles);
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
@@ -78,7 +87,7 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 10),
-                _attendeesCard(event),
+                _attendeesCard(context, state, event),
                 if (event.attachmentName != null &&
                     event.attachmentName!.isNotEmpty) ...[
                   const SizedBox(height: 10),
@@ -134,10 +143,7 @@ class EventDetailScreen extends StatelessWidget {
               color: AppColors.themeColor,
               size: 22,
             ),
-            onPressed: () => context.push(
-              EventFormScreen.routeName,
-              extra: <String, dynamic>{'eventCode': event.code},
-            ),
+            onPressed: () => _onEditPressed(context, event),
           ),
           IconButton(
             tooltip: 'Delete event',
@@ -146,7 +152,7 @@ class EventDetailScreen extends StatelessWidget {
               color: AppColors.errorColor,
               size: 22,
             ),
-            onPressed: () => _confirmDelete(context, event),
+            onPressed: () => _onDeletePressed(context, event),
           ),
         ],
       ],
@@ -165,14 +171,14 @@ class EventDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           _infoRow(Icons.access_time, EventUiUtils.timeLabel(event)),
-          if (event.recurring && event.recurringPattern != null) ...[
+          if (event.recurring && event.recurrence != null) ...[
             const SizedBox(height: 6),
             _infoRow(
               Icons.repeat,
-              event.recurringEndDate != null
-                  ? '${event.recurringPattern!.label} until '
-                        '${DateFormat('MMM d, yyyy').format(event.recurringEndDate!)}'
-                  : event.recurringPattern!.label,
+              RecurrenceSummary.describe(
+                rule: event.recurrence!,
+                startDate: event.date,
+              ),
             ),
           ],
         ],
@@ -180,86 +186,160 @@ class EventDetailScreen extends StatelessWidget {
     );
   }
 
-  Widget _attendeesCard(Event event) {
+  /// Compact group tiles instead of chip walls — one row per audience
+  /// group ("Students (150)") that opens a member bottom sheet on tap,
+  /// consistent with the create-form pickers and identical across event
+  /// types. The occurrence row carries the fully hydrated roster (incl.
+  /// the parent list) with per-person RSVPs — no lookups needed.
+  Widget _attendeesCard(BuildContext context, EventsState state, Event event) {
+    final classrooms = event.classrooms;
+    final students = event.students;
+    final staff = event.staff;
+    final guardians = event.parents;
+    final rsvpByCode = {for (final r in event.rsvps) r.userCode: r};
+    final childNames = {
+      for (final s in event.students)
+        if (s.name.isNotEmpty) s.code: s.name,
+    };
+
     return _sectionCard(
       title: 'Attendees',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            EventUiUtils.audienceSummary(event),
-            style: TextStyle(fontSize: 12.5, color: Colors.grey[700]),
-          ),
-          if (event.classrooms.isNotEmpty)
-            _attendeeChips(
-              'Classrooms',
-              event.classrooms,
-              EventUiUtils.typeColor(EventType.classroom),
+          if (classrooms.isNotEmpty)
+            _attendeeGroupTile(
+              context,
+              label: 'Classrooms',
+              icon: EventUiUtils.typeIcon(EventType.classroom),
+              color: EventUiUtils.typeColor(EventType.classroom),
+              attendees: classrooms,
+              rsvpByCode: const {},
             ),
-          if (event.students.isNotEmpty)
-            _attendeeChips(
-              'Students',
-              event.students,
-              EventUiUtils.typeColor(EventType.student),
+          if (students.isNotEmpty)
+            _attendeeGroupTile(
+              context,
+              label: 'Students',
+              icon: EventUiUtils.typeIcon(EventType.student),
+              color: EventUiUtils.typeColor(EventType.student),
+              attendees: students,
+              rsvpByCode: rsvpByCode,
             ),
-          if (event.staff.isNotEmpty)
-            _attendeeChips(
-              'Staff',
-              event.staff,
-              EventUiUtils.typeColor(EventType.staff),
+          if (staff.isNotEmpty)
+            _attendeeGroupTile(
+              context,
+              label: 'Staff',
+              icon: EventUiUtils.typeIcon(EventType.staff),
+              color: EventUiUtils.typeColor(EventType.staff),
+              attendees: staff,
+              rsvpByCode: rsvpByCode,
+            ),
+          if (event.includeParents || guardians.isNotEmpty)
+            _attendeeGroupTile(
+              context,
+              label: 'Parents',
+              icon: Icons.family_restroom_outlined,
+              color: EventUiUtils.typeColor(EventType.individual),
+              attendees: guardians,
+              rsvpByCode: rsvpByCode,
+              childNameByCode: childNames,
+              countLabel: guardians.isEmpty ? 'invited' : null,
+              emptyHint:
+                  'All parents of invited students are welcome. Responses '
+                  'will appear here as parents RSVP.',
             ),
         ],
       ),
     );
   }
 
-  Widget _attendeeChips(
-    String label,
-    List<EventAttendee> attendees,
-    Color color,
-  ) {
+  Widget _attendeeGroupTile(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required Color color,
+    required List<EventAttendee> attendees,
+    required Map<String, EventRsvp> rsvpByCode,
+    Map<String, String> childNameByCode = const {},
+    String? countLabel,
+    String? emptyHint,
+  }) {
     return Padding(
-      padding: const EdgeInsets.only(top: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: Colors.black54,
-            ),
+      padding: const EdgeInsets.only(top: 8),
+      child: Material(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(10),
+          onTap: () => _showAttendeeGroupSheet(
+            context,
+            label: label,
+            color: color,
+            icon: icon,
+            attendees: attendees,
+            rsvpByCode: rsvpByCode,
+            childNameByCode: childNameByCode,
+            emptyHint: emptyHint,
           ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (final attendee in attendees)
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: color.withValues(alpha: 0.3)),
-                  ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                Icon(icon, size: 18, color: color),
+                const SizedBox(width: 10),
+                Expanded(
                   child: Text(
-                    attendee.name.isNotEmpty ? attendee.name : attendee.code,
+                    label,
                     style: TextStyle(
-                      fontSize: 12,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
                       color: color,
-                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
-            ],
+                Text(
+                  countLabel ?? '${attendees.length}',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.grey[700],
+                  ),
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right, size: 18, color: Colors.grey[500]),
+              ],
+            ),
           ),
-        ],
+        ),
       ),
+    );
+  }
+
+  void _showAttendeeGroupSheet(
+    BuildContext context, {
+    required String label,
+    required IconData icon,
+    required Color color,
+    required List<EventAttendee> attendees,
+    required Map<String, EventRsvp> rsvpByCode,
+    Map<String, String> childNameByCode = const {},
+    String? emptyHint,
+  }) {
+    showEntityListSheet(
+      context,
+      title: label,
+      icon: icon,
+      color: color,
+      emptyHint: emptyHint,
+      items: [
+        for (final attendee in attendees)
+          EntityListItem(
+            name: attendee.name.isNotEmpty ? attendee.name : attendee.code,
+            // Parent rows carry the linked child's code — show the child.
+            subtitle: childNameByCode[attendee.linkedCode] ?? '',
+            rsvp: rsvpByCode[attendee.code]?.status,
+          ),
+      ],
     );
   }
 
@@ -295,7 +375,7 @@ class EventDetailScreen extends StatelessWidget {
     required bool canRsvp,
     required bool canSeeSummary,
   }) {
-    final myRsvp = event.rsvpFor(state.currentUserCode);
+    final myRsvp = event.myRsvpStatus;
     return _sectionCard(
       title: canRsvp ? 'Your RSVP' : 'RSVP',
       child: Column(
@@ -303,10 +383,10 @@ class EventDetailScreen extends StatelessWidget {
         children: [
           if (canRsvp)
             EventRsvpBar(
-              selected: myRsvp?.status,
+              selected: myRsvp,
               onChanged: (status) async {
                 final (ok, message) = await context.read<EventsCubit>().respond(
-                  eventCode: event.code,
+                  occurrence: event,
                   status: status,
                   userType: isParent ? 'PARENT' : 'STAFF',
                 );
@@ -407,6 +487,132 @@ class EventDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           child,
+        ],
+      ),
+    );
+  }
+
+  /// Recurring events ask which scope the edit targets: a slim
+  /// single-occurrence editor (THIS_ONLY override), the full form applied
+  /// from this occurrence onward (THIS_AND_FUTURE — splits the series), or
+  /// the full form for the entire series. One-off events go straight to
+  /// the form.
+  Future<void> _onEditPressed(BuildContext context, Event event) async {
+    if (!event.recurring || event.occurrenceCode.isEmpty) {
+      context.push(
+        EventFormScreen.routeName,
+        extra: <String, dynamic>{'eventCode': event.code},
+      );
+      return;
+    }
+    final scope = await showOccurrenceScopeSheet(
+      context,
+      title: 'Edit recurring event',
+      icon: Icons.edit_outlined,
+    );
+    if (scope == null || !context.mounted) return;
+    if (scope == OccurrenceScope.wholeSeries) {
+      context.push(
+        EventFormScreen.routeName,
+        extra: <String, dynamic>{'eventCode': event.code},
+      );
+      return;
+    }
+    if (scope == OccurrenceScope.thisAndFuture) {
+      context.push(
+        EventFormScreen.routeName,
+        extra: <String, dynamic>{
+          'eventCode': event.code,
+          'splitFromOccurrence': event.occurrenceCode,
+          'splitFromDate': event.date.toIso8601String(),
+        },
+      );
+      return;
+    }
+    // THIS_ONLY also uses the full edit screen (occurrence mode).
+    context.push(
+      EventFormScreen.routeName,
+      extra: <String, dynamic>{
+        'eventCode': event.code,
+        'editOccurrence': event.occurrenceCode,
+      },
+    );
+  }
+
+  /// Recurring events choose between cancelling this occurrence (with an
+  /// optional reason), cancelling this and every later one
+  /// (THIS_AND_FUTURE — e.g. an admin stopping the event from next month),
+  /// or deleting the whole series; one-off events keep the plain confirm
+  /// dialog.
+  Future<void> _onDeletePressed(BuildContext context, Event event) async {
+    if (!event.recurring || event.occurrenceCode.isEmpty) {
+      await _confirmDelete(context, event);
+      return;
+    }
+    final scope = await showOccurrenceScopeSheet(
+      context,
+      title: 'Delete recurring event',
+      icon: Icons.delete_outline,
+    );
+    if (scope == null || !context.mounted) return;
+    if (scope == OccurrenceScope.wholeSeries) {
+      await _confirmDelete(context, event);
+      return;
+    }
+    if (scope == OccurrenceScope.thisAndFuture) {
+      final confirmed = await _confirmFromHere(context, event);
+      if (confirmed != true || !context.mounted) return;
+      final (ok, message) =
+          await context.read<EventsCubit>().deleteFromOccurrence(event);
+      if (!context.mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isSuccess: ok,
+        isError: !ok,
+      );
+      if (ok) context.pop();
+      return;
+    }
+    final reason = await promptOccurrenceCancelReason(context);
+    if (reason == null || !context.mounted) return;
+    final (ok, message) = await context.read<EventsCubit>().cancelOccurrence(
+      eventCode: event.code,
+      occurrenceCode: event.occurrenceCode,
+      reason: reason,
+    );
+    if (!context.mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: message,
+      isSuccess: ok,
+      isError: !ok,
+    );
+    if (ok) context.pop();
+  }
+
+  Future<bool?> _confirmFromHere(BuildContext context, Event event) {
+    return showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete this and future events?'),
+        content: Text(
+          '"${event.name}" will be cancelled from '
+          '${DateFormat('MMM d, yyyy').format(event.date)} to the end of '
+          'the series. Earlier events stay on the calendar.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep events'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text(
+              'Delete from here',
+              style: TextStyle(color: AppColors.errorColor),
+            ),
+          ),
         ],
       ),
     );

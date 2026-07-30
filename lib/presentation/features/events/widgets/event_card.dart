@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/presentation/features/events/utils/recurrence_summary.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_rsvp_bar.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_type_chip.dart';
 
@@ -11,12 +12,20 @@ class EventCard extends StatelessWidget {
   const EventCard({
     required this.event,
     required this.onTap,
+    this.myRsvp,
+    this.onRsvp,
     this.showRsvpCounts = false,
     super.key,
   });
 
   final Event event;
   final VoidCallback onTap;
+  /// The current user's RSVP on this occurrence, shown pre-selected.
+  final EventRsvpStatus? myRsvp;
+
+  /// Null when the current user isn't on the occurrence roster — the RSVP
+  /// bar is hidden then (only participants may respond).
+  final ValueChanged<EventRsvpStatus>? onRsvp;
   final bool showRsvpCounts;
 
   @override
@@ -92,7 +101,7 @@ class EventCard extends StatelessWidget {
                           Icon(Icons.repeat, size: 13, color: Colors.grey[600]),
                           const SizedBox(width: 2),
                           Text(
-                            event.recurringPattern?.label ?? '',
+                            RecurrenceSummary.compact(event.recurrence),
                             style:
                                 TextStyle(fontSize: 11, color: Colors.grey[600]),
                           ),
@@ -106,6 +115,14 @@ class EventCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
                     ),
+                    if (onRsvp != null) ...[
+                      const SizedBox(height: 8),
+                      EventRsvpBar(
+                        selected: myRsvp,
+                        onChanged: onRsvp!,
+                        dense: true,
+                      ),
+                    ],
                     if (showRsvpCounts && event.rsvps.isNotEmpty) ...[
                       const SizedBox(height: 6),
                       Row(

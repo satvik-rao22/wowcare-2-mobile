@@ -231,6 +231,12 @@ class ApiPaths {
       case 'messages':
         return ApiMicroservices.communication;
       case 'holidays':
+      // `/api/v1/events/...`, `/api/v1/occurrences` and
+      // `/api/v1/calendar/...` live on the Events/Todo MS alongside
+      // holidays.
+      case 'events':
+      case 'occurrences':
+      case 'calendar':
       case 'tasks':
         return ApiMicroservices.eventsTodo;
       case 'newsletters':
@@ -912,6 +918,39 @@ class ApiPaths {
   /// GET /api/v1/newsletters/{code}
   static String newsletterByCode(String code) =>
       '/api/v1/newsletters/${Uri.encodeComponent(code.trim())}';
+
+  // —— Scheduler MS — Events (Events, Tasks & School Calendar) ——
+  /// `GET`/`POST` `/api/v1/events`. List supports
+  /// `?type=&fromDate=&toDate=&name=&recurringFlag=&createdBy=&page=&size=`.
+  static const String events = '/api/v1/events';
+
+  /// `GET`/`PATCH`/`DELETE` `/api/v1/events/{code}`.
+  static String eventByCode(String code) =>
+      '$events/${Uri.encodeComponent(code.trim())}';
+
+  /// `GET /api/v1/events/{code}/occurrences` — occurrence rows of a
+  /// series; carries `myRsvp` when `X-Party-Code` is sent.
+  static String eventOccurrences(String code) =>
+      '${eventByCode(code)}/occurrences';
+
+  /// `POST /api/v1/events/{code}/occurrences/{occ}/rsvp` — upsert RSVP.
+  static String occurrenceRsvp(String code, String occurrenceCode) =>
+      '${eventOccurrences(code)}/${Uri.encodeComponent(occurrenceCode.trim())}/rsvp';
+
+  /// `GET /api/v1/events/{code}/occurrences/{occ}/rsvps` — roster grouped
+  /// by party type (staffs/students/guardians) with counts.
+  static String occurrenceRsvps(String code, String occurrenceCode) =>
+      '${occurrenceRsvp(code, occurrenceCode)}s';
+
+  /// `GET /api/v1/occurrences?fromDate=&toDate=&type=&classroomCode=&`
+  /// `participantCode=&name=&status=&page=&size=&sort=` — the rich
+  /// occurrence view (display fields + myRsvp + rsvpSummary +
+  /// participants) that backs every read screen.
+  static const String occurrencesView = '/api/v1/occurrences';
+
+  /// `GET /api/v1/calendar/feed?fromDate=&toDate=&scope=&include=&...` —
+  /// unified calendar feed of events + tasks + holidays.
+  static const String calendarFeed = '/api/v1/calendar/feed';
 
   // —— Scheduler MS — Holidays (Events, Tasks & School Calendar) ——
   /// `GET`/`POST` `/api/v1/holidays`. List supports `?year=&type=&status=`.

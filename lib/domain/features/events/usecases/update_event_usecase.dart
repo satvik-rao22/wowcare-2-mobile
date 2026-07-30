@@ -6,7 +6,13 @@ class UpdateEventUseCase {
 
   final EventRepository _repository;
 
-  Future<Event> call(Event event) {
-    return _repository.updateEvent(event);
+  /// Updates the whole series, or — with [splitFromOccurrenceCode] —
+  /// splits it at that occurrence (THIS_AND_FUTURE) so changes apply from
+  /// that date onward; the returned event is the NEW series.
+  Future<Event> call(Event event, {String splitFromOccurrenceCode = ''}) {
+    return _repository.updateEvent(
+      event,
+      splitFromOccurrenceCode: splitFromOccurrenceCode,
+    );
   }
 }

@@ -339,14 +339,23 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
       child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: () async {
-          final picked = await showDatePicker(
+          // Both fields open one range picker — from/to are set together.
+          final cubit = context.read<EventsCubit>();
+          final state = cubit.state;
+          final range = await showDateRangePicker(
             context: context,
-            initialDate: value ?? DateTime.now(),
+            initialDateRange: state.dateFrom != null && state.dateTo != null
+                ? DateTimeRange(start: state.dateFrom!, end: state.dateTo!)
+                : null,
             firstDate: DateTime(DateTime.now().year - 2),
             lastDate: DateTime(DateTime.now().year + 3),
           );
-          if (picked != null) {
-            onPicked(DateTime(picked.year, picked.month, picked.day));
+          if (range != null) {
+            cubit.setDateRange(
+              from: DateTime(
+                range.start.year, range.start.month, range.start.day),
+              to: DateTime(range.end.year, range.end.month, range.end.day),
+            );
           }
         },
         child: Padding(

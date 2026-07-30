@@ -1,5 +1,6 @@
 import 'package:wowcare/data/features/events/datasources/event_remote_datasource.dart';
 import 'package:wowcare/data/features/events/datasources/holiday_remote_datasource.dart';
+import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/domain/features/events/repositories/event_repository.dart';
@@ -19,13 +20,54 @@ class EventRepositoryImpl implements EventRepository {
   // --------------------------------------------------------------- events
 
   @override
-  Future<List<Event>> getEvents() async {
-    final models = await _eventRemoteDataSource.getEvents();
+  Future<List<Event>> getEvents({
+    required DateTime from,
+    required DateTime to,
+    String partyCode = '',
+  }) async {
+    final models = await _eventRemoteDataSource.getOccurrencesWindow(
+      from: from,
+      to: to,
+      partyCode: partyCode,
+    );
     return models.map((m) => m.toEntity()).toList()..sort((a, b) {
       final byDate = a.date.compareTo(b.date);
       if (byDate != 0) return byDate;
       return a.startTime.compareTo(b.startTime);
     });
+  }
+
+  @override
+  Future<(List<Event>, bool)> getEventsPage({
+    required DateTime from,
+    required DateTime to,
+    required int page,
+    int size = 10,
+    String partyCode = '',
+  }) async {
+    final (models, hasMore) = await _eventRemoteDataSource.getOccurrencesPage(
+      from: from,
+      to: to,
+      page: page,
+      size: size,
+      partyCode: partyCode,
+    );
+    return (models.map((m) => m.toEntity()).toList(), hasMore);
+  }
+
+  @override
+  Future<List<CalendarFeedItem>> getCalendarFeed({
+    required DateTime from,
+    required DateTime to,
+    required String scope,
+    String partyCode = '',
+  }) {
+    return _eventRemoteDataSource.getCalendarFeed(
+      from: from,
+      to: to,
+      scope: scope,
+      partyCode: partyCode,
+    );
   }
 
   @override
@@ -43,26 +85,74 @@ class EventRepositoryImpl implements EventRepository {
   }
 
   @override
-  Future<Event> updateEvent(Event event) async {
-    final model = await _eventRemoteDataSource.updateEvent(event);
-    return model.toEntity();
-  }
-
-  @override
-  Future<void> deleteEvent(String code) {
-    return _eventRemoteDataSource.deleteEvent(code.trim());
-  }
-
-  @override
-  Future<Event> respondToEvent({
-    required String eventCode,
-    required EventRsvp rsvp,
+  Future<Event> updateEvent(
+    Event event, {
+    String splitFromOccurrenceCode = '',
   }) async {
-    final model = await _eventRemoteDataSource.respondToEvent(
-      eventCode: eventCode,
-      rsvp: rsvp,
+    final model = await _eventRemoteDataSource.updateEvent(
+      event,
+      splitFromOccurrenceCode: splitFromOccurrenceCode,
     );
     return model.toEntity();
+  }
+
+  @override
+  Future<void> deleteEvent(String code, {String fromOccurrenceCode = ''}) {
+    return _eventRemoteDataSource.deleteEvent(
+      code.trim(),
+      fromOccurrenceCode: fromOccurrenceCode,
+    );
+  }
+
+  @override
+  Future<void> respondToOccurrence({
+    required String eventCode,
+    required String occurrenceCode,
+    required String partyCode,
+    required String partyType,
+    required EventRsvpStatus status,
+  }) {
+    return _eventRemoteDataSource.respondToOccurrence(
+      eventCode: eventCode,
+      occurrenceCode: occurrenceCode,
+      partyCode: partyCode,
+      partyType: partyType,
+      status: status,
+    );
+  }
+
+  @override
+  Future<void> updateOccurrence({
+    required String eventCode,
+    required String occurrenceCode,
+    String? overrideName,
+    String? overrideDescription,
+    DateTime? scheduledStartDate,
+    String? scheduledStartTime,
+    String? scheduledEndTime,
+  }) {
+    return _eventRemoteDataSource.updateOccurrence(
+      eventCode: eventCode,
+      occurrenceCode: occurrenceCode,
+      overrideName: overrideName,
+      overrideDescription: overrideDescription,
+      scheduledStartDate: scheduledStartDate,
+      scheduledStartTime: scheduledStartTime,
+      scheduledEndTime: scheduledEndTime,
+    );
+  }
+
+  @override
+  Future<void> cancelOccurrence({
+    required String eventCode,
+    required String occurrenceCode,
+    String reason = '',
+  }) {
+    return _eventRemoteDataSource.cancelOccurrence(
+      eventCode: eventCode,
+      occurrenceCode: occurrenceCode,
+      reason: reason,
+    );
   }
 
   // ------------------------------------------------------------- holidays
