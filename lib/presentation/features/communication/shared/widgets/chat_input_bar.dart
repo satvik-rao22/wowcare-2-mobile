@@ -189,10 +189,9 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    final safeAreaInset = MediaQuery.of(context).padding.bottom;
-
+    // final screenSize = MediaQuery.of(context).size;
+    // final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    // final safeAreaInset = MediaQuery.of(context).padding.bottom;
 
     return SafeArea(
       top: false,
@@ -438,16 +437,17 @@ class _AttachmentPreviewStrip extends StatelessWidget {
               GestureDetector(
                 onTap: canPreview
                     ? () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ShowFullScreenMediaView(
-                              imageFile:
-                                  att.isImage ? File(att.localPath!) : null,
-                              videoFile: isVideo ? File(att.localPath!) : null,
-                              title: att.name,
-                            ),
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ShowFullScreenMediaView(
+                            imageFile: att.isImage
+                                ? File(att.localPath!)
+                                : null,
+                            videoFile: isVideo ? File(att.localPath!) : null,
+                            title: att.name,
                           ),
-                        )
+                        ),
+                      )
                     : null,
                 child: Stack(
                   alignment: Alignment.center,
@@ -622,24 +622,28 @@ class _InputRow extends StatelessWidget {
         // text toolbar inserts — so bolding a 4-character word showed
         // "11/2000" instead of "4/2000". Count the stripped/visible text
         // the user actually sees instead.
-        buildCounter: (
-          context, {
-          required int currentLength,
-          required bool isFocused,
-          required int? maxLength,
-        }) {
-          if (!showCharCounter) return null;
-          final visibleLength =
-              MessageContentProcessor.stripHtmlTags(controller.text).length;
-          return Text(
-            maxLength != null ? '$visibleLength/$maxLength' : '$visibleLength',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFFB2BEC3),
-              fontFamily: 'Manrope',
-            ),
-          );
-        },
+        buildCounter:
+            (
+              context, {
+              required int currentLength,
+              required bool isFocused,
+              required int? maxLength,
+            }) {
+              if (!showCharCounter) return null;
+              final visibleLength = MessageContentProcessor.stripHtmlTags(
+                controller.text,
+              ).length;
+              return Text(
+                maxLength != null
+                    ? '$visibleLength/$maxLength'
+                    : '$visibleLength',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFB2BEC3),
+                  fontFamily: 'Manrope',
+                ),
+              );
+            },
         textCapitalization: TextCapitalization.sentences,
         style: const TextStyle(
           fontSize: 15,

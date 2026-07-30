@@ -797,6 +797,7 @@ final GoRouter appRouter = GoRouter(
                     state,
                     IndividualMovementScreen(
                       highlightCode: state.uri.queryParameters['highlightCode'],
+                      studentCode: state.uri.queryParameters['studentCode'],
                     ),
                   ),
                 ),

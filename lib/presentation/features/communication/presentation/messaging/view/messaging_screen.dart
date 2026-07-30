@@ -9,7 +9,6 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-
 import '../../../../../../app/theme/colors.dart';
 
 class MessagingScreen extends StatefulWidget {

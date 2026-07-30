@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
@@ -27,13 +26,13 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     required GetCachedConversationsEntityUseCase getCachedConversationsUseCase,
     required ConversationEntityRepository conversationRepository,
     required StorageService storageService,
-  })  : _conversationType = conversationType,
-        _watchConversationsUseCase = watchConversationsUseCase,
-        _getConversationsUseCase = getConversationsUseCase,
-        _getCachedConversationsUseCase = getCachedConversationsUseCase,
-        _conversationRepo = conversationRepository,
-        _storageService = storageService,
-        super(ConversationListState.initial(conversationType: conversationType));
+  }) : _conversationType = conversationType,
+       _watchConversationsUseCase = watchConversationsUseCase,
+       _getConversationsUseCase = getConversationsUseCase,
+       _getCachedConversationsUseCase = getCachedConversationsUseCase,
+       _conversationRepo = conversationRepository,
+       _storageService = storageService,
+       super(ConversationListState.initial(conversationType: conversationType));
 
   final ConversationType _conversationType;
   final WatchConversationsUseCase _watchConversationsUseCase;
@@ -84,45 +83,46 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     final cacheResult = await _getCachedConversationsUseCase(
       type: _conversationType,
     );
-    cacheResult.fold(
-      (_) {},
-      (cached) {
-        if (cached.isNotEmpty && !isClosed) {
-          final int debugPrevCount = state.conversations.length;
-          emit(ConversationListState.loaded(
+    cacheResult.fold((_) {}, (cached) {
+      if (cached.isNotEmpty && !isClosed) {
+        final int debugPrevCount = state.conversations.length;
+        emit(
+          ConversationListState.loaded(
             conversationType: _conversationType,
             conversations: _sortedByLatest(cached),
             isFromCache: true,
-          ));
-        }
-      },
-    );
+          ),
+        );
+      }
+    });
 
     // 2. Subscribe to Firestore.
     _firestoreSubscription?.cancel();
-    _firestoreSubscription = _watchConversationsUseCase(
-      type: _conversationType,
-    ).listen(
-      (conversations) {
-        if (isClosed) return;
-        _firestoreActive = true;
-        final int debugPrevCount = state.conversations.length;
-        emit(ConversationListState.loaded(
-          conversationType: _conversationType,
-          conversations: _sortedByLatest(conversations),
-          isFromCache: false,
-        ));
-        unawaited(_markDeliveredForIncomingMessages(conversations));
-      },
-      onError: (error) {
-        if (!_firestoreActive) unawaited(_fallbackToApi());
-      },
-    );
+    _firestoreSubscription = _watchConversationsUseCase(type: _conversationType)
+        .listen(
+          (conversations) {
+            if (isClosed) return;
+            _firestoreActive = true;
+            final int debugPrevCount = state.conversations.length;
+            emit(
+              ConversationListState.loaded(
+                conversationType: _conversationType,
+                conversations: _sortedByLatest(conversations),
+                isFromCache: false,
+              ),
+            );
+            unawaited(_markDeliveredForIncomingMessages(conversations));
+          },
+          onError: (error) {
+            if (!_firestoreActive) unawaited(_fallbackToApi());
+          },
+        );
 
     // 3. Subscribe to mark-read events so the badge zeroes instantly.
     _markedReadSubscription?.cancel();
     _markedReadSubscription = MessagingEventService
-        .instance.onConversationMarkedRead
+        .instance
+        .onConversationMarkedRead
         .listen((code) => _zeroBadgeLocally(code));
   }
 
@@ -133,8 +133,9 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> _markDeliveredForIncomingMessages(
     List<ConversationEntity> conversations,
   ) async {
-    final currentUserCode =
-        (await _storageService.getString(StorageKeys.userCode))?.trim();
+    final currentUserCode = (await _storageService.getString(
+      StorageKeys.userCode,
+    ))?.trim();
     if (currentUserCode == null || currentUserCode.isEmpty) return;
 
     for (final conversation in conversations) {
@@ -158,19 +159,18 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     if (isClosed) return;
 
     if (query.trim().isEmpty) {
-      emit(state.copyWith(
-        staffSearchResults: const [],
-        isSearchingStaff: false,
-        lastStaffSearchQuery: null,
-        clearStaffSearchError: true,
-      ));
+      emit(
+        state.copyWith(
+          staffSearchResults: const [],
+          isSearchingStaff: false,
+          lastStaffSearchQuery: null,
+          clearStaffSearchError: true,
+        ),
+      );
       return;
     }
 
-    emit(state.copyWith(
-      isSearchingStaff: true,
-      clearStaffSearchError: true,
-    ));
+    emit(state.copyWith(isSearchingStaff: true, clearStaffSearchError: true));
 
     final orgCode =
         (await _storageService.getString(StorageKeys.organizationCode) ?? '')
@@ -190,19 +190,24 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     result.fold(
       (failure) {
-        emit(state.copyWith(
-          isSearchingStaff: false,
-          staffSearchErrorMessage: failure.message ?? 'Failed to search staff',
-          lastStaffSearchQuery: query.trim(),
-        ));
+        emit(
+          state.copyWith(
+            isSearchingStaff: false,
+            staffSearchErrorMessage:
+                failure.message ?? 'Failed to search staff',
+            lastStaffSearchQuery: query.trim(),
+          ),
+        );
       },
       (staff) {
-        emit(state.copyWith(
-          staffSearchResults: staff,
-          isSearchingStaff: false,
-          lastStaffSearchQuery: query.trim(),
-          clearStaffSearchError: true,
-        ));
+        emit(
+          state.copyWith(
+            staffSearchResults: staff,
+            isSearchingStaff: false,
+            lastStaffSearchQuery: query.trim(),
+            clearStaffSearchError: true,
+          ),
+        );
       },
     );
   }
@@ -226,18 +231,15 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     String staffName,
     String? staffAvatarCode,
   ) async {
-    if (isClosed || _conversationType != ConversationType.staffDirect) return null;
+    if (isClosed || _conversationType != ConversationType.staffDirect)
+      return null;
 
     try {
       // Check if conversation already exists
-      final existingResult = await _conversationRepo.findStaffDirectConversation(
-        staffUserCode,
-      );
+      final existingResult = await _conversationRepo
+          .findStaffDirectConversation(staffUserCode);
 
-      var existing = existingResult.fold(
-        (_) => null,
-        (conv) => conv,
-      );
+      var existing = existingResult.fold((_) => null, (conv) => conv);
 
       if (existing != null) {
         return existing;
@@ -257,33 +259,38 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       // Refresh conversation list to show new conversation
       result.fold(
         (failure) {
-          emit(state.copyWith(
-            staffSearchErrorMessage: failure.message ?? 'Failed to create conversation',
-            clearStaffSearchError: false,
-          ));
+          emit(
+            state.copyWith(
+              staffSearchErrorMessage:
+                  failure.message ?? 'Failed to create conversation',
+              clearStaffSearchError: false,
+            ),
+          );
         },
         (newConversation) {
           // Clear search results and error after successful creation
-          emit(state.copyWith(
-            staffSearchResults: const [],
-            staffSearchErrorMessage: null,
-            clearStaffSearchError: true,
-          ));
+          emit(
+            state.copyWith(
+              staffSearchResults: const [],
+              staffSearchErrorMessage: null,
+              clearStaffSearchError: true,
+            ),
+          );
 
           // Refresh conversation list to fetch new conversation
           unawaited(refresh());
         },
       );
 
-      return result.fold(
-        (_) => null,
-        (conv) => conv,
-      );
+      return result.fold((_) => null, (conv) => conv);
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(
-          staffSearchErrorMessage: 'Failed to create conversation: ${e.toString()}',
-        ));
+        emit(
+          state.copyWith(
+            staffSearchErrorMessage:
+                'Failed to create conversation: ${e.toString()}',
+          ),
+        );
       }
       return null;
     }
@@ -298,18 +305,20 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   }) async {
     if (_conversationType != ConversationType.staffDirect) return;
 
-    emit(state.copyWith(
-      isLoading: true,
-      clearError: true,
-      clearDesignation: designation == null,
-      clearStaffStatus: staffStatus == null,
-      clearClassroom: classroom == null,
-      activeDesignation: designation,
-      activeStaffStatus: staffStatus,
-      activeClassroom: classroom,
-      page: 0,
-      conversations: const [],
-    ));
+    emit(
+      state.copyWith(
+        isLoading: true,
+        clearError: true,
+        clearDesignation: designation == null,
+        clearStaffStatus: staffStatus == null,
+        clearClassroom: classroom == null,
+        activeDesignation: designation,
+        activeStaffStatus: staffStatus,
+        activeClassroom: classroom,
+        page: 0,
+        conversations: const [],
+      ),
+    );
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
@@ -324,17 +333,21 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        isLoading: false,
-        errorMessage: failure.message ?? 'Failed to apply filters.',
-      )),
-      (conversations) => emit(ConversationListState.loaded(
-        conversationType: _conversationType,
-        conversations: _sortedByLatest(conversations),
-        isFromCache: false,
-        page: 0,
-        hasMore: conversations.length >= _pageSize,
-      )),
+      (failure) => emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: failure.message ?? 'Failed to apply filters.',
+        ),
+      ),
+      (conversations) => emit(
+        ConversationListState.loaded(
+          conversationType: _conversationType,
+          conversations: _sortedByLatest(conversations),
+          isFromCache: false,
+          page: 0,
+          hasMore: conversations.length >= _pageSize,
+        ),
+      ),
     );
   }
 
@@ -343,15 +356,17 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> clearFilters() async {
     if (_conversationType != ConversationType.staffDirect) return;
 
-    emit(state.copyWith(
-      isLoading: true,
-      clearError: true,
-      clearDesignation: true,
-      clearStaffStatus: true,
-      clearClassroom: true,
-      page: 0,
-      conversations: const [],
-    ));
+    emit(
+      state.copyWith(
+        isLoading: true,
+        clearError: true,
+        clearDesignation: true,
+        clearStaffStatus: true,
+        clearClassroom: true,
+        page: 0,
+        conversations: const [],
+      ),
+    );
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
@@ -363,17 +378,21 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        isLoading: false,
-        errorMessage: failure.message ?? 'Failed to clear filters.',
-      )),
-      (conversations) => emit(ConversationListState.loaded(
-        conversationType: _conversationType,
-        conversations: _sortedByLatest(conversations),
-        isFromCache: false,
-        page: 0,
-        hasMore: conversations.length >= _pageSize,
-      )),
+      (failure) => emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: failure.message ?? 'Failed to clear filters.',
+        ),
+      ),
+      (conversations) => emit(
+        ConversationListState.loaded(
+          conversationType: _conversationType,
+          conversations: _sortedByLatest(conversations),
+          isFromCache: false,
+          page: 0,
+          hasMore: conversations.length >= _pageSize,
+        ),
+      ),
     );
   }
 
@@ -395,17 +414,21 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        isRefreshing: false,
-        errorMessage: failure.message ?? 'Failed to refresh conversations.',
-      )),
-      (conversations) => emit(ConversationListState.loaded(
-        conversationType: _conversationType,
-        conversations: _sortedByLatest(conversations),
-        isFromCache: false,
-        page: 0,
-        hasMore: conversations.length >= _pageSize,
-      )),
+      (failure) => emit(
+        state.copyWith(
+          isRefreshing: false,
+          errorMessage: failure.message ?? 'Failed to refresh conversations.',
+        ),
+      ),
+      (conversations) => emit(
+        ConversationListState.loaded(
+          conversationType: _conversationType,
+          conversations: _sortedByLatest(conversations),
+          isFromCache: false,
+          page: 0,
+          hasMore: conversations.length >= _pageSize,
+        ),
+      ),
     );
   }
 
@@ -468,17 +491,21 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     if (isClosed) return;
 
     result.fold(
-      (failure) => emit(state.copyWith(
-        isLoading: false,
-        errorMessage: failure.message ?? 'Failed to load conversations.',
-      )),
-      (conversations) => emit(ConversationListState.loaded(
-        conversationType: _conversationType,
-        conversations: _sortedByLatest(conversations),
-        isFromCache: false,
-        page: 0,
-        hasMore: conversations.length >= _pageSize,
-      )),
+      (failure) => emit(
+        state.copyWith(
+          isLoading: false,
+          errorMessage: failure.message ?? 'Failed to load conversations.',
+        ),
+      ),
+      (conversations) => emit(
+        ConversationListState.loaded(
+          conversationType: _conversationType,
+          conversations: _sortedByLatest(conversations),
+          isFromCache: false,
+          page: 0,
+          hasMore: conversations.length >= _pageSize,
+        ),
+      ),
     );
   }
 

@@ -14,6 +14,8 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_e
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
+import '../../../classrooom/views/screens/classroom_screen.dart';
+
 // ---------------------------------------------------------------------------
 // UI-layer model — one row in the classroom availability table.
 // firstShiftCount  = morning available spots
@@ -435,7 +437,10 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
       children: [
         // Classroom name cell
         GestureDetector(
-          onTap: () {},
+          onTap: () => context.go(
+            // '/dashboard/classroom-info-screen?classroomCode=${item.roomId}',
+            '${ClassroomScreen.routeName}?classroomCode=${item.roomId}',
+          ),
           child: Container(
             height: cellHeightRow,
             color: Colors.white,

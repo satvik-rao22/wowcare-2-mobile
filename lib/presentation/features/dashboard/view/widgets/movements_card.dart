@@ -23,12 +23,14 @@ class _MovementStudent {
     required this.name,
     required this.avatarInitials,
     this.profilePhotoAssetCode,
+    this.studentCode,
   });
 
   final int id;
   final String name;
   final String avatarInitials;
   final String? profilePhotoAssetCode;
+  final String? studentCode;
 }
 
 // ---------------------------------------------------------------------------
@@ -165,6 +167,7 @@ _MovementStudent _studentFrom(IndividualMovement m) => _MovementStudent(
   profilePhotoAssetCode: (m.profilePhotoAssetCode?.trim().isEmpty ?? true)
       ? null
       : m.profilePhotoAssetCode,
+  studentCode: m.studentCode,
 );
 
 String _dateKey(DateTime d) =>
@@ -272,6 +275,14 @@ class _MovementsCardState extends State<MovementsCard> {
                       disableAttendanceStatusLookup: true,
                     ),
                     title: Text(s.name),
+                    onTap: () {
+                      Navigator.of(ctx).pop();
+                      if (s.studentCode != null && s.studentCode!.isNotEmpty) {
+                        context.go(
+                          '/dashboard/individual-movement?studentCode=${s.studentCode}',
+                        );
+                      }
+                    },
                   );
                 },
               ),
@@ -428,13 +439,23 @@ class _MovementsCardState extends State<MovementsCard> {
                     children: [
                       if (students.length == 1)
                         Flexible(
-                          child: Text(
-                            students.first.name,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
+                          child: InkWell(
+                            onTap: () {
+                              final code = students.first.studentCode;
+                              if (code != null && code.isNotEmpty) {
+                                context.go(
+                                  '/dashboard/individual-movement?studentCode=$code',
+                                );
+                              }
+                            },
+                            child: Text(
+                              students.first.name,
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              overflow: TextOverflow.ellipsis,
                             ),
-                            overflow: TextOverflow.ellipsis,
                           ),
                         )
                       else

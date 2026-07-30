@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -30,8 +31,10 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../core/util/core_utils.dart';
@@ -1138,7 +1141,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                             child: OutlinedButton.icon(
                                               onPressed:
                                                   (!_staffIdentityLoaded ||
-                                                      _effectiveStaffCode.isEmpty ||
+                                                      _effectiveStaffCode
+                                                          .isEmpty ||
                                                       !availability
                                                           .transferEnabled)
                                                   ? null
@@ -1569,9 +1573,9 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   StreamSubscription<List<ConversationEntity>>? _sub;
   List<ConversationEntity> _items = const [];
   bool _loading = true;
-  // Logged-in user's code — used to resolve viewer-relative 1:1 conversation
-  // titles (the other participant's name) instead of the frozen stored title.
   String _currentUserCode = '';
+  final Map<String, String> _classroomNames = <String, String>{};
+  Timer? _timeout;
 
   @override
   void initState() {
@@ -1582,6 +1586,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   @override
   void dispose() {
     _sub?.cancel();
+    _timeout?.cancel();
     super.dispose();
   }
 
@@ -1594,11 +1599,18 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
           StorageKeys.userCode,
         ))?.trim() ??
         '';
+
+    _timeout = Timer(const Duration(seconds: 8), () {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    });
+
     try {
       final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
           .call();
       cached.fold((_) {}, (list) {
-        if (mounted && list.isNotEmpty) {
+        if (mounted) {
           setState(() {
             _items = _top2(list);
             _loading = false;
@@ -1606,12 +1618,34 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
         }
       });
     } catch (_) {
-      // cache seed is best-effort
+      if (mounted) setState(() => _loading = false);
+    }
+
+    try {
+      final storage = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
+      if (schoolCode.isNotEmpty && mounted) {
+        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: false,
+        );
+        if (mounted) {
+          setState(() {
+            _classroomNames.addAll({
+              for (final c in classrooms) c.code: c.name,
+            });
+          });
+        }
+      }
+    } catch (_) {
+      // classroom lookup is best-effort
     }
 
     _sub = serviceLocator<WatchConversationsUseCase>().call().listen(
       (list) {
         if (!mounted) return;
+        _timeout?.cancel();
         setState(() {
           _items = _top2(list);
           _loading = false;
@@ -1619,22 +1653,68 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       },
       onError: (_) {
         if (!mounted) return;
+        _timeout?.cancel();
+        setState(() => _loading = false);
+      },
+      onDone: () {
+        if (!mounted) return;
+        _timeout?.cancel();
         setState(() => _loading = false);
       },
     );
   }
 
   List<ConversationEntity> _top2(List<ConversationEntity> list) {
-    final sorted = [...list]
-      ..sort((a, b) {
-        final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
-        final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
-        return bt.compareTo(at);
-      });
-    return sorted.take(2).toList(growable: false);
+    final seen = <String>{};
+    final unique = <ConversationEntity>[];
+    for (final item in list) {
+      final code = item.code.trim();
+      if (code.isEmpty || seen.contains(code)) continue;
+      seen.add(code);
+      unique.add(item);
+    }
+    unique.sort((a, b) {
+      final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
+      final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
+      return bt.compareTo(at);
+    });
+    return unique.take(2).toList(growable: false);
+  }
+
+  // String _displayTitle(ConversationEntity conversation) {
+  //   if (conversation.type == ConversationType.classroomChat) {
+  //     final code = conversation.classroomCode?.trim() ?? '';
+  //     if (code.isNotEmpty && _classroomNames.containsKey(code)) {
+  //       return _classroomNames[code]!;
+  //     }
+  //   }
+  //   return conversation.displayTitle(_currentUserCode);
+  // }
+  String _displayTitle(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat) {
+      final classroomCode = conversation.classroomCode?.trim() ?? '';
+      if (classroomCode.isNotEmpty) {
+        final classroomName = _classroomNames[classroomCode];
+        if (classroomName != null && classroomName.trim().isNotEmpty) {
+          return classroomName.trim();
+        }
+        // Never display classroomCode as the title.
+        return classroomName ?? 'Classroom';
+      }
+      return 'Classroom';
+    }
+    return conversation.displayTitle(_currentUserCode);
   }
 
   void _openConversation(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat &&
+        conversation.classroomCode != null &&
+        conversation.classroomCode!.trim().isNotEmpty) {
+      context.go(
+        '/classroom-screen?classroomCode=${conversation.classroomCode!.trim()}&tab=2',
+      );
+      return;
+    }
     Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => ConversationThreadScreen(conversation: conversation),
@@ -1721,6 +1801,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             timeLabel: _formatTime(_items[i].lastMessageAt),
             onTap: () => _openConversation(_items[i]),
             currentUserCode: _currentUserCode,
+            displayTitle: _displayTitle(_items[i]),
           ),
         ],
       ],
@@ -1734,12 +1815,14 @@ class _RecentChatRow extends StatelessWidget {
     required this.timeLabel,
     required this.onTap,
     required this.currentUserCode,
+    required this.displayTitle,
   });
 
   final ConversationEntity conversation;
   final String timeLabel;
   final VoidCallback onTap;
   final String currentUserCode;
+  final String displayTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1753,7 +1836,7 @@ class _RecentChatRow extends StatelessWidget {
           children: [
             DocumentImageWidget(
               fileUuid: conversation.avatarUrl,
-              name: conversation.displayTitle(currentUserCode),
+              name: displayTitle,
               size: 50,
               fontSize: 20,
               disableProfileLookupFallback: true,
@@ -1768,7 +1851,7 @@ class _RecentChatRow extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          conversation.displayTitle(currentUserCode),
+                          displayTitle,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: AppColors.primaryColor,
