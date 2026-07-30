@@ -7,6 +7,61 @@ import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 
 void main() {
+  // The creator is what the staff "By Me" scope and the "Created By" filter
+  // match on. It isn't in the documented §5a/§6/§7 item shape, so the spelling
+  // the service actually uses is accepted in either form rather than the whole
+  // scope silently reading as empty.
+  group('TaskAssignmentModel — creator', () {
+    Task parse(Map<String, dynamic> extra) => TaskAssignmentModel.fromJson({
+          'code': 'TSA_1',
+          'taskCode': 'TSK_1',
+          'title': 'x',
+          'occurrenceDate': '2026-07-15',
+          ...extra,
+        }).toEntity();
+
+    test('reads the createdBy spelling', () {
+      final task = parse(const {
+        'createdBy': 'STF_CREATOR',
+        'createdByName': 'Alice Ng',
+      });
+      expect(task.createdBy, 'STF_CREATOR');
+      expect(task.createdByName, 'Alice Ng');
+    });
+
+    test('reads the assignedBy spelling', () {
+      // `X-Staff-Code` on create is documented as the `assignedBy` of the
+      // TASK_ASSIGNED notification, so the read model may echo that name.
+      final task = parse(const {
+        'assignedBy': 'STF_CREATOR',
+        'assignedByName': 'Alice Ng',
+      });
+      expect(task.createdBy, 'STF_CREATOR');
+      expect(task.createdByName, 'Alice Ng');
+    });
+
+    test('reads the Code-suffixed spellings', () {
+      expect(parse(const {'createdByCode': 'STF_A'}).createdBy, 'STF_A');
+      expect(parse(const {'assignedByCode': 'STF_B'}).createdBy, 'STF_B');
+    });
+
+    test('prefers createdBy when several spellings are present', () {
+      final task = parse(const {
+        'createdBy': 'STF_WINS',
+        'assignedBy': 'STF_LOSES',
+      });
+      expect(task.createdBy, 'STF_WINS');
+    });
+
+    test('trims and ignores blank values', () {
+      expect(parse(const {'createdBy': '  STF_A  '}).createdBy, 'STF_A');
+      expect(
+        parse(const {'createdBy': '   ', 'assignedBy': 'STF_B'}).createdBy,
+        'STF_B',
+      );
+    });
+  });
+
   group('TaskAssignmentModel.fromJson → toEntity', () {
     test('maps codes and the split schedule fields, keeps taskCode', () {
       final model = TaskAssignmentModel.fromJson(const {
@@ -53,6 +108,10 @@ void main() {
       final task = model.toEntity();
       expect(task.status, TaskStatus.toDo);
       expect(task.priority, TaskPriority.medium);
+      // No creator on the payload → empty, and the "By Me" scope simply finds
+      // nothing rather than mis-attributing the task to the current user.
+      expect(task.createdBy, isEmpty);
+      expect(task.createdByName, isEmpty);
       // The due date falls back to the occurrence date; times to the entity
       // defaults, when the payload omits them.
       expect(task.dueDate, DateTime(2026, 7, 15));

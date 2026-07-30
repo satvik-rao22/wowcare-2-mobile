@@ -10,9 +10,11 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_form_validation.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
@@ -24,12 +26,19 @@ import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 /// Create/edit form for a task. A single scrollable mobile form replaces the
 /// web design's dialog: basics up top, scheduling and recurrence below.
 class TaskFormScreen extends StatefulWidget {
-  const TaskFormScreen({this.taskCode, super.key});
+  const TaskFormScreen({this.taskCode, this.editScope, super.key});
 
   static const String routeName = '/dashboard/tasks/form';
 
   /// When set, the form edits the existing task with this code.
   final String? taskCode;
+
+  /// Which occurrences this edit applies to, already chosen in the scope sheet
+  /// the Edit affordance shows (see `askTaskEditScope`). Null for a create, or
+  /// for a one-off task that was never asked — both save as
+  /// [TaskEditScope.thisOccurrence]. Validated against the actual edit before
+  /// the save is sent, since a scope chosen up front may not fit what changed.
+  final TaskEditScope? editScope;
 
   @override
   State<TaskFormScreen> createState() => _TaskFormScreenState();
@@ -66,6 +75,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   /// Guards [_prefillFromSeries] so a slow series response can't overwrite the
   /// form after it has already been applied once.
   bool _appliedSeriesPrefill = false;
+
+  /// Whether the task being edited belongs to a **recurring** series, as it
+  /// stands on the server — distinct from the editable [_recurring], which the
+  /// user may have since flipped. Only a recurring series has several
+  /// occurrences to disambiguate, so this (not [_recurring]) decides whether the
+  /// save asks for an edit scope. The flat assignment card never carries the
+  /// recurrence flag, so the truthful value only arrives with [_prefillFromSeries].
+  bool _seriesWasRecurring = false;
+
+  /// The owning series as fetched (§2a) — kept so a save can diff against the
+  /// *real* pre-edit schedule via [_editBaseline]. Null until it loads.
+  TaskSeries? _series;
 
   /// True when the form was opened for a task this persona may not edit
   /// (PRD §5.2 "Edit Task — staff: own tasks only"). Resolved in [initState],
@@ -208,6 +229,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     _priority = task.priority;
     _applySchedule(task);
     _recurring = task.recurring;
+    _seriesWasRecurring = task.recurring;
     _recurringPattern = task.recurringPattern ?? TaskRecurrence.monthly;
     _recurringEndDate = task.recurringEndDate;
     if (_recurringPattern == TaskRecurrence.weekly) {
@@ -255,7 +277,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     if (!mounted || series == null || _appliedSeriesPrefill) return;
     setState(() {
       _appliedSeriesPrefill = true;
+      _series = series;
       _recurring = series.recurring;
+      _seriesWasRecurring = series.recurring;
       if (series.recurring && series.recurrencePattern != null) {
         _recurringPattern = series.recurrencePattern!;
         _recurringEndDate = series.recurrenceUntil;
@@ -553,6 +577,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         // Edit mode locks the existing series roster (can't be removed here);
         // add mode has nothing locked. Both allow multi-select.
         lockedCodes: Set.of(_lockedAssignees),
+        // Badges the signed-in user's own row (both modes). Uses the cubit's
+        // identity codes so "me" here means exactly what it means to the read
+        // boundary; empty until identity resolves, which simply omits the badge.
+        selfCodes: context.read<TasksCubit>().state.identityCodes,
       ),
     );
     if (result != null) {
@@ -1153,29 +1181,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
     final cubit = context.read<TasksCubit>();
 
-    // Upload the held attachment (if any) only now, on submit (§8/§9). A
-    // failed upload aborts the save so the task is never created without its
-    // intended attachment.
-    String? uploadedAssetCode;
-    if (_pickedAttachmentPath != null) {
-      setState(() => _uploadingAttachment = true);
-      uploadedAssetCode = await cubit.uploadAttachment(
-        filePath: _pickedAttachmentPath!,
-        fileName: _attachmentName ?? 'attachment',
-        contentType: FilePickerUtils.getMimeType(_attachmentType),
-      );
-      if (!mounted) return;
-      setState(() => _uploadingAttachment = false);
-      if (uploadedAssetCode == null || uploadedAssetCode.isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Could not upload the attachment. Please try again.',
-          isError: true,
-        );
-        return;
-      }
-    }
-
     final effort = double.tryParse(_effortController.text.trim()) ?? 0;
     final now = DateTime.now();
     // The form works in school-local wall-clock terms throughout; convert to
@@ -1221,6 +1226,43 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       attachmentType: () => _attachmentType,
     );
 
+    // Validate the scope chosen back on Edit against what actually changed,
+    // before anything is persisted or uploaded — a refused combination must
+    // leave the task, and the storage bucket, exactly as they were.
+    final TaskEditScope scope;
+    if (_isEditing) {
+      final validated = _validatedEditScope(cubit, draft);
+      // Not expressible under the chosen scope: the toast has said why, so stop
+      // here without sending anything.
+      if (validated == null) return;
+      scope = validated;
+    } else {
+      scope = TaskEditScope.thisOccurrence;
+    }
+
+    // Upload the held attachment (if any) only now, on submit (§8/§9). A
+    // failed upload aborts the save so the task is never created without its
+    // intended attachment.
+    String? uploadedAssetCode;
+    if (_pickedAttachmentPath != null) {
+      setState(() => _uploadingAttachment = true);
+      uploadedAssetCode = await cubit.uploadAttachment(
+        filePath: _pickedAttachmentPath!,
+        fileName: _attachmentName ?? 'attachment',
+        contentType: FilePickerUtils.getMimeType(_attachmentType),
+      );
+      if (!mounted) return;
+      setState(() => _uploadingAttachment = false);
+      if (uploadedAssetCode == null || uploadedAssetCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Could not upload the attachment. Please try again.',
+          isError: true,
+        );
+        return;
+      }
+    }
+
     final bool ok;
     if (_isEditing) {
       // Attachments persist through the series' assetCodes full-replace (§3c):
@@ -1245,6 +1287,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         draft,
         assetCodes: assetCodes,
         addedAssignees: added,
+        scope: scope,
+        baseline: _editBaseline(),
       );
     } else {
       final assignees = _assignees.entries
@@ -1285,6 +1329,67 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         isError: true,
       );
     }
+  }
+
+  /// The pre-edit task a save is diffed against: the card the form opened with,
+  /// plus the owning series' recurrence — which the flat assignment card never
+  /// carries, so without it every recurring save would look like a recurrence
+  /// change and cascade away future occurrences. Falls back to the bare card
+  /// when the series never loaded (which also means the scope sheet is skipped,
+  /// so the save stays on the narrow per-assignment endpoint).
+  Task? _editBaseline() {
+    final editing = _editing;
+    if (editing == null) return null;
+    final series = _series;
+    return series == null
+        ? editing
+        : TaskScheduleUtils.withSeriesSchedule(editing, series);
+  }
+
+  /// How far this save should reach, or null when it must not be sent at all.
+  ///
+  /// The scope was already chosen when the user tapped Edit ([widget.editScope],
+  /// via `askTaskEditScope`), so this normally just hands it back. That choice
+  /// was made before anything was edited, though, and two of the three scopes
+  /// can't express every edit: §3d needs a changed schedule/repeat pattern to
+  /// reanchor, and a repeat-pattern change has no per-occurrence form at all.
+  ///
+  /// This is the form's last validation gate. When the chosen scope doesn't fit
+  /// the edit it returns null after surfacing the reason as a toast — the Save
+  /// button stays enabled (the form isn't invalid, the *combination* is), the
+  /// request is never sent, and the user's edits are left intact so they can
+  /// adjust the form and save again.
+  TaskEditScope? _validatedEditScope(TasksCubit cubit, Task draft) {
+    final editing = _editing!;
+    final chosen = widget.editScope ?? TaskEditScope.thisOccurrence;
+    // Compare in school-local terms: the card's occurrence date is a UTC wire
+    // date, and "has this occurrence passed?" is a school-calendar question.
+    final occurrence = TaskTimezone.fromUtcWire(
+      utcDate: editing.startDate,
+      hhmm: editing.startTime,
+      ianaName: _schoolTimeZone,
+    );
+    final prompt = TaskEditScopePrompt.forSave(
+      seriesIsRecurring: _seriesWasRecurring,
+      diff: cubit.diffFor(
+        draft,
+        hasAddedAssignees: _addedAssigneeCount > 0,
+        baseline: _editBaseline(),
+      ),
+      occurrenceDate: occurrence.$1,
+      today: TaskTimezone.today(_schoolTimeZone),
+    );
+    // A one-off was never asked, so it always saves in place.
+    if (!prompt.isRequired) return prompt.scopeWhenNotAsked;
+    if (prompt.canUse(chosen)) return chosen;
+
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: prompt.saveBlockedMessage(chosen) ??
+          "This edit can't be saved for the occurrences you chose.",
+      isWarning: true,
+    );
+    return null;
   }
 
   /// The start/due window the validation gate reasons about: a one-off's own

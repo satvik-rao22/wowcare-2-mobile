@@ -25,6 +25,8 @@ class TaskAssignmentModel extends Equatable {
     this.description = '',
     this.assigneeCode = '',
     this.assigneeName = '',
+    this.createdBy = '',
+    this.createdByName = '',
     required this.occurrenceDate,
     this.startTime = '',
     required this.dueDate,
@@ -51,6 +53,20 @@ class TaskAssignmentModel extends Equatable {
       // Not part of the documented assignment payload; parsed opportunistically
       // so cards show a name if the backend ever denormalizes one.
       assigneeName: (json['assigneeName'] ?? '').toString(),
+      // Who raised the task. Also undocumented in the §5a/§6/§7 item shape, but
+      // the staff "By Me" scope and the "Created By" filter are built entirely
+      // on it, so both spellings the service might use are accepted. Absent →
+      // empty, which reads as "unknown author" rather than the current user.
+      createdBy: _firstNonBlank(json, const [
+        'createdBy',
+        'createdByCode',
+        'assignedBy',
+        'assignedByCode',
+      ]),
+      createdByName: _firstNonBlank(json, const [
+        'createdByName',
+        'assignedByName',
+      ]),
       occurrenceDate: occurrence,
       startTime: _hhmm(json['startTime']),
       dueDate: _parseDate(json['dueDate']) ?? occurrence,
@@ -70,6 +86,12 @@ class TaskAssignmentModel extends Equatable {
   final String description;
   final String assigneeCode;
   final String assigneeName;
+
+  /// Staff code of whoever raised the task, and their display name when the
+  /// payload denormalizes one. Empty when the service doesn't send a creator.
+  final String createdBy;
+  final String createdByName;
+
   final DateTime occurrenceDate;
 
   /// The occurrence's own start/due wall-clock times as `HH:mm` (empty when the
@@ -81,6 +103,17 @@ class TaskAssignmentModel extends Equatable {
   final String status;
   final double effort;
 
+  /// First of [keys] present on [json] with a non-blank value, trimmed; empty
+  /// when none match. Lets one field tolerate several server-side spellings
+  /// without the call site branching on each.
+  static String _firstNonBlank(Map<String, dynamic> json, List<String> keys) {
+    for (final key in keys) {
+      final value = (json[key] ?? '').toString().trim();
+      if (value.isNotEmpty) return value;
+    }
+    return '';
+  }
+
   Task toEntity() {
     return Task(
       code: code,
@@ -89,6 +122,8 @@ class TaskAssignmentModel extends Equatable {
       description: description,
       assigneeCode: assigneeCode,
       assigneeName: assigneeName,
+      createdBy: createdBy,
+      createdByName: createdByName,
       status: TaskStatus.fromValue(status),
       priority: TaskPriority.fromValue(priority),
       startDate: occurrenceDate,
@@ -108,6 +143,7 @@ class TaskAssignmentModel extends Equatable {
         title,
         description,
         assigneeCode,
+        createdBy,
         occurrenceDate,
         startTime,
         dueDate,

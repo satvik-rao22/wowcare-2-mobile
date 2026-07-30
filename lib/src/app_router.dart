@@ -39,6 +39,7 @@ import 'package:wowcare/presentation/features/assessments/view/assessments_home_
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_center_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
@@ -550,10 +551,11 @@ final GoRouter appRouter = GoRouter(
                               ..applyPersona(context.read<RoleCubit>().role),
                           ),
                           // Assignee picker shows ACTIVE staff only
-                          // (PRD BR-ATT-01 / FR-TK-02), scoped to the
-                          // creator's allowed classrooms for non-admin staff
-                          // (PRD §5.2 "assign to staff in allowed classes
-                          // only"). Admins stay unrestricted.
+                          // (PRD BR-ATT-01 / FR-TK-02) and is otherwise
+                          // unrestricted for every persona that can reach this
+                          // form — a staff/teacher persona may assign to any
+                          // colleague, not just its own classrooms. See
+                          // loadAssignableStaff.
                           BlocProvider<StaffCubit>(
                             create: (_) {
                               final cubit = serviceLocator<StaffCubit>();
@@ -564,6 +566,7 @@ final GoRouter appRouter = GoRouter(
                         ],
                         child: TaskFormScreen(
                           taskCode: args?['taskCode'] as String?,
+                          editScope: args?['editScope'] as TaskEditScope?,
                         ),
                       ),
                     );

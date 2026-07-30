@@ -23,13 +23,13 @@ class TaskStatusBadge extends StatelessWidget {
   }
 }
 
-/// Pill badge showing a task's priority, optionally tappable for inline
-/// editing (PRD FR-TK-16).
+/// Pill badge showing a task's priority. Always read-only: priority is set from
+/// the edit form, never inline, so this exposes no tap affordance at all (the
+/// caret [_Pill] adds for tappable pills would misadvertise it as a control).
 class TaskPriorityBadge extends StatelessWidget {
-  const TaskPriorityBadge({required this.priority, this.onTap, super.key});
+  const TaskPriorityBadge({required this.priority, super.key});
 
   final TaskPriority priority;
-  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -38,7 +38,6 @@ class TaskPriorityBadge extends StatelessWidget {
       color: color,
       icon: TaskUiUtils.priorityIcon(priority),
       label: priority.label,
-      onTap: onTap,
     );
   }
 }

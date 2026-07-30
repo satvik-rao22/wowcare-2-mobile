@@ -13,7 +13,6 @@ class TaskCard extends StatelessWidget {
     required this.schoolTimeZone,
     required this.onTap,
     this.onStatusTap,
-    this.onPriorityTap,
     this.onMore,
     super.key,
   });
@@ -25,10 +24,10 @@ class TaskCard extends StatelessWidget {
   final String schoolTimeZone;
   final VoidCallback onTap;
 
-  /// Inline status/priority editing (PRD FR-TK-16) — null hides the affordance
-  /// for users without permission.
+  /// Inline status editing (PRD FR-TK-16) — null hides the affordance for users
+  /// without permission. Priority has no inline equivalent by design; it is
+  /// shown read-only and changed from the edit form.
   final VoidCallback? onStatusTap;
-  final VoidCallback? onPriorityTap;
   final VoidCallback? onMore;
 
   @override
@@ -133,10 +132,7 @@ class TaskCard extends StatelessWidget {
                 runSpacing: 6,
                 children: [
                   if (overdue) const TaskOverdueBadge(),
-                  TaskPriorityBadge(
-                    priority: task.priority,
-                    onTap: onPriorityTap,
-                  ),
+                  TaskPriorityBadge(priority: task.priority),
                   TaskStatusBadge(status: task.status, onTap: onStatusTap),
                 ],
               ),

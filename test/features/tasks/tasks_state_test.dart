@@ -93,6 +93,29 @@ void main() {
       expect(s.filteredTasks.map((t) => t.code), ['2']);
     });
 
+    test('byMe is every task I created, whoever it is assigned to', () {
+      // "By Me" is about authorship, not delegation: a task I created and kept
+      // for myself belongs there just as much as one I handed to someone else.
+      final s = _state(
+        tasks: [
+          ...tasks,
+          _card(code: '4', assignee: 'STF_ME', createdBy: 'STF_ME'),
+        ],
+        scope: TaskScope.byMe,
+        currentStaffCode: 'STF_ME',
+      );
+      expect(s.filteredTasks.map((t) => t.code), ['2', '4']);
+    });
+
+    test('byMe also matches on the currentUserCode', () {
+      final s = _state(
+        tasks: [_card(code: '1', assignee: 'STF_X', createdBy: 'USR_ME')],
+        scope: TaskScope.byMe,
+        currentUserCode: 'USR_ME',
+      );
+      expect(s.filteredTasks, hasLength(1));
+    });
+
     test('mine/byMe fail closed while identity is unresolved', () {
       // RBAC: "my tasks" with an unknown identity must not fall back to
       // everyone's tasks (PRD §5.2) — an empty board is the safe answer.

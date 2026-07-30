@@ -33,8 +33,19 @@ class StaffCubit extends Cubit<StaffState> {
   String? _schoolCode;
   String? _organizationCode;
 
-  // How many staff records to load per page from the API
-  static const int _pageSize = 10;
+  // How many staff records to load per page from the API. The staff list
+  // screen scrolls, so it keeps this small default; a screen that needs the
+  // whole roster in memory at once (the task assignee picker, which
+  // multi-selects and searches locally over what it was given) raises it via
+  // [setPageSize] so one round trip covers a whole school.
+  static const int _defaultPageSize = 10;
+  int _pageSize = _defaultPageSize;
+
+  /// Overrides the API page size for this cubit instance. Call before the first
+  /// load; non-positive values are ignored.
+  void setPageSize(int size) {
+    if (size > 0) _pageSize = size;
+  }
 
   String? _effectiveStatusFilter() {
     final raw = state.statusFilter;

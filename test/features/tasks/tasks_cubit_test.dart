@@ -22,8 +22,10 @@ import 'package:wowcare/domain/features/tasks/usecases/remove_task_assignee_usec
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 
 /// In-memory [StorageService] so the cubit's identity/role reads never touch
 /// SharedPreferences or the network staff-code resolver (a non-empty staffCode
@@ -403,6 +405,7 @@ TasksCubit _buildCubit(
       GetTaskOccurrencesUseCase(repo),
       UpdateTaskOccurrenceUseCase(repo),
       CancelTaskOccurrenceUseCase(repo),
+      UpdateTaskUseCase(repo),
     );
 
 void main() {
@@ -433,6 +436,32 @@ void main() {
     // The assignments API returns only a staff code; the cubit denormalizes
     // the display name so cards/detail don't show "Unassigned".
     expect(cubit.state.taskByCode('TSA_1')!.assigneeName, 'Alice Ng');
+  });
+
+  test('load resolves creator names from the staff directory', () async {
+    // The assignment payload carries a bare staff code for the creator, so the
+    // "By Me" / "Created By" affordances would otherwise read as raw codes.
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1').copyWith(createdBy: 'STF_2'),
+    ];
+    cubit = _buildCubit(repo, staff: [_staff('STF_2', 'Bob Chen')]);
+
+    await cubit.load();
+
+    expect(cubit.state.tasks.single.createdByName, 'Bob Chen');
+    expect(cubit.state.createdByOptions.single.name, 'Bob Chen');
+  });
+
+  test('a creator name already on the payload is left alone', () async {
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1')
+          .copyWith(createdBy: 'STF_2', createdByName: 'From payload'),
+    ];
+    cubit = _buildCubit(repo, staff: [_staff('STF_2', 'Bob Chen')]);
+
+    await cubit.load();
+
+    expect(cubit.state.tasks.single.createdByName, 'From payload');
   });
 
   test('create sends one roster and reloads to pick up new cards', () async {
@@ -493,28 +522,6 @@ void main() {
     expect(ok, isTrue);
     expect(repo.lastDeletedSeries, 'TSK_1'); // series code, not the card code
     expect(cubit.state.tasks.map((t) => t.code), ['TSA_3']);
-  });
-
-  test('changePriority routes through the per-assignment endpoint (§5b)',
-      () async {
-    repo.tasks = [
-      _card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1'),
-      _card(code: 'TSA_2', taskCode: 'TSK_1', assignee: 'STF_2'),
-    ];
-    await cubit.load();
-
-    await cubit.changePriority('TSA_1', TaskPriority.high);
-
-    // Backend-directed path: §5b keyed by this card's own assignment code.
-    // The per-assignee §4b endpoint (broken by the suffixed assigneeCode) and
-    // the old full-replace roster PATCH are never touched.
-    expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
-    expect(repo.lastAssignmentPatchArgs!['priority'], TaskPriority.high);
-    expect(repo.lastAssigneePriorityArgs, isNull);
-    expect(repo.lastUpdateArgs, isNull);
-    // Only this card changes in place; the sibling is untouched.
-    expect(cubit.state.taskByCode('TSA_1')!.priority, TaskPriority.high);
-    expect(cubit.state.taskByCode('TSA_2')!.priority, TaskPriority.medium);
   });
 
   test('updateAssignmentDetails edits one card in place (§5b)', () async {
@@ -1002,6 +1009,404 @@ void main() {
       cubit.clearAllFilters();
       await pumpEventQueue();
       expect(repo.getTasksCalls, greaterThan(callsAfterSearch));
+    });
+  });
+
+  // The scope the user picks in the edit-scope sheet decides which endpoint a
+  // save lands on: THIS occurrence stays on the per-assignment endpoint (§5b),
+  // while both series-wide scopes go to `PATCH /tasks/{code}` (§3 / §3d).
+  group('update scope (recurring edit)', () {
+    TaskOccurrence occurrence(String code, DateTime date) => TaskOccurrence(
+          code: code,
+          taskCode: 'TSK_1',
+          originalStartDate: date,
+          scheduledStartDate: date,
+        );
+
+    test('defaults to this-occurrence so a plain save is unchanged', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+
+      final edited =
+          cubit.state.taskByCode('TSA_1')!.copyWith(title: 'Renamed');
+      expect(await cubit.update(edited), isTrue);
+
+      expect(repo.lastAssignmentPatchArgs!['title'], 'Renamed');
+      expect(repo.lastUpdateArgs, isNull);
+    });
+
+    test('entire series patches the series with scope ALL', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+
+      final edited = cubit.state.taskByCode('TSA_1')!.copyWith(
+            title: 'Renamed',
+            description: 'New scope',
+          );
+      final ok = await cubit.update(
+        edited,
+        scope: TaskEditScope.entireSeries,
+      );
+
+      expect(ok, isTrue);
+      expect(repo.lastUpdateArgs!['seriesCode'], 'TSK_1');
+      expect(repo.lastUpdateArgs!['title'], 'Renamed');
+      expect(repo.lastUpdateArgs!['description'], 'New scope');
+      expect(repo.lastUpdateArgs!['scope'], TaskUpdateScope.all);
+      expect(repo.lastUpdateArgs!['anchorOccurrenceCode'], isNull);
+      // Nothing per-assignment changed, so the card is left alone.
+      expect(repo.lastAssignmentPatchArgs, isNull);
+    });
+
+    test('entire series sends the schedule only when it changed', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+
+      final titleOnly =
+          cubit.state.taskByCode('TSA_1')!.copyWith(title: 'Renamed');
+      await cubit.update(titleOnly, scope: TaskEditScope.entireSeries);
+      expect(repo.lastUpdateArgs!['schedule'], isNull);
+
+      final rescheduled =
+          cubit.state.taskByCode('TSA_1')!.copyWith(startTime: '07:30');
+      await cubit.update(rescheduled, scope: TaskEditScope.entireSeries);
+      expect(repo.lastUpdateArgs!['schedule'], isNotNull);
+    });
+
+    test('entire series leaves the roster alone unless it changed', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1', assignee: 'STF_1')];
+      await cubit.load();
+
+      final renamed =
+          cubit.state.taskByCode('TSA_1')!.copyWith(title: 'Renamed');
+      await cubit.update(renamed, scope: TaskEditScope.entireSeries);
+      expect(repo.lastUpdateArgs!['assignees'], isNull);
+
+      final withNewAssignee = cubit.state.taskByCode('TSA_1')!;
+      await cubit.update(
+        withNewAssignee,
+        scope: TaskEditScope.entireSeries,
+        addedAssignees: const [(code: 'STF_2', name: 'Two')],
+      );
+      final roster = repo.lastUpdateArgs!['assignees'] as List<TaskAssignee>;
+      expect(roster.map((a) => a.staffCode), containsAll(['STF_1', 'STF_2']));
+    });
+
+    test('entire series full-replaces attachments through the series', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+
+      final edited = cubit.state.taskByCode('TSA_1')!;
+      await cubit.update(
+        edited,
+        assetCodes: const ['AST_NEW'],
+        scope: TaskEditScope.entireSeries,
+      );
+
+      expect(repo.lastUpdateArgs!['assetCodes'], ['AST_NEW']);
+      expect(repo.lastAssignmentPatchArgs, isNull);
+    });
+
+    test(
+        'a series-wide save still applies status, priority and effort to this '
+        'card', () async {
+      // The Tasks API has no series-level status/effort, and a top-level
+      // `priority` without a roster is a no-op (§3a) — so those three land on
+      // the edited card through §5b even for a series-wide scope.
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+
+      final edited = cubit.state.taskByCode('TSA_1')!.copyWith(
+            title: 'Renamed',
+            status: TaskStatus.inProgress,
+            priority: TaskPriority.high,
+            effort: 2.5,
+          );
+      final ok = await cubit.update(
+        edited,
+        scope: TaskEditScope.entireSeries,
+      );
+
+      expect(ok, isTrue);
+      expect(repo.lastUpdateArgs!['title'], 'Renamed');
+      expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+      expect(repo.lastAssignmentPatchArgs!['status'], TaskStatus.inProgress);
+      expect(repo.lastAssignmentPatchArgs!['priority'], TaskPriority.high);
+      expect(repo.lastAssignmentPatchArgs!['effort'], 2.5);
+      // The series-level fields must not be resent on the card.
+      expect(repo.lastAssignmentPatchArgs!['title'], isNull);
+      expect(repo.lastAssignmentPatchArgs!['schedule'], isNull);
+      expect(repo.lastAssignmentPatchArgs!['assignees'], isNull);
+    });
+
+    test('this-and-future anchors on the edited card\'s own occurrence',
+        () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      repo.occurrences = [
+        occurrence('TOC_1', DateTime(2026, 7, 13)),
+        // _card()'s occurrence date (startDate) is 2026-07-15.
+        occurrence('TOC_2', DateTime(2026, 7, 15)),
+        occurrence('TOC_3', DateTime(2026, 7, 17)),
+      ];
+      await cubit.load();
+
+      final edited =
+          cubit.state.taskByCode('TSA_1')!.copyWith(startTime: '07:30');
+      final ok = await cubit.update(
+        edited,
+        scope: TaskEditScope.thisAndFuture,
+      );
+
+      expect(ok, isTrue);
+      expect(repo.lastUpdateArgs!['seriesCode'], 'TSK_1');
+      expect(repo.lastUpdateArgs!['scope'], TaskUpdateScope.thisAndFuture);
+      expect(repo.lastUpdateArgs!['anchorOccurrenceCode'], 'TOC_2');
+      // §3d only reanchors a schedule change, so the schedule must ride along.
+      expect(repo.lastUpdateArgs!['schedule'], isNotNull);
+    });
+
+    test('this-and-future matches a rescheduled occurrence on its new date',
+        () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      repo.occurrences = [
+        // Moved off 2026-07-14 onto the card's own date by an earlier §11c edit.
+        TaskOccurrence(
+          code: 'TOC_MOVED',
+          taskCode: 'TSK_1',
+          originalStartDate: DateTime(2026, 7, 14),
+          scheduledStartDate: DateTime(2026, 7, 15),
+          isModified: true,
+        ),
+      ];
+      await cubit.load();
+
+      final edited =
+          cubit.state.taskByCode('TSA_1')!.copyWith(startTime: '07:30');
+      expect(
+        await cubit.update(edited, scope: TaskEditScope.thisAndFuture),
+        isTrue,
+      );
+      expect(repo.lastUpdateArgs!['anchorOccurrenceCode'], 'TOC_MOVED');
+    });
+
+    test('this-and-future skips a cancelled occurrence on the same date',
+        () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      repo.occurrences = [
+        TaskOccurrence(
+          code: 'TOC_CANCELLED',
+          taskCode: 'TSK_1',
+          originalStartDate: DateTime(2026, 7, 15),
+          scheduledStartDate: DateTime(2026, 7, 15),
+          status: TaskOccurrenceStatus.cancelled,
+        ),
+        occurrence('TOC_LIVE', DateTime(2026, 7, 15)),
+      ];
+      await cubit.load();
+
+      final edited =
+          cubit.state.taskByCode('TSA_1')!.copyWith(startTime: '07:30');
+      expect(
+        await cubit.update(edited, scope: TaskEditScope.thisAndFuture),
+        isTrue,
+      );
+      expect(repo.lastUpdateArgs!['anchorOccurrenceCode'], 'TOC_LIVE');
+    });
+
+    test('this-and-future fails cleanly when no occurrence matches', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      repo.occurrences = [occurrence('TOC_1', DateTime(2026, 7, 20))];
+      await cubit.load();
+
+      final edited =
+          cubit.state.taskByCode('TSA_1')!.copyWith(startTime: '07:30');
+      final ok = await cubit.update(
+        edited,
+        scope: TaskEditScope.thisAndFuture,
+      );
+
+      expect(ok, isFalse);
+      expect(cubit.state.isSaving, isFalse);
+      expect(cubit.state.errorMessage, isNotNull);
+      // Nothing may be sent when the anchor can't be resolved (§3d requires it).
+      expect(repo.lastUpdateArgs, isNull);
+      expect(repo.lastAssignmentPatchArgs, isNull);
+    });
+
+    test('a series-wide save needs the owning series code', () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: '')];
+      await cubit.load();
+
+      final edited =
+          cubit.state.taskByCode('TSA_1')!.copyWith(title: 'Renamed');
+      final ok = await cubit.update(
+        edited,
+        scope: TaskEditScope.entireSeries,
+      );
+
+      expect(ok, isFalse);
+      expect(cubit.state.isSaving, isFalse);
+      expect(cubit.state.errorMessage, isNotNull);
+      expect(repo.lastUpdateArgs, isNull);
+    });
+
+    // The flat assignment card never carries the recurrence flag, and for a
+    // recurring task the form *derives* its start/due dates from the rule — so
+    // both drift from the loaded card on every save. The form therefore hands in
+    // a baseline (card + series recurrence) and the derived dates are ignored,
+    // or a title-only edit would cascade away every future occurrence.
+    group('recurring baseline', () {
+      /// The pre-edit truth as the form knows it: the loaded card with the
+      /// series' recurrence folded in (`TaskScheduleUtils.withSeriesSchedule`).
+      Task baselineFor(Task card) => card.copyWith(
+            recurring: true,
+            recurringPattern: () => TaskRecurrence.weekly,
+            recurringEndDate: () => DateTime(2026, 9, 30),
+            startDay: () => 'MONDAY',
+          );
+
+      test('a title-only edit never resends the schedule', () async {
+        repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+        await cubit.load();
+
+        final baseline = baselineFor(cubit.state.taskByCode('TSA_1')!);
+        // The recurrence-derived window the form would submit — a different
+        // calendar day from this card's own occurrence date.
+        final draft = baseline.copyWith(
+          title: 'Renamed',
+          startDate: DateTime(2026, 8, 3),
+          dueDate: DateTime(2026, 8, 7),
+        );
+
+        final ok = await cubit.update(
+          draft,
+          scope: TaskEditScope.entireSeries,
+          baseline: baseline,
+        );
+
+        expect(ok, isTrue);
+        expect(repo.lastUpdateArgs!['title'], 'Renamed');
+        expect(repo.lastUpdateArgs!['schedule'], isNull);
+      });
+
+      test('a real recurrence change does resend the schedule', () async {
+        repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+        await cubit.load();
+
+        final baseline = baselineFor(cubit.state.taskByCode('TSA_1')!);
+        final draft = baseline.copyWith(
+          recurringPattern: () => TaskRecurrence.monthly,
+          startDay: () => '15',
+        );
+
+        await cubit.update(
+          draft,
+          scope: TaskEditScope.entireSeries,
+          baseline: baseline,
+        );
+
+        expect(repo.lastUpdateArgs!['schedule'], isNotNull);
+      });
+
+      test('a start-time change does resend the schedule', () async {
+        repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+        await cubit.load();
+
+        final baseline = baselineFor(cubit.state.taskByCode('TSA_1')!);
+        final draft = baseline.copyWith(startTime: '07:30');
+
+        await cubit.update(
+          draft,
+          scope: TaskEditScope.entireSeries,
+          baseline: baseline,
+        );
+
+        expect(repo.lastUpdateArgs!['schedule'], isNotNull);
+      });
+
+      test('this-occurrence never sends the series schedule or derived dates',
+          () async {
+        // "This occurrence only" must not reach the series: no rrule, and none
+        // of the rule-derived start/due dates (which aren't the user's choice —
+        // a recurring form has no date pickers, only recurrence fields).
+        repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+        await cubit.load();
+
+        final baseline = baselineFor(cubit.state.taskByCode('TSA_1')!);
+        final draft = baseline.copyWith(
+          title: 'Renamed',
+          startDate: DateTime(2026, 8, 3),
+          dueDate: DateTime(2026, 8, 7),
+        );
+
+        final ok = await cubit.update(draft, baseline: baseline);
+
+        expect(ok, isTrue);
+        expect(repo.lastUpdateArgs, isNull);
+        expect(repo.lastAssignmentPatchArgs!['code'], 'TSA_1');
+        expect(repo.lastAssignmentPatchArgs!['title'], 'Renamed');
+        expect(repo.lastAssignmentPatchArgs!['schedule'], isNull);
+        expect(repo.lastAssignmentPatchArgs!['occurrenceDate'], isNull);
+        expect(repo.lastAssignmentPatchArgs!['dueDate'], isNull);
+      });
+
+      test('this-occurrence still carries a time change for this card',
+          () async {
+        repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+        await cubit.load();
+
+        final baseline = baselineFor(cubit.state.taskByCode('TSA_1')!);
+        final draft = baseline.copyWith(
+          startTime: '07:30',
+          dueTime: '11:15',
+          startDate: DateTime(2026, 8, 3),
+          dueDate: DateTime(2026, 8, 7),
+        );
+
+        await cubit.update(draft, baseline: baseline);
+
+        expect(repo.lastAssignmentPatchArgs!['startTime'], '07:30');
+        expect(repo.lastAssignmentPatchArgs!['dueTime'], '11:15');
+        // Still only the times — the derived dates stay out of it.
+        expect(repo.lastAssignmentPatchArgs!['occurrenceDate'], isNull);
+        expect(repo.lastAssignmentPatchArgs!['dueDate'], isNull);
+        expect(repo.lastAssignmentPatchArgs!['schedule'], isNull);
+      });
+
+      test('diffFor honours the same baseline', () async {
+        repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+        await cubit.load();
+
+        final baseline = baselineFor(cubit.state.taskByCode('TSA_1')!);
+        final draft = baseline.copyWith(
+          title: 'Renamed',
+          startDate: DateTime(2026, 8, 3),
+          dueDate: DateTime(2026, 8, 7),
+        );
+
+        expect(cubit.diffFor(draft, baseline: baseline).scheduleChanged, isFalse);
+        // Without the baseline the card's missing recurrence flag reads as a
+        // recurrence change, which is exactly what the baseline exists to fix.
+        expect(cubit.diffFor(draft).scheduleChanged, isTrue);
+      });
+    });
+
+    test('diffFor reports the pending change set against the loaded card',
+        () async {
+      repo.tasks = [_card(code: 'TSA_1', taskCode: 'TSK_1')];
+      await cubit.load();
+
+      final card = cubit.state.taskByCode('TSA_1')!;
+      expect(cubit.diffFor(card).hasChanges, isFalse);
+      expect(cubit.diffFor(card.copyWith(title: 'X')).scheduleChanged, isFalse);
+      expect(
+        cubit.diffFor(card.copyWith(startTime: '07:30')).scheduleChanged,
+        isTrue,
+      );
+      expect(
+        cubit.diffFor(card, hasAddedAssignees: true).rosterChanged,
+        isTrue,
+      );
     });
   });
 }
