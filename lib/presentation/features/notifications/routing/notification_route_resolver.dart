@@ -135,6 +135,7 @@ class NotificationRouteResolver {
       case 'TRANSACTION':
         return _dest(isGuardian ? AppRoutes.parentBilling : _billing, n,
             highlight: _kInvoice);
+      case 'ACTIVITY':
       case 'ACTIVITIES':
       case 'DAILY_ACTIVITY':
         return _dest(AppRoutes.activityFeed, n,
@@ -189,6 +190,26 @@ class NotificationRouteResolver {
     for (final k in keys) {
       final v = n.data[k]?.trim();
       if (v != null && v.isNotEmpty) return v;
+    }
+    return null;
+  }
+
+  /// Some payloads (e.g. STUDENT_PHYSICAL_NOT_ADDED/DUE/OVERDUE) never send
+  /// the student code as a direct `studentCode` field — the only place it
+  /// appears is as a `targetCode` query parameter embedded inside a details
+  /// URL (e.g. `physicalExaminationDetailsLink: ".../physical-examination
+  /// ?targetCode=STD_...&type=STUDENT&..."`). Without this, [_firstCode]
+  /// finds nothing, the destination gets built with an empty `code`, and the
+  /// tap silently lands on a blank/errored profile — indistinguishable from
+  /// not navigating at all. Scan every string field for a URL carrying
+  /// [paramName] as a last-resort fallback.
+  static String? _codeFromEmbeddedLink(PushNotification n, String paramName) {
+    for (final value in n.data.values) {
+      if (!value.contains('?')) continue;
+      final uri = Uri.tryParse(value);
+      if (uri == null) continue;
+      final code = uri.queryParameters[paramName]?.trim();
+      if (code != null && code.isNotEmpty) return code;
     }
     return null;
   }
@@ -351,7 +372,9 @@ class NotificationRouteResolver {
     String? healthSubTab, // 0 Health, 1 Physician, 2 Physical Dates, 3 Immun.
   }) {
     final params = <String, String>{
-      'code': _firstCode(n, _kStudent) ?? '',
+      'code': _firstCode(n, _kStudent) ??
+          _codeFromEmbeddedLink(n, 'targetCode') ??
+          '',
       'tab': tab,
     };
     if (profileSubTab != null) params['profileTab'] = profileSubTab;
@@ -514,10 +537,22 @@ class NotificationRouteResolver {
     // ── Activities (open the Activity Feed on the activity's date + flash it) ──
     NotificationAction.activityRecorded: (n) => _dest(AppRoutes.activityFeed, n,
         highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.activityEdited: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.activityDeleted: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentRecorded: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentApprovalPending: (n) => _dest(
         AppRoutes.activityFeed, n,
         highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentApproved: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentAcknowledgementPending: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentAcknowledged: (n) => _dest(
         AppRoutes.activityFeed, n,
         highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.napAlert: (n) => _dest(AppRoutes.activityFeed, n,

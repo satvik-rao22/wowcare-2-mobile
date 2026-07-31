@@ -118,13 +118,9 @@ class ApiConstants {
       ? ApiConstantsUat.documentMsBaseUrl
       : _dev.gatewayUrl('document-ms');
 
-  /// Communication / Messaging MS  (LOCAL: gateway:8091 when set, else devtunnel
-  /// communicationPort | UAT: gateway)
-  static String get communicationBaseUrl => isUat
-      ? ApiConstantsUat.communicationBaseUrl
-      : (_dev.gatewayPort != null
-            ? _dev.url(_dev.gatewayPort!)
-            : _dev.url(_dev.communicationPort));
+  /// Communication / Messaging MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
+  static String get communicationBaseUrl =>
+      isUat ? ApiConstantsUat.communicationBaseUrl : _dev.gatewayUrl();
 
   /// Newsletter MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
   static String get newsLatterBaseUrl =>

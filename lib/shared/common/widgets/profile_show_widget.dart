@@ -266,7 +266,28 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         oldWidget.studentCode != widget.studentCode ||
         oldWidget.staffCode != widget.staffCode ||
         oldWidget.classroomCode != widget.classroomCode) {
-      _resolvedImageUrl = _seedImageUrl();
+      // A parent rebuild (e.g. a BlocConsumer firing on pull-to-refresh, or
+      // this element getting reused at the same list position for a
+      // different item — e.g. a ListView.builder row after a pagination
+      // merge) can recompute these props. `_seedImageUrl()` returns null
+      // unless a fresh cache entry already exists for whatever owner is
+      // now being asked for, so unconditionally overwriting
+      // `_resolvedImageUrl` with it flashed the avatar back to its
+      // unresolved placeholder on every such rebuild, self-correcting only
+      // once the (often redundant) async re-resolution completed a moment
+      // later. Only skip that reset when the owner identity is actually
+      // unchanged — if this element got reused for a genuinely different
+      // person/asset, we must still clear immediately, or it would show
+      // the PREVIOUS owner's photo/initials on the new one instead of
+      // just a brief placeholder.
+      final sameOwner =
+          _ownerIdentityKey(oldWidget) == _ownerIdentityKey(widget);
+      final newSeed = _seedImageUrl();
+      if (newSeed != null && newSeed.isNotEmpty) {
+        _resolvedImageUrl = newSeed;
+      } else if (!sameOwner) {
+        _resolvedImageUrl = null;
+      }
       _resolveProfilePhotoIfNeeded();
     }
 
@@ -276,6 +297,26 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
         oldWidget.studentCode != widget.studentCode) {
       _loadAttendanceStatusIfNeeded();
     }
+  }
+
+  /// Identifies WHO this widget is currently showing a photo for — same
+  /// precedence as [_seedImageUrl]'s lookup order. Used by
+  /// [didUpdateWidget] to tell "still the same person, just a redundant
+  /// prop recompute" apart from "this element got reused for someone
+  /// else", since only the latter must clear a stale resolved photo
+  /// immediately rather than preserve it.
+  String _ownerIdentityKey(DocumentImageWidget w) {
+    final explicit = w.imageUrl?.trim() ?? '';
+    if (explicit.isNotEmpty) return 'url:$explicit';
+    final mediaAssetCode = w.mediaAssetCode?.trim() ?? '';
+    if (mediaAssetCode.isNotEmpty) return 'asset:$mediaAssetCode';
+    final classroomCode = w.classroomCode?.trim() ?? '';
+    if (classroomCode.isNotEmpty) return 'classroom:$classroomCode';
+    final studentCode = w.studentCode?.trim() ?? '';
+    if (studentCode.isNotEmpty) return 'student:$studentCode';
+    final staffCode = w.staffCode?.trim() ?? '';
+    if (staffCode.isNotEmpty) return 'staff:$staffCode';
+    return '';
   }
 
   String? _seedImageUrl() {

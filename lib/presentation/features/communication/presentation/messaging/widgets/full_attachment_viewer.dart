@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../shared/utils/attachment_open_helper.dart';
@@ -157,19 +158,14 @@ class FullAttachmentViewer extends StatelessWidget {
             color: Colors.grey[200],
             child: Center(
               child: isLoading
-                  ? const SizedBox(
-                      width: 28,
-                      height: 28,
-                      child: CircularProgressIndicator(strokeWidth: 2.5),
-                    )
+                  ? const PrimaryCircularLoader(size: 28, strokeWidth: 2.5)
                   : isProcessing
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const SizedBox(
-                          width: 28,
-                          height: 28,
-                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        const PrimaryCircularLoader(
+                          size: 28,
+                          strokeWidth: 2.5,
                         ),
                         const SizedBox(height: 8),
                         Text(

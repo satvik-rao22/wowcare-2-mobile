@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mime/mime.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -17,6 +18,7 @@ import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
+import '../../../../../core/util/file_picker_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
@@ -2284,6 +2286,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             );
 
         final sessionAssetCodes = <String>[];
+        // Keyed separately from _uploadedAssetCodeByPath so a photo is only
+        // considered "done" (and eligible for Save/attach) once
+        // waitUntilAssetsReady below actually confirms it — completing the
+        // S3 PUT/complete call is not the same as the backend reporting the
+        // asset ready to link, and writing straight into
+        // _uploadedAssetCodeByPath here let a subsequent ready-poll timeout
+        // pass through silently: the map already held the assetCode, so the
+        // screen believed upload had finished and let Save submit an asset
+        // the backend then rejected with 409 "not ready for linking".
+        final pendingAssetCodeByPath = <String, String>{};
         for (var i = 0; i < missingPhotos.length; i++) {
           final photo = missingPhotos[i];
           final fileIndex = i + 1;
@@ -2291,6 +2303,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           final fileName = photo.uri.pathSegments.isNotEmpty
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
+          // Declaring every picked photo as image/jpeg regardless of its
+          // real format (HEIC/PNG/WEBP/etc. are all pickable — see
+          // FilePickerUtils.allowedImageExtensions) told S3/the backend the
+          // wrong content type for anything that wasn't literally already a
+          // JPEG, which is a plausible reason a HEIC upload sat stuck at
+          // PROCESSING and never reached READY: the backend's decoder was
+          // told to parse non-JPEG bytes as JPEG.
+          final contentType = lookupMimeType(photo.path) ??
+              FilePickerUtils.getMimeType(fileName.split('.').last);
           final contentLengthBytes = await photo.length();
           final checksumSha256 =
               await _imageUploadService.computeFileChecksumSha256(photo);
@@ -2298,7 +2319,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
-            contentType: 'image/jpeg',
+            contentType: contentType,
             contentLengthBytes: contentLengthBytes,
             checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
@@ -2309,7 +2330,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             file: photo,
             presignedPutUrl: presign.presignedPutUrl,
             requiredHeaders: presign.requiredHeaders,
-            fallbackContentType: 'image/jpeg',
+            fallbackContentType: contentType,
             onProgress: (_, __, percent) {
               if (!mounted) return;
               final overallFraction =
@@ -2327,13 +2348,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           if (mounted) {
             setState(() => _uploadCompletedCount = fileIndex);
           }
-          _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
+          pendingAssetCodeByPath[photo.path] = presign.assetCode;
           sessionAssetCodes.add(presign.assetCode);
         }
         await _imageUploadService.waitUntilAssetsReady(
           sessionCode: uploadSession.sessionCode,
           expectedAssetCodes: sessionAssetCodes,
         );
+        _uploadedAssetCodeByPath.addAll(pendingAssetCodeByPath);
         if (mounted) {
           setState(() => _uploadProgressPercent = 100);
         }

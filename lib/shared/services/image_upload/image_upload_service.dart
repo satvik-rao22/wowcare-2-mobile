@@ -361,45 +361,61 @@ class ImageUploadService {
       body: '<binary: ${bytes.length} bytes>',
     );
 
-    try {
-      final response = await uploadClient.putUri<dynamic>(
-        putUri,
-        data: bytes,
-        options: Options(
-          headers: headers,
-          responseType: ResponseType.plain,
-          validateStatus: (status) =>
-              status != null && status >= 200 && status < 300,
-        ),
-        onSendProgress: (sent, total) {
-          final effectiveTotal =
-              (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
-          if (effectiveTotal <= 0) return;
-          final fraction = sent / effectiveTotal;
-          final percent = (fraction * 100).clamp(0, 100).round();
-          onProgress?.call(sent, effectiveTotal, percent);
-        },
-      );
-      ApiLogger.logResponse(
-        url: logUrl,
-        method: 'PUT',
-        statusCode: response.statusCode,
-        data: response.data,
-      );
+    // The presigned URL is valid for an hour (see AssetPresignResult), so a
+    // couple of short retries on a transient DNS/connection blip (no HTTP
+    // response at all — e.g. "Failed host lookup" on flaky Wi-Fi/mobile
+    // data) is safe. A real HTTP error response (expired/invalid signature,
+    // S3-side rejection) is not retried — retrying that would just fail the
+    // same way three times slower.
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await uploadClient.putUri<dynamic>(
+          putUri,
+          data: bytes,
+          options: Options(
+            headers: headers,
+            responseType: ResponseType.plain,
+            validateStatus: (status) =>
+                status != null && status >= 200 && status < 300,
+          ),
+          onSendProgress: (sent, total) {
+            final effectiveTotal =
+                (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+            if (effectiveTotal <= 0) return;
+            final fraction = sent / effectiveTotal;
+            final percent = (fraction * 100).clamp(0, 100).round();
+            onProgress?.call(sent, effectiveTotal, percent);
+          },
+        );
+        ApiLogger.logResponse(
+          url: logUrl,
+          method: 'PUT',
+          statusCode: response.statusCode,
+          data: response.data,
+        );
 
-      final status = response.statusCode ?? 0;
-      if (status < 200 || status >= 300) {
-        throw Exception('Failed to upload file to storage');
+        final status = response.statusCode ?? 0;
+        if (status < 200 || status >= 300) {
+          throw Exception('Failed to upload file to storage');
+        }
+        return;
+      } on DioException catch (e) {
+        ApiLogger.logError(
+          url: logUrl,
+          method: 'PUT',
+          message: e.message,
+          statusCode: e.response?.statusCode,
+          errorData: e.response?.data,
+        );
+        final isTransientNetworkError =
+            e.response == null &&
+            (e.type == DioExceptionType.connectionError ||
+                e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.unknown);
+        if (!isTransientNetworkError || attempt == maxAttempts) rethrow;
+        await Future.delayed(Duration(seconds: attempt));
       }
-    } on DioException catch (e) {
-      ApiLogger.logError(
-        url: logUrl,
-        method: 'PUT',
-        message: e.message,
-        statusCode: e.response?.statusCode,
-        errorData: e.response?.data,
-      );
-      rethrow;
     }
   }
 

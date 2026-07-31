@@ -22,7 +22,9 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/shared/common/views/filter_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -519,8 +521,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
                       // ── List / loading / empty ────────────────────────────────
                       Expanded(
-                        child: RefreshIndicator(
-                          color: AppColors.primaryColor,
+                        child: CustomRefreshIndicator(
                           onRefresh: () =>
                               context.read<ConversationListCubit>().refresh(),
                           child: CustomScrollView(
@@ -575,12 +576,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                                   child: Padding(
                                     padding: EdgeInsets.symmetric(vertical: 16),
                                     child: Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
+                                      child: PrimaryCircularLoader(
+                                        size: 24,
+                                        strokeWidth: 2,
                                       ),
                                     ),
                                   ),

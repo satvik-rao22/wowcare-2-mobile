@@ -10,7 +10,9 @@ import 'package:wowcare/presentation/features/communication/shared/utils/convers
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import '../../../../../../app/theme/media_res.dart';
@@ -400,7 +402,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return RefreshIndicator(
+    return CustomRefreshIndicator(
       onRefresh: () async {
         if (!mounted) return;
         await context.read<CommunicationCubit>().loadConversations(
@@ -920,12 +922,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                 child: Padding(
                                   padding: EdgeInsets.symmetric(vertical: 16),
                                   child: Center(
-                                    child: SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
+                                    child: PrimaryCircularLoader(
+                                      size: 22,
+                                      strokeWidth: 2,
                                     ),
                                   ),
                                 ),
