@@ -280,6 +280,6 @@ class MessageContentProcessor {
     if (senderName != null && senderName.trim().isNotEmpty) {
       return senderName.trim();
     }
-    return senderName ?? 'User';
+    return 'User';
   }
 }

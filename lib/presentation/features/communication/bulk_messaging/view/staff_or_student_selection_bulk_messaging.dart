@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/selection_list_item.dart';
 import 'package:wowcare/shared/common/widgets/messaging_filter_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
@@ -741,13 +742,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                                             ),
                                             if (_isSelectingAll) ...[
                                               const SizedBox(width: 8),
-                                              const SizedBox(
-                                                width: 14,
-                                                height: 14,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
+                                              const PrimaryCircularLoader(
+                                                size: 14,
+                                                strokeWidth: 2,
                                               ),
                                             ],
                                           ],

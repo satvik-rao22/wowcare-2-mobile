@@ -26,6 +26,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/chat_
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
@@ -298,7 +299,7 @@ class _ParentDirectMessagingScreenState
               'ConversationLoading=${state.isLoading}, '
               'SelectedConversation=${_selectedConversation?.code}',
             );
-            return RefreshIndicator(
+            return CustomRefreshIndicator(
               onRefresh: _listCubit.refresh,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

@@ -228,6 +228,7 @@ class ApiPaths {
         return ApiMicroservices.user;
       case 'conversations':
       case 'messages':
+      case 'firebase':
         return ApiMicroservices.communication;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
@@ -262,8 +263,35 @@ class ApiPaths {
     if (ApiConstants.isUat) return ApiPathsUat.url(path);
     final p = path.startsWith('/') ? path : '/$path';
     final ms = microserviceKeyFromPath(p);
-    final localPath = _stripLocalMsPrefix(p, ms);
+    final localPath = ms == ApiMicroservices.communication
+        ? _ensureLocalCommunicationSegment(p)
+        : _stripLocalMsPrefix(p, ms);
     return '${ApiConstants.baseUrlForMicroservice(ms)}$localPath';
+  }
+
+  /// LOCAL communication/messaging traffic goes through the shared gateway
+  /// tunnel (devtunnel:gatewayPort, or ngrok when unset — see
+  /// [ApiConstants.communicationBaseUrl]), which — like the UAT gateway —
+  /// disambiguates by a `/messaging/` path segment rather than by a
+  /// dedicated port. Without this, `/api/v1/firebase/token` (and
+  /// conversations/messages) land on the gateway with no matching route and
+  /// 500 with "No static resource ...". Mirrors
+  /// [ApiPathsUat._ensureUatMicroserviceSegment]'s identical fix for the
+  /// exact same symptom.
+  static String _ensureLocalCommunicationSegment(String path) {
+    if (path == '/api/v1/firebase/token') {
+      return '/api/v1/messaging/firebase/token';
+    }
+    if (path.startsWith('/api/v1/messaging/')) return path;
+    if (path.startsWith('/api/v1/conversations')) {
+      return path.replaceFirst(
+          '/api/v1/conversations', '/api/v1/messaging/conversations');
+    }
+    if (path.startsWith('/api/v1/messages')) {
+      return path.replaceFirst(
+          '/api/v1/messages', '/api/v1/messaging/messages');
+    }
+    return path;
   }
 
   /// For LOCAL devtunnel builds the base URL already encodes the microservice

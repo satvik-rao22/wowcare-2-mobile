@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/message
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -703,6 +704,15 @@ class _MessageBubbleState extends State<MessageBubble>
                                     final avatarUrl =
                                         sender?.avatarUrl?.trim() ?? '';
                                     return DocumentImageWidget(
+                                      // Scoped to this specific message so a
+                                      // list rebuild (pagination merge,
+                                      // pull-to-refresh) can never let this
+                                      // element get reused for a different
+                                      // message's sender and momentarily
+                                      // show/keep the wrong person's avatar.
+                                      key: ValueKey(
+                                        'msg-sender-avatar-${widget.message.code}',
+                                      ),
                                       fileUuid: '',
                                       imageUrl: avatarUrl.startsWith('http')
                                           ? avatarUrl
@@ -1438,12 +1448,9 @@ class _MessageBubbleState extends State<MessageBubble>
                                 color: Colors.grey[300],
                                 child: Center(
                                   child: isLoading
-                                      ? const SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                          ),
+                                      ? const PrimaryCircularLoader(
+                                          size: 28,
+                                          strokeWidth: 2.5,
                                         )
                                       : isProcessing
                                       ? const _AttachmentProcessingPlaceholder()
@@ -1558,12 +1565,9 @@ class _MessageBubbleState extends State<MessageBubble>
                                       color: Colors.grey[300],
                                       child: Center(
                                         child: isLoading
-                                            ? const SizedBox(
-                                                width: 22,
-                                                height: 22,
-                                                child: CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                ),
+                                            ? const PrimaryCircularLoader(
+                                                size: 22,
+                                                strokeWidth: 2,
                                               )
                                             : isProcessing
                                             ? const _AttachmentProcessingPlaceholder(
@@ -1625,11 +1629,7 @@ class _AttachmentProcessingPlaceholder extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: iconSize,
-          height: iconSize,
-          child: const CircularProgressIndicator(strokeWidth: 2.5),
-        ),
+        PrimaryCircularLoader(size: iconSize, strokeWidth: 2.5),
         SizedBox(height: compact ? 6 : 8),
         Text(
           'Processing…',

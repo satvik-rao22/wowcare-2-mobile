@@ -39,7 +39,9 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -96,8 +98,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// send — so participant-dependent UI (bubble alignment, header roster) uses
   /// the real participants immediately instead of waiting for a refresh/revisit.
   ConversationEntity? _resolvedConversation;
-  ConversationEntity get _conversation =>
-      _resolvedConversation ?? widget.conversation;
+
+  /// Falls back to [widget.conversation] — always fully populated, since
+  /// it's what opened this thread in the first place — whenever
+  /// [_resolvedConversation] would otherwise hand the header a blank title.
+  /// Pull-to-refresh was observed dropping the header to the generic
+  /// placeholder name/logo; whatever transiently produces an
+  /// incompletely-populated resolved conversation, the header should never
+  /// actually render it over the known-good original.
+  ConversationEntity get _conversation {
+    final resolved = _resolvedConversation;
+    if (resolved != null && resolved.title.trim().isNotEmpty) return resolved;
+    return widget.conversation;
+  }
 
   // `AutoScrollController` is required by [ChatScrollBehavior]'s signature,
   // but only plain `ScrollController`/`ScrollPosition` members are used here
@@ -699,6 +712,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           Row(
             children: [
               DocumentImageWidget(
+                // Stable across every BlocConsumer rebuild (pull-to-refresh,
+                // new messages, …) so its element — and therefore its
+                // internally-resolved photo/initials state — is never torn
+                // down and recreated from scratch by an unrelated state
+                // change.
+                key: ValueKey('thread-header-avatar-${_conversation.code}'),
                 fileUuid: '',
                 // `avatarUrl` is either a resolved URL or a raw media-asset
                 // code depending on which screen started the conversation.
@@ -1101,9 +1120,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   }
 
   Widget _buildRealMessageList(List<MessageEntity> messages) {
-    return RefreshIndicator(
+    return CustomRefreshIndicator(
       onRefresh: _cubit.refreshMessages,
-      color: AppColors.primaryColor,
       child: ListView.builder(
         controller: _scrollController,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
@@ -1504,11 +1522,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 prefixIcon: _isSearching
                     ? const Padding(
                         padding: EdgeInsets.all(12),
-                        child: SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
+                        child: PrimaryCircularLoader(size: 16, strokeWidth: 2),
                       )
                     : const Icon(
                         Icons.search_rounded,
@@ -1565,7 +1579,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       child: Material(
         color: Colors.white.withValues(alpha: 0.97),
         child: _isSearching && _searchResults.isEmpty
-            ? const Center(child: CircularProgressIndicator())
+            ? const Center(child: PrimaryCircularLoader())
             : _searchResults.isEmpty
             ? Center(
                 child: Column(

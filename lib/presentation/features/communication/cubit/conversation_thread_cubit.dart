@@ -334,14 +334,30 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           errorMessage: failure.message ?? 'Failed to load older messages.',
         ),
       ),
-      (older) => emit(
-        state.copyWith(
-          messages: [..._sortedOldestFirst(older), ...state.messages],
-          isLoading: false,
-          hasOlderMessages: older.length >= _pageSize,
-          clearError: true,
-        ),
-      ),
+      (older) {
+        // The backend's `beforeMessageCode` cursor has been observed to
+        // hand back the reference message itself (and therefore the exact
+        // same page) instead of excluding it — without a dedupe, that both
+        // duplicates every message in `older` into the list AND, since the
+        // "oldest" boundary (`state.messages.first`) never actually
+        // changes, makes every subsequent scroll-triggered fetch refire
+        // the identical request forever. Filtering to genuinely-new codes
+        // fixes the duplicates, and falling back to `hasOlderMessages:
+        // false` when nothing new came back stops the loop even if the
+        // backend's cursor never advances.
+        final existingCodes = state.messages.map((m) => m.code).toSet();
+        final newOlder = _sortedOldestFirst(
+          older,
+        ).where((m) => !existingCodes.contains(m.code)).toList();
+        emit(
+          state.copyWith(
+            messages: [...newOlder, ...state.messages],
+            isLoading: false,
+            hasOlderMessages: newOlder.isNotEmpty && older.length >= _pageSize,
+            clearError: true,
+          ),
+        );
+      },
     );
   }
 

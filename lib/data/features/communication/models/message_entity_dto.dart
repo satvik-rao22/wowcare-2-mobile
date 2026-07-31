@@ -82,7 +82,12 @@ class MessageEntityDto {
           json['conversation_code'] as String? ??
           '',
       senderCode: senderCode,
-      senderName: json['senderName'] as String? ?? '',
+      // Backend sends 'senderDisplayName' on the messages endpoint; 'senderName'
+      // is kept as a fallback for any older/alternate response shapes.
+      senderName: (json['senderDisplayName'] as String? ??
+              json['senderName'] as String? ??
+              '')
+          .trim(),
       senderRole: json['senderRole'] as String? ?? 'PARENT',
       senderAvatarUrl: json['senderAvatarUrl'] as String?,
       // Backend field is 'content', not 'text'

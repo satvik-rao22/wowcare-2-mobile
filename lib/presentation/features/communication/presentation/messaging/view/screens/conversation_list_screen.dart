@@ -15,9 +15,11 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_filter_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../../core/storage/storage_service.dart';
 import '../../../../../../../core/util/storage_keys.dart';
@@ -156,8 +158,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
           return GlobalScaffold(
             hasBackButton: false,
 
-            body: RefreshIndicator(
-              color: AppColors.primaryColor,
+            body: CustomRefreshIndicator(
               onRefresh: () => context.read<ConversationListCubit>().refresh(),
               child: CustomScrollView(
                 controller: _scrollController,
@@ -328,11 +329,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 16),
                         child: Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          ),
+                          child: PrimaryCircularLoader(size: 24, strokeWidth: 2),
                         ),
                       ),
                     ),
@@ -452,11 +449,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
           child: Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            child: PrimaryCircularLoader(size: 20, strokeWidth: 2),
           ),
         ),
       );
@@ -572,11 +565,7 @@ class _StaffDirectoryTile extends StatelessWidget {
             style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
           ),
           trailing: isCreating
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const PrimaryCircularLoader(size: 20, strokeWidth: 2)
               : Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
