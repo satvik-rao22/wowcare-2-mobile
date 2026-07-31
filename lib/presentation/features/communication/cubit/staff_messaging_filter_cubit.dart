@@ -4,7 +4,6 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/messaging/usecases/get_filtered_staff_usecase.dart';
-import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'staff_messaging_filter_state.dart';
 
 class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
@@ -19,9 +18,9 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
   StaffMessagingFilterCubit({
     required GetFilteredStaffUseCase getFilteredStaffUseCase,
     required StorageService storageService,
-  })  : _getFilteredStaffUseCase = getFilteredStaffUseCase,
-        _storageService = storageService,
-        super(const StaffMessagingFilterState.initial());
+  }) : _getFilteredStaffUseCase = getFilteredStaffUseCase,
+       _storageService = storageService,
+       super(const StaffMessagingFilterState.initial());
 
   Future<String> _resolveSchoolCode() async {
     if (_schoolCode != null) return _schoolCode!;
@@ -31,7 +30,8 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
 
   Future<String> _resolveOrganizationCode() async {
     if (_organizationCode != null) return _organizationCode!;
-    _organizationCode = await _storageService.getString(StorageKeys.organizationCode) ?? '';
+    _organizationCode =
+        await _storageService.getString(StorageKeys.organizationCode) ?? '';
     return _organizationCode!;
   }
 
@@ -51,7 +51,11 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
         organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: 0,
-        size: state.selectedStaffStatus != null && state.selectedStaffStatus!.isNotEmpty ? 50 : _pageSize,
+        size:
+            state.selectedStaffStatus != null &&
+                state.selectedStaffStatus!.isNotEmpty
+            ? 50
+            : _pageSize,
         status: 'ACTIVE',
         designation: state.selectedDesignation,
         search: state.searchQuery,
@@ -61,20 +65,24 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: staffPage.items,
-        currentPage: 0,
-        hasMore: staffPage.hasMore,
-        isLoading: false,
-        isRefreshing: false,
-      ));
+      emit(
+        state.copyWith(
+          items: staffPage.items,
+          currentPage: 0,
+          hasMore: staffPage.hasMore,
+          isLoading: false,
+          isRefreshing: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -92,7 +100,11 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
         organizationCode: organizationCode,
         schoolCode: schoolCode,
         page: nextPage,
-        size: state.selectedStaffStatus != null && state.selectedStaffStatus!.isNotEmpty ? 50 : _pageSize,
+        size:
+            state.selectedStaffStatus != null &&
+                state.selectedStaffStatus!.isNotEmpty
+            ? 50
+            : _pageSize,
         status: 'ACTIVE',
         designation: state.selectedDesignation,
         search: state.searchQuery,
@@ -102,18 +114,22 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
 
       if (isClosed) return;
 
-      emit(state.copyWith(
-        items: [...state.items, ...staffPage.items],
-        currentPage: nextPage,
-        hasMore: staffPage.hasMore,
-        isLoadingMore: false,
-      ));
+      emit(
+        state.copyWith(
+          items: [...state.items, ...staffPage.items],
+          currentPage: nextPage,
+          hasMore: staffPage.hasMore,
+          isLoadingMore: false,
+        ),
+      );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoadingMore: false,
-        errorMessage: ApiErrorHandler.extractErrorMessage(e),
-      ));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -131,25 +147,29 @@ class StaffMessagingFilterCubit extends Cubit<StaffMessagingFilterState> {
     String? designation,
     String? staffStatus,
   }) {
-    emit(state.copyWith(
-      selectedClassroomCode: classroomCode,
-      selectedClassroomName: classroomName,
-      selectedDesignation: designation,
-      selectedStaffStatus: staffStatus,
-      clearClassroom: classroomCode == null,
-      clearDesignation: designation == null,
-      clearStaffStatus: staffStatus == null,
-    ));
+    emit(
+      state.copyWith(
+        selectedClassroomCode: classroomCode,
+        selectedClassroomName: classroomName,
+        selectedDesignation: designation,
+        selectedStaffStatus: staffStatus,
+        clearClassroom: classroomCode == null,
+        clearDesignation: designation == null,
+        clearStaffStatus: staffStatus == null,
+      ),
+    );
     refresh();
   }
 
   void clearFilters() {
-    emit(state.copyWith(
-      searchQuery: '',
-      clearClassroom: true,
-      clearDesignation: true,
-      clearStaffStatus: true,
-    ));
+    emit(
+      state.copyWith(
+        searchQuery: '',
+        clearClassroom: true,
+        clearDesignation: true,
+        clearStaffStatus: true,
+      ),
+    );
     refresh();
   }
 

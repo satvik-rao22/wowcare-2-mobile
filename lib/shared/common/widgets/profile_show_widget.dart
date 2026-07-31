@@ -104,8 +104,9 @@ class DocumentImageWidget extends StatefulWidget {
   /// avatars already on screen keep the URL they resolved earlier and only
   /// re-fetch on rebuild — which is why a new photo used to appear only after
   /// re-navigating or restarting the app.
-  static final ValueNotifier<int> _profilePhotoRefreshTick =
-      ValueNotifier<int>(0);
+  static final ValueNotifier<int> _profilePhotoRefreshTick = ValueNotifier<int>(
+    0,
+  );
 
   static void _removeProfilePhotoKey(String key) {
     _DocumentImageWidgetState._profilePhotoUrlCache.remove(key);
@@ -220,18 +221,22 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
     _resolvedImageUrl = _seedImageUrl();
     _resolveProfilePhotoIfNeeded();
     _loadAttendanceStatusIfNeeded();
-    DocumentImageWidget._attendanceStatusRefreshTick
-        .addListener(_onAttendanceStatusRefreshTick);
-    DocumentImageWidget._profilePhotoRefreshTick
-        .addListener(_onProfilePhotoRefreshTick);
+    DocumentImageWidget._attendanceStatusRefreshTick.addListener(
+      _onAttendanceStatusRefreshTick,
+    );
+    DocumentImageWidget._profilePhotoRefreshTick.addListener(
+      _onProfilePhotoRefreshTick,
+    );
   }
 
   @override
   void dispose() {
-    DocumentImageWidget._attendanceStatusRefreshTick
-        .removeListener(_onAttendanceStatusRefreshTick);
-    DocumentImageWidget._profilePhotoRefreshTick
-        .removeListener(_onProfilePhotoRefreshTick);
+    DocumentImageWidget._attendanceStatusRefreshTick.removeListener(
+      _onAttendanceStatusRefreshTick,
+    );
+    DocumentImageWidget._profilePhotoRefreshTick.removeListener(
+      _onProfilePhotoRefreshTick,
+    );
     super.dispose();
   }
 
@@ -846,7 +851,7 @@ class _DocumentImageWidgetState extends State<DocumentImageWidget> {
             waitDuration: const Duration(milliseconds: 100),
             showDuration: const Duration(seconds: 2),
             decoration: BoxDecoration(
-              color: AppColors.primaryColor.withOpacity(0.95),
+              color: AppColors.primaryColor.withValues(alpha: 0.95),
               borderRadius: BorderRadius.circular(8),
             ),
             textStyle: const TextStyle(

@@ -42,11 +42,14 @@ MovementType _movementTypeFromEntity(IndividualMovementType type) {
 }
 
 class IndividualMovementScreen extends StatefulWidget {
-  const IndividualMovementScreen({super.key, this.highlightCode});
+  const IndividualMovementScreen({super.key, this.highlightCode, this.studentCode});
 
   /// Movement id (as string) from a notification deep-link; the matching
   /// movement card scrolls into view and flashes.
   final String? highlightCode;
+
+  /// When set, pre-filters the board to this student code.
+  final String? studentCode;
 
   static const String routeName = '/dashboard/individual-movement';
 
@@ -119,6 +122,11 @@ class _IndividualMovementScreenState extends State<IndividualMovementScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _loadPersistedFilters();
       if (!mounted) return;
+      if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
+        setState(() {
+          _selectedStudents = [widget.studentCode!];
+        });
+      }
       // Load movements before heavy student/classroom metadata so the list
       // (and loader) appear immediately instead of an empty board for ~1s+.
       await _fetchMovements(initialLoad: true);

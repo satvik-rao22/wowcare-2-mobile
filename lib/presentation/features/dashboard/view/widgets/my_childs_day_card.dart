@@ -22,7 +22,6 @@ import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
-
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'
@@ -167,10 +166,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed || !mounted) return;
-    final childCodes = Provider.of<ParentChildCubit>(context, listen: false)
-        .children
-        .map((c) => c.code)
-        .toList();
+    final childCodes = Provider.of<ParentChildCubit>(
+      context,
+      listen: false,
+    ).children.map((c) => c.code).toList();
     if (childCodes.isNotEmpty) {
       unawaited(_loadChildrenSignInStatus(childCodes));
     }
@@ -208,7 +207,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         .map((c) => c.code)
         .toList();
     final sortedKey = (List<String>.from(allChildCodes)..sort()).join(',');
-    final lastKey = (List<String>.from(_lastSignInStatusCodes)..sort()).join(',');
+    final lastKey = (List<String>.from(
+      _lastSignInStatusCodes,
+    )..sort()).join(',');
     if (allChildCodes.isNotEmpty && sortedKey != lastKey) {
       _lastSignInStatusCodes = List<String>.from(allChildCodes);
       unawaited(_loadChildrenSignInStatus(allChildCodes));
@@ -246,7 +247,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   /// `refreshCallback`) and again once the form's route closes, so the
   /// Sign-In/Sign-Out button flips immediately instead of staying stale.
   void _refreshSignInStatusAfterAction(List<ParentChildRef> children) {
-    final codes = children.map((c) => c.code.trim()).where((c) => c.isNotEmpty).toList();
+    final codes = children
+        .map((c) => c.code.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
     if (codes.isNotEmpty) {
       unawaited(_loadChildrenSignInStatus(codes));
     }
@@ -301,8 +305,10 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     if (_isSelectedChildSignedIn) return;
     final geofenceState = context.read<GeofenceCubit>().state;
     if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
-    final selectedChild =
-        Provider.of<ParentChildCubit>(context, listen: false).selectedChild;
+    final selectedChild = Provider.of<ParentChildCubit>(
+      context,
+      listen: false,
+    ).selectedChild;
     // GeofenceCubit already fires the notification via
     // _triggerNotificationIfNeeded — no need to do it here too.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -734,7 +740,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                           _refreshSignInStatusAfterAction(children),
                     ),
                   ),
-                // TODO: Temporarily disabled Sign Out bottom sheet and push notification.
+                  // TODO: Temporarily disabled Sign Out bottom sheet and push notification.
                 ).then((_) {
                   // if (mounted) _refreshSignInStatusAfterAction(children);
                 }),
@@ -774,8 +780,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       popOnSuccess: true,
                     ),
                   ),
-                // TODO: Temporarily disabled Sign Out bottom sheet and push notification after Sign In.
-                // Status will be checked on next dashboard refresh or app resume.
+                  // TODO: Temporarily disabled Sign Out bottom sheet and push notification after Sign In.
+                  // Status will be checked on next dashboard refresh or app resume.
                 ).then((_) {
                   // if (mounted) _refreshSignInStatusAfterAction(children);
                 }),
