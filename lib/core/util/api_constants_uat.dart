@@ -32,7 +32,7 @@ class ApiConstantsUat {
   //     --dart-define=API_HOST=https://jl69j4pz-8090.inc1.devtunnels.ms
   static const String _host = String.fromEnvironment(
     'API_HOST',
-    defaultValue: 'https://uat-wowcare.childcarewow.app',
+    defaultValue: 'https://uat.childcarewow.app',
   );
 
   // Communication / Messaging MS runs on port 8086.
