@@ -37,6 +37,8 @@ class TasksState extends Equatable {
     this.errorNonce = 0,
     this.schoolTimeZone = TaskTimezone.fallbackTimeZone,
     this.persona = TaskPersona.admin,
+    this.attachmentsByTask = const <String, List<TaskAttachment>>{},
+    this.attachmentsUnavailable = const <String>{},
   });
 
   const TasksState.initial()
@@ -58,7 +60,9 @@ class TasksState extends Equatable {
         errorMessage = null,
         errorNonce = 0,
         schoolTimeZone = TaskTimezone.fallbackTimeZone,
-        persona = TaskPersona.admin;
+        persona = TaskPersona.admin,
+        attachmentsByTask = const <String, List<TaskAttachment>>{},
+        attachmentsUnavailable = const <String>{};
 
   final List<Task> tasks;
   final bool isLoading;
@@ -113,6 +117,32 @@ class TasksState extends Equatable {
   /// admin sessions; staff/parent sessions are narrowed the moment the persona
   /// is known (before the first fetch resolves).
   final TaskPersona persona;
+
+  /// Attachments keyed by **series** code (`TSK_…`), not by the card's
+  /// assignment code — attachments belong to the series, so every card of the
+  /// same series shares one entry and one fetch. A present-but-empty list means
+  /// "loaded, has none"; an absent key means "not fetched yet".
+  final Map<String, List<TaskAttachment>> attachmentsByTask;
+
+  /// Attachments for one task card, resolved through its series code. Empty
+  /// while the fetch is still in flight, so callers render nothing rather than
+  /// a flash of placeholder rows.
+  List<TaskAttachment> attachmentsFor(Task task) =>
+      attachmentsByTask[task.taskCode] ?? const <TaskAttachment>[];
+
+  /// Whether this task's attachments have been fetched at least once —
+  /// distinguishes "none" from "not yet known".
+  bool hasLoadedAttachments(Task task) =>
+      attachmentsByTask.containsKey(task.taskCode);
+
+  /// Series codes whose attachments could not be read (no endpoint, or the
+  /// request failed). Distinct from "has none": since `assetCodes` is a full
+  /// replace on save, a form must not write attachments for a series in here
+  /// or it would delete whatever the server holds unseen.
+  final Set<String> attachmentsUnavailable;
+
+  bool attachmentsAreReadable(String taskCode) =>
+      !attachmentsUnavailable.contains(taskCode.trim());
 
   /// Count of active sheet filters shown on the Filters button. Search is
   /// tracked separately by [hasActiveFilters] so the search bar drives the
@@ -344,6 +374,8 @@ class TasksState extends Equatable {
     String? Function()? errorMessage,
     String? schoolTimeZone,
     TaskPersona? persona,
+    Map<String, List<TaskAttachment>>? attachmentsByTask,
+    Set<String>? attachmentsUnavailable,
   }) {
     final resolvedError =
         errorMessage != null ? errorMessage() : this.errorMessage;
@@ -370,6 +402,9 @@ class TasksState extends Equatable {
       errorNonce: bumpedNonce,
       schoolTimeZone: schoolTimeZone ?? this.schoolTimeZone,
       persona: persona ?? this.persona,
+      attachmentsByTask: attachmentsByTask ?? this.attachmentsByTask,
+      attachmentsUnavailable:
+          attachmentsUnavailable ?? this.attachmentsUnavailable,
     );
   }
 
@@ -394,5 +429,7 @@ class TasksState extends Equatable {
         errorNonce,
         schoolTimeZone,
         persona,
+        attachmentsByTask,
+        attachmentsUnavailable,
       ];
 }

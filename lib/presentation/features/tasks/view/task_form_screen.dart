@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -8,8 +7,8 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
@@ -20,6 +19,7 @@ import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.da
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/assignee_picker_sheet.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_attachment_picker.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -115,30 +115,45 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   int _startMonthDay = 1;
   int _dueMonthDay = 25;
 
-  /// Existing remote attachment, shown in edit mode. A freshly picked local
-  /// file overrides it for display and, on save, replaces it.
-  String? _attachmentName;
-  String? _attachmentUrl;
-  String? _attachmentType;
+  /// Attachments already on the series, loaded in edit mode. Removing one here
+  /// only drops it from this list; the change is persisted by the `assetCodes`
+  /// full-replace on save.
+  List<TaskAttachment> _existingAttachments = const [];
+  bool _loadedExistingAttachments = false;
 
-  /// A freshly picked local file, held (not uploaded) until the form is
-  /// submitted. The §8/§9 upload runs inside [_save], right before create/
-  /// update — so nothing is uploaded for a form the user abandons.
-  String? _pickedAttachmentPath;
-  int? _pickedAttachmentSize;
+  /// How many attachments the series had when the form opened. Compared against
+  /// [_existingAttachments] on save to tell "user removed some" from "user
+  /// never touched attachments" — only the former should send `assetCodes`.
+  int _attachmentBaselineCount = 0;
 
-  /// True only while the held file is uploading during save.
+  /// False when the series' attachments could not be read. Editing them is then
+  /// disabled rather than silently destructive: `assetCodes` is a full replace,
+  /// so saving a list assembled from an unreadable set would delete whatever
+  /// the server actually holds. Always true when creating — a task that does
+  /// not exist yet has nothing to lose.
+  bool _attachmentsReadable = true;
+
+  /// Freshly picked local files. The §8/§9 upload starts as soon as one is
+  /// picked (see [_uploadPickedAttachments]), so by the time the user submits
+  /// the asset codes are usually already in hand and the button doesn't have to
+  /// wait on the network.
+  List<PendingTaskAttachment> _pendingAttachments = const [];
+
+  /// file path → 0-100 while a file uploads.
+  final Map<String, int> _uploadProgress = {};
+
+  /// file path → asset code for files that already made it to storage. Survives
+  /// a failed save so retrying resumes instead of re-uploading — the same
+  /// guard the activities module uses to avoid duplicate uploads.
+  final Map<String, String> _uploadedAssetCodes = {};
+
+  /// True while any held file is uploading.
   bool _uploadingAttachment = false;
 
-  /// Attachment picker limits (mirrors the tile's helper text).
-  static const int _maxAttachmentBytes = 10 * 1024 * 1024;
-  static const List<String> _attachmentExtensions = [
-    'jpg',
-    'jpeg',
-    'png',
-    'webp',
-    'pdf',
-  ];
+  /// True from the moment Create/Save is tapped until that save settles. The
+  /// button's own disabled state can't be the only guard: it takes a frame to
+  /// apply, and a second entry into the save would POST a duplicate task.
+  bool _isSubmitting = false;
 
   bool get _isEditing => _editing != null;
 
@@ -239,9 +254,9 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _startMonthDay = int.tryParse(task.startDay ?? '') ?? _startMonthDay;
       _dueMonthDay = int.tryParse(task.dueDay ?? '') ?? _dueMonthDay;
     }
-    _attachmentName = task.attachmentName;
-    _attachmentUrl = task.attachmentUrl;
-    _attachmentType = task.attachmentType;
+    // Attachments live on the series, not on the assignment card — fetched
+    // separately rather than prefilled from [task].
+    unawaited(_loadExistingAttachments(task.taskCode));
   }
 
   /// Converts [task]'s UTC wire start/due date+time into the school-local
@@ -331,7 +346,28 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       showCustomNavigationBar: false,
       body: Form(
         key: _formKey,
-        child: SingleChildScrollView(
+        // Blocks the AppBar back arrow (routed through Navigator.maybePop, see
+        // CustomAppBar) as well as the system back gesture/hardware button —
+        // an upload or a create/update in flight must not be abandoned
+        // mid-flight by a navigation that the widget tree, and the requests
+        // already sent to three different hosts, don't actually stop for.
+        canPop: !_busy,
+        onPopInvokedWithResult: (didPop, result) {
+          if (didPop) return;
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: _isSubmitting
+                ? 'Please wait for the task to finish saving.'
+                : 'Please wait for the attachment to finish uploading.',
+            isWarning: true,
+          );
+        },
+        child: AbsorbPointer(
+          absorbing: _busy,
+          child: AnimatedOpacity(
+            opacity: _busy ? 0.6 : 1,
+            duration: const Duration(milliseconds: 150),
+            child: SingleChildScrollView(
           padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -449,9 +485,17 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             ],
           ),
         ),
+          ),
+        ),
       ),
     );
   }
+
+  /// True while a save is running or a file is uploading — the whole form
+  /// disables itself for this span (see [build]'s `AbsorbPointer`/`PopScope`),
+  /// not just the save button, so nothing else can mutate the draft or leave
+  /// the screen while a request is on the wire.
+  bool get _busy => _isSubmitting || _uploadingAttachment;
 
   // --------------------------------------------------------- assignee
 
@@ -901,188 +945,163 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
 
   // ------------------------------------------------------- attachment
 
-  /// Whether any attachment (a freshly picked local file, or an existing remote
-  /// one in edit mode) is currently on the form.
-  bool get _hasAttachment =>
-      _pickedAttachmentPath != null || (_attachmentName ?? '').isNotEmpty;
+  /// Pulls the series' current attachments into the form once, in edit mode.
+  /// Silent on failure: an unavailable attachments endpoint must not block
+  /// editing the rest of the task.
+  Future<void> _loadExistingAttachments(String taskCode) async {
+    if (_loadedExistingAttachments || taskCode.trim().isEmpty) return;
+    _loadedExistingAttachments = true;
+    final cubit = context.read<TasksCubit>();
+    await cubit.ensureAttachmentsLoaded(taskCode);
+    if (!mounted) return;
+    final code = taskCode.trim();
+    final loaded =
+        cubit.state.attachmentsByTask[code] ?? const <TaskAttachment>[];
+    setState(() {
+      _existingAttachments = loaded;
+      _attachmentBaselineCount = loaded.length;
+      _attachmentsReadable = cubit.state.attachmentsAreReadable(code);
+    });
+  }
 
   Widget _attachmentSection() {
-    if (_uploadingAttachment) {
+    if (!_attachmentsReadable) {
       return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
         decoration: _tileDecoration(),
         child: Row(
           children: [
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.themeColor,
-              ),
-            ),
+            Icon(Icons.info_outline, size: 18, color: Colors.grey[600]),
             const SizedBox(width: 10),
-            Text(
-              'Uploading attachment…',
-              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            Expanded(
+              child: Text(
+                "This task's attachments can't be loaded right now, so they "
+                'can’t be changed here. Everything else still saves normally.',
+                style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+              ),
             ),
           ],
         ),
       );
     }
-    if (_hasAttachment) return _attachmentPreview();
-    return _fieldTile(
-      icon: Icons.upload_file_outlined,
-      text: 'Add attachment (JPEG, PNG, WebP, PDF • max 10MB)',
-      onTap: _pickAttachment,
+    return TaskAttachmentPicker(
+      existing: _existingAttachments,
+      pending: _pendingAttachments,
+      uploadService: context.read<TasksCubit>().imageUploadService,
+      uploadProgress: _uploadProgress,
+      uploadedPaths: _uploadedAssetCodes.keys.toSet(),
+      isUploading: _uploadingAttachment,
+      enabled: !_uploadingAttachment && !_isSubmitting,
+      onPendingChanged: (files) {
+        setState(() => _pendingAttachments = files);
+        // Upload as soon as the file is picked (as the activity editors do)
+        // rather than on submit, so Create/Save never has to sit on a
+        // multi-request upload before it can send the task itself.
+        unawaited(_uploadPickedAttachments());
+      },
+      onExistingRemoved: (attachment) => setState(() {
+        _existingAttachments = _existingAttachments
+            .where((a) => a.assetCode != attachment.assetCode)
+            .toList();
+      }),
     );
   }
 
-  /// Preview card for the chosen attachment: an inline thumbnail for images, a
-  /// file glyph otherwise, plus the name, a size/"uploads on save" hint, and a
-  /// remove control. The actual upload is deferred to [_save].
-  Widget _attachmentPreview() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: _tileDecoration(),
-      child: Row(
-        children: [
-          _attachmentThumbnail(),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _attachmentName ?? 'Attachment',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _attachmentSubtitle(),
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: _pickAttachment,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Icon(Icons.swap_horiz,
-                  size: 20, color: AppColors.themeColor),
-            ),
-          ),
-          GestureDetector(
-            onTap: _removeAttachment,
-            child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
-          ),
-        ],
-      ),
-    );
-  }
+  /// The held files that are not in storage yet.
+  List<PendingTaskAttachment> get _notYetUploaded => _pendingAttachments
+      .where((a) => (_uploadedAssetCodes[a.filePath] ?? '').isEmpty)
+      .toList(growable: false);
 
-  Widget _attachmentThumbnail() {
-    const double size = 46;
-    final radius = BorderRadius.circular(8);
-    final fallback = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppColors.themeColor.withValues(alpha: 0.08),
-        borderRadius: radius,
-      ),
-      child: Icon(
-        _isImageAttachment(_attachmentType)
-            ? Icons.image_outlined
-            : Icons.description_outlined,
-        size: 22,
-        color: AppColors.themeColor,
-      ),
-    );
-    if (!_isImageAttachment(_attachmentType)) return fallback;
-    Widget? image;
-    if (_pickedAttachmentPath != null) {
-      image = Image.file(
-        File(_pickedAttachmentPath!),
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
-      );
-    } else if ((_attachmentUrl ?? '').isNotEmpty) {
-      image = Image.network(
-        _attachmentUrl!,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
-      );
+  /// Uploads whatever has just been picked, then loops in case more files were
+  /// added while the first batch was in flight. Safe to call unawaited: it
+  /// no-ops when an upload is already running or nothing is outstanding.
+  Future<void> _uploadPickedAttachments() async {
+    if (_uploadingAttachment) return;
+    while (mounted && _notYetUploaded.isNotEmpty) {
+      final before = _notYetUploaded.length;
+      if (!await _uploadOutstanding()) return;
+      // A "successful" round that resolved nothing would otherwise spin against
+      // the network forever; leave the files outstanding and let the save
+      // report it instead.
+      if (!mounted || _notYetUploaded.length >= before) return;
     }
-    return image == null
-        ? fallback
-        : ClipRRect(borderRadius: radius, child: image);
   }
 
-  String _attachmentSubtitle() {
-    if (_pickedAttachmentSize != null) {
-      final kb = _pickedAttachmentSize! / 1024;
-      final size =
-          kb >= 1024 ? '${(kb / 1024).toStringAsFixed(1)} MB' : '${kb.toStringAsFixed(0)} KB';
-      return '$size • uploads when you save';
-    }
-    final type = (_attachmentType ?? '').replaceAll('.', '').toUpperCase();
-    return type.isEmpty ? 'Attached' : type;
-  }
+  /// Runs the §8/§9 upload for the outstanding files through one session.
+  /// Returns false when it failed (the reason is already on the state).
+  ///
+  /// Asset codes that did land are kept in [_uploadedAssetCodes], so a retry
+  /// resumes rather than re-uploading the same bytes.
+  Future<bool> _uploadOutstanding() async {
+    final outstanding = _notYetUploaded;
+    if (outstanding.isEmpty) return true;
 
-  void _removeAttachment() {
-    setState(() {
-      _pickedAttachmentPath = null;
-      _pickedAttachmentSize = null;
-      _attachmentName = null;
-      _attachmentUrl = null;
-      _attachmentType = null;
-    });
-  }
+    final cubit = context.read<TasksCubit>();
+    setState(() => _uploadingAttachment = true);
 
-  static bool _isImageAttachment(String? type) {
-    final normalized = (type ?? '').toLowerCase().replaceAll('.', '');
-    return normalized == 'jpg' ||
-        normalized == 'jpeg' ||
-        normalized == 'png' ||
-        normalized == 'webp';
-  }
-
-  /// Picks one file and holds it locally for preview. Does NOT upload — that
-  /// happens on submit (§8/§9), inside [_save].
-  Future<void> _pickAttachment() async {
-    final picked = await FilePickerUtils.pickFile(
-      allowedExtensions: _attachmentExtensions,
-      context: context,
+    final uploaded = await cubit.uploadAttachments(
+      files: outstanding,
+      alreadyUploaded: _uploadedAssetCodes,
+      onAssetUploaded: (filePath, assetCode) =>
+          _uploadedAssetCodes[filePath] = assetCode,
+      onProgress: (index, percent) {
+        if (!mounted || index >= outstanding.length) return;
+        setState(() {
+          _uploadProgress[outstanding[index].filePath] = percent;
+        });
+      },
     );
-    final path = picked?.path;
-    if (picked == null || path == null) return;
 
-    if (picked.size > _maxAttachmentBytes) {
-      if (!mounted) return;
+    if (!mounted) return false;
+    setState(() => _uploadingAttachment = false);
+    if (uploaded == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Attachment must be 10MB or smaller.',
-        isWarning: true,
+        message: cubit.state.errorMessage ??
+            'Could not upload the attachments. Please try again.',
+        isError: true,
       );
-      return;
+      return false;
     }
+    return true;
+  }
 
-    setState(() {
-      _pickedAttachmentPath = path;
-      _pickedAttachmentSize = picked.size;
-      _attachmentName = picked.name;
-      _attachmentType = picked.extension;
-      // A new local file supersedes any existing remote attachment preview.
-      _attachmentUrl = null;
-    });
+  /// The full `assetCodes` list to persist — kept existing assets first, then
+  /// the newly uploaded ones — or null when a held file still isn't in storage.
+  ///
+  /// Because `assetCodes` is a full replace (§3c), an attachment the user
+  /// removed simply doesn't appear in the returned list.
+  List<String>? _resolvedAssetCodes() {
+    final codes = _existingAttachments
+        .map((a) => a.assetCode)
+        .where((code) => code.isNotEmpty)
+        .toList();
+    for (final attachment in _pendingAttachments) {
+      final code = _uploadedAssetCodes[attachment.filePath] ?? '';
+      if (code.isEmpty) return null;
+      codes.add(code);
+    }
+    return codes;
+  }
+
+  /// The series' complete attachment set after this save, for
+  /// [TasksCubit.primeAttachments]. Freshly uploaded rows carry no `ATT_…` code
+  /// (only the list endpoint mints those), but they do carry the asset code the
+  /// thumbnail resolves its URL from, plus the local name/type/size so the row
+  /// reads properly without a re-read.
+  List<TaskAttachment> _attachmentsAfterSave() {
+    return <TaskAttachment>[
+      ..._existingAttachments.where((a) => a.assetCode.isNotEmpty),
+      for (final attachment in _pendingAttachments)
+        if ((_uploadedAssetCodes[attachment.filePath] ?? '').isNotEmpty)
+          TaskAttachment(
+            assetCode: _uploadedAssetCodes[attachment.filePath]!,
+            fileName: attachment.fileName,
+            contentType: attachment.contentType,
+            sizeBytes: attachment.sizeBytes,
+            mediaType: attachment.isImage ? 'IMAGE' : 'DOCUMENT',
+          ),
+    ];
   }
 
   // ------------------------------------------------------------- save
@@ -1114,7 +1133,14 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             TaskFormValidation.isEffortValid(_effortController.text);
         return BlocBuilder<TasksCubit, TasksState>(
           builder: (context, state) {
-            final enabled = canSave && !state.isSaving;
+            // [_busy] already spans the whole create/update request (it's set
+            // before cubit.create/update is awaited and cleared after), so
+            // `state.isSaving` is only here as a defense-in-depth check —
+            // without it a live "Create Task" button during the upload would
+            // read as "nothing happened" and invite the taps that create
+            // duplicates.
+            final busy = _busy || state.isSaving;
+            final enabled = canSave && !busy;
             return SizedBox(
           height: 46,
           child: DecoratedBox(
@@ -1132,7 +1158,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: state.isSaving
+              child: busy
                   ? const SizedBox(
                       width: 20,
                       height: 20,
@@ -1159,6 +1185,23 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   }
 
   Future<void> _save() async {
+    // The button is disabled while busy, but a queued tap can still land
+    // between the tap and the first frame that reflects it — and a second
+    // entry here would open its own upload session and POST a duplicate task.
+    if (_isSubmitting || _uploadingAttachment) return;
+    setState(() => _isSubmitting = true);
+    try {
+      await _submit();
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      } else {
+        _isSubmitting = false;
+      }
+    }
+  }
+
+  Future<void> _submit() async {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     if (_assignees.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -1221,9 +1264,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       recurringEndDate: () => _recurring ? _recurringEndDate : null,
       startDay: () => _recurringDayValue(isStart: true),
       dueDay: () => _recurringDayValue(isStart: false),
-      attachmentName: () => _attachmentName,
-      attachmentUrl: () => _attachmentUrl,
-      attachmentType: () => _attachmentType,
     );
 
     // Validate the scope chosen back on Edit against what actually changed,
@@ -1240,41 +1280,38 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       scope = TaskEditScope.thisOccurrence;
     }
 
-    // Upload the held attachment (if any) only now, on submit (§8/§9). A
-    // failed upload aborts the save so the task is never created without its
-    // intended attachment.
-    String? uploadedAssetCode;
-    if (_pickedAttachmentPath != null) {
-      setState(() => _uploadingAttachment = true);
-      uploadedAssetCode = await cubit.uploadAttachment(
-        filePath: _pickedAttachmentPath!,
-        fileName: _attachmentName ?? 'attachment',
-        contentType: FilePickerUtils.getMimeType(_attachmentType),
+    // Attachments normally uploaded the moment they were picked, so this is
+    // just the fallback for anything that failed or was added while an earlier
+    // batch was still in flight. A file that still isn't in storage aborts the
+    // save, so the task is never created without its intended attachments.
+    if (_notYetUploaded.isNotEmpty && !await _uploadOutstanding()) return;
+    if (!mounted) return;
+    final resolvedAssetCodes = _resolvedAssetCodes();
+    if (resolvedAssetCodes == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Could not upload the attachments. Please try again.',
+        isError: true,
       );
-      if (!mounted) return;
-      setState(() => _uploadingAttachment = false);
-      if (uploadedAssetCode == null || uploadedAssetCode.isEmpty) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Could not upload the attachment. Please try again.',
-          isError: true,
-        );
-        return;
-      }
+      return;
     }
 
     final bool ok;
+    // The series this save wrote attachments onto, and whether it wrote them at
+    // all — a create learns its series code from the response.
+    String seriesCode = '';
+    bool wroteAttachments = false;
     if (_isEditing) {
-      // Attachments persist through the series' assetCodes full-replace (§3c):
-      // send the freshly-uploaded asset, an empty list when the existing one
-      // was removed, or null to leave attachments untouched.
-      List<String>? assetCodes;
-      if (uploadedAssetCode != null) {
-        assetCodes = [uploadedAssetCode];
-      } else if ((_editing?.attachmentName ?? '').isNotEmpty &&
-          !_hasAttachment) {
-        assetCodes = const <String>[];
-      }
+      // Attachments persist through the series' assetCodes full-replace (§3c).
+      // Send the resolved list whenever the user touched attachments at all
+      // (added or removed); null otherwise, to leave them untouched.
+      // Never write attachments we could not read (see [_attachmentsReadable]).
+      final attachmentsChanged = _attachmentsReadable &&
+          (_pendingAttachments.isNotEmpty ||
+              _existingAttachments.length != _attachmentBaselineCount);
+      final assetCodes = attachmentsChanged ? resolvedAssetCodes : null;
+      seriesCode = _editing?.taskCode.trim() ?? '';
+      wroteAttachments = assetCodes != null;
       // The card being edited keeps its own assignee (draft inherits it from
       // _editing). Anything picked that wasn't already on the series is a new
       // assignee; the cubit appends each to the roster so the backend
@@ -1294,16 +1331,29 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       final assignees = _assignees.entries
           .map((e) => (code: e.key, name: e.value))
           .toList();
-      ok = await cubit.create(
-        draft,
-        assignees,
-        assetCodes:
-            uploadedAssetCode == null ? const [] : [uploadedAssetCode],
-      );
+      final createdSeriesCode =
+          await cubit.create(draft, assignees, assetCodes: resolvedAssetCodes);
+      ok = createdSeriesCode != null;
+      seriesCode = createdSeriesCode?.trim() ?? '';
+      wroteAttachments = true;
     }
 
     if (!mounted) return;
     if (ok) {
+      // The card and detail screens read attachments from the cubit's cache.
+      // Prime it with what we just wrote (`assetCodes` is a full replace, so
+      // this list *is* the series' set) rather than only asking the server —
+      // the Tasks API documents no attachments read endpoint, and without this
+      // a just-attached file would be invisible until one appears.
+      if (seriesCode.isNotEmpty && wroteAttachments) {
+        cubit.primeAttachments(seriesCode, _attachmentsAfterSave());
+      }
+      // Then reconcile in the background: if the read endpoint does exist it
+      // replaces the primed rows with the server's (which carry the `ATT_…`
+      // codes detach needs); if it doesn't, the primed set survives.
+      if (seriesCode.isNotEmpty) {
+        unawaited(cubit.refreshAttachments(seriesCode));
+      }
       final String message;
       if (_isEditing) {
         final added = _addedAssigneeCount;

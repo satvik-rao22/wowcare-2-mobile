@@ -1,0 +1,197 @@
+import 'package:equatable/equatable.dart';
+
+/// Thrown when a task's attachments cannot be read — the backend exposes no
+/// attachments endpoint, or the request failed.
+///
+/// This is not merely "no attachments": because create/update treat
+/// `assetCodes` as a **full replace**, saving a list built from an unreadable
+/// set would silently delete whatever the server actually holds. Callers must
+/// therefore refuse to write attachments when they see this.
+class TaskAttachmentsUnavailable implements Exception {
+  const TaskAttachmentsUnavailable();
+
+  @override
+  String toString() => 'TaskAttachmentsUnavailable';
+}
+
+/// Byte count as a short human-readable label, shared by saved and pending
+/// attachments so both subtitle lines read identically. Empty for an unknown
+/// size; bytes below 1 KB are shown as-is rather than rounding to "0 KB".
+String formatAttachmentSize(int bytes) {
+  if (bytes <= 0) return '';
+  if (bytes < 1024) return '$bytes B';
+  final kb = bytes / 1024;
+  if (kb < 1024) return '${kb.toStringAsFixed(0)} KB';
+  return '${(kb / 1024).toStringAsFixed(1)} MB';
+}
+
+/// One attachment currently hanging off a task series.
+///
+/// Two codes matter and they are not interchangeable: [assetCode] is the
+/// document-microservice asset (`AST_…`) that the §8/§9 upload flow mints and
+/// that create/update's `assetCodes` full-replace speaks in, while [code] is
+/// the events-todo-side attachment row (`ATT_…`) that the detach endpoint takes.
+/// The list endpoint hands back both; a freshly uploaded asset only has the
+/// former until the task is saved and re-read.
+class TaskAttachment extends Equatable {
+  const TaskAttachment({
+    required this.assetCode,
+    this.code = '',
+    this.fileName = '',
+    this.contentType = '',
+    this.sizeBytes = 0,
+    this.mediaType = '',
+    this.status = '',
+    this.url = '',
+    this.thumbnailUrl = '',
+  });
+
+  /// events-todo attachment row code — the key `DELETE /tasks/{code}/
+  /// attachments/{attachmentCode}` expects. Empty when this attachment was
+  /// built from an upload that hasn't been persisted onto a task yet.
+  final String code;
+
+  /// document-microservice asset code (`AST_…`).
+  final String assetCode;
+
+  final String fileName;
+  final String contentType;
+  final int sizeBytes;
+
+  /// `IMAGE` / `VIDEO` / `DOCUMENT` as classified by document-microservice.
+  /// Absent on some payloads, so the [isImage]/[isVideo] getters fall back to
+  /// [contentType] and finally to the [fileName] extension.
+  final String mediaType;
+
+  /// `UPLOADED` / `READY` / `FAILED` — only `READY` assets have a usable [url].
+  final String status;
+
+  /// Resolved delivery URL. Frequently empty on the list payload, in which case
+  /// the UI resolves it lazily by [assetCode] through
+  /// `ImageUploadService.getMediaAssetUrlByCode`.
+  final String url;
+  final String thumbnailUrl;
+
+  String get _extension {
+    final dot = fileName.lastIndexOf('.');
+    if (dot < 0 || dot == fileName.length - 1) return '';
+    return fileName.substring(dot + 1).toLowerCase();
+  }
+
+  bool get isImage {
+    if (mediaType.toUpperCase() == 'IMAGE') return true;
+    if (contentType.toLowerCase().startsWith('image/')) return true;
+    return const {'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'heic', 'heif'}
+        .contains(_extension);
+  }
+
+  bool get isVideo {
+    if (mediaType.toUpperCase() == 'VIDEO') return true;
+    if (contentType.toLowerCase().startsWith('video/')) return true;
+    return const {'mp4', 'mov', 'webm'}.contains(_extension);
+  }
+
+  /// Anything that isn't previewable in-app — opened through the OS instead.
+  bool get isDocument => !isImage && !isVideo;
+
+  /// A `READY` asset is the only one guaranteed to resolve to a delivery URL.
+  /// Blank status is treated as ready: several payloads omit it entirely.
+  bool get isReady {
+    final normalized = status.trim().toUpperCase();
+    return normalized.isEmpty || normalized == 'READY';
+  }
+
+  /// Human-readable size for the subtitle line; empty when the payload omits
+  /// it.
+  String get displaySize => formatAttachmentSize(sizeBytes);
+
+  /// Round-trip form for the local display cache (see
+  /// `StorageKeys.taskAttachmentsCache`). Deliberately does **not** persist
+  /// [url]/[thumbnailUrl]: delivery URLs are short-lived pre-signed links, so a
+  /// stale one would render a broken image. [assetCode] survives instead, and
+  /// the thumbnail re-resolves it on demand.
+  Map<String, dynamic> toCacheJson() => <String, dynamic>{
+        'code': code,
+        'assetCode': assetCode,
+        'fileName': fileName,
+        'contentType': contentType,
+        'sizeBytes': sizeBytes,
+        'mediaType': mediaType,
+      };
+
+  static TaskAttachment? fromCacheJson(Object? raw) {
+    if (raw is! Map) return null;
+    final assetCode = (raw['assetCode'] ?? '').toString().trim();
+    if (assetCode.isEmpty) return null;
+    final size = raw['sizeBytes'];
+    return TaskAttachment(
+      assetCode: assetCode,
+      code: (raw['code'] ?? '').toString().trim(),
+      fileName: (raw['fileName'] ?? '').toString().trim(),
+      contentType: (raw['contentType'] ?? '').toString().trim(),
+      sizeBytes: size is int ? size : int.tryParse('$size') ?? 0,
+      mediaType: (raw['mediaType'] ?? '').toString().trim(),
+    );
+  }
+
+  TaskAttachment copyWith({
+    String? code,
+    String? assetCode,
+    String? fileName,
+    String? contentType,
+    int? sizeBytes,
+    String? mediaType,
+    String? status,
+    String? url,
+    String? thumbnailUrl,
+  }) {
+    return TaskAttachment(
+      code: code ?? this.code,
+      assetCode: assetCode ?? this.assetCode,
+      fileName: fileName ?? this.fileName,
+      contentType: contentType ?? this.contentType,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      mediaType: mediaType ?? this.mediaType,
+      status: status ?? this.status,
+      url: url ?? this.url,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+        code,
+        assetCode,
+        fileName,
+        contentType,
+        sizeBytes,
+        mediaType,
+        status,
+        url,
+        thumbnailUrl,
+      ];
+}
+
+/// A locally picked file waiting to be uploaded. Held by the form (never
+/// uploaded on pick) so abandoning a form leaves nothing in the bucket.
+class PendingTaskAttachment extends Equatable {
+  const PendingTaskAttachment({
+    required this.filePath,
+    required this.fileName,
+    required this.contentType,
+    required this.sizeBytes,
+  });
+
+  final String filePath;
+  final String fileName;
+  final String contentType;
+  final int sizeBytes;
+
+  bool get isImage => contentType.toLowerCase().startsWith('image/');
+  bool get isVideo => contentType.toLowerCase().startsWith('video/');
+
+  String get displaySize => formatAttachmentSize(sizeBytes);
+
+  @override
+  List<Object?> get props => [filePath, fileName, contentType, sizeBytes];
+}

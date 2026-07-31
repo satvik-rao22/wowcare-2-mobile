@@ -12,6 +12,7 @@ import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_models.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
@@ -58,6 +59,9 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
   Map<String, dynamic>? lastOccurrenceUpdateArgs;
   Map<String, dynamic>? lastOccurrenceCancelArgs;
   int uploadSessionCalls = 0;
+  List<TaskAttachment> attachments = const [];
+  String? lastAttachmentsFetchCode;
+  Map<String, dynamic>? lastDeleteAttachmentArgs;
 
   @override
   Future<List<TaskAssignmentModel>> getAssignments(TaskQuery query) async {
@@ -293,6 +297,23 @@ class _FakeTaskRemoteDataSource implements TaskRemoteDataSource {
   Future<TaskUploadSession> createUploadSession() async {
     uploadSessionCalls++;
     return nextSession;
+  }
+
+  @override
+  Future<List<TaskAttachment>> getAttachments(String code) async {
+    lastAttachmentsFetchCode = code;
+    return attachments;
+  }
+
+  @override
+  Future<void> deleteAttachment({
+    required String code,
+    required String attachmentCode,
+  }) async {
+    lastDeleteAttachmentArgs = {
+      'code': code,
+      'attachmentCode': attachmentCode,
+    };
   }
 }
 
@@ -635,22 +656,36 @@ void main() {
     expect(remote.lastOccurrenceCancelArgs!['reason'], 'Closed');
   });
 
-  group('uploadAttachment (§8/§9)', () {
+  group('uploadAttachments (§8/§9)', () {
+    Future<PendingTaskAttachment> makeFile({
+      required String name,
+      required String contentType,
+      int bytes = 1234,
+    }) async {
+      final tmp = await File(
+        '${Directory.systemTemp.path}/task_attach_'
+        '${DateTime.now().microsecondsSinceEpoch}_$name',
+      ).create();
+      await tmp.writeAsBytes(List.filled(bytes, 0));
+      addTearDown(() => tmp.existsSync() ? tmp.delete() : null);
+      return PendingTaskAttachment(
+        filePath: tmp.path,
+        fileName: name,
+        contentType: contentType,
+        sizeBytes: bytes,
+      );
+    }
+
     test('runs session→presign→put→complete→poll and returns the asset code',
         () async {
-      final tmp = await File(
-        '${Directory.systemTemp.path}/task_attach_${DateTime.now().microsecondsSinceEpoch}.pdf',
-      ).create();
-      await tmp.writeAsBytes(List.filled(1234, 0));
-      addTearDown(() => tmp.existsSync() ? tmp.delete() : null);
-
-      final assetCode = await repo.uploadAttachment(
-        filePath: tmp.path,
-        fileName: 'notes.pdf',
+      final file = await makeFile(
+        name: 'notes.pdf',
         contentType: 'application/pdf',
       );
 
-      expect(assetCode, 'AST_READY');
+      final codes = await repo.uploadAttachments(files: [file]);
+
+      expect(codes, ['AST_READY']);
       // Steps happen in the documented order (§9.1→§9.5).
       expect(imageUpload.steps, ['presign', 'put', 'complete', 'poll']);
       expect(remote.uploadSessionCalls, 1);
@@ -664,18 +699,103 @@ void main() {
     });
 
     test('classifies an image content type as media type IMAGE', () async {
-      final tmp = await File(
-        '${Directory.systemTemp.path}/task_img_${DateTime.now().microsecondsSinceEpoch}.png',
-      ).create();
-      await tmp.writeAsBytes(List.filled(10, 0));
-      addTearDown(() => tmp.existsSync() ? tmp.delete() : null);
+      final file = await makeFile(
+        name: 'photo.png',
+        contentType: 'image/png',
+        bytes: 10,
+      );
+      await repo.uploadAttachments(files: [file]);
+      expect(imageUpload.presignArgs!['mediaType'], 'IMAGE');
+    });
 
-      await repo.uploadAttachment(
-        filePath: tmp.path,
-        fileName: 'photo.png',
+    test('shares one session across the batch and polls once for all assets',
+        () async {
+      final first = await makeFile(
+        name: 'a.pdf',
+        contentType: 'application/pdf',
+      );
+      final second = await makeFile(
+        name: 'b.png',
         contentType: 'image/png',
       );
-      expect(imageUpload.presignArgs!['mediaType'], 'IMAGE');
+
+      final codes = await repo.uploadAttachments(files: [first, second]);
+
+      expect(codes.length, 2);
+      // One session for the whole batch, not one per file.
+      expect(remote.uploadSessionCalls, 1);
+      expect(
+        imageUpload.steps,
+        ['presign', 'put', 'complete', 'presign', 'put', 'complete', 'poll'],
+      );
+      expect(imageUpload.waitedFor!.length, 2);
+    });
+
+    test('skips files already uploaded by a previous attempt', () async {
+      final done = await makeFile(
+        name: 'done.pdf',
+        contentType: 'application/pdf',
+      );
+      final fresh = await makeFile(
+        name: 'fresh.pdf',
+        contentType: 'application/pdf',
+      );
+
+      final codes = await repo.uploadAttachments(
+        files: [done, fresh],
+        alreadyUploaded: {done.filePath: 'AST_PREVIOUS'},
+      );
+
+      // The carried-over code keeps its slot, and only the new file is sent.
+      expect(codes, ['AST_PREVIOUS', 'AST_READY']);
+      expect(imageUpload.steps, ['presign', 'put', 'complete', 'poll']);
+      expect(imageUpload.presignArgs!['fileName'], 'fresh.pdf');
+      // The already-uploaded asset isn't re-polled — it was READY last time.
+      expect(imageUpload.waitedFor, ['AST_READY']);
+    });
+
+    test('opens no session at all when every file was already uploaded',
+        () async {
+      final done = await makeFile(
+        name: 'done.pdf',
+        contentType: 'application/pdf',
+      );
+
+      final codes = await repo.uploadAttachments(
+        files: [done],
+        alreadyUploaded: {done.filePath: 'AST_PREVIOUS'},
+      );
+
+      expect(codes, ['AST_PREVIOUS']);
+      expect(remote.uploadSessionCalls, 0);
+      expect(imageUpload.steps, isEmpty);
+    });
+  });
+
+  group('attachments read/detach', () {
+    test('getAttachments passes the series code through', () async {
+      remote.attachments = const [
+        TaskAttachment(
+          code: 'ATT_1',
+          assetCode: 'AST_1',
+          fileName: 'plan.pdf',
+          contentType: 'application/pdf',
+        ),
+      ];
+      final result = await repo.getAttachments('TSK_1');
+      expect(result.single.code, 'ATT_1');
+      expect(remote.lastAttachmentsFetchCode, 'TSK_1');
+    });
+
+    test('detachAttachment trims and forwards both codes', () async {
+      await repo.detachAttachment(
+        taskCode: '  TSK_1 ',
+        attachmentCode: ' ATT_1 ',
+      );
+      expect(remote.lastDeleteAttachmentArgs, {
+        'code': 'TSK_1',
+        'attachmentCode': 'ATT_1',
+      });
     });
   });
 }

@@ -1,6 +1,7 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
@@ -862,6 +863,66 @@ abstract final class TaskResponseParser {
       sessionCode: sessionCode,
       documentApiBasePath:
           basePath.isEmpty ? fallbackDocumentBasePath : basePath,
+    );
+  }
+
+  /// `GET /tasks/{code}/attachments` → the attachment rows.
+  ///
+  /// The Tasks samples don't document this endpoint (only the write-side
+  /// `assetCodes`), so the shape is taken from the equivalent events one and
+  /// parsed liberally: `data` may be a bare array or an `{items: []}` envelope,
+  /// and each row may carry the asset fields inline or nested under
+  /// `asset`/`mediaAsset`. Anything unparseable degrades to an empty list
+  /// rather than breaking the screen.
+  static List<TaskAttachment> attachmentList(dynamic raw) {
+    final data = raw is Map<String, dynamic> ? raw['data'] : raw;
+    final items = data is Map ? (data['items'] ?? data['attachments']) : data;
+    if (items is! List) return const <TaskAttachment>[];
+
+    final result = <TaskAttachment>[];
+    for (final entry in items) {
+      if (entry is! Map) continue;
+      final row = entry.map((k, v) => MapEntry(k.toString(), v));
+      final attachment = _attachment(row);
+      if (attachment.assetCode.isNotEmpty || attachment.code.isNotEmpty) {
+        result.add(attachment);
+      }
+    }
+    return result;
+  }
+
+  static TaskAttachment _attachment(Map<String, dynamic> row) {
+    // Asset metadata sits inline on some payloads and nested on others.
+    final nested = row['asset'] ?? row['mediaAsset'] ?? row['document'];
+    final asset = nested is Map
+        ? nested.map((k, v) => MapEntry(k.toString(), v))
+        : const <String, dynamic>{};
+
+    String pick(List<String> keys) {
+      for (final key in keys) {
+        final value = (row[key] ?? asset[key] ?? '').toString().trim();
+        if (value.isNotEmpty && value != 'null') return value;
+      }
+      return '';
+    }
+
+    final size = row['sizeBytes'] ??
+        row['contentLengthBytes'] ??
+        asset['sizeBytes'] ??
+        asset['contentLengthBytes'];
+
+    return TaskAttachment(
+      // `code` on a nested payload belongs to the attachment row; on a flat one
+      // it can be either, so `attachmentCode` is preferred when present.
+      code: pick(['attachmentCode', 'code']),
+      assetCode: pick(['assetCode', 'documentAssetCode']),
+      fileName: pick(['fileName', 'name', 'originalFileName']),
+      contentType: pick(['contentType', 'mimeType']),
+      sizeBytes: size is num ? size.toInt() : int.tryParse('$size') ?? 0,
+      mediaType: pick(['mediaType', 'type']),
+      status: pick(['status', 'assetStatus']),
+      url: pick(['deliveryUrl', 'artifactUrl', 'url', 'originalDownloadUrl']),
+      thumbnailUrl: pick(['thumbnailUrl']),
     );
   }
 }

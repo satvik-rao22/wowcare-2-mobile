@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
@@ -6,12 +9,15 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_assignee.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/get_task_attachments_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_task_occurrences_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_tasks_usecase.dart';
@@ -22,6 +28,7 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_us
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_diff.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 
@@ -39,7 +46,10 @@ class TasksCubit extends Cubit<TasksState> {
     this._deleteTask,
     this._removeAssignee,
     this._updateStatus,
-    this._uploadAttachment,
+    this._uploadAttachments,
+    this._getTaskAttachments,
+    this._detachAttachment,
+    this.imageUploadService,
     this._getAllStaff,
     this._storageService,
     this._updateAssignment,
@@ -56,7 +66,14 @@ class TasksCubit extends Cubit<TasksState> {
   final DeleteTaskUseCase _deleteTask;
   final RemoveTaskAssigneeUseCase _removeAssignee;
   final UpdateTaskAssignmentStatusUseCase _updateStatus;
-  final UploadTaskAttachmentUseCase _uploadAttachment;
+  final UploadTaskAttachmentsUseCase _uploadAttachments;
+  final GetTaskAttachmentsUseCase _getTaskAttachments;
+  final DetachTaskAttachmentUseCase _detachAttachment;
+
+  /// Exposed so attachment widgets can resolve an asset code to a delivery URL
+  /// (and reuse its cache/in-flight dedupe) without another injection point.
+  final ImageUploadService imageUploadService;
+
   final GetAllStaffUseCase _getAllStaff;
   final StorageService _storageService;
   final UpdateTaskAssignmentUseCase _updateAssignment;
@@ -76,6 +93,10 @@ class TasksCubit extends Cubit<TasksState> {
   /// denormalize names here so cards/detail/filters read like the rest of the
   /// app instead of showing "Unassigned".
   final Map<String, String> _staffNames = {};
+
+  /// In-flight attachment fetches keyed by series code, so a list where many
+  /// cards share one series issues a single request instead of one per card.
+  final Map<String, Future<void>> _attachmentFetches = {};
 
   /// Guards every state push: the async task/occurrence flows all `await` a
   /// network round trip before emitting, so if this cubit were ever closed
@@ -282,13 +303,18 @@ class TasksCubit extends Cubit<TasksState> {
   /// Creates one task series whose roster is [assignees] (Tasks API §1 —
   /// multiple assignees populate one shared roster, not N task rows). The
   /// server stamps codes, dates and audit fields, so on success we reload to
-  /// pick up the newly materialized assignment cards. Returns true on success.
-  Future<bool> create(
+  /// pick up the newly materialized assignment cards.
+  ///
+  /// Returns the new series' `TSK_…` code, or null on failure — the caller needs
+  /// it to address the series it just created (the reloaded cards are keyed by
+  /// assignment code, so without it there is nothing to hand to
+  /// [primeAttachments]).
+  Future<String?> create(
     Task draft,
     List<TaskAssigneeRef> assignees, {
     List<String> assetCodes = const [],
   }) async {
-    if (assignees.isEmpty) return false;
+    if (assignees.isEmpty) return null;
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
       // No per-assignee priority in the form: everyone falls back to the
@@ -296,20 +322,20 @@ class TasksCubit extends Cubit<TasksState> {
       final roster = assignees
           .map((a) => TaskAssignee(staffCode: a.code))
           .toList();
-      await _createTask(
+      final seriesCode = await _createTask(
         draft: draft,
         assignees: roster,
         assetCodes: assetCodes,
       );
       await load(silent: true);
       emit(state.copyWith(isSaving: false));
-      return true;
+      return seriesCode;
     } catch (e) {
       emit(state.copyWith(
         isSaving: false,
         errorMessage: () => 'Failed to create task: $e',
       ));
-      return false;
+      return null;
     }
   }
 
@@ -568,6 +594,9 @@ class TasksCubit extends Cubit<TasksState> {
     }
     try {
       await _deleteTask(seriesCode);
+      // The series is gone, so its cached attachment rows are dead weight that
+      // would otherwise sit in storage forever.
+      unawaited(_persistAttachmentCache(seriesCode, const <TaskAttachment>[]));
       // Reconcile with the server rather than optimistically dropping the
       // cards: DELETE soft-deletes the series and only its TO_DO/future
       // assignments, so a reload reflects exactly what actually remains and
@@ -604,25 +633,227 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// Uploads one attachment through the §8/§9 cross-service flow and returns the
-  /// ready asset code (or null on failure), which the form then passes to
-  /// [create]. Surfaces failures via [TasksState.errorMessage].
-  Future<String?> uploadAttachment({
-    required String filePath,
-    required String fileName,
-    required String contentType,
+  /// Uploads [files] through the §8/§9 cross-service flow and returns their
+  /// ready asset codes, which the form then passes to [create]/[update].
+  /// Returns null on failure (message already on [TasksState.errorMessage]).
+  ///
+  /// [alreadyUploaded] carries asset codes from an earlier attempt so a retry
+  /// resumes rather than re-uploading; [onAssetUploaded] lets the caller keep
+  /// that map current as each file lands.
+  Future<List<String>?> uploadAttachments({
+    required List<PendingTaskAttachment> files,
+    Map<String, String> alreadyUploaded = const {},
+    void Function(String filePath, String assetCode)? onAssetUploaded,
+    void Function(int index, int percent)? onProgress,
   }) async {
+    if (files.isEmpty) return const <String>[];
     try {
-      return await _uploadAttachment(
-        filePath: filePath,
-        fileName: fileName,
-        contentType: contentType,
+      return await _uploadAttachments(
+        files: files,
+        alreadyUploaded: alreadyUploaded,
+        onAssetUploaded: onAssetUploaded,
+        onProgress: onProgress,
       );
     } catch (e) {
       emit(state.copyWith(
         errorMessage: () => 'Failed to upload attachment: $e',
       ));
       return null;
+    }
+  }
+
+  /// Fetches a series' attachments once and caches them on the state. Repeated
+  /// calls for the same series are no-ops, and concurrent ones share a single
+  /// request — cards in a long list all call this, so it must not fan out.
+  ///
+  /// Silent by design: a school whose backend has no attachments endpoint
+  /// should see the tasks list behave exactly as before, not an error toast per
+  /// card.
+  Future<void> ensureAttachmentsLoaded(String taskCode) {
+    final code = taskCode.trim();
+    if (code.isEmpty) return Future<void>.value();
+    if (state.attachmentsByTask.containsKey(code)) {
+      return Future<void>.value();
+    }
+    final inFlight = _attachmentFetches[code];
+    if (inFlight != null) return inFlight;
+
+    // Block body, not an expression: `Map.remove` returns the removed value,
+    // and since the values here *are* futures, an arrow callback would make
+    // `whenComplete` wait on the very future it is completing — a deadlock.
+    final future = _fetchAttachments(code).whenComplete(() {
+      _attachmentFetches.remove(code);
+    });
+    _attachmentFetches[code] = future;
+    return future;
+  }
+
+  /// Records the attachments a create/update just wrote onto [taskCode],
+  /// without going back to the server.
+  ///
+  /// `assetCodes` is a full replace, so the list the form sent *is* the series'
+  /// complete attachment set the moment the save succeeds. Priming it here is
+  /// what makes an attachment visible on the card and detail screen straight
+  /// away — the same way the activities feed shows media the instant the
+  /// activity is created — instead of depending on a read endpoint the Tasks
+  /// API does not document. Since the set is known in full, the series also
+  /// stops being flagged unreadable.
+  void primeAttachments(String taskCode, List<TaskAttachment> attachments) {
+    final code = taskCode.trim();
+    if (code.isEmpty || isClosed) return;
+    emit(state.copyWith(
+      attachmentsByTask: <String, List<TaskAttachment>>{
+        ...state.attachmentsByTask,
+        code: List<TaskAttachment>.unmodifiable(attachments),
+      },
+      attachmentsUnavailable: state.attachmentsUnavailable.contains(code)
+          ? (<String>{...state.attachmentsUnavailable}..remove(code))
+          : null,
+    ));
+    // Also persist, so the media survives a refresh/relaunch. Without a read
+    // endpoint the in-memory prime alone would vanish the moment the cubit is
+    // rebuilt, and the file would look lost.
+    unawaited(_persistAttachmentCache(code, attachments));
+  }
+
+  /// Merges [attachments] for [code] into the on-device display cache.
+  Future<void> _persistAttachmentCache(
+    String code,
+    List<TaskAttachment> attachments,
+  ) async {
+    try {
+      final stored =
+          await _storageService.getJson(StorageKeys.taskAttachmentsCache) ??
+              <String, dynamic>{};
+      final next = <String, dynamic>{...stored};
+      if (attachments.isEmpty) {
+        next.remove(code);
+      } else {
+        next[code] =
+            attachments.map((a) => a.toCacheJson()).toList(growable: false);
+      }
+      await _storageService.saveJson(StorageKeys.taskAttachmentsCache, next);
+    } catch (_) {
+      // A cache is a nicety; never fail a save over it.
+    }
+  }
+
+  /// The on-device display cache for [code], or an empty list.
+  Future<List<TaskAttachment>> _readAttachmentCache(String code) async {
+    try {
+      final stored =
+          await _storageService.getJson(StorageKeys.taskAttachmentsCache);
+      final rows = stored?[code];
+      if (rows is! List) return const <TaskAttachment>[];
+      return rows
+          .map(TaskAttachment.fromCacheJson)
+          .whereType<TaskAttachment>()
+          .toList(growable: false);
+    } catch (_) {
+      return const <TaskAttachment>[];
+    }
+  }
+
+  /// Re-fetches a series' attachments, bypassing the cache — used after a save
+  /// or a detach so the card and detail screens show the new set.
+  ///
+  /// Deliberately leaves the cached entry in place while the request runs: a
+  /// refresh that emptied it first would flash every thumbnail away and back,
+  /// and would throw away a [primeAttachments] set if the fetch then failed.
+  Future<void> refreshAttachments(String taskCode) {
+    final code = taskCode.trim();
+    if (code.isEmpty) return Future<void>.value();
+    _attachmentFetches.remove(code);
+    // Block body, not an expression — see [ensureAttachmentsLoaded].
+    final future = _fetchAttachments(code).whenComplete(() {
+      _attachmentFetches.remove(code);
+    });
+    _attachmentFetches[code] = future;
+    return future;
+  }
+
+  Future<void> _fetchAttachments(String code) async {
+    try {
+      final attachments = await _getTaskAttachments(code);
+      if (isClosed) return;
+      emit(state.copyWith(
+        attachmentsByTask: <String, List<TaskAttachment>>{
+          ...state.attachmentsByTask,
+          code: attachments,
+        },
+        attachmentsUnavailable: state.attachmentsUnavailable.contains(code)
+            ? (<String>{...state.attachmentsUnavailable}..remove(code))
+            : null,
+      ));
+    } catch (error) {
+      if (isClosed) return;
+      // A set we already hold beats a failed read: it came from our own
+      // full-replace write (see [primeAttachments]), so it is authoritative and
+      // must not be downgraded to "empty and unreadable" just because the read
+      // endpoint is missing.
+      final known = state.attachmentsByTask[code];
+      if (known != null && known.isNotEmpty) return;
+
+      // Fall back to what this device uploaded. Display-only: the series stays
+      // flagged unreadable either way, because a cache cannot prove the server
+      // still holds exactly these assets — and `assetCodes` is a full replace,
+      // so writing an unverified list would delete anything added elsewhere.
+      final cached = await _readAttachmentCache(code);
+      if (isClosed) return;
+      if (cached.isEmpty) {
+        debugPrint(
+          'Tasks: attachments read failed for $code ($error). No local '
+          'fallback — the media will not render. This needs '
+          'GET /api/v1/tasks/{code}/attachments (or assetCodes on the task '
+          'read payloads) on events-todo-service.',
+        );
+      }
+      // Cache the result either way so a failing endpoint isn't re-hit on every
+      // rebuild of every card.
+      emit(state.copyWith(
+        attachmentsByTask: <String, List<TaskAttachment>>{
+          ...state.attachmentsByTask,
+          code: cached,
+        },
+        attachmentsUnavailable: <String>{...state.attachmentsUnavailable, code},
+      ));
+    }
+  }
+
+  /// Detaches one attachment from a series and drops it from the cache on
+  /// success. Returns false (with an error message) if the call fails.
+  Future<bool> detachAttachment({
+    required String taskCode,
+    required String attachmentCode,
+  }) async {
+    final code = taskCode.trim();
+    final attachment = attachmentCode.trim();
+    if (code.isEmpty || attachment.isEmpty) {
+      emit(state.copyWith(errorMessage: () => 'Missing attachment reference'));
+      return false;
+    }
+    try {
+      await _detachAttachment(taskCode: code, attachmentCode: attachment);
+      final current = state.attachmentsByTask[code];
+      if (current != null) {
+        final remaining =
+            current.where((a) => a.code != attachment).toList(growable: false);
+        emit(state.copyWith(
+          attachmentsByTask: <String, List<TaskAttachment>>{
+            ...state.attachmentsByTask,
+            code: remaining,
+          },
+        ));
+        // Keep the on-device cache in step, or the detached file would
+        // reappear on the next refresh.
+        unawaited(_persistAttachmentCache(code, remaining));
+      }
+      return true;
+    } catch (e) {
+      emit(state.copyWith(
+        errorMessage: () => 'Failed to remove attachment: $e',
+      ));
+      return false;
     }
   }
 

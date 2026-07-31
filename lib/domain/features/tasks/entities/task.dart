@@ -151,9 +151,6 @@ class Task extends Equatable {
     this.recurringEndDate,
     this.startDay,
     this.dueDay,
-    this.attachmentName,
-    this.attachmentUrl,
-    this.attachmentType,
     this.createdBy = '',
     this.createdByName = '',
     this.schoolCode = '',
@@ -207,10 +204,6 @@ class Task extends Equatable {
   final String? startDay;
   final String? dueDay;
 
-  final String? attachmentName;
-  final String? attachmentUrl;
-  final String? attachmentType;
-
   /// Staff code of the creator (PRD audit log). Distinct from [assigneeCode];
   /// an admin can create a task assigned to someone else.
   final String createdBy;
@@ -262,9 +255,6 @@ class Task extends Equatable {
     DateTime? Function()? recurringEndDate,
     String? Function()? startDay,
     String? Function()? dueDay,
-    String? Function()? attachmentName,
-    String? Function()? attachmentUrl,
-    String? Function()? attachmentType,
     String? createdBy,
     String? createdByName,
     String? schoolCode,
@@ -294,12 +284,6 @@ class Task extends Equatable {
           : this.recurringEndDate,
       startDay: startDay != null ? startDay() : this.startDay,
       dueDay: dueDay != null ? dueDay() : this.dueDay,
-      attachmentName:
-          attachmentName != null ? attachmentName() : this.attachmentName,
-      attachmentUrl:
-          attachmentUrl != null ? attachmentUrl() : this.attachmentUrl,
-      attachmentType:
-          attachmentType != null ? attachmentType() : this.attachmentType,
       createdBy: createdBy ?? this.createdBy,
       createdByName: createdByName ?? this.createdByName,
       schoolCode: schoolCode ?? this.schoolCode,
@@ -328,9 +312,6 @@ class Task extends Equatable {
         recurringEndDate,
         startDay,
         dueDay,
-        attachmentName,
-        attachmentUrl,
-        attachmentType,
         createdBy,
         createdByName,
         schoolCode,

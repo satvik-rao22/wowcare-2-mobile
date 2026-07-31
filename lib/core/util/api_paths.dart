@@ -1009,6 +1009,19 @@ class ApiPaths {
   /// task attachments (document-microservice, domain `TASK`).
   static const String taskUploadSession = '$tasks/upload-session';
 
+  /// `GET` `/api/v1/tasks/{code}/attachments` — the series' current
+  /// attachments. Mirrors the events-todo endpoint of the same shape
+  /// (`GET /api/v1/events/{eventCode}/attachments`, `data.items[]`); the Tasks
+  /// samples only document the write side (`assetCodes` on §1/§3c), so callers
+  /// must tolerate a 404/405 from a backend that hasn't shipped it yet.
+  static String taskAttachments(String code) =>
+      '${taskByCode(code)}/attachments';
+
+  /// `DELETE` `/api/v1/tasks/{code}/attachments/{attachmentCode}` — detach one
+  /// attachment by its **attachment** code (not the document asset code).
+  static String taskAttachment(String code, String attachmentCode) =>
+      '${taskAttachments(code)}/${Uri.encodeComponent(attachmentCode.trim())}';
+
   // —— Notification service (FCM + delivery logs) ——
   static const String notificationFcmRegister =
       '/api/v1/notification/fcm/register';

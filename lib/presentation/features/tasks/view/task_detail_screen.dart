@@ -7,19 +7,23 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_attachment_thumbnail.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_priority_meter.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_status_selector.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Read-only task view with edit/delete affordances for users who own the
 /// task (PRD FR-TK-26/28).
@@ -47,20 +51,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   void initState() {
     super.initState();
     unawaited(_refreshSeries());
+    unawaited(_loadAttachments());
   }
+
+  /// Pulls this task's attachments into the shared cache. The card list may
+  /// already have loaded them, in which case this is a no-op.
+  Future<void> _loadAttachments() async {
+    final cubit = context.read<TasksCubit>();
+    final seriesCode = _seriesCodeFrom(cubit.state);
+    if (seriesCode.isEmpty) return;
+    await cubit.ensureAttachmentsLoaded(seriesCode);
+  }
+
+  String _seriesCodeFrom(TasksState state) =>
+      state.taskByCode(widget.taskCode)?.taskCode.trim() ?? '';
 
   /// (Re)fetches the owning series and applies it if still mounted. Called on
   /// open and again after an edit, since a recurring task's start time only
   /// ever changes on the series — the once-fetched [_series] would otherwise
   /// keep showing the pre-edit time forever after a save.
   Future<void> _refreshSeries() async {
-    final seriesCode = context
-            .read<TasksCubit>()
-            .state
-            .taskByCode(widget.taskCode)
-            ?.taskCode
-            .trim() ??
-        '';
+    final seriesCode = _seriesCodeFrom(context.read<TasksCubit>().state);
     if (seriesCode.isEmpty) return;
     final series = await context.read<TasksCubit>().fetchSeriesDetail(seriesCode);
     if (mounted && series != null) setState(() => _series = series);
@@ -73,7 +84,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: false,
-      body: BlocBuilder<TasksCubit, TasksState>(
+      // Both fetches need the card's series code, which a deep link or a cold
+      // cubit doesn't have yet at initState — so run them again the moment the
+      // card (and with it the series code) actually arrives, instead of leaving
+      // the schedule and attachments permanently unloaded.
+      body: BlocListener<TasksCubit, TasksState>(
+        listenWhen: (previous, current) =>
+            _seriesCodeFrom(previous).isEmpty &&
+            _seriesCodeFrom(current).isNotEmpty,
+        listener: (context, state) {
+          unawaited(_refreshSeries());
+          unawaited(_loadAttachments());
+        },
+        child: BlocBuilder<TasksCubit, TasksState>(
         builder: (context, state) {
           final task = state.taskByCode(taskCode);
           if (task == null) {
@@ -136,10 +159,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ],
                 const SizedBox(height: 10),
                 _scheduleCard(task, state.schoolTimeZone),
-                if (task.attachmentName != null &&
-                    task.attachmentName!.isNotEmpty) ...[
+                if (state.attachmentsFor(task).isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  _attachmentCard(context, task),
+                  _attachmentCard(
+                    context,
+                    task,
+                    state.attachmentsFor(task),
+                    canManage: canManage,
+                  ),
+                ] else if (!state.attachmentsAreReadable(task.taskCode)) ...[
+                  // Say so rather than rendering nothing: "this task has no
+                  // attachments" and "we couldn't read them" look identical
+                  // otherwise, which is exactly how an attached file appears to
+                  // vanish.
+                  const SizedBox(height: 10),
+                  _attachmentsUnavailableCard(),
                 ],
                 const SizedBox(height: 14),
                 _footer(task),
@@ -147,6 +181,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             ),
           );
         },
+        ),
+      ),
+    );
+  }
+
+  Widget _attachmentsUnavailableCard() {
+    return _sectionCard(
+      title: 'Attachments',
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 18, color: Colors.grey[600]),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "This task's attachments couldn't be loaded. Pull to refresh or "
+              'try again in a moment.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -371,31 +425,153 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _attachmentCard(BuildContext context, Task task) {
+  Widget _attachmentCard(
+    BuildContext context,
+    Task task,
+    List<TaskAttachment> attachments, {
+    required bool canManage,
+  }) {
+    final service = context.read<TasksCubit>().imageUploadService;
     return _sectionCard(
-      title: 'Attachment',
-      child: Row(
+      title: attachments.length == 1
+          ? 'Attachment'
+          : 'Attachments (${attachments.length})',
+      child: Column(
         children: [
-          const Icon(Icons.attach_file, size: 18, color: AppColors.themeColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              task.attachmentName ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
+          for (var i = 0; i < attachments.length; i++) ...[
+            if (i > 0) const Divider(height: 18),
+            _attachmentRow(
+              context,
+              task,
+              attachments[i],
+              service,
+              // Only an attachment the list endpoint gave a row code for can
+              // be detached; one without it must be removed via the form's
+              // assetCodes replace instead.
+              canRemove: canManage && attachments[i].code.isNotEmpty,
             ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// One attachment row: preview thumbnail, name + size, and a chevron. Tapping
+  /// anywhere on it previews images/video in-app or hands documents to the OS.
+  Widget _attachmentRow(
+    BuildContext context,
+    Task task,
+    TaskAttachment attachment,
+    ImageUploadService service, {
+    required bool canRemove,
+  }) {
+    final subtitle = <String>[
+      TaskAttachmentUtils.extensionLabel(attachment.fileName),
+      if (attachment.displaySize.isNotEmpty) attachment.displaySize,
+      if (!attachment.isReady) 'processing…',
+    ].join(' • ');
+
+    return InkWell(
+      onTap: () => TaskAttachmentUtils.open(
+        context: context,
+        attachment: attachment,
+        service: service,
+      ),
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(
+          children: [
+            TaskAttachmentThumbnail(
+              attachment: attachment,
+              uploadService: service,
+              size: 44,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    attachment.fileName.isEmpty
+                        ? 'Attachment'
+                        : attachment.fileName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 13,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              attachment.isDocument
+                  ? Icons.open_in_new_rounded
+                  : Icons.chevron_right_rounded,
+              size: 18,
+              color: Colors.grey[500],
+            ),
+            if (canRemove)
+              IconButton(
+                tooltip: 'Remove attachment',
+                visualDensity: VisualDensity.compact,
+                icon: Icon(Icons.close, size: 18, color: Colors.grey[600]),
+                onPressed: () => _confirmDetach(context, task, attachment),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Detaching is destructive and immediate (unlike the form, which stages
+  /// changes until save), so it asks first.
+  Future<void> _confirmDetach(
+    BuildContext context,
+    Task task,
+    TaskAttachment attachment,
+  ) async {
+    final cubit = context.read<TasksCubit>();
+    final name = attachment.fileName.isEmpty
+        ? 'this attachment'
+        : '"${attachment.fileName}"';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove attachment?'),
+        content: Text('Do you want to remove $name from this task?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Attachment preview is not available offline',
-              isWarning: true,
-            ),
-            child: const Text('Open', style: TextStyle(fontSize: 12.5)),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
+            child: const Text('Remove'),
           ),
         ],
       ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final ok = await cubit.detachAttachment(
+      taskCode: task.taskCode,
+      attachmentCode: attachment.code,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: ok ? 'Attachment removed' : 'Could not remove the attachment.',
+      isSuccess: ok,
+      isError: !ok,
     );
   }
 

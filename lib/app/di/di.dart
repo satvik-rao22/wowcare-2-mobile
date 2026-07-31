@@ -72,6 +72,8 @@ import '../../domain/features/tasks/usecases/update_task_assignment_status_useca
 import '../../domain/features/tasks/usecases/update_task_assignment_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
+import '../../domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
+import '../../domain/features/tasks/usecases/get_task_attachments_usecase.dart';
 import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
@@ -543,8 +545,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<UpdateTaskAssignmentStatusUseCase>(
     () => UpdateTaskAssignmentStatusUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<UploadTaskAttachmentUseCase>(
-    () => UploadTaskAttachmentUseCase(serviceLocator()),
+  serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
+    () => UploadTaskAttachmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetTaskAttachmentsUseCase>(
+    () => GetTaskAttachmentsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DetachTaskAttachmentUseCase>(
+    () => DetachTaskAttachmentUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetTaskUseCase>(
     () => GetTaskUseCase(serviceLocator()),
@@ -582,7 +590,10 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<DeleteTaskUseCase>(),
       serviceLocator<RemoveTaskAssigneeUseCase>(),
       serviceLocator<UpdateTaskAssignmentStatusUseCase>(),
-      serviceLocator<UploadTaskAttachmentUseCase>(),
+      serviceLocator<UploadTaskAttachmentsUseCase>(),
+      serviceLocator<GetTaskAttachmentsUseCase>(),
+      serviceLocator<DetachTaskAttachmentUseCase>(),
+      serviceLocator<ImageUploadService>(),
       serviceLocator<GetAllStaffUseCase>(),
       serviceLocator<StorageService>(),
       serviceLocator<UpdateTaskAssignmentUseCase>(),
