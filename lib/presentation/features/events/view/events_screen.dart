@@ -589,8 +589,8 @@ class _EventsScreenState extends State<EventsScreen> {
         schoolTimeZone: context.read<TasksCubit>().state.schoolTimeZone,
         onTap: () => _openFeedItem(context, item),
         onStatusTap: canManage ? () => _pickTaskStatus(context, task) : null,
-        onPriorityTap:
-            canManage ? () => _pickTaskPriority(context, task) : null,
+        // onPriorityTap:
+        //     canManage ? () => _pickTaskPriority(context, task) : null,
       );
     }
     if (item.isHoliday) return _feedHolidayBanner(item);
@@ -636,26 +636,26 @@ class _EventsScreenState extends State<EventsScreen> {
         );
   }
 
-  Future<void> _pickTaskPriority(BuildContext context, Task task) async {
-    final cubit = context.read<TasksCubit>();
-    final picked = await showTaskOptionPicker<TaskPriority>(
-      context: context,
-      title: 'Set priority',
-      options: TaskPriority.values,
-      current: task.priority,
-      colorOf: TaskUiUtils.priorityColor,
-      iconOf: TaskUiUtils.priorityIcon,
-      labelOf: (p) => p.label,
-    );
-    if (picked == null) return;
-    await cubit.changePriority(task.code, picked);
-    if (!context.mounted) return;
-    context.read<EventsCubit>().resetCalendarFeed();
-    await context.read<EventsCubit>().loadCalendarFeed(
-          _focusedDay,
-          scope: _feedScope(context.read<RoleCubit>()),
-        );
-  }
+  // Future<void> _pickTaskPriority(BuildContext context, Task task) async {
+  //   final cubit = context.read<TasksCubit>();
+  //   final picked = await showTaskOptionPicker<TaskPriority>(
+  //     context: context,
+  //     title: 'Set priority',
+  //     options: TaskPriority.values,
+  //     current: task.priority,
+  //     colorOf: TaskUiUtils.priorityColor,
+  //     iconOf: TaskUiUtils.priorityIcon,
+  //     labelOf: (p) => p.label,
+  //   );
+  //   if (picked == null) return;
+  //   await cubit.changePriority(task.code, picked);
+  //   if (!context.mounted) return;
+  //   context.read<EventsCubit>().resetCalendarFeed();
+  //   await context.read<EventsCubit>().loadCalendarFeed(
+  //         _focusedDay,
+  //         scope: _feedScope(context.read<RoleCubit>()),
+  //       );
+  // }
 
   Widget _feedHolidayBanner(CalendarFeedItem item) {
     return Container(
