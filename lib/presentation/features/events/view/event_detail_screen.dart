@@ -62,8 +62,16 @@ class EventDetailScreen extends StatelessWidget {
           );
           // Occurrence rows carry the full roster — only people on it may
           // RSVP (server rule; students respond implicitly, never manually),
-          // and only while the occurrence hasn't passed.
-          final canRsvp = state.isParticipant(event) && !event.isPast;
+          // and only while the occurrence hasn't passed and `EVENT_RSVP`
+          // permits responding.
+          final canRsvp = state.isParticipant(event) &&
+              !event.isPast &&
+              EventAccess.canRsvp(
+                roles: roles,
+                event: event,
+                userCode: state.currentUserCode,
+                staffCode: state.currentStaffCode,
+              );
           final canSeeSummary = EventAccess.canSeeRsvpSummary(roles);
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
@@ -88,7 +96,12 @@ class EventDetailScreen extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 10),
-                _attendeesCard(context, state, event),
+                _attendeesCard(
+                  context,
+                  state,
+                  event,
+                  canSeeRsvps: canSeeSummary,
+                ),
                 if (event.attachmentName != null &&
                     event.attachmentName!.isNotEmpty) ...[
                   const SizedBox(height: 10),
@@ -192,12 +205,21 @@ class EventDetailScreen extends StatelessWidget {
   /// consistent with the create-form pickers and identical across event
   /// types. The occurrence row carries the fully hydrated roster (incl.
   /// the parent list) with per-person RSVPs — no lookups needed.
-  Widget _attendeesCard(BuildContext context, EventsState state, Event event) {
+  Widget _attendeesCard(
+    BuildContext context,
+    EventsState state,
+    Event event, {
+    required bool canSeeRsvps,
+  }) {
     final classrooms = event.classrooms;
     final students = event.students;
     final staff = event.staff;
     final guardians = event.parents;
-    final rsvpByCode = {for (final r in event.rsvps) r.userCode: r};
+    // Guardians may see WHO is invited but not how others responded, so the
+    // per-person RSVP chips are dropped for them (PRD BR-RSVP-04/05).
+    final rsvpByCode = canSeeRsvps
+        ? {for (final r in event.rsvps) r.userCode: r}
+        : const <String, EventRsvp>{};
     final childNames = {
       for (final s in event.students)
         if (s.name.isNotEmpty) s.code: s.name,

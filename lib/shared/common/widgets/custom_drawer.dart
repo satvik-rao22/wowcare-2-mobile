@@ -5,6 +5,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
@@ -703,6 +704,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       AppAccessModules.dailyActivity,
     );
     final canViewTasks = TaskAccess.canAccessModule(roleProvider);
+    final canViewEvents = EventAccess.canOpenModule(roleProvider);
     final showParentMessagingDrawer = roleProvider.canReadModule(
       AppAccessModules.parentMessaging,
     );
@@ -826,18 +828,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               }
                             },
                           ),
-                        _CustomExpansionTile(
-                          title: 'Events',
-                          icon: MediaRes.calenderClockIcon,
-                          isCurrentRoute:
-                              _currentRoute == EventsScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (_currentRoute != EventsScreen.routeName) {
-                              context.go(EventsScreen.routeName);
-                            }
-                          },
-                        ),
+                        if (canViewEvents)
+                          _CustomExpansionTile(
+                            title: 'Events',
+                            icon: MediaRes.calenderClockIcon,
+                            isCurrentRoute:
+                                _currentRoute == EventsScreen.routeName,
+                            onTap: () {
+                              Navigator.pop(context);
+                              if (_currentRoute != EventsScreen.routeName) {
+                                context.go(EventsScreen.routeName);
+                              }
+                            },
+                          ),
                         if (showParentMessagingDrawer ||
                             showParentNewsletterDrawer)
                           _CustomExpansionTile(
@@ -1069,18 +1072,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                               }
                             },
                           ),
-                        _CustomExpansionTile(
-                          title: 'Events',
-                          icon: MediaRes.calenderClockIcon,
-                          isCurrentRoute:
-                              _currentRoute == EventsScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (_currentRoute != EventsScreen.routeName) {
-                              context.go(EventsScreen.routeName);
-                            }
-                          },
-                        ),
+                        if (canViewEvents)
+                          _CustomExpansionTile(
+                            title: 'Events',
+                            icon: MediaRes.calenderClockIcon,
+                            isCurrentRoute:
+                                _currentRoute == EventsScreen.routeName,
+                            onTap: () {
+                              Navigator.pop(context);
+                              if (_currentRoute != EventsScreen.routeName) {
+                                context.go(EventsScreen.routeName);
+                              }
+                            },
+                          ),
                         // Guardians/parents have no Tasks access at all
                         // (PRD §5.2: "No" on every row), so the entry point
                         // itself must not exist for them.

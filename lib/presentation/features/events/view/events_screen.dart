@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/events/utils/calendar_feed_mappers.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_option_picker.dart';
@@ -28,6 +29,7 @@ import 'package:wowcare/presentation/features/events/widgets/holiday_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_dialogs.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_form_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/access_restricted_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/expandable_section.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -48,6 +50,37 @@ class EventsScreen extends StatefulWidget {
 class _EventsScreenState extends State<EventsScreen> {
   static const Color _holidayRed = Color(0xFFD32F2F);
 
+  /// Per-tab / per-view read permission. The screen opens when *any* of the
+  /// three modules is readable (see `EventAccess.canOpenModule`), so each
+  /// surface must still check its own before rendering data.
+  bool _canReadEvents(RoleCubit roles) =>
+      roles.canReadModule(AppAccessModules.event);
+  bool _canReadHolidays(RoleCubit roles) =>
+      roles.canReadModule(AppAccessModules.holiday);
+  bool _canReadCalendar(RoleCubit roles) =>
+      roles.canReadModule(AppAccessModules.calendar);
+
+  /// Whether the RSVP control should be offered for [event]: the user is on
+  /// its roster (existing rule) **and** `EVENT_RSVP` permits responding.
+  bool _canRespond(EventsState state, RoleCubit roles, Event event) =>
+      state.isParticipant(event) &&
+      EventAccess.canRsvp(
+        roles: roles,
+        event: event,
+        userCode: state.currentUserCode,
+        staffCode: state.currentStaffCode,
+      );
+
+  /// The view the events tab can actually show. Calendar is the default, so a
+  /// user without `CALENDAR` read is moved to the list rather than landing on
+  /// a restricted screen.
+  _EventsViewMode _effectiveViewMode(RoleCubit roles) {
+    if (_viewMode == _EventsViewMode.calendar && !_canReadCalendar(roles)) {
+      return _EventsViewMode.list;
+    }
+    return _viewMode;
+  }
+
   int _tabIndex = 0; // 0 = Events, 1 = Holidays
   _EventsViewMode _viewMode = _EventsViewMode.calendar;
 
@@ -66,12 +99,15 @@ class _EventsScreenState extends State<EventsScreen> {
   void initState() {
     super.initState();
     // Load the current month's unified calendar feed once the widget is
-    // mounted (calendar is the default view).
+    // mounted (calendar is the default view). Skipped without `CALENDAR` read
+    // — no point fetching rows the screen may not show.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final roles = context.read<RoleCubit>();
+      if (!_canReadCalendar(roles)) return;
       context.read<EventsCubit>().loadCalendarFeed(
             _focusedDay,
-            scope: _feedScope(context.read<RoleCubit>()),
+            scope: _feedScope(roles),
           );
     });
   }
@@ -105,25 +141,38 @@ class _EventsScreenState extends State<EventsScreen> {
             isError: true,
           );
         },
-        child: BlocBuilder<EventsCubit, EventsState>(
-          builder: (context, state) {
-            return Padding(
-              padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // _header(context, roles),
-                  // const SizedBox(height: 10),
-                  _tabSwitcher(),
-                  const SizedBox(height: 10),
-                  if (_tabIndex == 0)
-                    Expanded(child: _eventsTab(context, state, roles))
-                  else
-                    Expanded(child: _holidaysTab(context, state, roles)),
-                ],
-              ),
-            );
+        // RoleCubit resolves permissions asynchronously. initState skips the
+        // feed fetch while `CALENDAR` read is unknown, so run it once the
+        // permissions land (loadCalendarFeed dedupes by month + scope).
+        child: BlocListener<RoleCubit, RoleState>(
+          listener: (context, _) {
+            final resolved = context.read<RoleCubit>();
+            if (!_canReadCalendar(resolved)) return;
+            context.read<EventsCubit>().loadCalendarFeed(
+                  _focusedDay,
+                  scope: _feedScope(resolved),
+                );
           },
+          child: BlocBuilder<EventsCubit, EventsState>(
+            builder: (context, state) {
+              return Padding(
+                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // _header(context, roles),
+                    // const SizedBox(height: 10),
+                    _tabSwitcher(),
+                    const SizedBox(height: 10),
+                    if (_tabIndex == 0)
+                      Expanded(child: _eventsTab(context, state, roles))
+                    else
+                      Expanded(child: _holidaysTab(context, state, roles)),
+                  ],
+                ),
+              );
+            },
+          ),
         ),
       ),
     );
@@ -270,13 +319,26 @@ class _EventsScreenState extends State<EventsScreen> {
   // -------------------------------------------------------- events tab
 
   Widget _eventsTab(BuildContext context, EventsState state, RoleCubit roles) {
+    // Neither the event list nor the calendar is readable — nothing on this
+    // tab can render.
+    if (!_canReadEvents(roles) && !_canReadCalendar(roles)) {
+      return const AccessRestrictedView(
+        message: 'You do not have access to events for your selected school.',
+      );
+    }
     if (state.isLoading) {
       return const Center(child: PrimaryCircularLoader());
+    }
+    // Search runs over event data, so it needs `EVENT` read of its own.
+    if (state.isSearching && !_canReadEvents(roles)) {
+      return const AccessRestrictedView(
+        message: 'You do not have access to events for your selected school.',
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _toolbar(context, state),
+        _toolbar(context, state, roles),
         const SizedBox(height: 10),
         if (state.isSearching)
           Expanded(child: _searchResults(context, state, roles))
@@ -298,7 +360,18 @@ class _EventsScreenState extends State<EventsScreen> {
     EventsState state,
     RoleCubit roles,
   ) {
-    if (_viewMode == _EventsViewMode.calendar) {
+    final viewMode = _effectiveViewMode(roles);
+    if (viewMode == _EventsViewMode.calendar) {
+      // Defence in depth: _effectiveViewMode already diverts to the list when
+      // `CALENDAR` is unreadable, so this only fires if that fallback is ever
+      // changed or bypassed. Cheap insurance against the calendar rendering
+      // rows the user has no permission for.
+      if (!_canReadCalendar(roles)) {
+        return const AccessRestrictedView(
+          message:
+              'You do not have access to the calendar for your selected school.',
+        );
+      }
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
@@ -308,13 +381,18 @@ class _EventsScreenState extends State<EventsScreen> {
         ],
       );
     }
+    if (!_canReadEvents(roles)) {
+      return const AccessRestrictedView(
+        message: 'You do not have access to events for your selected school.',
+      );
+    }
     final events = _showCompleted
         ? state.completedEvents
         : state.upcomingEvents;
     final emptyMessage = _showCompleted
         ? 'No completed events'
         : 'No upcoming events';
-    return _viewMode == _EventsViewMode.grid
+    return viewMode == _EventsViewMode.grid
         ? _gridView(context, state, roles, events, emptyMessage: emptyMessage)
         : _listView(context, state, roles, events, emptyMessage: emptyMessage);
   }
@@ -378,7 +456,7 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   /// Search field + filter button + view-mode switcher.
-  Widget _toolbar(BuildContext context, EventsState state) {
+  Widget _toolbar(BuildContext context, EventsState state, RoleCubit roles) {
     final cubit = context.read<EventsCubit>();
     return Row(
       children: [
@@ -432,7 +510,7 @@ class _EventsScreenState extends State<EventsScreen> {
         const SizedBox(width: 8),
         _filterButton(context, state),
         const SizedBox(width: 8),
-        _viewSwitcher(state),
+        _viewSwitcher(state, roles),
       ],
     );
   }
@@ -493,9 +571,9 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
-  Widget _viewSwitcher(EventsState state) {
+  Widget _viewSwitcher(EventsState state, RoleCubit roles) {
     Widget option(_EventsViewMode mode, IconData icon, String tooltip) {
-      final selected = _viewMode == mode;
+      final selected = _effectiveViewMode(roles) == mode;
       return Tooltip(
         message: tooltip,
         child: GestureDetector(
@@ -532,14 +610,19 @@ class _EventsScreenState extends State<EventsScreen> {
         border: Border.all(color: Colors.grey.shade300),
       ),
       child: Row(
+        // A view the user cannot read is not offered — switching to it would
+        // only ever show the restricted placeholder.
         children: [
-          option(
-            _EventsViewMode.calendar,
-            Icons.calendar_month_outlined,
-            'Calendar',
-          ),
-          option(_EventsViewMode.grid, Icons.grid_view_outlined, 'Grid'),
-          option(_EventsViewMode.list, Icons.view_agenda_outlined, 'List'),
+          if (_canReadCalendar(roles))
+            option(
+              _EventsViewMode.calendar,
+              Icons.calendar_month_outlined,
+              'Calendar',
+            ),
+          if (_canReadEvents(roles)) ...[
+            option(_EventsViewMode.grid, Icons.grid_view_outlined, 'Grid'),
+            option(_EventsViewMode.list, Icons.view_agenda_outlined, 'List'),
+          ],
         ],
       ),
     );
@@ -602,7 +685,7 @@ class _EventsScreenState extends State<EventsScreen> {
     final rich = state.eventByOccurrence(item.code, eventCode: item.eventCode);
     final event = rich ?? item.toEvent();
     final canRsvp =
-        !event.isPast && rich != null && state.isParticipant(rich);
+        !event.isPast && rich != null && _canRespond(state, roles, rich);
     return EventCard(
       event: event,
       myRsvp: event.myRsvpStatus,
@@ -706,6 +789,7 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _calendarCard(BuildContext context, EventsState state, RoleCubit roles) {
+    final allowedKinds = EventAccess.readableCalendarKinds(roles);
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
@@ -732,9 +816,11 @@ class _EventsScreenState extends State<EventsScreen> {
         },
         startingDayOfWeek: StartingDayOfWeek.monday,
         selectedDayPredicate: (day) => isSameDay(day, _selectedDay),
-        holidayPredicate: (day) => state.calendarItemsOn(day)
-            .any((i) => i.isHoliday),
-        eventLoader: (day) => state.calendarItemsOn(day),
+        holidayPredicate: (day) =>
+            state.calendarItemsOn(day, allowedKinds: allowedKinds)
+                .any((i) => i.isHoliday),
+        eventLoader: (day) =>
+            state.calendarItemsOn(day, allowedKinds: allowedKinds),
         onDaySelected: (selectedDay, focusedDay) {
           setState(() {
             _selectedDay = selectedDay;
@@ -827,7 +913,10 @@ class _EventsScreenState extends State<EventsScreen> {
   }
 
   Widget _dayList(BuildContext context, EventsState state, RoleCubit roles) {
-    final items = state.calendarItemsOn(_selectedDay);
+    final items = state.calendarItemsOn(
+      _selectedDay,
+      allowedKinds: EventAccess.readableCalendarKinds(roles),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -974,14 +1063,14 @@ class _EventsScreenState extends State<EventsScreen> {
             myRsvp: event.myRsvpStatus,
             showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
             onTap: () => _openDetail(context, event),
-            onRsvp: state.isParticipant(event)
+            onRsvp: _canRespond(state, roles, event)
                 ? (status) => _respond(context, event, status, roles.isParent)
                 : null,
           )
         : EventCard(
             event: event,
             myRsvp: event.myRsvpStatus,
-            onRsvp: state.isParticipant(event)
+            onRsvp: _canRespond(state, roles, event)
                 ? (status) => _respond(context, event, status, roles.isParent)
                 : null,
             showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
@@ -1128,7 +1217,8 @@ class _EventsScreenState extends State<EventsScreen> {
                     return EventCard(
                       event: event,
                       myRsvp: event.myRsvpStatus,
-                      onRsvp: state.isParticipant(event) && !event.isPast
+                      onRsvp: _canRespond(state, roles, event) &&
+                              !event.isPast
                           ? (status) =>
                               _respond(context, event, status, roles.isParent)
                           : null,
@@ -1149,6 +1239,11 @@ class _EventsScreenState extends State<EventsScreen> {
     EventsState state,
     RoleCubit roles,
   ) {
+    if (!_canReadHolidays(roles)) {
+      return const AccessRestrictedView(
+        message: 'You do not have access to holidays for your selected school.',
+      );
+    }
     if (state.isLoading) {
       return const Center(child: PrimaryCircularLoader());
     }
