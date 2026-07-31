@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_card.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_filter_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -133,7 +134,7 @@ class _TasksScreenState extends State<TasksScreen> {
           ],
         ),
         if (TaskAccess.canCreateTasks(roles))
-          GradientAddButton(onTap: () => _openForm(context)),
+          GradientAddButton(onTap: () => _openCreateForm(context)),
       ],
     );
   }
@@ -512,8 +513,6 @@ class _TasksScreenState extends State<TasksScreen> {
       onTap: () => _openDetail(context, task),
       onStatusTap:
           canManage ? () => _showStatusPicker(context, task) : null,
-      onPriorityTap:
-          canManage ? () => _showPriorityPicker(context, task) : null,
       onMore: canManage ? () => _showCardActions(context, task) : null,
     );
   }
@@ -532,20 +531,6 @@ class _TasksScreenState extends State<TasksScreen> {
       labelOf: (s) => s.label,
     );
     if (picked != null) cubit.changeStatus(task.code, picked);
-  }
-
-  Future<void> _showPriorityPicker(BuildContext context, Task task) async {
-    final cubit = context.read<TasksCubit>();
-    final picked = await showTaskOptionPicker<TaskPriority>(
-      context: context,
-      title: 'Set priority',
-      options: TaskPriority.values,
-      current: task.priority,
-      colorOf: TaskUiUtils.priorityColor,
-      iconOf: TaskUiUtils.priorityIcon,
-      labelOf: (p) => p.label,
-    );
-    if (picked != null) cubit.changePriority(task.code, picked);
   }
 
   Future<void> _showCardActions(BuildContext context, Task task) async {
@@ -589,7 +574,7 @@ class _TasksScreenState extends State<TasksScreen> {
       case 'view':
         _openDetail(context, task);
       case 'edit':
-        _openForm(context, task: task);
+        await _openEditForm(context, task);
       case 'delete':
         await _confirmDelete(context, cubit, task);
     }
@@ -655,10 +640,31 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  void _openForm(BuildContext context, {Task? task}) {
+  /// Create only — an *edit* must go through [_openEditForm] so a recurring task
+  /// is never edited without first asking which occurrences it applies to.
+  void _openCreateForm(BuildContext context) {
     context.push(
       TaskFormScreen.routeName,
-      extra: <String, dynamic>{if (task != null) 'taskCode': task.code},
+      extra: const <String, dynamic>{},
+    );
+  }
+
+  /// Editing a recurring task asks which occurrences to modify first, so the
+  /// form opens already knowing how far the save will reach.
+  Future<void> _openEditForm(BuildContext context, Task task) async {
+    final cubit = context.read<TasksCubit>();
+    final choice = await askTaskEditScope(
+      context: context,
+      cubit: cubit,
+      task: task,
+    );
+    if (choice.cancelled || !context.mounted) return;
+    await context.push(
+      TaskFormScreen.routeName,
+      extra: <String, dynamic>{
+        'taskCode': task.code,
+        'editScope': choice.scope,
+      },
     );
   }
 }

@@ -10,12 +10,14 @@ import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
-import 'package:wowcare/presentation/features/tasks/utils/task_option_picker.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_priority_meter.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_status_selector.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
@@ -105,26 +107,17 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _headerRow(context, task, canManage),
+                if (task.isOverdue) ...[
+                  const SizedBox(height: 10),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: TaskOverdueBadge(),
+                  ),
+                ],
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: [
-                    if (task.isOverdue) const TaskOverdueBadge(),
-                    // Inline status/priority editing (PRD FR-TK-16), same
-                    // ownership rule as the list — tap to change.
-                    TaskPriorityBadge(
-                      priority: task.priority,
-                      onTap:
-                          canManage ? () => _pickPriority(context, task) : null,
-                    ),
-                    TaskStatusBadge(
-                      status: task.status,
-                      onTap:
-                          canManage ? () => _pickStatus(context, task) : null,
-                    ),
-                  ],
-                ),
+                _statusCard(context, task, canManage),
+                const SizedBox(height: 10),
+                TaskPriorityMeter(priority: task.priority),
                 const SizedBox(height: 12),
                 _assigneeCard(task),
                 if (task.description.trim().isNotEmpty) ...[
@@ -200,9 +193,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             icon: const Icon(Icons.edit_outlined,
                 color: AppColors.themeColor, size: 22),
             onPressed: () async {
+              // A recurring task asks which occurrences to modify before the
+              // form opens; [_series] is already loaded here, so no refetch.
+              final choice = await askTaskEditScope(
+                context: context,
+                cubit: context.read<TasksCubit>(),
+                task: task,
+                series: _series,
+              );
+              if (choice.cancelled || !mounted) return;
               await context.push(
                 TaskFormScreen.routeName,
-                extra: <String, dynamic>{'taskCode': task.code},
+                extra: <String, dynamic>{
+                  'taskCode': task.code,
+                  'editScope': choice.scope,
+                },
               );
               // The edit may have changed the series' start time/recurrence —
               // the cached [_series] would otherwise keep showing the old one.
@@ -217,6 +222,25 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
           ),
         ],
       ],
+    );
+  }
+
+  /// Status is the task's primary action, so it gets the loudest element on the
+  /// screen: a full-width segmented control that both reports the current state
+  /// and moves it in one tap (PRD FR-TK-16). Priority sits just below it as a
+  /// read-only meter — same ownership rule as the list, but no inline edit.
+  Widget _statusCard(BuildContext context, Task task, bool canManage) {
+    return _sectionCard(
+      title: 'Status',
+      child: TaskStatusSelector(
+        status: task.status,
+        onChanged: canManage
+            ? (status) => context.read<TasksCubit>().changeStatus(
+                  task.code,
+                  status,
+                )
+            : null,
+      ),
     );
   }
 
@@ -410,34 +434,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _pickStatus(BuildContext context, Task task) async {
-    final cubit = context.read<TasksCubit>();
-    final picked = await showTaskOptionPicker<TaskStatus>(
-      context: context,
-      title: 'Move task to',
-      options: TaskStatus.values,
-      current: task.status,
-      colorOf: TaskUiUtils.statusColor,
-      iconOf: TaskUiUtils.statusIcon,
-      labelOf: (s) => s.label,
-    );
-    if (picked != null) cubit.changeStatus(task.code, picked);
-  }
-
-  Future<void> _pickPriority(BuildContext context, Task task) async {
-    final cubit = context.read<TasksCubit>();
-    final picked = await showTaskOptionPicker<TaskPriority>(
-      context: context,
-      title: 'Set priority',
-      options: TaskPriority.values,
-      current: task.priority,
-      colorOf: TaskUiUtils.priorityColor,
-      iconOf: TaskUiUtils.priorityIcon,
-      labelOf: (p) => p.label,
-    );
-    if (picked != null) cubit.changePriority(task.code, picked);
   }
 
   Future<void> _confirmDelete(BuildContext context, Task task) async {

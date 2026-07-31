@@ -19,7 +19,10 @@ import 'package:wowcare/domain/features/tasks/usecases/remove_task_assignee_usec
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_status_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_diff.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 
 part 'tasks_state.dart';
@@ -45,6 +48,7 @@ class TasksCubit extends Cubit<TasksState> {
     this._getOccurrences,
     this._updateOccurrence,
     this._cancelOccurrence,
+    this._updateTask,
   ) : super(const TasksState.initial());
 
   final GetTasksUseCase _getTasks;
@@ -61,6 +65,7 @@ class TasksCubit extends Cubit<TasksState> {
   final GetTaskOccurrencesUseCase _getOccurrences;
   final UpdateTaskOccurrenceUseCase _updateOccurrence;
   final CancelTaskOccurrenceUseCase _cancelOccurrence;
+  final UpdateTaskUseCase _updateTask;
 
   /// The "My Tasks" default is derived from the persona once per cubit
   /// lifetime so later loads don't clobber the user's own toggle choice.
@@ -308,15 +313,41 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// Saves edits to a single card through the per-assignment endpoint (§5b
-  /// `PATCH /tasks/assignments/{code}`), keyed by this card's own `TSA_` code —
-  /// the single edit endpoint the backend expects the form to use, for **every**
-  /// field (title, description, schedule/recurrence, priority, status, effort,
-  /// assignee, attachments), not just the due date/time. Only the fields that
-  /// actually changed are sent (null = unchanged), so the wire payload stays
-  /// minimal. On a reassignment the roster is rebuilt from sibling cards so a
-  /// full-replace never prunes other assignees. [assetCodes] full-replaces
-  /// attachments (`[]` clears, a list sets, null leaves them alone).
+  /// What an edit-form save would change, measured against the pre-edit task.
+  /// The form uses this to decide whether the `THIS_AND_FUTURE` scope can even
+  /// be offered — §3d rejects a reanchor with no schedule change — so the answer
+  /// comes from the same place [update] builds its payload from.
+  ///
+  /// See [update] for what [baseline] is for.
+  TaskEditDiff diffFor(
+    Task task, {
+    bool hasAddedAssignees = false,
+    Task? baseline,
+  }) {
+    return TaskEditDiff.between(
+      previous: baseline ?? state.taskByCode(task.code),
+      next: task,
+      hasAddedAssignees: hasAddedAssignees,
+    );
+  }
+
+  /// Saves edits made in the form. [scope] is the user's answer to "which
+  /// occurrences?" and decides which endpoint the save lands on:
+  ///
+  /// * [TaskEditScope.thisOccurrence] (the default, and the only option for a
+  ///   one-off task) — the per-assignment endpoint (§5b
+  ///   `PATCH /tasks/assignments/{code}`), keyed by this card's own `TSA_` code.
+  ///   The series, the shared occurrence and every other assignee are untouched.
+  /// * [TaskEditScope.thisAndFuture] — the series endpoint reanchored at this
+  ///   card's own occurrence (§3d), so earlier occurrences keep the old schedule.
+  /// * [TaskEditScope.entireSeries] — the series endpoint with the default
+  ///   `scope=ALL` (§3).
+  ///
+  /// Only the fields that actually changed are sent (null = unchanged), so the
+  /// wire payload stays minimal. On a reassignment the roster is rebuilt from
+  /// sibling cards so a full-replace never prunes other assignees.
+  /// [assetCodes] full-replaces attachments (`[]` clears, a list sets, null
+  /// leaves them alone).
   ///
   /// [addedAssignees] are staff picked in the edit form who weren't already on
   /// the series. They're appended to the rebuilt roster and sent as a
@@ -324,74 +355,75 @@ class TasksCubit extends Cubit<TasksState> {
   /// assignee (existing assignees and their cards are preserved untouched). The
   /// card being edited keeps its own assignee — this never reassigns it.
   /// Reloads on success.
+  ///
+  /// [baseline] is the pre-edit task to diff against, defaulting to the loaded
+  /// card. The form supplies the card with the owning series' recurrence folded
+  /// in ([TaskScheduleUtils.withSeriesSchedule]), because the flat assignment
+  /// payload has no recurrence flag of its own — without it every recurring save
+  /// would look like a recurrence change and cascade away future occurrences.
   Future<bool> update(
     Task task, {
     List<String>? assetCodes,
     List<TaskAssigneeRef> addedAssignees = const [],
+    TaskEditScope scope = TaskEditScope.thisOccurrence,
+    Task? baseline,
   }) async {
     if (task.code.isEmpty) {
       emit(state.copyWith(errorMessage: () => 'Missing task reference'));
       return false;
     }
+    final seriesCode = task.taskCode.trim();
+    if (scope.isSeriesWide && seriesCode.isEmpty) {
+      emit(state.copyWith(
+        errorMessage: () => 'Missing task series reference',
+      ));
+      return false;
+    }
     final previous = state.taskByCode(task.code);
+    final diff = TaskEditDiff.between(
+      previous: baseline ?? previous,
+      next: task,
+      hasAddedAssignees: addedAssignees.isNotEmpty,
+    );
     emit(state.copyWith(isSaving: true, errorMessage: () => null));
     try {
-      final titleChanged = previous == null || previous.title != task.title;
-      final descriptionChanged =
-          previous == null || previous.description != task.description;
-      final assigneeChanged =
-          previous == null || previous.assigneeCode != task.assigneeCode;
-      final priorityChanged =
-          previous == null || previous.priority != task.priority;
-      final statusChanged = previous == null || previous.status != task.status;
-      final effortChanged = previous == null || previous.effort != task.effort;
-      final dueChanged = previous == null ||
-          previous.dueDate != task.dueDate ||
-          previous.dueTime != task.dueTime;
-      final startChanged = previous == null ||
-          previous.startDate != task.startDate ||
-          previous.startTime != task.startTime;
-      final recurrenceChanged = previous == null ||
-          previous.recurring != task.recurring ||
-          previous.recurringPattern != task.recurringPattern ||
-          previous.recurringEndDate != task.recurringEndDate ||
-          previous.startDay != task.startDay;
-      final oneOff = !task.recurring;
-      // New assignees added in the edit form join the series roster; a
-      // reassignment swaps this card's assignee for another. Either way the
-      // roster is rebuilt from sibling cards and sent as a full-replace so no
-      // existing assignee is pruned.
-      final hasAddedAssignees = addedAssignees.isNotEmpty;
-      final rosterChanged = assigneeChanged || hasAddedAssignees;
-
-      // One PATCH to /tasks/assignments/{code} carrying only what changed
-      // (§5b). A one-off's own schedule rides the discrete occurrenceDate/
-      // startTime/dueDate/dueTime fields; a recurring series' RRULE rides the
-      // [schedule] Task (its per-occurrence due date/time still ride the due
-      // fields). A roster change sends the rebuilt roster.
-      await _updateAssignment(
-        assignmentCode: task.code,
-        title: titleChanged ? task.title : null,
-        description: descriptionChanged ? task.description : null,
-        occurrenceDate: (oneOff && startChanged) ? task.startDate : null,
-        startTime: (oneOff && startChanged) ? task.startTime : null,
-        dueDate: dueChanged ? task.dueDate : null,
-        dueTime: dueChanged ? task.dueTime : null,
-        priority: priorityChanged ? task.priority : null,
-        status: statusChanged ? task.status : null,
-        effort: effortChanged ? task.effort : null,
-        schedule: (!oneOff && (startChanged || recurrenceChanged)) ? task : null,
-        assignees: rosterChanged
-            ? _rosterFor(
-                task.taskCode,
-                editedAssigneeCode: previous?.assigneeCode ?? task.assigneeCode,
-                newAssigneeCode: task.assigneeCode,
-                newPriority: task.priority,
-                added: addedAssignees,
-              )
-            : null,
-        assetCodes: assetCodes,
-      );
+      if (scope.isSeriesWide) {
+        String? anchorOccurrenceCode;
+        if (scope.needsAnchorOccurrence) {
+          // §3d anchors on the occurrence the user was looking at, addressed by
+          // its *pre-edit* date — the edit itself may have moved this card.
+          anchorOccurrenceCode = await _resolveAnchorOccurrence(
+            seriesCode: seriesCode,
+            occurrenceDate: previous?.startDate ?? task.startDate,
+          );
+          if (anchorOccurrenceCode == null) {
+            emit(state.copyWith(
+              isSaving: false,
+              errorMessage: () =>
+                  "Couldn't find this occurrence in the series, so the series "
+                  "can't be split here.",
+            ));
+            return false;
+          }
+        }
+        await _saveSeriesWide(
+          task: task,
+          previous: previous,
+          diff: diff,
+          scope: scope,
+          assetCodes: assetCodes,
+          addedAssignees: addedAssignees,
+          anchorOccurrenceCode: anchorOccurrenceCode,
+        );
+      } else {
+        await _saveThisOccurrence(
+          task: task,
+          previous: previous,
+          diff: diff,
+          assetCodes: assetCodes,
+          addedAssignees: addedAssignees,
+        );
+      }
 
       await load(silent: true);
       emit(state.copyWith(isSaving: false));
@@ -403,6 +435,125 @@ class TasksCubit extends Cubit<TasksState> {
       ));
       return false;
     }
+  }
+
+  /// One PATCH to `/tasks/assignments/{code}` carrying only what changed (§5b) —
+  /// the narrowest possible save, touching neither the series nor the shared
+  /// occurrence nor any other assignee.
+  ///
+  /// The series' recurrence rule is deliberately never sent here: it is a
+  /// property of the series, so "this occurrence only" can't express it (a
+  /// recurrence change rules this scope out in [TaskEditScopePrompt] instead of
+  /// being quietly dropped).
+  ///
+  /// Only a one-off's start/due **dates** travel — for a recurring task the form
+  /// has no date pickers at all and derives those dates from the rule, so they
+  /// drift from this card's own occurrence date on every save and sending them
+  /// would silently move the card. Times, which the user does pick either way,
+  /// always travel when changed.
+  Future<void> _saveThisOccurrence({
+    required Task task,
+    required Task? previous,
+    required TaskEditDiff diff,
+    required List<String>? assetCodes,
+    required List<TaskAssigneeRef> addedAssignees,
+  }) async {
+    final oneOff = !task.recurring;
+    final sendStart = oneOff ? diff.startChanged : diff.startTimeChanged;
+    final sendDue = oneOff ? diff.dueChanged : diff.dueTimeChanged;
+    await _updateAssignment(
+      assignmentCode: task.code,
+      title: diff.titleChanged ? task.title : null,
+      description: diff.descriptionChanged ? task.description : null,
+      occurrenceDate: (oneOff && sendStart) ? task.startDate : null,
+      startTime: sendStart ? task.startTime : null,
+      dueDate: (oneOff && sendDue) ? task.dueDate : null,
+      dueTime: sendDue ? task.dueTime : null,
+      priority: diff.priorityChanged ? task.priority : null,
+      status: diff.statusChanged ? task.status : null,
+      effort: diff.effortChanged ? task.effort : null,
+      assignees: diff.rosterChanged
+          ? _rosterFor(
+              task.taskCode,
+              editedAssigneeCode: previous?.assigneeCode ?? task.assigneeCode,
+              newAssigneeCode: task.assigneeCode,
+              newPriority: task.priority,
+              added: addedAssignees,
+            )
+          : null,
+      assetCodes: assetCodes,
+    );
+  }
+
+  /// Persists the edit on the series itself (§3, or §3d when
+  /// [anchorOccurrenceCode] is set), then mops up the fields the series has no
+  /// home for.
+  ///
+  /// Status, priority and effort are deliberately *not* part of the series
+  /// payload: the Tasks API keeps status and effort only on a `task_assignment`,
+  /// and a top-level `priority` sent without a roster is documented as a no-op
+  /// (§3a). Sending a full-replace roster just to carry a priority would risk
+  /// pruning roster members who have no materialized card, so those three are
+  /// applied to the edited card through §5b instead.
+  Future<void> _saveSeriesWide({
+    required Task task,
+    required Task? previous,
+    required TaskEditDiff diff,
+    required TaskEditScope scope,
+    required List<String>? assetCodes,
+    required List<TaskAssigneeRef> addedAssignees,
+    required String? anchorOccurrenceCode,
+  }) async {
+    await _updateTask(
+      seriesCode: task.taskCode.trim(),
+      title: diff.titleChanged ? task.title : null,
+      description: diff.descriptionChanged ? task.description : null,
+      schedule: diff.scheduleChanged ? task : null,
+      assignees: diff.rosterChanged
+          ? _rosterFor(
+              task.taskCode,
+              editedAssigneeCode: previous?.assigneeCode ?? task.assigneeCode,
+              newAssigneeCode: task.assigneeCode,
+              newPriority: task.priority,
+              added: addedAssignees,
+            )
+          : null,
+      assetCodes: assetCodes,
+      scope: scope.seriesScope!,
+      anchorOccurrenceCode: anchorOccurrenceCode,
+    );
+
+    if (diff.statusChanged || diff.priorityChanged || diff.effortChanged) {
+      await _updateAssignment(
+        assignmentCode: task.code,
+        priority: diff.priorityChanged ? task.priority : null,
+        status: diff.statusChanged ? task.status : null,
+        effort: diff.effortChanged ? task.effort : null,
+      );
+    }
+  }
+
+  /// The occurrence code §3d must anchor on: the series occurrence sitting on
+  /// [occurrenceDate] (§11a is the only endpoint that surfaces occurrence codes
+  /// at all). Matches on the *scheduled* date so an occurrence already moved by
+  /// a §11c reschedule is still found where the card says it is, and skips a
+  /// cancelled occurrence — the API refuses to anchor on one. Returns null when
+  /// nothing matches, which the caller reports rather than guessing an anchor.
+  Future<String?> _resolveAnchorOccurrence({
+    required String seriesCode,
+    required DateTime occurrenceDate,
+  }) async {
+    final occurrences = await _getOccurrences(seriesCode);
+    for (final occurrence in occurrences) {
+      if (occurrence.status == TaskOccurrenceStatus.cancelled) continue;
+      final date = occurrence.scheduledStartDate ?? occurrence.originalStartDate;
+      if (date.year == occurrenceDate.year &&
+          date.month == occurrenceDate.month &&
+          date.day == occurrenceDate.day) {
+        return occurrence.code;
+      }
+    }
+    return null;
   }
 
   /// Deletes the series the card belongs to (Tasks API §4 soft-deletes the
@@ -491,24 +642,15 @@ class TasksCubit extends Cubit<TasksState> {
     }
   }
 
-  /// Inline priority change from the list view (PRD FR-TK-16). Persisted through
-  /// the per-assignment endpoint (Tasks API §5b), keyed by this card's own
-  /// assignment code, so it edits exactly this occurrence's priority in place.
-  ///
-  /// This is the backend-directed path: the per-assignee endpoint (§4b) keys off
-  /// a `staffCode`, but the assignment payload round-trips `assigneeCode` with a
-  /// suffix (e.g. `STF_…-0`) that doesn't match the roster, so §4b 404s. §5b
-  /// uses the unambiguous `TSA_…` code instead.
-  Future<void> changePriority(String code, TaskPriority priority) async {
-    final task = state.taskByCode(code);
-    if (task == null || task.priority == priority) return;
-    await updateAssignmentDetails(code, priority: priority);
-  }
-
   /// Edits one occurrence's own due date/time/priority in isolation (Tasks API
   /// §5b) — no effect on the series, roster default, or the assignee's other
   /// occurrences. On success the single card is replaced in place. Returns true
   /// on success.
+  ///
+  /// §5b (not the per-assignee §4b) is the backend-directed path for a priority
+  /// change: §4b keys off a `staffCode`, but the assignment payload round-trips
+  /// `assigneeCode` with a suffix (e.g. `STF_…-0`) that doesn't match the
+  /// roster, so §4b 404s. §5b uses the unambiguous `TSA_…` code instead.
   Future<bool> updateAssignmentDetails(
     String assignmentCode, {
     DateTime? dueDate,
@@ -719,9 +861,21 @@ class TasksCubit extends Cubit<TasksState> {
   List<Task> _withAssigneeNames(List<Task> tasks) =>
       tasks.map(_withAssigneeName).toList();
 
+  /// Fills in the assignee and creator display names from the staff directory
+  /// when the payload carried only codes. A name already on the payload always
+  /// wins, and an unknown code is left as-is so the UI degrades to the raw code
+  /// rather than blanking out.
   Task _withAssigneeName(Task task) {
-    if (task.assigneeName.trim().isNotEmpty) return task;
-    final name = _staffNames[task.assigneeCode];
-    return name == null ? task : task.copyWith(assigneeName: name);
+    final assigneeName = task.assigneeName.trim().isEmpty
+        ? _staffNames[task.assigneeCode]
+        : null;
+    final createdByName = task.createdByName.trim().isEmpty
+        ? _staffNames[task.createdBy]
+        : null;
+    if (assigneeName == null && createdByName == null) return task;
+    return task.copyWith(
+      assigneeName: assigneeName ?? task.assigneeName,
+      createdByName: createdByName ?? task.createdByName,
+    );
   }
 }

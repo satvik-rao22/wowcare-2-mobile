@@ -1,15 +1,19 @@
-import 'dart:convert';
-
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_count.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_count_usecase.dart';
+import 'package:wowcare/domain/features/staff/usecases/get_staff_page_usecase.dart';
+import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
 
-/// PRD §5.2 "Create Task": an admin persona may assign a task to any active
-/// staff member, while a Staff/Teacher persona may only "assign to staff in
-/// allowed classes only". These tests pin the classroom scope the assignee
-/// picker is loaded with, per persona, from cached session state only (no
-/// network, no service locator).
+/// The Task form's assignee picker must offer every ACTIVE staff member to
+/// every persona that can open the form. A staff/teacher persona is NOT
+/// narrowed to its own `allowedClassroomCodes` — that filter used to leave the
+/// picker showing only the signed-in user. These tests pin the requests the
+/// picker load actually issues.
 class _FakeStorage implements StorageService {
   _FakeStorage(this._data);
 
@@ -23,67 +27,138 @@ class _FakeStorage implements StorageService {
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
-StorageService _storage({
-  required String activeRole,
-  String staffType = '',
-  List<String> allowedClassrooms = const [],
-}) =>
-    _FakeStorage({
-      StorageKeys.activeSchoolRole: activeRole,
-      if (staffType.isNotEmpty) StorageKeys.staffType: staffType,
-      if (allowedClassrooms.isNotEmpty)
-        StorageKeys.staffAllowedClassroomCodes: jsonEncode(allowedClassrooms),
-    });
+/// Records every staff-list request and answers from a fixed roster.
+class _FakeStaffRepository implements StaffRepository {
+  _FakeStaffRepository({required this.total});
+
+  final int total;
+  final List<({int page, int size, List<String>? classCodes, String? status})>
+      requests = [];
+
+  @override
+  Future<StaffPage> getStaffPage({
+    required String organizationCode,
+    required String schoolCode,
+    String? code,
+    int page = 0,
+    int size = 10,
+    String? status,
+    String? designation,
+    String? search,
+    List<String>? primaryClassroomCodes,
+    List<String>? classCodes,
+    String? sortBy,
+  }) async {
+    requests.add((
+      page: page,
+      size: size,
+      classCodes: classCodes,
+      status: status,
+    ));
+    final start = page * size;
+    final end = (start + size) > total ? total : (start + size);
+    final items = <StaffMember>[
+      for (var i = start; i < end; i++)
+        StaffMember(
+          code: 'STF_$i',
+          name: 'Staff $i',
+          primaryClassroomCode: '',
+          allowedClassroomCodes: const [],
+          designation: 'TEACHER',
+          phoneNumber: '',
+          status: 'ACTIVE',
+          email: '',
+        ),
+    ];
+    return StaffPage(
+      items: items,
+      page: page,
+      size: size,
+      totalPages: (total / size).ceil(),
+      totalElements: total,
+      hasMore: end < total,
+    );
+  }
+
+  @override
+  Future<StaffCount> getStaffCount({
+    required String organizationCode,
+    required String schoolCode,
+  }) async =>
+      StaffCount(total: total, active: total, upcoming: 0);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
+StaffCubit _cubit(_FakeStaffRepository repository) => StaffCubit(
+      getStaffPageUseCase: GetStaffPageUseCase(repository),
+      getStaffCountUseCase: GetStaffCountUseCase(repository),
+      repository: repository,
+      storageService: _FakeStorage({
+        StorageKeys.schoolCode: 'SCH_1',
+        StorageKeys.organizationCode: 'ORG_1',
+        // A non-admin staff persona with allowed classrooms: the case that used
+        // to be classroom-scoped.
+        StorageKeys.activeSchoolRole: 'STAFF',
+        StorageKeys.staffType: 'TEACHER',
+        StorageKeys.staffAllowedClassroomCodes: '["CLS_1","CLS_2"]',
+      }),
+    );
 
 void main() {
-  group('assignableStaffClassroomScope', () {
-    test('school admin may assign to any active staff (no restriction)',
+  group('loadAssignableStaff', () {
+    test('never scopes the roster by classroom, even for a teacher persona',
         () async {
-      final codes = await assignableStaffClassroomScope(
-        storage: _storage(activeRole: 'SCHOOL_ADMIN'),
+      final repository = _FakeStaffRepository(total: 7);
+      final cubit = _cubit(repository);
+
+      await loadAssignableStaff(cubit);
+
+      expect(
+        repository.requests.every((r) => r.classCodes == null),
+        isTrue,
+        reason: 'a classroom filter would hide the persona’s colleagues',
       );
-      expect(codes, isEmpty);
+      expect(
+        cubit.state.items.map((s) => s.code),
+        List.generate(7, (i) => 'STF_$i'),
+      );
+      await cubit.close();
     });
 
-    test('org admin may assign to any active staff (no restriction)', () async {
-      final codes = await assignableStaffClassroomScope(
-        storage: _storage(activeRole: 'ORGANIZATION_ADMIN'),
-      );
-      expect(codes, isEmpty);
+    test('loads ACTIVE staff only', () async {
+      final repository = _FakeStaffRepository(total: 3);
+      final cubit = _cubit(repository);
+
+      await loadAssignableStaff(cubit);
+
+      expect(repository.requests.map((r) => r.status), everyElement('ACTIVE'));
+      await cubit.close();
     });
 
-    test('teacher is restricted to their allowed classrooms', () async {
-      final codes = await assignableStaffClassroomScope(
-        storage: _storage(
-          activeRole: 'STAFF',
-          staffType: 'TEACHER',
-          allowedClassrooms: ['CLS_1', 'CLS_2'],
-        ),
-      );
-      expect(codes, ['CLS_1', 'CLS_2']);
+    test('a school that fits in one page costs a single list request', () async {
+      final repository = _FakeStaffRepository(total: 42);
+      final cubit = _cubit(repository);
+
+      await loadAssignableStaff(cubit);
+
+      expect(repository.requests.length, 1);
+      expect(repository.requests.single.size, 100);
+      expect(cubit.state.items, hasLength(42));
+      await cubit.close();
     });
 
-    test('a staff member whose staffType is an admin type is unrestricted',
-        () async {
-      final codes = await assignableStaffClassroomScope(
-        storage: _storage(
-          activeRole: 'STAFF',
-          staffType: 'SCHOOL_ADMIN',
-          allowedClassrooms: ['CLS_1'],
-        ),
-      );
-      expect(codes, isEmpty);
-    });
+    test('a roster larger than one page is paged in completely', () async {
+      final repository = _FakeStaffRepository(total: 230);
+      final cubit = _cubit(repository);
 
-    test('guardian persona is never classroom-scoped (and has no task access)',
-        () async {
-      final codes = await assignableStaffClassroomScope(
-        storage: _storage(
-          activeRole: 'GUARDIAN',
-          allowedClassrooms: ['CLS_1'],
-        ),
-      );
-      expect(codes, isEmpty);
+      await loadAssignableStaff(cubit);
+
+      expect(repository.requests.map((r) => r.page), [0, 1, 2]);
+      expect(cubit.state.items, hasLength(230));
+      expect(cubit.state.hasMore, isFalse);
+      await cubit.close();
     });
   });
 }

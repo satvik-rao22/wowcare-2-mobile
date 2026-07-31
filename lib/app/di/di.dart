@@ -591,6 +591,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<GetTaskOccurrencesUseCase>(),
       serviceLocator<UpdateTaskOccurrenceUseCase>(),
       serviceLocator<CancelTaskOccurrenceUseCase>(),
+      serviceLocator<UpdateTaskUseCase>(),
     ),
   );
 

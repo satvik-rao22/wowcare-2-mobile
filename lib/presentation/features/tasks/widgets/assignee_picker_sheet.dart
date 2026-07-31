@@ -15,6 +15,7 @@ class AssigneePickerSheet extends StatefulWidget {
     required this.initialSelection,
     required this.isLoading,
     this.lockedCodes = const {},
+    this.selfCodes = const {},
     super.key,
   });
 
@@ -26,6 +27,12 @@ class AssigneePickerSheet extends StatefulWidget {
   /// rendered checked and non-interactive.
   final Set<String> lockedCodes;
 
+  /// The signed-in user's identity codes (`TasksState.identityCodes` — the
+  /// module matches self on either the staff or the user code). Their row is
+  /// pinned to the top, badged "Me", and also findable by typing "me". Empty
+  /// while identity is unresolved, in which case no row is badged.
+  final Set<String> selfCodes;
+
   @override
   State<AssigneePickerSheet> createState() => _AssigneePickerSheetState();
 }
@@ -34,14 +41,27 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
   late final Map<String, String> _selection = Map.of(widget.initialSelection);
   String _query = '';
 
+  bool _isSelf(String code) => widget.selfCodes.contains(code);
+
+  /// Matches on name, plus "me" for the signed-in user's own row so they can
+  /// find themselves without recalling how the roster spells their name.
+  bool _matchesQuery(({String code, String name}) option) {
+    if (_query.isEmpty) return true;
+    final query = _query.toLowerCase();
+    if (option.name.toLowerCase().contains(query)) return true;
+    return _isSelf(option.code) && 'me'.startsWith(query);
+  }
+
   @override
   Widget build(BuildContext context) {
-    final filtered = widget.options
-        .where((o) =>
-            _query.isEmpty ||
-            o.name.toLowerCase().contains(_query.toLowerCase()))
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
+    // "Me" first, then alphabetical — the user's own row is the one most often
+    // wanted, and pinning it keeps the badge visible without scrolling.
+    final filtered = widget.options.where(_matchesQuery).toList()
+      ..sort((a, b) {
+        final selfA = _isSelf(a.code);
+        if (selfA != _isSelf(b.code)) return selfA ? -1 : 1;
+        return a.name.compareTo(b.name);
+      });
 
     return SafeArea(
       child: Padding(
@@ -118,11 +138,24 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
                                 activeColor: AppColors.themeColor,
                                 controlAffinity:
                                     ListTileControlAffinity.trailing,
-                                title: Text(
-                                  staff.name.isNotEmpty
-                                      ? staff.name
-                                      : staff.code,
-                                  style: const TextStyle(fontSize: 13.5),
+                                title: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        staff.name.isNotEmpty
+                                            ? staff.name
+                                            : staff.code,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(fontSize: 13.5),
+                                      ),
+                                    ),
+                                    // Badge rides on the row (not the index), so
+                                    // it survives search filtering and sorting.
+                                    if (_isSelf(staff.code)) ...[
+                                      const SizedBox(width: 6),
+                                      const _MeBadge(),
+                                    ],
+                                  ],
                                 ),
                                 // Existing assignees can be added to but never
                                 // removed here, so their tile is locked on.
@@ -184,6 +217,38 @@ class _AssigneePickerSheetState extends State<AssigneePickerSheet> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Marks the signed-in user's row in the roster, so assigning a task to
+/// yourself doesn't read like picking a stranger off a list.
+class _MeBadge extends StatelessWidget {
+  const _MeBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: AppColors.themeColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: const Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.person, size: 11, color: AppColors.themeColor),
+          SizedBox(width: 3),
+          Text(
+            'Me',
+            style: TextStyle(
+              fontSize: 10.5,
+              fontWeight: FontWeight.w700,
+              color: AppColors.themeColor,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -253,8 +253,13 @@ class TasksState extends Equatable {
 
   /// The current user's identity codes (empty entries dropped) — a task matches
   /// "mine"/"by me" on either the staff code or the user code, since the two
-  /// spellings appear in different payloads.
-  Set<String> get _identityCodes =>
+  /// spellings appear in different payloads. Empty while identity is still
+  /// unresolved, which is what makes the ownership checks fail closed.
+  ///
+  /// Public so the UI can mark "me" with the same rule the read boundary uses
+  /// (the assignee picker badges the signed-in user's row) instead of a second,
+  /// drifting definition of self.
+  Set<String> get identityCodes =>
       <String>{currentUserCode, currentStaffCode}
         ..removeWhere((code) => code.isEmpty);
 
@@ -266,7 +271,7 @@ class TasksState extends Equatable {
   /// Fails closed while the identity is unresolved: "my tasks" for an unknown
   /// user must never widen to everyone else's tasks.
   bool _isMine(Task task) {
-    final codes = _identityCodes;
+    final codes = identityCodes;
     if (codes.isEmpty) return false;
     return codes.contains(task.assigneeCode);
   }
@@ -274,7 +279,7 @@ class TasksState extends Equatable {
   /// Whether [task] was created by the current user — backs the staff "By Me"
   /// scope. Fails closed while the identity is unresolved, as [_isMine] does.
   bool _isByMe(Task task) {
-    final codes = _identityCodes;
+    final codes = identityCodes;
     if (codes.isEmpty) return false;
     return codes.contains(task.createdBy);
   }
