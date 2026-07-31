@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -136,6 +138,26 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
                   ),
                   const SizedBox(height: 14),
                 ],
+                // Calendar "Show" filter — applies to the unified feed
+                // (events + tasks + holidays) on the calendar view.
+                _sectionLabel('Show on calendar'),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final kind in CalendarFeedKind.values)
+                      if (kind != CalendarFeedKind.unknown)
+                        _chip(
+                          label: _kindLabel(kind),
+                          color: _kindColor(kind),
+                          // Empty filter = everything shown.
+                          selected: state.calendarKindFilter.isEmpty ||
+                              state.calendarKindFilter.contains(kind),
+                          onTap: () => cubit.toggleCalendarKindFilter(kind),
+                        ),
+                  ],
+                ),
+                const SizedBox(height: 14),
                 _sectionLabel('Event Types'),
                 Wrap(
                   spacing: 6,
@@ -251,6 +273,31 @@ class _EventFilterSheetState extends State<_EventFilterSheet> {
         ),
       ),
     );
+  }
+
+  static String _kindLabel(CalendarFeedKind kind) {
+    switch (kind) {
+      case CalendarFeedKind.event:
+        return 'Events';
+      case CalendarFeedKind.task:
+        return 'Tasks';
+      case CalendarFeedKind.holiday:
+        return 'Holidays';
+      case CalendarFeedKind.unknown:
+        return '';
+    }
+  }
+
+  static Color _kindColor(CalendarFeedKind kind) {
+    switch (kind) {
+      case CalendarFeedKind.task:
+        return TaskUiUtils.accent;
+      case CalendarFeedKind.holiday:
+        return const Color(0xFFD32F2F);
+      case CalendarFeedKind.event:
+      case CalendarFeedKind.unknown:
+        return AppColors.themeColor;
+    }
   }
 
   Widget _chip({

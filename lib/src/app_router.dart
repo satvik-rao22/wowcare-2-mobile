@@ -435,8 +435,20 @@ final GoRouter appRouter = GoRouter(
                   path: 'events',
                   pageBuilder: (context, state) => _fastPage(
                     state,
-                    BlocProvider<EventsCubit>.value(
-                      value: serviceLocator<EventsCubit>()..load(silent: true),
+                    // TasksCubit rides along: the calendar's unified feed
+                    // renders task rows with the Tasks module's own card,
+                    // whose inline status/priority actions go through it.
+                    MultiBlocProvider(
+                      providers: [
+                        BlocProvider<EventsCubit>.value(
+                          value:
+                              serviceLocator<EventsCubit>()..load(silent: true),
+                        ),
+                        BlocProvider<TasksCubit>.value(
+                          value: serviceLocator<TasksCubit>()
+                            ..applyPersona(context.read<RoleCubit>().role),
+                        ),
+                      ],
                       child: const EventsScreen(),
                     ),
                   ),

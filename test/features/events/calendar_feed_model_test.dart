@@ -1,6 +1,9 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/data/features/events/models/calendar_feed_models.dart';
 import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
+import 'package:wowcare/domain/features/events/entities/event.dart';
+import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/presentation/features/events/utils/calendar_feed_mappers.dart';
 
 void main() {
   group('CalendarFeedItemModel.fromApi', () {
@@ -104,6 +107,72 @@ void main() {
         'scheduledStartDate': '2026-08-04',
       })!;
       expect(item.kind, CalendarFeedKind.unknown);
+    });
+  });
+
+  group('feed -> module entity mappers', () {
+    test('task row maps to a Task the Tasks module card can render', () {
+      final task = CalendarFeedItemModel.fromApi({
+        'type': 'TASK',
+        'code': 'TSA_1',
+        'taskCode': 'TSK_1',
+        'title': 'Mobile task',
+        'occurrenceDate': '2026-08-01',
+        'startTime': '13:00:00',
+        'dueDate': '2026-08-02',
+        'dueTime': '21:00:00',
+        'status': 'IN_PROGRESS',
+        'priority': 'HIGH',
+        'assigneeCode': 'STF_1',
+      })!.toTask();
+
+      // `code` must be the ASSIGNMENT code — status/priority mutations and
+      // TaskDetailScreen's lookup act on it.
+      expect(task.code, 'TSA_1');
+      expect(task.taskCode, 'TSK_1');
+      expect(task.title, 'Mobile task');
+      expect(task.status, TaskStatus.inProgress);
+      expect(task.priority, TaskPriority.high);
+      expect(task.startDate, DateTime(2026, 8, 1));
+      expect(task.dueDate, DateTime(2026, 8, 2));
+      expect(task.assigneeCode, 'STF_1');
+    });
+
+    test('event row maps to an Event with the occurrence code', () {
+      final event = CalendarFeedItemModel.fromApi({
+        'type': 'EVENT',
+        'code': 'OCC_1',
+        'eventCode': 'EVT_1',
+        'displayName': 'Sports Day',
+        'scheduledStartDate': '2026-08-16',
+        'eventType': 'SCHOOL',
+        'includeParentsFlag': true,
+      })!.toEvent();
+
+      expect(event.code, 'EVT_1');
+      expect(event.occurrenceCode, 'OCC_1');
+      expect(event.type, EventType.school);
+      expect(event.includeParents, isTrue);
+    });
+  });
+
+  group('Event.isPast', () {
+    Event at(DateTime d) => Event(
+          code: 'EVT_1',
+          type: EventType.school,
+          name: 'x',
+          date: d,
+          allDay: true,
+          createdAt: d,
+          updatedAt: d,
+        );
+
+    test('yesterday is past, today and tomorrow are not', () {
+      final now = DateTime(2026, 8, 10, 15);
+      expect(at(DateTime(2026, 8, 9)).isPastAsOf(now), isTrue);
+      // Same-day occurrences stay RSVP-able even later in the day.
+      expect(at(DateTime(2026, 8, 10)).isPastAsOf(now), isFalse);
+      expect(at(DateTime(2026, 8, 11)).isPastAsOf(now), isFalse);
     });
   });
 }

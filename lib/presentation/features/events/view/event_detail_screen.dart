@@ -61,8 +61,9 @@ class EventDetailScreen extends StatelessWidget {
             staffCode: state.currentStaffCode,
           );
           // Occurrence rows carry the full roster — only people on it may
-          // RSVP (server rule; students respond implicitly, never manually).
-          final canRsvp = state.isParticipant(event);
+          // RSVP (server rule; students respond implicitly, never manually),
+          // and only while the occurrence hasn't passed.
+          final canRsvp = state.isParticipant(event) && !event.isPast;
           final canSeeSummary = EventAccess.canSeeRsvpSummary(roles);
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),

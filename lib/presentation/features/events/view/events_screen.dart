@@ -12,8 +12,14 @@ import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
-import 'package:wowcare/presentation/features/events/widgets/calendar_feed_card.dart';
+import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/presentation/features/events/utils/calendar_feed_mappers.dart';
+import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_option_picker.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
+import 'package:wowcare/presentation/features/tasks/widgets/task_card.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/event_filter_sheet.dart';
@@ -106,8 +112,8 @@ class _EventsScreenState extends State<EventsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _header(context, roles),
-                  const SizedBox(height: 10),
+                  // _header(context, roles),
+                  // const SizedBox(height: 10),
                   _tabSwitcher(),
                   const SizedBox(height: 10),
                   if (_tabIndex == 0)
@@ -559,6 +565,125 @@ class _EventsScreenState extends State<EventsScreen> {
             : AppColors.themeColor;
   }
 
+  /// Renders a feed row with the owning module's own card so the calendar
+  /// matches the Events and Tasks tabs: [TaskCard] (inline status/priority)
+  /// for tasks, [EventCard] (RSVP bar) for events, and a compact banner for
+  /// holidays.
+  Widget _feedItemCard(
+    BuildContext context,
+    EventsState state,
+    RoleCubit roles,
+    CalendarFeedItem item,
+  ) {
+    if (item.isTask) {
+      final task = item.toTask();
+      final canManage = TaskAccess.canManageTask(
+        roles: roles,
+        task: task,
+        userCode: state.currentUserCode,
+        staffCode: state.currentStaffCode,
+      );
+      return TaskCard(
+        key: ValueKey(task.code),
+        task: task,
+        schoolTimeZone: context.read<TasksCubit>().state.schoolTimeZone,
+        onTap: () => _openFeedItem(context, item),
+        onStatusTap: canManage ? () => _pickTaskStatus(context, task) : null,
+        onPriorityTap:
+            canManage ? () => _pickTaskPriority(context, task) : null,
+      );
+    }
+    if (item.isHoliday) return _feedHolidayBanner(item);
+
+    // Event — reuse the Events list card so the calendar matches the other
+    // views. The feed row has no roster/myRsvp, so prefer the rich
+    // occurrence when it is loaded; RSVP is hidden for past occurrences and
+    // for non-participants.
+    final rich = state.eventByOccurrence(item.code, eventCode: item.eventCode);
+    final event = rich ?? item.toEvent();
+    final canRsvp =
+        !event.isPast && rich != null && state.isParticipant(rich);
+    return EventCard(
+      event: event,
+      myRsvp: event.myRsvpStatus,
+      onRsvp: canRsvp
+          ? (status) => _respond(context, event, status, roles.isParent)
+          : null,
+      showRsvpCounts: EventAccess.canSeeRsvpSummary(roles),
+      onTap: () => _openFeedItem(context, item),
+    );
+  }
+
+  Future<void> _pickTaskStatus(BuildContext context, Task task) async {
+    final cubit = context.read<TasksCubit>();
+    final picked = await showTaskOptionPicker<TaskStatus>(
+      context: context,
+      title: 'Move task to',
+      options: TaskStatus.values,
+      current: task.status,
+      colorOf: TaskUiUtils.statusColor,
+      iconOf: TaskUiUtils.statusIcon,
+      labelOf: (s) => s.label,
+    );
+    if (picked == null) return;
+    await cubit.changeStatus(task.code, picked);
+    if (!context.mounted) return;
+    // The feed row carries its own copy of the status — refresh it.
+    context.read<EventsCubit>().resetCalendarFeed();
+    await context.read<EventsCubit>().loadCalendarFeed(
+          _focusedDay,
+          scope: _feedScope(context.read<RoleCubit>()),
+        );
+  }
+
+  Future<void> _pickTaskPriority(BuildContext context, Task task) async {
+    final cubit = context.read<TasksCubit>();
+    final picked = await showTaskOptionPicker<TaskPriority>(
+      context: context,
+      title: 'Set priority',
+      options: TaskPriority.values,
+      current: task.priority,
+      colorOf: TaskUiUtils.priorityColor,
+      iconOf: TaskUiUtils.priorityIcon,
+      labelOf: (p) => p.label,
+    );
+    if (picked == null) return;
+    await cubit.changePriority(task.code, picked);
+    if (!context.mounted) return;
+    context.read<EventsCubit>().resetCalendarFeed();
+    await context.read<EventsCubit>().loadCalendarFeed(
+          _focusedDay,
+          scope: _feedScope(context.read<RoleCubit>()),
+        );
+  }
+
+  Widget _feedHolidayBanner(CalendarFeedItem item) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: _holidayRed.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _holidayRed.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.beach_access_outlined, size: 18, color: _holidayRed),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              item.name,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _holidayRed,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _openFeedItem(BuildContext context, CalendarFeedItem item) {
     if (item.isEvent) {
       context.push(
@@ -747,15 +872,8 @@ class _EventsScreenState extends State<EventsScreen> {
                     padding: const EdgeInsets.only(bottom: 90),
                     itemCount: items.length,
                     separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (context, index) {
-                      final item = items[index];
-                      return CalendarFeedCard(
-                        item: item,
-                        onTap: item.isHoliday
-                            ? null
-                            : () => _openFeedItem(context, item),
-                      );
-                    },
+                    itemBuilder: (context, index) =>
+                        _feedItemCard(context, state, roles, items[index]),
                   ),
                 ),
         ),
@@ -1010,7 +1128,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     return EventCard(
                       event: event,
                       myRsvp: event.myRsvpStatus,
-                      onRsvp: state.isParticipant(event)
+                      onRsvp: state.isParticipant(event) && !event.isPast
                           ? (status) =>
                               _respond(context, event, status, roles.isParent)
                           : null,

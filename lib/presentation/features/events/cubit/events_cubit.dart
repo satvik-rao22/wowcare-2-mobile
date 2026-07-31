@@ -226,6 +226,13 @@ class EventsCubit extends Cubit<EventsState> {
     emit(state.copyWith(showMineOnly: mineOnly));
   }
 
+  /// Calendar "Show" filter: Events / Tasks / Holidays.
+  void toggleCalendarKindFilter(CalendarFeedKind kind) {
+    final next = Set<CalendarFeedKind>.from(state.calendarKindFilter);
+    if (!next.remove(kind)) next.add(kind);
+    emit(state.copyWith(calendarKindFilter: next));
+  }
+
   void toggleTypeFilter(EventType type) {
     final next = Set<EventType>.from(state.typeFilter);
     if (!next.remove(type)) next.add(type);
@@ -249,6 +256,7 @@ class EventsCubit extends Cubit<EventsState> {
   void clearAllFilters() {
     emit(
       state.copyWith(
+        calendarKindFilter: const <CalendarFeedKind>{},
         typeFilter: const <EventType>{},
         classroomFilter: const <String>{},
         dateFrom: () => null,

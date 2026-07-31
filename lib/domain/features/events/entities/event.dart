@@ -219,6 +219,13 @@ class Event extends Equatable {
 
   bool get isCompleted => isCompletedAsOf(DateTime.now());
 
+  /// Whether THIS occurrence's date has already passed (date-only). RSVP is
+  /// only meaningful for today/future occurrences.
+  bool isPastAsOf(DateTime now) => DateTime(date.year, date.month, date.day)
+      .isBefore(DateTime(now.year, now.month, now.day));
+
+  bool get isPast => isPastAsOf(DateTime.now());
+
   /// Whether this event (including recurring expansions) lands on [day].
   bool occursOn(DateTime day) {
     final target = DateTime(day.year, day.month, day.day);

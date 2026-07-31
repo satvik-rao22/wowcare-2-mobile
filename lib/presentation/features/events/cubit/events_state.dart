@@ -22,6 +22,7 @@ class EventsState extends Equatable {
     this.hasMoreEvents = true,
     this.calendarItems = const <CalendarFeedItem>[],
     this.calendarLoading = false,
+    this.calendarKindFilter = const <CalendarFeedKind>{},
     this.errorMessage,
   });
 
@@ -46,6 +47,7 @@ class EventsState extends Equatable {
         hasMoreEvents = true,
         calendarItems = const <CalendarFeedItem>[],
         calendarLoading = false,
+        calendarKindFilter = const <CalendarFeedKind>{},
         errorMessage = null;
 
   final List<Event> events;
@@ -98,11 +100,38 @@ class EventsState extends Equatable {
   final List<CalendarFeedItem> calendarItems;
   final bool calendarLoading;
 
+  /// Calendar "Show" filter — which feed kinds are visible. Empty = all.
+  final Set<CalendarFeedKind> calendarKindFilter;
+
   final String? errorMessage;
 
-  /// Feed rows on [day], all kinds, sorted all-day-first then by time.
+  /// Whether [item] passes the calendar filters (kind + search + the
+  /// event-type filter, which only constrains EVENT rows so tasks and
+  /// holidays aren't hidden by an event-only choice).
+  bool _passesCalendarFilters(CalendarFeedItem item) {
+    if (calendarKindFilter.isNotEmpty &&
+        !calendarKindFilter.contains(item.kind)) {
+      return false;
+    }
+    if (isSearching) {
+      final q = searchQuery.toLowerCase();
+      if (!item.name.toLowerCase().contains(q) &&
+          !item.description.toLowerCase().contains(q)) {
+        return false;
+      }
+    }
+    if (typeFilter.isNotEmpty && item.isEvent) {
+      final type = EventType.fromValue(item.eventType);
+      if (!typeFilter.contains(type)) return false;
+    }
+    return true;
+  }
+
+  /// Filtered feed rows on [day], sorted all-day-first then by time.
   List<CalendarFeedItem> calendarItemsOn(DateTime day) {
-    final matches = calendarItems.where((i) => i.occursOn(day)).toList()
+    final matches = calendarItems
+        .where((i) => i.occursOn(day) && _passesCalendarFilters(i))
+        .toList()
       ..sort((a, b) {
         if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
         return a.startTime.compareTo(b.startTime);
@@ -111,7 +140,12 @@ class EventsState extends Equatable {
   }
 
   bool calendarHasItems(DateTime day) =>
-      calendarItems.any((i) => i.occursOn(day));
+      calendarItems.any((i) => i.occursOn(day) && _passesCalendarFilters(i));
+
+  /// Calendar filters count for the filter badge (kind + event type +
+  /// classrooms + date range).
+  int get calendarFilterCount =>
+      calendarKindFilter.length + typeFilter.length;
 
   /// Whether the current user is on [occurrence]'s participant roster
   /// (staff or parent — students never RSVP). The roster comes fully
@@ -328,6 +362,7 @@ class EventsState extends Equatable {
     bool? hasMoreEvents,
     List<CalendarFeedItem>? calendarItems,
     bool? calendarLoading,
+    Set<CalendarFeedKind>? calendarKindFilter,
     String? Function()? errorMessage,
   }) {
     return EventsState(
@@ -351,6 +386,7 @@ class EventsState extends Equatable {
       hasMoreEvents: hasMoreEvents ?? this.hasMoreEvents,
       calendarItems: calendarItems ?? this.calendarItems,
       calendarLoading: calendarLoading ?? this.calendarLoading,
+      calendarKindFilter: calendarKindFilter ?? this.calendarKindFilter,
       errorMessage:
           errorMessage != null ? errorMessage() : this.errorMessage,
     );
@@ -378,6 +414,7 @@ class EventsState extends Equatable {
         hasMoreEvents,
         calendarItems,
         calendarLoading,
+        calendarKindFilter,
         errorMessage,
       ];
 }
