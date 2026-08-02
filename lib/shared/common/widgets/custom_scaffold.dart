@@ -273,14 +273,22 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
           value: _notificationBadgeCubit,
         ),
       ],
-      child: GestureDetector(
-        onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-        child: Scaffold(
-          // App bar stays pinned; only the bottom nav hides on scroll.
-          appBar: appBar,
-          drawer: const CustomDrawer(),
-          drawerEnableOpenDragGesture: false,
-          body: GradientBackground(
+      child: Scaffold(
+        // App bar stays pinned; only the bottom nav hides on scroll.
+        appBar: appBar,
+        drawer: const CustomDrawer(),
+        drawerEnableOpenDragGesture: false,
+        body: GestureDetector(
+          // Scoped to the body only (not the whole Scaffold) so this tap
+          // recognizer never shares a gesture arena with the AppBar's action
+          // buttons (bell / chat / kebab). Wrapping the entire Scaffold —
+          // AppBar included — put every icon tap into an extra, pointless
+          // arena negotiation against this unfocus-only tap, which was
+          // intermittently swallowing the first tap on those buttons. Same
+          // class of gesture conflict as `drawerEnableOpenDragGesture: false`
+          // just above, which was disabled for the same reason.
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: GradientBackground(
             child: SafeArea(
               // Let the Scaffold's appBar handle the top inset; we only
               // inset for bottom so content never goes behind system bars,
@@ -296,24 +304,24 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
               ),
             ),
           ),
-          extendBody: true,
-          floatingActionButton: widget.floatingActionButton,
-          bottomNavigationBar: widget.showCustomNavigationBar
-              // Let the bar size to its natural height (same as the attendance
-              // screens). AnimatedSize keeps the hide-on-scroll animation by
-              // collapsing to zero, without forcing a fixed height that
-              // overflows on devices with a large bottom system inset.
-              ? AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeInOut,
-                  child: _showBars
-                      ? CustomNavigationBar(
-                          activeItemOverride: widget.activeItemOverride,
-                        )
-                      : const SizedBox.shrink(),
-                )
-              : widget.customButtonLayout,
         ),
+        extendBody: true,
+        floatingActionButton: widget.floatingActionButton,
+        bottomNavigationBar: widget.showCustomNavigationBar
+            // Let the bar size to its natural height (same as the attendance
+            // screens). AnimatedSize keeps the hide-on-scroll animation by
+            // collapsing to zero, without forcing a fixed height that
+            // overflows on devices with a large bottom system inset.
+            ? AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? CustomNavigationBar(
+                        activeItemOverride: widget.activeItemOverride,
+                      )
+                    : const SizedBox.shrink(),
+              )
+            : widget.customButtonLayout,
       ),
     );
   }

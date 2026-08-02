@@ -7,6 +7,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 
 class RoleState extends Equatable {
   const RoleState({
@@ -206,26 +207,18 @@ class RoleCubit extends Cubit<RoleState> {
   }
 
   Future<String> _computeFallbackRole(StorageService storage) async {
-    // The persona the user is ACTUALLY in wins. A dual-role account (e.g.
-    // SCHOOL_ADMIN + GUARDIAN) would otherwise be demoted to 'parent' by the
-    // least-privilege scan below purely because 'GUARDIAN' appears in `roles`,
-    // flipping an admin session to the guardian UI. Only guess when no active
+    // The persona the user is ACTUALLY in wins. Only guess when no active
     // persona has been resolved/persisted yet.
     final active =
         (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
     if (active.isNotEmpty) return _personaFamily(active);
 
-    // Fallback derives role from API-provided roles only.
-    final roleJson =
-        (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
-    if (roleJson.contains('KIOSK')) {
-      return 'kiosk';
-    } else if (roleJson.contains('GUARDIAN') || roleJson.contains('PARENT')) {
-      return 'parent';
-    } else if (roleJson.contains('STAFF') || roleJson.contains('TEACHER')) {
-      return 'staff';
-    }
-    return 'admin';
+    // Fallback derives role from API-provided roles only. A dual-role account
+    // (e.g. SCHOOL_ADMIN + GUARDIAN) must default to the admin/staff persona
+    // rather than being silently downgraded to parent — see
+    // [derivePersonaFamilyFromRolesJson] for the priority order.
+    final roleJson = await storage.getString(StorageKeys.roles) ?? '';
+    return derivePersonaFamilyFromRolesJson(roleJson);
   }
 
   Future<RoleState> _resolveAccessState(

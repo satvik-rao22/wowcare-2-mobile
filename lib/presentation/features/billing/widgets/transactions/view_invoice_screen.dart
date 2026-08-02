@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class ViewInvoiceScreen extends StatefulWidget {
   const ViewInvoiceScreen({
@@ -22,6 +23,30 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   static final DateFormat _dateFormat = DateFormat('MMM dd, yyyy');
 
   String _formatDate(DateTime date) => _dateFormat.format(date);
+
+  // Invoices carry no room field of their own, so the student's current
+  // classroom is looked up separately by student code.
+  String? _roomName;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRoomName();
+  }
+
+  Future<void> _loadRoomName() async {
+    final code = widget.transaction.studentCode?.trim();
+    if (code == null || code.isEmpty) return;
+    try {
+      final profile = await serviceLocator<GetStudentProfileUseCase>()(
+        code: code,
+      );
+      if (!mounted) return;
+      setState(() => _roomName = profile.classroomName);
+    } catch (_) {
+      // No room fallback — the row is simply omitted.
+    }
+  }
 
   String? get _dueDateLabel {
     final raw = widget.transaction.endDate;
@@ -55,7 +80,7 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
   }
 
   Widget _buildBilledForRow() {
-    final classroom = widget.transaction.classroom.trim();
+    final classroom = (_roomName ?? widget.transaction.classroom).trim();
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
@@ -67,12 +92,6 @@ class _ViewInvoiceScreenState extends State<ViewInvoiceScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        DocumentImageWidget(
-          fileUuid: widget.transaction.studentPhotoUuid ?? '',
-          name: widget.transaction.studentName,
-          size: 50,
-        ),
-        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

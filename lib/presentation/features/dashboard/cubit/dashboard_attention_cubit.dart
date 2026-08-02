@@ -61,12 +61,20 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
 
     final schoolCode = await _storageService.getString(StorageKeys.schoolCode);
     if (schoolCode == null || schoolCode.trim().isEmpty) {
-      emit(state.copyWith(status: DashboardAttentionStatus.loaded));
+      // Not `loaded` — that would permanently block future silent retries
+      // (see `isLoaded`'s silent-revisit guard above) once the school code
+      // actually becomes available.
+      emit(
+        state.copyWith(status: DashboardAttentionStatus.awaitingSchoolContext),
+      );
       _isFetching = false;
       return;
     }
 
-    if (!isSilent && state.isInitial) {
+    final wasNotYetLoaded =
+        state.isInitial ||
+        state.status == DashboardAttentionStatus.awaitingSchoolContext;
+    if (!isSilent && wasNotYetLoaded) {
       emit(state.copyWith(status: DashboardAttentionStatus.loading));
     }
 

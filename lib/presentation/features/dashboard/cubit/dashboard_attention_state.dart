@@ -7,6 +7,13 @@ enum DashboardAttentionStatus {
   refreshing,
   partialFailure,
   error,
+
+  /// [StorageKeys.schoolCode] wasn't available yet when [load] ran (e.g. the
+  /// dashboard mounted before school context finished resolving after
+  /// login). Deliberately excluded from [isLoaded] so a later [load] call
+  /// isn't short-circuited by the silent-revisit guard and can actually
+  /// retry once the school code is available.
+  awaitingSchoolContext,
 }
 
 class DashboardAttentionState extends Equatable {

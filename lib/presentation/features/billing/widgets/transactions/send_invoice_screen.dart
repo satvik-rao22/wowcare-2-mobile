@@ -5,10 +5,10 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
 import 'package:wowcare/domain/features/billing/usecases/resend_invoice_usecase.dart';
+import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
@@ -36,11 +36,30 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   // Form data
   String _invoiceNumber = '';
 
+  // Invoices carry no room field of their own, so the student's current
+  // classroom is looked up separately by student code.
+  String? _roomName;
+
   @override
   void initState() {
     super.initState();
     _initializeDummyData();
     _initializeFormData();
+    _loadRoomName();
+  }
+
+  Future<void> _loadRoomName() async {
+    final code = widget.transaction.studentCode?.trim();
+    if (code == null || code.isEmpty) return;
+    try {
+      final profile = await serviceLocator<GetStudentProfileUseCase>()(
+        code: code,
+      );
+      if (!mounted) return;
+      setState(() => _roomName = profile.classroomName);
+    } catch (_) {
+      // No room fallback — the row is simply omitted.
+    }
   }
 
   void _initializeDummyData() {
@@ -213,6 +232,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
   }
 
   Widget _buildBilledForRow() {
+    final classroom = (_roomName ?? widget.transaction.classroom).trim();
     return Row(
       children: [
         Text(
@@ -222,12 +242,6 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             color: AppColors.primaryColor,
           ),
         ),
-        DocumentImageWidget(
-          fileUuid: widget.transaction.studentPhotoUuid ?? '',
-          name: widget.transaction.studentName,
-          size: 50,
-        ),
-        const SizedBox(width: 5),
         Text(
           widget.transaction.studentName,
           style: AppTextStyles.value.copyWith(
@@ -235,10 +249,10 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
             color: AppColors.primaryColor,
           ),
         ),
-        if (widget.transaction.classroom.isNotEmpty) ...[
+        if (classroom.isNotEmpty) ...[
           const SizedBox(width: 8),
           Text(
-            widget.transaction.classroom,
+            classroom,
             style: AppTextStyles.small.copyWith(color: AppColors.primaryColor),
           ),
         ],

@@ -139,6 +139,8 @@ class ParentTransactionCard extends StatelessWidget {
       description: transaction.description,
       studentName: transaction.studentName,
       classroom: '',
+      studentCode:
+          transaction.studentCode.isNotEmpty ? transaction.studentCode : null,
       paidAmount: transaction.paidAmount,
       refundedAmount: transaction.refundedAmount,
       invoiceCode: transaction.invoiceCode,
