@@ -27,6 +27,7 @@ class ThreadMessageTile extends StatelessWidget {
     required this.isGrouped,
     required this.reactionsController,
     this.currentUserCode,
+    this.currentViewerRole,
     this.onScrollToQuoted,
     this.onReply,
     this.onReplyFromMenu,
@@ -50,6 +51,9 @@ class ThreadMessageTile extends StatelessWidget {
   final bool isGrouped;
   final ReactionsController reactionsController;
   final String? currentUserCode;
+
+  /// See [MessageBubble.currentViewerRole].
+  final String? currentViewerRole;
   final List<ConversationParticipant>? participants;
   final void Function(String quotedId)? onScrollToQuoted;
   final VoidCallback? onReply;
@@ -99,6 +103,7 @@ class ThreadMessageTile extends StatelessWidget {
           isDeleted: snapshot.message.isDeleted,
           quotedMessage: snapshot.quoted,
           currentUserCode: currentUserCode,
+          currentViewerRole: currentViewerRole,
           participants: participants,
           reactionsController: reactionsController,
           onScrollToQuoted: onScrollToQuoted,

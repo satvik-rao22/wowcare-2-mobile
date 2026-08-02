@@ -28,10 +28,12 @@ class MessageModel extends Message {
     super.receivers,
     super.isPrivate = false,
     super.privateParentUserCode,
+    super.senderRole,
   }) : super(senderUserCode: senderUserCode);
 
   factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
     final senderCode = (json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '').trim();
+    final senderRole = (json['senderRole'] as String? ?? json['role'] as String? ?? '').trim();
     final normalizedUserId = currentUserId?.trim();
     final isMine = normalizedUserId != null &&
         normalizedUserId.isNotEmpty &&
@@ -99,6 +101,7 @@ class MessageModel extends Message {
           (json['isPrivate'] as bool? ?? false) ||
           (json['private'] as bool? ?? false),
       privateParentUserCode: json['privateParentUserCode'] as String?,
+      senderRole: senderRole.isEmpty ? null : senderRole,
     );
   }
 

@@ -179,6 +179,11 @@ class CommunicationRemoteDataSourceImpl
         senderName: parsed.senderName,
         isPrivate: parsed.isPrivate,
         privateParentUserCode: parsed.privateParentUserCode,
+        // The message really was just sent under the active persona — use
+        // that directly rather than trusting parsed.senderRole, which can
+        // reflect the dual-role misattribution noted above for a moment
+        // until the next refetch/realtime update corrects it.
+        senderRole: activeRole.isNotEmpty ? activeRole : parsed.senderRole,
       );
     } else {
       throw Exception(response.data?['message'] ?? 'Failed to send message');

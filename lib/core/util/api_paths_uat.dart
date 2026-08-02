@@ -317,7 +317,12 @@ class ApiPathsUat {
   static String url(String path) {
     final p = _ensureUatMicroserviceSegment(path);
     final ms = microserviceKeyFromPath(p);
-    final base = ApiConstants.baseUrlForMicroservice(ms);
+    // Defensive: strip an accidental trailing slash (e.g. a copy-pasted
+    // --dart-define=API_HOST=.../ override) so it can't double up with
+    // [p]'s leading slash and produce "host.com//api/v1/...".
+    final rawBase = ApiConstants.baseUrlForMicroservice(ms);
+    final base =
+        rawBase.endsWith('/') ? rawBase.substring(0, rawBase.length - 1) : rawBase;
 
     // Attendance in UAT is hosted under `/api/v1/attendance` already.
     // When [p] is `/api/v1/attendance/...`, append only the remainder.

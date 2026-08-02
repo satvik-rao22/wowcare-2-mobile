@@ -761,6 +761,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       ..senderUserCode = entity.senderCode.isNotEmpty
           ? entity.senderCode
           : existing?.senderUserCode
+      ..senderRole = entity.senderRole.toApiString()
       ..time = existing?.time ?? entity.sentAt
       ..deliveredAt = existing?.deliveredAt
       ..readAt = existing?.readAt

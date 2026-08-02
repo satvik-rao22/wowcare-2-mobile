@@ -21,11 +21,21 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
   final Message? quotedMessage;
   final String? currentUserCode;
+
+  /// The role the CURRENT USER is viewing this thread as (e.g. 'GUARDIAN',
+  /// 'ADMIN'). Needed alongside [currentUserCode] because a single account
+  /// can be a participant under more than one role in the same conversation
+  /// (e.g. an admin who is also the guardian of a different child) —
+  /// [Message.senderUserCode] alone can't distinguish which persona actually
+  /// authored a message; only comparing roles too can. Null means "not
+  /// known/not applicable" — falls back to identity-only comparison.
+  final String? currentViewerRole;
 
   /// Conversation participants — used to resolve the sender's real avatar
   /// (imageUrl/staffCode) for the Parent Messaging sender header. Without
@@ -70,6 +80,7 @@ class MessageBubble extends StatefulWidget {
     required this.reactionsController,
     this.quotedMessage,
     this.currentUserCode,
+    this.currentViewerRole,
     this.participants,
     this.onScrollToQuoted,
     this.onReply,
@@ -219,10 +230,45 @@ class _MessageBubbleState extends State<MessageBubble>
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  bool get _isMe =>
-      widget.message.isSentByMe ||
-      (widget.currentUserCode != null &&
-          widget.currentUserCode == widget.message.senderUserCode);
+  // Identity (currentUserCode vs. senderUserCode) is authoritative whenever
+  // both are known — it's freshly resolved from the live REST/Firestore
+  // payload, unlike `message.isSentByMe`, which can be a stale cached
+  // boolean (e.g. re-derived at a different point in time, or carried over
+  // from an earlier persona's view of the same cached row). Previously this
+  // was `isSentByMe || (identity match)`, so a stale `isSentByMe: true`
+  // alone forced every bubble onto "my" side regardless of who actually
+  // sent it. `isSentByMe` is now only consulted when identity can't be
+  // compared (either code missing).
+  //
+  // A userCode match alone isn't sufficient though: the SAME account can be
+  // a participant under more than one role in the same conversation (e.g.
+  // an admin who is also the guardian of a different child) — a message
+  // that account sent as ADMIN must NOT show as "mine" while viewing this
+  // thread as GUARDIAN, even though the userCode is identical. When both the
+  // message's senderRole and the current viewer's role are known, they must
+  // also match (normalised via ParticipantRole, since the two sides use
+  // different role vocabularies — e.g. 'ORGANIZATION_ADMIN' vs 'ADMIN').
+  bool get _isMe {
+    final myCode = widget.currentUserCode;
+    final senderCode = widget.message.senderUserCode;
+    if (myCode != null &&
+        myCode.isNotEmpty &&
+        senderCode != null &&
+        senderCode.isNotEmpty) {
+      if (myCode != senderCode) return false;
+      final viewerRole = widget.currentViewerRole;
+      final senderRole = widget.message.senderRole;
+      if (viewerRole != null &&
+          viewerRole.isNotEmpty &&
+          senderRole != null &&
+          senderRole.isNotEmpty) {
+        return ParticipantRole.fromApiString(viewerRole) ==
+            ParticipantRole.fromApiString(senderRole);
+      }
+      return true;
+    }
+    return widget.message.isSentByMe;
+  }
 
   /// Which side this bubble renders on. Always identity-based ([_isMe]) —
   /// matches the documented contract on [MessageBubble.senderIsOrgSide]

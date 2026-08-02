@@ -15,6 +15,10 @@ class MessageCollection {
   late String text;
   bool? isSentByMe;
   String? senderUserCode;
+
+  /// Raw role string the backend attributed to the sender at send-time (e.g.
+  /// 'ADMIN', 'GUARDIAN'). See [Message.senderRole].
+  String? senderRole;
   late DateTime time;
   DateTime? deliveredAt;
   DateTime? readAt;
@@ -45,6 +49,7 @@ class MessageCollection {
       ..text = message.text
       ..isSentByMe = message.isSentByMe
       ..senderUserCode = message.senderUserCode
+      ..senderRole = message.senderRole
       ..time = message.time
       ..deliveredAt = message.deliveredAt
       ..readAt = message.readAt
@@ -95,6 +100,7 @@ class MessageCollection {
       text: text,
       isSentByMe: resolvedIsSentByMe,
       senderUserCode: normalizedSenderCode,
+      senderRole: senderRole,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,

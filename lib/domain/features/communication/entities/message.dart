@@ -23,6 +23,14 @@ class Message extends Equatable {
   final bool isPrivate;
   final String? privateParentUserCode;
 
+  /// Raw role string the backend attributed to the sender at send-time (e.g.
+  /// 'ADMIN', 'GUARDIAN', 'STAFF'). Needed alongside [senderUserCode] because
+  /// a single account can be a participant under more than one role in the
+  /// same conversation (e.g. a staff member who is also the guardian of a
+  /// different child) — [senderUserCode] alone can't tell which persona
+  /// actually authored a given message, only the role can.
+  final String? senderRole;
+
   const Message({
     required this.id,
     required this.code,
@@ -43,6 +51,7 @@ class Message extends Equatable {
     this.senderUserCode,
     this.isPrivate = false,
     this.privateParentUserCode,
+    this.senderRole,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -109,6 +118,7 @@ class Message extends Equatable {
       senderUserCode: senderUserCode,
       isPrivate: isPrivate,
       privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
+      senderRole: senderRole,
     );
   }
 
@@ -133,6 +143,7 @@ class Message extends Equatable {
         senderUserCode,
         isPrivate,
         privateParentUserCode,
+        senderRole,
       ];
 }
 

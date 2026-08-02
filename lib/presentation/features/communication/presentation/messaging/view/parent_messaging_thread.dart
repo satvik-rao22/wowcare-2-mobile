@@ -111,6 +111,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   String? _quotedMessageId;
   List<ChatAttachment> _pendingAttachments = [];
   String? _currentUserCode;
+
+  /// See [MessageBubble.currentViewerRole]. 'GUARDIAN' when viewing as a
+  /// guardian; the account's active staff/admin role otherwise — needed to
+  /// tell apart messages sent by THIS SAME account under a different
+  /// persona (e.g. an admin who is also a guardian elsewhere).
+  String? _currentViewerRole;
   String? _currentSender;
   Message? _editingMessage;
   final FocusNode _inputFocusNode = FocusNode();
@@ -227,6 +233,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       final currentUserId = (authUserCode?.isNotEmpty ?? false)
           ? authUserCode
           : (storedUserCode.isNotEmpty ? storedUserCode : null);
+      final currentViewerRole = widget.isGuardian
+          ? 'GUARDIAN'
+          : (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+              .trim();
       if (!mounted) return;
       final myInitialPrivateModeEnabled = widget.isGuardian
           ? ((widget.parentInfo['participants'] as List<dynamic>?)
@@ -236,6 +246,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           : false;
       setState(() {
         _currentUserCode = currentUserId;
+        _currentViewerRole = currentViewerRole.isEmpty ? null : currentViewerRole;
         if (widget.isGuardian) {
           _privateModeToggleCubit = PrivateModeToggleCubit(
             togglePrivateModeUseCase: TogglePrivateModeUseCase(
@@ -777,6 +788,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         }
                       },
                       currentUserCode: _currentUserCode,
+                      currentViewerRole: _currentViewerRole,
                       reactionsController: _reactionsController,
                       isParentMessaging: true,
                       participants: _participants,
@@ -1093,6 +1105,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         },
                                                         currentUserCode:
                                                             _currentUserCode,
+                                                        currentViewerRole: _currentViewerRole,
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
@@ -1393,6 +1406,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         },
                                                         currentUserCode:
                                                             _currentUserCode,
+                                                        currentViewerRole: _currentViewerRole,
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
@@ -1698,6 +1712,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         },
                                                         currentUserCode:
                                                             _currentUserCode,
+                                                        currentViewerRole: _currentViewerRole,
                                                         reactionsController:
                                                             _reactionsController,
                                                         isParentMessaging: true,
@@ -2106,6 +2121,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             },
                                                             currentUserCode:
                                                                 _currentUserCode,
+                                                            currentViewerRole: _currentViewerRole,
                                                             reactionsController:
                                                                 _reactionsController,
                                                             isParentMessaging:
@@ -2410,6 +2426,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             },
                                                             currentUserCode:
                                                                 _currentUserCode,
+                                                            currentViewerRole: _currentViewerRole,
                                                             reactionsController:
                                                                 _reactionsController,
                                                             isParentMessaging:
@@ -2724,6 +2741,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             },
                                                             currentUserCode:
                                                                 _currentUserCode,
+                                                            currentViewerRole: _currentViewerRole,
                                                             reactionsController:
                                                                 _reactionsController,
                                                             isParentMessaging:
