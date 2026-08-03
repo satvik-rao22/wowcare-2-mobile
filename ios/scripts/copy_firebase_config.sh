@@ -6,7 +6,7 @@
 # We decode each token, find ENVIRONMENT=<value>, and lower-case it to pick the folder.
 set -euo pipefail
 
-ENVIRONMENT="local"
+ENVIRONMENT="dev"
 
 if [ -n "${DART_DEFINES:-}" ]; then
   IFS=',' read -ra DEFINES <<< "$DART_DEFINES"
@@ -20,11 +20,10 @@ if [ -n "${DART_DEFINES:-}" ]; then
   done
 fi
 
-# Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
-# build environments. To restore per-environment Firebase projects, remove the
-# override below so SRC uses the detected ${ENVIRONMENT} again.
-echo "note: [Firebase] build env='${ENVIRONMENT}', using pinned 'uat' Firebase config (wowcare2-uat)"
-ENVIRONMENT="uat"
+# Firebase follows the build environment (DEV -> wowcare1-dev): a push only
+# arrives when the sending project matches the one the token was registered
+# against, so Firebase must track whichever REST backend the build targets.
+echo "note: [Firebase] build env='${ENVIRONMENT}', using firebase/${ENVIRONMENT} config"
 
 SRC="${SRCROOT}/firebase/${ENVIRONMENT}/GoogleService-Info.plist"
 DST="${BUILT_PRODUCTS_DIR}/${PRODUCT_NAME}.app/GoogleService-Info.plist"

@@ -108,6 +108,11 @@ format:
 # RUN COMMANDS
 # -----------------------------------------------------------------------------
 
+# DEV is also the default when no --dart-define is passed, so a bare
+# `flutter run` is equivalent to this target.
+dev-run:
+	$(FLUTTER) run --dart-define=ENVIRONMENT=DEV
+
 local-run:
 	$(FLUTTER) run --dart-define=ENVIRONMENT=LOCAL
 
@@ -155,6 +160,9 @@ prod-run-release:
 # -----------------------------------------------------------------------------
 # APK DEBUG
 # -----------------------------------------------------------------------------
+
+dev-apk-debug:
+	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=DEV
 
 local-apk-debug:
 	$(FLUTTER) build apk --debug --dart-define=ENVIRONMENT=LOCAL

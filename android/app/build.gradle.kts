@@ -46,7 +46,7 @@ if (keystorePropertiesFile.exists()) {
 // ---------------------------------------------------------------------------
 val dartEnvironment: String by lazy {
     val encoded = (project.findProperty("dart.defines") as? String) ?: ""
-    if (encoded.isBlank()) return@lazy "local"
+    if (encoded.isBlank()) return@lazy "dev"
     val decoded: List<String> = encoded.split(",")
         .filter { it.isNotBlank() }
         .mapNotNull { entry ->
@@ -59,7 +59,7 @@ val dartEnvironment: String by lazy {
     val env: String = decoded
         .firstOrNull { it.startsWith("ENVIRONMENT=") }
         ?.removePrefix("ENVIRONMENT=")
-        ?: "local"
+        ?: "dev"
     env.lowercase()
 }
 
@@ -70,13 +70,11 @@ val dartEnvironment: String by lazy {
 // reports implicit-dependency validation errors for every task that reads from
 // android/app (mergeAssets, mergeShaders, compileFlutterBuild, ...).
 val copyGoogleServices by tasks.registering {
-    // Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
-    // build environments. `dartEnvironment` still drives the rest of the build;
-    // only the google-services.json is forced to the uat folder. To restore
-    // per-environment Firebase projects, change this back to
-    // "firebase/$dartEnvironment/google-services.json".
-    val firebaseConfigEnvironment = "uat"
-    println("[firebase] build env=$dartEnvironment → using firebase/$firebaseConfigEnvironment config (wowcare2-uat)")
+    // Firebase follows the build environment: a push is only delivered when the
+    // sending project matches the one the app registered its token against, so
+    // the Firebase project must track the REST backend. DEV -> wowcare1-dev.
+    val firebaseConfigEnvironment = dartEnvironment
+    println("[firebase] build env=$dartEnvironment → using firebase/$firebaseConfigEnvironment config")
     val srcPath = "firebase/$firebaseConfigEnvironment/google-services.json"
     doLast {
         val src = file(srcPath)

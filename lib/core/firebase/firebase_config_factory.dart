@@ -1,25 +1,27 @@
 // ignore_for_file: type=lint
 import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
+import 'firebase_options_dev.dart';
 import 'firebase_options_local.dart';
 import 'firebase_options_qa.dart';
 import 'firebase_options_uat.dart';
 import 'firebase_options_prod.dart';
 
 // Compile-time constant injected by --dart-define=ENVIRONMENT=<value>.
-// Defaults to LOCAL so a bare `flutter run` (without make) still works.
-const _env = String.fromEnvironment('ENVIRONMENT', defaultValue: 'LOCAL');
+// Defaults to DEV to match [ApiConstants], so a bare `flutter run` puts the
+// backend and Firebase in the same environment instead of splitting them.
+const _env = String.fromEnvironment('ENVIRONMENT', defaultValue: 'DEV');
 
 abstract final class FirebaseConfigFactory {
   /// Returns [FirebaseOptions] for the current build environment.
   ///
-  /// Resolved at compile time from --dart-define=ENVIRONMENT=<LOCAL|QA|UAT|PROD>.
+  /// Resolved at compile time from
+  /// --dart-define=ENVIRONMENT=<DEV|LOCAL|QA|UAT|PROD>.
+  ///
+  /// Firebase must track the same environment as the REST backend: a push is
+  /// only delivered when the sending project matches the one the app registered
+  /// its FCM token against. DEV → `wowcare1-dev`, which is the project the DEV
+  /// backend (http://5.78.83.44) sends from.
   static FirebaseOptions get currentPlatform {
-    // Firebase is intentionally pinned to the UAT project (wowcare2-uat) for ALL
-    // build environments. To restore per-environment Firebase projects, delete
-    // this early return and let the env switch below run.
-    return FirebaseOptionsUat.currentPlatform;
-
-    // ignore: dead_code
     switch (_env.toUpperCase()) {
       case 'LOCAL':
         return FirebaseOptionsLocal.currentPlatform;
@@ -28,8 +30,10 @@ abstract final class FirebaseConfigFactory {
       case 'PROD':
         return FirebaseOptionsProd.currentPlatform;
       case 'UAT':
-      default:
         return FirebaseOptionsUat.currentPlatform;
+      case 'DEV':
+      default:
+        return FirebaseOptionsDev.currentPlatform;
     }
   }
 
