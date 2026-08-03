@@ -70,6 +70,7 @@ import '../../domain/features/events/usecases/save_holiday_usecase.dart';
 import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
 import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
 import '../../domain/features/events/usecases/update_event_usecase.dart';
+import '../../domain/features/events/usecases/upload_event_attachments_usecase.dart';
 import '../../presentation/features/events/cubit/events_cubit.dart';
 import '../../data/features/tasks/datasources/task_remote_datasource.dart';
 import '../../data/features/tasks/repositories/task_repository_impl.dart';
@@ -94,6 +95,7 @@ import '../../domain/features/tasks/usecases/update_task_usecase.dart';
 import '../../domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
 import '../../domain/features/tasks/usecases/get_task_attachments_usecase.dart';
 import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import '../../domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
 import '../../data/features/assessments/datasources/assessment_seed_datasource.dart';
@@ -403,6 +405,8 @@ import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import '../../shared/services/attachment_upload/attachment_upload_manager.dart';
+import '../../shared/services/attachment_view/attachment_asset_service.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../shared/services/image_upload/profile_photo_uploader.dart';
 import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
@@ -565,6 +569,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<ProfilePhotoUploader>(
     () => ProfilePhotoUploader(serviceLocator<ImageUploadService>()),
   );
+  // Domain-blind: the session opener is supplied per call site, so tasks,
+  // events and anything else attaching files share this one instance.
+  // Read side of attachments. Lazy singleton so the resolved-URL cache is
+  // shared app-wide — a code resolved on a list screen paints instantly on the
+  // detail screen.
+  serviceLocator.registerLazySingleton<AttachmentAssetService>(
+    () => AttachmentAssetService(serviceLocator<ApiClient>()),
+  );
+  serviceLocator.registerLazySingleton<AttachmentUploadManager>(
+    () => AttachmentUploadManager(
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<StorageService>(),
+    ),
+  );
 
   // Auth Data Sources
   serviceLocator.registerLazySingleton<AuthRemoteDataSource>(
@@ -653,6 +671,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<CreateEventUseCase>(
     () => CreateEventUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UploadEventAttachmentsUseCase>(
+    () => UploadEventAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
+  );
   serviceLocator.registerFactory<UpdateEventUseCase>(
     () => UpdateEventUseCase(serviceLocator()),
   );
@@ -708,6 +732,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<SetHolidayStatusUseCase>(),
       serviceLocator<DeleteHolidayUseCase>(),
       serviceLocator<StorageService>(),
+      serviceLocator<UploadEventAttachmentsUseCase>(),
     ),
   );
 
@@ -749,14 +774,20 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<UpdateTaskAssignmentStatusUseCase>(
     () => UpdateTaskAssignmentStatusUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
-    () => UploadTaskAttachmentsUseCase(serviceLocator()),
-  );
+  // serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
+  //   () => UploadTaskAttachmentsUseCase(serviceLocator()),
+  // );
   serviceLocator.registerFactory<GetTaskAttachmentsUseCase>(
     () => GetTaskAttachmentsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<DetachTaskAttachmentUseCase>(
     () => DetachTaskAttachmentUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
+    () => UploadTaskAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
   );
   serviceLocator.registerFactory<GetTaskUseCase>(
     () => GetTaskUseCase(serviceLocator()),
@@ -807,6 +838,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<UpdateTaskOccurrenceUseCase>(),
       serviceLocator<CancelTaskOccurrenceUseCase>(),
       serviceLocator<UpdateTaskUseCase>(),
+      // Removed: the merge passed UploadTaskAttachmentsUseCase twice — it is
+      // supplied in its original position above.
     ),
   );
 

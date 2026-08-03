@@ -40,6 +40,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
+import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/presentation/features/events/view/event_form_screen.dart';
 import 'package:wowcare/presentation/features/events/view/events_screen.dart';
@@ -48,6 +49,7 @@ import 'package:wowcare/presentation/features/assessments/cubit/assessments_cubi
 import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_detail_screen.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_assignee_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
@@ -65,6 +67,7 @@ import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
@@ -804,6 +807,7 @@ final GoRouter appRouter = GoRouter(
                 // calendar without a refetch.
                 GoRoute(
                   path: 'events',
+                  redirect: _requireEventsRead,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     // TasksCubit rides along: the calendar's unified feed
@@ -826,6 +830,7 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'events/detail',
+                  redirect: _requireEventRead,
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
                     // Occurrence rows arrive fully hydrated (roster, names,
@@ -846,6 +851,7 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'events/form',
+                  redirect: _requireEventsWrite,
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
                     final initialDate = DateTime.tryParse(
@@ -899,7 +905,7 @@ final GoRouter appRouter = GoRouter(
                 // from them entirely (PRD §5.2).
                 GoRoute(
                   path: 'tasks',
-                  redirect: _blockParentsFromTasks,
+                  redirect: _requireTasksRead,
                   pageBuilder: (context, state) => _fastPage(
                     state,
                     BlocProvider<TasksCubit>.value(
@@ -916,7 +922,7 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'tasks/detail',
-                  redirect: _blockParentsFromTasks,
+                  redirect: _requireTasksRead,
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
                     return _fastPage(
@@ -944,7 +950,7 @@ final GoRouter appRouter = GoRouter(
                 ),
                 GoRoute(
                   path: 'tasks/form',
-                  redirect: _blockParentsFromTasks,
+                  redirect: _requireTasksWrite,
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
                     return _fastPage(
@@ -1423,11 +1429,43 @@ final GoRouter appRouter = GoRouter(
   ],
 );
 
-/// Keeps guardians/parents out of every Tasks route — the module and all its
-/// data are hidden from them (PRD §5.2). Returns the dashboard path to bounce
-/// a parent who reaches a task deep link; null lets admins/staff through.
-String? _blockParentsFromTasks(BuildContext context, GoRouterState state) {
-  return context.read<RoleCubit>().isParent ? AppRoutes.dashboard : null;
+/// Guards every Tasks route: guardians/parents are excluded outright (PRD
+/// §5.2), and so is anyone whose `TASK` module permission is missing. Returns
+/// the dashboard path to bounce an unauthorised deep link; null lets the
+/// navigation through.
+String? _requireTasksRead(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return TaskAccess.canAccessModule(roles) ? null : AppRoutes.dashboard;
+}
+
+/// As [_requireTasksRead], for the routes that mutate (task form). Write on
+/// `TASK` is required; per-task ownership is still enforced in the screen.
+String? _requireTasksWrite(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return TaskAccess.canCreateTasks(roles) ? null : AppRoutes.dashboard;
+}
+
+/// Guards the Events screen. Read on any of `EVENT` / `HOLIDAY` / `CALENDAR`
+/// opens it; each tab and the calendar feed then gate themselves per module.
+String? _requireEventsRead(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return EventAccess.canOpenModule(roles) ? null : AppRoutes.dashboard;
+}
+
+/// Guards a single event (detail). Unlike the screen guard this needs `EVENT`
+/// itself — holiday-only or calendar-only access must not open an event.
+String? _requireEventRead(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return roles.canReadModule(AppAccessModules.event)
+      ? null
+      : AppRoutes.dashboard;
+}
+
+/// As [_requireEventsRead], for the event form. Write on `EVENT` is required;
+/// creator-only editing for staff is still enforced in the screen.
+String? _requireEventsWrite(BuildContext context, GoRouterState state) {
+  final roles = context.read<RoleCubit>();
+  return EventAccess.canCreateEvents(roles) ? null : AppRoutes.dashboard;
 }
 
 /// Keeps guardians/parents out of every Assessments route — the module and all

@@ -6,17 +6,19 @@ import 'package:wowcare/domain/features/events/usecases/cancel_occurrence_usecas
 import 'package:wowcare/domain/features/events/usecases/create_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_holiday_usecase.dart';
-import 'package:wowcare/domain/features/events/usecases/get_events_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_calendar_feed_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_event_by_code_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/get_events_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_holidays_usecase.dart';
-import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/respond_to_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/save_holiday_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/set_holiday_status_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/update_event_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/upload_event_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_form_sheet.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 
 import 'helpers/event_test_fakes.dart';
 
@@ -40,7 +42,8 @@ void main() {
     SetHolidayStatusUseCase(repo),
     DeleteHolidayUseCase(repo),
     FakeStorageService(),
-  );
+        UploadEventAttachmentsUseCase(repo, _FakeUploadManager()),
+      );
 
   setUp(() {
     repo = FakeEventRepository();
@@ -357,4 +360,10 @@ void main() {
 
     expect(find.byType(DatePickerDialog), findsOneWidget);
   });
+}
+
+/// Only needs to satisfy the cubit's constructor — these suites never upload.
+class _FakeUploadManager implements AttachmentUploadManager {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }

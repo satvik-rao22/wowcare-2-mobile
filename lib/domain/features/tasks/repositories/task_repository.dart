@@ -5,6 +5,7 @@ import '../entities/task_board.dart';
 import '../entities/task_occurrence.dart';
 import '../entities/task_query.dart';
 import '../entities/task_series.dart';
+import '../entities/task_upload_session.dart';
 
 /// Tasks are backed by the events-todo microservice. A [Task] here is one
 /// **task assignment** card (one person on one occurrence); create/update/
@@ -156,21 +157,30 @@ abstract class TaskRepository {
     String? reason,
   });
 
-  /// Opens **one** shared upload session and drives every file in [files]
-  /// through it (Tasks API §8/§9), returning their ready asset codes in the
-  /// same order — ready to pass to [createTask]/[updateTask]'s `assetCodes`.
-  ///
-  /// [alreadyUploaded] maps a file path to an asset code from a previous
-  /// attempt; those files are skipped so a retry after a partial failure never
-  /// re-uploads bytes that already landed. [onAssetUploaded] fires as each file
-  /// completes so the caller can record it for exactly that purpose, and
-  /// [onProgress] reports 0-100 for the file at [index].
-  Future<List<String>> uploadAttachments({
-    required List<PendingTaskAttachment> files,
-    Map<String, String> alreadyUploaded = const {},
-    void Function(String filePath, String assetCode)? onAssetUploaded,
-    void Function(int index, int percent)? onProgress,
-  });
+  // SUPERSEDED by the shared `AttachmentUploadManager` (see
+  // `UploadTaskAttachmentsUseCase`). Attachment transfer is no longer a
+  // repository concern: the repo now only opens the session
+  // ([createUploadSession]) and the manager drives presign/PUT/complete.
+  //
+  // Replaced because this contract forced a per-file loop — one presign per
+  // file, whole files buffered in memory, and an all-or-nothing result.
+  //
+  // /// Opens **one** shared upload session and drives every file in [files]
+  // /// through it (Tasks API §8/§9), returning their ready asset codes in the
+  // /// same order — ready to pass to [createTask]/[updateTask]'s `assetCodes`.
+  // ///
+  // /// [alreadyUploaded] maps a file path to an asset code from a previous
+  // /// attempt; those files are skipped so a retry after a partial failure never
+  // /// re-uploads bytes that already landed. [onAssetUploaded] fires as each file
+  // /// completes so the caller can record it for exactly that purpose, and
+  // /// [onProgress] reports 0-100 for the file at [index].
+  // Future<List<String>> uploadAttachments({
+  //   required List<PendingTaskAttachment> files,
+  //   Map<String, String> alreadyUploaded = const {},
+  //   void Function(String filePath, String assetCode)? onAssetUploaded,
+  //   void Function(int index, int percent)? onProgress,
+  // });
+
 
   /// The task series' current attachments. Returns an empty list — rather than
   /// throwing — when the backend has no attachments endpoint yet, so the rest
@@ -182,4 +192,12 @@ abstract class TaskRepository {
     required String taskCode,
     required String attachmentCode,
   });
+
+  /// Opens a shared upload session for task attachments (Tasks API §8
+  /// `POST /tasks/upload-session`) without uploading anything.
+  ///
+  /// Exposed so a multi-file upload can open one session and presign every file
+  /// against it in a single batch, rather than repeating the whole round trip
+  /// per file the way [uploadAttachment] does.
+  Future<TaskUploadSession> createUploadSession();
 }

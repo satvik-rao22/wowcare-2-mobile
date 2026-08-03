@@ -1,4 +1,5 @@
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 
 /// Thrown when a task's attachments cannot be read — the backend exposes no
 /// attachments endpoint, or the request failed.
@@ -14,16 +15,16 @@ class TaskAttachmentsUnavailable implements Exception {
   String toString() => 'TaskAttachmentsUnavailable';
 }
 
-/// Byte count as a short human-readable label, shared by saved and pending
-/// attachments so both subtitle lines read identically. Empty for an unknown
-/// size; bytes below 1 KB are shown as-is rather than rounding to "0 KB".
-String formatAttachmentSize(int bytes) {
-  if (bytes <= 0) return '';
-  if (bytes < 1024) return '$bytes B';
-  final kb = bytes / 1024;
-  if (kb < 1024) return '${kb.toStringAsFixed(0)} KB';
-  return '${(kb / 1024).toStringAsFixed(1)} MB';
-}
+// SUPERSEDED by `FilePickerUtils.formatBytes`, which formats identically and is
+// already used by every other attachment surface.
+//
+// String formatAttachmentSize(int bytes) {
+//   if (bytes <= 0) return '';
+//   if (bytes < 1024) return '$bytes B';
+//   final kb = bytes / 1024;
+//   if (kb < 1024) return '${kb.toStringAsFixed(0)} KB';
+//   return '${(kb / 1024).toStringAsFixed(1)} MB';
+// }
 
 /// One attachment currently hanging off a task series.
 ///
@@ -169,7 +170,8 @@ class TaskAttachment extends Equatable {
 
   /// Human-readable size for the subtitle line; empty when the payload omits
   /// it.
-  String get displaySize => formatAttachmentSize(sizeBytes);
+  String get displaySize =>
+      sizeBytes <= 0 ? '' : FilePickerUtils.formatBytes(sizeBytes);
 
   /// Round-trip form for the local display cache (see
   /// `StorageKeys.taskAttachmentsCache`). Deliberately does **not** persist
@@ -238,26 +240,31 @@ class TaskAttachment extends Equatable {
       ];
 }
 
-/// A locally picked file waiting to be uploaded. Held by the form (never
-/// uploaded on pick) so abandoning a form leaves nothing in the bucket.
-class PendingTaskAttachment extends Equatable {
-  const PendingTaskAttachment({
-    required this.filePath,
-    required this.fileName,
-    required this.contentType,
-    required this.sizeBytes,
-  });
-
-  final String filePath;
-  final String fileName;
-  final String contentType;
-  final int sizeBytes;
-
-  bool get isImage => contentType.toLowerCase().startsWith('image/');
-  bool get isVideo => contentType.toLowerCase().startsWith('video/');
-
-  String get displaySize => formatAttachmentSize(sizeBytes);
-
-  @override
-  List<Object?> get props => [filePath, fileName, contentType, sizeBytes];
-}
+// SUPERSEDED by `PickedFile` (lib/core/util/file_picker_utils.dart), which the
+// shared picker service already returns and the upload manager already consumes.
+// Identical fields under different names (filePath/fileName/contentType vs
+// path/name/mimeType) plus `mediaType`, `readableSize` and dedupe-by-path.
+//
+// /// A locally picked file waiting to be uploaded. Held by the form (never
+// /// uploaded on pick) so abandoning a form leaves nothing in the bucket.
+// class PendingTaskAttachment extends Equatable {
+//   const PendingTaskAttachment({
+//     required this.filePath,
+//     required this.fileName,
+//     required this.contentType,
+//     required this.sizeBytes,
+//   });
+//
+//   final String filePath;
+//   final String fileName;
+//   final String contentType;
+//   final int sizeBytes;
+//
+//   bool get isImage => contentType.toLowerCase().startsWith('image/');
+//   bool get isVideo => contentType.toLowerCase().startsWith('video/');
+//
+//   String get displaySize => formatAttachmentSize(sizeBytes);
+//
+//   @override
+//   List<Object?> get props => [filePath, fileName, contentType, sizeBytes];
+// }

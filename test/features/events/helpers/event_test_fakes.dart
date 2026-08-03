@@ -4,6 +4,7 @@ import 'package:wowcare/data/features/events/datasources/holiday_remote_datasour
 import 'package:wowcare/data/features/events/models/holiday_models.dart';
 import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
+import 'package:wowcare/domain/features/events/entities/event_upload_session.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/domain/features/events/repositories/event_repository.dart';
 
@@ -143,12 +144,18 @@ class FakeEventRepository implements EventRepository {
   Future<Event?> getEventByCode(String code) async => null;
 
   @override
-  Future<Event> createEvent(Event event) => throw UnimplementedError();
+  Future<Event> createEvent(Event event, {List<String> assetCodes = const []}) =>
+      throw UnimplementedError();
+
+  @override
+  Future<EventUploadSession> createUploadSession() =>
+      throw UnimplementedError();
 
   @override
   Future<Event> updateEvent(
     Event event, {
     String splitFromOccurrenceCode = '',
+    List<String>? assetCodes,
   }) => throw UnimplementedError();
 
   @override

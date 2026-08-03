@@ -1,9 +1,11 @@
+import 'package:dio/dio.dart';
 import 'dart:async';
 
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
@@ -28,8 +30,10 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_us
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_creator_match.dart';
+import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_diff.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 
@@ -60,6 +64,9 @@ class TasksCubit extends Cubit<TasksState> {
     this._updateOccurrence,
     this._cancelOccurrence,
     this._updateTask,
+    // Removed: a second `this._uploadAttachments` sat here after the merge, so
+    // one field was initialized by two parameters. The surviving slot is the
+    // one above, in the position di.dart passes it.
   ) : super(const TasksState.initial());
 
   final GetTasksUseCase _getTasks;
@@ -84,6 +91,8 @@ class TasksCubit extends Cubit<TasksState> {
   final UpdateTaskOccurrenceUseCase _updateOccurrence;
   final CancelTaskOccurrenceUseCase _cancelOccurrence;
   final UpdateTaskUseCase _updateTask;
+  // Removed: duplicate declaration of `_uploadAttachments` from the merge — the
+  // single field is declared above.
 
   /// The "My Tasks" default is derived from the persona once per cubit
   /// lifetime so later loads don't clobber the user's own toggle choice.
@@ -641,26 +650,25 @@ class TasksCubit extends Cubit<TasksState> {
   /// [alreadyUploaded] carries asset codes from an earlier attempt so a retry
   /// resumes rather than re-uploading; [onAssetUploaded] lets the caller keep
   /// that map current as each file lands.
-  Future<List<String>?> uploadAttachments({
-    required List<PendingTaskAttachment> files,
-    Map<String, String> alreadyUploaded = const {},
-    void Function(String filePath, String assetCode)? onAssetUploaded,
-    void Function(int index, int percent)? onProgress,
-  }) async {
-    if (files.isEmpty) return const <String>[];
-    try {
-      return await _uploadAttachments(
-        files: files,
-        alreadyUploaded: alreadyUploaded,
-        onAssetUploaded: onAssetUploaded,
-        onProgress: onProgress,
-      );
-    } catch (e) {
-      emit(state.copyWith(
-        errorMessage: () => 'Failed to upload attachment: $e',
-      ));
-      return null;
-    }
+  /// Uploads every picked attachment in one batch and returns the outcome.
+  ///
+  /// Identical to `EventsCubit.uploadAttachments` — same manager, same state —
+  /// so both forms behave the same and only the service that receives the
+  /// resulting asset codes differs.
+  ///
+  /// Progress is streamed through [onProgress] rather than pushed into
+  /// [TasksState]: it belongs to the form mid-save, not to the task list this
+  /// cubit is shared with, and it changes many times a second.
+  Future<AttachmentUploadState> uploadAttachments({
+    required List<PickedFile> files,
+    void Function(AttachmentUploadState state)? onProgress,
+    CancelToken? cancelToken,
+  }) {
+    return _uploadAttachments(
+      files: files,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
   }
 
   /// Fetches a series' attachments once and caches them on the state. Repeated
@@ -858,6 +866,23 @@ class TasksCubit extends Cubit<TasksState> {
       return false;
     }
   }
+
+  // MERGED AWAY — this raw passthrough returned the manager's
+  // `AttachmentUploadState` directly. The single `uploadAttachments` above now
+  // wraps the same use case and adapts it to the callback shape the task form
+  // already speaks, so there is one entry point instead of two same-named ones.
+  //
+  // Future<AttachmentUploadState> uploadAttachments({
+  //   required List<PickedFile> files,
+  //   void Function(AttachmentUploadState state)? onProgress,
+  //   CancelToken? cancelToken,
+  // }) {
+  //   return _uploadAttachments(
+  //     files: files,
+  //     onProgress: onProgress,
+  //     cancelToken: cancelToken,
+  //   );
+  // }
 
   /// Quick status change from the Kanban tabs / card menu (PRD FR-TK-13/16).
   /// Acts directly on the single assignment (Tasks API §5).

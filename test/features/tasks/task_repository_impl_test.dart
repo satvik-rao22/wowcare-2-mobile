@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/tasks/datasources/task_remote_datasource.dart';
@@ -367,12 +368,13 @@ class _FakeImageUpload implements ImageUploadService {
   }
 
   @override
-  Future<void> completeAssetUpload({
+  Future<AssetCompleteResult> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
   }) async {
     steps.add('complete');
+    return AssetCompleteResult(assetCode: assetCode, status: 'UPLOADED');
   }
 
   /// Set false to model document-ms reporting a FAILED asset.
@@ -660,134 +662,141 @@ void main() {
     expect(remote.lastOccurrenceCancelArgs!['reason'], 'Closed');
   });
 
-  group('uploadAttachments (§8/§9)', () {
-    Future<PendingTaskAttachment> makeFile({
-      required String name,
-      required String contentType,
-      int bytes = 1234,
-    }) async {
-      final tmp = await File(
-        '${Directory.systemTemp.path}/task_attach_'
-        '${DateTime.now().microsecondsSinceEpoch}_$name',
-      ).create();
-      await tmp.writeAsBytes(List.filled(bytes, 0));
-      addTearDown(() => tmp.existsSync() ? tmp.delete() : null);
-      return PendingTaskAttachment(
-        filePath: tmp.path,
-        fileName: name,
-        contentType: contentType,
-        sizeBytes: bytes,
-      );
-    }
-
-    test('runs session→presign→put→complete→poll and returns the asset code',
-        () async {
-      final file = await makeFile(
-        name: 'notes.pdf',
-        contentType: 'application/pdf',
-      );
-
-      final codes = await repo.uploadAttachments(files: [file]);
-
-      expect(codes, ['AST_READY']);
-      // Steps happen in the documented order (§9.1→§9.5).
-      expect(imageUpload.steps, ['presign', 'put', 'complete', 'poll']);
-      expect(remote.uploadSessionCalls, 1);
-      // Presign is scoped to the school with the real file size & media type.
-      expect(imageUpload.presignArgs!['ownerType'], 'SCHOOL');
-      expect(imageUpload.presignArgs!['ownerCode'], 'SCH_1');
-      expect(imageUpload.presignArgs!['contentLengthBytes'], 1234);
-      expect(imageUpload.presignArgs!['mediaType'], 'DOCUMENT');
-      expect(imageUpload.presignArgs!['sessionCode'], 'SES_1');
-      expect(imageUpload.waitedFor, ['AST_READY']);
-    });
-
-    test('classifies an image content type as media type IMAGE', () async {
-      final file = await makeFile(
-        name: 'photo.png',
-        contentType: 'image/png',
-        bytes: 10,
-      );
-      await repo.uploadAttachments(files: [file]);
-      expect(imageUpload.presignArgs!['mediaType'], 'IMAGE');
-    });
-
-    test('shares one session across the batch and polls once for all assets',
-        () async {
-      final first = await makeFile(
-        name: 'a.pdf',
-        contentType: 'application/pdf',
-      );
-      final second = await makeFile(
-        name: 'b.png',
-        contentType: 'image/png',
-      );
-
-      final codes = await repo.uploadAttachments(files: [first, second]);
-
-      expect(codes.length, 2);
-      // One session for the whole batch, not one per file.
-      expect(remote.uploadSessionCalls, 1);
-      expect(
-        imageUpload.steps,
-        ['presign', 'put', 'complete', 'presign', 'put', 'complete', 'poll'],
-      );
-      expect(imageUpload.waitedFor!.length, 2);
-    });
-
-    test('a definitive processing failure aborts the upload', () async {
-      final file = await makeFile(name: 'a.pdf', contentType: 'application/pdf');
-      imageUpload.attachable = false;
-
-      // Only a FAILED asset should stop us — the caller must not attach a code
-      // the server has rejected.
-      await expectLater(
-        repo.uploadAttachments(files: [file]),
-        throwsA(isA<Exception>()),
-      );
-    });
-
-    test('skips files already uploaded by a previous attempt', () async {
-      final done = await makeFile(
-        name: 'done.pdf',
-        contentType: 'application/pdf',
-      );
-      final fresh = await makeFile(
-        name: 'fresh.pdf',
-        contentType: 'application/pdf',
-      );
-
-      final codes = await repo.uploadAttachments(
-        files: [done, fresh],
-        alreadyUploaded: {done.filePath: 'AST_PREVIOUS'},
-      );
-
-      // The carried-over code keeps its slot, and only the new file is sent.
-      expect(codes, ['AST_PREVIOUS', 'AST_READY']);
-      expect(imageUpload.steps, ['presign', 'put', 'complete', 'poll']);
-      expect(imageUpload.presignArgs!['fileName'], 'fresh.pdf');
-      // The already-uploaded asset isn't re-polled — it was READY last time.
-      expect(imageUpload.waitedFor, ['AST_READY']);
-    });
-
-    test('opens no session at all when every file was already uploaded',
-        () async {
-      final done = await makeFile(
-        name: 'done.pdf',
-        contentType: 'application/pdf',
-      );
-
-      final codes = await repo.uploadAttachments(
-        files: [done],
-        alreadyUploaded: {done.filePath: 'AST_PREVIOUS'},
-      );
-
-      expect(codes, ['AST_PREVIOUS']);
-      expect(remote.uploadSessionCalls, 0);
-      expect(imageUpload.steps, isEmpty);
-    });
-  });
-
+  // SUPERSEDED — these covered `TaskRepositoryImpl.uploadAttachments`, the
+  // per-file upload loop that the shared `AttachmentUploadManager` replaced.
+  // Equivalent behaviour (resume from already-uploaded codes, per-file progress,
+  // per-file failure, batched presign, bounded concurrency) is covered by
+  // test/shared/attachment_upload_manager_test.dart.
+  //
+  // group('uploadAttachments (§8/§9)', () {
+  //   Future<PendingTaskAttachment> makeFile({
+  //     required String name,
+  //     required String contentType,
+  //     int bytes = 1234,
+  //   }) async {
+  //     final tmp = await File(
+  //       '${Directory.systemTemp.path}/task_attach_'
+  //       '${DateTime.now().microsecondsSinceEpoch}_$name',
+  //     ).create();
+  //     await tmp.writeAsBytes(List.filled(bytes, 0));
+  //     addTearDown(() => tmp.existsSync() ? tmp.delete() : null);
+  //     return PickedFile(
+  //         path: tmp.path,
+  //         name: name,
+  //         sizeBytes: bytes,
+  //         extension: name.split('.').last,
+  //         mimeType: contentType,
+  //       );
+  //   }
+  //
+  //   test('runs session→presign→put→complete→poll and returns the asset code',
+  //       () async {
+  //     final file = await makeFile(
+  //       name: 'notes.pdf',
+  //       contentType: 'application/pdf',
+  //     );
+  //
+  //     final codes = await repo.uploadAttachments(files: [file]);
+  //
+  //     expect(codes, ['AST_READY']);
+  //     // Steps happen in the documented order (§9.1→§9.5).
+  //     expect(imageUpload.steps, ['presign', 'put', 'complete', 'poll']);
+  //     expect(remote.uploadSessionCalls, 1);
+  //     // Presign is scoped to the school with the real file size & media type.
+  //     expect(imageUpload.presignArgs!['ownerType'], 'SCHOOL');
+  //     expect(imageUpload.presignArgs!['ownerCode'], 'SCH_1');
+  //     expect(imageUpload.presignArgs!['contentLengthBytes'], 1234);
+  //     expect(imageUpload.presignArgs!['mediaType'], 'DOCUMENT');
+  //     expect(imageUpload.presignArgs!['sessionCode'], 'SES_1');
+  //     expect(imageUpload.waitedFor, ['AST_READY']);
+  //   });
+  //
+  //   test('classifies an image content type as media type IMAGE', () async {
+  //     final file = await makeFile(
+  //       name: 'photo.png',
+  //       contentType: 'image/png',
+  //       bytes: 10,
+  //     );
+  //     await repo.uploadAttachments(files: [file]);
+  //     expect(imageUpload.presignArgs!['mediaType'], 'IMAGE');
+  //   });
+  //
+  //   test('shares one session across the batch and polls once for all assets',
+  //       () async {
+  //     final first = await makeFile(
+  //       name: 'a.pdf',
+  //       contentType: 'application/pdf',
+  //     );
+  //     final second = await makeFile(
+  //       name: 'b.png',
+  //       contentType: 'image/png',
+  //     );
+  //
+  //     final codes = await repo.uploadAttachments(files: [first, second]);
+  //
+  //     expect(codes.length, 2);
+  //     // One session for the whole batch, not one per file.
+  //     expect(remote.uploadSessionCalls, 1);
+  //     expect(
+  //       imageUpload.steps,
+  //       ['presign', 'put', 'complete', 'presign', 'put', 'complete', 'poll'],
+  //     );
+  //     expect(imageUpload.waitedFor!.length, 2);
+  //   });
+  //
+  //   test('a definitive processing failure aborts the upload', () async {
+  //     final file = await makeFile(name: 'a.pdf', contentType: 'application/pdf');
+  //     imageUpload.attachable = false;
+  //
+  //     // Only a FAILED asset should stop us — the caller must not attach a code
+  //     // the server has rejected.
+  //     await expectLater(
+  //       repo.uploadAttachments(files: [file]),
+  //       throwsA(isA<Exception>()),
+  //     );
+  //   });
+  //
+  //   test('skips files already uploaded by a previous attempt', () async {
+  //     final done = await makeFile(
+  //       name: 'done.pdf',
+  //       contentType: 'application/pdf',
+  //     );
+  //     final fresh = await makeFile(
+  //       name: 'fresh.pdf',
+  //       contentType: 'application/pdf',
+  //     );
+  //
+  //     final codes = await repo.uploadAttachments(
+  //       files: [done, fresh],
+  //       alreadyUploaded: {done.filePath: 'AST_PREVIOUS'},
+  //     );
+  //
+  //     // The carried-over code keeps its slot, and only the new file is sent.
+  //     expect(codes, ['AST_PREVIOUS', 'AST_READY']);
+  //     expect(imageUpload.steps, ['presign', 'put', 'complete', 'poll']);
+  //     expect(imageUpload.presignArgs!['fileName'], 'fresh.pdf');
+  //     // The already-uploaded asset isn't re-polled — it was READY last time.
+  //     expect(imageUpload.waitedFor, ['AST_READY']);
+  //   });
+  //
+  //   test('opens no session at all when every file was already uploaded',
+  //       () async {
+  //     final done = await makeFile(
+  //       name: 'done.pdf',
+  //       contentType: 'application/pdf',
+  //     );
+  //
+  //     final codes = await repo.uploadAttachments(
+  //       files: [done],
+  //       alreadyUploaded: {done.filePath: 'AST_PREVIOUS'},
+  //     );
+  //
+  //     expect(codes, ['AST_PREVIOUS']);
+  //     expect(remote.uploadSessionCalls, 0);
+  //     expect(imageUpload.steps, isEmpty);
+  //   });
+  // });
+  //
   group('attachments read/detach', () {
     test('getAttachments passes the series code through', () async {
       remote.attachments = const [

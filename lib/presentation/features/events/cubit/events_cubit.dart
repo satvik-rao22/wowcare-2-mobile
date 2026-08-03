@@ -1,25 +1,29 @@
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/domain/features/events/usecases/cancel_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/create_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_event_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/delete_holiday_usecase.dart';
-import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/usecases/get_calendar_feed_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_event_by_code_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_events_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/get_holidays_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/respond_to_event_usecase.dart';
-import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/save_holiday_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/set_holiday_status_usecase.dart';
 import 'package:wowcare/domain/features/events/usecases/update_event_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/update_occurrence_usecase.dart';
+import 'package:wowcare/domain/features/events/usecases/upload_event_attachments_usecase.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 
 part 'events_state.dart';
 
@@ -40,6 +44,7 @@ class EventsCubit extends Cubit<EventsState> {
     this._setHolidayStatus,
     this._deleteHoliday,
     this._storageService,
+    this._uploadAttachments,
   ) : super(EventsState.initial());
 
   final GetEventsUseCase _getEvents;
@@ -56,6 +61,7 @@ class EventsCubit extends Cubit<EventsState> {
   final UpdateHolidayUseCase _updateHoliday;
   final SetHolidayStatusUseCase _setHolidayStatus;
   final DeleteHolidayUseCase _deleteHoliday;
+  final UploadEventAttachmentsUseCase _uploadAttachments;
   final StorageService _storageService;
 
   /// The "My Events" default is derived from the persona once per cubit
@@ -273,10 +279,30 @@ class EventsCubit extends Cubit<EventsState> {
   /// [errorMessage] is left untouched here: it's reserved for background
   /// fetches ([load], [refreshHolidays], [setSelectedYear]) that have no
   /// call site to show a toast directly.
-  Future<bool> create(Event draft) async {
+  /// Uploads every picked attachment in one batch and returns the outcome.
+  ///
+  /// Progress goes through [onProgress] rather than into [EventsState]: it
+  /// belongs to the form mid-save, not to the calendar this cubit is shared
+  /// with, and it changes many times a second.
+  Future<AttachmentUploadState> uploadAttachments({
+    required List<PickedFile> files,
+    void Function(AttachmentUploadState state)? onProgress,
+    CancelToken? cancelToken,
+  }) {
+    return _uploadAttachments(
+      files: files,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
+  }
+
+  Future<bool> create(
+    Event draft, {
+    List<String> assetCodes = const [],
+  }) async {
     emit(state.copyWith(isSaving: true));
     try {
-      final created = await _createEvent(draft);
+      final created = await _createEvent(draft, assetCodes: assetCodes);
       // The API echoes audiences as bare selector codes (no display
       // names), so keep the locally picked attendees and take only the
       // server-assigned identity + audit fields.
@@ -312,12 +338,14 @@ class EventsCubit extends Cubit<EventsState> {
   Future<bool> update(
     Event event, {
     String splitFromOccurrenceCode = '',
+    List<String>? assetCodes,
   }) async {
     emit(state.copyWith(isSaving: true));
     try {
       await _updateEvent(
         event,
         splitFromOccurrenceCode: splitFromOccurrenceCode,
+        assetCodes: assetCodes,
       );
       emit(state.copyWith(isSaving: false));
       final original = state.eventByCode(event.code);

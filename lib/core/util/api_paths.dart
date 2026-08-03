@@ -1107,6 +1107,15 @@ class ApiPaths {
   static String taskAttachment(String code, String attachmentCode) =>
       '${taskAttachments(code)}/${Uri.encodeComponent(attachmentCode.trim())}';
 
+  /// `POST` `/api/v1/events/upload-session` — open a shared upload session for
+  /// event attachments (document-microservice, domain `EVENT`).
+  ///
+  /// Events and tasks are the same microservice (Events/Todo MS), so this
+  /// mirrors [taskUploadSession] exactly: the owning service mints the session
+  /// with its own domain/owner scoping, then the generic document-service
+  /// presign → PUT → complete flow takes over.
+  static const String eventUploadSession = '$events/upload-session';
+
   // —— Notification service (FCM + delivery logs) ——
   static const String notificationFcmRegister =
       '/api/v1/notification/fcm/register';

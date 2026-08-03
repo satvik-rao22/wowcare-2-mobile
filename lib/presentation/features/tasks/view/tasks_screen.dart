@@ -14,6 +14,7 @@ import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_card.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_filter_sheet.dart';
+import 'package:wowcare/shared/common/widgets/access_restricted_view.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -51,6 +52,18 @@ class _TasksScreenState extends State<TasksScreen> {
   @override
   Widget build(BuildContext context) {
     final roles = context.watch<RoleCubit>();
+    // The route guard bounces an unauthorised entry, but it only runs on
+    // navigation — permissions can also land (or be revoked on a school
+    // switch) while the board is already open.
+    if (!TaskAccess.canAccessModule(roles)) {
+      return const GlobalScaffold(
+        hasBackButton: false,
+        showCustomNavigationBar: true,
+        body: AccessRestrictedView(
+          message: 'You do not have access to tasks for your selected school.',
+        ),
+      );
+    }
     return GlobalScaffold(
       hasBackButton: false,
       showCustomNavigationBar: true,

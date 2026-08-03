@@ -4,6 +4,7 @@ import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../domain/features/events/entities/calendar_feed_item.dart';
 import '../../../../domain/features/events/entities/event.dart';
+import '../../../../domain/features/events/entities/event_upload_session.dart';
 import '../models/calendar_feed_models.dart';
 import '../models/event_models.dart';
 
@@ -44,7 +45,11 @@ abstract class EventRemoteDataSource {
 
   Future<EventModel?> getEventByCode(String code);
 
-  Future<EventModel> createEvent(Event event);
+  Future<EventModel> createEvent(Event event, {List<String> assetCodes});
+
+  /// Opens a shared upload session for event attachments
+  /// (`POST /events/upload-session`), before the event exists.
+  Future<EventUploadSession> createUploadSession();
 
   /// `PATCH /api/v1/events/{code}`. With [splitFromOccurrenceCode] the
   /// scope becomes THIS_AND_FUTURE: the series is split at that occurrence
@@ -52,6 +57,7 @@ abstract class EventRemoteDataSource {
   Future<EventModel> updateEvent(
     Event event, {
     String splitFromOccurrenceCode,
+    List<String>? assetCodes,
   });
 
   /// `DELETE /api/v1/events/{code}`. With [fromOccurrenceCode] the scope
@@ -248,7 +254,10 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
   }
 
   @override
-  Future<EventModel> createEvent(Event event) async {
+  Future<EventModel> createEvent(
+    Event event, {
+    List<String> assetCodes = const [],
+  }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.events,
       ApiConstants.schedulerBaseUrl,
@@ -256,10 +265,26 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
 
     final response = await _client.post<dynamic>(
       endpoint,
-      data: EventModel.createBody(event),
+      data: EventModel.createBody(event, assetCodes: assetCodes),
     );
 
     return _parseSingle(response.data, action: 'create');
+  }
+
+  @override
+  Future<EventUploadSession> createUploadSession() async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.eventUploadSession,
+      ApiConstants.schedulerBaseUrl,
+    );
+
+    final response = await _client.post<dynamic>(endpoint);
+
+    return EventModel.uploadSession(
+      response.data,
+      fallbackDocumentBasePath:
+          ApiConstants.isUat ? '/api/v1/document' : '/document-ms/api/v1',
+    );
   }
 
   /// Unwraps the `{success, message, data}` envelope around one event.
@@ -283,6 +308,7 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
   Future<EventModel> updateEvent(
     Event event, {
     String splitFromOccurrenceCode = '',
+    List<String>? assetCodes,
   }) async {
     final endpoint = ApiPaths.urlWithBase(
       ApiPaths.eventByCode(event.code),
@@ -292,7 +318,7 @@ class EventRemoteDataSourceImpl implements EventRemoteDataSource {
     final splitFrom = splitFromOccurrenceCode.trim();
     final response = await _client.patch<dynamic>(
       endpoint,
-      data: EventModel.updateBody(event),
+      data: EventModel.updateBody(event, assetCodes: assetCodes),
       queryParameters: splitFrom.isEmpty
           ? const <String, dynamic>{'scope': 'ALL'}
           : <String, dynamic>{

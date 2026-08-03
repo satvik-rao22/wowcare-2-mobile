@@ -6,6 +6,7 @@ import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
@@ -162,21 +163,21 @@ class TaskAttachmentUtils {
   /// so a user can check what they attached before saving.
   static Future<void> openLocal({
     required BuildContext context,
-    required PendingTaskAttachment attachment,
+    required PickedFile attachment,
   }) async {
     if (attachment.isImage || attachment.isVideo) {
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (_) => ShowFullScreenMediaView(
-            imageFile: attachment.isImage ? File(attachment.filePath) : null,
+            imageFile: attachment.isImage ? attachment.file : null,
             videoUrl: null,
-            title: attachment.fileName,
+            title: attachment.name,
           ),
         ),
       );
       return;
     }
-    final result = await OpenFilex.open(attachment.filePath);
+    final result = await OpenFilex.open(attachment.path);
     if (!context.mounted || result.type == ResultType.done) return;
     CoreUtils.showTopSnackBar(
       context: context,

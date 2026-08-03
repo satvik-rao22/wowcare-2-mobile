@@ -105,10 +105,18 @@ class EventsState extends Equatable {
 
   final String? errorMessage;
 
-  /// Whether [item] passes the calendar filters (kind + search + the
-  /// event-type filter, which only constrains EVENT rows so tasks and
+  /// Whether [item] passes the calendar filters (module access + kind + search
+  /// + the event-type filter, which only constrains EVENT rows so tasks and
   /// holidays aren't hidden by an event-only choice).
-  bool _passesCalendarFilters(CalendarFeedItem item) {
+  ///
+  /// [allowedKinds] is the caller's module permission (see
+  /// `EventAccess.readableCalendarKinds`) and is checked first: a row the user
+  /// has no module for must never render, whatever the UI filters say.
+  bool _passesCalendarFilters(
+    CalendarFeedItem item,
+    Set<CalendarFeedKind> allowedKinds,
+  ) {
+    if (!allowedKinds.contains(item.kind)) return false;
     if (calendarKindFilter.isNotEmpty &&
         !calendarKindFilter.contains(item.kind)) {
       return false;
@@ -128,9 +136,14 @@ class EventsState extends Equatable {
   }
 
   /// Filtered feed rows on [day], sorted all-day-first then by time.
-  List<CalendarFeedItem> calendarItemsOn(DateTime day) {
+  List<CalendarFeedItem> calendarItemsOn(
+    DateTime day, {
+    required Set<CalendarFeedKind> allowedKinds,
+  }) {
     final matches = calendarItems
-        .where((i) => i.occursOn(day) && _passesCalendarFilters(i))
+        .where(
+          (i) => i.occursOn(day) && _passesCalendarFilters(i, allowedKinds),
+        )
         .toList()
       ..sort((a, b) {
         if (a.allDay != b.allDay) return a.allDay ? -1 : 1;
@@ -139,8 +152,12 @@ class EventsState extends Equatable {
     return matches;
   }
 
-  bool calendarHasItems(DateTime day) =>
-      calendarItems.any((i) => i.occursOn(day) && _passesCalendarFilters(i));
+  bool calendarHasItems(
+    DateTime day, {
+    required Set<CalendarFeedKind> allowedKinds,
+  }) => calendarItems.any(
+    (i) => i.occursOn(day) && _passesCalendarFilters(i, allowedKinds),
+  );
 
   /// Calendar filters count for the filter badge (kind + event type +
   /// classrooms + date range).

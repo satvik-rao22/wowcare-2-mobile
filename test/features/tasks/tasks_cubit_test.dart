@@ -1,4 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
+import 'package:dio/dio.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -12,6 +15,7 @@ import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
 import 'package:wowcare/domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
@@ -28,8 +32,10 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_us
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// In-memory [StorageService] so the cubit's identity/role reads never touch
@@ -335,26 +341,30 @@ class _FakeTaskRepository implements TaskRepository {
     );
   }
 
-  @override
-  Future<List<String>> uploadAttachments({
-    required List<PendingTaskAttachment> files,
-    Map<String, String> alreadyUploaded = const {},
-    void Function(String filePath, String assetCode)? onAssetUploaded,
-    void Function(int index, int percent)? onProgress,
-  }) async {
-    lastUploadArgs = {
-      'files': files,
-      'alreadyUploaded': alreadyUploaded,
-    };
-    final codes = <String>[];
-    for (var i = 0; i < files.length; i++) {
-      final code = alreadyUploaded[files[i].filePath] ?? uploadResult;
-      onProgress?.call(i, 100);
-      onAssetUploaded?.call(files[i].filePath, code);
-      codes.add(code);
-    }
-    return codes;
-  }
+  // REMOVED from TaskRepository — attachment transfer moved to
+  // AttachmentUploadManager, so this fake override no longer implements
+  // anything. Upload behaviour is asserted through _FakeUploadManager instead.
+  //
+  // @override
+  // Future<List<String>> uploadAttachments({
+  //   required List<PickedFile> files,
+  //   Map<String, String> alreadyUploaded = const {},
+  //   void Function(String filePath, String assetCode)? onAssetUploaded,
+  //   void Function(int index, int percent)? onProgress,
+  // }) async {
+  //   lastUploadArgs = {
+  //     'files': files,
+  //     'alreadyUploaded': alreadyUploaded,
+  //   };
+  //   final codes = <String>[];
+  //   for (var i = 0; i < files.length; i++) {
+  //     final code = alreadyUploaded[files[i].filePath] ?? uploadResult;
+  //     onProgress?.call(i, 100);
+  //     onAssetUploaded?.call(files[i].filePath, code);
+  //     codes.add(code);
+  //   }
+  //   return codes;
+  // }
 
   @override
   Future<List<TaskAttachment>> getAttachments(String taskCode) async {
@@ -375,6 +385,55 @@ class _FakeTaskRepository implements TaskRepository {
         .where((a) => a.code != attachmentCode)
         .toList();
   }
+
+  @override
+  Future<TaskUploadSession> createUploadSession() async =>
+      const TaskUploadSession(
+        sessionCode: 'UPS_1',
+        documentApiBasePath: '/document-ms/api/v1',
+      );
+}
+
+/// The multi-file upload path is exercised in
+/// `attachment_upload_manager_test.dart`; here it only needs to satisfy the
+/// cubit's constructor, so every call throws via [noSuchMethod].
+/// Stands in for the shared upload pipeline: records what it was handed and
+/// reports every file as uploaded, so the cubit's adapter (progress callbacks →
+/// asset codes) can be asserted without touching the network.
+class _FakeUploadManager implements AttachmentUploadManager {
+  List<PickedFile>? lastFiles;
+  String assetCode = 'AST_READY';
+
+  @override
+  Future<AttachmentUploadState> upload({
+    required List<PickedFile> files,
+    required UploadSessionOpener openSession,
+    String ownerType = 'SCHOOL',
+    String? ownerCode,
+    bool waitForReady = true,
+    int maxConcurrent = AttachmentUploadManager.defaultMaxConcurrent,
+    void Function(AttachmentUploadState state)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    lastFiles = files;
+    final state = AttachmentUploadState(
+      items: files
+          .map(
+            (f) => AttachmentUploadItem(
+              file: f,
+              status: AttachmentUploadStatus.done,
+              sentBytes: f.sizeBytes,
+              assetCode: assetCode,
+            ),
+          )
+          .toList(),
+    );
+    onProgress?.call(state);
+    return state;
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
 /// Minimal [StaffRepository] fake: only [getAllStaff] is exercised (name
@@ -435,6 +494,7 @@ TasksCubit _buildCubit(
   /// Pass the same instance to two cubits to model an app refresh: the
   /// in-memory attachment cache is gone, the on-device one is not.
   _FakeStorage? storage,
+  _FakeUploadManager? uploadManager,
 }) =>
     TasksCubit(
       GetTasksUseCase(repo),
@@ -442,7 +502,7 @@ TasksCubit _buildCubit(
       DeleteTaskUseCase(repo),
       RemoveTaskAssigneeUseCase(repo),
       UpdateTaskAssignmentStatusUseCase(repo),
-      UploadTaskAttachmentsUseCase(repo),
+      UploadTaskAttachmentsUseCase(repo, uploadManager ?? _FakeUploadManager()),
       GetTaskAttachmentsUseCase(repo),
       DetachTaskAttachmentUseCase(repo),
       ImageUploadService(ApiClient(baseUrl: 'http://localhost')),
@@ -459,11 +519,13 @@ TasksCubit _buildCubit(
 
 void main() {
   late _FakeTaskRepository repo;
+  late _FakeUploadManager uploadManager;
   late TasksCubit cubit;
 
   setUp(() {
     repo = _FakeTaskRepository();
-    cubit = _buildCubit(repo);
+    uploadManager = _FakeUploadManager();
+    cubit = _buildCubit(repo, uploadManager: uploadManager);
   });
 
   tearDown(() => cubit.close());
@@ -886,42 +948,50 @@ void main() {
     await cubit.load();
     final codes = await cubit.uploadAttachments(
       files: const [
-        PendingTaskAttachment(
-          filePath: '/tmp/notes.pdf',
-          fileName: 'notes.pdf',
-          contentType: 'application/pdf',
+        PickedFile(
+          path: '/tmp/notes.pdf',
+          name: 'notes.pdf',
           sizeBytes: 2048,
+          extension: 'pdf',
+          mimeType: 'application/pdf',
         ),
       ],
     );
-    expect(codes, ['AST_READY']);
-    final sent =
-        repo.lastUploadArgs!['files'] as List<PendingTaskAttachment>;
-    expect(sent.single.fileName, 'notes.pdf');
-    expect(sent.single.contentType, 'application/pdf');
+    expect(codes.assetCodes, ['AST_READY']);
+    expect(codes.allSucceeded, isTrue);
+    // Upload now goes through the shared manager, not the repository.
+    final sent = uploadManager.lastFiles!;
+    expect(sent.single.name, 'notes.pdf');
+    expect(sent.single.mimeType, 'application/pdf');
   });
 
-  test('uploadAttachments reuses codes from a previous attempt', () async {
-    await cubit.load();
-    final codes = await cubit.uploadAttachments(
-      files: const [
-        PendingTaskAttachment(
-          filePath: '/tmp/a.pdf',
-          fileName: 'a.pdf',
-          contentType: 'application/pdf',
-          sizeBytes: 10,
-        ),
-        PendingTaskAttachment(
-          filePath: '/tmp/b.pdf',
-          fileName: 'b.pdf',
-          contentType: 'application/pdf',
-          sizeBytes: 10,
-        ),
-      ],
-      alreadyUploaded: const {'/tmp/a.pdf': 'AST_PREVIOUS'},
-    );
-    expect(codes, ['AST_PREVIOUS', 'AST_READY']);
-  });
+  // SUPERSEDED — `alreadyUploaded` existed because the task form uploaded on
+  // pick and had to resume a partly-finished batch across retries. Both forms
+  // now upload once, on submit, so there is nothing to resume.
+  //
+  // test('uploadAttachments reuses codes from a previous attempt', () async {
+  //   await cubit.load();
+  //   final codes = await cubit.uploadAttachments(
+  //     files: const [
+  //       PickedFile(
+  //         path: '/tmp/a.pdf',
+  //         name: 'a.pdf',
+  //         sizeBytes: 10,
+  //         extension: 'pdf',
+  //         mimeType: 'application/pdf',
+  //       ),
+  //       PickedFile(
+  //         path: '/tmp/b.pdf',
+  //         name: 'b.pdf',
+  //         sizeBytes: 10,
+  //         extension: 'pdf',
+  //         mimeType: 'application/pdf',
+  //       ),
+  //     ],
+  //     alreadyUploaded: const {'/tmp/a.pdf': 'AST_PREVIOUS'},
+  //   );
+  //   expect(codes, ['AST_PREVIOUS', 'AST_READY']);
+  // });
 
   test('an unreadable attachments endpoint is flagged, not reported as empty',
       () async {

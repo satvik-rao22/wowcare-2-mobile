@@ -201,44 +201,32 @@ class ImageUploadService {
     );
   }
 
-  /// Presigns every file in [assets] under one session in a single call to
-  /// the same `assets/presign/batch` endpoint [createAssetPresign] hits with
-  /// just one — sending N separate presign requests (and N separate upload
-  /// sessions, one per file, at the call site) is what the endpoint's own
-  /// name says it isn't meant for. Results come back in the same order as
-  /// [assets].
+  /// Presigns every file in [assets] with one call to `presign/batch`.
+  ///
+  /// Results come back in request order — the endpoint returns `uploads` in the
+  /// order the assets were sent — and a count mismatch is treated as an error
+  /// rather than silently uploading files to the wrong signed URLs.
+  ///
+  /// Prefer this over calling [createAssetPresign] in a loop: the endpoint is
+  /// already a batch, so N files cost one round trip instead of N.
   Future<List<AssetPresignResult>> createAssetPresignBatch({
     required String sessionCode,
     required String documentApiBasePath,
     required List<AssetPresignRequest> assets,
   }) async {
-    if (assets.isEmpty) return const [];
+    if (assets.isEmpty) return const <AssetPresignResult>[];
 
     final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
     final path = ApiPaths.documentAssetPresignPath(
       documentApiBasePath: documentApiBasePath,
       sessionCode: sessionCode,
     );
-    final endpoint = '$origin$path';
 
     final response = await _apiClient.client
         .post<dynamic>(
-          endpoint,
+          '$origin$path',
           data: <String, dynamic>{
-            'assets': assets
-                .map(
-                  (a) => <String, dynamic>{
-                    'fileName': a.fileName,
-                    'contentType': a.contentType,
-                    'contentLengthBytes': a.contentLengthBytes,
-                    if ((a.checksumSha256 ?? '').trim().isNotEmpty)
-                      'checksumSha256': a.checksumSha256!.trim(),
-                    'mediaType': a.mediaType,
-                    'ownerType': a.ownerType,
-                    'ownerCode': a.ownerCode,
-                  },
-                )
-                .toList(),
+            'assets': assets.map((a) => a.toJson()).toList(),
           },
         )
         .catchError((error) {
@@ -263,36 +251,118 @@ class ImageUploadService {
     }
 
     final uploads = data['uploads'];
-    if (uploads is! List || uploads.length != assets.length) {
+    if (uploads is! List) {
       throw Exception('Unexpected assets presign uploads format');
     }
-
-    return uploads.map((raw) {
-      if (raw is! Map) {
-        throw Exception('Unexpected assets presign upload item format');
-      }
-      final assetCode = (raw['assetCode'] ?? '').toString().trim();
-      final presignedPutUrl = (raw['presignedPutUrl'] ?? '').toString().trim();
-      if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
-        throw Exception('Missing assetCode or presignedPutUrl in presign response');
-      }
-      final rawHeaders = raw['requiredHeaders'];
-      final requiredHeaders = <String, String>{};
-      if (rawHeaders is Map) {
-        rawHeaders.forEach((key, value) {
-          final k = key.toString().trim();
-          final v = value.toString().trim();
-          if (k.isNotEmpty && v.isNotEmpty) {
-            requiredHeaders[k] = v;
-          }
-        });
-      }
-      return AssetPresignResult(
-        assetCode: assetCode,
-        presignedPutUrl: presignedPutUrl,
-        requiredHeaders: requiredHeaders,
+    if (uploads.length != assets.length) {
+      throw Exception(
+        'Presign returned ${uploads.length} URLs for ${assets.length} files',
       );
-    }).toList();
+    }
+
+    return uploads.map(_parsePresignUpload).toList();
+  }
+
+  /// Reads one `uploads[]` entry into an [AssetPresignResult].
+  static AssetPresignResult _parsePresignUpload(dynamic item) {
+    if (item is! Map) {
+      throw Exception('Unexpected assets presign upload item format');
+    }
+
+    final assetCode = (item['assetCode'] ?? '').toString().trim();
+    final presignedPutUrl = (item['presignedPutUrl'] ?? '').toString().trim();
+    if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
+      throw Exception('Missing assetCode or presignedPutUrl in presign response');
+    }
+
+    final rawHeaders = item['requiredHeaders'];
+    final requiredHeaders = <String, String>{};
+    if (rawHeaders is Map) {
+      rawHeaders.forEach((key, value) {
+        final k = key.toString().trim();
+        final v = value.toString().trim();
+        if (k.isNotEmpty && v.isNotEmpty) requiredHeaders[k] = v;
+      });
+    }
+
+    return AssetPresignResult(
+      assetCode: assetCode,
+      presignedPutUrl: presignedPutUrl,
+      requiredHeaders: requiredHeaders,
+    );
+  }
+
+  /// Streams [file] to its presigned URL instead of buffering it in memory.
+  ///
+  /// [uploadFileToPresignedUrl] reads the whole file into RAM, which is fine
+  /// one file at a time but multiplies with concurrency — several videos at
+  /// once will OOM a mid-range device. This sends the bytes from disk, so peak
+  /// memory stays flat regardless of file size or how many run in parallel.
+  ///
+  /// Only `Content-Type` is signed by the presign (`X-Amz-SignedHeaders=
+  /// content-type;host`), so `Content-Length` is safe to add and is required
+  /// for a streamed body. No auth interceptor runs here — a bearer token on the
+  /// PUT would invalidate the signature.
+  Future<void> uploadFileStreamedToPresignedUrl({
+    required File file,
+    required String presignedPutUrl,
+    Map<String, String> requiredHeaders = const {},
+    String fallbackContentType = 'application/octet-stream',
+    void Function(int sentBytes, int totalBytes)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    final uploadClient = Dio();
+    final totalBytes = await file.length();
+
+    final headers = <String, dynamic>{};
+    requiredHeaders.forEach((key, value) {
+      final k = key.trim();
+      final v = value.trim();
+      if (k.isNotEmpty && v.isNotEmpty) headers[k] = v;
+    });
+    headers.putIfAbsent('Content-Type', () => fallbackContentType);
+    headers[Headers.contentLengthHeader] = totalBytes;
+
+    final putUri = Uri.parse(presignedPutUrl);
+    final logUrl = '${putUri.scheme}://${putUri.host}${putUri.path}';
+    ApiLogger.logRequest(
+      url: logUrl,
+      method: 'PUT',
+      headers: headers,
+      body: '<streamed: $totalBytes bytes>',
+    );
+
+    try {
+      final response = await uploadClient.putUri<dynamic>(
+        putUri,
+        data: file.openRead(),
+        cancelToken: cancelToken,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.plain,
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+        onSendProgress: (sent, total) {
+          onProgress?.call(sent, total > 0 ? total : totalBytes);
+        },
+      );
+      ApiLogger.logResponse(
+        url: logUrl,
+        method: 'PUT',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: logUrl,
+        method: 'PUT',
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      rethrow;
+    }
   }
 
   String _extractErrorMessageFromDio(DioException error) {
@@ -316,7 +386,13 @@ class ImageUploadService {
     return base64Encode(sha256.convert(bytes).bytes);
   }
 
-  Future<void> completeAssetUpload({
+  /// Marks an uploaded asset complete, returning the asset as the service now
+  /// sees it.
+  ///
+  /// The response carries `status` plus the full metadata, so callers can decide
+  /// whether the asset is attachable without a follow-up session fetch. Existing
+  /// callers that ignore the return value keep working unchanged.
+  Future<AssetCompleteResult> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
@@ -329,7 +405,16 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    await _apiClient.client.post<dynamic>(endpoint);
+    final response = await _apiClient.client.post<dynamic>(endpoint);
+
+    final body = response.data;
+    final data = body is Map<String, dynamic> ? body['data'] : null;
+    if (data is Map<String, dynamic>) {
+      return AssetCompleteResult.fromJson(data);
+    }
+    // Envelope missing or shaped unexpectedly: the POST succeeded, so treat the
+    // asset as complete with an unknown status rather than failing the upload.
+    return AssetCompleteResult(assetCode: assetCode, status: '');
   }
 
   Future<void> uploadFileToPresignedUrl({

@@ -60,4 +60,26 @@ void main() {
     expect(EventAccess.isAdmin(roles), isFalse);
     expect(EventAccess.canManageHolidays(roles), isFalse);
   });
+
+  group('RSVP visibility (BR-RSVP-04/05)', () {
+    // Guardians may respond for themselves but must never see who else
+    // did; admins and staff see the full summary and per-person chips.
+    test('admin can see the RSVP summary', () async {
+      final roles = await roleCubitWith('admin');
+      addTearDown(roles.close);
+      expect(EventAccess.canSeeRsvpSummary(roles), isTrue);
+    });
+
+    test('staff can see the RSVP summary', () async {
+      final roles = await roleCubitWith('staff');
+      addTearDown(roles.close);
+      expect(EventAccess.canSeeRsvpSummary(roles), isTrue);
+    });
+
+    test('parent cannot see other people RSVPs', () async {
+      final roles = await roleCubitWith('parent');
+      addTearDown(roles.close);
+      expect(EventAccess.canSeeRsvpSummary(roles), isFalse);
+    });
+  });
 }

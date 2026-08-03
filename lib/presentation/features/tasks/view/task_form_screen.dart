@@ -7,13 +7,13 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
-import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_form_validation.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
@@ -22,7 +22,9 @@ import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/assignee_picker_sheet.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_attachment_picker.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 
 /// Create/edit form for a task. A single scrollable mobile form replaces the
 /// web design's dialog: basics up top, scheduling and recurrence below.
@@ -134,22 +136,24 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   /// not exist yet has nothing to lose.
   bool _attachmentsReadable = true;
 
-  /// Freshly picked local files. The §8/§9 upload starts as soon as one is
-  /// picked (see [_uploadPickedAttachments]), so by the time the user submits
-  /// the asset codes are usually already in hand and the button doesn't have to
-  /// wait on the network.
-  List<PendingTaskAttachment> _pendingAttachments = const [];
+  /// Freshly picked local files, uploaded on submit — identical to the event
+  /// form, so an abandoned form uploads nothing.
+  List<PickedFile> _attachments = const [];
 
-  /// file path → 0-100 while a file uploads.
-  final Map<String, int> _uploadProgress = {};
+  /// Live per-file upload progress while a save is running; null otherwise.
+  AttachmentUploadState? _uploadState;
 
-  /// file path → asset code for files that already made it to storage. Survives
-  /// a failed save so retrying resumes instead of re-uploading — the same
-  /// guard the activities module uses to avoid duplicate uploads.
-  final Map<String, String> _uploadedAssetCodes = {};
+  bool get _isUploading => _uploadState?.isUploading ?? false;
 
-  /// True while any held file is uploading.
-  bool _uploadingAttachment = false;
+  // UPLOAD-ON-PICK REMOVED — the task form used to start the upload the moment a
+  // file was picked, which needed its own progress/resume bookkeeping:
+  //
+  //   final Map<String, int> _uploadProgress = {};
+  //   final Map<String, String> _uploadedAssetCodes = {};
+  //   bool _uploadingAttachment = false;
+  //
+  // Both forms now upload on submit through AttachmentUploadManager, which
+  // reports per-file progress itself via [_uploadState].
 
   /// True from the moment Create/Save is tapped until that save settles. The
   /// button's own disabled state can't be the only guard: it takes a frame to
@@ -179,7 +183,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             task: task,
             userCode: tasksState.currentUserCode,
             staffCode: tasksState.currentStaffCode,
-            userName: tasksState.currentUserName,
           )) {
         _accessDenied = true;
       } else if (task != null) {
@@ -349,21 +352,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       body: Form(
         key: _formKey,
         // Blocks the AppBar back arrow (routed through Navigator.maybePop, see
-        // CustomAppBar) as well as the system back gesture/hardware button while
-        // the task is actually being saved — that request is already in flight to
-        // three different hosts and leaving mid-write would hide its outcome.
-        //
-        // An attachment upload deliberately does NOT block leaving. Nothing has
-        // been created yet, so the worst case is an orphaned asset in storage —
-        // which is what abandoning any form already does — whereas trapping the
-        // user behind a stalled upload leaves force-quitting the app as the only
-        // way out. Escapable beats tidy.
-        canPop: !_isSubmitting,
+        // CustomAppBar) as well as the system back gesture/hardware button —
+        // an upload or a create/update in flight must not be abandoned
+        // mid-flight by a navigation that the widget tree, and the requests
+        // already sent to three different hosts, don't actually stop for.
+        canPop: !_busy,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
           CoreUtils.showTopSnackBar(
             context: context,
-            message: 'Please wait for the task to finish saving.',
+            message: _isSubmitting
+                ? 'Please wait for the task to finish saving.'
+                : 'Please wait for the attachment to finish uploading.',
             isWarning: true,
           );
         },
@@ -500,7 +500,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   /// disables itself for this span (see [build]'s `AbsorbPointer`/`PopScope`),
   /// not just the save button, so nothing else can mutate the draft or leave
   /// the screen while a request is on the wire.
-  bool get _busy => _isSubmitting || _uploadingAttachment;
+  bool get _busy => _isSubmitting || _isUploading;
 
   // --------------------------------------------------------- assignee
 
@@ -981,7 +981,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             Expanded(
               child: Text(
                 "This task's attachments can't be loaded right now, so they "
-                'can’t be changed here. Everything else still saves normally.',
+                'can\u2019t be changed here. Everything else still saves normally.',
                 style: TextStyle(fontSize: 12, color: Colors.grey[700]),
               ),
             ),
@@ -989,137 +989,55 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
         ),
       );
     }
-    return TaskAttachmentPicker(
-      existing: _existingAttachments,
-      pending: _pendingAttachments,
-      uploadService: context.read<TasksCubit>().imageUploadService,
-      uploadProgress: _uploadProgress,
-      uploadedPaths: _uploadedAssetCodes.keys.toSet(),
-      isUploading: _uploadingAttachment,
-      enabled: !_uploadingAttachment && !_isSubmitting,
-      onPendingChanged: (files) {
-        setState(() => _pendingAttachments = files);
-        // Upload as soon as the file is picked (as the activity editors do)
-        // rather than on submit, so Create/Save never has to sit on a
-        // multi-request upload before it can send the task itself.
-        unawaited(_uploadPickedAttachments());
-      },
-      onExistingRemoved: (attachment) => setState(() {
-        _existingAttachments = _existingAttachments
-            .where((a) => a.assetCode != attachment.assetCode)
-            .toList();
-      }),
+    // Same widget, same service, same submit-time upload as the event form.
+    return AttachmentPickerField(
+      files: _attachments,
+      onChanged: (files) => setState(() => _attachments = files),
+      enabled: !_isUploading && !_isSubmitting,
+      uploadState: _uploadState,
     );
   }
 
-  /// The held files that are not in storage yet.
-  List<PendingTaskAttachment> get _notYetUploaded => _pendingAttachments
-      .where((a) => (_uploadedAssetCodes[a.filePath] ?? '').isEmpty)
-      .toList(growable: false);
-
-  /// Uploads whatever has just been picked, then loops in case more files were
-  /// added while the first batch was in flight. Safe to call unawaited: it
-  /// no-ops when an upload is already running or nothing is outstanding.
-  Future<void> _uploadPickedAttachments() async {
-    if (_uploadingAttachment) return;
-    while (mounted && _notYetUploaded.isNotEmpty) {
-      final attempted = _notYetUploaded.map((a) => a.filePath).toSet();
-      if (!await _uploadOutstanding()) return;
-      if (!mounted) return;
-      // A "successful" round that resolved none of its own files would spin
-      // against the network forever; leave them outstanding and let the save
-      // retry them instead.
-      if (!TaskAttachmentUtils.uploadRoundMadeProgress(
-        attempted: attempted,
-        stillOutstanding: _notYetUploaded.map((a) => a.filePath).toSet(),
-      )) {
-        return;
-      }
-    }
-  }
-
-  /// Runs the §8/§9 upload for the outstanding files through one session.
-  /// Returns false when it failed (the reason is already on the state).
-  ///
-  /// Asset codes that did land are kept in [_uploadedAssetCodes], so a retry
-  /// resumes rather than re-uploading the same bytes.
-  /// Hard ceiling on one upload round. The transport has its own timeouts, but
-  /// this flag blocks the entire form, so it must be impossible for it to
-  /// outlive a bounded wait no matter how any layer beneath misbehaves.
-  static const Duration _uploadRoundTimeout = Duration(minutes: 6);
-
-  Future<bool> _uploadOutstanding() async {
-    final outstanding = _notYetUploaded;
-    if (outstanding.isEmpty) return true;
-
-    final cubit = context.read<TasksCubit>();
-    setState(() => _uploadingAttachment = true);
-
-    List<String>? uploaded;
-    String? failure;
-    try {
-      uploaded = await cubit
-          .uploadAttachments(
-            files: outstanding,
-            alreadyUploaded: _uploadedAssetCodes,
-            onAssetUploaded: (filePath, assetCode) =>
-                _uploadedAssetCodes[filePath] = assetCode,
-            onProgress: (index, percent) {
-              if (!mounted || index >= outstanding.length) return;
-              setState(() {
-                _uploadProgress[outstanding[index].filePath] = percent;
-              });
-            },
-          )
-          .timeout(_uploadRoundTimeout);
-    } on TimeoutException {
-      failure = 'The upload is taking too long. Please try again.';
-    } catch (error) {
-      // The cubit already converts failures into a null result, so reaching here
-      // means something unexpected threw. Swallowing it is not the point —
-      // [finally] clearing the flag is: an exception must never leave the form
-      // blocked with no way out.
-      failure = 'Could not upload the attachments. Please try again.';
-      debugPrint('Tasks: attachment upload threw unexpectedly: $error');
-    } finally {
-      // Always, on every path. This is what the hang came down to.
-      if (mounted) {
-        setState(() => _uploadingAttachment = false);
-      } else {
-        _uploadingAttachment = false;
-      }
-    }
-
-    if (!mounted) return false;
-    if (uploaded == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: failure ??
-            cubit.state.errorMessage ??
-            'Could not upload the attachments. Please try again.',
-        isError: true,
-      );
-      return false;
-    }
-    return true;
-  }
+  // SUPERSEDED — TaskAttachmentPicker plus the upload-on-pick loop it drove.
+  // Replaced by AttachmentPickerField (shared with events) and a submit-time
+  // upload. `_existingAttachments` is still preserved through
+  // [_resolvedAssetCodes] so editing never full-replaces saved files away.
+  //
+  //   return TaskAttachmentPicker(
+  //     existing: _existingAttachments,
+  //     pending: _pendingAttachments,
+  //     uploadService: context.read<TasksCubit>().imageUploadService,
+  //     uploadProgress: _uploadProgress,
+  //     uploadedPaths: _uploadedAssetCodes.keys.toSet(),
+  //     isUploading: _uploadingAttachment,
+  //     enabled: !_uploadingAttachment && !_isSubmitting,
+  //     onPendingChanged: (files) {
+  //       setState(() => _pendingAttachments = files);
+  //       unawaited(_uploadPickedAttachments());
+  //     },
+  //     onExistingRemoved: (attachment) => setState(() {
+  //       _existingAttachments = _existingAttachments
+  //           .where((a) => a.assetCode != attachment.assetCode)
+  //           .toList();
+  //     }),
+  //   );
+  //
+  // List<PickedFile> get _notYetUploaded => ...
+  // Future<void> _uploadPickedAttachments() async { ... }
+  // Future<bool> _uploadOutstanding() async { ... }
 
   /// The full `assetCodes` list to persist — kept existing assets first, then
   /// the newly uploaded ones — or null when a held file still isn't in storage.
   ///
   /// Because `assetCodes` is a full replace (§3c), an attachment the user
   /// removed simply doesn't appear in the returned list.
-  List<String>? _resolvedAssetCodes() {
-    final codes = _existingAttachments
-        .map((a) => a.assetCode)
-        .where((code) => code.isNotEmpty)
-        .toList();
-    for (final attachment in _pendingAttachments) {
-      final code = _uploadedAssetCodes[attachment.filePath] ?? '';
-      if (code.isEmpty) return null;
-      codes.add(code);
-    }
-    return codes;
+  List<String> _resolvedAssetCodes(List<String> uploadedCodes) {
+    return <String>[
+      ..._existingAttachments
+          .map((a) => a.assetCode)
+          .where((code) => code.isNotEmpty),
+      ...uploadedCodes,
+    ];
   }
 
   /// The series' complete attachment set after this save, for
@@ -1127,18 +1045,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   /// (only the list endpoint mints those), but they do carry the asset code the
   /// thumbnail resolves its URL from, plus the local name/type/size so the row
   /// reads properly without a re-read.
-  List<TaskAttachment> _attachmentsAfterSave() {
+  List<TaskAttachment> _attachmentsAfterSave(List<PickedFile> uploaded,
+      List<String> codes) {
     return <TaskAttachment>[
       ..._existingAttachments.where((a) => a.assetCode.isNotEmpty),
-      for (final attachment in _pendingAttachments)
-        if ((_uploadedAssetCodes[attachment.filePath] ?? '').isNotEmpty)
-          TaskAttachment(
-            assetCode: _uploadedAssetCodes[attachment.filePath]!,
-            fileName: attachment.fileName,
-            contentType: attachment.contentType,
-            sizeBytes: attachment.sizeBytes,
-            mediaType: attachment.isImage ? 'IMAGE' : 'DOCUMENT',
-          ),
+      for (var i = 0; i < uploaded.length && i < codes.length; i++)
+        TaskAttachment(
+          assetCode: codes[i],
+          fileName: uploaded[i].name,
+          contentType: uploaded[i].mimeType,
+          sizeBytes: uploaded[i].sizeBytes,
+          mediaType: uploaded[i].mediaType,
+        ),
     ];
   }
 
@@ -1226,7 +1144,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     // The button is disabled while busy, but a queued tap can still land
     // between the tap and the first frame that reflects it — and a second
     // entry here would open its own upload session and POST a duplicate task.
-    if (_isSubmitting || _uploadingAttachment) return;
+    if (_isSubmitting || _isUploading) return;
     setState(() => _isSubmitting = true);
     try {
       await _submit();
@@ -1318,21 +1236,31 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       scope = TaskEditScope.thisOccurrence;
     }
 
-    // Attachments normally uploaded the moment they were picked, so this is
-    // just the fallback for anything that failed or was added while an earlier
-    // batch was still in flight. A file that still isn't in storage aborts the
-    // save, so the task is never created without its intended attachments.
-    if (_notYetUploaded.isNotEmpty && !await _uploadOutstanding()) return;
-    if (!mounted) return;
-    final resolvedAssetCodes = _resolvedAssetCodes();
-    if (resolvedAssetCodes == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Could not upload the attachments. Please try again.',
-        isError: true,
+    // Upload the staged files now, on submit — one session, one batched
+    // presign, bounded-parallel transfers. Identical to the event form; a failed
+    // upload aborts the save so a task is never persisted without its files.
+    List<String> uploadedAssetCodes = const [];
+    if (_attachments.isNotEmpty) {
+      final result = await cubit.uploadAttachments(
+        files: _attachments,
+        onProgress: (state) {
+          if (mounted) setState(() => _uploadState = state);
+        },
       );
-      return;
+      if (!mounted) return;
+      setState(() => _uploadState = result);
+      if (!result.allSucceeded) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: result.summary,
+          isError: true,
+        );
+        setState(() => _uploadState = null);
+        return;
+      }
+      uploadedAssetCodes = result.assetCodes;
     }
+    final resolvedAssetCodes = _resolvedAssetCodes(uploadedAssetCodes);
 
     final bool ok;
     // The series this save wrote attachments onto, and whether it wrote them at
@@ -1345,7 +1273,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       // (added or removed); null otherwise, to leave them untouched.
       // Never write attachments we could not read (see [_attachmentsReadable]).
       final attachmentsChanged = _attachmentsReadable &&
-          (_pendingAttachments.isNotEmpty ||
+          (_attachments.isNotEmpty ||
               _existingAttachments.length != _attachmentBaselineCount);
       final assetCodes = attachmentsChanged ? resolvedAssetCodes : null;
       seriesCode = _editing?.taskCode.trim() ?? '';
@@ -1384,7 +1312,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       // the Tasks API documents no attachments read endpoint, and without this
       // a just-attached file would be invisible until one appears.
       if (seriesCode.isNotEmpty && wroteAttachments) {
-        cubit.primeAttachments(seriesCode, _attachmentsAfterSave());
+        cubit.primeAttachments(
+          seriesCode,
+          _attachmentsAfterSave(_attachments, uploadedAssetCodes),
+        );
       }
       // Then reconcile in the background: if the read endpoint does exist it
       // replaces the primed rows with the server's (which carry the `ATT_…`

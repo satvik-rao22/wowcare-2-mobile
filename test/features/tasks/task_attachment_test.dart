@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/data/features/tasks/models/task_models.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
@@ -65,9 +66,11 @@ void main() {
 
     test('displaySize switches from KB to MB and hides an unknown size', () {
       expect(const TaskAttachment(assetCode: 'A', sizeBytes: 0).displaySize, '');
+      // Formatting is FilePickerUtils.formatBytes now — shared with every other
+      // attachment surface, so KB keeps one decimal below 10.
       expect(
         const TaskAttachment(assetCode: 'A', sizeBytes: 2048).displaySize,
-        '2 KB',
+        '2.0 KB',
       );
       expect(
         const TaskAttachment(assetCode: 'A', sizeBytes: 5 * 1024 * 1024)
@@ -204,10 +207,14 @@ void main() {
           Icons.picture_as_pdf_rounded);
     });
 
-    test('formatAttachmentSize never rounds a small file down to "0 KB"', () {
-      expect(formatAttachmentSize(0), '');
-      expect(formatAttachmentSize(512), '512 B');
-      expect(formatAttachmentSize(1024), '1 KB');
+    // Sizes are formatted by the shared FilePickerUtils.formatBytes now; its
+    // own behaviour is covered in the picker/manager suites.
+    test('displaySize is empty for an unknown size and set otherwise', () {
+      expect(const TaskAttachment(assetCode: 'AST_1').displaySize, '');
+      expect(
+        const TaskAttachment(assetCode: 'AST_1', sizeBytes: 2048).displaySize,
+        isNotEmpty,
+      );
     });
   });
 
@@ -292,15 +299,16 @@ void main() {
 
   group('PendingTaskAttachment', () {
     test('classifies by content type and formats its size', () {
-      const image = PendingTaskAttachment(
-        filePath: '/tmp/a.png',
-        fileName: 'a.png',
-        contentType: 'image/png',
-        sizeBytes: 3 * 1024 * 1024,
-      );
+      final image = PickedFile(
+          path: '/tmp/a.png',
+          name: 'a.png',
+          sizeBytes: 3 * 1024 * 1024,
+          extension: 'png',
+          mimeType: 'image/png',
+        );
       expect(image.isImage, isTrue);
       expect(image.isVideo, isFalse);
-      expect(image.displaySize, '3.0 MB');
+      expect(image.readableSize, '3.0 MB');
     });
   });
 }

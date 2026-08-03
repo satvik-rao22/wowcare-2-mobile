@@ -1,8 +1,14 @@
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_creator_match.dart';
+import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
-/// Role-based access rules for the Tasks module (PRD §5.2 RBAC).
+/// Access rules for the Tasks module (PRD §5.2 RBAC).
+///
+/// Two gates apply, in this order: the `TASK` module permission from
+/// `/api/v1/users/details` (backend decides read vs write), then the persona
+/// and ownership rules the API flags cannot express (staff manage only their
+/// own tasks; parents have no Tasks at all).
 ///
 /// Personas: admin (Org/School Admin + CWW Super Admin — full read/write),
 /// staff (create tasks, manage their own, default "My Tasks") and parent
@@ -17,10 +23,12 @@ class TaskAccess {
 
   /// The entire Tasks module is hidden from guardians/parents (PRD §5.2:
   /// "No" across every row; FR requirement that parents see no task UI).
-  static bool canAccessModule(RoleCubit roles) => !roles.isParent;
+  static bool canAccessModule(RoleCubit roles) =>
+      !roles.isParent && roles.canOpenModule(AppAccessModules.task);
 
   /// Admin and staff can create tasks; parents never can (PRD FR-TK-01).
-  static bool canCreateTasks(RoleCubit roles) => !roles.isParent;
+  static bool canCreateTasks(RoleCubit roles) =>
+      !roles.isParent && roles.canWriteModule(AppAccessModules.task);
 
   /// Staff/Teacher default to "My Tasks"; admins default to "All Tasks"
   /// (PRD FR-TK-19).
@@ -43,6 +51,7 @@ class TaskAccess {
     String userName = '',
   }) {
     if (roles.isParent) return false;
+    if (!roles.canReadModule(AppAccessModules.task)) return false;
     if (isAdmin(roles)) return true;
     if (!roles.isStaff) return false;
     return _isMine(task, userCode, staffCode, userName);
@@ -60,6 +69,7 @@ class TaskAccess {
     String userName = '',
   }) {
     if (roles.isParent) return false;
+    if (!roles.canWriteModule(AppAccessModules.task)) return false;
     if (isAdmin(roles)) return true;
     if (!roles.isStaff) return false;
     return _isMine(task, userCode, staffCode, userName);

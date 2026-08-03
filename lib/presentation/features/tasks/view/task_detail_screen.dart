@@ -16,7 +16,7 @@ import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.da
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
-import 'package:wowcare/presentation/features/tasks/widgets/task_attachment_thumbnail.dart';
+import 'package:wowcare/shared/common/widgets/attachment_view/attachment_section.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_priority_meter.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_status_selector.dart';
@@ -440,110 +440,42 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     List<TaskAttachment> attachments, {
     required bool canManage,
   }) {
-    final service = context.read<TasksCubit>().imageUploadService;
     return _sectionCard(
       title: attachments.length == 1
           ? 'Attachment'
           : 'Attachments (${attachments.length})',
-      child: Column(
-        children: [
-          for (var i = 0; i < attachments.length; i++) ...[
-            if (i > 0) const Divider(height: 18),
-            _attachmentRow(
-              context,
-              task,
-              attachments[i],
-              service,
-              // Only an attachment the list endpoint gave a row code for can
-              // be detached; one without it must be removed via the form's
-              // assetCodes replace instead.
-              canRemove: canManage && attachments[i].code.isNotEmpty,
-            ),
-          ],
-        ],
+      // One shared widget for every attachment surface in the app: it resolves
+      // the asset codes, caches them, shows images large enough to read without
+      // opening anything, surfaces failures with a Retry, and opens a
+      // full-screen zoomable viewer on tap. The event detail screen uses the
+      // same call.
+      child: AttachmentSection(
+        assetCodes: attachments
+            .map((a) => a.assetCode)
+            .where((code) => code.isNotEmpty)
+            .toList(),
+        onRemove: canManage
+            ? (assetCode) {
+                // Only an attachment the list endpoint gave a row code for can
+                // be detached; one without it must be removed via the form's
+                // assetCodes replace instead.
+                final match = attachments.firstWhere(
+                  (a) => a.assetCode == assetCode,
+                  orElse: () => const TaskAttachment(assetCode: ''),
+                );
+                if (match.code.isEmpty) return;
+                unawaited(_confirmDetach(context, task, match));
+              }
+            : null,
       ),
     );
   }
 
-  /// One attachment row: preview thumbnail, name + size, and a chevron. Tapping
-  /// anywhere on it previews images/video in-app or hands documents to the OS.
-  Widget _attachmentRow(
-    BuildContext context,
-    Task task,
-    TaskAttachment attachment,
-    ImageUploadService service, {
-    required bool canRemove,
-  }) {
-    final subtitle = <String>[
-      TaskAttachmentUtils.extensionLabel(attachment.fileName),
-      if (attachment.displaySize.isNotEmpty) attachment.displaySize,
-      if (!attachment.isReady) 'processing…',
-    ].join(' • ');
+  // SUPERSEDED — `_attachmentRow` rendered a 44px `TaskAttachmentThumbnail`,
+  // which was too small to make out and showed an indefinite spinner whenever
+  // the resolve failed. `AttachmentSection` replaces it for both tasks and
+  // events. Original in git history.
 
-    return InkWell(
-      onTap: () => TaskAttachmentUtils.open(
-        context: context,
-        attachment: attachment,
-        service: service,
-      ),
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            TaskAttachmentThumbnail(
-              attachment: attachment,
-              uploadService: service,
-              size: 44,
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    attachment.fileName.isEmpty
-                        ? 'Attachment'
-                        : attachment.fileName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.black87,
-                    ),
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              // Unknown type resolves on tap, so don't promise "opens
-              // externally" for something that may well preview in-app.
-              attachment.hasKnownType && attachment.isDocument
-                  ? Icons.open_in_new_rounded
-                  : Icons.chevron_right_rounded,
-              size: 18,
-              color: Colors.grey[500],
-            ),
-            if (canRemove)
-              IconButton(
-                tooltip: 'Remove attachment',
-                visualDensity: VisualDensity.compact,
-                icon: Icon(Icons.close, size: 18, color: Colors.grey[600]),
-                onPressed: () => _confirmDetach(context, task, attachment),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Detaching is destructive and immediate (unlike the form, which stages
-  /// changes until save), so it asks first.
   Future<void> _confirmDetach(
     BuildContext context,
     Task task,

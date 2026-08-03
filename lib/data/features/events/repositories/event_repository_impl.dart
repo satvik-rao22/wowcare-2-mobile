@@ -2,6 +2,7 @@ import 'package:wowcare/data/features/events/datasources/event_remote_datasource
 import 'package:wowcare/data/features/events/datasources/holiday_remote_datasource.dart';
 import 'package:wowcare/domain/features/events/entities/calendar_feed_item.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
+import 'package:wowcare/domain/features/events/entities/event_upload_session.dart';
 import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/domain/features/events/repositories/event_repository.dart';
 
@@ -79,19 +80,32 @@ class EventRepositoryImpl implements EventRepository {
   }
 
   @override
-  Future<Event> createEvent(Event event) async {
-    final model = await _eventRemoteDataSource.createEvent(event);
+  Future<Event> createEvent(
+    Event event, {
+    List<String> assetCodes = const [],
+  }) async {
+    final model = await _eventRemoteDataSource.createEvent(
+      event,
+      assetCodes: assetCodes,
+    );
     return model.toEntity();
+  }
+
+  @override
+  Future<EventUploadSession> createUploadSession() {
+    return _eventRemoteDataSource.createUploadSession();
   }
 
   @override
   Future<Event> updateEvent(
     Event event, {
     String splitFromOccurrenceCode = '',
+    List<String>? assetCodes,
   }) async {
     final model = await _eventRemoteDataSource.updateEvent(
       event,
       splitFromOccurrenceCode: splitFromOccurrenceCode,
+      assetCodes: assetCodes,
     );
     return model.toEntity();
   }
