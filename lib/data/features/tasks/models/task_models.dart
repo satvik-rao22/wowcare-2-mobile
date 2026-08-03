@@ -17,7 +17,9 @@ import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart'
 /// than a single combined `dueAt` instant. The payload also carries
 /// [description] (joined back from the parent series) and [effort], so a
 /// card/detail screen no longer needs a separate series fetch to show them.
-/// Recurrence and creator still live only on [TaskSeriesModel].
+/// It also carries the audit trail ([createdBy]/[updatedBy] + their instants)
+/// and the series' attachment [assetCodes]. Recurrence still lives only on
+/// [TaskSeriesModel].
 class TaskAssignmentModel extends Equatable {
   const TaskAssignmentModel({
     required this.code,
@@ -28,6 +30,11 @@ class TaskAssignmentModel extends Equatable {
     this.assigneeName = '',
     this.createdBy = '',
     this.createdByName = '',
+    this.createdByCode = '',
+    this.updatedBy = '',
+    this.createdAt,
+    this.updatedAt,
+    this.assetCodes = const <String>[],
     required this.occurrenceDate,
     this.startTime = '',
     required this.dueDate,
@@ -54,20 +61,34 @@ class TaskAssignmentModel extends Equatable {
       // Not part of the documented assignment payload; parsed opportunistically
       // so cards show a name if the backend ever denormalizes one.
       assigneeName: (json['assigneeName'] ?? '').toString(),
-      // Who raised the task. Also undocumented in the §5a/§6/§7 item shape, but
-      // the staff "By Me" scope and the "Created By" filter are built entirely
-      // on it, so both spellings the service might use are accepted. Absent →
-      // empty, which reads as "unknown author" rather than the current user.
-      createdBy: _firstNonBlank(json, const [
-        'createdBy',
-        'createdByCode',
-        'assignedBy',
-        'assignedByCode',
-      ]),
+      // Who raised the task — backs the staff "By Me" scope, the "Created By"
+      // filter and the detail screen's audit rows. The service sends this as a
+      // **display name** ("Suhas Biwalkar"), not a code, so it is kept verbatim
+      // and [createdByCode] is parsed separately for the day the payload gains a
+      // stable identity. Absent → empty, which reads as "unknown author" rather
+      // than the current user.
+      createdBy: _firstNonBlank(json, const ['createdBy', 'assignedBy']),
       createdByName: _firstNonBlank(json, const [
         'createdByName',
         'assignedByName',
       ]),
+      // Not sent today. When it appears, flip `TaskCreatorMatcher.identity` to
+      // `TaskCreatorIdentity.staffCode` and "By Me" stops depending on names.
+      createdByCode: _firstNonBlank(json, const [
+        'createdByCode',
+        'createdByStaffCode',
+        'assignedByCode',
+      ]),
+      // Last modifier, display-only (a display name, same as `createdBy`).
+      updatedBy: _firstNonBlank(json, const ['updatedBy', 'modifiedBy']),
+      // Real audit instants (UTC). Absent on older payloads, in which case
+      // [toEntity] falls back to the occurrence day as before.
+      createdAt: _parseDate(json['createdAt']),
+      updatedAt: _parseDate(json['updatedAt']),
+      // Attachment asset codes for the owning series. The complete set, since
+      // create/update treat `assetCodes` as a full replace — so the detail
+      // screen can render attachments straight off the card.
+      assetCodes: _stringList(json['assetCodes']),
       occurrenceDate: occurrence,
       startTime: _hhmm(json['startTime']),
       dueDate: _parseDate(json['dueDate']) ?? occurrence,
@@ -88,10 +109,24 @@ class TaskAssignmentModel extends Equatable {
   final String assigneeCode;
   final String assigneeName;
 
-  /// Staff code of whoever raised the task, and their display name when the
-  /// payload denormalizes one. Empty when the service doesn't send a creator.
+  /// Whoever raised the task, as the service sends it — a **display name** on
+  /// today's payload — plus a denormalized name when it arrives separately.
+  /// Empty when the service doesn't send a creator.
   final String createdBy;
   final String createdByName;
+
+  /// Stable creator code, when the payload carries one. Empty today.
+  final String createdByCode;
+
+  /// Display name of the last modifier; display-only.
+  final String updatedBy;
+
+  /// Audit instants (UTC) as sent; null when the payload omits them.
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  /// Asset codes (`AST_…`) of the owning series' attachments.
+  final List<String> assetCodes;
 
   final DateTime occurrenceDate;
 
@@ -115,6 +150,16 @@ class TaskAssignmentModel extends Equatable {
     return '';
   }
 
+  /// Non-blank, trimmed strings from a JSON list; empty for anything else
+  /// (absent, null, or a scalar) so a malformed payload degrades to "none".
+  static List<String> _stringList(dynamic raw) {
+    if (raw is! List) return const <String>[];
+    return raw
+        .map((entry) => (entry ?? '').toString().trim())
+        .where((entry) => entry.isNotEmpty)
+        .toList(growable: false);
+  }
+
   Task toEntity() {
     return Task(
       code: code,
@@ -125,6 +170,9 @@ class TaskAssignmentModel extends Equatable {
       assigneeName: assigneeName,
       createdBy: createdBy,
       createdByName: createdByName,
+      createdByCode: createdByCode,
+      updatedBy: updatedBy,
+      assetCodes: assetCodes,
       status: TaskStatus.fromValue(status),
       priority: TaskPriority.fromValue(priority),
       startDate: occurrenceDate,
@@ -132,8 +180,10 @@ class TaskAssignmentModel extends Equatable {
       dueDate: dueDate,
       dueTime: dueTime.isEmpty ? '17:00' : dueTime,
       effort: effort,
-      createdAt: occurrenceDate,
-      updatedAt: occurrenceDate,
+      // Real audit instants when the payload has them; the occurrence day is
+      // only a stand-in for the older shape that sent neither.
+      createdAt: createdAt ?? occurrenceDate,
+      updatedAt: updatedAt ?? createdAt ?? occurrenceDate,
     );
   }
 
@@ -145,6 +195,11 @@ class TaskAssignmentModel extends Equatable {
         description,
         assigneeCode,
         createdBy,
+        createdByCode,
+        updatedBy,
+        createdAt,
+        updatedAt,
+        assetCodes,
         occurrenceDate,
         startTime,
         dueDate,

@@ -339,12 +339,21 @@ class TaskRepositoryImpl implements TaskRepository {
         onProgress?.call(index, 100);
       }
 
-      // 5. One poll for the whole batch — every asset must be READY before any
-      // of them can be attached (§9.5).
-      await _imageUploadService.waitUntilAssetsReady(
+      // 5. One short, best-effort check for the whole batch (§9.5). A task
+      // stores asset *codes* and resolves delivery URLs lazily when rendering,
+      // so processing does not have to be finished for the save to be correct —
+      // and blocking on it meant an `UPLOADED`-but-not-yet-`READY` asset failed
+      // the whole attachment after two minutes of polling. Only a definitive
+      // FAILED stops us here.
+      final ok = await _imageUploadService.awaitAssetsAttachable(
         sessionCode: session.sessionCode,
         expectedAssetCodes: uploadedThisSession,
       );
+      if (!ok) {
+        throw Exception(
+          'The server could not process the attachment. Please try again.',
+        );
+      }
     }
 
     // Preserve the caller's ordering, including files carried over from a

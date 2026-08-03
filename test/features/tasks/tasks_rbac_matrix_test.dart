@@ -38,7 +38,10 @@ class _Roles extends RoleCubit {
 Task _task({
   String code = 'TSA_1',
   String assigneeCode = 'STF_OTHER',
-  String createdBy = 'STF_OTHER',
+  // The API reports the creator as a display name, not a code — so ownership by
+  // authorship is matched against the signed-in user's name (see
+  // TaskCreatorMatcher), while assignment stays a code match.
+  String createdBy = _otherName,
 }) =>
     Task(
       code: code,
@@ -52,12 +55,16 @@ Task _task({
       updatedAt: DateTime.utc(2026),
     );
 
+/// Display names of the signed-in staff member and of everyone else.
+const String _myName = 'Me Myself';
+const String _otherName = 'Other Person';
+
 /// A board holding one task per ownership shape, as the API returns it (the
 /// list endpoint is not persona-filtered, so the client is the boundary).
 final _board = <Task>[
-  _task(code: 'MINE', assigneeCode: 'STF_ME', createdBy: 'STF_OTHER'),
-  _task(code: 'BY_ME', assigneeCode: 'STF_OTHER', createdBy: 'STF_ME'),
-  _task(code: 'OTHERS', assigneeCode: 'STF_OTHER', createdBy: 'STF_OTHER'),
+  _task(code: 'MINE', assigneeCode: 'STF_ME', createdBy: _otherName),
+  _task(code: 'BY_ME', assigneeCode: 'STF_OTHER', createdBy: _myName),
+  _task(code: 'OTHERS', assigneeCode: 'STF_OTHER', createdBy: _otherName),
 ];
 
 TasksState _boardState({
@@ -77,7 +84,7 @@ TasksState _boardState({
       statusFilter: const {},
       overdueOnly: false,
       currentUserCode: 'USR_ME',
-      currentUserName: 'Me',
+      currentUserName: _myName,
       currentStaffCode: staffCode,
       persona: persona,
     );
@@ -172,6 +179,8 @@ void main() {
           task: _board[1],
           userCode: myUser,
           staffCode: me,
+          // Authorship is matched by name, so this row needs it.
+          userName: _myName,
         ),
         isTrue,
       );

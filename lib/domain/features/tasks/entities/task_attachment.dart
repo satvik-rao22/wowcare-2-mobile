@@ -94,11 +94,77 @@ class TaskAttachment extends Equatable {
   /// Anything that isn't previewable in-app — opened through the OS instead.
   bool get isDocument => !isImage && !isVideo;
 
-  /// A `READY` asset is the only one guaranteed to resolve to a delivery URL.
-  /// Blank status is treated as ready: several payloads omit it entirely.
+  /// Whether the payload said anything at all about what kind of file this is.
+  ///
+  /// False for an attachment built from a task's `assetCodes`, which carries a
+  /// code and nothing else. [isImage]/[isVideo] are then both false purely for
+  /// lack of evidence — not because it's a document — so callers must resolve
+  /// the delivery URL and re-classify through [withResolvedUrl] before deciding
+  /// how to preview it.
+  bool get hasKnownType =>
+      mediaType.trim().isNotEmpty ||
+      contentType.trim().isNotEmpty ||
+      _extension.isNotEmpty;
+
+  /// This attachment with [resolvedUrl] attached, inferring [contentType] from
+  /// the URL's file extension when the type was unknown — which is what makes an
+  /// `assetCodes`-only image preview as an image instead of falling through to a
+  /// document tile. An opaque URL leaves the type unknown, and the document
+  /// fallback still applies.
+  TaskAttachment withResolvedUrl(String resolvedUrl) {
+    final trimmed = resolvedUrl.trim();
+    if (trimmed.isEmpty) return this;
+    if (hasKnownType) return copyWith(url: trimmed);
+    return copyWith(
+      url: trimmed,
+      contentType: _contentTypeFromUrl(trimmed),
+    );
+  }
+
+  /// Best-effort MIME type from a URL path's extension, limited to the types
+  /// tasks actually accept plus the video kinds the viewer can play. Empty when
+  /// the URL carries no recognizable extension (pre-signed links often don't).
+  static String _contentTypeFromUrl(String url) {
+    final path = (Uri.tryParse(url)?.path ?? '').toLowerCase();
+    final dot = path.lastIndexOf('.');
+    if (dot < 0 || dot == path.length - 1) return '';
+    switch (path.substring(dot + 1)) {
+      case 'jpg':
+      case 'jpeg':
+        return 'image/jpeg';
+      case 'png':
+        return 'image/png';
+      case 'webp':
+        return 'image/webp';
+      case 'gif':
+        return 'image/gif';
+      case 'heic':
+        return 'image/heic';
+      case 'pdf':
+        return 'application/pdf';
+      case 'mp4':
+        return 'video/mp4';
+      case 'mov':
+        return 'video/quicktime';
+      case 'webm':
+        return 'video/webm';
+      default:
+        return '';
+    }
+  }
+
+  /// Whether this attachment is worth trying to show.
+  ///
+  /// `UPLOADED` counts, not just `READY`: document-microservice parks task
+  /// attachments at `UPLOADED` and they serve a delivery URL perfectly well
+  /// there, so treating that as "still processing" hides attachments that are
+  /// actually fine. Blank counts too — several payloads omit the field. Only an
+  /// explicit non-uploaded state (e.g. `FAILED`, `PENDING`) is withheld.
   bool get isReady {
     final normalized = status.trim().toUpperCase();
-    return normalized.isEmpty || normalized == 'READY';
+    return normalized.isEmpty ||
+        normalized == 'READY' ||
+        normalized == 'UPLOADED';
   }
 
   /// Human-readable size for the subtitle line; empty when the payload omits

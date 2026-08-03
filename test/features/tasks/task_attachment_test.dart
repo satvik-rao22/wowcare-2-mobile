@@ -45,15 +45,17 @@ void main() {
       expect(unknown.isDocument, isTrue);
     });
 
-    test('a blank status counts as ready, FAILED and UPLOADED do not', () {
+    test('blank, READY and UPLOADED are showable; FAILED is not', () {
       expect(const TaskAttachment(assetCode: 'A').isReady, isTrue);
       expect(
         const TaskAttachment(assetCode: 'A', status: 'ready').isReady,
         isTrue,
       );
+      // document-ms parks task attachments at UPLOADED and serves them fine
+      // there, so treating that as "still processing" hid working attachments.
       expect(
         const TaskAttachment(assetCode: 'A', status: 'UPLOADED').isReady,
-        isFalse,
+        isTrue,
       );
       expect(
         const TaskAttachment(assetCode: 'A', status: 'FAILED').isReady,
@@ -206,6 +208,85 @@ void main() {
       expect(formatAttachmentSize(0), '');
       expect(formatAttachmentSize(512), '512 B');
       expect(formatAttachmentSize(1024), '1 KB');
+    });
+  });
+
+  // An attachment reconstructed from a task's `assetCodes` knows only its code.
+  // Nothing on the payload says what kind of file it is, so the type has to come
+  // from the resolved delivery URL — otherwise every such image would render and
+  // open as a document.
+  group('TaskAttachment — type unknown until the URL resolves', () {
+    const bare = TaskAttachment(assetCode: 'AST_F51F0D20-F');
+
+    test('an assetCodes-only attachment reports an unknown type', () {
+      expect(bare.hasKnownType, isFalse);
+      // Both false for lack of evidence — `isDocument` is only the fallback.
+      expect(bare.isImage, isFalse);
+      expect(bare.isVideo, isFalse);
+    });
+
+    test('anything the payload said about the type counts as known', () {
+      expect(
+        const TaskAttachment(assetCode: 'A', mediaType: 'IMAGE').hasKnownType,
+        isTrue,
+      );
+      expect(
+        const TaskAttachment(assetCode: 'A', contentType: 'application/pdf')
+            .hasKnownType,
+        isTrue,
+      );
+      expect(
+        const TaskAttachment(assetCode: 'A', fileName: 'a.png').hasKnownType,
+        isTrue,
+      );
+      // A name without an extension says nothing about the type.
+      expect(
+        const TaskAttachment(assetCode: 'A', fileName: 'scan').hasKnownType,
+        isFalse,
+      );
+    });
+
+    test('withResolvedUrl infers an image from the URL extension', () {
+      final resolved =
+          bare.withResolvedUrl('https://cdn.example.com/a/b/photo.JPG?sig=xyz');
+      expect(resolved.url, 'https://cdn.example.com/a/b/photo.JPG?sig=xyz');
+      expect(resolved.isImage, isTrue);
+      expect(resolved.hasKnownType, isTrue);
+    });
+
+    test('withResolvedUrl infers pdf and video', () {
+      expect(bare.withResolvedUrl('https://x.test/f.pdf').isDocument, isTrue);
+      expect(
+        bare.withResolvedUrl('https://x.test/f.pdf').contentType,
+        'application/pdf',
+      );
+      expect(bare.withResolvedUrl('https://x.test/clip.mp4').isVideo, isTrue);
+    });
+
+    test('an opaque URL leaves the type unknown, so the doc fallback stands',
+        () {
+      final resolved = bare.withResolvedUrl('https://x.test/assets/9f2a1b3c');
+      expect(resolved.url, 'https://x.test/assets/9f2a1b3c');
+      expect(resolved.hasKnownType, isFalse);
+      expect(resolved.isDocument, isTrue);
+    });
+
+    test('never overrides a type the payload already stated', () {
+      const stated =
+          TaskAttachment(assetCode: 'A', mediaType: 'IMAGE', fileName: 'a.png');
+      final resolved = stated.withResolvedUrl('https://x.test/f.pdf');
+      expect(resolved.isImage, isTrue);
+      expect(resolved.contentType, '');
+      expect(resolved.url, 'https://x.test/f.pdf');
+    });
+
+    test('a blank URL changes nothing', () {
+      expect(bare.withResolvedUrl('   '), bare);
+    });
+
+    test('is ready by default, so it renders instead of showing "processing"',
+        () {
+      expect(bare.isReady, isTrue);
     });
   });
 

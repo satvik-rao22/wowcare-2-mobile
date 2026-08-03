@@ -124,11 +124,28 @@ class TasksState extends Equatable {
   /// "loaded, has none"; an absent key means "not fetched yet".
   final Map<String, List<TaskAttachment>> attachmentsByTask;
 
-  /// Attachments for one task card, resolved through its series code. Empty
-  /// while the fetch is still in flight, so callers render nothing rather than
-  /// a flash of placeholder rows.
-  List<TaskAttachment> attachmentsFor(Task task) =>
-      attachmentsByTask[task.taskCode] ?? const <TaskAttachment>[];
+  /// Attachments for one task card, resolved through its series code.
+  ///
+  /// Prefers a fetched/primed set, which carries file names, sizes and the
+  /// `ATT_…` row codes needed to detach. Falls back to the card's own
+  /// [Task.assetCodes] — the assignment payload's complete asset list — so
+  /// attachments still render when no attachments endpoint answered. Those
+  /// synthesized entries know only their asset code: the UI resolves a delivery
+  /// URL from it, and cannot offer detach (no row code).
+  List<TaskAttachment> attachmentsFor(Task task) {
+    final loaded = attachmentsByTask[task.taskCode];
+    if (loaded != null && loaded.isNotEmpty) return loaded;
+    if (task.assetCodes.isEmpty) return loaded ?? const <TaskAttachment>[];
+    return task.assetCodes
+        .map((assetCode) => TaskAttachment(assetCode: assetCode))
+        .toList(growable: false);
+  }
+
+  /// Whether this card's attachments can be shown truthfully. The card's own
+  /// [Task.assetCodes] are authoritative, so a failed/absent attachments fetch
+  /// no longer means "unknown" for a task that listed its assets.
+  bool attachmentsReadableForTask(Task task) =>
+      task.assetCodes.isNotEmpty || attachmentsAreReadable(task.taskCode);
 
   /// Whether this task's attachments have been fetched at least once —
   /// distinguishes "none" from "not yet known".
@@ -306,12 +323,24 @@ class TasksState extends Equatable {
     return codes.contains(task.assigneeCode);
   }
 
+  /// How "created by me" is decided, given who is signed in. Held here so the
+  /// "By Me" scope, the read boundary and `TaskAccess` all share one rule (and
+  /// one swap point) instead of each comparing creator fields themselves.
+  TaskCreatorMatcher get creatorMatcher => TaskCreatorMatcher(
+        identityCodes: identityCodes,
+        displayName: currentUserName,
+      );
+
   /// Whether [task] was created by the current user — backs the staff "By Me"
   /// scope. Fails closed while the identity is unresolved, as [_isMine] does.
+  ///
+  /// "Unresolved" deliberately still means *no identity code*, even though the
+  /// creator is matched by name: a display name alone is a weak signal (a
+  /// namesake matches it), so it grants authorship only once the session has
+  /// actually resolved who this user is. Same gate as `TaskAccess`.
   bool _isByMe(Task task) {
-    final codes = identityCodes;
-    if (codes.isEmpty) return false;
-    return codes.contains(task.createdBy);
+    if (identityCodes.isEmpty) return false;
+    return creatorMatcher.matches(task);
   }
 
   /// Distinct assignees referenced by a task this persona can see — offline-safe

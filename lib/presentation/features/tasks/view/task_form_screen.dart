@@ -13,6 +13,7 @@ import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_form_validation.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
@@ -178,6 +179,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             task: task,
             userCode: tasksState.currentUserCode,
             staffCode: tasksState.currentStaffCode,
+            userName: tasksState.currentUserName,
           )) {
         _accessDenied = true;
       } else if (task != null) {
@@ -347,18 +349,21 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       body: Form(
         key: _formKey,
         // Blocks the AppBar back arrow (routed through Navigator.maybePop, see
-        // CustomAppBar) as well as the system back gesture/hardware button —
-        // an upload or a create/update in flight must not be abandoned
-        // mid-flight by a navigation that the widget tree, and the requests
-        // already sent to three different hosts, don't actually stop for.
-        canPop: !_busy,
+        // CustomAppBar) as well as the system back gesture/hardware button while
+        // the task is actually being saved — that request is already in flight to
+        // three different hosts and leaving mid-write would hide its outcome.
+        //
+        // An attachment upload deliberately does NOT block leaving. Nothing has
+        // been created yet, so the worst case is an orphaned asset in storage —
+        // which is what abandoning any form already does — whereas trapping the
+        // user behind a stalled upload leaves force-quitting the app as the only
+        // way out. Escapable beats tidy.
+        canPop: !_isSubmitting,
         onPopInvokedWithResult: (didPop, result) {
           if (didPop) return;
           CoreUtils.showTopSnackBar(
             context: context,
-            message: _isSubmitting
-                ? 'Please wait for the task to finish saving.'
-                : 'Please wait for the attachment to finish uploading.',
+            message: 'Please wait for the task to finish saving.',
             isWarning: true,
           );
         },
@@ -1018,12 +1023,18 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   Future<void> _uploadPickedAttachments() async {
     if (_uploadingAttachment) return;
     while (mounted && _notYetUploaded.isNotEmpty) {
-      final before = _notYetUploaded.length;
+      final attempted = _notYetUploaded.map((a) => a.filePath).toSet();
       if (!await _uploadOutstanding()) return;
-      // A "successful" round that resolved nothing would otherwise spin against
-      // the network forever; leave the files outstanding and let the save
-      // report it instead.
-      if (!mounted || _notYetUploaded.length >= before) return;
+      if (!mounted) return;
+      // A "successful" round that resolved none of its own files would spin
+      // against the network forever; leave them outstanding and let the save
+      // retry them instead.
+      if (!TaskAttachmentUtils.uploadRoundMadeProgress(
+        attempted: attempted,
+        stillOutstanding: _notYetUploaded.map((a) => a.filePath).toSet(),
+      )) {
+        return;
+      }
     }
   }
 
@@ -1032,6 +1043,11 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   ///
   /// Asset codes that did land are kept in [_uploadedAssetCodes], so a retry
   /// resumes rather than re-uploading the same bytes.
+  /// Hard ceiling on one upload round. The transport has its own timeouts, but
+  /// this flag blocks the entire form, so it must be impossible for it to
+  /// outlive a bounded wait no matter how any layer beneath misbehaves.
+  static const Duration _uploadRoundTimeout = Duration(minutes: 6);
+
   Future<bool> _uploadOutstanding() async {
     final outstanding = _notYetUploaded;
     if (outstanding.isEmpty) return true;
@@ -1039,25 +1055,47 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     final cubit = context.read<TasksCubit>();
     setState(() => _uploadingAttachment = true);
 
-    final uploaded = await cubit.uploadAttachments(
-      files: outstanding,
-      alreadyUploaded: _uploadedAssetCodes,
-      onAssetUploaded: (filePath, assetCode) =>
-          _uploadedAssetCodes[filePath] = assetCode,
-      onProgress: (index, percent) {
-        if (!mounted || index >= outstanding.length) return;
-        setState(() {
-          _uploadProgress[outstanding[index].filePath] = percent;
-        });
-      },
-    );
+    List<String>? uploaded;
+    String? failure;
+    try {
+      uploaded = await cubit
+          .uploadAttachments(
+            files: outstanding,
+            alreadyUploaded: _uploadedAssetCodes,
+            onAssetUploaded: (filePath, assetCode) =>
+                _uploadedAssetCodes[filePath] = assetCode,
+            onProgress: (index, percent) {
+              if (!mounted || index >= outstanding.length) return;
+              setState(() {
+                _uploadProgress[outstanding[index].filePath] = percent;
+              });
+            },
+          )
+          .timeout(_uploadRoundTimeout);
+    } on TimeoutException {
+      failure = 'The upload is taking too long. Please try again.';
+    } catch (error) {
+      // The cubit already converts failures into a null result, so reaching here
+      // means something unexpected threw. Swallowing it is not the point —
+      // [finally] clearing the flag is: an exception must never leave the form
+      // blocked with no way out.
+      failure = 'Could not upload the attachments. Please try again.';
+      debugPrint('Tasks: attachment upload threw unexpectedly: $error');
+    } finally {
+      // Always, on every path. This is what the hang came down to.
+      if (mounted) {
+        setState(() => _uploadingAttachment = false);
+      } else {
+        _uploadingAttachment = false;
+      }
+    }
 
     if (!mounted) return false;
-    setState(() => _uploadingAttachment = false);
     if (uploaded == null) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: cubit.state.errorMessage ??
+        message: failure ??
+            cubit.state.errorMessage ??
             'Could not upload the attachments. Please try again.',
         isError: true,
       );

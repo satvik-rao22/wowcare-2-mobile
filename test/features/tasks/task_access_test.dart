@@ -90,11 +90,65 @@ void main() {
       );
     });
 
-    test('staff manages a task they created (once backend sends createdBy)', () {
+    // The payload reports the creator as a display name, so creator-ownership
+    // needs `userName`. It must agree with the "By Me" scope — both go through
+    // TaskCreatorMatcher.
+    test('staff manages a task they created', () {
       expect(
         TaskAccess.canManageTask(
           roles: staff,
-          task: _task(assigneeCode: 'STF_OTHER', createdBy: 'STF_ME'),
+          task: _task(
+            assigneeCode: 'STF_OTHER',
+            createdBy: 'Suhas Biwalkar',
+          ),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+          userName: 'Suhas Biwalkar',
+        ),
+        isTrue,
+      );
+    });
+
+    test('staff does not manage a task created by someone else', () {
+      expect(
+        TaskAccess.canManageTask(
+          roles: staff,
+          task: _task(
+            assigneeCode: 'STF_OTHER',
+            createdBy: 'Mohan Sonone',
+          ),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+          userName: 'Suhas Biwalkar',
+        ),
+        isFalse,
+      );
+    });
+
+    test('creator-ownership is denied while the display name is unresolved', () {
+      // Fail closed: without a name there is nothing to compare the creator
+      // against, so this must not grant write access to the task.
+      expect(
+        TaskAccess.canManageTask(
+          roles: staff,
+          task: _task(
+            assigneeCode: 'STF_OTHER',
+            createdBy: 'Suhas Biwalkar',
+          ),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+        ),
+        isFalse,
+      );
+    });
+
+    test('assignment ownership still needs no display name', () {
+      // Only the creator half depends on the name; a staff member must never
+      // lose control of a task assigned to them because of it.
+      expect(
+        TaskAccess.canManageTask(
+          roles: staff,
+          task: _task(assigneeCode: 'STF_ME', createdBy: 'Mohan Sonone'),
           userCode: 'USR_ME',
           staffCode: 'STF_ME',
         ),
@@ -146,6 +200,19 @@ void main() {
           staffCode: 'STF_ME',
         ),
         isFalse,
+      );
+    });
+
+    test('forwards the display name so a creator can change status', () {
+      expect(
+        TaskAccess.canChangeStatus(
+          roles: staff,
+          task: _task(assigneeCode: 'STF_OTHER', createdBy: 'Suhas Biwalkar'),
+          userCode: 'USR_ME',
+          staffCode: 'STF_ME',
+          userName: 'Suhas Biwalkar',
+        ),
+        isTrue,
       );
     });
   });
@@ -202,9 +269,10 @@ void main() {
       expect(
         TaskAccess.canViewTask(
           roles: staff,
-          task: _task(assigneeCode: 'STF_OTHER', createdBy: 'STF_ME'),
+          task: _task(assigneeCode: 'STF_OTHER', createdBy: 'Suhas Biwalkar'),
           userCode: 'USR_ME',
           staffCode: 'STF_ME',
+          userName: 'Suhas Biwalkar',
         ),
         isTrue,
       );

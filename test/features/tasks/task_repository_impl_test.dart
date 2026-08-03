@@ -375,15 +375,19 @@ class _FakeImageUpload implements ImageUploadService {
     steps.add('complete');
   }
 
+  /// Set false to model document-ms reporting a FAILED asset.
+  bool attachable = true;
+
   @override
-  Future<void> waitUntilAssetsReady({
+  Future<bool> awaitAssetsAttachable({
     required String sessionCode,
     required List<String> expectedAssetCodes,
     Duration pollEvery = const Duration(seconds: 2),
-    Duration timeout = const Duration(minutes: 2),
+    Duration timeout = const Duration(seconds: 20),
   }) async {
     steps.add('poll');
     waitedFor = expectedAssetCodes;
+    return attachable;
   }
 
   @override
@@ -729,6 +733,18 @@ void main() {
         ['presign', 'put', 'complete', 'presign', 'put', 'complete', 'poll'],
       );
       expect(imageUpload.waitedFor!.length, 2);
+    });
+
+    test('a definitive processing failure aborts the upload', () async {
+      final file = await makeFile(name: 'a.pdf', contentType: 'application/pdf');
+      imageUpload.attachable = false;
+
+      // Only a FAILED asset should stop us — the caller must not attach a code
+      // the server has rejected.
+      await expectLater(
+        repo.uploadAttachments(files: [file]),
+        throwsA(isA<Exception>()),
+      );
     });
 
     test('skips files already uploaded by a previous attempt', () async {

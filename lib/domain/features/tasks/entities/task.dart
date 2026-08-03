@@ -153,6 +153,9 @@ class Task extends Equatable {
     this.dueDay,
     this.createdBy = '',
     this.createdByName = '',
+    this.createdByCode = '',
+    this.updatedBy = '',
+    this.assetCodes = const <String>[],
     this.schoolCode = '',
     required this.createdAt,
     required this.updatedAt,
@@ -204,10 +207,46 @@ class Task extends Equatable {
   final String? startDay;
   final String? dueDay;
 
-  /// Staff code of the creator (PRD audit log). Distinct from [assigneeCode];
-  /// an admin can create a task assigned to someone else.
+  /// The creator as the API reports it (PRD audit log). Distinct from
+  /// [assigneeCode] — an admin can create a task assigned to someone else.
+  ///
+  /// **This is not necessarily an identity.** The events-todo assignment
+  /// payload currently sends `createdBy` as a *display name*
+  /// (`"Suhas Biwalkar"`), so this field holds whatever the service sent and
+  /// [createdByCode] holds a stable code only once the service starts sending
+  /// one. Never compare it to a staff code directly — go through
+  /// `TaskCreatorMatcher`, which owns the "is this mine?" rule for both shapes.
   final String createdBy;
+
+  /// Creator's display name when the payload denormalizes one separately from
+  /// [createdBy]. Prefer [createdByLabel] for display.
   final String createdByName;
+
+  /// Stable staff/user code of the creator, when the payload carries one
+  /// (`createdByCode`/`createdByStaffCode`). Empty against today's backend —
+  /// it is the forward-compatible slot `TaskCreatorMatcher` switches to once
+  /// the service sends a code instead of a name.
+  final String createdByCode;
+
+  /// Who last modified the task, as the API reports it — a display name today,
+  /// same caveat as [createdBy]. Display-only (shown on the detail screen); no
+  /// permission or filter rule reads it.
+  final String updatedBy;
+
+  /// document-microservice asset codes (`AST_…`) attached to the owning series,
+  /// as returned on the assignment payload. This is the authoritative, complete
+  /// set for the series — create/update treat `assetCodes` as a full replace —
+  /// and it is what lets the detail screen show attachments without an
+  /// attachments read endpoint.
+  final List<String> assetCodes;
+
+  /// Creator for display: the denormalized name when there is one, else
+  /// whatever [createdBy] holds (a name, on today's payload).
+  String get createdByLabel =>
+      createdByName.trim().isNotEmpty ? createdByName.trim() : createdBy.trim();
+
+  /// Last modifier for display; empty when the payload omits it.
+  String get updatedByLabel => updatedBy.trim();
 
   /// Owning school (PRD §15.4 `school_id`, row-level security key). Kept for
   /// forward-compatibility with the backend even though local mock data is
@@ -257,6 +296,9 @@ class Task extends Equatable {
     String? Function()? dueDay,
     String? createdBy,
     String? createdByName,
+    String? createdByCode,
+    String? updatedBy,
+    List<String>? assetCodes,
     String? schoolCode,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -286,6 +328,9 @@ class Task extends Equatable {
       dueDay: dueDay != null ? dueDay() : this.dueDay,
       createdBy: createdBy ?? this.createdBy,
       createdByName: createdByName ?? this.createdByName,
+      createdByCode: createdByCode ?? this.createdByCode,
+      updatedBy: updatedBy ?? this.updatedBy,
+      assetCodes: assetCodes ?? this.assetCodes,
       schoolCode: schoolCode ?? this.schoolCode,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -314,6 +359,9 @@ class Task extends Equatable {
         dueDay,
         createdBy,
         createdByName,
+        createdByCode,
+        updatedBy,
+        assetCodes,
         schoolCode,
         createdAt,
         updatedAt,

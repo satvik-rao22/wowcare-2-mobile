@@ -115,6 +115,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             task: task,
             userCode: state.currentUserCode,
             staffCode: state.currentStaffCode,
+            userName: state.currentUserName,
           )) {
             return _noAccess();
           }
@@ -123,6 +124,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             task: task,
             userCode: state.currentUserCode,
             staffCode: state.currentStaffCode,
+            userName: state.currentUserName,
           );
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
@@ -167,7 +169,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     state.attachmentsFor(task),
                     canManage: canManage,
                   ),
-                ] else if (!state.attachmentsAreReadable(task.taskCode)) ...[
+                ] else if (!state.attachmentsReadableForTask(task)) ...[
                   // Say so rather than rendering nothing: "this task has no
                   // attachments" and "we couldn't read them" look identical
                   // otherwise, which is exactly how an attached file appears to
@@ -175,8 +177,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                   const SizedBox(height: 10),
                   _attachmentsUnavailableCard(),
                 ],
-                const SizedBox(height: 14),
-                _footer(task),
+                const SizedBox(height: 10),
+                _auditCard(task),
               ],
             ),
           );
@@ -512,7 +514,9 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               ),
             ),
             Icon(
-              attachment.isDocument
+              // Unknown type resolves on tap, so don't promise "opens
+              // externally" for something that may well preview in-app.
+              attachment.hasKnownType && attachment.isDocument
                   ? Icons.open_in_new_rounded
                   : Icons.chevron_right_rounded,
               size: 18,
@@ -575,12 +579,48 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _footer(Task task) {
-    return Text(
-      'Created by ${task.createdByName.isEmpty ? 'Unknown' : task.createdByName}'
-      ' • ${DateFormat('MMM d, yyyy').format(task.createdAt)}',
-      style: TextStyle(fontSize: 11.5, color: Colors.grey[500]),
+  /// Audit trail — deliberately detail-screen-only: the list/board cards stay
+  /// about the work itself (PRD FR-TK-26), so who touched a task is answered
+  /// here and nowhere else.
+  ///
+  /// The "Last updated" row is dropped when it would only repeat the creation
+  /// row: an untouched task reports `updatedBy == createdBy` at the same instant,
+  /// and showing that twice reads as if something had happened.
+  Widget _auditCard(Task task) {
+    final createdBy = task.createdByLabel;
+    final updatedBy = task.updatedByLabel;
+    final showUpdated = updatedBy.isNotEmpty &&
+        !(updatedBy == createdBy &&
+            !task.updatedAt.isAfter(task.createdAt));
+    return _sectionCard(
+      title: 'Activity',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _detailRow(
+            Icons.person_add_alt_outlined,
+            'Created by',
+            _auditValue(createdBy, task.createdAt),
+          ),
+          if (showUpdated) ...[
+            const SizedBox(height: 8),
+            _detailRow(
+              Icons.history,
+              'Last updated by',
+              _auditValue(updatedBy, task.updatedAt),
+            ),
+          ],
+        ],
+      ),
     );
+  }
+
+  /// `Name • date, time` for an audit row. The instant is a UTC wire value, so
+  /// it is converted to the device's zone before formatting; an unknown author
+  /// still shows its timestamp rather than collapsing the whole row.
+  String _auditValue(String who, DateTime at) {
+    final when = DateFormat('MMM d, yyyy • h:mm a').format(at.toLocal());
+    return '${who.isEmpty ? 'Unknown' : who} • $when';
   }
 
   Widget _sectionCard({required String title, required Widget child}) {

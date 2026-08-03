@@ -27,6 +27,7 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_us
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_creator_match.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_diff.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
@@ -802,10 +803,11 @@ class TasksCubit extends Cubit<TasksState> {
       if (isClosed) return;
       if (cached.isEmpty) {
         debugPrint(
-          'Tasks: attachments read failed for $code ($error). No local '
-          'fallback — the media will not render. This needs '
-          'GET /api/v1/tasks/{code}/attachments (or assetCodes on the task '
-          'read payloads) on events-todo-service.',
+          'Tasks: attachments read failed for $code ($error). Falling back to '
+          "the card's own assetCodes (see TasksState.attachmentsFor), which "
+          'render but carry no file name, size or detachable row code. A real '
+          'GET /api/v1/tasks/{code}/attachments on events-todo-service would '
+          'restore those.',
         );
       }
       // Cache the result either way so a failing endpoint isn't re-hit on every
@@ -1096,12 +1098,17 @@ class TasksCubit extends Cubit<TasksState> {
   /// when the payload carried only codes. A name already on the payload always
   /// wins, and an unknown code is left as-is so the UI degrades to the raw code
   /// rather than blanking out.
+  ///
+  /// The creator lookup is a no-op against today's payload, which already sends
+  /// a display name in `createdBy` — it earns its keep once a creator *code*
+  /// arrives (either key), which is also when it starts resolving namesakes to
+  /// the right person.
   Task _withAssigneeName(Task task) {
     final assigneeName = task.assigneeName.trim().isEmpty
         ? _staffNames[task.assigneeCode]
         : null;
     final createdByName = task.createdByName.trim().isEmpty
-        ? _staffNames[task.createdBy]
+        ? (_staffNames[task.createdByCode] ?? _staffNames[task.createdBy])
         : null;
     if (assigneeName == null && createdByName == null) return task;
     return task.copyWith(

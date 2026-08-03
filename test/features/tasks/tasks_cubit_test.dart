@@ -501,6 +501,38 @@ void main() {
     expect(cubit.state.createdByOptions.single.name, 'Bob Chen');
   });
 
+  test('resolves a creator name from a dedicated creator code too', () async {
+    // Forward-compat with the payload gaining `createdByCode`: the directory
+    // lookup must follow the code, not the display name sitting in `createdBy`.
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1')
+          .copyWith(createdBy: 'Bob C.', createdByCode: 'STF_2'),
+    ];
+    cubit = _buildCubit(repo, staff: [_staff('STF_2', 'Bob Chen')]);
+
+    await cubit.load();
+
+    expect(cubit.state.tasks.single.createdByName, 'Bob Chen');
+  });
+
+  test('a display-name creator survives an unresolvable directory lookup',
+      () async {
+    // Today's payload: `createdBy` is a name, so there is nothing to look up —
+    // the card must keep the name rather than blanking the creator out.
+    repo.tasks = [
+      _card(code: 'TSA_1', taskCode: 'TSK_1')
+          .copyWith(createdBy: 'Suhas Biwalkar'),
+    ];
+    cubit = _buildCubit(repo, staff: [_staff('STF_2', 'Bob Chen')]);
+
+    await cubit.load();
+
+    final task = cubit.state.tasks.single;
+    expect(task.createdByName, '');
+    expect(task.createdByLabel, 'Suhas Biwalkar');
+    expect(cubit.state.createdByOptions.single.name, 'Suhas Biwalkar');
+  });
+
   test('a creator name already on the payload is left alone', () async {
     repo.tasks = [
       _card(code: 'TSA_1', taskCode: 'TSK_1')

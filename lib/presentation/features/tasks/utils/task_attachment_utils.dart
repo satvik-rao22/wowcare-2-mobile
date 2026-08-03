@@ -73,6 +73,23 @@ class TaskAttachmentUtils {
     return (icon: Icons.insert_drive_file_rounded, color: const Color(0xFF6B7280));
   }
 
+  /// Whether an upload round that was responsible for [attempted] (file paths)
+  /// achieved anything, given what is [stillOutstanding] afterwards.
+  ///
+  /// The upload loop needs this to know when to stop, and it must compare the
+  /// *same files* rather than list lengths: picking another attachment while a
+  /// batch is in flight grows the outstanding list, so a length comparison reads
+  /// a perfectly successful round as "no progress" and abandons the newly added
+  /// file. Getting this wrong is silent — the file simply never uploads until
+  /// the save retries it.
+  static bool uploadRoundMadeProgress({
+    required Set<String> attempted,
+    required Set<String> stillOutstanding,
+  }) {
+    if (attempted.isEmpty) return false;
+    return !stillOutstanding.containsAll(attempted);
+  }
+
   /// Resolves an attachment to a playable/viewable URL, preferring what the
   /// list payload already carried and falling back to a document-microservice
   /// lookup by asset code (cached and de-duped by [ImageUploadService]).
@@ -116,13 +133,18 @@ class TaskAttachmentUtils {
       return;
     }
 
-    if (attachment.isImage || attachment.isVideo) {
+    // An attachment known only by asset code has no type until the URL resolves,
+    // so classify against the resolved URL rather than the bare code — otherwise
+    // every such image would be handed to the OS as a document.
+    final resolved = attachment.withResolvedUrl(url);
+
+    if (resolved.isImage || resolved.isVideo) {
       await Navigator.of(context).push<void>(
         MaterialPageRoute<void>(
           builder: (_) => ShowFullScreenMediaView(
-            imageUrl: attachment.isImage ? url : null,
-            videoUrl: attachment.isVideo ? url : null,
-            title: attachment.fileName.isEmpty ? null : attachment.fileName,
+            imageUrl: resolved.isImage ? url : null,
+            videoUrl: resolved.isVideo ? url : null,
+            title: resolved.fileName.isEmpty ? null : resolved.fileName,
           ),
         ),
       );
@@ -132,7 +154,7 @@ class TaskAttachmentUtils {
     await _openExternally(
       context: context,
       url: url,
-      fileName: attachment.fileName,
+      fileName: resolved.fileName,
     );
   }
 
