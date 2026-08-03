@@ -51,6 +51,7 @@ import '../../domain/features/events/usecases/save_holiday_usecase.dart';
 import '../../domain/features/events/usecases/set_holiday_status_usecase.dart';
 import '../../domain/features/events/usecases/respond_to_event_usecase.dart';
 import '../../domain/features/events/usecases/update_event_usecase.dart';
+import '../../domain/features/events/usecases/upload_event_attachments_usecase.dart';
 import '../../presentation/features/events/cubit/events_cubit.dart';
 import '../../data/features/tasks/datasources/task_remote_datasource.dart';
 import '../../data/features/tasks/repositories/task_repository_impl.dart';
@@ -457,6 +458,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<CreateEventUseCase>(
     () => CreateEventUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UploadEventAttachmentsUseCase>(
+    () => UploadEventAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
+  );
   serviceLocator.registerFactory<UpdateEventUseCase>(
     () => UpdateEventUseCase(serviceLocator()),
   );
@@ -512,6 +519,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<SetHolidayStatusUseCase>(),
       serviceLocator<DeleteHolidayUseCase>(),
       serviceLocator<StorageService>(),
+      serviceLocator<UploadEventAttachmentsUseCase>(),
     ),
   );
 

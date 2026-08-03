@@ -1,5 +1,6 @@
 import '../entities/calendar_feed_item.dart';
 import '../entities/event.dart';
+import '../entities/event_upload_session.dart';
 import '../entities/holiday.dart';
 
 abstract class EventRepository {
@@ -32,12 +33,21 @@ abstract class EventRepository {
 
   Future<Event?> getEventByCode(String code);
 
-  Future<Event> createEvent(Event event);
+  Future<Event> createEvent(Event event, {List<String> assetCodes});
 
   /// Updates the series (scope ALL); with [splitFromOccurrenceCode] the
   /// series splits at that occurrence (THIS_AND_FUTURE) and the returned
   /// event is the NEW series covering this date onward.
-  Future<Event> updateEvent(Event event, {String splitFromOccurrenceCode});
+  Future<Event> updateEvent(
+    Event event, {
+    String splitFromOccurrenceCode,
+    List<String>? assetCodes,
+  });
+
+  /// Opens a shared upload session for event attachments
+  /// (`POST /events/upload-session`) without uploading anything, so a
+  /// multi-file upload can presign every file against one session.
+  Future<EventUploadSession> createUploadSession();
 
   /// Deletes the series (scope ALL); with [fromOccurrenceCode] only this
   /// occurrence and later ones are cancelled (THIS_AND_FUTURE).

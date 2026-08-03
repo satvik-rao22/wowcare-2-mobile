@@ -21,6 +21,7 @@ import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 
 /// Create/edit form for an event. A single scrollable mobile form replaces
 /// the web design's multi-step wizard: basics up top, audience pickers
@@ -81,13 +82,18 @@ class _EventFormScreenState extends State<EventFormScreen> {
   bool _recurEndManual = false;
   bool _includeParents = false;
 
-  /// Files picked on this form but not yet uploaded.
+  /// Files picked on this form, uploaded inside [_save] — so an abandoned form
+  /// uploads nothing.
   ///
-  /// These are held locally until save. Nothing is sent yet: the events API
-  /// accepts no `assetCodes` on create/update and returns none on read, so
-  /// there is nowhere to put them. Once that lands, [_save] uploads these and
-  /// passes the resulting asset codes through — the picker UI does not change.
+  /// Existing attachments on an edited event are not prefilled: no event read
+  /// returns an assets list, so there is nothing to load. See
+  /// [_attachmentNotice].
   List<PickedFile> _attachments = const [];
+
+  /// Live per-file upload progress while a save is running; null otherwise.
+  AttachmentUploadState? _uploadState;
+
+  bool get _isUploading => _uploadState?.isUploading ?? false;
 
   List<EventAttendee> _classrooms = const [];
   List<EventAttendee> _students = const [];
@@ -310,7 +316,17 @@ class _EventFormScreenState extends State<EventFormScreen> {
                 AttachmentPickerField(
                   files: _attachments,
                   onChanged: (files) => setState(() => _attachments = files),
+                  // The EVENT upload session reports maxAssetCount 25 (TASK
+                  // reports 5). The session is authoritative but is only opened
+                  // on save, after picking — so this mirrors the observed value
+                  // rather than reading it.
+                  maxFiles: 25,
+                  // Locked mid-upload: the manager is already iterating this
+                  // list and the asset codes are tied to what it was handed.
+                  enabled: !_isUploading,
+                  uploadState: _uploadState,
                 ),
+                ..._attachmentNotice(),
               ],
               const SizedBox(height: 14),
               _label('Attendees', required: _type != EventType.school),
@@ -1107,7 +1123,8 @@ class _EventFormScreenState extends State<EventFormScreen> {
   Widget _saveButton() {
     return BlocBuilder<EventsCubit, EventsState>(
       builder: (context, state) {
-        final canSave = _isFormValid && !state.isSaving;
+        final busy = state.isSaving || _isUploading;
+        final canSave = _isFormValid && !busy;
         return SizedBox(
           height: 46,
           child: DecoratedBox(
@@ -1125,14 +1142,32 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: state.isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+              child: busy
+                  // While attachments are moving, say so and show how far — a
+                  // bare spinner on a multi-file upload reads as a hang.
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (_isUploading) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            _uploadState!.summary,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
                     )
                   : Text(
                       _isEditing ? 'Save Changes' : 'Create Event',
@@ -1258,12 +1293,46 @@ class _EventFormScreenState extends State<EventFormScreen> {
       if (occOk) context.pop();
       return;
     }
+    // Upload the staged files only now, on submit: one session, one batched
+    // presign, bounded-parallel transfers. A failed upload aborts the save so an
+    // event is never persisted without the attachments it was meant to carry.
+    List<String> uploadedAssetCodes = const [];
+    if (_attachments.isNotEmpty) {
+      final result = await cubit.uploadAttachments(
+        files: _attachments,
+        onProgress: (state) {
+          if (mounted) setState(() => _uploadState = state);
+        },
+      );
+      if (!mounted) return;
+      setState(() => _uploadState = result);
+
+      if (!result.allSucceeded) {
+        // Partial success is still a failed save: dropping the files that did
+        // not make it would be worse than not saving. The per-card overlays
+        // already show which ones, so the toast stays short.
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: result.summary,
+          isError: true,
+        );
+        setState(() => _uploadState = null);
+        return;
+      }
+      uploadedAssetCodes = result.assetCodes;
+    }
+
     final ok = _isEditing
         ? await cubit.update(
             event,
             splitFromOccurrenceCode: widget.splitFromOccurrenceCode ?? '',
+            // Full replace when files were staged, untouched otherwise — the
+            // form cannot show what is already attached, so it must not claim
+            // to know the user cleared it.
+            assetCodes:
+                uploadedAssetCodes.isEmpty ? null : uploadedAssetCodes,
           )
-        : await cubit.create(event);
+        : await cubit.create(event, assetCodes: uploadedAssetCodes);
     if (!mounted) return;
     if (ok) {
       CoreUtils.showTopSnackBar(
@@ -1339,6 +1408,48 @@ class _EventFormScreenState extends State<EventFormScreen> {
         ],
       ),
     );
+  }
+
+  // ------------------------------------------------------- attachments
+
+  /// Warning shown on edit once files are staged.
+  ///
+  /// `assetCodes` is a full replace, and the form cannot show what is already
+  /// attached because no event read returns an assets list. Saving new files
+  /// therefore drops whatever was there, and the honest thing is to say so.
+  List<Widget> _attachmentNotice() {
+    if (!_isEditing || _attachments.isEmpty) return const [];
+    return [
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.warningColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.warningColor.withValues(alpha: 0.35),
+          ),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.info_outline_rounded,
+              size: 15,
+              color: AppColors.warningColor,
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                'Saving replaces any files already attached to this event. '
+                'Existing attachments cannot be shown yet.',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey[800]),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
   }
 
   // ------------------------------------------------------------ helpers

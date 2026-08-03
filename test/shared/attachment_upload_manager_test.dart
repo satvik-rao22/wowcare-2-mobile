@@ -24,6 +24,10 @@ class _FakeUploadService implements ImageUploadService {
   /// Asset codes the session reports as FAILED instead of READY.
   Set<String> processingFailures = {};
 
+  /// Status the `complete` response reports. Real services return `UPLOADED`
+  /// for both the TASK and EVENT domains.
+  String completeStatus = 'UPLOADED';
+
   Object? presignError;
 
   /// Held open long enough for concurrent transfers to overlap observably.
@@ -76,12 +80,19 @@ class _FakeUploadService implements ImageUploadService {
   }
 
   @override
-  Future<void> completeAssetUpload({
+  Future<AssetCompleteResult> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
   }) async {
     completeCalls++;
+    return AssetCompleteResult(
+      assetCode: assetCode,
+      status: completeStatus,
+      fileName: 'x',
+      contentType: 'image/jpeg',
+      sizeBytes: 100,
+    );
   }
 
   @override
@@ -146,8 +157,8 @@ void main() {
     expect(service.presignBatchCalls, 1);
     expect(service.lastPresignAssets.length, 3);
     expect(service.completeCalls, 3);
-    // One poll covers the batch, not one per file.
-    expect(service.statusPolls, 1);
+    // `complete` already said UPLOADED, so the session is never re-fetched.
+    expect(service.statusPolls, 0);
 
     expect(state.allSucceeded, isTrue);
     expect(state.assetCodes, ['AST_0', 'AST_1', 'AST_2']);
@@ -198,6 +209,8 @@ void main() {
   });
 
   test('an asset that fails processing is reported per-file', () async {
+    // Only reachable when `complete` leaves the asset in a transient state.
+    service.completeStatus = 'PROCESSING';
     service.processingFailures = {'AST_1'};
 
     final state = await manager.upload(
@@ -211,6 +224,76 @@ void main() {
       state.items[1].status,
       AttachmentUploadStatus.failed,
     );
+  });
+
+  group('completion status decides readiness (no polling for UPLOADED)', () {
+    test('UPLOADED is terminal — the EVENT domain never reaches READY', () async {
+      // Regression: events assets stay UPLOADED forever. Waiting for READY
+      // polled the session 20-40 times and the event was never created.
+      service.completeStatus = 'UPLOADED';
+
+      final state = await manager.upload(
+        files: [_file('a.jpg')],
+        openSession: openSession,
+      );
+
+      expect(service.statusPolls, 0, reason: 'must not poll for UPLOADED');
+      expect(state.allSucceeded, isTrue);
+      expect(state.assetCodes, ['AST_0']);
+    });
+
+    test('READY is terminal too, still without polling', () async {
+      service.completeStatus = 'READY';
+
+      final state = await manager.upload(
+        files: [_file('a.jpg')],
+        openSession: openSession,
+      );
+
+      expect(service.statusPolls, 0);
+      expect(state.assetCodes, ['AST_0']);
+    });
+
+    test('a missing status is treated as attachable', () async {
+      // A successful complete is itself proof the bytes landed; an older
+      // response shape must not strand the upload.
+      service.completeStatus = '';
+
+      final state = await manager.upload(
+        files: [_file('a.jpg')],
+        openSession: openSession,
+      );
+
+      expect(service.statusPolls, 0);
+      expect(state.allSucceeded, isTrue);
+    });
+
+    test('FAILED at completion fails that file without polling', () async {
+      service.completeStatus = 'FAILED';
+
+      final state = await manager.upload(
+        files: [_file('a.jpg')],
+        openSession: openSession,
+      );
+
+      expect(service.statusPolls, 0);
+      expect(state.allSucceeded, isFalse);
+      expect(state.failedItems.single.error, 'Upload was rejected');
+      expect(state.assetCodes, isEmpty);
+    });
+
+    test('a transient status does fall back to one batched poll', () async {
+      service.completeStatus = 'PROCESSING';
+
+      final state = await manager.upload(
+        files: [_file('a.jpg'), _file('b.jpg')],
+        openSession: openSession,
+      );
+
+      // One poll for the pair, not one each.
+      expect(service.statusPolls, 1);
+      expect(state.assetCodes, ['AST_0', 'AST_1']);
+    });
   });
 
   test('a failed session is fatal and never reaches presign', () async {

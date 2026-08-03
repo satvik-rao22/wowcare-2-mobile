@@ -48,9 +48,12 @@ class AttachmentUploadManager {
   /// Uploads [files] within a session from [openSession].
   ///
   /// [onProgress] fires on every state change so a form can render per-file
-  /// progress. [waitForReady] can be turned off if the consuming API is happy
-  /// to accept assets still in `UPLOADED` — that skips a multi-second wait, but
-  /// only do it once the API has confirmed it tolerates non-ready codes.
+  /// progress.
+  ///
+  /// [waitForReady] only matters for a status `complete` reports as neither
+  /// attachable nor failed, which no domain currently returns — normally every
+  /// file is resolved by its completion response and nothing is polled. Set it
+  /// false to skip that fallback entirely.
   Future<AttachmentUploadState> upload({
     required List<PickedFile> files,
     required UploadSessionOpener openSession,
@@ -161,10 +164,14 @@ class AttachmentUploadManager {
     return state;
   }
 
-  /// Streams one file to storage, then marks it complete.
+  /// Streams one file to storage, marks it complete, and resolves its state from
+  /// the completion response.
   ///
-  /// Leaves the item in `processing` — the asset is uploaded but the service has
-  /// not finished finalizing it, which [_awaitReady] resolves for the batch.
+  /// `complete` already returns the asset's status and metadata, so in the
+  /// normal case (`UPLOADED`) the file is `done` right here and no session fetch
+  /// happens at all. Only a status that is neither attachable nor failed leaves
+  /// the item `processing` for [_awaitReady] to resolve — which is what the
+  /// EVENT domain never reaches, since its assets stay `UPLOADED` for good.
   Future<void> _transferOne({
     required int index,
     required PickedFile file,
@@ -196,16 +203,32 @@ class AttachmentUploadManager {
         },
       );
 
-      await _uploadService.completeAssetUpload(
+      final completed = await _uploadService.completeAssetUpload(
         sessionCode: session.sessionCode,
         assetCode: presign.assetCode,
         documentApiBasePath: session.documentApiBasePath,
       );
 
+      if (completed.isFailed) {
+        update(
+          index,
+          currentItem().copyWith(
+            status: AttachmentUploadStatus.failed,
+            error: 'Upload was rejected',
+            sentBytes: file.sizeBytes,
+          ),
+        );
+        return;
+      }
+
       update(
         index,
         currentItem().copyWith(
-          status: AttachmentUploadStatus.processing,
+          // Attachable now → done, no polling. Anything else is a genuinely
+          // transient state and gets resolved by [_awaitReady].
+          status: completed.isAttachable
+              ? AttachmentUploadStatus.done
+              : AttachmentUploadStatus.processing,
           sentBytes: file.sizeBytes,
         ),
       );
@@ -220,7 +243,13 @@ class AttachmentUploadManager {
     }
   }
 
-  /// Polls the session until every uploaded asset is `READY` (or has failed).
+  /// Resolves any asset left in a transient state after `complete`.
+  ///
+  /// In practice this returns immediately without a single request, because
+  /// `complete` already reported `UPLOADED` and [_transferOne] marked the file
+  /// done. It only does real work if a domain ever reports a genuinely
+  /// intermediate status, and it accepts `UPLOADED` as terminal — waiting for
+  /// `READY` alone is what made event saves hang.
   ///
   /// One poll covers the whole batch — the session response lists every asset —
   /// so this costs the same for ten files as for one. Statuses are read
@@ -273,7 +302,7 @@ class AttachmentUploadManager {
       for (final index in indexes) {
         final code = items[index].assetCode ?? '';
         final status = (statuses[code] ?? '').toUpperCase();
-        if (status == 'READY') {
+        if (status == 'READY' || status == 'UPLOADED') {
           items[index] = items[index].copyWith(
             status: AttachmentUploadStatus.done,
           );

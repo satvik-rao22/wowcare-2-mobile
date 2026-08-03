@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
+import 'package:wowcare/domain/features/events/entities/event_upload_session.dart';
 
 /// JSON-serializable event DTO. The shape mirrors what the future events
 /// API is expected to return (ISO-8601 dates, uppercase enum codes), so the
@@ -279,7 +280,10 @@ class EventModel extends Equatable {
   /// Builds the `POST /api/v1/events` body (§4.1 of the frontend contract)
   /// from a form draft. Times go as `HH:mm:ss` and are omitted for all-day
   /// events; the recurrence is encoded as an RFC 5545 `rrule`.
-  static Map<String, dynamic> createBody(Event event) {
+  static Map<String, dynamic> createBody(
+    Event event, {
+    List<String> assetCodes = const [],
+  }) {
     return <String, dynamic>{
       'type': event.type.value,
       'name': event.name,
@@ -296,20 +300,51 @@ class EventModel extends Equatable {
       if (event.recurring && event.recurrence != null)
         'rrule': buildRrule(event),
       'audiences': _audiences(event),
+      // Ready asset codes from the upload session. Omitted when empty so an
+      // event with no attachments does not send an empty array.
+      if (assetCodes.isNotEmpty) 'attachmentAssetCodes': assetCodes,
     };
   }
 
   /// Builds the `PATCH /api/v1/events/{code}` body. Everything is editable
   /// except the event type (and its derived audience scope) — changing the
   /// type means delete + recreate.
-  static Map<String, dynamic> updateBody(Event event) {
-    final body = createBody(event)
+  static Map<String, dynamic> updateBody(
+    Event event, {
+    List<String>? assetCodes,
+  }) {
+    final body = createBody(event, assetCodes: assetCodes ?? const [])
       ..remove('type')
       ..remove('audienceScope');
     // Sent even when empty so a cleared description persists (PATCH
     // treats only OMITTED fields as untouched; createBody omits blanks).
     body['description'] = event.description;
+    // Full replace when present, untouched when null — so a save that staged no
+    // new files leaves the existing attachments alone.
+    if (assetCodes != null) body['attachmentAssetCodes'] = assetCodes;
     return body;
+  }
+
+  /// Parses `POST /events/upload-session`, falling back to
+  /// [fallbackDocumentBasePath] when the response omits the document base path.
+  static EventUploadSession uploadSession(
+    dynamic raw, {
+    required String fallbackDocumentBasePath,
+  }) {
+    final data = raw is Map<String, dynamic> ? raw['data'] : null;
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected event upload-session response format');
+    }
+    final sessionCode = (data['sessionCode'] ?? '').toString().trim();
+    if (sessionCode.isEmpty) {
+      throw Exception('Event upload session code is missing');
+    }
+    final basePath = (data['documentApiBasePath'] ?? '').toString().trim();
+    return EventUploadSession(
+      sessionCode: sessionCode,
+      documentApiBasePath:
+          basePath.isEmpty ? fallbackDocumentBasePath : basePath,
+    );
   }
 
   /// `AudienceScope` derived from the UI's event type (§4.2). CUSTOM and

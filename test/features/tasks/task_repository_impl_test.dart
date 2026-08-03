@@ -346,12 +346,13 @@ class _FakeImageUpload implements ImageUploadService {
   }
 
   @override
-  Future<void> completeAssetUpload({
+  Future<AssetCompleteResult> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
   }) async {
     steps.add('complete');
+    return AssetCompleteResult(assetCode: assetCode, status: 'UPLOADED');
   }
 
   @override

@@ -359,7 +359,13 @@ class ImageUploadService {
     return base64Encode(sha256.convert(bytes).bytes);
   }
 
-  Future<void> completeAssetUpload({
+  /// Marks an uploaded asset complete, returning the asset as the service now
+  /// sees it.
+  ///
+  /// The response carries `status` plus the full metadata, so callers can decide
+  /// whether the asset is attachable without a follow-up session fetch. Existing
+  /// callers that ignore the return value keep working unchanged.
+  Future<AssetCompleteResult> completeAssetUpload({
     required String sessionCode,
     required String assetCode,
     required String documentApiBasePath,
@@ -372,7 +378,16 @@ class ImageUploadService {
     );
     final endpoint = '$origin$path';
 
-    await _apiClient.client.post<dynamic>(endpoint);
+    final response = await _apiClient.client.post<dynamic>(endpoint);
+
+    final body = response.data;
+    final data = body is Map<String, dynamic> ? body['data'] : null;
+    if (data is Map<String, dynamic>) {
+      return AssetCompleteResult.fromJson(data);
+    }
+    // Envelope missing or shaped unexpectedly: the POST succeeded, so treat the
+    // asset as complete with an unknown status rather than failing the upload.
+    return AssetCompleteResult(assetCode: assetCode, status: '');
   }
 
   Future<void> uploadFileToPresignedUrl({
