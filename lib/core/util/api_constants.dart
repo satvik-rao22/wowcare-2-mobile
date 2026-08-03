@@ -198,9 +198,11 @@ class ApiConstants {
           ? ApiConstantsUat.newsLatterBaseUrl
           : _dev.gatewayUrl();
 
-  /// Notification MS — DEV server doesn't list one; fall back to the user host.
+  /// Notification MS — served by the communication service, so on DEV it
+  /// shares that service's port (8089). Matching [communicationBaseUrl] here
+  /// is intentional; don't "de-duplicate" it.
   static String get notificationBaseUrl => isDev
-      ? _devUrl(8082)
+      ? _devUrl(8089)
       : isUat
           ? ApiConstantsUat.notificationBaseUrl
           : _dev.gatewayUrl();
