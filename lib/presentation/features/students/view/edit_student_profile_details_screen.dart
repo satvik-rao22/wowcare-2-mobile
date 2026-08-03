@@ -20,6 +20,8 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
+import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
+import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
@@ -574,6 +576,33 @@ class _EditStudentProfileDetailsScreenState
       );
       return;
     }
+
+    // WARN (never block) when the DOB is outside the selected classroom's age
+    // range. An out-of-range placement is a legitimate staff decision, so we
+    // surface it and let them proceed — matching the web "warn but allow".
+    ClassroomCubit? classroomCubitForWarning;
+    try {
+      classroomCubitForWarning = context.read<ClassroomCubit>();
+    } catch (_) {
+      classroomCubitForWarning = null;
+    }
+    final classroomsForWarning =
+        classroomCubitForWarning?.state.classrooms ?? const <Classroom>[];
+    final matchingClassrooms = classroomsForWarning.where(
+      (c) => c.name == _selectedClassroom || c.code == _selectedClassroom,
+    );
+    if (matchingClassrooms.isNotEmpty) {
+      final ageWarning = classroomAgeRangeWarning(
+        classroom: matchingClassrooms.first,
+        birthDate: _selectedBirthDate,
+        studentName: first,
+      );
+      if (ageWarning != null) {
+        final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
+        if (!proceedAnyway || !mounted) return;
+      }
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -733,6 +762,24 @@ class _EditStudentProfileDetailsScreenState
         isError: true,
       );
     }
+  }
+
+  /// Amber confirm for an out-of-range DOB. Returns true to proceed anyway.
+  Future<bool> _confirmAgeOutsideRange(String message) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ConfirmationBottomSheet(
+        icon: Icons.warning_amber_rounded,
+        title: message,
+        confirmText: 'Continue anyway',
+        cancelText: 'Cancel',
+        onConfirm: () => Navigator.of(ctx).pop(true),
+        onCancel: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    return result == true;
   }
 
   Future<void> _selectBirthDate() async {

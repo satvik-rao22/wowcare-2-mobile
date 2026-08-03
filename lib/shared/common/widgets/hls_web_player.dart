@@ -114,6 +114,15 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
       final controller = _controller;
       if (controller == null) return;
+      // BetterPlayer locks the player box to a 16:9 AspectRatio unless told
+      // otherwise, which letterboxes/crops portrait videos. Match the box to
+      // the video's real ratio so vertical videos render at their native size.
+      final videoAspectRatio = controller.videoPlayerController?.value.aspectRatio;
+      if (videoAspectRatio != null &&
+          videoAspectRatio > 0 &&
+          videoAspectRatio.isFinite) {
+        controller.setOverriddenAspectRatio(videoAspectRatio);
+      }
       // Keep content visible and avoid crop for tall portrait videos.
       controller.setOverriddenFit(BoxFit.contain);
     }
