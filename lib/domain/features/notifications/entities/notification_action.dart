@@ -45,9 +45,19 @@ class NotificationAction {
   static const String birthday = 'BIRTHDAY';
   static const String upcomingClassroomEvent = 'UPCOMING_CLASSROOM_EVENT';
   static const String upcomingEvent = 'UPCOMING_EVENT';
-  static const String assignTask = 'ASSIGN_TASK';
-  static const String taskDue = 'TASK_DUE';
+
+  // ── Tasks ───────────────────────────────────────────────────────────────
+  // The six actions the Tasks backend fires, per the push payload contract.
+  // Every one carries `taskCode` + `organizationCode`/`schoolCode`; the three
+  // assignment-scoped ones also carry `assignmentCode`, which nothing consumes
+  // yet — there is no assignment-detail screen, so they open the task's own
+  // detail screen by `taskCode` (see NotificationRouteResolver).
+  static const String taskAssigned = 'TASK_ASSIGNED';
+  static const String taskUpdated = 'TASK_UPDATED';
+  static const String taskDeleted = 'TASK_DELETED';
+  static const String taskStatusUpdated = 'TASK_STATUS_UPDATED';
   static const String taskOverdue = 'TASK_OVERDUE';
+  static const String taskDueSoon = 'TASK_DUE_SOON';
 
   // ── Scheduling ──────────────────────────────────────────────────────────
   static const String publishShift = 'PUBLISH_SHIFT';
@@ -101,6 +111,10 @@ class NotificationAction {
     'CREATE_CLASSROOM': addClassroom,
     'EDIT_STUDENT': addStudent, // edits land on the student list, highlighted
     'EDIT_STAFF': deleteStaff, // (DELETE_* here just means "staff list" target)
+    // Task action names this app shipped with, superseded by the contract's
+    // TASK_* set above. Kept so an older backend build still routes.
+    'ASSIGN_TASK': taskAssigned,
+    'TASK_DUE': taskDueSoon,
   };
 
   /// Normalises a raw backend action to its canonical constant.

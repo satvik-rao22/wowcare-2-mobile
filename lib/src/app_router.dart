@@ -560,7 +560,13 @@ final GoRouter appRouter = GoRouter(
                           ..applyPersona(context.read<RoleCubit>().role)
                           ..load(silent: true),
                         child: TaskDetailScreen(
-                          taskCode: args?['taskCode'] as String? ?? '',
+                          // `extra` when pushed in-app (calendar / tasks list);
+                          // the query param when deep-linked from a
+                          // notification, where `go(location)` carries a URL
+                          // and nothing else.
+                          taskCode: (args?['taskCode'] as String?) ??
+                              state.uri.queryParameters['taskCode'] ??
+                              '',
                         ),
                       ),
                     );

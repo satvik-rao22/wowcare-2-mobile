@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -10,8 +12,11 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../domain/features/notifications/entities/app_notification.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
+import '../../../../src/app_router.dart';
 import '../cubit/notification_center_cubit.dart';
+import '../routing/notification_route_resolver.dart';
 import '../widgets/notification_card.dart';
 
 /// The notification center opened from the app-bar bell.
@@ -193,6 +198,28 @@ class _ActionsRow extends StatelessWidget {
 class _NotificationsList extends StatelessWidget {
   const _NotificationsList();
 
+  /// Mark the item read, then deep-link where the equivalent PUSH tap would go.
+  ///
+  /// In-app items carry the same `action` + code keys as the FCM `data` map, so
+  /// this goes through the same [NotificationRouteResolver] table as push —
+  /// the two channels cannot drift apart. `go` (not `push`) is deliberate: it
+  /// leaves the user on the same stack a push tap would ([Dashboard, target]),
+  /// so Back behaves identically no matter which channel opened the screen.
+  void _onNotificationTap(BuildContext context, AppNotification notification) {
+    unawaited(
+      context.read<NotificationCenterCubit>().markAsRead(notification.id),
+    );
+    final destination =
+        NotificationRouteResolver.resolveData(notification.data);
+    // No action / unmapped action, or an action whose target IS this screen
+    // (TASK_DELETED): stay put — marking it read is the whole interaction.
+    if (destination == null ||
+        destination.path == NotificationCenterScreen.routeName) {
+      return;
+    }
+    appRouter.go(destination.location);
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
@@ -228,9 +255,7 @@ class _NotificationsList extends StatelessWidget {
                     final notification = items[index];
                     return NotificationCard(
                       notification: notification,
-                      onTap: () => context
-                          .read<NotificationCenterCubit>()
-                          .markAsRead(notification.id),
+                      onTap: () => _onNotificationTap(context, notification),
                     );
                   },
                 ),
