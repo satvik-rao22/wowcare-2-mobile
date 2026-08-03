@@ -9,7 +9,9 @@ class MarkStudentsAbsentUseCase {
   static String _ymd(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  /// Backend expects one POST per calendar day; expands [absenceFromDate]–[absenceToDate] inclusive.
+  /// Marks students absent for every calendar day in [absenceFromDate]–[absenceToDate].
+  /// The backend creates exactly one record per POST call, so this iterates the
+  /// range and posts once per day.
   Future<String> call({
     required String staffCode,
     required List<String> studentCodes,

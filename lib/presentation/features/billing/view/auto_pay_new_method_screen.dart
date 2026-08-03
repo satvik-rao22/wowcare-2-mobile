@@ -7,6 +7,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
 
 class AutoPayNewMethodScreen extends StatefulWidget {
   const AutoPayNewMethodScreen({super.key});
@@ -71,7 +72,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
         builder: (context, state) {
     final responsive = ResponsiveHelper(context);
     final months = List<String>.generate(12, (i) => '${i + 1}'.padLeft(2, '0'));
-    final currentYear = DateTime.now().year;
+    final currentYear = billingSchoolCurrentYear();
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
     return StaffFormLayout(

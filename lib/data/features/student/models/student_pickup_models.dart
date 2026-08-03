@@ -13,6 +13,8 @@ class StudentPickupModel extends Equatable {
     this.relationshipDescription,
     this.pickupType,
     this.carpoolId,
+    this.profilePhotoUrl,
+    this.profilePhotoAssetCode,
   });
 
   final String? code;
@@ -26,10 +28,20 @@ class StudentPickupModel extends Equatable {
   final String? relationshipDescription;
   final String? pickupType;
   final String? carpoolId;
+  final String? profilePhotoUrl;
+  final String? profilePhotoAssetCode;
 
   String get fullName => ('$firstName $lastName').trim();
 
   factory StudentPickupModel.fromJson(Map<String, dynamic> json) {
+    String? firstNonEmpty(List<String> keys) {
+      for (final k in keys) {
+        final v = (json[k] as Object?)?.toString().trim() ?? '';
+        if (v.isNotEmpty) return v;
+      }
+      return null;
+    }
+
     return StudentPickupModel(
       code: (json['code'] ?? json['pickupCode'] ?? json['pickup_code']) as String?,
       studentCode: json['studentCode'] as String?,
@@ -42,6 +54,12 @@ class StudentPickupModel extends Equatable {
       relationshipDescription: json['relationshipDescription'] as String?,
       pickupType: json['pickupType'] as String?,
       carpoolId: (json['carpoolId'] ?? json['guardianCode']) as String?,
+      profilePhotoUrl: firstNonEmpty(
+        const ['profilePhotoUrl', 'photoUrl', 'profileImageUrl', 'imageUrl'],
+      ),
+      profilePhotoAssetCode: firstNonEmpty(
+        const ['profilePhotoAssetCode', 'photoAssetCode', 'mediaAssetCode'],
+      ),
     );
   }
 
@@ -58,6 +76,8 @@ class StudentPickupModel extends Equatable {
         relationshipDescription,
         pickupType,
         carpoolId,
+        profilePhotoUrl,
+        profilePhotoAssetCode,
       ];
 }
 

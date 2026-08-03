@@ -53,7 +53,7 @@ class StudentMarkAbsentState extends Equatable {
   });
 
   factory StudentMarkAbsentState.initial() {
-    final now = DateTime.now();
+    final now = ServerTimeService.instance.now();
     final today = DateTime(now.year, now.month, now.day);
     return StudentMarkAbsentState(
       students: const <StudentEntity>[],

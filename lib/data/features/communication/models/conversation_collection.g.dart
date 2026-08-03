@@ -79,38 +79,53 @@ const ConversationCollectionSchema = CollectionSchema(
       type: IsarType.objectList,
       target: r'ConversationParticipantCollection',
     ),
-    r'schoolCode': PropertySchema(
+    r'privateModeActivatedAt': PropertySchema(
       id: 12,
+      name: r'privateModeActivatedAt',
+      type: IsarType.dateTime,
+    ),
+    r'privateModeActivatedBy': PropertySchema(
+      id: 13,
+      name: r'privateModeActivatedBy',
+      type: IsarType.string,
+    ),
+    r'privateModeActive': PropertySchema(
+      id: 14,
+      name: r'privateModeActive',
+      type: IsarType.bool,
+    ),
+    r'schoolCode': PropertySchema(
+      id: 15,
       name: r'schoolCode',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 13,
+      id: 16,
       name: r'status',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 14,
+      id: 17,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 15,
+      id: 18,
       name: r'type',
       type: IsarType.string,
     ),
     r'unreadCount': PropertySchema(
-      id: 16,
+      id: 19,
       name: r'unreadCount',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 17,
+      id: 20,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedBy': PropertySchema(
-      id: 18,
+      id: 21,
       name: r'updatedBy',
       type: IsarType.string,
     )
@@ -164,6 +179,12 @@ int _conversationCollectionEstimateSize(
       }
     }
   }
+  {
+    final value = object.privateModeActivatedBy;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.schoolCode.length * 3;
   bytesCount += 3 + object.status.length * 3;
   bytesCount += 3 + object.title.length * 3;
@@ -195,13 +216,16 @@ void _conversationCollectionSerialize(
     ConversationParticipantCollectionSchema.serialize,
     object.participants,
   );
-  writer.writeString(offsets[12], object.schoolCode);
-  writer.writeString(offsets[13], object.status);
-  writer.writeString(offsets[14], object.title);
-  writer.writeString(offsets[15], object.type);
-  writer.writeLong(offsets[16], object.unreadCount);
-  writer.writeDateTime(offsets[17], object.updatedAt);
-  writer.writeString(offsets[18], object.updatedBy);
+  writer.writeDateTime(offsets[12], object.privateModeActivatedAt);
+  writer.writeString(offsets[13], object.privateModeActivatedBy);
+  writer.writeBool(offsets[14], object.privateModeActive);
+  writer.writeString(offsets[15], object.schoolCode);
+  writer.writeString(offsets[16], object.status);
+  writer.writeString(offsets[17], object.title);
+  writer.writeString(offsets[18], object.type);
+  writer.writeLong(offsets[19], object.unreadCount);
+  writer.writeDateTime(offsets[20], object.updatedAt);
+  writer.writeString(offsets[21], object.updatedBy);
 }
 
 ConversationCollection _conversationCollectionDeserialize(
@@ -229,13 +253,16 @@ ConversationCollection _conversationCollectionDeserialize(
     allOffsets,
     ConversationParticipantCollection(),
   );
-  object.schoolCode = reader.readString(offsets[12]);
-  object.status = reader.readString(offsets[13]);
-  object.title = reader.readString(offsets[14]);
-  object.type = reader.readString(offsets[15]);
-  object.unreadCount = reader.readLong(offsets[16]);
-  object.updatedAt = reader.readDateTime(offsets[17]);
-  object.updatedBy = reader.readString(offsets[18]);
+  object.privateModeActivatedAt = reader.readDateTimeOrNull(offsets[12]);
+  object.privateModeActivatedBy = reader.readStringOrNull(offsets[13]);
+  object.privateModeActive = reader.readBool(offsets[14]);
+  object.schoolCode = reader.readString(offsets[15]);
+  object.status = reader.readString(offsets[16]);
+  object.title = reader.readString(offsets[17]);
+  object.type = reader.readString(offsets[18]);
+  object.unreadCount = reader.readLong(offsets[19]);
+  object.updatedAt = reader.readDateTime(offsets[20]);
+  object.updatedBy = reader.readString(offsets[21]);
   return object;
 }
 
@@ -276,18 +303,24 @@ P _conversationCollectionDeserializeProp<P>(
         ConversationParticipantCollection(),
       )) as P;
     case 12:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 14:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 15:
       return (reader.readString(offset)) as P;
     case 16:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 17:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 18:
+      return (reader.readString(offset)) as P;
+    case 19:
+      return (reader.readLong(offset)) as P;
+    case 20:
+      return (reader.readDateTime(offset)) as P;
+    case 21:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1779,6 +1812,248 @@ extension ConversationCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedAtIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'privateModeActivatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedAtIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'privateModeActivatedAt',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedAtEqualTo(DateTime? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActivatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedAtGreaterThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'privateModeActivatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedAtLessThan(
+    DateTime? value, {
+    bool include = false,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'privateModeActivatedAt',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedAtBetween(
+    DateTime? lower,
+    DateTime? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'privateModeActivatedAt',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'privateModeActivatedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'privateModeActivatedBy',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'privateModeActivatedBy',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      privateModeActivatedByContains(String value,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'privateModeActivatedBy',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      privateModeActivatedByMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'privateModeActivatedBy',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActivatedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActivatedByIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'privateModeActivatedBy',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> privateModeActiveEqualTo(bool value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'privateModeActive',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
       QAfterFilterCondition> schoolCodeEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -2752,6 +3027,48 @@ extension ConversationCollectionQuerySortBy
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByPrivateModeActivatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByPrivateModeActivatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByPrivateModeActivatedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByPrivateModeActivatedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByPrivateModeActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByPrivateModeActiveDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
       sortBySchoolCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schoolCode', Sort.asc);
@@ -3021,6 +3338,48 @@ extension ConversationCollectionQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByPrivateModeActivatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByPrivateModeActivatedAtDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedAt', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByPrivateModeActivatedBy() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByPrivateModeActivatedByDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActivatedBy', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByPrivateModeActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByPrivateModeActiveDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'privateModeActive', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
       thenBySchoolCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'schoolCode', Sort.asc);
@@ -3202,6 +3561,28 @@ extension ConversationCollectionQueryWhereDistinct
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
+      distinctByPrivateModeActivatedAt() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateModeActivatedAt');
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
+      distinctByPrivateModeActivatedBy({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateModeActivatedBy',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
+      distinctByPrivateModeActive() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'privateModeActive');
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
       distinctBySchoolCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'schoolCode', caseSensitive: caseSensitive);
@@ -3339,6 +3720,27 @@ extension ConversationCollectionQueryProperty on QueryBuilder<
       QQueryOperations> participantsProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'participants');
+    });
+  }
+
+  QueryBuilder<ConversationCollection, DateTime?, QQueryOperations>
+      privateModeActivatedAtProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateModeActivatedAt');
+    });
+  }
+
+  QueryBuilder<ConversationCollection, String?, QQueryOperations>
+      privateModeActivatedByProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateModeActivatedBy');
+    });
+  }
+
+  QueryBuilder<ConversationCollection, bool, QQueryOperations>
+      privateModeActiveProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'privateModeActive');
     });
   }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -9,6 +10,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -33,7 +35,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
   @override
   void initState() {
     super.initState();
-    final now = DateTime.now();
+    final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -63,66 +65,70 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
           return _buildShimmer();
         }
 
-        return Card(
-          elevation: 0,
-          color: Colors.white,
-          margin: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: AppColors.primaryColor.withValues(alpha: 0.1),
+        return DashboardCardErrorOverlay(
+          show: state.isError,
+          onRetry: () => context.read<MyAttendanceCubit>().load(),
+          child: Card(
+            elevation: 0,
+            color: Colors.white,
+            margin: EdgeInsets.zero,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+              side: BorderSide(
+                color: AppColors.primaryColor.withValues(alpha: 0.1),
+              ),
             ),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                DashboardCardHeader(
-                  title: 'My Attendance',
-                  minimized: _minimized,
-                  onToggle: () => setState(() => _minimized = !_minimized),
-                  showRedirect: true,
-                  onRedirect: () => context.push(
-                    StaffAttendanceProfile.routeName,
-                    extra: {
-                      'staffCode': state.staffCode,
-                      'staffName': state.staffName,
-                      'staffId': 0,
-                      'staffPhotoUuid': null,
-                      'designationName': '',
-                      'roomName': '-',
-                    },
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  DashboardCardHeader(
+                    title: 'My Attendance',
+                    minimized: _minimized,
+                    onToggle: () => setState(() => _minimized = !_minimized),
+                    showRedirect: true,
+                    onRedirect: () => context.push(
+                      StaffAttendanceProfile.routeName,
+                      extra: {
+                        'staffCode': state.staffCode,
+                        'staffName': state.staffName,
+                        'staffId': 0,
+                        'staffPhotoUuid': null,
+                        'designationName': '',
+                        'roomName': '-',
+                      },
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
+                  const SizedBox(height: 16),
 
-                // Date-range filter (always visible).
-                CustomDateTimeField(
-                  hasLabel: false,
-                  isRangePicker: true,
-                  initialDate: _startDate,
-                  label: 'Date Range',
-                  onRangeSelected: _onDateRangeSelected,
-                ),
-                const SizedBox(height: 20),
+                  // Date-range filter (always visible).
+                  CustomDateTimeField(
+                    hasLabel: false,
+                    isRangePicker: true,
+                    initialDate: _startDate,
+                    label: 'Date Range',
+                    onRangeSelected: _onDateRangeSelected,
+                  ),
+                  const SizedBox(height: 20),
 
-                // Collapsible attendance report — same structure as before.
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeInOut,
-                  child: _minimized
-                      ? const SizedBox.shrink()
-                      : _AttendanceReportColumn(
-                          staffCode: state.staffCode,
-                          staffName: state.staffName,
-                          attendedDays: state.attendedDays,
-                          attendedHours: state.attendedHours,
-                          attendedMinutes: state.attendedMinutes,
-                          absentDays: state.absentDays,
-                        ),
-                ),
-              ],
+                  // Collapsible attendance report — same structure as before.
+                  AnimatedSize(
+                    duration: const Duration(milliseconds: 250),
+                    curve: Curves.easeInOut,
+                    child: _minimized
+                        ? const SizedBox.shrink()
+                        : _AttendanceReportColumn(
+                            staffCode: state.staffCode,
+                            staffName: state.staffName,
+                            attendedDays: state.attendedDays,
+                            attendedHours: state.attendedHours,
+                            attendedMinutes: state.attendedMinutes,
+                            absentDays: state.absentDays,
+                          ),
+                  ),
+                ],
+              ),
             ),
           ),
         );
@@ -268,10 +274,7 @@ class _AttendanceReportColumn extends StatelessWidget {
           valueColor: const Color.fromRGBO(52, 199, 89, 1),
         ),
         const SizedBox(height: 16),
-        _AttendanceHoursTile(
-          hours: attendedHours,
-          minutes: attendedMinutes,
-        ),
+        _AttendanceHoursTile(hours: attendedHours, minutes: attendedMinutes),
         const SizedBox(height: 16),
         _AttendanceInfoTile(
           icon: MediaRes.calenderClockIcon,
@@ -350,10 +353,7 @@ class _AttendanceInfoTile extends StatelessWidget {
 }
 
 class _AttendanceHoursTile extends StatelessWidget {
-  const _AttendanceHoursTile({
-    required this.hours,
-    required this.minutes,
-  });
+  const _AttendanceHoursTile({required this.hours, required this.minutes});
 
   final int hours;
   final int minutes;
@@ -408,16 +408,13 @@ class _ValueCircle extends StatelessWidget {
       width: 40,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.secondaryColor,
-          width: 1.5,
-        ),
+        border: Border.all(color: Color(0xFF4285F4), width: 1.5),
         shape: BoxShape.circle,
       ),
       child: Text(
         text,
         style: const TextStyle(
-          color: AppColors.secondaryColor,
+          color: Color(0xFF4285F4),
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),

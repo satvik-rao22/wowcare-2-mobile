@@ -7,7 +7,6 @@ import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
-import '../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/activities/cubit/choose_activity_cubit.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -25,7 +24,7 @@ import 'edit_create_activity_screens/photo_activity.dart';
 class ChooseActivity extends StatefulWidget {
   const ChooseActivity({super.key, required this.selectedStudents});
 
-  final List<Map<String, dynamic>> selectedStudents ;
+  final List<Map<String, dynamic>> selectedStudents;
   static final Map<String, String> activityIcons = {
     'Nap': MediaRes.napActivityIcon,
     'Bathroom': MediaRes.bathroomActivityIcon,
@@ -40,18 +39,25 @@ class ChooseActivity extends StatefulWidget {
     'Learning': MediaRes.learningActivityIcon,
   };
   // Map activity name to the destination widget/screen
-  static final Map<String, Widget Function(List<Map<String, dynamic>>)> activityRoutes = {
+  static final Map<String, Widget Function(List<Map<String, dynamic>>)>
+  activityRoutes = {
     'Nap': (students) => NapActivityScreen(selectedStudents: students),
-    'Bathroom': (students) => BathroomActivityScreen(selectedStudents: students),
+    'Bathroom': (students) =>
+        BathroomActivityScreen(selectedStudents: students),
     'Bottle': (students) => BottleActivityScreen(selectedStudents: students),
     'Meal': (students) => MealActivityScreen(selectedStudents: students),
-    'Incident': (students) => IncidentActivityScreen(selectedStudents: students),
-    'Photo': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true,),
-    'Video': (students) => PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
-    'Medication': (students) => MedicationActivityScreen(selectedStudents: students),
+    'Incident': (students) =>
+        IncidentActivityScreen(selectedStudents: students),
+    'Photo': (students) =>
+        PhotoVideoActivityScreen(selectedStudents: students, isPhoto: true),
+    'Video': (students) =>
+        PhotoVideoActivityScreen(selectedStudents: students, isPhoto: false),
+    'Medication': (students) =>
+        MedicationActivityScreen(selectedStudents: students),
     'Notes': (students) => NotesActivityScreen(selectedStudents: students),
     'Outdoor': (students) => OutdoorActivityScreen(selectedStudents: students),
-    'Learning': (students) => LearningActivityScreen(selectedStudents: students),
+    'Learning': (students) =>
+        LearningActivityScreen(selectedStudents: students),
   };
 
   @override
@@ -134,7 +140,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
     return hasNapping && hasNotNapping;
   }
 
-  void _showDisabledActivityTooltip(BuildContext tileContext, String activityName) {
+  void _showDisabledActivityTooltip(
+    BuildContext tileContext,
+    String activityName,
+  ) {
     final RenderBox renderBox = tileContext.findRenderObject() as RenderBox;
     final position = renderBox.localToGlobal(Offset.zero);
     final screenWidth = MediaQuery.of(context).size.width;
@@ -162,10 +171,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
               child: Text(
                 _getDisabledActivityTooltip(activityName),
                 softWrap: true,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 12,
-                ),
+                style: const TextStyle(color: Colors.white, fontSize: 12),
               ),
             ),
           ),
@@ -191,18 +197,19 @@ class _ChooseActivityState extends State<ChooseActivity> {
     });
   }
 
-  Future<void> _onNextPressed(
+  /// Tapping an activity navigates directly to its create screen — there is no
+  /// separate "Next" button. Guards against concurrent taps while the activity
+  /// type details are being fetched.
+  Future<void> _onActivitySelected(
     BuildContext context,
     ChooseActivityState state,
+    String activityKey,
   ) async {
-    if (_selectedActivity == null) {
-      _showWarningMessage('Select an activity.');
-      return;
-    }
+    if (_isLoadingNext) return;
 
     // Always hit: GET /api/v1/activity-types/{code}
     final selectedApiName =
-        state.activityDisplayNameByKey[_selectedActivity!] ?? _selectedActivity!;
+        state.activityDisplayNameByKey[activityKey] ?? activityKey;
     final code = state.activityTypeCodeByName[selectedApiName.toLowerCase()];
     if (code == null || code.trim().isEmpty) {
       _showWarningMessage('Unable to resolve activity code.');
@@ -210,11 +217,13 @@ class _ChooseActivityState extends State<ChooseActivity> {
     }
 
     setState(() {
+      _selectedActivity = activityKey;
       _isLoadingNext = true;
     });
 
-    final error =
-        await context.read<ChooseActivityCubit>().fetchActivityTypeDetails(code);
+    final error = await context
+        .read<ChooseActivityCubit>()
+        .fetchActivityTypeDetails(code);
     if (!mounted) return;
     setState(() {
       _isLoadingNext = false;
@@ -224,12 +233,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
       return;
     }
 
-    final destinationBuilder = ChooseActivity.activityRoutes[_selectedActivity!];
+    final destinationBuilder = ChooseActivity.activityRoutes[activityKey];
     if (destinationBuilder != null && context.mounted) {
       final nextScreen = destinationBuilder(widget.selectedStudents);
-      Navigator.of(context).push(
-        MaterialPageRoute(builder: (_) => nextScreen),
-      );
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => nextScreen));
     }
   }
 
@@ -257,8 +264,6 @@ class _ChooseActivityState extends State<ChooseActivity> {
   }
 
   Widget _buildScaffold(BuildContext context, ChooseActivityState state) {
-    final safeAreaBottom = MediaQuery.of(context).padding.bottom;
-
     return StaffFormLayout(
       title: 'Choose Activity',
       child: Column(
@@ -268,119 +273,115 @@ class _ChooseActivityState extends State<ChooseActivity> {
             child: state.isLoading
                 ? const Center(child: PrimaryCircularLoader())
                 : state.visibleActivityKeys.isEmpty
-                    ? const Center(
-                        child: Text(
-                          'No activities available from API.',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                      )
-                    : GridView.builder(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        shrinkWrap: false,
-                        gridDelegate:
-                            const SliverGridDelegateWithFixedCrossAxisCount(
+                ? const Center(
+                    child: Text(
+                      'No activities available from API.',
+                      style: TextStyle(fontSize: 14),
+                    ),
+                  )
+                : GridView.builder(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    shrinkWrap: false,
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           crossAxisSpacing: 16,
                           mainAxisSpacing: 16,
                           mainAxisExtent: 52,
                         ),
-                        itemCount: state.visibleActivityKeys.length,
-                        itemBuilder: (context, index) {
-                          final String activityKey =
-                              state.visibleActivityKeys[index];
-                          final iconPath =
-                              ChooseActivity.activityIcons[activityKey]!;
-                          final String activityName =
-                              state.activityDisplayNameByKey[activityKey] ??
-                                  activityKey;
-                          final bool isDisabled =
-                              _isActivityDisabled(activityName, state);
-                          final bool isSelected =
-                              _selectedActivity == activityKey;
+                    itemCount: state.visibleActivityKeys.length,
+                    itemBuilder: (context, index) {
+                      final String activityKey =
+                          state.visibleActivityKeys[index];
+                      final iconPath =
+                          ChooseActivity.activityIcons[activityKey]!;
+                      final String activityName =
+                          state.activityDisplayNameByKey[activityKey] ??
+                          activityKey;
+                      final bool isDisabled = _isActivityDisabled(
+                        activityName,
+                        state,
+                      );
+                      final bool isSelected = _selectedActivity == activityKey;
 
-                          return Builder(
-                            builder: (tileContext) {
-                              return InkWell(
-                                borderRadius: BorderRadius.circular(8),
-                                onTap: isDisabled
-                                    ? () => _showDisabledActivityTooltip(
-                                        tileContext, activityName)
-                                    : () {
-                                        setState(() {
-                                          _selectedActivity = activityKey;
-                                        });
-                                      },
-                                child: Container(
-                                  padding:
-                                      const EdgeInsets.symmetric(horizontal: 12),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                      color: isDisabled
-                                          ? Colors.grey.withOpacity(0.3)
-                                          : AppColors.primaryColor
-                                              .withOpacity(0.1),
-                                      width: 1.5,
-                                    ),
-                                    borderRadius: BorderRadius.circular(8),
-                                    color: isDisabled
-                                        ? Colors.grey.withOpacity(0.1)
-                                        : isSelected
-                                            ? const Color.fromARGB(
-                                                255, 249, 245, 250)
-                                            : Colors.transparent,
+                      return Builder(
+                        builder: (tileContext) {
+                          return InkWell(
+                            borderRadius: BorderRadius.circular(8),
+                            onTap: isDisabled
+                                ? () => _showDisabledActivityTooltip(
+                                    tileContext,
+                                    activityName,
+                                  )
+                                : () => _onActivitySelected(
+                                    context,
+                                    state,
+                                    activityKey,
                                   ),
-                                  child: Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      SizedBox(
-                                        width: 32,
-                                        height: 32,
-                                        child: Image.asset(
-                                          iconPath,
-                                          width: 32,
-                                          height: 32,
-                                          fit: BoxFit.contain,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                              ),
+                              decoration: BoxDecoration(
+                                border: Border.all(
+                                  color: isDisabled
+                                      ? Colors.grey.withValues(alpha: 0.3)
+                                      : AppColors.primaryColor.withValues(
+                                          alpha: 0.1,
                                         ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          activityName,
-                                          softWrap: true,
-                                          overflow: TextOverflow.ellipsis,
-                                          maxLines:
-                                              activityName.contains(' ') ? 2 : 1,
-                                          style: TextStyle(
-                                            fontSize: 14,
-                                            fontWeight: FontWeight.w500,
-                                            color: isDisabled
-                                                ? Colors.grey
-                                                : AppColors.primaryColor,
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                                  width: 1.5,
                                 ),
-                              );
-                            },
+                                borderRadius: BorderRadius.circular(8),
+                                color: isDisabled
+                                    ? Colors.grey.withValues(alpha: 0.1)
+                                    : isSelected
+                                    ? const Color.fromARGB(255, 249, 245, 250)
+                                    : Colors.transparent,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    width: 32,
+                                    height: 32,
+                                    child: Image.asset(
+                                      iconPath,
+                                      width: 32,
+                                      height: 32,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Text(
+                                      activityName,
+                                      softWrap: true,
+                                      overflow: TextOverflow.ellipsis,
+                                      maxLines: activityName.contains(' ')
+                                          ? 2
+                                          : 1,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: isDisabled
+                                            ? Colors.grey
+                                            : AppColors.primaryColor,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
                           );
                         },
-                      ),
+                      );
+                    },
+                  ),
           ),
         ],
       ),
-      bottomBar: Padding(
-        padding: EdgeInsets.only(bottom: safeAreaBottom),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          cancelButtonLabel: 'Cancel',
-          onPressedCancel: () => Navigator.of(context).pop(),
-          onPressedConfirm:
-              _isLoadingNext ? null : () => _onNextPressed(context, state),
-        ),
-      ),
+      // Tapping an activity navigates directly — no Next/Cancel buttons.
+      bottomBar: const SizedBox.shrink(),
     );
   }
 }

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -15,6 +16,7 @@ class CustomDateTimeField extends StatefulWidget {
   const CustomDateTimeField({
     this.label,
     this.hasLabel = true,
+    this.labelStyle,
     this.isTime = false,
     this.isRangePicker = false,
     this.onDateSelected,
@@ -35,6 +37,7 @@ class CustomDateTimeField extends StatefulWidget {
 
   final String? label;
   final bool hasLabel;
+  final TextStyle? labelStyle;
   final bool isRequired;
   final bool isTime;
   final bool isRangePicker;
@@ -123,8 +126,10 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
   // Modified to return Future so we can await it
 
   Future<void> setCurrentDateTime() async {
-    DateTime dateTime = DateTime.now();
+    DateTime dateTime = AppTime.now();
     try {
+      // resolveForCurrentSchool pulls a fresh server clock as part of resolving,
+      // so schoolCalendarDateAndTimeNow below reflects authoritative "now".
       final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
         storage: serviceLocator<StorageService>(),
         apiClient: serviceLocator<ApiClient>(),
@@ -215,11 +220,12 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
           RichText(
             text: TextSpan(
               text: widget.label!,
-              style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: calHelper.headerFontSize * 0.7,
-                fontWeight: FontWeight.w400,
-              ),
+              style: widget.labelStyle ??
+                  TextStyle(
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontSize: calHelper.headerFontSize * 0.7,
+                    fontWeight: FontWeight.w400,
+                  ),
               children: [
                 if (widget.isRequired)
                   const TextSpan(

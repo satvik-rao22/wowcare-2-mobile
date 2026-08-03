@@ -95,6 +95,9 @@ class _FilterScreenState extends State<FilterScreen> {
           return CustomDropdown(
             label: section.label,
             hintText: section.hintText,
+            // No "All"/clear entry in the popup — the only single-select
+            // section today is Status (communication module), which should
+            // not offer an unselectable "All" choice.
             items: section.items,
             selectedItem: selected.isNotEmpty ? selected.first : null,
             isField: true,

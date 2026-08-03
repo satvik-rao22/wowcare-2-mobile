@@ -2,16 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/preview_newsletter_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
+import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 class StudentNewslettersCard extends StatefulWidget {
   const StudentNewslettersCard({super.key});
@@ -24,15 +28,6 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
     with AutomaticKeepAliveClientMixin {
   bool _minimized = false;
   String _selectedChildCode = '';
-
-  static const List<Color> _newsletterAccentColors = <Color>[
-    Color(0xFFFFD54F),
-    Color(0xFF80CBC4),
-    Color(0xFFEF9A9A),
-    Color(0xFF90CAF9),
-    Color(0xFFA5D6A7),
-    Color(0xFFCE93D8),
-  ];
 
   @override
   void didChangeDependencies() {
@@ -65,94 +60,91 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return Card(
-      elevation: 0,
-      color: Colors.white,
-      margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DashboardCardHeader(
-              title: 'Newsletter',
-              showRedirect: true,
-              onRedirect: () => context.go(ParentNewsletterScreen.routeName),
-              minimized: _minimized,
-              onToggle: () => setState(() => _minimized = !_minimized),
-            ),
-            if (!_minimized) ...[
-              const SizedBox(height: 8),
-              BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
-                buildWhen: (prev, curr) =>
-                    prev.status != curr.status ||
-                    prev.items != curr.items ||
-                    prev.errorMessage != curr.errorMessage,
-                builder: (context, state) {
-                  if (state.isLoading) {
-                    return const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 8),
-                      child: StudentAttendanceCardShimmer(),
-                    );
-                  }
-
-                  if (state.isError && state.items.isEmpty) {
-                    return _ErrorState(
-                      message: state.errorMessage.isEmpty
-                          ? 'Failed to load newsletters'
-                          : state.errorMessage,
-                      onRetry: _refresh,
-                    );
-                  }
-
-                  final items = state.items;
-                  if (items.isEmpty) {
-                    return _EmptyState(onRefresh: _refresh);
-                  }
-
-                  // Preserve original mock design density: show the first 3 rows.
-                  final visible = items.length > 3
-                      ? items.sublist(0, 3)
-                      : items;
-
-                  return ListView.separated(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    itemCount: visible.length,
-                    separatorBuilder: (_, __) => Divider(
-                      height: 1,
-                      color: AppColors.primaryColor.withValues(alpha: 0.08),
-                    ),
-                    itemBuilder: (context, index) {
-                      final accentColor =
-                          _newsletterAccentColors[index %
-                              _newsletterAccentColors.length];
-                      final selectedChild = Provider.of<ParentChildCubit>(
-                        context,
-                      ).selectedChild;
-                      final classroomName =
-                          (selectedChild?.primaryClassroomName ??
-                                  selectedChild?.classroom ??
-                                  '')
-                              .toString()
-                              .trim();
-                      return _NewsletterRow(
-                        item: visible[index],
-                        accentColor: accentColor,
-                        classroomName: classroomName.isEmpty
-                            ? '-'
-                            : classroomName,
-                      );
-                    },
-                  );
-                },
+    final isError = context.watch<StudentNewslettersCubit>().state.isError;
+    return DashboardCardErrorOverlay(
+      show: isError,
+      onRetry: _refresh,
+      child: Card(
+        elevation: 0,
+        color: Colors.white,
+        margin: EdgeInsets.zero,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(
+            color: AppColors.primaryColor.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DashboardCardHeader(
+                title: 'Newsletter',
+                showRedirect: true,
+                onRedirect: () => context.go(ParentNewsletterScreen.routeName),
+                minimized: _minimized,
+                onToggle: () => setState(() => _minimized = !_minimized),
               ),
+              if (!_minimized) ...[
+                const SizedBox(height: 8),
+                BlocBuilder<StudentNewslettersCubit, StudentNewslettersState>(
+                  buildWhen: (prev, curr) =>
+                      prev.status != curr.status ||
+                      prev.items != curr.items ||
+                      prev.errorMessage != curr.errorMessage,
+                  builder: (context, state) {
+                    if (state.isLoading) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: StudentAttendanceCardShimmer(),
+                      );
+                    }
+
+                    // On error with no data, show the same empty-state UI as a
+                    // genuinely empty list instead of an error banner.
+
+                    final items = state.items;
+                    if (items.isEmpty) {
+                      return _EmptyState(onRefresh: _refresh);
+                    }
+
+                    // Preserve original mock design density: show the first 3 rows.
+                    final visible = items.length > 3
+                        ? items.sublist(0, 3)
+                        : items;
+
+                    return ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: visible.length,
+                      separatorBuilder: (_, __) => Divider(
+                        height: 1,
+                        color: AppColors.primaryColor.withValues(alpha: 0.08),
+                      ),
+                      itemBuilder: (context, index) {
+                        final selectedChild = Provider.of<ParentChildCubit>(
+                          context,
+                        ).selectedChild;
+                        final classroomName =
+                            (selectedChild?.primaryClassroomName ??
+                                    selectedChild?.classroom ??
+                                    '')
+                                .toString()
+                                .trim();
+                        return _NewsletterRow(
+                          item: visible[index],
+                          classroomName: classroomName.isEmpty
+                              ? '-'
+                              : classroomName,
+                        );
+                      },
+                    );
+                  },
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
@@ -162,12 +154,10 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
 class _NewsletterRow extends StatelessWidget {
   const _NewsletterRow({
     required this.item,
-    required this.accentColor,
     required this.classroomName,
   });
 
   final NewsletterEntity item;
-  final Color accentColor;
   final String classroomName;
 
   String _formatCreatedAt(DateTime? createdAt) {
@@ -180,7 +170,7 @@ class _NewsletterRow extends StatelessWidget {
     final createdByName = item.createdByName.trim().isEmpty
         ? '-'
         : item.createdByName.trim();
-    final recipientCount = item.recipientCount;
+    // final recipientCount = item.recipientCount;
 
     return InkWell(
       onTap: () {
@@ -201,15 +191,7 @@ class _NewsletterRow extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Container(
-              width: 75,
-              height: 75,
-              decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.18),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Icon(Icons.article_outlined, color: accentColor, size: 32),
-            ),
+            _NewsletterThumbnail(newsletter: item),
             const SizedBox(width: 16),
             Expanded(
               child: Column(
@@ -271,6 +253,46 @@ class _NewsletterRow extends StatelessWidget {
               ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NewsletterThumbnail extends StatelessWidget {
+  const _NewsletterThumbnail({required this.newsletter});
+
+  final NewsletterEntity newsletter;
+
+  @override
+  Widget build(BuildContext context) {
+    // Use whatever image actually lives inside the newsletter — an explicit
+    // cover asset, an image attachment, or an image embedded in the body —
+    // and only fall back to the bundled default thumbnail when none exists.
+    final thumbnail = resolveNewsletterThumbnail(newsletter);
+    final String? assetCode = thumbnail.assetCode.isNotEmpty
+        ? thumbnail.assetCode
+        : null;
+    final String? directUrl = thumbnail.directUrl.isNotEmpty
+        ? thumbnail.directUrl
+        : null;
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(8),
+      child: SizedBox(
+        width: 75,
+        height: 75,
+        child: DocumentImageWidget(
+          fileUuid: '',
+          imageUrl: directUrl,
+          mediaAssetCode: assetCode,
+          name: '',
+          size: 75,
+          fontSize: 0,
+          fit: BoxFit.cover,
+          shape: BoxShape.rectangle,
+          placeholderAsset: MediaRes.deafultNewsletterImage,
+          disableProfileLookupFallback: true,
+          disableAttendanceStatusLookup: true,
         ),
       ),
     );
@@ -347,32 +369,6 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           TextButton(onPressed: onRefresh, child: const Text('Refresh')),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  const _ErrorState({required this.message, required this.onRetry});
-
-  final String message;
-  final Future<void> Function() onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 14, color: Colors.red),
-          ),
-          const SizedBox(height: 8),
-          TextButton(onPressed: onRetry, child: const Text('Retry')),
         ],
       ),
     );

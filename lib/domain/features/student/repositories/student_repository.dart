@@ -8,10 +8,18 @@ import '../entities/student_physical_exam.dart';
 import '../entities/student_physician.dart';
 import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
+import '../entities/student_regular_schedule.dart';
+import '../entities/student_settings.dart';
 
 abstract class StudentRepository {
   /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
   Future<StudentProfile> getStudentProfile({required String code});
+
+  /// Fetches a student's regular schedule from the dedicated schedule API:
+  /// `GET /api/v1/regular-schedules?studentCode={studentCode}`.
+  Future<List<StudentRegularScheduleEntry>> getStudentRegularSchedules({
+    required String studentCode,
+  });
   Future<StudentPage> getStudentPage({
     required String schoolCode,
     String? code,
@@ -21,9 +29,11 @@ abstract class StudentRepository {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page,
     int size,
+    List<String>? allowedClassroomCodes,
   });
 
   Future<String> deactivateStudent({
@@ -69,6 +79,13 @@ abstract class StudentRepository {
 
   /// Updates the student's siblings via `PUT /api/v1/student/student/{studentCode}/siblings`.
   Future<String> updateStudentSiblings({
+    required String studentCode,
+    required List<String> siblingCodes,
+  });
+
+  /// Links siblings onto a newly created student via
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling` (add-student flow only).
+  Future<String> addStudentSibling({
     required String studentCode,
     required List<String> siblingCodes,
   });
@@ -132,7 +149,9 @@ abstract class StudentRepository {
   /// Creates or links a guardian user to a student via `/api/v1/guardian-user`.
   ///
   /// Returns the backend `message` field.
-  Future<String> createGuardianUser({
+  /// Returns the backend `message` and the newly created `guardianCode`
+  /// (needed to upload the guardian's profile photo right after creation).
+  Future<({String message, String? guardianCode})> createGuardianUser({
     required String schoolCode,
     required String studentCode,
     required String firstName,
@@ -193,6 +212,9 @@ abstract class StudentRepository {
     required String userCode,
   });
 
+  /// School-level student settings from `GET /api/v1/student-settings`.
+  Future<StudentSettings> getStudentSettings({required String schoolCode});
+
   /// Fetches student counts (active, upcoming, enrolled) for a school.
   ///
   /// The returned map must contain keys: 'activeCount', 'upcomingCount',
@@ -202,6 +224,10 @@ abstract class StudentRepository {
   /// `GET /api/v1/student/student-documents/expiry-count`
   Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
       getStudentDocumentExpiryCount({required String schoolCode});
+
+  /// `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
+  Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
+      getStudentPhysicalCheckupCount({required String schoolCode});
 
   /// Updates a student's tags via `POST /api/v1/student-tags`.
   ///
@@ -397,6 +423,7 @@ abstract class StudentRepositoryWithCache {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,
@@ -413,6 +440,7 @@ abstract class StudentRepositoryWithCache {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     String? code,
     String? firstName,

@@ -134,7 +134,11 @@ class OunceInputWidgetState extends State<OunceInputWidget> {
             enableInteractiveSelection: !widget.readOnly,
             keyboardType: const TextInputType.numberWithOptions(decimal: true),
             inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d?$'))
+              // Was capped at a single decimal digit (^\d*\.?\d?$), so only
+              // values like 5.5 could be typed and anything finer (5.25,
+              // 5.75, ...) got silently cut off after the first decimal
+              // digit — read by users as "only accepts multiples of 0.5".
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$'))
             ],
             decoration: InputDecoration(
               hintText: '${widget.min} - ${widget.max} oz',

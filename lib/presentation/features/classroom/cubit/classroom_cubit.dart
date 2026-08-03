@@ -39,7 +39,15 @@ class ClassroomCubit extends Cubit<ClassroomState> {
   Map<String, dynamic> _encodeClassroomsForCache(List<Classroom> classrooms) => {
         'items': classrooms
             .map(
-              (e) => <String, dynamic>{'code': e.code, 'name': e.name},
+              // Age bounds must be cached too — omitting them meant a
+              // cache-hydrated list reported every room as "no age limit",
+              // silently disabling the age warning until a live refetch.
+              (e) => <String, dynamic>{
+                'code': e.code,
+                'name': e.name,
+                'minAgeMonths': e.minAgeMonths,
+                'maxAgeMonths': e.maxAgeMonths,
+              },
             )
             .toList(),
       };
@@ -55,7 +63,19 @@ class ClassroomCubit extends Cubit<ClassroomState> {
       final code = (m['code'] ?? '').toString().trim();
       final name = (m['name'] ?? '').toString().trim();
       if (code.isEmpty) continue;
-      result.add(Classroom(code: code, name: name.isEmpty ? code : name));
+      int months(dynamic v) {
+        final n = v is num ? v.toInt() : int.tryParse('${v ?? ''}'.trim()) ?? 0;
+        return n < 0 ? 0 : n;
+      }
+
+      result.add(
+        Classroom(
+          code: code,
+          name: name.isEmpty ? code : name,
+          minAgeMonths: months(m['minAgeMonths']),
+          maxAgeMonths: months(m['maxAgeMonths']),
+        ),
+      );
     }
     return result;
   }
@@ -75,6 +95,15 @@ class ClassroomCubit extends Cubit<ClassroomState> {
 
     final schoolCode =
         await _storageService.getString(StorageKeys.schoolCode) ?? '';
+
+    // Resolve scoping up front. A classroom-scoped staff persona must never
+    // read or write the shared on-disk classroom cache: the cache key isn't
+    // keyed per-user, so a stale entry left by a different staff member (or
+    // an earlier unscoped session on the same device) could otherwise
+    // flash/leak another classroom's data before the live re-fetch corrects it.
+    final shouldScope = applyAttendanceStaffScope &&
+        await isAttendanceScopedStaffPersona(storage: _storageService);
+
     final cacheKey = _activeClassroomsCacheKey(
       schoolCode,
       onlyTypeClassroom,
@@ -82,10 +111,13 @@ class ClassroomCubit extends Cubit<ClassroomState> {
     );
 
     var hydratedClassrooms = <Classroom>[];
-    if (!force && schoolCode.isNotEmpty) {
+    if (!force && !shouldScope && schoolCode.isNotEmpty) {
       final cached = await _cacheManager.loadCache(cacheKey);
       hydratedClassrooms = _decodeClassroomsFromCache(cached);
       if (hydratedClassrooms.isNotEmpty) {
+        hydratedClassrooms.sort(
+          (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+        );
         if (isClosed) return;
         emit(
           state.copyWith(
@@ -121,22 +153,21 @@ class ClassroomCubit extends Cubit<ClassroomState> {
           ? filterSelectableClassrooms(classrooms)
           : classrooms.toList(growable: false);
 
-      if (applyAttendanceStaffScope) {
-        final shouldScope = await isAttendanceScopedStaffPersona(
+      if (shouldScope) {
+        final allowedCodes = await resolveAttendanceAllowedClassroomCodes(
           storage: _storageService,
         );
-        if (shouldScope) {
-          final allowedCodes = await resolveAttendanceAllowedClassroomCodes(
-            storage: _storageService,
-          );
-          final allowedSet = allowedCodes.map((e) => e.trim()).toSet();
-          visibleClassrooms = visibleClassrooms
-              .where((c) => allowedSet.contains(c.code.trim()))
-              .toList(growable: false);
-        }
+        final allowedSet = allowedCodes.map((e) => e.trim()).toSet();
+        visibleClassrooms = visibleClassrooms
+            .where((c) => allowedSet.contains(c.code.trim()))
+            .toList(growable: false);
       }
 
-      if (schoolCode.isNotEmpty) {
+      visibleClassrooms.sort(
+        (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+      );
+
+      if (schoolCode.isNotEmpty && !shouldScope) {
         await _cacheManager.saveCache(
           cacheKey,
           _encodeClassroomsForCache(visibleClassrooms),

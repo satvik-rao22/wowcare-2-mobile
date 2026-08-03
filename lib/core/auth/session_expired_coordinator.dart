@@ -1,13 +1,14 @@
 import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/models/logout_request_model.dart';
+import 'package:wowcare/domain/features/notifications/usecases/unregister_device_fcm_token_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -19,32 +20,57 @@ import 'package:provider/provider.dart';
 /// session, reset [AuthCubit], and navigate to sign-in.
 class SessionExpiredCoordinator {
   SessionExpiredCoordinator._();
-  static final SessionExpiredCoordinator instance = SessionExpiredCoordinator._();
+  static final SessionExpiredCoordinator instance =
+      SessionExpiredCoordinator._();
 
   bool _busy = false;
+
+  /// True when the app is already on an auth-entry route — the sign-in screen or
+  /// the splash (`/`, which runs its own auth check and routes) — or there is no
+  /// navigator yet. Used to avoid a redirect/snackbar loop when a burst of 401s
+  /// lands after we've already bounced the user out, and to avoid interrupting
+  /// the boot/login flow that splash drives.
+  bool _isOnSignInRoute() {
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    if (ctx == null || !ctx.mounted) return true;
+    try {
+      final location =
+          GoRouter.of(ctx).routerDelegate.currentConfiguration.uri.path;
+      return location == SignInScreen.routeName || location == '/';
+    } catch (_) {
+      // Router not ready — treat as "can't navigate" so we don't thrash.
+      return true;
+    }
+  }
 
   /// Best-effort backend logout (plain Dio — no auth interceptors), then clear cache
   /// and return user to sign-in.
   ///
-  /// [fromSplash] bypasses the on-sign-in short-circuit for the launch path,
-  /// where the splash itself detects an expired cached session (the
-  /// `SessionExpiredInterceptor` ignores `/auth/login*`, so a login-context
-  /// 401 never reaches it).
+  /// [fromEntryRoute] must be true for DELIBERATE callers that run on an
+  /// auth-entry route — notably the splash, which detects an expired session at
+  /// route `/` and calls this to log out + route to sign-in. Without it the
+  /// route guard below (meant to absorb a burst of background 401s once we've
+  /// already bounced) would treat the splash's own call as a no-op and leave the
+  /// app stuck on the splash.
   Future<void> performLogoutDueToExpiredSession({
     String userMessage = 'Your session has expired. Please sign in again.',
-    bool fromSplash = false,
+    bool fromEntryRoute = false,
   }) async {
     if (_busy) return;
     // Already on the sign-in screen (or no navigator yet): nothing to bounce.
     // This guard makes the coordinator safe to call on EVERY 401 — including the
     // case where the session was already cleared underneath a stuck authenticated
     // screen — without re-clearing/re-navigating and spamming the snackbar on
-    // each subsequent 401.
-    if (!fromSplash && _isOnSignInRoute()) return;
+    // each subsequent 401. Deliberate entry-route callers (splash) opt out.
+    if (!fromEntryRoute && _isOnSignInRoute()) return;
     _busy = true;
     try {
       final authLocal = serviceLocator<AuthLocalDataSource>();
       final cached = await authLocal.getCachedLoginResponse();
+
+      try {
+        await serviceLocator<UnregisterDeviceFcmTokenUseCase>()();
+      } catch (_) {}
 
       if (cached != null &&
           cached.refreshToken.isNotEmpty &&
@@ -73,8 +99,10 @@ class SessionExpiredCoordinator {
         }
       }
 
+      // clearCache() preserves the "Remember me" username + flag (password is in
+      // the secure store) so the sign-in form can pre-fill after a session
+      // expiry. Do NOT clearCredentials() — that would break the pre-fill.
       await authLocal.clearCache();
-      await authLocal.clearCredentials();
 
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx != null && ctx.mounted) {
@@ -92,6 +120,11 @@ class SessionExpiredCoordinator {
           message: userMessage,
           isError: true,
         );
+        // Navigate via go_router (the app's router). An imperative
+        // Navigator.pushAndRemoveUntil doesn't stick here because go_router
+        // re-syncs to its configured location, leaving the user on the
+        // previous (logged-in) screen.
+        ctx.go(SignInScreen.routeName);
       }
       // Reset the stack to sign-in through go_router so the current location
       // actually reflects it — that is what [_isOnSignInRoute] reads to stay
@@ -99,19 +132,6 @@ class SessionExpiredCoordinator {
       appRouter.go(SignInScreen.routeName);
     } finally {
       _busy = false;
-    }
-  }
-
-  /// True when go_router is already sitting on the sign-in route, so a fresh
-  /// session-expired signal has nothing to bounce. Any failure to read the
-  /// location (router not built yet) is treated as "not on sign-in" so the
-  /// logout cascade still runs and clears the cached session.
-  bool _isOnSignInRoute() {
-    try {
-      return appRouter.routerDelegate.currentConfiguration.uri.path ==
-          SignInScreen.routeName;
-    } catch (_) {
-      return false;
     }
   }
 }

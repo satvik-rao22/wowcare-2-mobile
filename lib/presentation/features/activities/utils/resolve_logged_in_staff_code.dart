@@ -59,9 +59,19 @@ Future<String?> resolveLoggedInStaffCode() async {
       return t.isEmpty ? null : t;
     }
 
+    // Org admins are mapped org-level: the /staff/code lookup expects '-' and
+    // 404s on a real school code, so resolve the right lookup school up front
+    // instead of firing a doomed real-school request first.
+    final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    final lookupSchool = staffCodeLookupSchoolCode(
+      rolesJson: rolesJson,
+      organizationCode: orgCode,
+      schoolCode: schoolFromStorage,
+    );
+
     String? resolved;
-    if (schoolFromStorage.isNotEmpty && schoolFromStorage != '-') {
-      resolved = await lookup(schoolFromStorage);
+    if (lookupSchool.isNotEmpty && lookupSchool != '-') {
+      resolved = await lookup(lookupSchool);
     }
     resolved ??= await lookup('-');
 

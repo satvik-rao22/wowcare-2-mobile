@@ -22,6 +22,10 @@ class GeofenceState extends Equatable {
     this.distanceMeters,
     this.radiusMeters,
     this.gpsSignInEnabled = true,
+    this.parentGpsSignInEnabled = true,
+    this.isStaffSignedIn = false,
+    this.permissionLevel = LocationPermissionLevel.denied,
+    this.allChildrenSignedIn = false,
   });
 
   const GeofenceState.initial()
@@ -30,7 +34,11 @@ class GeofenceState extends Equatable {
         errorMessage = '',
         distanceMeters = null,
         radiusMeters = null,
-        gpsSignInEnabled = true;
+        gpsSignInEnabled = true,
+        parentGpsSignInEnabled = true,
+        isStaffSignedIn = false,
+        permissionLevel = LocationPermissionLevel.denied,
+        allChildrenSignedIn = false;
 
   final GeofenceCubitStatus status;
   final String schoolCode;
@@ -44,6 +52,24 @@ class GeofenceState extends Equatable {
 
   /// Mirrors [GeofenceConfig.gpsSignInEnabled] — false when admin turned off GPS attendance.
   final bool gpsSignInEnabled;
+
+  /// Mirrors [GeofenceConfig.parentGpsSignInEnabled] — false when parent GPS
+  /// sign-in is specifically disabled by the school admin.
+  final bool parentGpsSignInEnabled;
+
+  /// Tracks if the staff member themselves has signed in.
+  final bool isStaffSignedIn;
+
+  /// Guardian/parent equivalent of [isStaffSignedIn]: true only when the
+  /// guardian has at least one child AND every one of them is already
+  /// signed in for the day — used to suppress the "you can now Sign In or
+  /// Sign Out" notification when there's nothing left to act on.
+  final bool allChildrenSignedIn;
+
+  /// Normalized OS location permission level. Internal plumbing only — does
+  /// not currently drive any gating; [isWithinGeofence]/[status] remain the
+  /// source of truth for Sign-In availability.
+  final LocationPermissionLevel permissionLevel;
 
   /// True only when within range AND admin has GPS sign-in enabled.
   bool get isWithinGeofence =>
@@ -61,6 +87,10 @@ class GeofenceState extends Equatable {
     double? distanceMeters,
     double? radiusMeters,
     bool? gpsSignInEnabled,
+    bool? parentGpsSignInEnabled,
+    bool? isStaffSignedIn,
+    LocationPermissionLevel? permissionLevel,
+    bool? allChildrenSignedIn,
   }) =>
       GeofenceState(
         status: status ?? this.status,
@@ -69,6 +99,11 @@ class GeofenceState extends Equatable {
         distanceMeters: distanceMeters ?? this.distanceMeters,
         radiusMeters: radiusMeters ?? this.radiusMeters,
         gpsSignInEnabled: gpsSignInEnabled ?? this.gpsSignInEnabled,
+        parentGpsSignInEnabled:
+            parentGpsSignInEnabled ?? this.parentGpsSignInEnabled,
+        isStaffSignedIn: isStaffSignedIn ?? this.isStaffSignedIn,
+        permissionLevel: permissionLevel ?? this.permissionLevel,
+        allChildrenSignedIn: allChildrenSignedIn ?? this.allChildrenSignedIn,
       );
 
   @override
@@ -79,5 +114,9 @@ class GeofenceState extends Equatable {
         distanceMeters,
         radiusMeters,
         gpsSignInEnabled,
+        parentGpsSignInEnabled,
+        isStaffSignedIn,
+        permissionLevel,
+        allChildrenSignedIn,
       ];
 }

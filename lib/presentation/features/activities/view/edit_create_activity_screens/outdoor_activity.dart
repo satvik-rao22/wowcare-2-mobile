@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -17,6 +16,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -394,14 +394,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -681,9 +673,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   ((fileIndex - 1) + (percent / 100)) / totalFiles;
               final overallPercent =
                   (overallFraction * 100).clamp(0, 100).round();
-              final displayPercent =
-                  overallPercent >= 100 ? 99 : overallPercent;
-              setState(() => _uploadProgressPercent = displayPercent);
+              setState(() => _uploadProgressPercent = overallPercent);
             },
           );
           await _imageUploadService.completeAssetUpload(
@@ -939,14 +929,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
-    if (description.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (description.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1174,6 +1156,37 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   Future<void> _onSaveOrAddPressed() async {
     if (_isSubmitting || _isUploadingMedia) return;
     if (widget.readOnly) return;
+
+    // Admin picked a staff member other than themselves on create: verify
+    // that staff is signed in right now, same use case + true/false check the
+    // staff persona's own + button is gated on. Admins are never gated on
+    // their OWN sign-in — only on who they're attributing the activity to.
+    if (!widget.isEdit && _isAdminDesignation) {
+      final pickedStaffCode = (_staffPresentCode ?? '').trim();
+      final ownStaffCode = (_staffCode ?? '').trim();
+      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
+        try {
+          final status =
+              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
+            staffCode: pickedStaffCode,
+          );
+          if (status?.toUpperCase() != 'SIGNED_IN') {
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message:
+                  'Staff is not signed in. You can only add an activity for '
+                  'staff who are signed in.',
+              isWarning: true,
+            );
+            return;
+          }
+        } catch (_) {
+          // Best-effort: a failed status check shouldn't block the admin.
+        }
+      }
+    }
+
     if (widget.isEdit) {
       await _submitUpdateActivity();
       return;
@@ -1212,12 +1225,15 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: responsive.isTablet ? 16 : 12,
                   mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 50,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   return ActivityStudentDisplayTile(
                     name: _selectedStudents[index],
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
                   );
                 },
               )
@@ -1230,14 +1246,17 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   final String name = _selectedStudents[index];
-                  return SelectedStudentTile(
+                  return ActivityStudentDisplayTile(
                     name: name,
-                    onTap: () => _removeStudent(name),
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
+                    onRemove: () => _removeStudent(name),
                   );
                 },
               ),
@@ -1355,6 +1374,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 label: 'Requires Admin Approval',
                 isToggled: _requireAdminApproval,
                 labelOnLeftSide: true,
+                enabled: !_layoutAsEdit,
                 onToggle: (value) {
                   setState(() {
                     _requireAdminApproval = value;
@@ -1369,8 +1389,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                 allowPhoto: true,
                 readOnly: widget.readOnly,
                 isPictureBox: false,
-                limit: widget.isEdit ? 1 : 2,
-                autoReplaceFirstPhotoWhenMaxReached: widget.isEdit,
+                limit: 2,
+                autoReplaceFirstPhotoWhenMaxReached: false,
                 label: 'Upload Photo',
                 initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
                     ? List<String>.from(_remainingExistingPhotoUrls)

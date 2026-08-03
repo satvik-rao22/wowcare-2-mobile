@@ -102,15 +102,14 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
             decoration: BoxDecoration(
               color: widget.cardColor,
               borderRadius: widget.borderRadius,
-              border: widget.border ??
-                  Border.all(
-                    color: const Color(0x1A162831),
-                    width: 1,
-                  ),
-              boxShadow: widget.boxShadow ??
+              border:
+                  widget.border ??
+                  Border.all(color: const Color(0x1A162831), width: 1),
+              boxShadow:
+                  widget.boxShadow ??
                   [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.03),
+                      color: Colors.black.withValues(alpha: 0.03),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -131,21 +130,24 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                        if (!isExpanded && widget.collapsedPrefix != null) ...[
-                          widget.collapsedPrefix!,
-                          SizedBox(width: widget.collapsedPrefixSpacing),
-                        ],
+                          if (!isExpanded &&
+                              widget.collapsedPrefix != null) ...[
+                            widget.collapsedPrefix!,
+                            SizedBox(width: widget.collapsedPrefixSpacing),
+                          ],
                           if (widget.leading != null) widget.leading!,
                           if (widget.leading != null) const SizedBox(width: 12),
                           Expanded(
                             child: isExpanded
                                 ? Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     mainAxisAlignment: MainAxisAlignment.center,
                                     children: [
                                       Text(
                                         widget.titleText,
-                                        style: widget.titleStyle ??
+                                        style:
+                                            widget.titleStyle ??
                                             const TextStyle(
                                               fontFamily: 'Manrope',
                                               fontWeight: FontWeight.w500,
@@ -159,7 +161,8 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                         const SizedBox(height: 2),
                                         Text(
                                           widget.subtitleText!,
-                                          style: widget.subtitleStyle ??
+                                          style:
+                                              widget.subtitleStyle ??
                                               const TextStyle(
                                                 fontFamily: 'Manrope',
                                                 fontSize: 10,
@@ -176,7 +179,8 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                     alignment: Alignment.centerLeft,
                                     child: Text(
                                       widget.titleText,
-                                      style: widget.titleStyle ??
+                                      style:
+                                          widget.titleStyle ??
                                           const TextStyle(
                                             fontFamily: 'Manrope',
                                             fontWeight: FontWeight.w500,
@@ -208,7 +212,8 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 8),
                                 child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
@@ -222,14 +227,16 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                       ),
                                     ),
                                     Column(
-                                      crossAxisAlignment: CrossAxisAlignment.end,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.end,
                                       children: [
                                         if (row.valueWidget != null)
                                           row.valueWidget!
                                         else
                                           Text(
                                             row.valueText ?? '',
-                                            style: row.valueStyle ??
+                                            style:
+                                                row.valueStyle ??
                                                 const TextStyle(
                                                   fontFamily: 'Manrope',
                                                   fontSize: 13,
@@ -240,7 +247,8 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                         if (row.noteText != null)
                                           Text(
                                             row.noteText!,
-                                            style: row.noteStyle ??
+                                            style:
+                                                row.noteStyle ??
                                                 const TextStyle(
                                                   fontFamily: 'Manrope',
                                                   fontSize: 10,
@@ -255,13 +263,19 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                                 ),
                               );
                             }).toList(),
-                            if (widget.actions != null && widget.actions!.isNotEmpty) ...[
+                            if (widget.actions != null &&
+                                widget.actions!.isNotEmpty) ...[
                               const SizedBox(height: 12),
                               Row(
                                 children: [
-                                  for (int i = 0; i < widget.actions!.length; i++) ...[
+                                  for (
+                                    int i = 0;
+                                    i < widget.actions!.length;
+                                    i++
+                                  ) ...[
                                     Expanded(child: widget.actions![i]),
-                                    if (i != widget.actions!.length - 1) const SizedBox(width: 12),
+                                    if (i != widget.actions!.length - 1)
+                                      const SizedBox(width: 12),
                                   ],
                                 ],
                               ),
@@ -280,4 +294,3 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
     );
   }
 }
-

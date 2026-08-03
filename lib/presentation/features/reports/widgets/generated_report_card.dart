@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart'
     show GeneratedReportItem;
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -14,7 +16,7 @@ class GeneratedReportCard extends StatefulWidget {
 
   final GeneratedReportItem item;
   final VoidCallback? onView;
-  final VoidCallback? onDownload;
+  final Future<void> Function(String?)? onDownload;
 
   @override
   State<GeneratedReportCard> createState() => _GeneratedReportCardState();
@@ -22,6 +24,7 @@ class GeneratedReportCard extends StatefulWidget {
 
 class _GeneratedReportCardState extends State<GeneratedReportCard> {
   bool _isExpanded = false;
+  bool _isDownloading = false;
 
   @override
   Widget build(BuildContext context) {
@@ -36,17 +39,13 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
-                onTap: () =>
-                    setState(() => _isExpanded = !_isExpanded),
+                onTap: () => setState(() => _isExpanded = !_isExpanded),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -98,13 +97,80 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
                               value: _formatTime(widget.item.generatedAt),
                             ),
                             const SizedBox(height: 16),
-                            CustomButtonLayout(
-                              isForm: false,
-                              cancelButtonLabel: 'View',
-                              onPressedCancel: widget.onView,
-                              confirmButtonLabel: 'Download',
-                              onPressedConfirm: widget.onDownload,
-                            ),
+                            if (widget.onDownload != null)
+                              SizedBox(
+                                width: double.infinity,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      colors: _isDownloading
+                                          ? [
+                                              Colors.grey.shade400,
+                                              Colors.grey.shade600,
+                                            ]
+                                          : AppColors.primaryGradientColors,
+                                    ),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: ElevatedButton(
+                                    onPressed: _isDownloading
+                                        ? null
+                                        : () async {
+                                            setState(
+                                              () => _isDownloading = true,
+                                            );
+                                            try {
+                                              await widget.onDownload?.call(
+                                                widget.item.assetCode,
+                                              );
+                                            } finally {
+                                              if (mounted) {
+                                                setState(
+                                                  () => _isDownloading = false,
+                                                );
+                                              }
+                                            }
+                                          },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.transparent,
+                                      shadowColor: Colors.transparent,
+                                      elevation: 0,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 12,
+                                      ),
+                                    ),
+                                    child: _isDownloading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              valueColor:
+                                                  AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
+                                            ),
+                                          )
+                                        : const Text(
+                                            'Download',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              )
+                            else
+                              CustomButtonLayout(
+                                isForm: false,
+                                cancelButtonLabel: 'View',
+                                onPressedCancel: widget.onView,
+                                confirmButtonLabel: 'Download',
+                                onPressedConfirm: () => widget.onDownload?.call(
+                                  widget.item.assetCode,
+                                ),
+                              ),
                           ],
                         ),
                       ),
@@ -120,19 +186,37 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
   }
 
   static const _months = [
-    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
+  DateTime _toSchoolTime(DateTime dt) =>
+      SchoolZoneDateTime.dateTimeFromInstantInSchool(
+        dt,
+        SchoolTimezoneResolver.lastKnownTimeZone,
+      );
+
   String _formatDate(DateTime dt) {
-    final day = dt.day.toString().padLeft(2, '0');
-    return '${_months[dt.month - 1]} $day, ${dt.year}';
+    final schoolDt = _toSchoolTime(dt);
+    final day = schoolDt.day.toString().padLeft(2, '0');
+    return '${_months[schoolDt.month - 1]} $day, ${schoolDt.year}';
   }
 
   String _formatTime(DateTime dt) {
-    final hour12 = ((dt.hour + 11) % 12) + 1;
-    final minute = dt.minute.toString().padLeft(2, '0');
-    final ampm = dt.hour < 12 ? 'AM' : 'PM';
+    final schoolDt = _toSchoolTime(dt);
+    final hour12 = ((schoolDt.hour + 11) % 12) + 1;
+    final minute = schoolDt.minute.toString().padLeft(2, '0');
+    final ampm = schoolDt.hour < 12 ? 'AM' : 'PM';
     return '${hour12.toString().padLeft(2, '0')}:$minute $ampm';
   }
 }

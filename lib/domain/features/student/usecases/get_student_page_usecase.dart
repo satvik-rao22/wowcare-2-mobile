@@ -15,9 +15,11 @@ class GetStudentPageUseCase {
     List<String>? classroomCodes,
     List<String>? tagCodes,
     List<String>? guardianCodes,
+    List<String>? attendanceStatuses,
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   }) {
     return _repository.getStudentPage(
       schoolCode: schoolCode,
@@ -28,9 +30,11 @@ class GetStudentPageUseCase {
       classroomCodes: classroomCodes,
       tagCodes: tagCodes,
       guardianCodes: guardianCodes,
+      attendanceStatuses: attendanceStatuses,
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowedClassroomCodes,
     );
   }
 }

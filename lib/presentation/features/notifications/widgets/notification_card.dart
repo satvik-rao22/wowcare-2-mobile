@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 import '../../../../domain/features/notifications/entities/app_notification.dart';
@@ -23,7 +24,16 @@ class NotificationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final style = NotificationCategoryStyle.of(notification.category);
+    // Prefer the real backend `module` (ATTENDANCE / CLASSROOM / USER / …) so
+    // the chip reflects the actual source, not the 3-bucket category (which
+    // collapses unknown modules to "Staff"). Falls back to the category label.
+    final module = (notification.data['module'] ?? '').trim();
+    final chipLabel = module.isNotEmpty
+        ? NotificationCategoryStyle.moduleLabel(module)
+        : notification.category.label;
+    final style = module.isNotEmpty
+        ? NotificationCategoryStyle.forModule(module)
+        : NotificationCategoryStyle.of(notification.category);
     final isUnread = !notification.isRead;
 
     return Material(
@@ -71,6 +81,19 @@ class NotificationCard extends StatelessWidget {
                         color: Color(0xff573353),
                       ),
                     ),
+                    if ((notification.body ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      Text(
+                        notification.body!.trim(),
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 13,
+                          fontWeight: FontWeight.w400,
+                          height: 1.35,
+                          color: AppColors.primaryColor.withValues(alpha: 0.7),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 10),
                     Row(
                       children: [
@@ -85,7 +108,7 @@ class NotificationCard extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         _CategoryChip(
-                          label: notification.category.label,
+                          label: chipLabel,
                           style: style,
                         ),
                       ],
@@ -125,7 +148,7 @@ class NotificationCard extends StatelessWidget {
 
   /// Compact "x mins/hrs/days ago" formatting (no external dependency).
   static String _relativeTime(DateTime time) {
-    final diff = DateTime.now().difference(time);
+    final diff = AppTime.nowUtc().difference(time);
     if (diff.inMinutes < 1) return 'Just now';
     if (diff.inMinutes < 60) {
       final m = diff.inMinutes;

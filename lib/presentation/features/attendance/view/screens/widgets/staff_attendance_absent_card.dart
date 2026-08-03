@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -54,6 +53,7 @@ class StaffAbsentCard extends StatefulWidget {
   final StaffAbsentCardData staff;
   final int index;
   final bool isExpanded;
+  final bool disableAttendanceStatusLookup;
   final VoidCallback? onTap;
   final VoidCallback? onView;
 
@@ -62,6 +62,7 @@ class StaffAbsentCard extends StatefulWidget {
     required this.staff,
     required this.index,
     this.isExpanded = false,
+    this.disableAttendanceStatusLookup = false,
     this.onTap,
     this.onView,
   });
@@ -71,174 +72,145 @@ class StaffAbsentCard extends StatefulWidget {
 }
 
 class _StaffAbsentCardState extends State<StaffAbsentCard> {
+  // Shared text tokens mirrored from StaffCard so attendance cards read with
+  // the same Manrope/plum visual identity.
+  static const Color _plum = Color(0xff573353);
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTablet;
     final staff = widget.staff;
 
-    final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final cardPadding = responsive.isTablet 
-        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
-        : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
-    final spacing = responsive.isTablet ? 16.0 : 14.0;
+    final avatarSize = isTablet ? 52.0 : 50.0;
+    final headerPadding = EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16);
+    final spacing = isTablet ? 16.0 : 9.0;
 
     return GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
-        padding: cardPadding,
         decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
-          border: Border.all(color: AppColors.cardBorderColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            Row(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    DocumentImageWidget(
-                      fileUuid: staff.photoUuid ?? '',
-                      name: staff.name,
-                      staffCode: (staff.staffCode ?? '').trim().isNotEmpty
-                          ? staff.staffCode
-                          : staff.id,
-                      size: avatarSize,
-                      fontSize: responsive.isTablet ? 18 : 16,
-                    ),
-                  ],
-                ),
-                SizedBox(width: spacing),
-                Expanded(
-                  child: AppText.body(
-                    staff.name,
-                    style: TextStyle(
-                      fontSize: responsive.labelFontSize,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.primaryColor,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+            Padding(
+              padding: headerPadding.copyWith(top: 12, bottom: 12),
+              child: Row(
+                children: [
+                  DocumentImageWidget(
+                    fileUuid: staff.photoUuid ?? '',
+                    name: staff.name,
+                    staffCode: (staff.staffCode ?? '').trim().isNotEmpty
+                        ? staff.staffCode
+                        : staff.id,
+                    size: avatarSize,
+                    fontSize: isTablet ? 18 : 16,
+                    disableAttendanceStatusLookup: widget.disableAttendanceStatusLookup,
                   ),
-                ),
-                SizedBox(width: spacing / 2),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: AppText.body(
-                      staff.roomName,
-                      style: TextStyle(
-                        fontSize: responsive.isTablet ? 16 : 15,
-                        color: AppColors.themeColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Text(
+                            staff.name,
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: isTablet ? 16 : 14,
+                              fontWeight: FontWeight.w500,
+                              color: _plum,
+                              height: 19 / 14,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            staff.roomName,
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: isTablet ? 16 : 14,
+                              fontWeight: FontWeight.w500,
+                              color: _plum,
+                              height: 19 / 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             if (widget.isExpanded) ...[
-              SizedBox(height: responsive.verticalSpacing / 2),
-              Divider(height: 1, color: AppColors.cardBorderColor),
-              SizedBox(height: responsive.verticalSpacing / 2),
-              _buildDetailRow(context, responsive, 'Room', staff.roomName),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                context,
-                responsive,
-                'Absent Time',
-                staff.absentTime,
-                method: staff.markAbsentMethod,
+              const Divider(
+                height: 1,
+                thickness: 1,
+                indent: 16,
+                endIndent: 16,
+                color: Color(0xFFE9ECEF),
               ),
-              if (staff.absentBy.isNotEmpty && staff.absentBy != 'Unknown') ...[
-                SizedBox(height: responsive.isTablet ? 8 : 6),
-                _buildDetailRow(context, responsive, 'Marked by', staff.absentBy),
-              ],
-              if (staff.note != null && staff.note!.isNotEmpty) ...[
-                SizedBox(height: responsive.isTablet ? 8 : 6),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    Expanded(
-                      flex: responsive.isTablet ? 2 : 1,
-                      child: AppText.small(
-                        'Absent Note',
-                        style: TextStyle(
-                          fontSize: responsive.isTablet ? 14 : 12,
-                          color: AppColors.secondaryColor.withOpacity(0.6),
-                        ),
-                      ),
+                    _buildDetailRow(context, 'Room', staff.roomName),
+                    const SizedBox(height: 10),
+                    _buildDetailRow(
+                      context,
+                      'Absent Time',
+                      staff.absentTime,
+                      method: staff.markAbsentMethod,
                     ),
-                    SizedBox(width: responsive.horizontalSpacing / 2),
-                    Expanded(
-                      flex: responsive.isTablet ? 3 : 2,
-                      child: AppText.value(
-                        staff.note!,
-                        style: TextStyle(
-                          fontSize: responsive.isTablet ? 16 : 14,
-                        ),
-                        textAlign: TextAlign.end,
-                        maxLines: 3,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    if (staff.absentBy.isNotEmpty &&
+                        staff.absentBy != 'Unknown') ...[
+                      const SizedBox(height: 10),
+                      _buildDetailRow(context, 'Marked by', staff.absentBy),
+                    ],
+                    if (staff.note != null && staff.note!.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildDetailRow(context, 'Absent Note', staff.note!),
+                    ],
+                    const SizedBox(height: 10),
+                    _buildDetailRow(
+                      context,
+                      'Start Date',
+                      staff.startDate.isNotEmpty
+                          ? staff.startDate.split('T')[0]
+                          : 'N/A',
                     ),
+                    const SizedBox(height: 10),
+                    _buildDetailRow(
+                      context,
+                      'End Date',
+                      staff.endDate.isNotEmpty
+                          ? staff.endDate.split('T')[0]
+                          : 'N/A',
+                    ),
+                    if (widget.onView != null) ...[
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 40,
+                        child: _outlinedButton('View', widget.onView),
+                      ),
+                    ],
                   ],
                 ),
-              ],
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                context,
-                responsive,
-                'Start Date',
-                staff.startDate.isNotEmpty
-                    ? staff.startDate.split('T')[0]
-                    : 'N/A',
               ),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(
-                context,
-                responsive,
-                'End Date',
-                staff.endDate.isNotEmpty
-                    ? staff.endDate.split('T')[0]
-                    : 'N/A',
-              ),
-              SizedBox(height: responsive.verticalSpacing / 2),
-              if (widget.onView != null)
-                SizedBox(
-                  width: double.infinity,
-                  height: responsive.buttonHeight * 0.8,
-                  child: OutlinedButton(
-                    onPressed: widget.onView,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: AppText.body(
-                      "View",
-                      style: TextStyle(
-                        fontSize: responsive.isTablet ? 16 : 15,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                      ),
-                    ),
-                  ),
-                ),
             ],
           ],
         ),
@@ -248,7 +220,6 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
 
   Widget _buildDetailRow(
     BuildContext context,
-    ResponsiveHelper responsive,
     String label,
     String value, {
     StaffAbsentMarkMethod? method,
@@ -257,30 +228,35 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          flex: responsive.isTablet ? 2 : 1,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 14 : 12,
-              color: AppColors.secondaryColor.withOpacity(0.6),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: _plum,
+              height: 16 / 13,
             ),
           ),
         ),
-        SizedBox(width: responsive.horizontalSpacing / 2),
+        const SizedBox(width: 8),
         Expanded(
-          flex: responsive.isTablet ? 3 : 2,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               if (method != null) ...[
-                _buildMethodIcon(method, responsive),
-                SizedBox(width: responsive.horizontalSpacing / 4),
+                _buildMethodIcon(method),
+                const SizedBox(width: 4),
               ],
               Flexible(
-                child: AppText.value(
+                child: Text(
                   value,
-                  style: TextStyle(
-                    fontSize: responsive.isTablet ? 16 : 14,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _plum,
+                    height: 19 / 14,
                   ),
                   textAlign: TextAlign.end,
                   maxLines: 3,
@@ -294,18 +270,45 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
     );
   }
 
+  Widget _outlinedButton(String label, VoidCallback? onPressed) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Color(0xFF6C7FD8)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+        padding: EdgeInsets.zero,
+        backgroundColor: Colors.white,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF6C7FD8),
+          height: 16 / 16,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMethodIcon(
     StaffAbsentMarkMethod method,
-    ResponsiveHelper responsive,
   ) {
-    final size = responsive.isTablet ? 20.0 : 18.0;
+    const size = 18.0;
     switch (method) {
       case StaffAbsentMarkMethod.gps:
         return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
       case StaffAbsentMarkMethod.qr:
         return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
       case StaffAbsentMarkMethod.kiosk:
-        return SvgPicture.asset(MediaRes.pinMethodIcon, width: size, height: size);
+        return Icon(
+          Icons.point_of_sale_outlined,
+          size: size,
+          color: AppColors.themeColor,
+        );
       case StaffAbsentMarkMethod.app:
         return SvgPicture.asset(
           MediaRes.appMethodIcon,

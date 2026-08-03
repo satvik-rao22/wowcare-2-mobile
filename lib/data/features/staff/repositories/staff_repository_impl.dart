@@ -1,5 +1,6 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/app_time.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/entities/staff_document.dart';
@@ -43,6 +44,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) {
     // Make cached staff list depend on filters.
     String norm(String? v) => (v ?? '').trim().toUpperCase();
@@ -61,6 +63,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         .where((c) => c.isNotEmpty)
         .toList()
       ..sort();
+    final attendanceKey = (attendanceStatuses ?? [])
+        .map((c) => c.trim().toUpperCase())
+        .where((c) => c.isNotEmpty)
+        .toList()
+      ..sort();
 
     final identifier = [
       schoolCode,
@@ -69,6 +76,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       if (searchKey.isNotEmpty) 'search=$searchKey',
       if (primaryKey.isNotEmpty) 'primaryClassrooms=${primaryKey.join(',')}',
       if (classKey.isNotEmpty) 'classCodes=${classKey.join(',')}',
+      if (attendanceKey.isNotEmpty) 'attendanceStatus=${attendanceKey.join(',')}',
       'sort=$sortKey',
     ].join('|');
 
@@ -201,6 +209,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     final listKey = _staffListCacheKey(
       schoolCode,
@@ -210,6 +219,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       primaryClassroomCodes: primaryClassroomCodes,
       classCodes: classCodes,
       sortBy: sortBy,
+      attendanceStatuses: attendanceStatuses,
     );
     _registerStaffListCacheKey(schoolCode, listKey);
 
@@ -226,6 +236,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         primaryClassroomCodes: primaryClassroomCodes,
         classCodes: classCodes,
         sortBy: sortBy,
+        attendanceStatuses: attendanceStatuses,
       );
 
       if (page == 0) {
@@ -248,6 +259,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
           primaryClassroomCodes: primaryClassroomCodes,
           classCodes: classCodes,
           sortBy: sortBy,
+          attendanceStatuses: attendanceStatuses,
         );
         if (cached != null) {
           return cached;
@@ -257,7 +269,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     final future = _inflightStaffPageByKey.putIfAbsent(listKey, () {
       final f = fetchRemote();
-      f.whenComplete(() => _inflightStaffPageByKey.remove(listKey));
+      f.whenComplete(() => _inflightStaffPageByKey.remove(listKey)).ignore();
       return f;
     });
     return await future;
@@ -288,6 +300,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     final key = _staffListCacheKey(
       schoolCode,
@@ -297,6 +310,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       primaryClassroomCodes: primaryClassroomCodes,
       classCodes: classCodes,
       sortBy: sortBy,
+      attendanceStatuses: attendanceStatuses,
     );
     _registerStaffListCacheKey(schoolCode, key);
     final payload = await _cacheManager.loadCache(key);
@@ -315,6 +329,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     await _cacheManager.invalidateCache(
       _staffListCacheKey(
@@ -325,6 +340,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
         primaryClassroomCodes: primaryClassroomCodes,
         classCodes: classCodes,
         sortBy: sortBy,
+        attendanceStatuses: attendanceStatuses,
       ),
     );
   }
@@ -389,6 +405,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     return StaffMember(
       code: m.code,
       name: m.name,
+      userCode: m.userCode,
       primaryClassroomCode: m.primaryClassroomCode,
       primaryClassroomName: m.primaryClassroomName,
       allowedClassroomCodes: m.allowedClassroomCodes,
@@ -512,6 +529,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
             documentUrl: m.documentUrl,
             documentSizeKb: m.documentSizeKb,
             mimeType: m.mimeType,
+            assetCode: m.assetCode,
             expiryDate: m.expiryDate.isEmpty ? null : m.expiryDate,
             documentNotes: m.documentNotes,
             expired: m.expired,
@@ -558,7 +576,11 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     final future = _inflightStaffProfileByKey.putIfAbsent(cacheKey, () {
       final f = fetchRemoteAndSave();
-      f.whenComplete(() => _inflightStaffProfileByKey.remove(cacheKey));
+      // .ignore() marks errors on this whenComplete future as handled. The
+      // caller awaits `f` directly (and catches its errors); without ignore(),
+      // the orphaned whenComplete future re-surfaces the same error as an
+      // unhandled zone exception.
+      f.whenComplete(() => _inflightStaffProfileByKey.remove(cacheKey)).ignore();
       return f;
     });
     return await future;
@@ -575,6 +597,10 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     await _invalidateStaffProfileCaches(staffCode);
+    // Profile fields (name, primary/allowed classrooms, designation, status)
+    // are shown in the staff list cards, so the cached list is now stale.
+    // Invalidate it so the next refresh re-fetches and reflects the edit.
+    await _invalidateAllStaffListAndSummaryCaches();
 
     return message;
   }
@@ -590,6 +616,38 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     );
 
     await _invalidateStaffProfileCaches(staffCode);
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStaffAllowedClassrooms({
+    required String staffCode,
+    required List<String> classroomCodes,
+  }) async {
+    final message = await _remoteDataSource.updateStaffAllowedClassrooms(
+      staffCode: staffCode,
+      classroomCodes: classroomCodes,
+    );
+
+    await _invalidateStaffProfileCaches(staffCode);
+    await _invalidateAllStaffListAndSummaryCaches();
+
+    return message;
+  }
+
+  @override
+  Future<String> updateStaffPrimaryClassroom({
+    required String staffCode,
+    required String classroomCode,
+  }) async {
+    final message = await _remoteDataSource.updateStaffPrimaryClassroom(
+      staffCode: staffCode,
+      classroomCode: classroomCode,
+    );
+
+    await _invalidateStaffProfileCaches(staffCode);
+    await _invalidateAllStaffListAndSummaryCaches();
 
     return message;
   }
@@ -805,8 +863,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     required String staffCode,
     required List<Map<String, String>> dates,
   }) async {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
+    final today = AppTime.today();
 
     // Final safety guard: never allow PHYSICAL_CHECKUP Due/Scheduled in past
     // (reverse rule of Completed) even if any UI path misses validation.
@@ -875,6 +932,34 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     await _invalidateStaffProfileCaches(staffCode);
 
     return response.message;
+  }
+
+  @override
+  Future<({List<StaffProfileWorkSchedule> workSchedules, List<StaffProfileBreakSchedule> breakSchedules})>
+      getStaffSchedules({required String staffCode}) async {
+    final result = await _remoteDataSource.getStaffSchedules(staffCode: staffCode);
+
+    StaffProfileTime _mapTime(StaffProfileTimeModel m) =>
+        StaffProfileTime(hour: m.hour, minute: m.minute, second: m.second, nano: m.nano);
+
+    final work = result.workSchedules
+        .map((m) => StaffProfileWorkSchedule(
+              dayOfWeek: m.dayOfWeek,
+              workStartTime: _mapTime(m.workStartTime),
+              workEndTime: _mapTime(m.workEndTime),
+            ))
+        .toList(growable: false);
+
+    final breaks = result.breakSchedules
+        .map((m) => StaffProfileBreakSchedule(
+              dayOfWeek: m.dayOfWeek,
+              breakType: m.breakType,
+              breakStartTime: _mapTime(m.breakStartTime),
+              breakEndTime: _mapTime(m.breakEndTime),
+            ))
+        .toList(growable: false);
+
+    return (workSchedules: work, breakSchedules: breaks);
   }
 
   @override
@@ -1024,6 +1109,25 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
   }
 
   @override
+  Future<String> deleteSchoolUser({
+    required String userCode,
+    required String organizationCode,
+    required String schoolCode,
+    required String role,
+  }) async {
+    final message = await _remoteDataSource.deleteSchoolUser(
+      userCode: userCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      role: role,
+    );
+
+    await _invalidateStaffListAndSummaryCaches(schoolCode);
+
+    return message;
+  }
+
+  @override
   Future<String> deactivateOrganizationAdmin({
     required String userCode,
     required String organizationCode,
@@ -1134,6 +1238,29 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
       staffWithoutActivePhysicalCheckupCount:
           model.staffWithoutActivePhysicalCheckupCount,
     );
+  }
+
+  @override
+  Future<bool> updateWorkBreakReminder({
+    required String staffCode,
+    required bool enabled,
+  }) async {
+    final response = await _remoteDataSource.updateWorkBreakReminder(
+      staffCode: staffCode,
+      enabled: enabled,
+    );
+
+    if (!response.success) {
+      throw Exception(response.message.isNotEmpty
+          ? response.message
+          : 'Failed to update work break reminder');
+    }
+
+    AppLogger.d(
+      '[WorkBreakReminder] Updated for staffCode=$staffCode, enabled=$enabled',
+    );
+
+    return enabled;
   }
 }
 

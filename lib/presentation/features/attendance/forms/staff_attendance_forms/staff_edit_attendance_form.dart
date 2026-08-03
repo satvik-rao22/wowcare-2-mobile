@@ -7,7 +7,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/simple_time_picker_field.dart';
+import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/widgets/staff_attendance_card.dart';
@@ -73,11 +73,17 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
           ? ApiErrorHandler.extractErrorMessage(outcome.error)
           : outcome.message;
       if (message == null) return; // noop (already submitting)
+      // A future sign-in/out time is a correctable user mistake, not a system
+      // failure — surface it as a yellow warning rather than a red error.
+      final isFutureTimeWarning =
+          message.toLowerCase().contains('cannot be in the future');
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
           content: Text(message),
-          backgroundColor: AppColors.errorColor,
+          backgroundColor: isFutureTimeWarning
+              ? AppColors.warningColor
+              : AppColors.errorColor,
         ),
       );
     }
@@ -188,9 +194,8 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       children: [
         AppText.label(label),
         const SizedBox(height: 8),
-        SimpleTimePickerField(
+        GradientTimePickerField(
           time: time,
-          placeholder: 'Select time',
           onTimeSelected: onTimeChanged,
         ),
       ],

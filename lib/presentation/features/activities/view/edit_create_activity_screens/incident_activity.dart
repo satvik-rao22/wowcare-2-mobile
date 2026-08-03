@@ -3,9 +3,10 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:mime/mime.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
@@ -17,6 +18,7 @@ import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
+import '../../../../../core/util/file_picker_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
@@ -25,6 +27,7 @@ import '../../../../../domain/features/activity/entities/activity_type_details.d
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../domain/features/activity/repositories/activity_repository.dart';
 import '../../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../../../../shared/common/widgets/custom_toggle.dart';
@@ -203,10 +206,22 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return _approvalStatus == 'PARENT_ACKNOWLEDGEMENT_PENDING' || _isAcknowledged;
   }
 
+  /// Whether the CURRENTLY ACTIVE persona is guardian. Once RoleCubit has
+  /// resolved the active persona it is authoritative — a dual-role account
+  /// (e.g. SCHOOL_ADMIN + GUARDIAN) always has 'GUARDIAN' somewhere in the
+  /// raw cached roles list regardless of which persona is active right now,
+  /// so [rolesRaw]'s naive scan (via [incidentRolesJsonIndicatesGuardianLogin])
+  /// is only a best-effort fallback for while RoleCubit is still bootstrapping.
+  bool _resolveIsGuardianPersona(String rolesRaw) {
+    final roleCubit = context.read<RoleCubit>();
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    return incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+  }
+
   Future<String> _resolveParentSignerCode() async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+    if (!_resolveIsGuardianPersona(rolesRaw)) {
       return '';
     }
     var guardianCode =
@@ -256,7 +271,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<ActivityDetail> _getActivityDetailRespectingPersona(String code) async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    final isGuardian = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+    final isGuardian = _resolveIsGuardianPersona(rolesRaw);
     if (mounted) {
       setState(() => _isGuardianPersona = isGuardian);
     }
@@ -299,7 +314,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<void> _resolveLoggedInGuardianPresentIfNeeded() async {
     final storage = serviceLocator<StorageService>();
     final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    if (!incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) return;
+    if (!_resolveIsGuardianPersona(rolesRaw)) return;
     await _resolveLoggedInGuardianPresentLabel();
   }
 
@@ -1048,8 +1063,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           (await serviceLocator<StorageService>().getString(StorageKeys.roles) ??
                   '')
               .trim();
-      final guardianViewer =
-          incidentRolesJsonIndicatesGuardianLogin(rolesPrefetch);
+      final guardianViewer = _resolveIsGuardianPersona(rolesPrefetch);
       final detail = await _getActivityDetailRespectingPersona(code);
       if (!mounted) return;
       final firstAidFromApi = _pickFirstAidGivenFromActivityDetail(detail);
@@ -1261,10 +1275,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     );
 
     if (!mounted) return;
+    final isGuardianPersona = _resolveIsGuardianPersona(rolesRaw);
     setState(() {
       _staffName = resolvedDisplayName.isNotEmpty ? resolvedDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
-      _isGuardianPersona = incidentRolesJsonIndicatesGuardianLogin(rolesRaw);
+      _isGuardianPersona = isGuardianPersona;
       _staffCode = staffCode;
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
@@ -1272,7 +1287,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     unawaited(
       _primeGuardianNamesFromCodes([_parentSignerRawValue]).catchError((_) {}),
     );
-    if (incidentRolesJsonIndicatesGuardianLogin(rolesRaw)) {
+    if (isGuardianPersona) {
       unawaited(_resolveLoggedInGuardianPresentLabel().catchError((_) {}));
     } else if (mounted) {
       setState(() {
@@ -1390,6 +1405,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         message: 'Acknowledged successfully',
         isSuccess: true,
       );
+      Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
       CoreUtils.logApiError(
@@ -1466,14 +1482,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
         isWarning: true,
       );
       return;
@@ -1816,14 +1824,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'What happened must be at least 5 characters',
         isWarning: true,
       );
       return;
@@ -2286,6 +2286,16 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             );
 
         final sessionAssetCodes = <String>[];
+        // Keyed separately from _uploadedAssetCodeByPath so a photo is only
+        // considered "done" (and eligible for Save/attach) once
+        // waitUntilAssetsReady below actually confirms it — completing the
+        // S3 PUT/complete call is not the same as the backend reporting the
+        // asset ready to link, and writing straight into
+        // _uploadedAssetCodeByPath here let a subsequent ready-poll timeout
+        // pass through silently: the map already held the assetCode, so the
+        // screen believed upload had finished and let Save submit an asset
+        // the backend then rejected with 409 "not ready for linking".
+        final pendingAssetCodeByPath = <String, String>{};
         for (var i = 0; i < missingPhotos.length; i++) {
           final photo = missingPhotos[i];
           final fileIndex = i + 1;
@@ -2293,6 +2303,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           final fileName = photo.uri.pathSegments.isNotEmpty
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
+          // Declaring every picked photo as image/jpeg regardless of its
+          // real format (HEIC/PNG/WEBP/etc. are all pickable — see
+          // FilePickerUtils.allowedImageExtensions) told S3/the backend the
+          // wrong content type for anything that wasn't literally already a
+          // JPEG, which is a plausible reason a HEIC upload sat stuck at
+          // PROCESSING and never reached READY: the backend's decoder was
+          // told to parse non-JPEG bytes as JPEG.
+          final contentType = lookupMimeType(photo.path) ??
+              FilePickerUtils.getMimeType(fileName.split('.').last);
           final contentLengthBytes = await photo.length();
           final checksumSha256 =
               await _imageUploadService.computeFileChecksumSha256(photo);
@@ -2300,7 +2319,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
             fileName: fileName,
-            contentType: 'image/jpeg',
+            contentType: contentType,
             contentLengthBytes: contentLengthBytes,
             checksumSha256: checksumSha256,
             mediaType: 'IMAGE',
@@ -2311,16 +2330,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             file: photo,
             presignedPutUrl: presign.presignedPutUrl,
             requiredHeaders: presign.requiredHeaders,
-            fallbackContentType: 'image/jpeg',
+            fallbackContentType: contentType,
             onProgress: (_, __, percent) {
               if (!mounted) return;
               final overallFraction =
                   ((fileIndex - 1) + (percent / 100)) / totalFiles;
               final overallPercent =
                   (overallFraction * 100).clamp(0, 100).round();
-              final displayPercent =
-                  overallPercent >= 100 ? 99 : overallPercent;
-              setState(() => _uploadProgressPercent = displayPercent);
+              setState(() => _uploadProgressPercent = overallPercent);
             },
           );
           await _imageUploadService.completeAssetUpload(
@@ -2331,13 +2348,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           if (mounted) {
             setState(() => _uploadCompletedCount = fileIndex);
           }
-          _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
+          pendingAssetCodeByPath[photo.path] = presign.assetCode;
           sessionAssetCodes.add(presign.assetCode);
         }
         await _imageUploadService.waitUntilAssetsReady(
           sessionCode: uploadSession.sessionCode,
           expectedAssetCodes: sessionAssetCodes,
         );
+        _uploadedAssetCodeByPath.addAll(pendingAssetCodeByPath);
         if (mounted) {
           setState(() => _uploadProgressPercent = 100);
         }
@@ -2532,12 +2550,15 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: responsive.isTablet ? 16 : 12,
                   mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 50,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   return ActivityStudentDisplayTile(
                     name: _selectedStudents[index],
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
                   );
                 },
               )
@@ -2550,14 +2571,17 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                   crossAxisCount: responsive.isTablet ? 3 : 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 12,
-                  childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                  mainAxisExtent: 64,
                 ),
                 itemCount: _selectedStudents.length,
                 itemBuilder: (context, index) {
                   final String name = _selectedStudents[index];
-                  return SelectedStudentTile(
+                  return ActivityStudentDisplayTile(
                     name: name,
-                    onTap: () => _removeStudent(name),
+                    studentCode: index < _selectedStudentsData.length
+                        ? _selectedStudentsData[index]['studentCode'] as String?
+                        : null,
+                    onRemove: () => _removeStudent(name),
                   );
                 },
               ),

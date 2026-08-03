@@ -1,3 +1,4 @@
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 import '../models/app_notification_model.dart';
 
@@ -8,10 +9,32 @@ import '../models/app_notification_model.dart';
 /// can be replaced by a REST-backed implementation (calling the eventual
 /// `/api/v1/notifications` endpoints via `ApiClient`) without touching anything
 /// above the repository.
+/// One page of notification-center items plus whether more pages exist.
+typedef NotificationCenterPage = ({
+  List<AppNotificationModel> items,
+  bool hasMore,
+});
+
 abstract class NotificationCenterDataSource {
-  Future<List<AppNotificationModel>> fetchNotifications();
-  Future<List<AppNotificationModel>> markAsRead(String id);
-  Future<List<AppNotificationModel>> markAllAsRead();
+  /// Fetches one page (newest first). [page] is zero-based. [module] filters by
+  /// the notification's top-level module (null = all); [onlyUnread] restricts to
+  /// unread. Both are applied server-side.
+  Future<NotificationCenterPage> fetchNotifications({
+    int page,
+    int size,
+    String? module,
+    bool onlyUnread,
+  });
+
+  /// Marks a single notification read on the backend.
+  Future<void> markAsRead(String id);
+
+  /// Marks every notification read on the backend.
+  Future<void> markAllAsRead();
+
+  /// Authoritative unread / unclicked totals across all pages (bell badge +
+  /// mark-all gating), independent of what's currently loaded.
+  Future<({int unread, int unclicked})> getUnreadCounts();
 }
 
 /// In-memory mock data source with realistic seed data, mirroring the design.
@@ -29,25 +52,49 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   static const Duration _latency = Duration(milliseconds: 600);
 
   @override
-  Future<List<AppNotificationModel>> fetchNotifications() async {
+  Future<NotificationCenterPage> fetchNotifications({
+    int page = 0,
+    int size = 10,
+    String? module,
+    bool onlyUnread = false,
+  }) async {
     await Future<void>.delayed(_latency);
-    return _sortedCopy();
+    var sorted = _sortedCopy();
+    if (module != null && module.trim().isNotEmpty) {
+      final m = module.trim().toUpperCase();
+      sorted = sorted
+          .where((n) => (n.data['module'] ?? '').toUpperCase() == m)
+          .toList();
+    }
+    if (onlyUnread) {
+      sorted = sorted.where((n) => !n.isRead).toList();
+    }
+    final start = page * size;
+    if (start >= sorted.length) {
+      return (items: const <AppNotificationModel>[], hasMore: false);
+    }
+    final end = (start + size).clamp(0, sorted.length);
+    return (items: sorted.sublist(start, end), hasMore: end < sorted.length);
   }
 
   @override
-  Future<List<AppNotificationModel>> markAsRead(String id) async {
+  Future<void> markAsRead(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    _items = _items
-        .map((n) => n.id == id ? _copyRead(n, true) : n)
-        .toList();
-    return _sortedCopy();
+    _items =
+        _items.map((n) => n.id == id ? _copyRead(n, true) : n).toList();
   }
 
   @override
-  Future<List<AppNotificationModel>> markAllAsRead() async {
+  Future<void> markAllAsRead() async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     _items = _items.map((n) => _copyRead(n, true)).toList();
-    return _sortedCopy();
+  }
+
+  @override
+  Future<({int unread, int unclicked})> getUnreadCounts() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    final unread = _items.where((n) => !n.isRead).length;
+    return (unread: unread, unclicked: unread);
   }
 
   List<AppNotificationModel> _sortedCopy() {
@@ -70,7 +117,7 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   }
 
   List<AppNotificationModel> _seed() {
-    final now = DateTime.now();
+    final now = AppTime.nowUtc();
     AppNotificationModel item({
       required String id,
       required String title,

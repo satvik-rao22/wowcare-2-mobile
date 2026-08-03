@@ -3,27 +3,45 @@ part of 'create_invoice_cubit.dart';
 class CreateInvoiceState extends Equatable {
   const CreateInvoiceState({
     required this.items,
+    required this.invoiceDate,
     required this.dueDate,
-    required this.serviceStartDate,
-    required this.serviceEndDate,
+    required this.serviceDate,
+    required this.serviceDateEnd,
+    required this.catalog,
+    required this.catalogLoaded,
     required this.isFormLocked,
     required this.revision,
   });
 
-  /// Starts with a single primary item row.
+  /// Starts with a single primary item row and an empty catalog.
   factory CreateInvoiceState.initial() => CreateInvoiceState(
         items: [InvoiceItemFormData.initial(isPrimary: true)],
+        invoiceDate: null,
         dueDate: null,
-        serviceStartDate: null,
-        serviceEndDate: null,
+        serviceDate: null,
+        serviceDateEnd: null,
+        catalog: const <String, List<InvoiceCatalogOption>>{},
+        catalogLoaded: false,
         isFormLocked: false,
         revision: 0,
       );
 
   final List<InvoiceItemFormData> items;
+  final DateTime? invoiceDate;
   final DateTime? dueDate;
-  final DateTime? serviceStartDate;
-  final DateTime? serviceEndDate;
+
+  /// Optional service period (start / end) shown on the invoice.
+  final DateTime? serviceDate;
+  final DateTime? serviceDateEnd;
+
+  /// Selectable Item Description entries keyed by item type
+  /// (Tuition Fee / Other Fee / Discount / Subsidy).
+  final Map<String, List<InvoiceCatalogOption>> catalog;
+
+  /// True once the catalog prefetch has completed (even if some lists are
+  /// empty) — lets the UI show "No … available" instead of a stuck loader.
+  final bool catalogLoaded;
+
   final bool isFormLocked;
 
   /// Bumped on every in-place item mutation so equality-based rebuilds fire
@@ -37,7 +55,7 @@ class CreateInvoiceState extends Equatable {
               ? item.amount
               : item.amountController.text) ??
           0;
-      if (item.type == 'Discount' || item.type == 'Subsidy') {
+      if (InvoiceItemTypes.isDeduction(item.type)) {
         total -= amount;
       } else {
         total += amount;
@@ -48,19 +66,24 @@ class CreateInvoiceState extends Equatable {
 
   CreateInvoiceState copyWith({
     List<InvoiceItemFormData>? items,
+    DateTime? Function()? invoiceDate,
     DateTime? Function()? dueDate,
-    DateTime? Function()? serviceStartDate,
-    DateTime? Function()? serviceEndDate,
+    DateTime? Function()? serviceDate,
+    DateTime? Function()? serviceDateEnd,
+    Map<String, List<InvoiceCatalogOption>>? catalog,
+    bool? catalogLoaded,
     bool? isFormLocked,
     int? revision,
   }) {
     return CreateInvoiceState(
       items: items ?? this.items,
+      invoiceDate: invoiceDate != null ? invoiceDate() : this.invoiceDate,
       dueDate: dueDate != null ? dueDate() : this.dueDate,
-      serviceStartDate:
-          serviceStartDate != null ? serviceStartDate() : this.serviceStartDate,
-      serviceEndDate:
-          serviceEndDate != null ? serviceEndDate() : this.serviceEndDate,
+      serviceDate: serviceDate != null ? serviceDate() : this.serviceDate,
+      serviceDateEnd:
+          serviceDateEnd != null ? serviceDateEnd() : this.serviceDateEnd,
+      catalog: catalog ?? this.catalog,
+      catalogLoaded: catalogLoaded ?? this.catalogLoaded,
       isFormLocked: isFormLocked ?? this.isFormLocked,
       revision: revision ?? this.revision,
     );
@@ -68,9 +91,12 @@ class CreateInvoiceState extends Equatable {
 
   @override
   List<Object?> get props => [
+        invoiceDate,
         dueDate,
-        serviceStartDate,
-        serviceEndDate,
+        serviceDate,
+        serviceDateEnd,
+        catalog,
+        catalogLoaded,
         isFormLocked,
         revision,
       ];

@@ -33,6 +33,7 @@ class HighlightableCard extends StatefulWidget {
     this.highlightColor,
     this.duration = const Duration(milliseconds: 2200),
     this.scrollOnHighlight = false,
+    this.foreground = false,
   });
 
   /// The card content.
@@ -56,6 +57,15 @@ class HighlightableCard extends StatefulWidget {
   /// highlight — no external [GlobalKey] needed. Use for deeply-nested cards.
   final bool scrollOnHighlight;
 
+  /// Paints the flash IN FRONT of [child] instead of behind it.
+  ///
+  /// The default (behind) is invisible when the child paints its own opaque,
+  /// full-bleed background — e.g. `StaffStyleCard`, an opaque white `Container`
+  /// with no margin — because the child covers the exact same rect and hides
+  /// both the border and the tint. Set this for such cards; the tint is
+  /// translucent, so the content still reads through.
+  final bool foreground;
+
   bool get _matches {
     final a = (code ?? '').trim();
     final b = (highlightCode ?? '').trim();
@@ -68,43 +78,60 @@ class HighlightableCard extends StatefulWidget {
 
 class _HighlightableCardState extends State<HighlightableCard>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: widget.duration,
-  );
+  late AnimationController _controller;
+
+  /// The (code|highlightCode) pair we've already flashed for. Prevents the
+  /// highlight from re-firing on every rebuild (e.g. each swipe of a bucket
+  /// board) while the same deep-link highlightCode is still set.
+  String? _flashedKey;
+
+  String get _matchKey =>
+      '${(widget.code ?? '').trim().toUpperCase()}|${(widget.highlightCode ?? '').trim().toUpperCase()}';
 
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: widget.duration,
+    );
     if (widget._matches) _trigger();
   }
 
   @override
   void didUpdateWidget(covariant HighlightableCard old) {
     super.didUpdateWidget(old);
-    // Re-flash when this card newly becomes the target — e.g. the list finished
-    // loading and the matching row only now exists, or a fresh notification
-    // points at a different code.
-    final becameTarget = widget._matches &&
-        (old.code != widget.code ||
-            old.highlightCode != widget.highlightCode ||
-            (!_controller.isAnimating && _controller.value == 0));
-    if (becameTarget) _trigger();
+    // Re-flash only when this card NEWLY becomes the target for a pair we
+    // haven't flashed yet — e.g. the list finished loading and the matching row
+    // only now exists, or a fresh notification points at a different code.
+    // Crucially, do NOT re-flash on every rebuild (swipes/scroll) while the same
+    // highlightCode is still set: gate on _flashedKey.
+    if (widget._matches && _flashedKey != _matchKey) _trigger();
   }
 
   void _trigger() {
+    _flashedKey = _matchKey;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      if (widget.scrollOnHighlight) {
-        Scrollable.ensureVisible(
-          context,
-          duration: const Duration(milliseconds: 400),
-          alignment: 0.1,
-          curve: Curves.easeOut,
-        );
-      }
-      widget.onHighlighted?.call();
-      _controller.forward(from: 0);
+      // When the data is cached, the target card mounts synchronously DURING
+      // the route/tab push transition — a flash started right now plays
+      // off-screen and is missed, and the _flashedKey guard then blocks a
+      // re-flash. Delay the start so it lands after the transition settles.
+      // (On the uncached path the data arrives ~1s later anyway, so this small
+      // delay is imperceptible there.)
+      Future.delayed(const Duration(milliseconds: 350), () {
+        if (!mounted) return;
+        if (widget.scrollOnHighlight) {
+          Scrollable.ensureVisible(
+            context,
+            duration: const Duration(milliseconds: 400),
+            alignment: 0.1,
+            curve: Curves.easeOut,
+          );
+        }
+        widget.onHighlighted?.call();
+        _controller.forward(from: 0);
+      });
     });
   }
 
@@ -125,6 +152,9 @@ class _HighlightableCardState extends State<HighlightableCard>
         // Overlay starts strong (t=1) and fades to nothing (t=0).
         final t = 1 - _controller.value;
         return DecoratedBox(
+          position: widget.foreground
+              ? DecorationPosition.foreground
+              : DecorationPosition.background,
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(widget.borderRadius),
             border: Border.all(

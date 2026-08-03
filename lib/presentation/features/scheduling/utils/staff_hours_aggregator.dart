@@ -15,10 +15,15 @@ class StaffHoursAggregator {
       if (code.isEmpty) continue;
 
       final prev = map[code] ?? StaffHoursTotals.zero;
+      final newAvailable = prev.availableHours + entry.availableHours;
+      final newScheduled = prev.scheduledHours + entry.scheduledHours;
+      // Calculate unscheduled as the difference to ensure consistency
+      final newUnscheduled = (newAvailable - newScheduled).clamp(0.0, double.infinity);
+
       map[code] = StaffHoursTotals(
-        availableHours: prev.availableHours + entry.availableHours,
-        scheduledHours: prev.scheduledHours + entry.scheduledHours,
-        unscheduledHours: prev.unscheduledHours + entry.unscheduledHours,
+        availableHours: newAvailable,
+        scheduledHours: newScheduled,
+        unscheduledHours: newUnscheduled,
       );
     }
     return map;
@@ -34,14 +39,14 @@ class StaffHoursAggregator {
 
     var available = 0.0;
     var scheduled = 0.0;
-    var unscheduled = 0.0;
     for (final entry in entries) {
       if (entry.staffCode.trim() != code) continue;
       if (!_sameCalendarDay(entry.shiftDate, day)) continue;
       available += entry.availableHours;
       scheduled += entry.scheduledHours;
-      unscheduled += entry.unscheduledHours;
     }
+    // Calculate unscheduled as the difference to ensure consistency
+    final unscheduled = (available - scheduled).clamp(0.0, double.infinity);
     return StaffHoursTotals(
       availableHours: available,
       scheduledHours: scheduled,

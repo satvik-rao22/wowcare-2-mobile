@@ -13,6 +13,7 @@ import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
+import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
 import 'package:wowcare/presentation/features/user-profile/widgets/profile_menu_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
@@ -24,7 +25,16 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import 'package:provider/provider.dart';
+import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
+import 'package:wowcare/core/util/string_utils.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
+
+import '../../../src/app_router.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -63,6 +73,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.notificationCount = 0,
     this.isParent = false,
     this.studentList,
+    this.isKiosk = false,
     super.key,
   });
 
@@ -73,6 +84,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final int notificationCount;
   final bool isParent;
   final List<String>? studentList;
+  final bool isKiosk;
 
   @override
   Size get preferredSize => Size.fromHeight(
@@ -83,28 +95,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     final bool hasTabs =
         tabs != null && tabController != null && tabs!.isNotEmpty;
-    final bool isParentPersona = context.read<RoleCubit>().isParent;
-    // Capture the current route name once per build so menu actions can
-    // skip pushing a duplicate when the user is already on that screen.
+    // Capture the current route name once per build so the notification bell
+    // can skip pushing a duplicate when already on that screen.
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
-
-    // Determine whether the logged-in user has access to multiple organizations.
-    // If there's only one organization, we hide the "Switch Organisation" menu item.
-    bool hasMultipleOrganizations = false;
-    try {
-      final authCubit = context.read<AuthCubit>();
-      final state = authCubit.state;
-      if (state is AuthLoaded) {
-        final orgCodes = state.loginResponse.roles
-            .map((r) => r.organizationCode)
-            .where((c) => c.isNotEmpty)
-            .toSet();
-        hasMultipleOrganizations = orgCodes.length > 1;
-      }
-    } catch (_) {
-      // If AuthCubit is not available, default to not showing the switch org item.
-      hasMultipleOrganizations = false;
-    }
 
     return AppBar(
       backgroundColor: Colors.white,
@@ -129,7 +122,6 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                       items: names,
                       selectedItem: state.selectedChild?.name,
                       onSelect: cubit.selectByName,
-                      prependHintAsSelectableItem: false,
                       isEnabled: canPickChild,
                     ),
                   ),
@@ -161,344 +153,108 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               ),
             ),
       actions: [
-        IconButton(
-          icon: SvgPicture.asset(MediaRes.chatsIcon, width: 22, height: 22),
-          onPressed: () {},
-        ),
-        Stack(
-          children: [
-            IconButton(
-              icon: SvgPicture.asset(
-                MediaRes.notificationsIcon,
-                width: 22,
-                height: 22,
-              ),
-              onPressed: () {
-                // Don't stack a second notification page when the bell is
-                // tapped again while already on it.
-                if (currentRoute == NotificationCenterScreen.routeName) return;
-                context.push(NotificationCenterScreen.routeName);
-              },
-            ),
-            if (notificationCount > 0)
-              Positioned(
-                right: 8,
-                top: 8,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 5,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color.fromRGBO(179, 38, 30, 1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    notificationCount > 99 ? '99+' : '$notificationCount',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
+        if (!isKiosk)
+          BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
+            builder: (context, badgeState) {
+              final role = context.read<RoleCubit>();
+              final int unreadCount = role.isParent
+                  ? badgeState.parentTotal
+                  : role.isAdmin
+                  ? badgeState.adminTotal
+                  : badgeState.staffTotal;
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: SvgPicture.asset(
+                      MediaRes.chatsIcon,
+                      width: 22,
+                      height: 22,
                     ),
+                    // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
+                    // role-gated, each with its unread badge) instead of jumping straight to
+                    // one surface — so the user can pick which messaging area to open, as on web.
+                    onPressed: () => context.push(AppRoutes.messagingEntry),
                   ),
-                ),
-              ),
-          ],
-        ),
-        PopupMenuButton<int>(
-          constraints: const BoxConstraints(maxWidth: 240),
-          icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
-          offset: const Offset(0, 48),
-          color: Colors.white,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          itemBuilder: (context) => [
-            PopupMenuItem<int>(
-              enabled: false,
-              height: 64,
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 240),
-                  child: Padding(
-                    padding: const EdgeInsets.only(
-                      left: 4,
-                      right: 10,
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
                       top: 8,
-                      bottom: 8,
-                    ),
-                    child: ProfileMenuHeader(isParentPersona: isParentPersona),
-                  ),
-                ),
-              ),
-            ),
-            PopupMenuItem<int>(
-              value: 1,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.account_circle_outlined,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'My Profile',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  //const Text('My Profile'),
-                ],
-              ),
-            ),
-            PopupMenuItem<int>(
-              value: 2,
-              child: Row(
-                children: [
-                  Transform.rotate(
-                    angle: -pi / 4,
-                    child: Icon(
-                      Icons.vpn_key,
-                      color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  FutureBuilder<String?>(
-                    future: serviceLocator<StorageService>().getString(
-                      StorageKeys.staffPin,
-                    ),
-                    builder: (context, snapshot) {
-                      final pin = (snapshot.data ?? '').trim();
-                      final text = pin.isNotEmpty
-                          ? 'Sign-in pin : $pin'
-                          : 'Sign-in pin';
-                      return Text(
-                        text,
-                        style: TextStyle(
-                          color: AppColors.primaryColor,
-                          fontFamily: 'Manrope',
-                          fontSize: 14,
-                          fontWeight: FontWeight.w400,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      );
+                        decoration: BoxDecoration(
+                          color: const Color.fromRGBO(179, 38, 30, 1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        if (!isKiosk)
+          BlocBuilder<NotificationBadgeCubit, NotificationBadgeState>(
+            builder: (context, badgeState) {
+              final int unreadCount = badgeState.unreadCount;
+              return Stack(
+                children: [
+                  IconButton(
+                    icon: SvgPicture.asset(
+                      MediaRes.notificationsIcon,
+                      width: 22,
+                      height: 22,
+                    ),
+                    onPressed: () async {
+                      // Don't stack a second notification page when the bell is
+                      // tapped again while already on it.
+                      if (currentRoute == NotificationCenterScreen.routeName)
+                        return;
+                      await context.push(NotificationCenterScreen.routeName);
+                      // The user may have read notifications in the center —
+                      // reconcile the badge with the server on return.
+                      if (context.mounted) {
+                        context.read<NotificationBadgeCubit>().refresh();
+                      }
                     },
                   ),
-                ],
-              ),
-            ),
-            PopupMenuItem<int>(
-              value: 3,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.autorenew_outlined,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(width: 12),
-                  Text(
-                    'Switch Profile',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  //const Text('My Profile'),
-                ],
-              ),
-            ),
-            if (hasMultipleOrganizations)
-              PopupMenuItem<int>(
-                value: 4,
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.business,
-                      color: AppColors.primaryColor.withValues(alpha: 0.5),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      'Switch Organisation',
-                      style: TextStyle(
-                        color: AppColors.primaryColor,
-                        fontFamily: 'Manrope',
-                        fontSize: 14,
-                        fontWeight: FontWeight.w400,
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 5,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color.fromRGBO(179, 38, 30, 1),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          unreadCount > 99 ? '99+' : '$unreadCount',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
-                    //const Text('My Profile'),
-                  ],
-                ),
-              ),
-            PopupMenuItem<int>(
-              value: 5,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.lock_outline,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Change Password',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ],
-              ),
-            ),
-            PopupMenuItem<int>(
-              value: 6,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.settings,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Notification settings',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<int>(
-              value: 7,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.help_outline,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Help',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-            PopupMenuItem<int>(
-              value: 8,
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.logout,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    'Logout',
-                    style: TextStyle(
-                      color: AppColors.primaryColor,
-                      fontFamily: 'Manrope',
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-          onSelected: (value) async {
-            switch (value) {
-              case 4:
-                if (currentRoute == '/org-selection') break;
-                // Ensure AuthCubit has cached login data loaded so that
-                // OrganizationSelectionScreen can render immediately without
-                // getting stuck in a loading state after app reopen.
-                final authCubit = context.read<AuthCubit>();
-                if (authCubit.state is! AuthLoaded) {
-                  await authCubit.loadCachedData();
-                  if (!context.mounted) return;
-                }
-                context.go(
-                  '/org-selection',
-                  extra: <String, dynamic>{'isSwitchFlow': true},
-                );
-                break;
-              case 1:
-                if (currentRoute == UserProfileScreen.routeName) break;
-                // Pass cached values so Profile screen doesn't render '-' placeholders.
-                final storage = serviceLocator<StorageService>();
-                final name =
-                    (await storage.getString(StorageKeys.displayName) ?? '')
-                        .trim();
-                final email = (await storage.getString(StorageKeys.email) ?? '')
-                    .trim();
-                final activeRole =
-                    (await storage.getString(StorageKeys.activeSchoolRole) ??
-                            '')
-                        .trim();
-                if (!context.mounted) return;
-                context.go(
-                  UserProfileScreen.routeName,
-                  extra: <String, dynamic>{
-                    'userName': name,
-                    'userEmail': email,
-                    'userPersona': activeRole,
-                  },
-                );
-                break;
-              case 5:
-                _showChangePasswordBottomSheet(context);
-                break;
-              case 6:
-                if (currentRoute == NotificationSettingsScreen.routeName) break;
-                context.go(NotificationSettingsScreen.routeName);
-                break;
-              case 7:
-                //const url = 'https://help.childcarewow.com/portal/en/home';
-                const url = 'https://help.childcarewow.com/';
-                final uri = Uri.parse(url);
-                if (await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
-                }
-                break;
-              case 8:
-                // Same logout UX as drawer: open the SignOutScreen dialog,
-                // which calls AuthCubit.logoutSession and clears local data.
-                SignOutScreen.show(context);
-                break;
-            }
-          },
-        ),
+              );
+            },
+          ),
+        if (!isKiosk) const _AppBarKebabMenu(),
       ],
       bottom: hasTabs
           ? PreferredSize(
@@ -542,6 +298,377 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 ),
               ),
             ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Kebab (three-dot) popup menu — extracted as a StatefulWidget so it can
+// load role availability asynchronously and hide "Switch Profile" when the
+// logged-in user only has a single role at the current school.
+// ---------------------------------------------------------------------------
+
+class _AppBarKebabMenu extends StatefulWidget {
+  const _AppBarKebabMenu();
+
+  @override
+  State<_AppBarKebabMenu> createState() => _AppBarKebabMenuState();
+}
+
+class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
+  bool _hasSwitchableProfiles = false;
+  late final ProfileMenuHeaderCubit _profileHeaderCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    _profileHeaderCubit = ProfileMenuHeaderCubit(
+      serviceLocator<StorageService>(),
+    );
+    _profileHeaderCubit.loadSummary(
+      isGuardian: context.read<RoleCubit>().isParent,
+    );
+    _loadSwitchProfileAvailability();
+  }
+
+  @override
+  void dispose() {
+    _profileHeaderCubit.close();
+    super.dispose();
+  }
+
+  Future<void> _loadSwitchProfileAvailability() async {
+    try {
+      final storage = serviceLocator<StorageService>();
+      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
+      if (org.isEmpty || school.isEmpty) return;
+      final users = await readCachedUserAccessDetailsUsers(storage);
+      final distinct = distinctActiveRolesForCurrentSchoolFromUserDetails(
+        users,
+        org,
+        school,
+      );
+      if (mounted) {
+        setState(() => _hasSwitchableProfiles = distinct.length > 1);
+      }
+    } catch (_) {
+      // Default remains false — safe to not show the item.
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
+    final bool isParentPersona = context.read<RoleCubit>().isParent;
+
+    bool hasMultipleOrganizations = false;
+    try {
+      final authCubit = context.read<AuthCubit>();
+      final state = authCubit.state;
+      if (state is AuthLoaded) {
+        final orgCodes = state.loginResponse.roles
+            .map((r) => r.organizationCode)
+            .where((c) => c.isNotEmpty)
+            .toSet();
+        hasMultipleOrganizations = orgCodes.length > 1;
+      }
+    } catch (_) {}
+
+    return PopupMenuButton<int>(
+      constraints: const BoxConstraints(maxWidth: 240),
+      icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
+      offset: const Offset(0, 48),
+      color: Colors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      itemBuilder: (context) => [
+        PopupMenuItem<int>(
+          enabled: false,
+          height: 64,
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 240),
+              child: Padding(
+                padding: const EdgeInsets.only(
+                  left: 4,
+                  right: 10,
+                  top: 8,
+                  bottom: 8,
+                ),
+                child: BlocProvider.value(
+                  value: _profileHeaderCubit,
+                  child: ProfileMenuHeader(isParentPersona: isParentPersona),
+                ),
+              ),
+            ),
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 1,
+          child: Row(
+            children: [
+              Icon(
+                Icons.account_circle_outlined,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'My Profile',
+                style: TextStyle(
+                  color: AppColors.primaryColor,
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 2,
+          child: Row(
+            children: [
+              Transform.rotate(
+                angle: -pi / 4,
+                child: Icon(
+                  Icons.vpn_key,
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
+                ),
+              ),
+              const SizedBox(width: 12),
+              FutureBuilder<String?>(
+                future: serviceLocator<StorageService>().getString(
+                  StorageKeys.staffPin,
+                ),
+                builder: (context, snapshot) {
+                  final pin = (snapshot.data ?? '').trim();
+                  final text = pin.isNotEmpty
+                      ? 'Sign-in pin : $pin'
+                      : 'Sign-in pin';
+                  return Text(
+                    text,
+                    style: TextStyle(
+                      color: AppColors.primaryColor,
+                      fontFamily: 'Manrope',
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+        if (_hasSwitchableProfiles)
+          PopupMenuItem<int>(
+            value: 3,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.autorenew_outlined,
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Switch Profile',
+                  style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        if (hasMultipleOrganizations)
+          PopupMenuItem<int>(
+            value: 4,
+            child: Row(
+              children: [
+                Icon(
+                  Icons.business,
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Switch Organisation',
+                  style: TextStyle(
+                    color: AppColors.primaryColor,
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w400,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+        PopupMenuItem<int>(
+          value: 5,
+          child: Row(
+            children: [
+              Icon(
+                Icons.lock_outline,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 12),
+              const Text(
+                'Change Password',
+                style: TextStyle(
+                  color: AppColors.primaryColor,
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 6,
+          child: Row(
+            children: [
+              Icon(
+                Icons.settings,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Notification settings',
+                style: TextStyle(
+                  color: AppColors.primaryColor,
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 7,
+          child: Row(
+            children: [
+              Icon(
+                Icons.help_outline,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Help',
+                style: TextStyle(
+                  color: AppColors.primaryColor,
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+        PopupMenuItem<int>(
+          value: 8,
+          child: Row(
+            children: [
+              Icon(
+                Icons.logout,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                'Logout',
+                style: TextStyle(
+                  color: AppColors.primaryColor,
+                  fontFamily: 'Manrope',
+                  fontSize: 14,
+                  fontWeight: FontWeight.w400,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ],
+      onSelected: (value) async {
+        switch (value) {
+          case 4:
+            if (currentRoute == '/org-selection') break;
+            final authCubit = context.read<AuthCubit>();
+            if (authCubit.state is! AuthLoaded) {
+              await authCubit.loadCachedData();
+              if (!context.mounted) return;
+            }
+            context.go(
+              '/org-selection',
+              extra: <String, dynamic>{'isSwitchFlow': true},
+            );
+            break;
+          case 1:
+            if (currentRoute == UserProfileScreen.routeName) break;
+            final storage = serviceLocator<StorageService>();
+            final name =
+                (await storage.getString(StorageKeys.displayName) ?? '').trim();
+            final email = (await storage.getString(StorageKeys.email) ?? '')
+                .trim();
+            final activeRole =
+                (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+                    .trim();
+            if (!context.mounted) return;
+            context.go(
+              UserProfileScreen.routeName,
+              extra: <String, dynamic>{
+                'userName': name,
+                'userEmail': email,
+                'userPersona': activeRole,
+              },
+            );
+            break;
+          case 3:
+            await _switchToNextProfileFromAppBar(context);
+            if (mounted) {
+              await _loadSwitchProfileAvailability();
+              _profileHeaderCubit.loadSummary(
+                isGuardian: context.read<RoleCubit>().isParent,
+              );
+            }
+            break;
+          case 5:
+            _showChangePasswordBottomSheet(context);
+            break;
+          case 6:
+            if (currentRoute == NotificationSettingsScreen.routeName) break;
+            context.go(NotificationSettingsScreen.routeName);
+            break;
+          case 7:
+            const url = 'https://help.childcarewow.com/';
+            final uri = Uri.parse(url);
+            if (await canLaunchUrl(uri)) {
+              await launchUrl(uri, mode: LaunchMode.externalApplication);
+            }
+            break;
+          case 8:
+            SignOutScreen.show(context);
+            break;
+        }
+      },
     );
   }
 }
@@ -746,6 +873,117 @@ void _showChangePasswordBottomSheet(BuildContext context) {
       );
     },
   );
+}
+
+Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
+  final storage = serviceLocator<StorageService>();
+  final name = (await storage.getString(StorageKeys.displayName) ?? '').trim();
+  final email = (await storage.getString(StorageKeys.email) ?? '').trim();
+  final activeRole =
+      (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
+
+  if (!context.mounted) return;
+
+  final cubit = serviceLocator<UserProfileCubit>();
+  try {
+    cubit.seed(name: name, email: email, persona: activeRole);
+    await cubit.load(isParent: context.read<RoleCubit>().isParent);
+    if (!context.mounted) return;
+
+    final roles = cubit.state.distinctRolesForCurrentSchool
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toList(growable: false);
+
+    if (roles.length <= 1) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'No other profiles available to switch to.',
+        isError: true,
+      );
+      return;
+    }
+
+    // Find current role and determine the next one (cycle through the list).
+    final cached = (cubit.state.cachedActiveSchoolRole ?? '').trim();
+    var currentIndex = -1;
+    if (cached.isNotEmpty) {
+      for (var i = 0; i < roles.length; i++) {
+        if (roles[i].toUpperCase() == cached.toUpperCase()) {
+          currentIndex = i;
+          break;
+        }
+      }
+    }
+    final nextIndex = currentIndex < 0
+        ? 0
+        : ((currentIndex + 1) % roles.length);
+    final nextRole = roles[nextIndex];
+
+    await cubit.persistPersonaSwitch(nextRole);
+    if (!context.mounted) return;
+
+    context.read<ParentChildCubit>().invalidate();
+
+    // Mirrors UserProfileScreen._applyPersonaSwitch so both Switch Profile entry
+    // points behave identically. Do NOT change the visible persona until the
+    // required APIs are done; only flip the UI at the end via
+    // applySwitchedPersona.
+    //
+    // Preload guardian data BEFORE RoleCubit flips to parent so the global
+    // dropdown doesn't show a loading state.
+    final targetIsGuardian = roleStringIsGuardianPersona(nextRole);
+    if (targetIsGuardian) {
+      await cubit.loadGuardianProfileForParent();
+      if (!context.mounted) return;
+      await context.read<ParentChildCubit>().ensureLoaded(force: true);
+    }
+    if (!context.mounted) return;
+
+    await context.read<RoleCubit>().refreshAccessFromServer(force: true);
+
+    final orgCode = (cubit.state.organizationCode ?? '').trim();
+    final schoolCode = (cubit.state.schoolCode ?? '').trim();
+    if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
+      try {
+        await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
+          organizationCode: orgCode,
+          schoolCode: schoolCode,
+        );
+      } catch (_) {}
+    }
+    if (!context.mounted) return;
+
+    // Now that prefetch is complete, apply the persona to the UI.
+    cubit.applySwitchedPersona(nextRole);
+    if (!context.mounted) return;
+
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Switched to ${StringUtils.staffTypeToDisplayRole(nextRole)}',
+      isSuccess: true,
+    );
+
+    await cubit.refreshSwitchProfileAvailability();
+    if (!context.mounted) return;
+    await cubit.load(isParent: context.read<RoleCubit>().isParent);
+    if (!context.mounted) return;
+
+    // Land on the new persona's dashboard. DashboardScreen branches on RoleCubit,
+    // so this shows the correct (admin/staff/parent) dashboard and rebuilds it
+    // fresh — otherwise a stale Billing/Messaging/etc. screen lingers after the
+    // switch and shows the previous persona's data.
+    context.go(DashboardScreen.routeName);
+  } catch (e) {
+    if (!context.mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Could not switch profile: $e',
+      isError: true,
+    );
+  } finally {
+    cubit.close();
+  }
 }
 
 Future<void> _sendPasswordResetRequest(BuildContext context) async {

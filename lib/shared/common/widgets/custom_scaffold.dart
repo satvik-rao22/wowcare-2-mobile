@@ -164,12 +164,17 @@
 // }
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
+import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:provider/provider.dart';
 
 class GlobalScaffold extends StatefulWidget {
   const GlobalScaffold({
@@ -180,10 +185,14 @@ class GlobalScaffold extends StatefulWidget {
     this.isParent = false,
     this.studentList,
     this.customButtonLayout,
-    /// When null, defaults to 8 px on all sides. Screens like the activity feed
-    /// can use asymmetric padding (e.g. zero right/bottom) to align with edges and
-    /// sit closer above the bottom navigation bar.
+
+    /// When null, defaults to 8 px on all sides.
     this.bodyPadding,
+
+    /// Forces a specific nav-bar slot to highlight regardless of the shell's
+    /// current branch. Pass [BottomNavigationItem.attendance] for screens
+    /// conceptually under the Attendance tab.
+    this.activeItemOverride,
     super.key,
   });
 
@@ -195,6 +204,7 @@ class GlobalScaffold extends StatefulWidget {
   final List<String>? studentList;
   final Widget? customButtonLayout;
   final EdgeInsetsGeometry? bodyPadding;
+  final BottomNavigationItem? activeItemOverride;
 
   @override
   State<GlobalScaffold> createState() => _GlobalScaffoldState();
@@ -202,14 +212,45 @@ class GlobalScaffold extends StatefulWidget {
 
 class _GlobalScaffoldState extends State<GlobalScaffold> {
   bool _showBars = true;
+  late final UnreadBadgeCubit _unreadBadgeCubit;
+  late final NotificationBadgeCubit _notificationBadgeCubit;
+
+  @override
+  void initState() {
+    super.initState();
+    // Shared app-session singleton (registered in di.dart) — `startWatching`
+    // is idempotent (cancels and re-subscribes), so calling it again here on
+    // every mount keeps badges fresh after login/school-switch without ever
+    // opening more than one set of Firestore listeners app-wide.
+    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    // Same shared-singleton pattern for the notification bell badge:
+    // startWatching() does an immediate REST refresh AND attaches a live
+    // Firestore listener (userNotifications/{userCode}/notifications) that
+    // refreshes the REST count as notifications arrive / are read. Idempotent.
+    _notificationBadgeCubit = serviceLocator<NotificationBadgeCubit>()
+      ..startWatching();
+  }
+
+  @override
+  void dispose() {
+    // Do NOT close: this is a shared app-session singleton, not owned by
+    // this widget. Closing it here would break every other currently-
+    // mounted screen that also reads from it.
+    super.dispose();
+  }
 
   bool _handleScrollNotification(ScrollNotification notification) {
-    // Do not auto-hide the app bar or bottom navigation on scroll.
-    // Keeping _showBars always true ensures the blue header divider
-    // remains pinned below the system status bar, and the list content
-    // never scrolls above it.
-    if (!_showBars) {
-      setState(() => _showBars = true);
+    // Hide the bottom nav while scrolling DOWN (reverse), reveal it when
+    // scrolling UP (forward) — app-wide, since every screen uses this scaffold.
+    // The app bar stays pinned regardless (handled in build).
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
     }
     return false;
   }
@@ -225,29 +266,41 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
       studentList: widget.studentList,
     );
 
-    return GestureDetector(
-      onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<UnreadBadgeCubit>.value(value: _unreadBadgeCubit),
+        BlocProvider<NotificationBadgeCubit>.value(
+          value: _notificationBadgeCubit,
+        ),
+      ],
       child: Scaffold(
-        appBar: _showBars
-            ? appBar
-            : PreferredSize(
-                preferredSize: const Size.fromHeight(0),
-                child: const SizedBox.shrink(),
-              ),
+        // App bar stays pinned; only the bottom nav hides on scroll.
+        appBar: appBar,
         drawer: const CustomDrawer(),
         drawerEnableOpenDragGesture: false,
-        body: GradientBackground(
-          child: SafeArea(
-            // Let the Scaffold's appBar handle the top inset; we only
-            // inset for bottom so content never goes behind system bars,
-            // while always starting directly under the blue header.
-            top: false,
-            bottom: true,
-            child: NotificationListener<ScrollNotification>(
-              onNotification: _handleScrollNotification,
-              child: Padding(
-                padding: widget.bodyPadding ?? const EdgeInsets.all(8),
-                child: widget.body,
+        body: GestureDetector(
+          // Scoped to the body only (not the whole Scaffold) so this tap
+          // recognizer never shares a gesture arena with the AppBar's action
+          // buttons (bell / chat / kebab). Wrapping the entire Scaffold —
+          // AppBar included — put every icon tap into an extra, pointless
+          // arena negotiation against this unfocus-only tap, which was
+          // intermittently swallowing the first tap on those buttons. Same
+          // class of gesture conflict as `drawerEnableOpenDragGesture: false`
+          // just above, which was disabled for the same reason.
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: GradientBackground(
+            child: SafeArea(
+              // Let the Scaffold's appBar handle the top inset; we only
+              // inset for bottom so content never goes behind system bars,
+              // while always starting directly under the blue header.
+              top: false,
+              bottom: true,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: Padding(
+                  padding: widget.bodyPadding ?? const EdgeInsets.all(8),
+                  child: widget.body,
+                ),
               ),
             ),
           ),
@@ -263,7 +316,9 @@ class _GlobalScaffoldState extends State<GlobalScaffold> {
                 duration: const Duration(milliseconds: 200),
                 curve: Curves.easeInOut,
                 child: _showBars
-                    ? const CustomNavigationBar()
+                    ? CustomNavigationBar(
+                        activeItemOverride: widget.activeItemOverride,
+                      )
                     : const SizedBox.shrink(),
               )
             : widget.customButtonLayout,

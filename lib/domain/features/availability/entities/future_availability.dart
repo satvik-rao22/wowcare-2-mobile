@@ -3,6 +3,9 @@ enum FutureAvailabilityShift {
   morning,
   afternoon,
   all,
+  // Request-time sentinel for the "Two Shifts" toggle. The API returns
+  // per-entry MORNING/AFTERNOON rows when queried with shift=TWO_SHIFTS.
+  twoShifts,
 }
 
 class FutureAvailabilityGrid {
@@ -26,11 +29,13 @@ class FutureAvailabilityClassroom {
     required this.code,
     required this.name,
     required this.capacity,
+    this.logoAssetCode = '',
   });
 
   final String code;
   final String name;
   final int capacity;
+  final String logoAssetCode;
 }
 
 class FutureAvailabilityEntry {

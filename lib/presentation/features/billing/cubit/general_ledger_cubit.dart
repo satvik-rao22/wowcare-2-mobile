@@ -1,89 +1,301 @@
+import 'dart:async' show unawaited;
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
-
-import '../widgets/general_ledger/models/ledger_account_model.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/billing/usecases/delete_ledger_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/deactivate_ledger_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/reactivate_ledger_usecase.dart';
+import 'package:wowcare/domain/features/billing/usecases/get_ledgers_usecase.dart';
+import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 
 part 'general_ledger_state.dart';
 
-/// Owns the General Ledger tab's list + filter state. Ledgers are demo data
-/// today (see [_seedLedgers]); swap [loadInitial] for a repository call when
-/// billing is wired to a backend.
 class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
-  GeneralLedgerCubit() : super(GeneralLedgerState.initial());
+  GeneralLedgerCubit({
+    required GetLedgersUseCase getLedgersUseCase,
+    required DeleteLedgerUseCase deleteLedgerUseCase,
+    required DeactivateLedgerUseCase deactivateLedgerUseCase,
+    required ReactivateLedgerUseCase reactivateLedgerUseCase,
+    required StorageService storageService,
+  })  : _getLedgersUseCase = getLedgersUseCase,
+        _deleteLedgerUseCase = deleteLedgerUseCase,
+        _deactivateLedgerUseCase = deactivateLedgerUseCase,
+        _reactivateLedgerUseCase = reactivateLedgerUseCase,
+        _storageService = storageService,
+        _cacheManager = CacheManager(storageService),
+        super(GeneralLedgerState.initial());
 
-  static const List<LedgerAccountModel> _seedLedgers = <LedgerAccountModel>[
-    LedgerAccountModel(
-      id: 'ledger-1',
-      name: 'Instructional Supplies',
-      type: 'General',
-      openBalance: 1850,
-      invoiced: 4600,
-      received: 3900,
-      description: 'Classroom supplies and teaching aids',
-    ),
-    LedgerAccountModel(
-      id: 'ledger-2',
-      name: 'Transportation - Agency',
-      type: '(Legacy) Subsidy/Agency',
-      openBalance: 3250,
-      invoiced: 2200,
-      received: 1800,
-      description: 'Agency managed bus reimbursements',
-      isSubsidy: true,
-    ),
-    LedgerAccountModel(
-      id: 'ledger-3',
-      name: 'Summer Program Expenses',
-      type: 'Expense Tracking',
-      openBalance: 900,
-      invoiced: 1450,
-      received: 1200,
-      description: 'Seasonal enrichment program costs',
-    ),
-    LedgerAccountModel(
-      id: 'ledger-4',
-      name: 'After School Club',
-      type: 'General',
-      openBalance: 1325,
-      invoiced: 2800,
-      received: 1940,
-      description: 'Clubs and extracurriculars',
-    ),
-    LedgerAccountModel(
-      id: 'ledger-5',
-      name: 'Grant - STEM Initiative',
-      type: '(Legacy) Subsidy/Agency',
-      openBalance: 5100,
-      invoiced: 7200,
-      received: 4400,
-      description: 'STEM focused public grant',
-      isSubsidy: true,
-    ),
-  ];
+  final GetLedgersUseCase _getLedgersUseCase;
+  final DeleteLedgerUseCase _deleteLedgerUseCase;
+  final DeactivateLedgerUseCase _deactivateLedgerUseCase;
+  final ReactivateLedgerUseCase _reactivateLedgerUseCase;
+  final StorageService _storageService;
+  final CacheManager _cacheManager;
+
+  String? _orgCode;
+  String? _schoolCode;
+
+  Future<String> _resolveOrgCode() async {
+    _orgCode ??=
+        await _storageService.getString(StorageKeys.organizationCode) ?? '';
+    return _orgCode!;
+  }
+
+  Future<String> _resolveSchoolCode() async {
+    _schoolCode ??=
+        await _storageService.getString(StorageKeys.schoolCode) ?? '';
+    return _schoolCode!;
+  }
+
+  // ─── Cache helpers ────────────────────────────────────────────────────────
+
+  String _cacheKey(String schoolCode) => CacheManager.buildCacheKey(
+        feature: 'ledger',
+        resource: 'list',
+        identifier:
+            '${schoolCode.trim()}|status=${state.statusFilter ?? "ALL"}|cat=${state.selectedCategory ?? "ALL"}',
+      );
+
+  Map<String, dynamic> _encodeList(List<LedgerAccountModel> items) => {
+        'items': items
+            .map((e) => <String, dynamic>{
+                  'id': e.id,
+                  'name': e.name,
+                  'type': e.type,
+                  'openBalance': e.openBalance,
+                  'description': e.description,
+                  'status': e.status,
+                  'isSubsidy': e.isSubsidy,
+                  'nature': e.nature,
+                  'currency': e.currency,
+                  'category': e.category,
+                  'openingBalanceType': e.openingBalanceType,
+                  'currentBalance': e.currentBalance,
+                  'balanceType': e.balanceType,
+                  'system': e.system,
+                })
+            .toList(),
+      };
+
+  List<LedgerAccountModel> _decodeList(Map<String, dynamic>? payload) {
+    if (payload == null) return [];
+    final raw = payload['items'];
+    if (raw is! List) return [];
+    return raw.whereType<Map>().map((m) {
+      final map = Map<String, dynamic>.from(m);
+      return LedgerAccountModel(
+        id: (map['id'] ?? '').toString(),
+        name: (map['name'] ?? '').toString(),
+        type: (map['type'] ?? '').toString(),
+        openBalance: (map['openBalance'] as num?)?.toDouble() ?? 0.0,
+        description: map['description'] as String?,
+        status: map['status'] as String?,
+        isSubsidy: (map['isSubsidy'] as bool?) ?? false,
+        nature: map['nature'] as String?,
+        currency: map['currency'] as String?,
+        category: map['category'] as String?,
+        openingBalanceType: map['openingBalanceType'] as String?,
+        currentBalance: (map['currentBalance'] as num?)?.toDouble(),
+        balanceType: map['balanceType'] as String?,
+        system: (map['system'] as bool?) ?? false,
+      );
+    }).toList();
+  }
+
+  Future<void> _invalidateAllLedgerCaches() async {
+    final keys = await _storageService.getKeys();
+    for (final key in keys) {
+      if (key.contains('ledger_list_cache_')) {
+        await _cacheManager.invalidateCache(key);
+      }
+    }
+  }
+
+  // ─── List management ─────────────────────────────────────────────────────
+
+  Future<void> loadInitial() async {
+    if (state.isLoading) return;
+    emit(state.copyWith(isLoading: true, errorMessage: () => null));
+
+    // Hydrate from cache immediately so UI shows stale data while refreshing
+    final school = await _resolveSchoolCode();
+    final cacheKey = _cacheKey(school);
+    final cached = await _cacheManager.loadCache(cacheKey);
+    final cachedItems = _decodeList(cached);
+    if (cachedItems.isNotEmpty && !isClosed) {
+      emit(state.copyWith(
+        allLedgers: cachedItems,
+        isLoading: false,
+        isRefreshing: true,
+      ));
+    }
+
+    await _fetchPage(page: 0, reset: true);
+  }
+
+  Future<void> refresh() async {
+    emit(state.copyWith(isRefreshing: true, errorMessage: () => null));
+    await _fetchPage(page: 0, reset: true);
+  }
+
+  Future<void> loadNextPage() async {
+    if (!state.hasMore || state.isLoadingMore) return;
+    emit(state.copyWith(isLoadingMore: true));
+    await _fetchPage(page: state.currentPage + 1, reset: false);
+  }
+
+  Future<void> _fetchPage({required int page, required bool reset}) async {
+    try {
+      final org = await _resolveOrgCode();
+      final school = await _resolveSchoolCode();
+      final result = await _getLedgersUseCase(
+        organizationCode: org,
+        school: school,
+        search: state.searchQuery.trim().isEmpty ? null : state.searchQuery.trim(),
+        category: state.selectedCategory,
+        status: state.statusFilter,
+        page: page,
+      );
+
+      final newItems =
+          result.content.map(LedgerAccountModel.fromEntity).toList();
+      final merged = reset ? newItems : [...state.allLedgers, ...newItems];
+
+      if (isClosed) return;
+      emit(state.copyWith(
+        allLedgers: merged,
+        isLoading: false,
+        isRefreshing: false,
+        isLoadingMore: false,
+        hasMore: result.hasMore,
+        currentPage: result.number,
+        errorMessage: () => null,
+      ));
+
+      // Save to cache only for fresh first-page loads (no search query)
+      if (reset && state.searchQuery.trim().isEmpty) {
+        final cacheKey = _cacheKey(school);
+        await _cacheManager.saveCache(cacheKey, _encodeList(merged));
+      }
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        isLoading: false,
+        isRefreshing: false,
+        isLoadingMore: false,
+        errorMessage: () => e.toString(),
+      ));
+    }
+  }
+
+  // ─── Search / filter ──────────────────────────────────────────────────────
 
   void setSearchQuery(String query) {
     emit(state.copyWith(searchQuery: query));
   }
 
-  void setType(String? type) {
-    emit(state.copyWith(selectedType: () => type));
+  void applySearch() {
+    emit(state.copyWith(allLedgers: [], currentPage: 0, hasMore: true));
+    loadInitial();
+  }
+
+  void setCategory(String? category) {
+    emit(GeneralLedgerState.initial().copyWith(
+      searchQuery: state.searchQuery,
+      selectedCategory: () => category,
+      statusFilter: () => state.statusFilter,
+    ));
+    loadInitial();
+  }
+
+  void setStatusFilter(String? status) {
+    if (state.statusFilter == status) return;
+    emit(GeneralLedgerState.initial().copyWith(
+      searchQuery: state.searchQuery,
+      selectedCategory: () => state.selectedCategory,
+      statusFilter: () => status,
+    ));
+    loadInitial();
   }
 
   void clearFilters() {
-    emit(state.copyWith(searchQuery: '', selectedType: () => null));
+    _orgCode = null;
+    _schoolCode = null;
+    emit(GeneralLedgerState.initial());
+    loadInitial();
   }
 
+  // ─── CRUD callbacks ───────────────────────────────────────────────────────
+
   void addLedger(LedgerAccountModel ledger) {
+    unawaited(_invalidateAllLedgerCaches());
     emit(state.copyWith(
       allLedgers: <LedgerAccountModel>[ledger, ...state.allLedgers],
     ));
   }
 
   void updateLedger(LedgerAccountModel ledger) {
+    unawaited(_invalidateAllLedgerCaches());
     final index = state.allLedgers.indexWhere((e) => e.id == ledger.id);
     if (index == -1) return;
     final updated = List<LedgerAccountModel>.from(state.allLedgers);
     updated[index] = ledger;
     emit(state.copyWith(allLedgers: updated));
+  }
+
+  Future<bool> deleteLedger(String ledgerCode) async {
+    try {
+      await _deleteLedgerUseCase(ledgerCode);
+      await _invalidateAllLedgerCaches();
+      emit(state.copyWith(
+        allLedgers: state.allLedgers.where((e) => e.id != ledgerCode).toList(),
+      ));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> deactivateLedger(String ledgerCode) async {
+    try {
+      await _deactivateLedgerUseCase(ledgerCode);
+      await _invalidateAllLedgerCaches();
+      if (state.statusFilter == 'ACTIVE') {
+        emit(state.copyWith(
+          allLedgers: state.allLedgers.where((e) => e.id != ledgerCode).toList(),
+        ));
+      } else {
+        final updated = state.allLedgers.map((e) {
+          return e.id == ledgerCode ? e.copyWith(status: 'INACTIVE') : e;
+        }).toList();
+        emit(state.copyWith(allLedgers: updated));
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  Future<bool> reactivateLedger(String ledgerCode) async {
+    try {
+      await _reactivateLedgerUseCase(ledgerCode);
+      await _invalidateAllLedgerCaches();
+      if (state.statusFilter == 'INACTIVE') {
+        emit(state.copyWith(
+          allLedgers: state.allLedgers.where((e) => e.id != ledgerCode).toList(),
+        ));
+      } else {
+        final updated = state.allLedgers.map((e) {
+          return e.id == ledgerCode ? e.copyWith(status: 'ACTIVE') : e;
+        }).toList();
+        emit(state.copyWith(allLedgers: updated));
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 }

@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../data/features/student/datasources/student_remote_datasource.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 
@@ -23,12 +24,28 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
   EditUserProfileCubit({
     required StorageService storageService,
     required StaffRepository staffRepository,
+    required StudentRemoteDataSource studentRemoteDataSource,
   })  : _storageService = storageService,
         _staffRepository = staffRepository,
+        _studentRemoteDataSource = studentRemoteDataSource,
         super(const EditUserProfileState.initial());
 
   final StorageService _storageService;
   final StaffRepository _staffRepository;
+  final StudentRemoteDataSource _studentRemoteDataSource;
+
+  /// Backend `message` from the most recent successful save, so the view can
+  /// surface it (like other APIs) instead of a hardcoded string.
+  String? _lastSaveMessage;
+  String? get lastSaveMessage => _lastSaveMessage;
+
+  /// True once [loadProfile] runs for a guardian/parent persona, so [saveProfile]
+  /// routes to the guardian update endpoint instead of the staff one.
+  bool _isGuardian = false;
+
+  /// Guardian record `code` (e.g. GUA_...) from the loaded profile — the
+  /// my-profile PATCH identifies the guardian by this `code` in the body.
+  String _guardianCode = '';
 
   /// Resolves the staffCode for the currently logged-in user from local cache.
   Future<String> _resolveLoggedInStaffCode() async {
@@ -53,10 +70,18 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
     }
   }
 
-  /// Loads the staff profile (cached first for instant UI, then a background
-  /// refresh). Each successful fetch is emitted as a new [profile] with a bumped
-  /// [profileRevision] so the view re-hydrates its controllers.
-  Future<void> loadProfile() async {
+  /// Loads the profile for the current persona and emits it so the view can
+  /// hydrate its controllers. For a guardian/parent this fetches the guardian
+  /// profile; otherwise it loads the staff profile (cached first, then a
+  /// background refresh). Each success bumps [profileRevision] so the view
+  /// re-hydrates.
+  Future<void> loadProfile({bool isParent = false}) async {
+    if (isParent) {
+      _isGuardian = true;
+      await _loadGuardianProfile();
+      return;
+    }
+
     final staffCode = await _resolveLoggedInStaffCode();
     if (staffCode.isEmpty) return;
 
@@ -104,6 +129,91 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
     );
   }
 
+  /// Fetches the logged-in guardian's profile (`GET /api/v1/guardian/profile`)
+  /// and emits it as a [StaffProfile] so the shared form hydrates its fields.
+  Future<void> _loadGuardianProfile() async {
+    try {
+      final schoolCode =
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      final userCode =
+          (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
+      if (schoolCode.isEmpty || userCode.isEmpty) {
+        emit(state.copyWith(loadFailed: true));
+        return;
+      }
+
+      final data = await _studentRemoteDataSource.getGuardianProfile(
+        schoolCode: schoolCode,
+        userCode: userCode,
+      );
+      if (isClosed) return;
+
+      _guardianCode = (data['code'] ?? '').toString().trim();
+
+      final firstName = (data['firstName'] ?? '').toString().trim();
+      final lastName = (data['lastName'] ?? '').toString().trim();
+      final fullName = (data['fullName'] ?? '').toString().trim();
+      final email = (data['email'] ?? '').toString().trim();
+      final phone =
+          (data['mobile'] ?? data['phone'] ?? data['phoneNumber'] ?? '')
+              .toString()
+              .trim();
+
+      final address = _parseGuardianAddress(data['address']);
+
+      _emitProfile(
+        StaffProfile(
+          staffCode: '',
+          userCode: userCode,
+          organizationCode: '',
+          schoolCode: schoolCode,
+          firstName: firstName,
+          lastName: lastName,
+          fullName:
+              fullName.isNotEmpty ? fullName : '$firstName $lastName'.trim(),
+          email: email,
+          phoneNumber: phone,
+          staffType: '',
+          status: '',
+          designation: '',
+          allowedClassroomCodes: const [],
+          address: address,
+          workSchedules: const [],
+          breakSchedules: const [],
+        ),
+      );
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      if (isClosed) return;
+      emit(state.copyWith(loadFailed: true));
+    }
+  }
+
+  /// Maps the guardian profile `address` (a nested object, or null) into a
+  /// [StaffProfileAddress]. The guardian API uses `line1`/`postalCode`; also
+  /// tolerates the `street`/`zipCode`/`addressStreet` key styles seen elsewhere.
+  StaffProfileAddress _parseGuardianAddress(dynamic raw) {
+    if (raw is! Map) return const StaffProfileAddress();
+    final m = Map<String, dynamic>.from(raw);
+    String pick(List<String> keys) {
+      for (final k in keys) {
+        final v = (m[k] ?? '').toString().trim();
+        if (v.isNotEmpty) return v;
+      }
+      return '';
+    }
+
+    return StaffProfileAddress(
+      street: pick(['line1', 'street', 'addressStreet']),
+      line2: pick(['line2', 'addressLine2']),
+      city: pick(['city', 'addressCity']),
+      state: pick(['state', 'addressState']),
+      zipCode: pick(['postalCode', 'zipCode', 'addressZipCode']),
+      country: pick(['country', 'addressCountry']),
+    );
+  }
+
+
   /// Persists the validated profile [fields]. If [email] differs from the cached
   /// email, the email-change API is attempted first (non-blocking on failure).
   ///
@@ -111,8 +221,13 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
   Future<EditProfileSaveResult> saveProfile({
     required Map<String, dynamic> fields,
     required String email,
+    bool isParent = false,
   }) async {
     emit(state.copyWith(isSubmitting: true));
+
+    if (isParent || _isGuardian) {
+      return _saveGuardianProfile(fields: fields, email: email);
+    }
 
     try {
       final staffCode = await _resolveLoggedInStaffCode();
@@ -155,7 +270,79 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
         // Non-blocking: email-change failure should not block the profile save.
       }
 
-      await repo.updateMyProfile(staffCode: staffCode, fields: fields);
+      _lastSaveMessage =
+          await repo.updateMyProfile(staffCode: staffCode, fields: fields);
+
+      if (!isClosed) emit(state.copyWith(isSubmitting: false));
+      return EditProfileSaveResult.success;
+    } catch (e) {
+      CoreUtils.logApiError(e.toString());
+      if (!isClosed) emit(state.copyWith(isSubmitting: false));
+      return EditProfileSaveResult.failed;
+    }
+  }
+
+  /// Formats a raw ZIP into the `12345` / `12345-6789` shape the guardian API
+  /// returns (input may already contain a hyphen or be digits-only).
+  String _formatPostalCode(String raw) {
+    final digits = raw.replaceAll(RegExp(r'\D'), '');
+    if (digits.length <= 5) return digits;
+    return '${digits.substring(0, 5)}-${digits.substring(5, digits.length.clamp(5, 9))}';
+  }
+
+  /// Persists a guardian's edits via `PATCH /api/v1/guardian/my-profile`. The
+  /// backend identifies the guardian by the `code` in the body, so the payload
+  /// mirrors the guardian contract: `code`, name, `mobile`, and a nested
+  /// `address` (line1 + street, postalCode). Email is not part of this endpoint.
+  Future<EditProfileSaveResult> _saveGuardianProfile({
+    required Map<String, dynamic> fields,
+    required String email,
+  }) async {
+    try {
+      var guardianCode = _guardianCode.trim();
+      if (guardianCode.isEmpty) {
+        guardianCode =
+            (await _storageService.getString(StorageKeys.guardianCode) ?? '')
+                .trim();
+      }
+      if (guardianCode.isEmpty) {
+        if (!isClosed) emit(state.copyWith(isSubmitting: false));
+        return EditProfileSaveResult.failed;
+      }
+
+      final phoneDigits =
+          (fields['phoneNumber'] ?? '').toString().replaceAll(RegExp(r'\D'), '');
+
+      final body = <String, dynamic>{
+        'code': guardianCode,
+        'firstName': (fields['firstName'] ?? '').toString().trim(),
+        'lastName': (fields['lastName'] ?? '').toString().trim(),
+        'mobile': phoneDigits,
+      };
+
+      // Include address only when the guardian actually supplied one, in the
+      // exact shape the guardian API uses (line1 holds the street; a separate
+      // empty `street` is sent to match the contract).
+      final street = (fields['addressStreet'] ?? '').toString().trim();
+      final line2 = (fields['addressLine2'] ?? '').toString().trim();
+      final city = (fields['addressCity'] ?? '').toString().trim();
+      final stateVal = (fields['addressState'] ?? '').toString().trim();
+      final zip = (fields['addressZipCode'] ?? '').toString().trim();
+      final country = (fields['addressCountry'] ?? '').toString().trim();
+      if ([street, line2, city, stateVal, zip].any((s) => s.isNotEmpty)) {
+        body['address'] = <String, dynamic>{
+          'line1': street,
+          'line2': line2,
+          'city': city,
+          'state': stateVal,
+          'country': country,
+          'postalCode': _formatPostalCode(zip),
+          'street': '',
+        };
+      }
+
+      _lastSaveMessage =
+          await _studentRemoteDataSource.updateGuardianMyProfile(body: body);
 
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return EditProfileSaveResult.success;

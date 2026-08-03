@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -30,7 +31,7 @@ class DateWidget extends StatefulWidget {
 }
 
 class _DateWidgetState extends State<DateWidget> {
-  //DateTime? _selectedDate = DateTime.now();
+  //DateTime? _selectedDate = AppTime.now();
   late DateTime? _selectedDate;
 
   @override
@@ -40,12 +41,16 @@ class _DateWidgetState extends State<DateWidget> {
         widget.initialDate != null && widget.initialDate!.trim().isNotEmpty;
     if (hasInitial) {
       try {
-        _selectedDate = DateFormat('dd MMM yyyy').parseLoose(widget.initialDate!.trim());
+        _selectedDate = DateFormat(
+          'dd MMM yyyy',
+        ).parseLoose(widget.initialDate!.trim());
       } catch (e) {
         try {
-          _selectedDate = DateFormat('MMM dd, yyyy').parseLoose(widget.initialDate!.trim());
+          _selectedDate = DateFormat(
+            'MMM dd, yyyy',
+          ).parseLoose(widget.initialDate!.trim());
         } catch (e) {
-          _selectedDate = DateTime.now(); // fallback
+          _selectedDate = AppTime.now(); // fallback
         }
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -56,10 +61,11 @@ class _DateWidgetState extends State<DateWidget> {
       // avoid pushing device-local "today" into parent before async resolve.
       final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
       if (tz.isNotEmpty &&
-          tz.toUpperCase() != SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
+          tz.toUpperCase() !=
+              SchoolTimezoneResolver.fallbackTimeZone.toUpperCase()) {
         _selectedDate = SchoolZoneDateTime.schoolCalendarTodayOnly(tz);
       } else {
-        _selectedDate = DateTime.now();
+        _selectedDate = AppTime.now();
       }
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onDateChanged?.call(_selectedDate);
@@ -69,19 +75,21 @@ class _DateWidgetState extends State<DateWidget> {
   }
 
   Future<void> _setSchoolDefaultDateIfNeeded() async {
-    if (widget.initialDate != null && widget.initialDate!.trim().isNotEmpty) return;
+    if (widget.initialDate != null && widget.initialDate!.trim().isNotEmpty)
+      return;
     final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
+    final schoolToday = SchoolZoneDateTime.schoolCalendarTodayOnly(
+      schoolTimeZone,
+    );
     if (!mounted) return;
     setState(() {
       _selectedDate = schoolToday;
     });
     widget.onDateChanged?.call(_selectedDate);
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -94,17 +102,21 @@ class _DateWidgetState extends State<DateWidget> {
           text: TextSpan(
             style: TextStyle(
               color: AppColors.primaryColor,
-              fontSize:  13,
+              fontSize: 13,
               fontWeight: FontWeight.w400,
               fontFamily: 'Manrope',
             ),
             children: [
               TextSpan(text: 'Date'),
-              if (widget.isRequired) TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (widget.isRequired)
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Opacity(
           opacity: opacity,
           child: _datePickerFilter(
@@ -126,28 +138,30 @@ class _DateWidgetState extends State<DateWidget> {
     required Function(DateTime?) onDateSelected,
   }) {
     return GestureDetector(
-      onTap: widget.isEditable ? () async {
-        final result = await showDialog<Map<String, dynamic>>(
-          context: context,
-          builder: (context) => CalendarDialog(
-            isTimePicker: false,
-            initialDate: selectedDate,
-            whiteBgColor: true,
-          ),
-        );
+      onTap: widget.isEditable
+          ? () async {
+              final result = await showDialog<Map<String, dynamic>>(
+                context: context,
+                builder: (context) => CalendarDialog(
+                  isTimePicker: false,
+                  initialDate: selectedDate,
+                  whiteBgColor: true,
+                ),
+              );
 
-        if (result != null && result['date'] != null) {
-          onDateSelected(result['date'] as DateTime);
-        }
-      } : null,
+              if (result != null && result['date'] != null) {
+                onDateSelected(result['date'] as DateTime);
+              }
+            }
+          : null,
       child: Container(
         height: 48,
         width: double.infinity,
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-            color: const Color(0xFFB1AFE9).withOpacity(0.102),
-            //color: const Color(0xFFF8F7FA),
-            borderRadius: BorderRadius.circular(10),
+          color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+          //color: const Color(0xFFF8F7FA),
+          borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -162,7 +176,7 @@ class _DateWidgetState extends State<DateWidget> {
                       : 'Select Date',
                   style: TextStyle(
                     color: selectedDate == null
-                        ? AppColors.primaryColor.withOpacity(0.6)
+                        ? AppColors.primaryColor.withValues(alpha: 0.6)
                         : AppColors.primaryColor,
                     fontSize: 14,
                     fontWeight: FontWeight.w500,

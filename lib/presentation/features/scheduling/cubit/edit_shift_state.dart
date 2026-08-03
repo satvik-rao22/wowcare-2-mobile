@@ -68,12 +68,9 @@ class EditShiftState extends Equatable {
   }
 
   (TimeOfDay, TimeOfDay)? _schoolHoursForDate(DateTime forDate) {
-    final day = schoolHoursResolver?.dayFor(forDate);
-    if (day == null) return null;
-    final start = _parse24hTime(day.startTime);
-    final end = _parse24hTime(day.endTime);
-    if (start == null || end == null) return null;
-    return (start, end);
+    final hours = schoolHoursResolver?.hoursFor(forDate);
+    if (hours == null) return null;
+    return (hours.startTimeOfDay, hours.endTimeOfDay);
   }
 
   (TimeOfDay, TimeOfDay)? _schoolHoursForWeekday(int weekday) {

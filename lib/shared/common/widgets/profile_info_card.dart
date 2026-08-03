@@ -13,6 +13,7 @@ class ProfileInfoCard extends StatelessWidget {
     this.outerPadding = const EdgeInsets.symmetric(horizontal: 8, vertical: 16),
     this.innerPadding = const EdgeInsets.all(16),
     this.showHeaderEdit = true,
+    this.borderRadius = _defaultBorderRadius,
   });
 
   final String title;
@@ -23,7 +24,11 @@ class ProfileInfoCard extends StatelessWidget {
   final EdgeInsets innerPadding;
   final bool showHeaderEdit;
 
-  static const BorderRadius _borderRadius = BorderRadius.vertical(
+  /// Card corner radius. Override to square the top when the card sits flush
+  /// under a tab bar so it reads as one continuous surface.
+  final BorderRadius borderRadius;
+
+  static const BorderRadius _defaultBorderRadius = BorderRadius.vertical(
     top: Radius.circular(12),
     bottom: Radius.circular(16),
   );
@@ -36,51 +41,78 @@ class ProfileInfoCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      controller: scrollController,
-      physics: const AlwaysScrollableScrollPhysics(),
+    // Fixed bordered box: the title header stays pinned and the fields scroll
+    // INSIDE the box (clipped by the border radius), so cards slide under the
+    // box instead of the whole box scrolling away.
+    return Padding(
       padding: outerPadding,
       child: Container(
         width: double.infinity,
-        padding: innerPadding,
+        clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
           color: Colors.white,
           border: Border.all(color: AppColors.themeColor),
-          borderRadius: _borderRadius,
+          borderRadius: borderRadius,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(title, style: _titleStyle),
-                if (showHeaderEdit && onEdit != null)
-                  GestureDetector(
-                    onTap: onEdit,
-                    child: Container(
-                      width: 38,
-                      height: 38,
-                      decoration: BoxDecoration(
-                        gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.edit,
-                        size: 22,
-                        color: Colors.white,
+            // ── Pinned header ──────────────────────────────────────────────
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                innerPadding.left,
+                innerPadding.top,
+                innerPadding.right,
+                12,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: _titleStyle),
+                  if (showHeaderEdit && onEdit != null)
+                    GestureDetector(
+                      onTap: onEdit,
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          gradient: AppColors.buildPrimaryGradient(),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.edit,
+                          size: 22,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
-            const SizedBox(height: 16),
-            ...children.map((child) => Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: child,
-                )),
+            // ── Scrollable content (slides under the pinned header) ────────
+            Expanded(
+              child: SingleChildScrollView(
+                controller: scrollController,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(
+                  innerPadding.left,
+                  0,
+                  innerPadding.right,
+                  innerPadding.bottom,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ...children.map((child) => Padding(
+                          padding: const EdgeInsets.only(bottom: 16),
+                          child: child,
+                        )),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

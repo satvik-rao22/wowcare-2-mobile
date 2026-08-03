@@ -1,8 +1,10 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -16,11 +18,13 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/students/util/profile_photo_background.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step3_screen.dart';
@@ -58,7 +62,6 @@ class AddStudentStep1Screen extends StatefulWidget {
 class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
-  final ImagePicker _picker = ImagePicker();
 
   static const int _nameMaxLength = 50;
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
@@ -73,6 +76,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   DateTime? _selectedSchoolStartDate;
   File? _profilePhoto;
   int? _calculatedAge;
+  String? _calculatedAgeLabel;
   bool _isSubmitting = false;
 
   final List<String> _statusOptions = ['Active', 'Upcoming'];
@@ -107,29 +111,47 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
   }
 
   void _calculateAge(DateTime birthdate) {
-    final now = DateTime.now();
-    int age = now.year - birthdate.year;
-    if (now.month < birthdate.month ||
-        (now.month == birthdate.month && now.day < birthdate.day)) {
-      age--;
+    final now = AppTime.now();
+    int years = now.year - birthdate.year;
+    int months = now.month - birthdate.month;
+    if (now.day < birthdate.day) {
+      months--;
+    }
+    if (months < 0) {
+      years--;
+      months += 12;
     }
     setState(() {
-      _calculatedAge = age;
+      _calculatedAge = years;
+      _calculatedAgeLabel = _formatAgeLabel(years, months);
     });
+  }
+
+  String _formatAgeLabel(int years, int months) {
+    final yearPart = '$years ${years == 1 ? 'year' : 'years'}';
+    final monthPart = '$months ${months == 1 ? 'month' : 'months'}';
+    if (years <= 0) {
+      return monthPart;
+    }
+    return '$yearPart $monthPart';
   }
 
   Future<void> _pickProfileImage() async {
     try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
+      // Use the shared file picker so every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not just gallery JPEGs.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: context,
       );
-      if (image == null) return;
+      final path = picked?.path;
+      if (path == null || path.isEmpty) return;
 
-      final file = File(image.path);
+      final file = File(path);
       final fileSizeInMB = await file.length() / (1024 * 1024);
 
       if (fileSizeInMB > 10) {
+        if (!mounted) return;
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Image size must be less than 10MB',
@@ -142,6 +164,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         _profilePhoto = file;
       });
     } catch (e) {
+      if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Failed to pick image: $e',
@@ -163,7 +186,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
       if (result != null && result['date'] != null) {
         final selectedDate = result['date'] as DateTime;
-        final now = DateTime.now();
+        final now = AppTime.now();
         final today = DateTime(now.year, now.month, now.day);
 
         // Validate: must be past date only
@@ -188,7 +211,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
 
   Future<void> _selectSchoolStartDate() async {
     try {
-      final now = DateTime.now();
+      final now = AppTime.now();
       final today = DateTime(now.year, now.month, now.day);
       final initial = _selectedSchoolStartDate;
       final DateTime? initialForPicker = _isUpcoming
@@ -329,9 +352,12 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     );
 
     final classrooms = context.read<ClassroomCubit>().state.classrooms;
-    final selectedClassroom = classrooms.where((c) => c.name == _selectedClassroom);
-    final selectedClassroomCode =
-        selectedClassroom.isNotEmpty ? selectedClassroom.first.code : '';
+    final selectedClassroom = classrooms.where(
+      (c) => c.name == _selectedClassroom,
+    );
+    final selectedClassroomCode = selectedClassroom.isNotEmpty
+        ? selectedClassroom.first.code
+        : '';
     if (selectedClassroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -339,6 +365,19 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         isError: true,
       );
       return;
+    }
+
+    // WARN (never block) when the DOB is outside the classroom's age range.
+    // An out-of-range placement is a legitimate staff decision, so we surface it
+    // and let them proceed — matching the web "warn but allow" behaviour.
+    final ageWarning = classroomAgeRangeWarning(
+      classroom: selectedClassroom.first,
+      birthDate: _selectedBirthdate,
+      studentName: _firstNameController.text.trim(),
+    );
+    if (ageWarning != null) {
+      final proceedAnyway = await _confirmAgeOutsideRange(ageWarning);
+      if (!proceedAnyway || !mounted) return;
     }
 
     final step1Data = {
@@ -369,6 +408,24 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         _handleStep2Result(step1Data, [step2Result]);
       }
     });
+  }
+
+  /// Amber confirm for an out-of-range DOB. Returns true to proceed anyway.
+  Future<bool> _confirmAgeOutsideRange(String message) async {
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => ConfirmationBottomSheet(
+        icon: Icons.warning_amber_rounded,
+        title: message,
+        confirmText: 'Continue anyway',
+        cancelText: 'Cancel',
+        onConfirm: () => Navigator.of(ctx).pop(true),
+        onCancel: () => Navigator.of(ctx).pop(false),
+      ),
+    );
+    return result == true;
   }
 
   Future<bool> _confirmIfDuplicateNameExists({
@@ -620,7 +677,8 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final lastName = (step1Data['lastName'] as String?)?.trim() ?? '';
       final rawStatus = (step1Data['status'] as String?) ?? 'Active';
       final status = rawStatus.toUpperCase();
-      final classroomCode = (step1Data['classroomCode'] as String?)?.trim() ?? '';
+      final classroomCode =
+          (step1Data['classroomCode'] as String?)?.trim() ?? '';
       final DateTime? birthdate = step1Data['birthdate'] as DateTime?;
       final DateTime? schoolStartDate =
           step1Data['schoolStartDate'] as DateTime?;
@@ -649,6 +707,20 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         schoolStartDate: schoolStartDate,
         profilePhotoUrl: null,
       );
+
+      // Upload the picked student photo in the BACKGROUND so creation returns
+      // immediately; the upload keeps running even after this screen is closed.
+      final pickedPhoto = _profilePhoto;
+      if (pickedPhoto != null && student.code.trim().isNotEmpty) {
+        unawaited(
+          uploadStudentPhotoInBackground(
+            studentCode: student.code.trim(),
+            file: pickedPhoto,
+            schoolCode: schoolCode.trim(),
+            organizationCode: organizationCode.trim(),
+          ),
+        );
+      }
 
       final studentName = student.fullName.isNotEmpty
           ? student.fullName
@@ -750,7 +822,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           final bool legalCustody = map['isChildCustody'] as bool? ?? true;
 
           try {
-            await repo.createGuardianUser(
+            final createdGuardian = await repo.createGuardianUser(
               schoolCode: schoolCode,
               studentCode: student.code,
               firstName: parentFirst,
@@ -764,6 +836,22 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               userCode: userCode.isEmpty ? null : userCode,
               organizationCode: organizationCode.trim(),
             );
+            // Upload this parent's photo (picked in step 2) in the background.
+            final parentPhoto = map['profilePhoto'];
+            if (parentPhoto is File) {
+              unawaited(
+                uploadGuardianPhotoInBackground(
+                  file: parentPhoto,
+                  guardianCode: (createdGuardian.guardianCode ?? '').trim(),
+                  studentCode: student.code,
+                  email: parentEmail,
+                  mobile: parentPhoneDigits,
+                  schoolCode: schoolCode,
+                  organizationCode: organizationCode.trim(),
+                  userCode: '',
+                ),
+              );
+            }
           } catch (e) {
             final message = ApiErrorHandler.extractErrorMessage(e);
             if (mounted) {
@@ -777,10 +865,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
-      // Link siblings after guardians (PUT /api/v1/student/student/{code}/siblings).
+      // Link siblings after guardians (POST /api/v1/student/{code}/add-sibling).
       if (siblingCodesToLink.isNotEmpty) {
         try {
-          await repo.updateStudentSiblings(
+          await repo.addStudentSibling(
             studentCode: student.code,
             siblingCodes: siblingCodesToLink,
           );
@@ -856,10 +944,14 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         }
       }
 
+      final bool anyPhotoUploading =
+          _profilePhoto != null ||
+          parents.any((p) => p is Map && p['profilePhoto'] is File);
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully',
+            'Student${studentName.isNotEmpty ? ' $studentName ' : ' '}added successfully'
+            '${anyPhotoUploading ? '. Photo is uploading in the background…' : ''}',
         isSuccess: true,
       );
 
@@ -952,7 +1044,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -1023,7 +1115,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                                     _selectedBirthdate,
                                     _selectBirthdate,
                                     isRequired: _isActive,
-                                    age: _calculatedAge,
+                                    ageLabel: _calculatedAgeLabel,
                                   ),
                                   SizedBox(height: responsive.verticalSpacing),
                                   // School Start Date
@@ -1057,7 +1149,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
+                    color: Colors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
@@ -1247,7 +1339,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     DateTime? selectedDate,
     VoidCallback onTap, {
     bool isRequired = false,
-    int? age,
+    String? ageLabel,
   }) {
     final responsive = ResponsiveHelper(context);
     final labelStyle = TextStyle(
@@ -1313,11 +1405,11 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                           ),
                           overflow: TextOverflow.ellipsis,
                         ),
-                        if (age != null && selectedDate != null)
+                        if (ageLabel != null && selectedDate != null)
                           Padding(
                             padding: const EdgeInsets.only(top: 4.0),
                             child: Text(
-                              'Age: $age ${age == 1 ? 'year' : 'years'}',
+                              'Age: $ageLabel',
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.grey.shade600,

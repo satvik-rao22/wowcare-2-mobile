@@ -12,6 +12,7 @@ class GetStaffShiftHoursRangeUseCase {
     required String organizationCode,
     required DateTime startDate,
     required DateTime endDate,
+    required bool publishedOnly,
     List<String> staffCodes = const <String>[],
   }) {
     return _repository.getStaffShiftHoursRange(
@@ -19,6 +20,7 @@ class GetStaffShiftHoursRangeUseCase {
       organizationCode: organizationCode,
       startDate: startDate,
       endDate: endDate,
+      publishedOnly: publishedOnly,
       staffCodes: staffCodes,
     );
   }

@@ -1,13 +1,13 @@
+import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_tab.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_or_student_selection_bulk_messaging.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/view/staff_or_student_selection_bulk_messaging.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
-
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../shared/common/widgets/gradient_add_button.dart';
 
@@ -153,14 +153,21 @@ class _MessagingTabState extends State<MessagingTab>
                                 create: (_) => serviceLocator<StudentCubit>(),
                               ),
                             ],
-                            child: StaffOrStudentSelectionBulkMessaging(),
+                            child: StaffOrStudentSelectionBulkMessaging(
+                              isStaffSelection: true,
+                              conversationType: 'STAFF_DIRECT',
+                            ),
                           ),
                         ),
                       );
                       if (context.mounted) {
-                        context.read<CommunicationCubit>().loadConversations(
-                          type: 'STAFF_DIRECT',
-                          size: _conversationPageSize,
+                        unawaited(
+                          context
+                              .read<CommunicationCubit>()
+                              .refreshConversations(
+                                type: 'STAFF_DIRECT',
+                                size: _conversationPageSize,
+                              ),
                         );
                       }
                     } else {
@@ -180,14 +187,19 @@ class _MessagingTabState extends State<MessagingTab>
                             ],
                             child: StaffOrStudentSelectionBulkMessaging(
                               isStaffSelection: false,
+                              conversationType: 'ROOM_CHAT',
                             ),
                           ),
                         ),
                       );
                       if (context.mounted) {
-                        context.read<CommunicationCubit>().loadConversations(
-                          type: 'STAFF_DIRECT',
-                          size: _conversationPageSize,
+                        unawaited(
+                          context
+                              .read<CommunicationCubit>()
+                              .refreshConversations(
+                                type: 'ROOM_CHAT',
+                                size: _conversationPageSize,
+                              ),
                         );
                       }
                     }

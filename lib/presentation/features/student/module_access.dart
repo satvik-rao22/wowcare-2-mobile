@@ -19,6 +19,7 @@ abstract final class AppAccessModules {
   static const String billingSettings = 'BILLING_SETTINGS';
   static const String parentMessaging = 'PARENT_MESSAGING';
   static const String staffMessaging = 'STAFF_MESSAGING';
+  static const String adminChat = 'ADMIN_CHAT';
   static const String settings = 'SETTINGS';
   static const String staffScheduling = 'STAFF_SCHEDULING';
   static const String studentTags = 'STUDENT_TAGS';

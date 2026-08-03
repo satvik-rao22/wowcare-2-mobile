@@ -5,6 +5,7 @@ class StaffListItemModel extends Equatable {
   const StaffListItemModel({
     required this.code,
     required this.name,
+    this.userCode = '',
     required this.primaryClassroomCode,
     /// Display name from list API when `primaryClassroom` is an object (e.g. admin location).
     this.primaryClassroomName = '',
@@ -22,6 +23,8 @@ class StaffListItemModel extends Equatable {
 
   final String code;
   final String name;
+  /// User account code (USR_*) — the participant identifier for messaging.
+  final String userCode;
   /// Classroom code (from API field `primaryClassroom`).
   final String primaryClassroomCode;
   final String primaryClassroomName;
@@ -102,6 +105,7 @@ class StaffListItemModel extends Equatable {
     return StaffListItemModel(
       code: json['code'] as String? ?? '',
       name: json['name'] as String? ?? '',
+      userCode: json['userCode'] as String? ?? '',
       primaryClassroomCode: primaryClassroomCode.isNotEmpty
           ? primaryClassroomCode
           : (json['primaryClassroomCode'] as String?) ?? '',
@@ -128,6 +132,7 @@ class StaffListItemModel extends Equatable {
     return {
       'code': code,
       'name': name,
+      'userCode': userCode,
       'primaryClassroom': primaryClassroomCode,
       'allowedClassrooms': allowedClassroomCodes,
       'designation': designation,
@@ -146,6 +151,7 @@ class StaffListItemModel extends Equatable {
       [
         code,
         name,
+        userCode,
         primaryClassroomCode,
         primaryClassroomName,
         allowedClassroomCodes,
@@ -577,7 +583,9 @@ class StaffProfileModel extends Equatable {
       phoneNumber: data['phoneNumber'] as String? ?? '',
       profilePhotoUrl: data['profilePhotoUrl'] as String? ?? '',
       birthDate: data['birthDate'] as String? ?? '',
-      staffType: data['staffType'] as String? ?? '',
+      staffType: (data['staffType'] as String?)?.trim().isNotEmpty == true
+          ? (data['staffType'] as String).trim()
+          : (data['role'] as String? ?? '').trim(),
       status: data['status'] as String? ?? '',
       designation: data['designation'] as String? ?? '',
       jobTag: data['jobTag'] as String? ?? '',
@@ -645,7 +653,9 @@ class StaffProfileModel extends Equatable {
       phoneNumber: json['phoneNumber'] as String? ?? '',
       profilePhotoUrl: json['profilePhotoUrl'] as String? ?? '',
       birthDate: json['birthDate'] as String? ?? '',
-      staffType: json['staffType'] as String? ?? '',
+      staffType: (json['staffType'] as String?)?.trim().isNotEmpty == true
+          ? (json['staffType'] as String).trim()
+          : (json['role'] as String? ?? '').trim(),
       status: json['status'] as String? ?? '',
       designation: json['designation'] as String? ?? '',
       jobTag: json['jobTag'] as String? ?? '',

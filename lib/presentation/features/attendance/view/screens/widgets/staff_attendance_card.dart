@@ -1,19 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
+import 'package:wowcare/core/util/server_time_service.dart';
 
-enum SignMethod {
-  gps,
-  qr,
-  kiosk,
-  direct,
-  web,
-}
+enum SignMethod { gps, qr, pin, kiosk, direct, web }
 
 class StaffAttendanceCardData {
   final String? attendanceRecordCode;
@@ -22,6 +15,7 @@ class StaffAttendanceCardData {
   final String? staffPhotoUuid;
   final String? designationName;
   final String roomName;
+
   /// Backend classroom code for this row (for attendance mutations).
   final String? classroomCode;
   final bool expectedToday;
@@ -39,6 +33,7 @@ class StaffAttendanceCardData {
   final int? totalSequenceCount;
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
 
@@ -94,9 +89,15 @@ class StaffAttendanceCard extends StatefulWidget {
 }
 
 class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
+  // Shared text tokens mirrored from StaffCard so attendance cards read with
+  // the same Manrope/plum visual identity.
+  static const Color _plum = Color(0xff573353);
+
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final isTablet = responsive.isTablet;
     final staff = widget.staff;
     final signIn = staff.signInTime != null
         ? '${staff.signInTime} By ${staff.signInBy ?? 'Unknown'}'
@@ -129,123 +130,138 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       }
     }
 
-    final avatarSize = responsive.isTablet ? 52.0 : 44.0;
-    final cardPadding = responsive.isTablet 
-        ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
-        : const EdgeInsets.symmetric(horizontal: 12, vertical: 10);
-    final spacing = responsive.isTablet ? 16.0 : 14.0;
+    final avatarSize = isTablet ? 52.0 : 50.0;
+    final headerPadding = EdgeInsets.symmetric(horizontal: isTablet ? 24 : 16);
+    final spacing = isTablet ? 16.0 : 9.0;
 
     return GestureDetector(
       onTap: widget.onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
-        padding: cardPadding,
         decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(responsive.isTablet ? 18 : 16),
-          border: Border.all(color: AppColors.cardBorderColor),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.03),
-              blurRadius: 8,
-              offset: const Offset(0, 2),
-            ),
-          ],
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
+        clipBehavior: Clip.antiAlias,
         child: Column(
           children: [
-            Row(
-              children: [
-                Stack(
-                  clipBehavior: Clip.none,
-                  children: [
-                    DocumentImageWidget(
-                      fileUuid: staff.staffPhotoUuid ?? '',
-                      name: staff.staffName,
-                      staffCode: staff.id,
-                      size: avatarSize,
-                      fontSize: responsive.isTablet ? 18 : 16,
-                    ),
-                  ],
-                ),
-                SizedBox(width: spacing),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      AppText.body(
-                        staff.staffName,
-                        style: TextStyle(
-                          fontSize: responsive.labelFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.primaryColor,
+            Padding(
+              padding: headerPadding.copyWith(top: 12, bottom: 12),
+              child: Row(
+                children: [
+                  DocumentImageWidget(
+                    fileUuid: staff.staffPhotoUuid ?? '',
+                    name: staff.staffName,
+                    staffCode: staff.id,
+                    size: avatarSize,
+                    fontSize: isTablet ? 18 : 16,
+                  ),
+                  SizedBox(width: spacing),
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Flexible(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                staff.staffName,
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  fontSize: isTablet ? 16 : 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: _plum,
+                                  height: 19 / 14,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (staff.designationName != null &&
+                                  staff.designationName!.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(
+                                  staff.designationName!,
+                                  style: TextStyle(
+                                    fontFamily: 'Manrope',
+                                    fontSize: isTablet ? 13 : 12,
+                                    fontWeight: FontWeight.w400,
+                                    color: _plum.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      if (staff.designationName != null && staff.designationName!.isNotEmpty) ...[
-                        SizedBox(height: responsive.verticalSpacing / 4),
-                        AppText.small(
-                          staff.designationName!,
-                          style: TextStyle(
-                            fontSize: responsive.isTablet ? 14 : 12,
-                            color: AppColors.secondaryColor.withOpacity(0.6),
+                        const SizedBox(width: 8),
+                        Flexible(
+                          child: Text(
+                            staff.roomName,
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: isTablet ? 16 : 14,
+                              fontWeight: FontWeight.w500,
+                              color: _plum,
+                              height: 19 / 14,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            textAlign: TextAlign.right,
                           ),
                         ),
                       ],
-                    ],
-                  ),
-                ),
-                SizedBox(width: spacing / 2),
-                Expanded(
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: AppText.body(
-                      staff.roomName,
-                      style: TextStyle(
-                        fontSize: responsive.isTablet ? 16 : 15,
-                        color: AppColors.themeColor,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      textAlign: TextAlign.end,
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
             if (widget.isExpanded) ...[
-              SizedBox(height: responsive.verticalSpacing / 2),
-              Divider(height: 1, color: AppColors.cardBorderColor),
-              SizedBox(height: responsive.verticalSpacing / 2),
-              _buildDetailRow(context, responsive, 'Expected Today?', staff.expectedToday ? 'Yes' : 'No'),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildDetailRow(context, responsive, 'Classroom', staff.roomName),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildSignInOutRow(
-                context,
-                responsive,
-                'Sign In time & by',
-                signIn,
-                staff.signInMethod,
-                showTransferIcon: staff.isTransferSignIn,
+              const Divider(
+                height: 1,
+                thickness: 1,
+                indent: 16,
+                endIndent: 16,
+                color: Color(0xFFE9ECEF),
               ),
-              SizedBox(height: responsive.isTablet ? 8 : 6),
-              _buildSignInOutRow(
-                context,
-                responsive,
-                'Sign Out time & by',
-                signOut,
-                staff.signOutMethod,
-                showTransferIcon: staff.isTransferSignOut,
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildDetailRow(
+                      context,
+                      'Expected Today?',
+                      staff.expectedToday ? 'Yes' : 'No',
+                    ),
+                    const SizedBox(height: 10),
+                    _buildDetailRow(context, 'Classroom', staff.roomName),
+                    const SizedBox(height: 10),
+                    _buildSignInOutRow(
+                      context,
+                      'Sign In time & by',
+                      signIn,
+                      staff.signInMethod,
+                      showTransferIcon: staff.isTransferSignIn,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildSignInOutRow(
+                      context,
+                      'Sign Out time & by',
+                      signOut,
+                      staff.signOutMethod,
+                      showTransferIcon: staff.isTransferSignOut,
+                    ),
+                    if (duration.isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildDetailRow(context, 'Attended Time', duration),
+                    ],
+                    const SizedBox(height: 12),
+                    _buildActionButtons(context),
+                  ],
+                ),
               ),
-              if (duration.isNotEmpty) ...[
-                SizedBox(height: responsive.isTablet ? 8 : 6),
-                _buildDetailRow(context, responsive, 'Attended Time', duration),
-              ],
-              SizedBox(height: responsive.verticalSpacing / 2),
-              _buildActionButtons(context, responsive),
             ],
           ],
         ),
@@ -253,27 +269,32 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     );
   }
 
-  Widget _buildDetailRow(BuildContext context, ResponsiveHelper responsive, String label, String value) {
+  Widget _buildDetailRow(BuildContext context, String label, String value) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          flex: responsive.isTablet ? 2 : 1,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 14 : 12,
-              color: AppColors.secondaryColor.withOpacity(0.6),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: _plum,
+              height: 16 / 13,
             ),
           ),
         ),
-        SizedBox(width: responsive.horizontalSpacing / 2),
+        const SizedBox(width: 8),
         Expanded(
-          flex: responsive.isTablet ? 3 : 2,
-          child: AppText.value(
+          child: Text(
             value,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 16 : 14,
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+              color: _plum,
+              height: 19 / 14,
             ),
             textAlign: TextAlign.end,
             maxLines: 3,
@@ -286,7 +307,6 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
 
   Widget _buildSignInOutRow(
     BuildContext context,
-    ResponsiveHelper responsive,
     String label,
     String value,
     SignMethod? method, {
@@ -296,46 +316,51 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          flex: responsive.isTablet ? 2 : 1,
-          child: AppText.small(
+          child: Text(
             label,
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 14 : 12,
-              color: AppColors.secondaryColor.withOpacity(0.6),
+            style: const TextStyle(
+              fontFamily: 'Manrope',
+              fontSize: 13,
+              fontWeight: FontWeight.w400,
+              color: _plum,
+              height: 16 / 13,
             ),
           ),
         ),
-        SizedBox(width: responsive.horizontalSpacing / 2),
+        const SizedBox(width: 8),
         Expanded(
-          flex: responsive.isTablet ? 3 : 2,
           child: Row(
             mainAxisAlignment: MainAxisAlignment.end,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (method != null) ...[
-                _buildMethodIcon(method, responsive),
-                SizedBox(width: responsive.horizontalSpacing / 4),
+                _buildMethodIcon(method),
+                const SizedBox(width: 4),
               ],
               if (showTransferIcon) ...[
                 Tooltip(
                   message: 'Transfer',
                   child: SvgPicture.asset(
                     MediaRes.transfer,
-                    width: responsive.isTablet ? 20 : 18,
-                    height: responsive.isTablet ? 20 : 18,
+                    width: 18,
+                    height: 18,
                     colorFilter: const ColorFilter.mode(
                       AppColors.themeColor,
                       BlendMode.srcIn,
                     ),
                   ),
                 ),
-                SizedBox(width: responsive.horizontalSpacing / 4),
+                const SizedBox(width: 4),
               ],
-              Expanded(
-                child: AppText.value(
+              Flexible(
+                child: Text(
                   value,
-                  style: TextStyle(
-                    fontSize: responsive.isTablet ? 16 : 14,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: _plum,
+                    height: 19 / 14,
                   ),
                   textAlign: TextAlign.end,
                   maxLines: 3,
@@ -349,8 +374,8 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     );
   }
 
-  Widget _buildMethodIcon(SignMethod method, ResponsiveHelper responsive) {
-    final double size = responsive.isTablet ? 20 : 18;
+  Widget _buildMethodIcon(SignMethod method) {
+    const double size = 18;
 
     switch (method) {
       case SignMethod.gps:
@@ -360,6 +385,10 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             MediaRes.gpsMethodIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.qr:
@@ -369,15 +398,36 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             MediaRes.qrAttendanceIcon,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.kiosk:
         return Tooltip(
-          message: 'PIN',
+          message: 'Kiosk',
           child: SvgPicture.asset(
-            MediaRes.pinMethodIcon,
+            MediaRes.kioskAttendenceIcons,
             width: size,
             height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
+      case SignMethod.pin:
+        return Tooltip(
+          message: 'PIN',
+          child: SvgPicture.asset(
+            MediaRes.kioskAttendenceIcons,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
           ),
         );
       case SignMethod.direct:
@@ -409,11 +459,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     }
   }
 
-  Widget _buildActionButtons(BuildContext context, ResponsiveHelper responsive) {
-    final buttonSpacing = responsive.horizontalSpacing / 2;
-    final buttonHeight = responsive.buttonHeight * 0.8;
-    final buttonFontSize = responsive.isTablet ? 16.0 : 15.0;
-
+  Widget _buildActionButtons(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
         // For very small screens, stack buttons vertically
@@ -423,63 +469,24 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
               if (widget.onDelete != null)
                 SizedBox(
                   width: double.infinity,
-                  height: buttonHeight,
-                  child: OutlinedButton(
-                    onPressed: widget.onDelete,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: AppText.body(
-                      "Delete",
-                      style: TextStyle(
-                        fontSize: buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                      ),
-                    ),
-                  ),
+                  height: 40,
+                  child: _outlinedButton('Delete', widget.onDelete),
                 ),
               if (widget.onDelete != null && widget.onEdit != null)
-                SizedBox(height: buttonSpacing),
+                const SizedBox(height: 12),
               if (widget.onEdit != null)
                 SizedBox(
                   width: double.infinity,
-                  height: buttonHeight,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      gradient: AppColors.buildPrimaryGradient(),
-                    ),
-                    child: TextButton(
-                      onPressed: widget.onEdit,
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.transparent,
-                      ),
-                      child: AppText.body(
-                        "Edit",
-                        style: TextStyle(
-                          fontSize: buttonFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
+                  height: 40,
+                  child: _gradientButton('Edit', widget.onEdit),
                 ),
               if (widget.onView != null) ...[
                 if (widget.onEdit != null || widget.onDelete != null)
-                  SizedBox(height: buttonSpacing),
+                  const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  height: buttonHeight,
-                  child: CustomCancelButton(
-                    cancelButtonLabel: 'View',
-                    onPressedCancel: widget.onView,
-                  ),
+                  height: 40,
+                  child: _outlinedButton('View', widget.onView),
                 ),
               ],
             ],
@@ -493,71 +500,26 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             if (widget.onDelete != null)
               Expanded(
                 child: SizedBox(
-                  height: buttonHeight,
-                  child: OutlinedButton(
-                    onPressed: widget.onDelete,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: AppColors.themeColor),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: EdgeInsets.zero,
-                      backgroundColor: AppColors.cardColor,
-                    ),
-                    child: Text(
-                      "Delete",
-                      style: TextStyle(
-                        fontFamily: 'Manrope',
-                        fontSize: buttonFontSize,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.themeColor,
-                        height: 19 / buttonFontSize,
-                      ),
-                    ),
-                  ),
+                  height: 40,
+                  child: _outlinedButton('Delete', widget.onDelete),
                 ),
               ),
             if (widget.onDelete != null && widget.onEdit != null)
-              SizedBox(width: buttonSpacing),
+              const SizedBox(width: 16),
             if (widget.onEdit != null)
               Expanded(
                 child: SizedBox(
-                  height: buttonHeight,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      gradient: AppColors.buildPrimaryGradient(),
-                    ),
-                    child: TextButton(
-                      onPressed: widget.onEdit,
-                      style: TextButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        backgroundColor: Colors.transparent,
-                      ),
-                      child: Text(
-                        "Edit",
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          fontSize: buttonFontSize,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
-                          height: 19 / buttonFontSize,
-                        ),
-                      ),
-                    ),
-                  ),
+                  height: 40,
+                  child: _gradientButton('Edit', widget.onEdit),
                 ),
               ),
             if (widget.onView != null) ...[
               if (widget.onEdit != null || widget.onDelete != null)
-                SizedBox(width: buttonSpacing),
+                const SizedBox(width: 16),
               Expanded(
                 child: SizedBox(
-                  height: buttonHeight,
-                  child: CustomCancelButton(
-                    cancelButtonLabel: 'View',
-                    onPressedCancel: widget.onView,
-                  ),
+                  height: 40,
+                  child: _outlinedButton('View', widget.onView),
                 ),
               ),
             ],
@@ -567,11 +529,59 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     );
   }
 
+  Widget _outlinedButton(String label, VoidCallback? onPressed) {
+    return OutlinedButton(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: Color(0xFF6C7FD8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: EdgeInsets.zero,
+        backgroundColor: Colors.white,
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: 16,
+          fontWeight: FontWeight.w700,
+          color: Color(0xFF6C7FD8),
+          height: 16 / 16,
+        ),
+      ),
+    );
+  }
+
+  Widget _gradientButton(String label, VoidCallback? onPressed) {
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: AppColors.buildPrimaryGradient(),
+      ),
+      child: TextButton(
+        onPressed: onPressed,
+        style: TextButton.styleFrom(
+          padding: EdgeInsets.zero,
+          backgroundColor: Colors.transparent,
+        ),
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontFamily: 'Manrope',
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+            height: 16 / 16,
+          ),
+        ),
+      ),
+    );
+  }
+
   DateTime _parseTimeString(String timeString) {
     try {
       final parts = timeString.split(' ');
       if (parts.length < 2) {
-        return DateTime.now();
+        return ServerTimeService.instance.now();
       }
 
       final timePart = parts[0];
@@ -579,7 +589,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
 
       final timeComponents = timePart.split(':');
       if (timeComponents.length < 2) {
-        return DateTime.now();
+        return ServerTimeService.instance.now();
       }
 
       int hour = int.parse(timeComponents[0]);
@@ -588,9 +598,9 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       if (period == 'PM' && hour != 12) hour += 12;
       if (period == 'AM' && hour == 12) hour = 0;
 
-      return DateTime.now().copyWith(hour: hour, minute: minute);
+      return ServerTimeService.instance.now().copyWith(hour: hour, minute: minute);
     } catch (e) {
-      return DateTime.now();
+      return ServerTimeService.instance.now();
     }
   }
 }

@@ -4,6 +4,7 @@ class StaffMember extends Equatable {
   const StaffMember({
     required this.code,
     required this.name,
+    this.userCode = '',
     required this.primaryClassroomCode,
     this.primaryClassroomName = '',
     required this.allowedClassroomCodes,
@@ -20,6 +21,8 @@ class StaffMember extends Equatable {
 
   final String code;
   final String name;
+  /// User account code (USR_*) — the participant identifier for messaging.
+  final String userCode;
   final String? profileImage;
   final String? profilePhotoAssetCode;
   final String primaryClassroomCode;
@@ -54,6 +57,7 @@ class StaffMember extends Equatable {
       [
         code,
         name,
+        userCode,
         primaryClassroomCode,
         primaryClassroomName,
         allowedClassroomCodes,

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:go_router/go_router.dart';
+import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
@@ -10,7 +12,8 @@ import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
 import 'package:wowcare/presentation/features/tasks/view/tasks_screen.dart';
 import 'package:wowcare/presentation/features/assessments/view/assessments_home_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
@@ -23,22 +26,22 @@ import 'package:wowcare/presentation/features/attendance/view/student_attendance
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../presentation/features/scheduling/view/scheduling_screen.dart';
 import '../../../presentation/features/scheduling/view/staff_scheduling_screen.dart';
-import '../../../presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/activity_feed_invalidation.dart';
 import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
@@ -69,6 +72,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
   String? _selectedSchoolName;
   List<Map<String, String>> _schoolsForOrg = const <Map<String, String>>[];
 
+  /// Accordion behavior — title of the one top-level expandable drawer
+  /// section (Communication, Attendance, Availability, Scheduling,
+  /// Settings, ...) currently open, or null when none is. Opening one
+  /// collapses whichever other section was previously open.
+  String? _expandedDrawerSection;
+
+  void _onDrawerSectionExpansionChanged(String title, bool expanded) {
+    setState(() {
+      _expandedDrawerSection = expanded ? title : null;
+    });
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -84,6 +99,22 @@ class _CustomDrawerState extends State<CustomDrawer> {
     }
   }
 
+  /// Closes the drawer, then navigates on the NEXT frame.
+  ///
+  /// Closing a [Scaffold] drawer pops its [LocalHistoryEntry] from the current
+  /// page. Inside [StatefulShellRoute] that pop makes go_router re-sync the
+  /// route info to the branch's CURRENT location on the next microtask — which
+  /// runs after a synchronous `context.go(...)` and clobbers it, bouncing the
+  /// user back to the dashboard. Deferring the navigation past that frame makes
+  /// it stick. Uses the global [appRouter] (not `context.go`) because this
+  /// drawer's [State] is often disposed once the drawer finishes closing.
+  void _navigate(String location, {Object? extra}) {
+    Navigator.pop(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      appRouter.go(location, extra: extra);
+    });
+  }
+
   Future<void> _loadSchoolContext() async {
     try {
       final storage = serviceLocator<StorageService>();
@@ -93,6 +124,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
       final schoolCode = await storage.getString(StorageKeys.schoolCode);
       final selectedName = await storage.getString(
         StorageKeys.selectedSchoolName,
+      );
+      print(
+        'CustomDrawer: _loadSchoolContext: orgCode=$orgCode, schoolCode=$schoolCode, selectedName=$selectedName',
       );
       List<Map<String, String>> schoolsForOrg = const <Map<String, String>>[];
 
@@ -258,10 +292,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.06),
+              color: Colors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withOpacity(0.2),
+                color: Colors.white.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -284,7 +318,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withOpacity(0.15)
+                          ? Colors.white.withValues(alpha: 0.15)
                           : Colors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -370,10 +404,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
       _isSchoolDropdownOpen = false;
     });
 
+    // Tell every kept-alive branch screen (Dashboard, Classroom, Activity,
+    // Messaging, Billing) to reload fresh for the new school. Only when the
+    // school actually changed — re-selecting the same school is a no-op.
+    if (isSchoolChanged) {
+      SchoolSwitchEvents.notifySwitched();
+    }
+
     // Close drawer and send user to Dashboard for the newly selected school.
-    Navigator.pop(context);
     if (!mounted) return;
-    context.go(DashboardScreen.routeName);
+    _navigate(DashboardScreen.routeName);
   }
 
   /// Clears every cache layer so a school switch starts from a clean slate:
@@ -456,7 +496,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
       try {
         final signOutFormList =
             serviceLocator<GetStudentSignOutFormListUseCase>();
-        final now = DateTime.now();
+        final now = AppTime.now();
         final date =
             '${now.year.toString().padLeft(4, '0')}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
         final signedInPage = await signOutFormList(
@@ -682,6 +722,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
   @override
   Widget build(BuildContext context) {
     final roleProvider = context.watch<RoleCubit>();
+    final unreadState = context.watch<UnreadBadgeCubit>().state;
     final isParent = roleProvider.isParent;
     final isStaff = roleProvider.isStaff;
     final canViewStudents = roleProvider.canAccessAny([
@@ -712,6 +753,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final showStaffMessagingDrawer = roleProvider.canReadModule(
       AppAccessModules.staffMessaging,
     );
+    // Admin Chat: visible to admins/directors and parents; hidden for staff/teachers.
+    final showAdminChatDrawer = !isStaff;
     final canViewBilling = roleProvider.canAccessAny([
       AppAccessModules.transaction,
       AppAccessModules.invoices,
@@ -732,6 +775,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final showSettingsMenu =
         !roleProvider.usesGranularModuleAccess ||
         roleProvider.canOpenModule(AppAccessModules.settings);
+    final showReportsDrawer =
+        !roleProvider.usesGranularModuleAccess ||
+        roleProvider.canOpenModule(AppAccessModules.reports);
+    // Scheduling sub-items are gated on their own modules (a staff persona only
+    // ever sees their own schedule, so Classroom Scheduling also needs !isStaff).
+    final showClassroomScheduling =
+        !isStaff &&
+        roleProvider.canOpenModule(AppAccessModules.classroomSchedule);
+    final showStaffScheduling = roleProvider.canOpenModule(
+      AppAccessModules.staffScheduling,
+    );
+    final showSchedulingMenu = showClassroomScheduling || showStaffScheduling;
     final parentChildProvider = context.watch<ParentChildCubit>();
     if (isParent &&
         !parentChildProvider.isLoaded &&
@@ -766,12 +821,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           isDashboard: true,
                           isCurrentRoute:
                               _currentRoute == DashboardScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (_currentRoute != DashboardScreen.routeName) {
-                              context.go(DashboardScreen.routeName);
-                            }
-                          },
+                          suppressRouteHighlight:
+                              _expandedDrawerSection != null,
+                          onTap: () => _navigate(DashboardScreen.routeName),
                         ),
                       if (isParent) ...[
                         // Parent-specific menu items (not gated on STUDENT module read:
@@ -782,6 +834,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           icon: MediaRes.students_drawer_icon,
                           isCurrentRoute:
                               _currentRoute == StudentProfileScreen.routeName,
+                          suppressRouteHighlight:
+                              _expandedDrawerSection != null,
                           onTap: () {
                             final nav = Navigator.of(context);
                             final parentChild = context
@@ -800,6 +854,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             isCurrentRoute:
                                 _currentRoute ==
                                 StudentAttendanceProfile.routeName,
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
                             onTap: () {
                               final nav = Navigator.of(context);
                               final parentChild = context
@@ -818,13 +874,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.activitesIcon,
                             isCurrentRoute:
                                 _currentRoute == ActivityFeedScreen.routeName,
-                            onTap: () {
-                              Navigator.pop(context);
-                              if (_currentRoute !=
-                                  ActivityFeedScreen.routeName) {
-                                context.go(ActivityFeedScreen.routeName);
-                              }
-                            },
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () =>
+                                _navigate(ActivityFeedScreen.routeName),
                           ),
                         _CustomExpansionTile(
                           title: 'Events',
@@ -839,28 +892,77 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           },
                         ),
                         if (showParentMessagingDrawer ||
-                            showParentNewsletterDrawer)
+                            showParentNewsletterDrawer ||
+                            showAdminChatDrawer)
                           _CustomExpansionTile(
                             title: 'Communication',
                             icon: MediaRes.communicationIcon,
                             isCurrentRoute:
                                 _currentRoute == MessagingScreen.routeName,
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null &&
+                                _expandedDrawerSection != 'Communication',
                             isExpansionEnabled: true,
+                            expandedOverride:
+                                _expandedDrawerSection == 'Communication',
+                            onExpansionChanged: (expanded) =>
+                                _onDrawerSectionExpansionChanged(
+                                  'Communication',
+                                  expanded,
+                                ),
                             children: [
-                              if (showParentMessagingDrawer)
-                                DrawerListTile(
-                                  title: 'Messaging',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.parentMessaging,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
-                                    ),
-                                  ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
-                                  },
+                              if (showParentMessagingDrawer ||
+                                  showAdminChatDrawer)
+                                _NestedExpansionTile(
+                                  title: 'Parent Messaging',
+                                  icon: MediaRes.parentMessaging,
+                                  children: [
+                                    if (showParentMessagingDrawer)
+                                      DrawerListTile(
+                                        title: 'Room Chat',
+                                        leading: SvgPicture.asset(
+                                          MediaRes.classroom_drawer_icon,
+                                          colorFilter: const ColorFilter.mode(
+                                            AppColors.themeColor,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        trailing: _UnreadBadge(
+                                          count: unreadState.unreadFor(
+                                            ConversationType.roomChat,
+                                          ),
+                                        ),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          context.go(
+                                            MessagingScreen
+                                                .parentMessagingRoute,
+                                          );
+                                        },
+                                      ),
+                                    if (showAdminChatDrawer)
+                                      DrawerListTile(
+                                        title: 'Admin Chat',
+                                        leading: SvgPicture.asset(
+                                          MediaRes.parentMessaging,
+                                          colorFilter: const ColorFilter.mode(
+                                            AppColors.themeColor,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        trailing: _UnreadBadge(
+                                          count: unreadState.unreadFor(
+                                            ConversationType.adminChat,
+                                          ),
+                                        ),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          context.go(
+                                            AdminChatHostScreen.routeName,
+                                          );
+                                        },
+                                      ),
+                                  ],
                                 ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
@@ -872,12 +974,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    context.go(
-                                      ParentNewsletterScreen.routeName,
-                                    );
-                                  },
+                                  onTap: () => _navigate(
+                                    ParentNewsletterScreen.routeName,
+                                  ),
                                 ),
                             ],
                           ),
@@ -887,13 +986,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.billing_drawer_icon,
                             isCurrentRoute:
                                 _currentRoute == ParentBillingScreen.routeName,
-                            onTap: () {
-                              Navigator.pop(context);
-                              if (_currentRoute !=
-                                  ParentBillingScreen.routeName) {
-                                context.go(ParentBillingScreen.routeName);
-                              }
-                            },
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () =>
+                                _navigate(ParentBillingScreen.routeName),
                           ),
                       ] else ...[
                         // Admin menu items
@@ -903,14 +999,12 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.classroom_drawer_icon,
                             isCurrentRoute:
                                 _currentRoute == ClassroomScreen.routeName,
-                            onTap: () {
-                              Navigator.pop(context);
-                              // Classroom is a tab branch — go (not push) so
-                              // the bottom-nav switches to its tab and we
-                              // don't stack a second copy on the current
-                              // branch's navigator.
-                              context.go(ClassroomScreen.routeName);
-                            },
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            // Classroom is a tab branch — go (not push) so the
+                            // bottom-nav switches to its tab and we don't stack
+                            // a second copy on the current branch's navigator.
+                            onTap: () => _navigate(ClassroomScreen.routeName),
                           ),
                         if (canViewStudents)
                           _CustomExpansionTile(
@@ -918,12 +1012,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.students_drawer_icon,
                             isCurrentRoute:
                                 _currentRoute == StudentScreen.routeName,
-                            onTap: () {
-                              Navigator.pop(context);
-                              if (_currentRoute != StudentScreen.routeName) {
-                                context.go(StudentScreen.routeName);
-                              }
-                            },
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () => _navigate(StudentScreen.routeName),
                           ),
                         if (canViewStaff)
                           _CustomExpansionTile(
@@ -934,20 +1025,20 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                 (isStaff &&
                                     _currentRoute ==
                                         StaffProfileScreen.routeName),
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
                             onTap: () async {
-                              final navigator = Navigator.of(context);
-                              final captured = _currentRoute;
-                              Navigator.pop(context);
                               if (isStaff) {
+                                final navigator = Navigator.of(context);
+                                final captured = _currentRoute;
+                                Navigator.pop(context);
                                 if (captured == StaffProfileScreen.routeName) {
                                   return;
                                 }
                                 await _openLoggedInStaffProfile(navigator);
                                 return;
                               }
-                              if (captured != StaffScreen.routeName) {
-                                context.go(StaffScreen.routeName);
-                              }
+                              _navigate(StaffScreen.routeName);
                             },
                           ),
 
@@ -956,6 +1047,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             title: 'Attendance',
                             icon: MediaRes.attendanceIcon,
                             isExpansionEnabled: true,
+                            expandedOverride:
+                                _expandedDrawerSection == 'Attendance',
+                            onExpansionChanged: (expanded) =>
+                                _onDrawerSectionExpansionChanged(
+                                  'Attendance',
+                                  expanded,
+                                ),
                             children: [
                               if (showStudentAttendance)
                                 DrawerListTile(
@@ -967,15 +1065,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    if (_currentRoute !=
-                                        StudentAttendanceTabbedView.routeName) {
-                                      context.go(
-                                        StudentAttendanceTabbedView.routeName,
-                                      );
-                                    }
-                                  },
+                                  onTap: () => _navigate(
+                                    StudentAttendanceTabbedView.routeName,
+                                  ),
                                 ),
                               if (showStaffAttendance)
                                 DrawerListTile(
@@ -990,10 +1082,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     ),
                                   ),
                                   onTap: () {
-                                    final navigator = Navigator.of(context);
-                                    final captured = _currentRoute;
-                                    Navigator.pop(context);
                                     if (isStaff) {
+                                      final navigator = Navigator.of(context);
+                                      final captured = _currentRoute;
+                                      Navigator.pop(context);
                                       if (captured ==
                                           StaffAttendanceProfile.routeName) {
                                         return;
@@ -1003,12 +1095,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       );
                                       return;
                                     }
-                                    if (captured !=
-                                        StaffAttendanceTabbedView.routeName) {
-                                      context.go(
-                                        StaffAttendanceTabbedView.routeName,
-                                      );
-                                    }
+                                    _navigate(
+                                      StaffAttendanceTabbedView.routeName,
+                                    );
                                   },
                                 ),
                             ],
@@ -1018,6 +1107,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             title: 'Availability',
                             icon: MediaRes.attendanceIcon,
                             isExpansionEnabled: true,
+                            expandedOverride:
+                                _expandedDrawerSection == 'Availability',
+                            onExpansionChanged: (expanded) =>
+                                _onDrawerSectionExpansionChanged(
+                                  'Availability',
+                                  expanded,
+                                ),
                             children: [
                               if (showIndividualMovement)
                                 DrawerListTile(
@@ -1026,15 +1122,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     Icons.directions_walk,
                                     color: AppColors.themeColor,
                                   ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    if (_currentRoute !=
-                                        IndividualMovementScreen.routeName) {
-                                      context.go(
-                                        IndividualMovementScreen.routeName,
-                                      );
-                                    }
-                                  },
+                                  onTap: () => _navigate(
+                                    IndividualMovementScreen.routeName,
+                                  ),
                                 ),
                               if (showFutureAvailability)
                                 DrawerListTile(
@@ -1043,15 +1133,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                     Icons.calendar_month,
                                     color: AppColors.themeColor,
                                   ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    if (_currentRoute !=
-                                        FutureAvailabilityScreen.routeName) {
-                                      context.go(
-                                        FutureAvailabilityScreen.routeName,
-                                      );
-                                    }
-                                  },
+                                  onTap: () => _navigate(
+                                    FutureAvailabilityScreen.routeName,
+                                  ),
                                 ),
                             ],
                           ),
@@ -1061,13 +1145,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             icon: MediaRes.activitesIcon,
                             isCurrentRoute:
                                 _currentRoute == ActivityFeedScreen.routeName,
-                            onTap: () {
-                              Navigator.pop(context);
-                              if (_currentRoute !=
-                                  ActivityFeedScreen.routeName) {
-                                context.go(ActivityFeedScreen.routeName);
-                              }
-                            },
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () =>
+                                _navigate(ActivityFeedScreen.routeName),
                           ),
                         _CustomExpansionTile(
                           title: 'Events',
@@ -1115,11 +1196,19 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         // ),
                         if (showStaffMessagingDrawer ||
                             showParentMessagingDrawer ||
-                            showParentNewsletterDrawer)
+                            showParentNewsletterDrawer ||
+                            showAdminChatDrawer)
                           _CustomExpansionTile(
                             title: 'Communication',
                             icon: MediaRes.communicationIcon,
                             isExpansionEnabled: true,
+                            expandedOverride:
+                                _expandedDrawerSection == 'Communication',
+                            onExpansionChanged: (expanded) =>
+                                _onDrawerSectionExpansionChanged(
+                                  'Communication',
+                                  expanded,
+                                ),
                             children: [
                               if (showStaffMessagingDrawer)
                                 DrawerListTile(
@@ -1131,25 +1220,70 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
-                                  },
-                                ),
-                              if (showParentMessagingDrawer)
-                                DrawerListTile(
-                                  title: 'Parent Messaging',
-                                  leading: SvgPicture.asset(
-                                    MediaRes.parentMessaging,
-                                    colorFilter: const ColorFilter.mode(
-                                      AppColors.themeColor,
-                                      BlendMode.srcIn,
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.staffDirect,
                                     ),
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(MessagingScreen.routeName);
+                                    context.go(
+                                      MessagingScreen.staffMessagingRoute,
+                                    );
                                   },
+                                ),
+                              if (showParentMessagingDrawer ||
+                                  showAdminChatDrawer)
+                                _NestedExpansionTile(
+                                  title: 'Parent Messaging',
+                                  icon: MediaRes.parentMessaging,
+                                  children: [
+                                    if (showParentMessagingDrawer)
+                                      DrawerListTile(
+                                        title: 'Room Chat',
+                                        leading: SvgPicture.asset(
+                                          MediaRes.parentMessaging,
+                                          colorFilter: const ColorFilter.mode(
+                                            AppColors.themeColor,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        trailing: _UnreadBadge(
+                                          count: unreadState.unreadFor(
+                                            ConversationType.roomChat,
+                                          ),
+                                        ),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          context.go(
+                                            MessagingScreen
+                                                .parentMessagingRoute,
+                                          );
+                                        },
+                                      ),
+                                    if (showAdminChatDrawer)
+                                      DrawerListTile(
+                                        title: 'Admin Chat',
+                                        leading: SvgPicture.asset(
+                                          MediaRes.parentMessaging,
+                                          colorFilter: const ColorFilter.mode(
+                                            AppColors.themeColor,
+                                            BlendMode.srcIn,
+                                          ),
+                                        ),
+                                        trailing: _UnreadBadge(
+                                          count: unreadState.unreadFor(
+                                            ConversationType.adminChat,
+                                          ),
+                                        ),
+                                        onTap: () {
+                                          Navigator.pop(context);
+                                          context.go(
+                                            AdminChatHostScreen.routeName,
+                                          );
+                                        },
+                                      ),
+                                  ],
                                 ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
@@ -1161,82 +1295,76 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                       BlendMode.srcIn,
                                     ),
                                   ),
-                                  onTap: () {
-                                    Navigator.pop(context);
-                                    context.go(MessagingScreen.newsletterRoute);
-                                  },
+                                  onTap: () => _navigate(
+                                    MessagingScreen.newsletterRoute,
+                                  ),
                                 ),
                             ],
                           ),
                         // Scheduling
-                        if (showAdminAttendanceMenu)
+                        if (showSchedulingMenu)
                           _CustomExpansionTile(
                             title: 'Scheduling',
                             icon: MediaRes.calenderClockIcon,
                             isExpansionEnabled: true,
+                            expandedOverride:
+                                _expandedDrawerSection == 'Scheduling',
+                            onExpansionChanged: (expanded) =>
+                                _onDrawerSectionExpansionChanged(
+                                  'Scheduling',
+                                  expanded,
+                                ),
                             children: [
-                              // Staff persona only ever sees their own schedule —
-                              // hide the school-wide Classroom Scheduling entry.
-                              if (!isStaff)
+                              if (showClassroomScheduling)
                                 DrawerListTile(
                                   title: 'Classroom Scheduling',
                                   leading: SvgPicture.asset(
                                     MediaRes.classroom_Schedule_drawer_icon,
                                   ),
-                                  onTap: () {
-                                    final captured = _currentRoute;
-                                    Navigator.pop(context);
-                                    if (captured !=
-                                        SchedulingScreen.routeName) {
-                                      context.go(SchedulingScreen.routeName);
-                                    }
-                                  },
+                                  onTap: () =>
+                                      _navigate(SchedulingScreen.routeName),
                                 ),
-                              DrawerListTile(
-                                title: 'Staff Scheduling',
-                                leading: SvgPicture.asset(
-                                  MediaRes.staff_Schedule_drawer_icon,
+                              if (showStaffScheduling)
+                                DrawerListTile(
+                                  title: 'Staff Scheduling',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.staff_Schedule_drawer_icon,
+                                  ),
+                                  onTap: () => _navigate(
+                                    StaffSchedulingScreen.routeName,
+                                  ),
                                 ),
-                                onTap: () {
-                                  final captured = _currentRoute;
-                                  Navigator.pop(context);
-                                  if (captured !=
-                                      StaffSchedulingScreen.routeName) {
-                                    context.go(StaffSchedulingScreen.routeName);
-                                  }
-                                },
-                              ),
                             ],
                           ),
                         if (canViewBilling)
                           _CustomExpansionTile(
                             title: 'Billing',
                             icon: MediaRes.billing_drawer_icon,
-                            onTap: () {
-                              Navigator.pop(context);
-                              if (_currentRoute != BillingScreen.routeName) {
-                                context.go(BillingScreen.routeName);
-                              }
-                            },
+                            onTap: () => _navigate(BillingScreen.routeName),
                           ),
-                        _CustomExpansionTile(
-                          title: 'Reports',
-                          icon: MediaRes.documents_drawer_Icon,
-                          preserveIconColors: true,
-                          isCurrentRoute:
-                              _currentRoute == ReportsScreen.routeName,
-                          onTap: () {
-                            Navigator.pop(context);
-                            if (_currentRoute != ReportsScreen.routeName) {
-                              context.go(ReportsScreen.routeName);
-                            }
-                          },
-                        ),
+                        if (showReportsDrawer)
+                          _CustomExpansionTile(
+                            title: 'Reports',
+                            icon: MediaRes.documents_drawer_Icon,
+                            preserveIconColors: true,
+                            isCurrentRoute:
+                                _currentRoute == ReportsScreen.routeName,
+                            suppressRouteHighlight:
+                                _expandedDrawerSection != null,
+                            onTap: () => _navigate(ReportsScreen.routeName),
+                          ),
                         if (showSettingsMenu)
                           _CustomExpansionTile(
                             title: 'Settings',
                             icon: MediaRes.settings_drawer_Blue,
                             isExpansionEnabled: true,
+                            expandedOverride:
+                                _expandedDrawerSection == 'Settings',
+                            onExpansionChanged: (expanded) =>
+                                _onDrawerSectionExpansionChanged(
+                                  'Settings',
+                                  expanded,
+                                ),
                             children: [
                               DrawerListTile(
                                 title: 'Privacy Policy',
@@ -1304,6 +1432,24 @@ class _CustomExpansionTile extends StatefulWidget {
   /// Reports/Documents drawer icon.
   final bool preserveIconColors;
 
+  /// When non-null, this tile's expanded/collapsed state is driven by the
+  /// parent (accordion behavior — only one top-level drawer section open at
+  /// a time) instead of being managed internally.
+  final bool? expandedOverride;
+
+  /// Notifies the parent when this tile is expanded/collapsed by the user,
+  /// so it can collapse any other currently-open section.
+  final ValueChanged<bool>? onExpansionChanged;
+
+  /// True while a *different* accordion section is open elsewhere in the
+  /// drawer. Suppresses this tile's [isCurrentRoute] highlight so the white
+  /// background only ever shows on the one section the user most recently
+  /// interacted with — otherwise a single (non-expandable) tile for the
+  /// still-active route stayed highlighted forever alongside whichever
+  /// accordion section was opened afterwards, since opening an accordion
+  /// item doesn't itself navigate (so [isCurrentRoute] never goes false).
+  final bool suppressRouteHighlight;
+
   const _CustomExpansionTile({
     required this.title,
     required this.icon,
@@ -1313,6 +1459,9 @@ class _CustomExpansionTile extends StatefulWidget {
     this.onTap,
     this.isDashboard = false,
     this.preserveIconColors = false,
+    this.expandedOverride,
+    this.onExpansionChanged,
+    this.suppressRouteHighlight = false,
   });
 
   @override
@@ -1321,6 +1470,38 @@ class _CustomExpansionTile extends StatefulWidget {
 
 class _CustomExpansionTileState extends State<_CustomExpansionTile> {
   bool _isExpanded = false;
+  final _expansionController = ExpansibleController();
+
+  bool get _effectiveIsCurrentRoute =>
+      widget.isCurrentRoute && !widget.suppressRouteHighlight;
+
+  @override
+  void initState() {
+    super.initState();
+    _isExpanded = widget.expandedOverride ?? false;
+  }
+
+  @override
+  void didUpdateWidget(covariant _CustomExpansionTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.expandedOverride != null &&
+        widget.expandedOverride != _isExpanded) {
+      final shouldExpand = widget.expandedOverride!;
+      if (shouldExpand) {
+        _expansionController.expand();
+      } else {
+        _expansionController.collapse();
+      }
+      // Drive the white-background highlight directly rather than relying
+      // on ExpansionTile's own onExpansionChanged callback — that callback
+      // doesn't reliably fire for controller-driven (programmatic)
+      // expand/collapse, which previously left a stale white background on
+      // a section after the accordion moved on to a different one.
+      setState(() {
+        _isExpanded = shouldExpand;
+      });
+    }
+  }
 
   void _handleTap() {
     if (widget.onTap != null) {
@@ -1333,14 +1514,14 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
   }
 
   Color _getIconColor() {
-    if (widget.isCurrentRoute) {
+    if (_effectiveIsCurrentRoute) {
       return AppColors.themeColor;
     }
     return _isExpanded ? AppColors.themeColor : Colors.white;
   }
 
   Color _getTextColor() {
-    if (widget.isCurrentRoute) {
+    if (_effectiveIsCurrentRoute) {
       return AppColors.themeColor;
     }
     return _isExpanded ? AppColors.themeColor : Colors.white;
@@ -1353,12 +1534,12 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
         decoration: BoxDecoration(
-          color: widget.isCurrentRoute || _isExpanded
+          color: _effectiveIsCurrentRoute || _isExpanded
               ? Colors.white
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
-            if (widget.isCurrentRoute || _isExpanded)
+            if (_effectiveIsCurrentRoute || _isExpanded)
               const BoxShadow(
                 blurRadius: 4,
                 color: Colors.black26,
@@ -1368,6 +1549,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
         ),
         child: widget.isExpansionEnabled
             ? ExpansionTile(
+                controller: _expansionController,
                 backgroundColor: Colors.white,
                 collapsedBackgroundColor: Colors.transparent,
                 shape: RoundedRectangleBorder(
@@ -1378,6 +1560,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 ),
                 maintainState: true,
                 onExpansionChanged: (expanded) {
+                  widget.onExpansionChanged?.call(expanded);
                   setState(() {
                     _isExpanded = expanded;
                   });
@@ -1404,7 +1587,7 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                   colorFilter: widget.preserveIconColors
                       ? null
                       : ColorFilter.mode(
-                          widget.isCurrentRoute
+                          _effectiveIsCurrentRoute
                               ? AppColors.themeColor
                               : Colors.white,
                           BlendMode.srcIn,
@@ -1414,19 +1597,42 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                   widget.title,
                   maxLines: 1,
                   style: TextStyle(
-                    color: widget.isCurrentRoute
+                    color: _effectiveIsCurrentRoute
                         ? AppColors.themeColor
                         : Colors.white,
                   ),
                 ),
-                tileColor: (widget.isDashboard && widget.isCurrentRoute)
-                    ? Colors.white
-                    : (!widget.isDashboard && widget.isCurrentRoute)
+                tileColor: _effectiveIsCurrentRoute
                     ? Colors.white
                     : Colors.transparent,
-                selected: widget.isCurrentRoute,
+                selected: _effectiveIsCurrentRoute,
                 selectedTileColor: Colors.white,
               ),
+      ),
+    );
+  }
+}
+
+class _UnreadBadge extends StatelessWidget {
+  const _UnreadBadge({required this.count});
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    if (count <= 0) return const SizedBox.shrink();
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: AppColors.paidLegendColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1438,6 +1644,7 @@ class DrawerListTile extends StatelessWidget {
   final VoidCallback onTap;
   final double horizontalTitleGap;
   final Color? textColor;
+  final Widget? trailing;
 
   const DrawerListTile({
     super.key,
@@ -1446,6 +1653,7 @@ class DrawerListTile extends StatelessWidget {
     required this.onTap,
     this.horizontalTitleGap = 16,
     this.textColor = AppColors.themeColor,
+    this.trailing,
   });
 
   @override
@@ -1455,6 +1663,62 @@ class DrawerListTile extends StatelessWidget {
       horizontalTitleGap: horizontalTitleGap,
       leading: leading,
       title: Text(title, maxLines: 1, style: TextStyle(color: textColor)),
+      trailing: trailing,
+    );
+  }
+}
+
+/// A sub-menu expansion tile for nesting inside an already-expanded
+/// [_CustomExpansionTile] panel (e.g. "Parent Messaging" inside
+/// "Communication"). Unlike [_CustomExpansionTile] — which toggles between
+/// white/themeColor text+icon to stay legible against the drawer's own
+/// colored background when collapsed — this always uses [AppColors.themeColor],
+/// matching the sibling [DrawerListTile] items (e.g. "Staff Messaging") it
+/// sits alongside on the panel's white background.
+class _NestedExpansionTile extends StatelessWidget {
+  final String title;
+  final String icon;
+  final List<Widget> children;
+
+  const _NestedExpansionTile({
+    required this.title,
+    required this.icon,
+    required this.children,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ExpansionTile(
+      tilePadding: const EdgeInsets.symmetric(horizontal: 16),
+      backgroundColor: Colors.white,
+      collapsedBackgroundColor: Colors.white,
+      // Suppresses Flutter's default top/bottom divider border that
+      // ExpansionTile draws while expanded.
+      shape: const Border(),
+      collapsedShape: const Border(),
+      iconColor: AppColors.themeColor,
+      collapsedIconColor: AppColors.themeColor,
+      leading: SvgPicture.asset(
+        icon,
+        colorFilter: const ColorFilter.mode(
+          AppColors.themeColor,
+          BlendMode.srcIn,
+        ),
+      ),
+      title: Text(
+        title,
+        maxLines: 1,
+        style: const TextStyle(color: AppColors.themeColor),
+      ),
+      // Indent sub-items relative to this tile's own leading icon so they
+      // read as nested children (e.g. "Room Chat"/"Admin Chat" under
+      // "Parent Messaging") rather than flush-left siblings.
+      children: children
+          .map(
+            (child) =>
+                Padding(padding: const EdgeInsets.only(left: 16), child: child),
+          )
+          .toList(),
     );
   }
 }

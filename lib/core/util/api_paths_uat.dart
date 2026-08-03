@@ -73,8 +73,7 @@ class ApiPathsUat {
     ApiMicroservices.activity: {'classrooms', 'activities', 'activity-types', 'admin'},
     // Scheduler MS — Events, Tasks & School Calendar (holidays).
     ApiMicroservices.scheduler: {'holidays', 'tasks'},
-    // Document endpoints in this app are handled separately via `/document-ms/...`.
-    ApiMicroservices.document: {},
+    ApiMicroservices.document: {'media-assets', 'upload-sessions'},
 
     //. Communication
     ApiMicroservices.communication: {},
@@ -106,7 +105,12 @@ class ApiPathsUat {
   }
 
   static String microserviceKeyFromPath(String path) {
-    final p = path.startsWith('/') ? path : '/$path';
+    // Classify by the resource segment only — strip any query string / fragment
+    // first. Without this a path like `/api/v1/conversations?status=ACTIVE` yields
+    // the segment `conversations?status=ACTIVE`, which matches no case and falls
+    // through to the default `user` host → `/api/v1/user/conversations` → 500.
+    final cleaned = path.split('?').first.split('#').first;
+    final p = cleaned.startsWith('/') ? cleaned : '/$cleaned';
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') {
       return ApiMicroservices.user;
@@ -148,6 +152,7 @@ class ApiPathsUat {
       case 'student':
       case 'student-classroom':
       case 'student-documents':
+      case 'student-settings':
       case 'student-tags':
       case 'regular-schedules':
       case 'physicians':
@@ -198,7 +203,13 @@ class ApiPathsUat {
       case 'invoices':
       case 'school-forte-configs':
       case 'payment-gateway':
+      case 'payment':
+      case 'time': // server clock endpoint lives on the accounts (billing) MS
         return ApiMicroservices.billing;
+      case 'reports':
+        // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
+        if (nextSeg == 'billing') return ApiMicroservices.billing;
+        return ApiMicroservices.user;
       case 'admin':
         // v2 activity moderation endpoints:
         // /api/v2/admin/activities/{cardGroupCode}/approve|reject
@@ -236,6 +247,17 @@ class ApiPathsUat {
     // Special-case: document-ms endpoints are already namespaced differently.
     if (p.startsWith('/document-ms/')) return p;
 
+    // Firebase custom-token endpoint is owned by the messaging-service. In UAT
+    // it is reached under the /messaging/ gateway segment — mirrors the web
+    // frontend which calls /api/v1/messaging/firebase/token. Without this the
+    // 'firebase' segment falls through to the default (user) host, hitting
+    // /api/v1/user/firebase/token → 500 "No static resource", so Firebase
+    // sign-in never succeeds and every Firestore listener gets permission-denied
+    // (no live sync). See firebase_auth_service.dart.
+    if (p == '/api/v1/firebase/token') {
+      return '/api/v1/messaging/firebase/token';
+    }
+
     // Communication/messaging endpoints in UAT are routed under /messaging/ prefix.
     if (microserviceKeyFromPath(p) == ApiMicroservices.communication) {
       if (p.startsWith('/api/v1/messaging/')) return p; // already prefixed
@@ -248,14 +270,24 @@ class ApiPathsUat {
       return p;
     }
 
-    // Notification endpoints are served under the messaging gateway segment in
-    // UAT, so prepend `messaging` (keeping the `notification/...` resource):
-    //   /api/v1/notification/...  →  /api/v1/messaging/notification/...
-    if (p.startsWith('/api/v1/messaging/notification/')) return p; // already done
-    if (p.startsWith('/api/v1/notification/')) {
-      return p.replaceFirst('/api/v1/notification/', '/api/v1/messaging/notification/');
+    // Notification endpoints are served under the newsletter gateway segment in
+    // UAT (same MS as newsletter), so prepend that segment (keeping the
+    // `notification/...` resource):
+    //   /api/v1/notification/...  →  /api/v1/newsletter/notification/...
+    final notificationSegment =
+        _uatSegmentForMicroservice(ApiMicroservices.newsLatter);
+    if (p.startsWith('/api/v1/$notificationSegment/notification/')) {
+      return p; // already done
     }
-    if (p == '/api/v1/notification') return '/api/v1/messaging/notification';
+    if (p.startsWith('/api/v1/notification/')) {
+      return p.replaceFirst(
+        '/api/v1/notification/',
+        '/api/v1/$notificationSegment/notification/',
+      );
+    }
+    if (p == '/api/v1/notification') {
+      return '/api/v1/$notificationSegment/notification';
+    }
 
     final parts = p.split('/').where((s) => s.isNotEmpty).toList();
     if (parts.length < 3 || parts[0] != 'api') return p;

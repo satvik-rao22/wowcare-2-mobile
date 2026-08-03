@@ -99,7 +99,7 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final qp = <String, String>{
       'school': schoolCode,
       'status': 'ACTIVE',
-      'sort': 'name,asc',
+      'sortByName': 'asc',
     };
     final overrideType = (typeOverride ?? '').trim();
     if (overrideType.isNotEmpty) {
@@ -107,12 +107,10 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     } else if (onlyTypeClassroom) {
       qp['type'] = 'CLASSROOM';
     }
-    // Build query manually so the comma in `sort=name,asc` stays literal
-    // instead of being percent-encoded to `%2C`.
     final query = qp.entries
         .map(
           (e) =>
-              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value).replaceAll('%2C', ',')}',
+              '${Uri.encodeQueryComponent(e.key)}=${Uri.encodeQueryComponent(e.value)}',
         )
         .join('&');
     final uri = Uri.parse(
@@ -302,6 +300,9 @@ class ClassroomRemoteDataSourceImpl implements ClassroomRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: qp,
+      // Backend aggregates attendance for every requested classroom in one
+      // pass; schools with many classrooms can exceed the default 30s.
+      options: Options(receiveTimeout: const Duration(seconds: 60)),
     );
     if (response.data is! Map<String, dynamic>) {
       throw Exception(

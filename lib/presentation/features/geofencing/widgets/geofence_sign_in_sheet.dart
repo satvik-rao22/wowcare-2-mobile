@@ -13,6 +13,7 @@ class GeofenceSignInSheet extends StatelessWidget {
     required this.role,
     required this.isSignedIn,
     this.studentName,
+    this.studentCode,
   });
 
   /// 'parent' | 'staff' | 'admin'
@@ -24,11 +25,15 @@ class GeofenceSignInSheet extends StatelessWidget {
   /// Child name for parent role display.
   final String? studentName;
 
+  /// Child student code — pre-selects this child in the sign-in form (parent only).
+  final String? studentCode;
+
   static Future<void> show(
     BuildContext context, {
     required String role,
     required bool isSignedIn,
     String? studentName,
+    String? studentCode,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -38,6 +43,7 @@ class GeofenceSignInSheet extends StatelessWidget {
         role: role,
         isSignedIn: isSignedIn,
         studentName: studentName,
+        studentCode: studentCode,
       ),
     );
   }
@@ -73,17 +79,30 @@ class GeofenceSignInSheet extends StatelessWidget {
           const SizedBox(height: 20),
 
           // ── icon ──────────────────────────────────────────────────────
+          // Soft gradient-tinted circle with the pin painted in the same
+          // primary gradient (via ShaderMask) so it matches the buttons.
           Container(
             width: 64,
             height: 64,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: AppColors.primaryColor.withValues(alpha: 0.1),
+              gradient: AppColors.buildPrimaryGradient(
+                colors: AppColors.primaryGradientColors
+                    .map((c) => c.withValues(alpha: 0.12))
+                    .toList(),
+              ),
             ),
-            child: Icon(
-              Icons.location_on_rounded,
-              color: AppColors.primaryColor,
-              size: 36,
+            child: ShaderMask(
+              blendMode: BlendMode.srcIn,
+              shaderCallback: (bounds) =>
+                  AppColors.buildPrimaryGradient().createShader(
+                    Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                  ),
+              child: const Icon(
+                Icons.location_on_rounded,
+                color: Colors.white, // painted over by the gradient
+                size: 36,
+              ),
             ),
           ),
           const SizedBox(height: 16),
@@ -92,9 +111,10 @@ class GeofenceSignInSheet extends StatelessWidget {
           Text(
             headline,
             style: const TextStyle(
+              fontFamily: 'Manrope',
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Color(0xFF1A1A2E),
+              color: Color(0xff573353), // AppColors.primaryColor
             ),
             textAlign: TextAlign.center,
           ),
@@ -104,7 +124,9 @@ class GeofenceSignInSheet extends StatelessWidget {
           Text(
             subtitle,
             style: TextStyle(
+              fontFamily: 'Manrope',
               fontSize: 14,
+              fontWeight: FontWeight.w400,
               color: Colors.grey[600],
               height: 1.4,
             ),
@@ -137,6 +159,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                 const Text(
                   'Inside School Radius',
                   style: TextStyle(
+                    fontFamily: 'Manrope',
                     color: Color(0xFF16A34A),
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
@@ -151,24 +174,34 @@ class GeofenceSignInSheet extends StatelessWidget {
           SizedBox(
             width: double.infinity,
             height: 52,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.themeColor,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 0,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(14),
               ),
-              onPressed: () {
-                Navigator.pop(context);
-                context.go(route);
-              },
-              child: Text(
-                action,
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {
+                  final router = GoRouter.of(context);
+                  Navigator.of(context).pop();
+                  router.go(route);
+                },
+                child: Text(
+                  action,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -176,35 +209,43 @@ class GeofenceSignInSheet extends StatelessWidget {
           const SizedBox(height: 12),
 
           // ── dismiss ───────────────────────────────────────────────────
-          // SizedBox(
-          //   width: double.infinity,
-          //   height: 48,
-          //   child: TextButton(
-          //     onPressed: () => Navigator.pop(context),
-          //     child: Text(
-          //       'Dismiss',
-          //       style: TextStyle(fontSize: 14, color: AppColors.primaryColor),
-          //     ),
-          //   ),
-          // ),
+          // Gradient-bordered button with gradient text (the app's standard
+          // secondary-button treatment, see CustomCancelButton) so it matches
+          // the primary Sign-Out gradient instead of a flat maroon outline.
           SizedBox(
             width: double.infinity,
-            height: 48,
-            child: TextButton(
-              onPressed: () => Navigator.pop(context),
-              style: TextButton.styleFrom(
-                backgroundColor: Colors.white,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  side: BorderSide(color: AppColors.themeColor, width: 1),
-                ),
+            height: 52,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: AppColors.buildPrimaryGradient(),
+                borderRadius: BorderRadius.circular(14),
               ),
-              child: Text(
-                'Dismiss',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: AppColors.primaryColor,
-                  fontWeight: FontWeight.w500,
+              child: Padding(
+                padding: const EdgeInsets.all(1.5),
+                child: TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(13),
+                    ),
+                  ),
+                  child: ShaderMask(
+                    blendMode: BlendMode.srcIn,
+                    shaderCallback: (bounds) =>
+                        AppColors.buildPrimaryGradient().createShader(
+                          Rect.fromLTWH(0, 0, bounds.width, bounds.height),
+                        ),
+                    child: const Text(
+                      'Dismiss',
+                      style: TextStyle(
+                        fontFamily: 'Manrope',
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.white, // painted over by the gradient
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -227,14 +268,17 @@ class GeofenceSignInSheet extends StatelessWidget {
 
   String _resolveRoute() {
     if (role == 'parent') {
-      return isSignedIn
+      final base = isSignedIn
           ? '/dashboard/student-selection-sign-out-form'
           : '/dashboard/student-selection-sign-in-form';
+      // Pass the currently-viewed child so the form pre-selects them.
+      final code = (studentCode ?? '').trim();
+      return code.isNotEmpty ? '$base?studentCode=${Uri.encodeComponent(code)}' : base;
     } else {
-      // staff or admin
+      // staff or admin: gps=1 tells the form to always self-fill (incl. admin).
       return isSignedIn
-          ? '/dashboard/staff-sign-out-form'
-          : '/dashboard/staff-sign-in-form';
+          ? '/dashboard/staff-sign-out-form?gps=1'
+          : '/dashboard/staff-sign-in-form?gps=1';
     }
   }
 }

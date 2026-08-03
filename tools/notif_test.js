@@ -25,7 +25,7 @@ const path = require('path');
 const PROJECT_ID = 'wowcare2-atoconn';
 // Device token from the running app's [FCM] Device token log.
 const DEFAULT_TOKEN =
-  'ehbNXX9QTeGmXp1NpFg9dc:APA91bEaJJh8M79jcXmIm-2YAbz0f-FB0P8jrLcBtC0XOfkKSXF9CzQJgLP0Wyf7KZO2n7Q4nwT5OjBCTg1RbQdmDcYNSfpVx2ZgDpekERjob4cwMs5lqn0';
+  'fMzgq-_nRWuNtakbFGBh1Z:APA91bF2ioJ6c_pUq18DYhcTJH5pNUCnB3BljE9h-Pj747kUndMVZel7tzkGI4y_c-g2Iwvu_xrzlA7WHAP447kvmPrXYBUAtOxaCbsD7mcEagkybS8kt1s';
 // Firestore user doc id (the userNotifications/{userId} path, from the console).
 const DEFAULT_USER_ID = 'USR_002__SCH_1160DB3B-8';
 

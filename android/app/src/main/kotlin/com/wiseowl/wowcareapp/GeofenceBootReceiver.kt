@@ -1,9 +1,8 @@
 package com.wiseowl.wowcareapp
-
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
-import android.os.Build
+import android.util.Log
 import com.google.android.gms.location.LocationServices
 
 class GeofenceBootReceiver : BroadcastReceiver() {
@@ -26,18 +25,21 @@ class GeofenceBootReceiver : BroadcastReceiver() {
                 Intent(context, GeofenceBroadcastReceiver::class.java).apply {
                     this.action = GeofenceBroadcastReceiver.ACTION_GEOFENCE_EVENT
                 }
-            val flags =
-                android.app.PendingIntent.FLAG_UPDATE_CURRENT or
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) android.app.PendingIntent.FLAG_IMMUTABLE else 0
+            // GeofencingClient.addGeofences() requires FLAG_MUTABLE to add geofence transition data
+            val flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_MUTABLE
             android.app.PendingIntent.getBroadcast(context, 0, i, flags)
         }
 
-        // Best-effort: will fail silently without location permissions.
+        // Best-effort: will fail if background location permission was revoked after reboot.
         try {
-            val pluginRegistrar =
-                javaClass.classLoader // no-op: just to avoid unused warnings
             GeofenceRegistrarBoot.register(context, client, config, pending)
-        } catch (_: Throwable) {}
+        } catch (t: Throwable) {
+            Log.e("GeofenceBootReceiver", "Re-registration failed: ${t.message}")
+        }
+
+        // Restart the foreground service so OEM battery managers do not kill
+        // the process before the first geofence event is delivered post-reboot.
+        GeofenceForegroundService.start(context)
     }
 }
 

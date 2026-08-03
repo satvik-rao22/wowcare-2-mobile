@@ -33,12 +33,15 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
   void initState() {
     super.initState();
     final initial = widget.initialHealth;
-    _allergyController =
-        TextEditingController(text: (initial?.allergy ?? '').trim());
-    _medicationsController =
-        TextEditingController(text: (initial?.medications ?? '').trim());
-    _dietRestrictionsController =
-        TextEditingController(text: (initial?.dietRestrictions ?? '').trim());
+    _allergyController = TextEditingController(
+      text: (initial?.allergy ?? '').trim(),
+    );
+    _medicationsController = TextEditingController(
+      text: (initial?.medications ?? '').trim(),
+    );
+    _dietRestrictionsController = TextEditingController(
+      text: (initial?.dietRestrictions ?? '').trim(),
+    );
     _photoPermission = initial?.photoPermission ?? true;
   }
 
@@ -150,7 +153,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -218,5 +221,3 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
     );
   }
 }
-
-

@@ -77,7 +77,7 @@ class StaffShiftRepositoryImpl
       dateTo: dateTo,
     );
     _inflight[key] = future;
-    future.whenComplete(() => _inflight.remove(key));
+    future.whenComplete(() => _inflight.remove(key)).ignore();
     return future;
   }
 
@@ -151,6 +151,7 @@ class StaffShiftRepositoryImpl
     required DateTime dateFrom,
     required DateTime dateTo,
     String? classroomCode,
+    List<String> shiftStatus = const <String>[],
   }) async {
     final models = await _remote.getSchoolStaffShifts(
       schoolCode: schoolCode,
@@ -158,6 +159,7 @@ class StaffShiftRepositoryImpl
       dateFrom: _formatDate(dateFrom),
       dateTo: _formatDate(dateTo),
       classroomCode: classroomCode,
+      shiftStatus: shiftStatus,
     );
     return models.map((m) => m.toEntity()).toList(growable: false);
   }
@@ -215,6 +217,7 @@ class StaffShiftRepositoryImpl
     required String organizationCode,
     required DateTime startDate,
     required DateTime endDate,
+    required bool publishedOnly,
     List<String> staffCodes = const <String>[],
   }) async {
     final models = await _remote.getStaffShiftHoursRange(
@@ -223,6 +226,7 @@ class StaffShiftRepositoryImpl
         endDate: _formatDate(endDate),
         schoolCode: schoolCode,
         organizationCode: organizationCode,
+        publishedOnly: publishedOnly,
         staffCodes: staffCodes,
       ),
     );

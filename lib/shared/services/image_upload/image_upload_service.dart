@@ -4,11 +4,13 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:crypto/crypto.dart';
+import '../../../core/util/app_time.dart';
 
 import '../../../core/network/api_client.dart';
 import '../../../core/network/api_logger.dart';
 import '../../../core/util/api_constants.dart';
 import '../../../core/util/api_paths.dart';
+import '../../../core/util/logger_service.dart';
 import 'image_upload_models.dart';
 
 class ImageUploadService {
@@ -24,6 +26,31 @@ class ImageUploadService {
   /// Dedupes concurrent resolutions of the same asset code so a list of cards
   /// sharing one code issues a single network call.
   final Map<String, Future<String>> _assetUrlInFlight = <String, Future<String>>{};
+
+  /// When an asset never finishes backend processing, [_waitForDocumentAssetUrlByCode]
+  /// gives up after its timeout — but on its own that's only a one-time
+  /// reprieve: a chat bubble's `AttachmentUrlResolver` re-creates its State
+  /// (and re-calls [getMediaAssetUrlByCode]) every time the message list
+  /// rebuilds (scroll recycling, a realtime delta for any other message,
+  /// the keyboard opening, …), which would otherwise restart a brand new
+  /// 15-second poll loop each time — visible as the same asset code being
+  /// GET-polled forever, minutes after it was first requested. Remembering
+  /// *when* an asset last failed lets us skip straight back to "still
+  /// unresolved" without hitting the network again until the cooldown
+  /// passes.
+  final Map<String, DateTime> _assetUrlFailedAt = <String, DateTime>{};
+  static const Duration _assetUrlFailureCooldown = Duration(seconds: 30);
+
+  /// Asset codes whose most recent media-asset poll reported
+  /// `status: "PROCESSING"` (or similar) rather than a hard failure — lets
+  /// the UI show "still processing" instead of a generic broken-image
+  /// state while the backend pipeline catches up.
+  final Set<String> _processingAssetCodes = <String>{};
+
+  /// True if [assetCode]'s most recent poll found it still backend-side
+  /// processing (no delivery URL yet, but not a failure either).
+  bool isAssetProcessing(String assetCode) =>
+      _processingAssetCodes.contains(assetCode.trim());
 
   Future<UploadSessionResult> createActivityUploadSession({
     required String organizationCode,
@@ -174,6 +201,100 @@ class ImageUploadService {
     );
   }
 
+  /// Presigns every file in [assets] under one session in a single call to
+  /// the same `assets/presign/batch` endpoint [createAssetPresign] hits with
+  /// just one — sending N separate presign requests (and N separate upload
+  /// sessions, one per file, at the call site) is what the endpoint's own
+  /// name says it isn't meant for. Results come back in the same order as
+  /// [assets].
+  Future<List<AssetPresignResult>> createAssetPresignBatch({
+    required String sessionCode,
+    required String documentApiBasePath,
+    required List<AssetPresignRequest> assets,
+  }) async {
+    if (assets.isEmpty) return const [];
+
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final path = ApiPaths.documentAssetPresignPath(
+      documentApiBasePath: documentApiBasePath,
+      sessionCode: sessionCode,
+    );
+    final endpoint = '$origin$path';
+
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assets': assets
+                .map(
+                  (a) => <String, dynamic>{
+                    'fileName': a.fileName,
+                    'contentType': a.contentType,
+                    'contentLengthBytes': a.contentLengthBytes,
+                    if ((a.checksumSha256 ?? '').trim().isNotEmpty)
+                      'checksumSha256': a.checksumSha256!.trim(),
+                    'mediaType': a.mediaType,
+                    'ownerType': a.ownerType,
+                    'ownerCode': a.ownerCode,
+                  },
+                )
+                .toList(),
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(message.isNotEmpty ? message : 'Assets presign failed');
+    }
+
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API data format');
+    }
+
+    final uploads = data['uploads'];
+    if (uploads is! List || uploads.length != assets.length) {
+      throw Exception('Unexpected assets presign uploads format');
+    }
+
+    return uploads.map((raw) {
+      if (raw is! Map) {
+        throw Exception('Unexpected assets presign upload item format');
+      }
+      final assetCode = (raw['assetCode'] ?? '').toString().trim();
+      final presignedPutUrl = (raw['presignedPutUrl'] ?? '').toString().trim();
+      if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
+        throw Exception('Missing assetCode or presignedPutUrl in presign response');
+      }
+      final rawHeaders = raw['requiredHeaders'];
+      final requiredHeaders = <String, String>{};
+      if (rawHeaders is Map) {
+        rawHeaders.forEach((key, value) {
+          final k = key.toString().trim();
+          final v = value.toString().trim();
+          if (k.isNotEmpty && v.isNotEmpty) {
+            requiredHeaders[k] = v;
+          }
+        });
+      }
+      return AssetPresignResult(
+        assetCode: assetCode,
+        presignedPutUrl: presignedPutUrl,
+        requiredHeaders: requiredHeaders,
+      );
+    }).toList();
+  }
+
   String _extractErrorMessageFromDio(DioException error) {
     final data = error.response?.data;
     if (data is Map) {
@@ -252,45 +373,61 @@ class ImageUploadService {
       body: '<binary: ${bytes.length} bytes>',
     );
 
-    try {
-      final response = await uploadClient.putUri<dynamic>(
-        putUri,
-        data: bytes,
-        options: Options(
-          headers: headers,
-          responseType: ResponseType.plain,
-          validateStatus: (status) =>
-              status != null && status >= 200 && status < 300,
-        ),
-        onSendProgress: (sent, total) {
-          final effectiveTotal =
-              (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
-          if (effectiveTotal <= 0) return;
-          final fraction = sent / effectiveTotal;
-          final percent = (fraction * 100).clamp(0, 100).round();
-          onProgress?.call(sent, effectiveTotal, percent);
-        },
-      );
-      ApiLogger.logResponse(
-        url: logUrl,
-        method: 'PUT',
-        statusCode: response.statusCode,
-        data: response.data,
-      );
+    // The presigned URL is valid for an hour (see AssetPresignResult), so a
+    // couple of short retries on a transient DNS/connection blip (no HTTP
+    // response at all — e.g. "Failed host lookup" on flaky Wi-Fi/mobile
+    // data) is safe. A real HTTP error response (expired/invalid signature,
+    // S3-side rejection) is not retried — retrying that would just fail the
+    // same way three times slower.
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await uploadClient.putUri<dynamic>(
+          putUri,
+          data: bytes,
+          options: Options(
+            headers: headers,
+            responseType: ResponseType.plain,
+            validateStatus: (status) =>
+                status != null && status >= 200 && status < 300,
+          ),
+          onSendProgress: (sent, total) {
+            final effectiveTotal =
+                (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+            if (effectiveTotal <= 0) return;
+            final fraction = sent / effectiveTotal;
+            final percent = (fraction * 100).clamp(0, 100).round();
+            onProgress?.call(sent, effectiveTotal, percent);
+          },
+        );
+        ApiLogger.logResponse(
+          url: logUrl,
+          method: 'PUT',
+          statusCode: response.statusCode,
+          data: response.data,
+        );
 
-      final status = response.statusCode ?? 0;
-      if (status < 200 || status >= 300) {
-        throw Exception('Failed to upload file to storage');
+        final status = response.statusCode ?? 0;
+        if (status < 200 || status >= 300) {
+          throw Exception('Failed to upload file to storage');
+        }
+        return;
+      } on DioException catch (e) {
+        ApiLogger.logError(
+          url: logUrl,
+          method: 'PUT',
+          message: e.message,
+          statusCode: e.response?.statusCode,
+          errorData: e.response?.data,
+        );
+        final isTransientNetworkError =
+            e.response == null &&
+            (e.type == DioExceptionType.connectionError ||
+                e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.unknown);
+        if (!isTransientNetworkError || attempt == maxAttempts) rethrow;
+        await Future.delayed(Duration(seconds: attempt));
       }
-    } on DioException catch (e) {
-      ApiLogger.logError(
-        url: logUrl,
-        method: 'PUT',
-        message: e.message,
-        statusCode: e.response?.statusCode,
-        errorData: e.response?.data,
-      );
-      rethrow;
     }
   }
 
@@ -358,7 +495,7 @@ class ImageUploadService {
         .toSet();
     if (expectedSet.isEmpty) return;
 
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final result = await _getUploadSessionStatus(
         sessionCode: sessionCode,
@@ -368,7 +505,7 @@ class ImageUploadService {
       if (result.failureMessage != null && result.failureMessage!.isNotEmpty) {
         throw Exception(result.failureMessage);
       }
-      if (DateTime.now().isAfter(deadline)) {
+      if (AppTime.nowUtc().isAfter(deadline)) {
         throw Exception('Photo processing is taking too long. Please try again.');
       }
       await Future.delayed(pollEvery);
@@ -585,6 +722,111 @@ class ImageUploadService {
     return sessionCode;
   }
 
+  /// Bootstraps an upload session scoped to a conversation so a picked chat
+  /// attachment can go through the same generic presign → S3 PUT → complete
+  /// flow used by student/staff documents and activity media.
+  Future<UploadSessionResult> createConversationAttachmentUploadSession({
+    required String conversationCode,
+    required String schoolCode,
+    required String organizationCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingConversationUploadSessionPath(conversationCode.trim()),
+      ApiConstants.communicationBaseUrl,
+    );
+    // The messaging service reads org/school from the X-Organization-Code /
+    // X-School-Code headers (already attached by the API client interceptor
+    // for every request) rather than query params — confirmed against the
+    // working web-app request for this endpoint.
+    final response = await _apiClient.client.post<dynamic>(
+      endpoint,
+      data: <String, dynamic>{},
+    );
+    return _parseUploadSessionResponse(response.data);
+  }
+
+  /// Registers a completed document-service asset against the conversation.
+  /// Required before the asset can be referenced from `sendMessage` — the
+  /// messaging service tracks attachments by its own integer id, not by the
+  /// document service's asset code.
+  Future<int> registerConversationAttachment({
+    required String conversationCode,
+    required String assetCode,
+    required String originalFilename,
+    required String mimeType,
+    required int fileSizeBytes,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingConversationAttachmentsPath(conversationCode.trim()),
+      ApiConstants.communicationBaseUrl,
+    );
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assetCode': assetCode,
+            'originalFilename': originalFilename,
+            'mimeType': mimeType,
+            'fileSize': fileSizeBytes,
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected attachment registration response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(
+        message.isNotEmpty ? message : 'Failed to register attachment',
+      );
+    }
+
+    final data = body['data'];
+    final rawId = data is Map<String, dynamic>
+        ? (data['id'] ?? data['attachmentId'])
+        : null;
+    final attachmentId = rawId is int ? rawId : int.tryParse('$rawId');
+    if (attachmentId == null) {
+      throw Exception('Attachment registered but no id was returned');
+    }
+    return attachmentId;
+  }
+
+  /// Bootstraps a `SCHOOL_CLOUD` upload session for direct image uploads to
+  /// the school's cloud gallery (owner type `SCHOOL`), reusing the same
+  /// generic presign → S3 PUT → complete flow as every other upload here.
+  Future<UploadSessionResult> createSchoolCloudUploadSession({
+    required String schoolCode,
+  }) async {
+    // Built manually (not via `ApiPaths.urlWithBase`) like every other
+    // document-service call in this file: the UAT gateway's generic
+    // `urlWithBase`/`url()` machinery re-derives the microservice segment
+    // from the path and, seeing this path already starts with `/document`
+    // (itself a recognized microservice segment), treats it as the
+    // ambiguous "resource name == microservice name" case and duplicates
+    // it into `/api/v1/document/document/...`.
+    final origin =
+        ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final endpoint =
+        '$origin${ApiPaths.schoolCloudUploadSessionsPath(schoolCode)}';
+    final response = await _apiClient.client
+        .post<dynamic>(endpoint, data: <String, dynamic>{})
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+    return _parseUploadSessionResponse(response.data);
+  }
+
   Future<UploadSessionResult> createStudentDocumentUploadSession({
     required String studentCode,
     required String schoolCode,
@@ -597,6 +839,7 @@ class ImageUploadService {
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
       queryParameters: <String, dynamic>{
+        'studentCode': studentCode.trim(),
         'schoolCode': schoolCode.trim(),
         'organizationCode': organizationCode.trim(),
       },
@@ -616,6 +859,7 @@ class ImageUploadService {
     final response = await _apiClient.client.post<dynamic>(
       endpoint,
       queryParameters: <String, dynamic>{
+        'staffCode': staffCode.trim(),
         'schoolCode': schoolCode.trim(),
         'organizationCode': organizationCode.trim(),
       },
@@ -780,7 +1024,8 @@ class ImageUploadService {
   }) async {
     final normalizedAssetCode = assetCode.trim();
     if (normalizedAssetCode.isEmpty) return '';
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
+    var hasLoggedFailure = false;
     while (true) {
       try {
         final endpoint =
@@ -789,11 +1034,23 @@ class ImageUploadService {
         final response = await _apiClient.client.get<dynamic>(endpoint);
         final body = response.data;
         final resolved = _extractDocumentAssetUrl(body);
-        if (resolved.isNotEmpty) return resolved;
-      } catch (_) {
-        // Keep retrying for eventual consistency after finalize.
+        if (resolved.isNotEmpty) {
+          _processingAssetCodes.remove(normalizedAssetCode);
+          return resolved;
+        }
+        if (_extractDocumentAssetStatus(body) == 'PROCESSING') {
+          _processingAssetCodes.add(normalizedAssetCode);
+        }
+      } catch (e) {
+        // Keep retrying for eventual consistency after finalize, but log
+        // once per call so a 500/expired asset doesn't crash the app and
+        // doesn't spam the console once per poll tick.
+        if (!hasLoggedFailure) {
+          hasLoggedFailure = true;
+          AppLogger.e('Media asset lookup failed for $normalizedAssetCode', e);
+        }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }
@@ -814,13 +1071,27 @@ class ImageUploadService {
     final cached = _assetUrlCache[normalized];
     if (cached != null) return cached;
 
+    // Failed (still backend-processing/unresolvable) recently → don't hit
+    // the network again until the cooldown passes, no matter how many times
+    // the calling widget gets rebuilt in the meantime.
+    final failedAt = _assetUrlFailedAt[normalized];
+    if (failedAt != null &&
+        AppTime.nowUtc().difference(failedAt) < _assetUrlFailureCooldown) {
+      return '';
+    }
+
     // A resolution for this code is already running → share its result.
     final inFlight = _assetUrlInFlight[normalized];
     if (inFlight != null) return inFlight;
 
     final future = _waitForDocumentAssetUrlByCode(assetCode: normalized)
         .then((String url) {
-      if (url.isNotEmpty) _assetUrlCache[normalized] = url;
+      if (url.isNotEmpty) {
+        _assetUrlCache[normalized] = url;
+        _assetUrlFailedAt.remove(normalized);
+      } else {
+        _assetUrlFailedAt[normalized] = AppTime.nowUtc();
+      }
       return url;
     }).whenComplete(() => _assetUrlInFlight.remove(normalized));
 
@@ -849,11 +1120,25 @@ class ImageUploadService {
     final documentApiBasePath = (data['documentApiBasePath'] ?? '/api/v1')
         .toString()
         .trim();
+    final ownerType = (data['ownerType'] ?? '').toString().trim();
+    final ownerCode = (data['ownerCode'] ?? '').toString().trim();
     return UploadSessionResult(
       sessionCode: sessionCode,
       documentApiBasePath:
           documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+      ownerType: ownerType.isEmpty ? null : ownerType,
+      ownerCode: ownerCode.isEmpty ? null : ownerCode,
     );
+  }
+
+  /// The document service's coarse asset status (`PROCESSING`, `READY`,
+  /// `COMPLETED`, …), upper-cased for comparison. Used to tell "still
+  /// being processed, normal to wait" apart from a genuine failure.
+  String _extractDocumentAssetStatus(dynamic body) {
+    if (body is! Map) return '';
+    final data = body['data'];
+    if (data is! Map) return '';
+    return (data['status'] ?? '').toString().trim().toUpperCase();
   }
 
   String _extractDocumentAssetUrl(dynamic body) {
@@ -861,12 +1146,17 @@ class ImageUploadService {
     final data = body['data'];
     if (data is! Map) return '';
 
+    // Same key set/order the activity feed trusts (attachmentUsableDeliveryUrl
+    // in activity_patch_attachments.dart) — deliberately excludes a plain
+    // `url` field. The document media-assets endpoint can return a stale/raw
+    // `url` (e.g. the original upload reference) while `deliveryUrl` is still
+    // null during processing; trusting it served a non-CDN, unservable link
+    // instead of falling through to the variants below.
     String pickFromMap(Map map) {
       final candidates = <dynamic>[
         map['deliveryUrl'],
-        map['artifactUrl'],
-        map['url'],
         map['thumbnailUrl'],
+        map['artifactUrl'],
         map['originalDownloadUrl'],
       ];
       for (final raw in candidates) {
@@ -907,7 +1197,7 @@ class ImageUploadService {
       ApiPaths.studentProfilePhotoAssetCodes,
       ApiConstants.studentBaseUrl,
     );
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     final normalizedStudent = studentCode.trim().toUpperCase();
     final normalizedExpectedAsset = expectedAssetCode.trim().toUpperCase();
     while (true) {
@@ -941,7 +1231,7 @@ class ImageUploadService {
       } catch (_) {
         // Do not fail fast on transient read-after-write lag or temporary fetch issues.
       }
-      if (DateTime.now().isAfter(deadline)) {
+      if (AppTime.nowUtc().isAfter(deadline)) {
         // Mapping can be eventually consistent; continue and let profile URL polling decide readiness.
         return;
       }
@@ -954,7 +1244,7 @@ class ImageUploadService {
     Duration pollEvery = const Duration(seconds: 1),
     Duration timeout = const Duration(seconds: 12),
   }) async {
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final endpoint = ApiPaths.urlWithBase(
         ApiPaths.studentProfile(studentCode),
@@ -978,7 +1268,7 @@ class ImageUploadService {
           }
         }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }
@@ -992,7 +1282,7 @@ class ImageUploadService {
     final normalizedSchoolCode = schoolCode.trim();
     final normalizedUserCode = userCode.trim();
     if (normalizedSchoolCode.isEmpty || normalizedUserCode.isEmpty) return '';
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final endpoint = ApiPaths.urlWithBase(
         ApiPaths.guardianProfile,
@@ -1031,7 +1321,7 @@ class ImageUploadService {
           }
         }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }
@@ -1043,7 +1333,7 @@ class ImageUploadService {
   }) async {
     final normalized = staffCode.trim();
     if (normalized.isEmpty) return '';
-    final deadline = DateTime.now().add(timeout);
+    final deadline = AppTime.nowUtc().add(timeout);
     while (true) {
       final endpoint = ApiPaths.urlWithBase(
         ApiPaths.staffProfileByCodePath(normalized),
@@ -1078,7 +1368,7 @@ class ImageUploadService {
           }
         }
       }
-      if (DateTime.now().isAfter(deadline)) return '';
+      if (AppTime.nowUtc().isAfter(deadline)) return '';
       await Future.delayed(pollEvery);
     }
   }

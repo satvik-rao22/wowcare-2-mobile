@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:io';
+
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +9,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/shared/common/widgets/photo_upload_progress_overlay.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom_details.dart';
@@ -17,6 +21,8 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_dropdown.dart';
+import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/movements_card.dart';
 // import 'package:wowcare/presentation/features/dashboard/view/widgets/events_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -27,6 +33,7 @@ import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
@@ -69,7 +76,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   String? _summaryError;
 
   String _classroomLogoUrl = '';
+  // The freshly-uploaded logo's media-asset code. Drives the avatar the same
+  // way the profile-photo screens do (resolve the new asset directly), so the
+  // new logo is visible immediately.
+  String _classroomLogoAssetCode = '';
   bool _isLogoLoading = false;
+  double _logoUploadPercent = 0;
 
   late final CacheManager _cacheManager;
   late final StorageService _storage;
@@ -80,11 +92,15 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   String? _cachedSelectedClassroomCode;
   String? _cachedSelectedClassroomName;
 
+  late final IndividualMovementsCubit _movementsCubit;
+
   @override
   void initState() {
     super.initState();
     _storage = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storage);
+    _movementsCubit = serviceLocator<IndividualMovementsCubit>()
+      ..loadInitial();
     _loadLastSelectedClassroomFromCache();
     // Selected room may be passed as a route argument
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -97,6 +113,12 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         _loadDetails(args.code);
       }
     });
+  }
+
+  @override
+  void dispose() {
+    _movementsCubit.close();
+    super.dispose();
   }
 
   String get _lastSelectedClassroomCacheKey => CacheManager.buildCacheKey(
@@ -321,61 +343,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     }
   }
 
-  Future<void> _loadClassroomLogo(String classroomCode) async {
-    final code = classroomCode.trim();
-    if (code.isEmpty) return;
-
-    final schoolCode =
-        (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
-    if (schoolCode.isEmpty) return;
-
-    try {
-      setState(() {
-        _isLogoLoading = true;
-      });
-
-      final body = await serviceLocator<ClassroomRepository>()
-          .getClassroomLogoAssetCodes(classroomCode: code, schoolCode: schoolCode);
-      if (body is! Map<String, dynamic> || body['success'] == false) {
-        return;
-      }
-      final data = body['data'];
-      if (data is! List) return;
-
-      final matched = data.whereType<Map>().firstWhere(
-            (row) =>
-                (row['classroomCode'] ?? '').toString().trim().toUpperCase() ==
-                code.toUpperCase(),
-            orElse: () => <String, dynamic>{},
-          );
-      final assetCode =
-          (matched['logoAssetCode'] ?? '').toString().trim().toUpperCase();
-      if (!mounted) return;
-
-      if (assetCode.isEmpty) {
-        setState(() {
-          _classroomLogoUrl = '';
-        });
-        return;
-      }
-
-      final uploadService = serviceLocator<ImageUploadService>();
-      final url = await uploadService.getMediaAssetUrlByCode(assetCode: assetCode);
-      if (!mounted) return;
-      setState(() {
-        _classroomLogoUrl = url;
-      });
-    } catch (_) {
-      // Non-fatal: fall back to initials circle.
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLogoLoading = false;
-        });
-      }
-    }
-  }
-
   Future<void> _loadDetails(
     String code, {
     bool refreshEnrolledCounts = false,
@@ -387,6 +354,11 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       _studentSummary = null;
       _staffSummary = null;
       _summaryError = null;
+      // The logo avatar resolves per-classroom via DocumentImageWidget; a
+      // stale asset code / URL from a previous selection must not leak over.
+      _classroomLogoUrl = '';
+      _classroomLogoAssetCode = '';
+      _isLogoLoading = false;
     });
     try {
       final details = await _getClassroomByCodeUseCase(code: code);
@@ -407,7 +379,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           forceRefresh: refreshEnrolledCounts,
         ),
         _loadSummaries(code),
-        _loadClassroomLogo(code),
       ]).catchError((Object _) => <void>[]);
     } catch (e) {
       if (!mounted) return;
@@ -422,19 +393,28 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
   Widget _buildClassroomLogoAvatar({required String name}) {
     final trimmedName = name.trim();
+    final logoUrl = _classroomLogoUrl.trim();
+    final logoAssetCode = _classroomLogoAssetCode.trim();
+    final classroomCode =
+        (_selectedRoom?.code ?? _cachedSelectedClassroomCode ?? '').trim();
 
-    final content = _classroomLogoUrl.trim().isNotEmpty
-        ? CircleAvatar(
-            radius: 30,
-            backgroundColor: const Color.fromARGB(255, 232, 234, 234),
-            backgroundImage: NetworkImage(_classroomLogoUrl.trim()),
-          )
-        : DocumentImageWidget(
-            fileUuid: '',
-            name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
-            size: 60,
-            fontSize: 24,
-          );
+    // Built exactly like the guardian/staff profile-photo avatar so it behaves
+    // identically: the resolved [imageUrl] (set right after finalize) shows the
+    // new logo INSTANTLY with no async re-fetch; [mediaAssetCode] is the fresh
+    // asset fallback, and [classroomCode] is the per-classroom lookup for the
+    // initial load. No ValueKey — it updates via didUpdateWidget when any of
+    // these change (matching the profile photo, which also uses no key).
+    final content = DocumentImageWidget(
+      fileUuid: classroomCode.isNotEmpty
+          ? classroomCode
+          : (trimmedName.isNotEmpty ? trimmedName : 'Classroom'),
+      name: trimmedName.isEmpty ? 'Classroom' : trimmedName,
+      imageUrl: logoUrl.isEmpty ? null : logoUrl,
+      mediaAssetCode: logoAssetCode.isEmpty ? null : logoAssetCode,
+      classroomCode: classroomCode.isEmpty ? null : classroomCode,
+      size: 60,
+      fontSize: 24,
+    );
 
     return GestureDetector(
       onTap: _isLogoLoading ? null : _onPickAndUploadClassroomLogo,
@@ -465,14 +445,11 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             ),
           ),
           if (_isLogoLoading)
-            const Positioned.fill(
-              child: Center(
-                child: SizedBox(
-                  height: 18,
-                  width: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
+            // Same percentage progress UI as the staff / student / guardian
+            // profile-photo uploads (avatar size 60 → circle radius 30).
+            PhotoUploadProgressOverlay(
+              percent: _logoUploadPercent,
+              borderRadius: BorderRadius.circular(30),
             ),
         ],
       ),
@@ -491,14 +468,22 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
     if (organizationCode.isEmpty || schoolCode.isEmpty) return;
 
     try {
-      final file = await CoreUtils.pickImage();
-      if (file == null) return;
+      // Shared file picker → every allowed image format is selectable
+      // (jpeg/jpg/png/webp/heic/heif/avif/gif/bmp/tiff), not gallery-only.
+      final picked = await FilePickerUtils.pickFile(
+        allowedExtensions: FilePickerUtils.allowedImageExtensions,
+        context: mounted ? context : null,
+      );
+      final pickedPath = picked?.path;
+      if (pickedPath == null || pickedPath.isEmpty) return;
+      final file = File(pickedPath);
 
       if (!mounted) return;
       // No full-screen loading dialog — the logo avatar shows its own
       // localized spinner via [_isLogoLoading] while the upload runs.
       setState(() {
         _isLogoLoading = true;
+        _logoUploadPercent = 0;
       });
 
       final uploadService = serviceLocator<ImageUploadService>();
@@ -536,7 +521,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
         fileName: fileName.isNotEmpty
             ? fileName
-            : 'classroom-logo-${DateTime.now().millisecondsSinceEpoch}.jpg',
+            : 'classroom-logo-${AppTime.nowUtc().millisecondsSinceEpoch}.jpg',
         contentType: contentType,
         contentLengthBytes: await file.length(),
         mediaType: 'IMAGE',
@@ -544,29 +529,46 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
         ownerCode: classroomCode,
       );
 
+      if (mounted) setState(() => _logoUploadPercent = 25);
+
       await uploadService.uploadFileToPresignedUrl(
         file: file,
         presignedPutUrl: presign.presignedPutUrl,
         requiredHeaders: presign.requiredHeaders,
         fallbackContentType: contentType,
+        onSendProgress: (int sent, int total) {
+          if (!mounted || total <= 0) return;
+          final uploadPhasePercent = (sent / total).clamp(0.0, 1.0);
+          setState(() {
+            _logoUploadPercent = 25 + (uploadPhasePercent * 55);
+          });
+        },
       );
+      if (mounted) setState(() => _logoUploadPercent = 84);
 
-      await uploadService.completeAssetUpload(
-        sessionCode: sessionCode,
-        assetCode: presign.assetCode,
-        documentApiBasePath: documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
-      );
+      await uploadService
+          .completeAssetUpload(
+            sessionCode: sessionCode,
+            assetCode: presign.assetCode,
+            documentApiBasePath:
+                documentApiBasePath.isEmpty ? '/api/v1' : documentApiBasePath,
+          )
+          .timeout(const Duration(seconds: 30));
+      if (mounted) setState(() => _logoUploadPercent = 90);
 
       await uploadService.waitUntilAssetsReady(
         sessionCode: sessionCode,
         expectedAssetCodes: <String>[presign.assetCode],
       );
+      if (mounted) setState(() => _logoUploadPercent = 100);
 
       final finalizeBody = await serviceLocator<ClassroomRepository>()
           .finalizeClassroomLogo(
-        classroomCode: classroomCode,
-        assetCode: presign.assetCode.trim(),
-      );
+            classroomCode: classroomCode,
+            assetCode: presign.assetCode.trim(),
+          )
+          // A non-responding finalize must not lock the overlay at 100% forever.
+          .timeout(const Duration(seconds: 30));
       if (finalizeBody is! Map<String, dynamic> ||
           finalizeBody['success'] == false) {
         final msg = (finalizeBody?['message'] ?? '').toString().trim();
@@ -574,22 +576,39 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
           msg.isNotEmpty ? msg : 'Unable to finalize classroom logo',
         );
       }
-      final finalizeData = finalizeBody['data'];
-      String resolvedUrl = '';
-      if (finalizeData is Map) {
-        resolvedUrl = (finalizeData['url'] ?? finalizeData['thumbnailUrl'] ?? '')
-            .toString()
-            .trim();
+
+      // Resolve the fresh delivery URL; even if this comes back empty the
+      // avatar still refetches by classroomCode because the cache is cleared.
+      String logoUrl = '';
+      try {
+        logoUrl = await uploadService
+            .getMediaAssetUrlByCode(assetCode: presign.assetCode.trim())
+            .timeout(const Duration(seconds: 20));
+      } catch (e) {
+        AppLogger.d('[ClassroomInfo] Post-upload URL resolve failed: $e');
       }
-      if (resolvedUrl.isEmpty) {
-        resolvedUrl = await uploadService.getMediaAssetUrlByCode(
-          assetCode: presign.assetCode,
-        );
-      }
+      AppLogger.d(
+        '[ClassroomInfo] logo upload complete — asset=${presign.assetCode} '
+        'url=${logoUrl.isEmpty ? '(empty)' : 'resolved'}',
+      );
+      // Seed the freshly-resolved URL into the cache and wake every mounted
+      // avatar, so the new logo shows immediately on THIS screen and on the
+      // classroom screen / dashboard cards — without them re-resolving against
+      // the eventually-consistent endpoint (which could re-cache the old logo).
+      DocumentImageWidget.primeProfilePhotoUrl(
+        classroomCode: classroomCode,
+        url: logoUrl,
+      );
 
       if (!mounted) return;
       setState(() {
-        _classroomLogoUrl = resolvedUrl;
+        // Drives the avatar via mediaAssetCode (same as profile photos) so the
+        // new logo shows instantly; _classroomLogoUrl is kept only for the
+        // edit/camera icon state.
+        _classroomLogoAssetCode = presign.assetCode.trim();
+        _classroomLogoUrl = logoUrl;
+        _isLogoLoading = false;
+        _logoUploadPercent = 0;
       });
       CoreUtils.showTopSnackBar(
         context: context,
@@ -598,23 +617,21 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       );
     } catch (e) {
       if (mounted) {
+        setState(() {
+          _isLogoLoading = false;
+          _logoUploadPercent = 0;
+        });
         CoreUtils.showTopSnackBar(
           context: context,
           message: 'Failed to update classroom logo: ${ApiErrorHandler.extractErrorMessage(e)}',
           isError: true,
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLogoLoading = false;
-        });
-      }
     }
   }
 
-  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher]
-  /// (N in N:1). Returns null when ratio is not configured or attendance summaries are missing.
+  /// Compares signed-in students vs signed-in staff against [ClassroomDetails.studentsPerTeacher].
+  /// Returns null when ratio is not configured or attendance summaries are missing.
   bool? _signedInStaffingMeetsConfiguredRatio(ClassroomDetails details) {
     final maxStudentsPerStaff = details.studentsPerTeacher;
     if (maxStudentsPerStaff <= 0) return null;
@@ -767,7 +784,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
   @override
   Widget build(BuildContext context) {
     return BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()..loadActiveClassrooms(),
+      create: (_) => serviceLocator<ClassroomCubit>()
+        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
       child: BlocBuilder<ClassroomCubit, ClassroomState>(
         builder: (context, state) {
           final classrooms = state.classrooms;
@@ -807,7 +825,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
             bodyPadding: EdgeInsets.zero,
             body: CustomRefreshIndicator(
               onRefresh: () async {
-                await context.read<ClassroomCubit>().loadActiveClassrooms(force: true);
+                await Future.wait<void>([
+                  context.read<ClassroomCubit>().loadActiveClassrooms(
+                        force: true,
+                        applyAttendanceStaffScope: true,
+                      ),
+                  _movementsCubit.refresh(),
+                ]);
                 if (_selectedRoom != null) {
                   await _loadDetails(
                     _selectedRoom!.code,
@@ -839,11 +863,14 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                                       ),
                                     )
                                   : ClassroomDropdown(
+                                      // Not loading here (isInitialLoading
+                                      // handles that above), so an empty list
+                                      // means the load finished with no rooms.
                                       items: dropdownItems.isEmpty
-                                          ? const ['Loading...']
+                                          ? const ['No classrooms available']
                                           : dropdownItems,
                                       value: dropdownItems.isEmpty
-                                          ? 'Loading...'
+                                          ? 'No classrooms available'
                                           : (_selectedRoom?.name ??
                                               dropdownItems.first),
                                       onChanged: (value) {
@@ -865,7 +892,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               tooltip: 'Back',
                               onPressed: () => Navigator.pop(context),
                               icon: SvgPicture.asset(
-                                MediaRes.infoButtonIcon,
+                                MediaRes.classroomInfoIcon,
                                 height: 32,
                               ),
                             ),
@@ -884,6 +911,8 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                               const SummaryCardShimmer(),
                               const SizedBox(height: 16),
                               const SummaryCardShimmer(),
+                              const SizedBox(height: 16),
+                              const MovementsCardShimmer(),
                             ],
                           )
                         else if (_detailsError != null)
@@ -945,6 +974,13 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                             title: 'Expected\nStaff',
                             summary: _staffSummary,
                             forStaff: true,
+                          ),
+                          const SizedBox(height: 16),
+                          BlocProvider<IndividualMovementsCubit>.value(
+                            value: _movementsCubit,
+                            child: MovementsCard(
+                              classroomCode: _selectedRoom?.code,
+                            ),
                           ),
                         ],
                         // Events section (temporarily disabled)

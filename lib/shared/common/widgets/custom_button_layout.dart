@@ -15,6 +15,7 @@ class CustomButtonLayout extends StatelessWidget {
     this.showCancelButton = true,
     this.isForm = true,
     this.isLoading = false,
+    this.gradientCancelLabel = false,
     super.key,
   });
 
@@ -30,6 +31,10 @@ class CustomButtonLayout extends StatelessWidget {
   /// When true, shows a white loader on top of the confirm button
   /// and disables all button interactions.
   final bool isLoading;
+
+  /// When true, the cancel button's label text is painted with the primary
+  /// gradient instead of the flat primary color.
+  final bool gradientCancelLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -50,6 +55,7 @@ class CustomButtonLayout extends StatelessWidget {
                 child: CustomCancelButton(
                   cancelButtonLabel: cancelButtonLabel,
                   onPressedCancel: onPressedCancel,
+                  gradientLabel: gradientCancelLabel,
                 ),
               ),
             if (showCancelButton) const SizedBox(width: 16),

@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/attendance/entities/student_attendance_custom.dart';
@@ -44,7 +45,12 @@ class StudentAttendanceCustomCubit
           )
         : Future.value(null));
 
-    if (cached != null && !isClosed) {
+    final hasActiveFilters =
+        (classroomCodes != null && classroomCodes.isNotEmpty) ||
+            (tagCodes != null && tagCodes.isNotEmpty) ||
+            (search != null && search.trim().isNotEmpty);
+
+    if (cached != null && !isClosed && !hasActiveFilters) {
       emit(StudentAttendanceCustomState.loaded(
         items: cached.items,
         currentPage: 0,
@@ -75,7 +81,12 @@ class StudentAttendanceCustomCubit
     List<String>? tagCodes,
     String? search,
   }) async {
-    if (state.isRefreshing) return;
+    final filtersChanged = !listEquals(classroomCodes, state.classroomCodes) ||
+        !listEquals(tagCodes, state.tagCodes) ||
+        search != state.search ||
+        state.fromDate != fromDate ||
+        state.toDate != toDate;
+    if (state.isRefreshing && !filtersChanged) return;
 
     final fromDateString = _formatDate(fromDate);
     final toDateString = _formatDate(toDate);

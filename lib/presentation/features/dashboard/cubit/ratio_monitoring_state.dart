@@ -11,18 +11,18 @@ class RatioMonitoringState extends Equatable {
   });
 
   const RatioMonitoringState.initial()
-      : status = RatioMonitoringStatus.initial,
-        schoolCode = '',
-        classrooms = const [],
-        errorMessage = null;
+    : status = RatioMonitoringStatus.initial,
+      schoolCode = '',
+      classrooms = const [],
+      errorMessage = null;
 
   const RatioMonitoringState.loaded({
     required String schoolCode,
     required List<RatioMonitoringClassroom> classrooms,
-  })  : status = RatioMonitoringStatus.loaded,
-        schoolCode = schoolCode,
-        classrooms = classrooms,
-        errorMessage = null;
+  }) : status = RatioMonitoringStatus.loaded,
+       schoolCode = schoolCode,
+       classrooms = classrooms,
+       errorMessage = null;
 
   final RatioMonitoringStatus status;
   final String schoolCode;

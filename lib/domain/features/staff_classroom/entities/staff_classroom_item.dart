@@ -4,6 +4,7 @@ class StaffClassroomItem extends Equatable {
   const StaffClassroomItem({
     required this.classroomCode,
     required this.staffCode,
+    this.userCode = '',
     required this.firstName,
     required this.lastName,
     this.profilePictureUrl,
@@ -17,6 +18,8 @@ class StaffClassroomItem extends Equatable {
 
   final String classroomCode;
   final String staffCode;
+  /// User account code (USR_*) — the participant identifier for messaging.
+  final String userCode;
   final String firstName;
   final String lastName;
   final String? profilePictureUrl;
@@ -33,6 +36,7 @@ class StaffClassroomItem extends Equatable {
   List<Object?> get props => [
         classroomCode,
         staffCode,
+        userCode,
         firstName,
         lastName,
         profilePictureUrl,

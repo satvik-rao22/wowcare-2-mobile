@@ -142,6 +142,7 @@ class DayClassroomSection extends StatefulWidget {
     this.staffAttendanceStatusByCode,
     this.highlightShiftCode,
     this.highlightClassroomCode,
+    this.onClassroomStatusTap,
   });
 
   /// Shift code from a notification deep-link; the matching shift row scrolls
@@ -151,6 +152,10 @@ class DayClassroomSection extends StatefulWidget {
   /// Classroom code from a notification deep-link (SHIFT_UNDER_RATIO); in DAY
   /// view the matching classroom row scrolls into view and flashes.
   final String? highlightClassroomCode;
+
+  /// Week view only — tap on the compliance (tick/red) icon. Switches to DAY
+  /// view scrolled/highlighted to this classroom.
+  final VoidCallback? onClassroomStatusTap;
 
   final ClassroomDaySchedule classroom;
   final SchedulingViewMode viewMode;
@@ -346,11 +351,22 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
     );
   }
 
-  /// Week view only — ratio icon in the status column (not day Gantt left column).
+  /// Week view only — ratio icon in the status column (not day Gantt left
+  /// column). Tapping it opens DAY view scrolled/highlighted to this
+  /// classroom, independent of the row's own expand/collapse tap.
   Widget _weekComplianceIcon() {
-    return SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
+    final icon = SchedulingBlockStatusStyle.weekViewIconForClassroomStatus(
       widget.classroom.ratioStatus,
       size: 20,
+    );
+    if (widget.onClassroomStatusTap == null) return icon;
+    return InkWell(
+      customBorder: const CircleBorder(),
+      onTap: widget.onClassroomStatusTap,
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: icon,
+      ),
     );
   }
 }

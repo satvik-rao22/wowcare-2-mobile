@@ -34,14 +34,14 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     required UpdateStaffShiftUseCase updateStaffShiftUseCase,
     required UpdateStaffShiftSeriesUseCase updateStaffShiftSeriesUseCase,
     required StorageService storageService,
-  })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _staffRepository = staffRepository,
-        _staffShiftRepository = staffShiftRepository,
-        _getStaffShiftsUseCase = getStaffShiftsUseCase,
-        _updateStaffShiftUseCase = updateStaffShiftUseCase,
-        _updateStaffShiftSeriesUseCase = updateStaffShiftSeriesUseCase,
-        _storageService = storageService,
-        super(const EditShiftState());
+  }) : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _staffRepository = staffRepository,
+       _staffShiftRepository = staffShiftRepository,
+       _getStaffShiftsUseCase = getStaffShiftsUseCase,
+       _updateStaffShiftUseCase = updateStaffShiftUseCase,
+       _updateStaffShiftSeriesUseCase = updateStaffShiftSeriesUseCase,
+       _storageService = storageService,
+       super(const EditShiftState());
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
@@ -104,7 +104,8 @@ class EditShiftCubit extends Cubit<EditShiftState> {
   Future<void> _loadAdminClassrooms() async {
     try {
       final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       if (schoolCode.isEmpty) return;
       final classrooms = await _getActiveClassroomsUseCase(
         schoolCode: schoolCode,
@@ -121,10 +122,12 @@ class EditShiftCubit extends Cubit<EditShiftState> {
   Future<void> _loadSchoolHours() async {
     try {
       final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       if (schoolCode.isEmpty) return;
-      final days =
-          await _staffRepository.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final days = await _staffRepository.getSchoolRegularSchedules(
+        schoolCode: schoolCode,
+      );
       if (isClosed) return;
       emit(
         state.copyWith(schoolHoursResolver: SchoolHoursResolver.fromDays(days)),
@@ -145,35 +148,43 @@ class EditShiftCubit extends Cubit<EditShiftState> {
   }
 
   void setShiftStart(TimeOfDay? time) {
-    emit(state.copyWith(
-      shiftStart: time,
-      shiftStartError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        shiftStart: time,
+        shiftStartError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setShiftEnd(TimeOfDay? time) {
-    emit(state.copyWith(
-      shiftEnd: time,
-      shiftEndError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        shiftEnd: time,
+        shiftEndError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setBreakStart(TimeOfDay? time) {
-    emit(state.copyWith(
-      breakStart: time,
-      breakStartError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        breakStart: time,
+        breakStartError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setBreakEnd(TimeOfDay? time) {
-    emit(state.copyWith(
-      breakEnd: time,
-      breakEndError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        breakEnd: time,
+        breakEndError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setUntilDate(DateTime date) {
@@ -244,9 +255,7 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     required List<Classroom> classrooms,
     required List<StaffMember> staff,
   }) {
-    final result = <String, String>{
-      for (final c in classrooms) c.code: c.name,
-    };
+    final result = <String, String>{for (final c in classrooms) c.code: c.name};
     if (_isTeacherDesignation(staff)) {
       for (final c in state.adminClassrooms) {
         final code = c.code.trim();
@@ -314,15 +323,17 @@ class EditShiftCubit extends Cubit<EditShiftState> {
   // ─── Validation ────────────────────────────────────────────────────────────
 
   bool validate() {
-    emit(state.copyWith(
-      shiftStartError: null,
-      shiftEndError: null,
-      breakStartError: null,
-      breakEndError: null,
-      untilDateError: null,
-      daysError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        shiftStartError: null,
+        shiftEndError: null,
+        breakStartError: null,
+        breakEndError: null,
+        untilDateError: null,
+        daysError: null,
+        schoolHoursError: null,
+      ),
+    );
 
     final shiftStart = state.shiftStart;
     final shiftEnd = state.shiftEnd;
@@ -332,7 +343,9 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     final shiftEndMin = _minutesOf(shiftEnd);
 
     if (shiftEndMin <= shiftStartMin) {
-      emit(state.copyWith(shiftEndError: 'Shift end must be after shift start'));
+      emit(
+        state.copyWith(shiftEndError: 'Shift end must be after shift start'),
+      );
       return false;
     }
 
@@ -341,10 +354,12 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     final hasBreakStart = breakStart != null;
     final hasBreakEnd = breakEnd != null;
     if (hasBreakStart != hasBreakEnd) {
-      emit(state.copyWith(
-        breakStartError: !hasBreakStart ? 'Break start is required' : null,
-        breakEndError: !hasBreakEnd ? 'Break end is required' : null,
-      ));
+      emit(
+        state.copyWith(
+          breakStartError: !hasBreakStart ? 'Break start is required' : null,
+          breakEndError: !hasBreakEnd ? 'Break end is required' : null,
+        ),
+      );
       return false;
     }
 
@@ -352,16 +367,18 @@ class EditShiftCubit extends Cubit<EditShiftState> {
       final breakStartMin = _minutesOf(breakStart);
       final breakEndMin = _minutesOf(breakEnd);
       if (breakEndMin <= breakStartMin) {
-        emit(state.copyWith(
-          breakEndError: 'Break end must be after break start',
-        ));
+        emit(
+          state.copyWith(breakEndError: 'Break end must be after break start'),
+        );
         return false;
       }
       if (breakStartMin < shiftStartMin || breakEndMin > shiftEndMin) {
-        emit(state.copyWith(
-          breakStartError: 'Break must be within shift',
-          breakEndError: 'Break must be within shift',
-        ));
+        emit(
+          state.copyWith(
+            breakStartError: 'Break must be within shift',
+            breakEndError: 'Break must be within shift',
+          ),
+        );
         return false;
       }
     }
@@ -370,9 +387,9 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     if (isSeriesMode && state.untilDate != null && date != null) {
       if (state.untilDate!.isBefore(date) &&
           !_isSameDay(state.untilDate!, date)) {
-        emit(state.copyWith(
-          untilDateError: 'Must be on or after the shift date',
-        ));
+        emit(
+          state.copyWith(untilDateError: 'Must be on or after the shift date'),
+        );
         return false;
       }
     }
@@ -395,19 +412,24 @@ class EditShiftCubit extends Cubit<EditShiftState> {
       final windowLabel =
           '${_formatTime(window.$1)} – ${_formatTime(window.$2)}';
       if (shiftStartMin < schoolStartMin || shiftEndMin > schoolEndMin) {
-        emit(state.copyWith(
-          schoolHoursError: 'Shift must be within school hours ($windowLabel).',
-        ));
+        emit(
+          state.copyWith(
+            schoolHoursError:
+                'Shift must be within school hours ($windowLabel).',
+          ),
+        );
         return false;
       }
       if (hasBreakStart && hasBreakEnd) {
         final breakStartMin = _minutesOf(breakStart);
         final breakEndMin = _minutesOf(breakEnd);
         if (breakStartMin < schoolStartMin || breakEndMin > schoolEndMin) {
-          emit(state.copyWith(
-            schoolHoursError:
-                'Break must be within school hours ($windowLabel).',
-          ));
+          emit(
+            state.copyWith(
+              schoolHoursError:
+                  'Break must be within school hours ($windowLabel).',
+            ),
+          );
           return false;
         }
       }
@@ -445,8 +467,10 @@ class EditShiftCubit extends Cubit<EditShiftState> {
 
     final seriesMode = isSeriesMode;
     final untilDate = state.untilDate;
-    final selectedDayIndices =
-        state.selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
+    final selectedDayIndices = state.selectedDays
+        .map((d) => _weekDayIndex[d])
+        .whereType<int>()
+        .toSet();
 
     // Absence pre-check.
     emit(state.copyWith(saving: true));
@@ -476,10 +500,12 @@ class EditShiftCubit extends Cubit<EditShiftState> {
 
     var seriesAbsentDates = const <DateTime>[];
     if (seriesMode) {
-      seriesAbsentDates = absentDates.where((d) {
-        if (selectedDayIndices.isEmpty) return true;
-        return selectedDayIndices.contains(d.weekday);
-      }).toList(growable: false);
+      seriesAbsentDates = absentDates
+          .where((d) {
+            if (selectedDayIndices.isEmpty) return true;
+            return selectedDayIndices.contains(d.weekday);
+          })
+          .toList(growable: false);
     }
 
     if (!isClosed) emit(state.copyWith(saving: false));
@@ -500,8 +526,9 @@ class EditShiftCubit extends Cubit<EditShiftState> {
 
     // Recurring: each selected weekday must fit the staff's window.
     if (seriesMode && selectedStaff != null) {
-      final anyOutside = selectedDayIndices
-          .any((wd) => !_shiftFitsStaffSchedule(selectedStaff, wd));
+      final anyOutside = selectedDayIndices.any(
+        (wd) => !_shiftFitsStaffSchedule(selectedStaff, wd),
+      );
       if (anyOutside) {
         await onNoAvailability();
         return const EditShiftSubmitOutcome.cancelled();
@@ -511,7 +538,8 @@ class EditShiftCubit extends Cubit<EditShiftState> {
     emit(state.copyWith(saving: true));
     try {
       final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       final orgCode =
           (await _storageService.getString(StorageKeys.organizationCode) ?? '')
               .trim();
@@ -576,8 +604,9 @@ class EditShiftCubit extends Cubit<EditShiftState> {
           throw Exception('Missing series code for series update');
         }
         // Wire format: 0=Mon … 6=Sun.
-        final repeatDaysWire =
-            selectedDayIndices.map((d) => d - 1).toList(growable: false);
+        final repeatDaysWire = selectedDayIndices
+            .map((d) => d - 1)
+            .toList(growable: false);
         final request = StaffShiftSeriesUpdateRequest(
           seriesCode: seriesCode,
           shiftCode: _shiftCode,
@@ -652,13 +681,13 @@ class EditShiftSubmitOutcome {
   });
 
   const EditShiftSubmitOutcome.success()
-      : this._(success: true, cancelled: false);
+    : this._(success: true, cancelled: false);
 
   const EditShiftSubmitOutcome.cancelled()
-      : this._(success: false, cancelled: true);
+    : this._(success: false, cancelled: true);
 
   const EditShiftSubmitOutcome.error(String message)
-      : this._(success: false, cancelled: false, errorMessage: message);
+    : this._(success: false, cancelled: false, errorMessage: message);
 
   final bool success;
   final bool cancelled;
@@ -721,17 +750,17 @@ String _formatTime(TimeOfDay t) {
   return '$hour:$minute $period';
 }
 
-TimeOfDay? _parse24hTime(String raw) {
-  final trimmed = raw.trim();
-  if (trimmed.isEmpty) return null;
-  final parts = trimmed.split(':');
-  if (parts.length < 2) return null;
-  final h = int.tryParse(parts[0]);
-  final m = int.tryParse(parts[1]);
-  if (h == null || m == null) return null;
-  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-  return TimeOfDay(hour: h, minute: m);
-}
+// TimeOfDay? _parse24hTime(String raw) {
+//   final trimmed = raw.trim();
+//   if (trimmed.isEmpty) return null;
+//   final parts = trimmed.split(':');
+//   if (parts.length < 2) return null;
+//   final h = int.tryParse(parts[0]);
+//   final m = int.tryParse(parts[1]);
+//   if (h == null || m == null) return null;
+//   if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+//   return TimeOfDay(hour: h, minute: m);
+// }
 
 (TimeOfDay, TimeOfDay)? _parseTimeRange(String? raw) {
   if (raw == null) return null;

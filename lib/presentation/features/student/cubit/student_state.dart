@@ -19,6 +19,7 @@ class StudentState extends Equatable {
     this.classroomCodesFilter,
     this.tagCodesFilter,
     this.guardianCodesFilter,
+    this.attendanceStatusesFilter,
     this.errorMessage,
   });
 
@@ -38,6 +39,7 @@ class StudentState extends Equatable {
         classroomCodesFilter = null,
         tagCodesFilter = null,
         guardianCodesFilter = null,
+        attendanceStatusesFilter = null,
         errorMessage = null;
 
   final List<Student> items;
@@ -55,6 +57,7 @@ class StudentState extends Equatable {
   final List<String>? classroomCodesFilter;
   final List<String>? tagCodesFilter;
   final List<String>? guardianCodesFilter;
+  final List<String>? attendanceStatusesFilter;
   final String? errorMessage;
 
   StudentState copyWith({
@@ -73,6 +76,7 @@ class StudentState extends Equatable {
     Object? classroomCodesFilter = _unset,
     Object? tagCodesFilter = _unset,
     Object? guardianCodesFilter = _unset,
+    Object? attendanceStatusesFilter = _unset,
     String? errorMessage,
   }) {
     return StudentState(
@@ -102,6 +106,9 @@ class StudentState extends Equatable {
       guardianCodesFilter: guardianCodesFilter == _unset
           ? this.guardianCodesFilter
           : guardianCodesFilter as List<String>?,
+      attendanceStatusesFilter: attendanceStatusesFilter == _unset
+          ? this.attendanceStatusesFilter
+          : attendanceStatusesFilter as List<String>?,
       errorMessage: errorMessage,
     );
   }
@@ -123,6 +130,7 @@ class StudentState extends Equatable {
         classroomCodesFilter,
         tagCodesFilter,
         guardianCodesFilter,
+        attendanceStatusesFilter,
         errorMessage,
       ];
 }

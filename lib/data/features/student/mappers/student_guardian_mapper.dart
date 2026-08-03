@@ -15,5 +15,7 @@ extension StudentGuardianModelMapper on StudentGuardianModel {
         relationToStudent: relationToStudent,
         primaryContact: primaryContact,
         legalCustody: legalCustody,
+        profilePhotoUrl: profilePhotoUrl,
+        profilePhotoAssetCode: profilePhotoAssetCode,
       );
 }

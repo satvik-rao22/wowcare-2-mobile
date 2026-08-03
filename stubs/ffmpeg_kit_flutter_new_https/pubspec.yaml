@@ -1,0 +1,17 @@
+name: ffmpeg_kit_flutter_new_https
+description: >-
+  Local no-op stub of ffmpeg_kit_flutter_new_https. The real plugin ships only
+  fat .frameworks (x86_64-sim + arm64-device) with no arm64 iOS-simulator slice,
+  so it cannot link for the simulator on Apple Silicon under Xcode 26. This pure
+  Dart stub (no native frameworks) lets the app build & run on the arm64
+  simulator. ffmpeg-backed HLS conversion is disabled in such builds.
+version: 2.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.9.2
+  flutter: ">=3.41.0"
+
+dependencies:
+  flutter:
+    sdk: flutter

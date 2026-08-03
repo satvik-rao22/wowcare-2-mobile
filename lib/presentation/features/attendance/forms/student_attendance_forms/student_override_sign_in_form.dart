@@ -37,7 +37,7 @@
 // }
 
 // class _StudentOverrideSignInFormState extends State<StudentOverrideSignInForm> {
-//   DateTime selectedDate = DateTime.now();
+//   DateTime selectedDate = ServerTimeService.instance.now();
 //   TimeOfDay selectedTime = TimeOfDay.now();
 //   List<StudentEntity> currentStudents = [];
 //   bool _isProcessing = false;
@@ -78,7 +78,7 @@
 //   }
 
 //   String _formatTimeForValidation() {
-//     final now = DateTime.now();
+//     final now = ServerTimeService.instance.now();
 //     final selectedDateTime = DateTime(
 //       selectedDate.year,
 //       selectedDate.month,
@@ -103,7 +103,7 @@
 //   }
 
 //   void setCurrentDateTime() {
-//     final now = DateTime.now();
+//     final now = ServerTimeService.instance.now();
 //     selectedDate = DateTime(now.year, now.month, now.day);
 //     selectedTime = TimeOfDay.fromDateTime(now);
 //   }
@@ -153,7 +153,7 @@
 //     try {
 //       final time = _formatTime(selectedTime);
 //       // Match StudentSignInForm payload semantics
-//       final DateTime currentUTC = DateTime.now().toUtc();
+//       final DateTime currentUTC = ServerTimeService.instance.nowUtc();
 //       final DateTime dateTimeUTC = DateTime.utc(
 //         selectedDate.year,
 //         selectedDate.month,

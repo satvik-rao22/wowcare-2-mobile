@@ -1,20 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Compact staff picker — scrollable menu with a max height (not full screen).
+///
+/// Keyed by staff CODE, not display name: two staff members can share the
+/// same name, and a name-keyed [DropdownButton] asserts (duplicate value)
+/// the moment that happens.
 class StaffSchedulingStaffDropdown extends StatelessWidget {
   const StaffSchedulingStaffDropdown({
     super.key,
-    required this.staffNames,
-    required this.selectedStaffName,
+    required this.staff,
+    required this.selectedStaffCode,
     required this.onSelected,
     this.isLoading = false,
     this.menuMaxHeight = 280,
   });
 
-  final List<String> staffNames;
-  final String? selectedStaffName;
+  final List<StaffMember> staff;
+  final String? selectedStaffCode;
   final ValueChanged<String> onSelected;
   final bool isLoading;
   final double menuMaxHeight;
@@ -37,9 +42,9 @@ class StaffSchedulingStaffDropdown extends StatelessWidget {
       );
     }
 
-    final hasSelection = selectedStaffName != null &&
-        selectedStaffName!.isNotEmpty &&
-        staffNames.contains(selectedStaffName);
+    final hasSelection = selectedStaffCode != null &&
+        selectedStaffCode!.isNotEmpty &&
+        staff.any((s) => s.code == selectedStaffCode);
 
     return Container(
       height: 44,
@@ -50,7 +55,7 @@ class StaffSchedulingStaffDropdown extends StatelessWidget {
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
-          value: hasSelection ? selectedStaffName : null,
+          value: hasSelection ? selectedStaffCode : null,
           isExpanded: true,
           menuMaxHeight: menuMaxHeight,
           borderRadius: BorderRadius.circular(10),
@@ -61,19 +66,19 @@ class StaffSchedulingStaffDropdown extends StatelessWidget {
           ),
           hint: const Text('Select Staff', style: _fieldTextStyle),
           style: _fieldTextStyle,
-          items: staffNames
+          items: staff
               .map(
-                (name) => DropdownMenuItem<String>(
-                  value: name,
+                (s) => DropdownMenuItem<String>(
+                  value: s.code,
                   child: Text(
-                    name,
+                    s.name,
                     overflow: TextOverflow.ellipsis,
                     style: _fieldTextStyle,
                   ),
                 ),
               )
               .toList(),
-          onChanged: staffNames.isEmpty
+          onChanged: staff.isEmpty
               ? null
               : (value) {
                   if (value != null) onSelected(value);
