@@ -1,4 +1,5 @@
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_creator_match.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
@@ -47,12 +48,13 @@ class TaskAccess {
     required Task task,
     required String userCode,
     String staffCode = '',
+    String userName = '',
   }) {
     if (roles.isParent) return false;
     if (!roles.canReadModule(AppAccessModules.task)) return false;
     if (isAdmin(roles)) return true;
     if (!roles.isStaff) return false;
-    return _isMine(task, userCode, staffCode);
+    return _isMine(task, userCode, staffCode, userName);
   }
 
   /// Edit/delete a task: admins always; staff only for tasks that are theirs
@@ -64,12 +66,13 @@ class TaskAccess {
     required Task task,
     required String userCode,
     String staffCode = '',
+    String userName = '',
   }) {
     if (roles.isParent) return false;
     if (!roles.canWriteModule(AppAccessModules.task)) return false;
     if (isAdmin(roles)) return true;
     if (!roles.isStaff) return false;
-    return _isMine(task, userCode, staffCode);
+    return _isMine(task, userCode, staffCode, userName);
   }
 
   /// Inline status/priority changes follow the same ownership rule as full
@@ -79,21 +82,35 @@ class TaskAccess {
     required Task task,
     required String userCode,
     String staffCode = '',
+    String userName = '',
   }) =>
       canManageTask(
         roles: roles,
         task: task,
         userCode: userCode,
         staffCode: staffCode,
+        userName: userName,
       );
 
-  static bool _isMine(Task task, String userCode, String staffCode) {
+  static bool _isMine(
+    Task task,
+    String userCode,
+    String staffCode,
+    String userName,
+  ) {
     final codes = <String>{userCode, staffCode}
       ..removeWhere((code) => code.isEmpty);
     // RBAC: a staff member manages only their own tasks. If we can't confirm
     // identity yet, deny rather than grant blanket write access to everyone
     // else's tasks (admins are handled earlier and are unaffected).
     if (codes.isEmpty) return false;
-    return codes.contains(task.assigneeCode) || codes.contains(task.createdBy);
+    if (codes.contains(task.assigneeCode)) return true;
+    // Creator ownership goes through the shared matcher rather than comparing
+    // codes here: the payload's creator is a display name today, and this rule
+    // must not disagree with the "By Me" scope about who created a task.
+    return TaskCreatorMatcher(
+      identityCodes: codes,
+      displayName: userName,
+    ).matches(task);
   }
 }

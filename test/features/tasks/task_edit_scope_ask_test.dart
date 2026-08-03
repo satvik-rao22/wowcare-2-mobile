@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
@@ -15,6 +16,8 @@ import 'package:wowcare/domain/features/tasks/usecases/cancel_task_occurrence_us
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_assignment_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/delete_task_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/get_task_attachments_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_task_occurrences_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/get_tasks_usecase.dart';
@@ -27,6 +30,7 @@ import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_us
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 
@@ -109,7 +113,10 @@ TasksCubit _buildCubit(_FakeTaskRepository repo) => TasksCubit(
       DeleteTaskUseCase(repo),
       RemoveTaskAssigneeUseCase(repo),
       UpdateTaskAssignmentStatusUseCase(repo),
-      UploadTaskAttachmentUseCase(repo),
+      UploadTaskAttachmentsUseCase(repo, _FakeUploadManager()),
+      GetTaskAttachmentsUseCase(repo),
+      DetachTaskAttachmentUseCase(repo),
+      ImageUploadService(ApiClient(baseUrl: 'http://localhost')),
       GetAllStaffUseCase(_FakeStaffRepository()),
       _FakeStorage(),
       UpdateTaskAssignmentUseCase(repo),
@@ -119,7 +126,6 @@ TasksCubit _buildCubit(_FakeTaskRepository repo) => TasksCubit(
       UpdateTaskOccurrenceUseCase(repo),
       CancelTaskOccurrenceUseCase(repo),
       UpdateTaskUseCase(repo),
-      UploadTaskAttachmentsUseCase(repo, _FakeUploadManager()),
     );
 
 Task _card({DateTime? occurrenceDate, String taskCode = 'TSK_1'}) => Task(

@@ -7,19 +7,23 @@ import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_access.dart';
+import 'package:wowcare/presentation/features/tasks/utils/task_attachment_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/view/task_form_screen.dart';
+import 'package:wowcare/shared/common/widgets/attachment_view/attachment_section.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_badges.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_priority_meter.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_status_selector.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Read-only task view with edit/delete affordances for users who own the
 /// task (PRD FR-TK-26/28).
@@ -47,20 +51,27 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   void initState() {
     super.initState();
     unawaited(_refreshSeries());
+    unawaited(_loadAttachments());
   }
+
+  /// Pulls this task's attachments into the shared cache. The card list may
+  /// already have loaded them, in which case this is a no-op.
+  Future<void> _loadAttachments() async {
+    final cubit = context.read<TasksCubit>();
+    final seriesCode = _seriesCodeFrom(cubit.state);
+    if (seriesCode.isEmpty) return;
+    await cubit.ensureAttachmentsLoaded(seriesCode);
+  }
+
+  String _seriesCodeFrom(TasksState state) =>
+      state.taskByCode(widget.taskCode)?.taskCode.trim() ?? '';
 
   /// (Re)fetches the owning series and applies it if still mounted. Called on
   /// open and again after an edit, since a recurring task's start time only
   /// ever changes on the series — the once-fetched [_series] would otherwise
   /// keep showing the pre-edit time forever after a save.
   Future<void> _refreshSeries() async {
-    final seriesCode = context
-            .read<TasksCubit>()
-            .state
-            .taskByCode(widget.taskCode)
-            ?.taskCode
-            .trim() ??
-        '';
+    final seriesCode = _seriesCodeFrom(context.read<TasksCubit>().state);
     if (seriesCode.isEmpty) return;
     final series = await context.read<TasksCubit>().fetchSeriesDetail(seriesCode);
     if (mounted && series != null) setState(() => _series = series);
@@ -73,7 +84,19 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     return GlobalScaffold(
       hasBackButton: true,
       showCustomNavigationBar: false,
-      body: BlocBuilder<TasksCubit, TasksState>(
+      // Both fetches need the card's series code, which a deep link or a cold
+      // cubit doesn't have yet at initState — so run them again the moment the
+      // card (and with it the series code) actually arrives, instead of leaving
+      // the schedule and attachments permanently unloaded.
+      body: BlocListener<TasksCubit, TasksState>(
+        listenWhen: (previous, current) =>
+            _seriesCodeFrom(previous).isEmpty &&
+            _seriesCodeFrom(current).isNotEmpty,
+        listener: (context, state) {
+          unawaited(_refreshSeries());
+          unawaited(_loadAttachments());
+        },
+        child: BlocBuilder<TasksCubit, TasksState>(
         builder: (context, state) {
           final task = state.taskByCode(taskCode);
           if (task == null) {
@@ -92,6 +115,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             task: task,
             userCode: state.currentUserCode,
             staffCode: state.currentStaffCode,
+            userName: state.currentUserName,
           )) {
             return _noAccess();
           }
@@ -100,6 +124,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
             task: task,
             userCode: state.currentUserCode,
             staffCode: state.currentStaffCode,
+            userName: state.currentUserName,
           );
           return SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
@@ -136,17 +161,48 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 ],
                 const SizedBox(height: 10),
                 _scheduleCard(task, state.schoolTimeZone),
-                if (task.attachmentName != null &&
-                    task.attachmentName!.isNotEmpty) ...[
+                if (state.attachmentsFor(task).isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  _attachmentCard(context, task),
+                  _attachmentCard(
+                    context,
+                    task,
+                    state.attachmentsFor(task),
+                    canManage: canManage,
+                  ),
+                ] else if (!state.attachmentsReadableForTask(task)) ...[
+                  // Say so rather than rendering nothing: "this task has no
+                  // attachments" and "we couldn't read them" look identical
+                  // otherwise, which is exactly how an attached file appears to
+                  // vanish.
+                  const SizedBox(height: 10),
+                  _attachmentsUnavailableCard(),
                 ],
-                const SizedBox(height: 14),
-                _footer(task),
+                const SizedBox(height: 10),
+                _auditCard(task),
               ],
             ),
           );
         },
+        ),
+      ),
+    );
+  }
+
+  Widget _attachmentsUnavailableCard() {
+    return _sectionCard(
+      title: 'Attachments',
+      child: Row(
+        children: [
+          Icon(Icons.info_outline, size: 18, color: Colors.grey[600]),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              "This task's attachments couldn't be loaded. Pull to refresh or "
+              'try again in a moment.',
+              style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -371,40 +427,132 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
-  Widget _attachmentCard(BuildContext context, Task task) {
+  Widget _attachmentCard(
+    BuildContext context,
+    Task task,
+    List<TaskAttachment> attachments, {
+    required bool canManage,
+  }) {
     return _sectionCard(
-      title: 'Attachment',
-      child: Row(
-        children: [
-          const Icon(Icons.attach_file, size: 18, color: AppColors.themeColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              task.attachmentName ?? '',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 13, color: Colors.black87),
-            ),
+      title: attachments.length == 1
+          ? 'Attachment'
+          : 'Attachments (${attachments.length})',
+      // One shared widget for every attachment surface in the app: it resolves
+      // the asset codes, caches them, shows images large enough to read without
+      // opening anything, surfaces failures with a Retry, and opens a
+      // full-screen zoomable viewer on tap. The event detail screen uses the
+      // same call.
+      child: AttachmentSection(
+        assetCodes: attachments
+            .map((a) => a.assetCode)
+            .where((code) => code.isNotEmpty)
+            .toList(),
+        onRemove: canManage
+            ? (assetCode) {
+                // Only an attachment the list endpoint gave a row code for can
+                // be detached; one without it must be removed via the form's
+                // assetCodes replace instead.
+                final match = attachments.firstWhere(
+                  (a) => a.assetCode == assetCode,
+                  orElse: () => const TaskAttachment(assetCode: ''),
+                );
+                if (match.code.isEmpty) return;
+                unawaited(_confirmDetach(context, task, match));
+              }
+            : null,
+      ),
+    );
+  }
+
+  // SUPERSEDED — `_attachmentRow` rendered a 44px `TaskAttachmentThumbnail`,
+  // which was too small to make out and showed an indefinite spinner whenever
+  // the resolve failed. `AttachmentSection` replaces it for both tasks and
+  // events. Original in git history.
+
+  Future<void> _confirmDetach(
+    BuildContext context,
+    Task task,
+    TaskAttachment attachment,
+  ) async {
+    final cubit = context.read<TasksCubit>();
+    final name = attachment.fileName.isEmpty
+        ? 'this attachment'
+        : '"${attachment.fileName}"';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Remove attachment?'),
+        content: Text('Do you want to remove $name from this task?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () => CoreUtils.showTopSnackBar(
-              context: context,
-              message: 'Attachment preview is not available offline',
-              isWarning: true,
-            ),
-            child: const Text('Open', style: TextStyle(fontSize: 12.5)),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.errorColor),
+            child: const Text('Remove'),
           ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    final ok = await cubit.detachAttachment(
+      taskCode: task.taskCode,
+      attachmentCode: attachment.code,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: ok ? 'Attachment removed' : 'Could not remove the attachment.',
+      isSuccess: ok,
+      isError: !ok,
+    );
+  }
+
+  /// Audit trail — deliberately detail-screen-only: the list/board cards stay
+  /// about the work itself (PRD FR-TK-26), so who touched a task is answered
+  /// here and nowhere else.
+  ///
+  /// The "Last updated" row is dropped when it would only repeat the creation
+  /// row: an untouched task reports `updatedBy == createdBy` at the same instant,
+  /// and showing that twice reads as if something had happened.
+  Widget _auditCard(Task task) {
+    final createdBy = task.createdByLabel;
+    final updatedBy = task.updatedByLabel;
+    final showUpdated = updatedBy.isNotEmpty &&
+        !(updatedBy == createdBy &&
+            !task.updatedAt.isAfter(task.createdAt));
+    return _sectionCard(
+      title: 'Activity',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _detailRow(
+            Icons.person_add_alt_outlined,
+            'Created by',
+            _auditValue(createdBy, task.createdAt),
+          ),
+          if (showUpdated) ...[
+            const SizedBox(height: 8),
+            _detailRow(
+              Icons.history,
+              'Last updated by',
+              _auditValue(updatedBy, task.updatedAt),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  Widget _footer(Task task) {
-    return Text(
-      'Created by ${task.createdByName.isEmpty ? 'Unknown' : task.createdByName}'
-      ' • ${DateFormat('MMM d, yyyy').format(task.createdAt)}',
-      style: TextStyle(fontSize: 11.5, color: Colors.grey[500]),
-    );
+  /// `Name • date, time` for an audit row. The instant is a UTC wire value, so
+  /// it is converted to the device's zone before formatting; an unknown author
+  /// still shows its timestamp rather than collapsing the whole row.
+  String _auditValue(String who, DateTime at) {
+    final when = DateFormat('MMM d, yyyy • h:mm a').format(at.toLocal());
+    return '${who.isEmpty ? 'Unknown' : who} • $when';
   }
 
   Widget _sectionCard({required String title, required Widget child}) {

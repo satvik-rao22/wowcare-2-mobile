@@ -1,5 +1,6 @@
 import '../entities/task.dart';
 import '../entities/task_assignee.dart';
+import '../entities/task_attachment.dart';
 import '../entities/task_board.dart';
 import '../entities/task_occurrence.dart';
 import '../entities/task_query.dart';
@@ -35,11 +36,14 @@ abstract class TaskRepository {
   /// `GET /tasks/board`), each column independently paginated by [query].
   Future<TaskBoard> getBoard(TaskQuery query);
 
-  /// Creates one task series with its roster (Tasks API §1 `POST /tasks`).
-  /// The response carries the series, not the per-assignee assignment codes,
-  /// so callers reload [getTasks] to pick up the new cards. [assetCodes] are
-  /// attachment codes from the upload-session flow (§8/§9).
-  Future<void> createTask({
+  /// Creates one task series with its roster (Tasks API §1 `POST /tasks`) and
+  /// returns the new series' `TSK_…` code. The response carries the series, not
+  /// the per-assignee assignment codes, so callers still reload [getTasks] to
+  /// pick up the new cards — but the returned code is what lets them address
+  /// the series straight away (e.g. to prime its attachment cache) without
+  /// hunting for it in the reloaded list. [assetCodes] are attachment codes
+  /// from the upload-session flow (§8/§9).
+  Future<String> createTask({
     required Task draft,
     required List<TaskAssignee> assignees,
     TaskHolidayPolicy? holidayPolicy,
@@ -153,13 +157,40 @@ abstract class TaskRepository {
     String? reason,
   });
 
-  /// Opens a shared upload session for task attachments and drives the full
-  /// cross-service upload of [filePath], returning the ready asset code to pass
-  /// to [createTask]/[updateTask] (Tasks API §8/§9).
-  Future<String> uploadAttachment({
-    required String filePath,
-    required String fileName,
-    required String contentType,
+  // SUPERSEDED by the shared `AttachmentUploadManager` (see
+  // `UploadTaskAttachmentsUseCase`). Attachment transfer is no longer a
+  // repository concern: the repo now only opens the session
+  // ([createUploadSession]) and the manager drives presign/PUT/complete.
+  //
+  // Replaced because this contract forced a per-file loop — one presign per
+  // file, whole files buffered in memory, and an all-or-nothing result.
+  //
+  // /// Opens **one** shared upload session and drives every file in [files]
+  // /// through it (Tasks API §8/§9), returning their ready asset codes in the
+  // /// same order — ready to pass to [createTask]/[updateTask]'s `assetCodes`.
+  // ///
+  // /// [alreadyUploaded] maps a file path to an asset code from a previous
+  // /// attempt; those files are skipped so a retry after a partial failure never
+  // /// re-uploads bytes that already landed. [onAssetUploaded] fires as each file
+  // /// completes so the caller can record it for exactly that purpose, and
+  // /// [onProgress] reports 0-100 for the file at [index].
+  // Future<List<String>> uploadAttachments({
+  //   required List<PendingTaskAttachment> files,
+  //   Map<String, String> alreadyUploaded = const {},
+  //   void Function(String filePath, String assetCode)? onAssetUploaded,
+  //   void Function(int index, int percent)? onProgress,
+  // });
+
+
+  /// The task series' current attachments. Returns an empty list — rather than
+  /// throwing — when the backend has no attachments endpoint yet, so the rest
+  /// of the task UI keeps working.
+  Future<List<TaskAttachment>> getAttachments(String taskCode);
+
+  /// Detaches one attachment from the series by its attachment code.
+  Future<void> detachAttachment({
+    required String taskCode,
+    required String attachmentCode,
   });
 
   /// Opens a shared upload session for task attachments (Tasks API §8

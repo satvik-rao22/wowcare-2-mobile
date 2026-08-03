@@ -25,7 +25,7 @@ void main() {
         assetCodes: const ['AST_1', 'AST_2'],
       );
 
-      expect(body['assetCodes'], ['AST_1', 'AST_2']);
+      expect(body['attachmentAssetCodes'], ['AST_1', 'AST_2']);
     });
 
     test('omits the key entirely when there are no attachments', () {
@@ -33,7 +33,7 @@ void main() {
 
       // Omitted rather than sent empty, so an event with no attachments does
       // not look like a deliberate "clear".
-      expect(body.containsKey('assetCodes'), isFalse);
+      expect(body.containsKey('attachmentAssetCodes'), isFalse);
     });
   });
 
@@ -44,7 +44,7 @@ void main() {
         assetCodes: const ['AST_9'],
       );
 
-      expect(body['assetCodes'], ['AST_9']);
+      expect(body['attachmentAssetCodes'], ['AST_9']);
     });
 
     test('omits the key when null so existing attachments survive', () {
@@ -52,13 +52,13 @@ void main() {
 
       // The form cannot show what is already attached, so a save that staged no
       // files must leave the server's list alone.
-      expect(body.containsKey('assetCodes'), isFalse);
+      expect(body.containsKey('attachmentAssetCodes'), isFalse);
     });
 
     test('an explicit empty list is sent, clearing attachments', () {
       final body = EventModel.updateBody(_event(), assetCodes: const []);
 
-      expect(body['assetCodes'], isEmpty);
+      expect(body['attachmentAssetCodes'], isEmpty);
     });
 
     test('still drops type and audienceScope', () {
@@ -69,7 +69,7 @@ void main() {
 
       expect(body.containsKey('type'), isFalse);
       expect(body.containsKey('audienceScope'), isFalse);
-      expect(body['assetCodes'], ['AST_1']);
+      expect(body['attachmentAssetCodes'], ['AST_1']);
     });
   });
 

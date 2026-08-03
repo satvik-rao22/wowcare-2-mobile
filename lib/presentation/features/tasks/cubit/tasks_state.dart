@@ -37,6 +37,8 @@ class TasksState extends Equatable {
     this.errorNonce = 0,
     this.schoolTimeZone = TaskTimezone.fallbackTimeZone,
     this.persona = TaskPersona.admin,
+    this.attachmentsByTask = const <String, List<TaskAttachment>>{},
+    this.attachmentsUnavailable = const <String>{},
   });
 
   const TasksState.initial()
@@ -58,7 +60,9 @@ class TasksState extends Equatable {
         errorMessage = null,
         errorNonce = 0,
         schoolTimeZone = TaskTimezone.fallbackTimeZone,
-        persona = TaskPersona.admin;
+        persona = TaskPersona.admin,
+        attachmentsByTask = const <String, List<TaskAttachment>>{},
+        attachmentsUnavailable = const <String>{};
 
   final List<Task> tasks;
   final bool isLoading;
@@ -113,6 +117,49 @@ class TasksState extends Equatable {
   /// admin sessions; staff/parent sessions are narrowed the moment the persona
   /// is known (before the first fetch resolves).
   final TaskPersona persona;
+
+  /// Attachments keyed by **series** code (`TSK_…`), not by the card's
+  /// assignment code — attachments belong to the series, so every card of the
+  /// same series shares one entry and one fetch. A present-but-empty list means
+  /// "loaded, has none"; an absent key means "not fetched yet".
+  final Map<String, List<TaskAttachment>> attachmentsByTask;
+
+  /// Attachments for one task card, resolved through its series code.
+  ///
+  /// Prefers a fetched/primed set, which carries file names, sizes and the
+  /// `ATT_…` row codes needed to detach. Falls back to the card's own
+  /// [Task.assetCodes] — the assignment payload's complete asset list — so
+  /// attachments still render when no attachments endpoint answered. Those
+  /// synthesized entries know only their asset code: the UI resolves a delivery
+  /// URL from it, and cannot offer detach (no row code).
+  List<TaskAttachment> attachmentsFor(Task task) {
+    final loaded = attachmentsByTask[task.taskCode];
+    if (loaded != null && loaded.isNotEmpty) return loaded;
+    if (task.assetCodes.isEmpty) return loaded ?? const <TaskAttachment>[];
+    return task.assetCodes
+        .map((assetCode) => TaskAttachment(assetCode: assetCode))
+        .toList(growable: false);
+  }
+
+  /// Whether this card's attachments can be shown truthfully. The card's own
+  /// [Task.assetCodes] are authoritative, so a failed/absent attachments fetch
+  /// no longer means "unknown" for a task that listed its assets.
+  bool attachmentsReadableForTask(Task task) =>
+      task.assetCodes.isNotEmpty || attachmentsAreReadable(task.taskCode);
+
+  /// Whether this task's attachments have been fetched at least once —
+  /// distinguishes "none" from "not yet known".
+  bool hasLoadedAttachments(Task task) =>
+      attachmentsByTask.containsKey(task.taskCode);
+
+  /// Series codes whose attachments could not be read (no endpoint, or the
+  /// request failed). Distinct from "has none": since `assetCodes` is a full
+  /// replace on save, a form must not write attachments for a series in here
+  /// or it would delete whatever the server holds unseen.
+  final Set<String> attachmentsUnavailable;
+
+  bool attachmentsAreReadable(String taskCode) =>
+      !attachmentsUnavailable.contains(taskCode.trim());
 
   /// Count of active sheet filters shown on the Filters button. Search is
   /// tracked separately by [hasActiveFilters] so the search bar drives the
@@ -276,12 +323,24 @@ class TasksState extends Equatable {
     return codes.contains(task.assigneeCode);
   }
 
+  /// How "created by me" is decided, given who is signed in. Held here so the
+  /// "By Me" scope, the read boundary and `TaskAccess` all share one rule (and
+  /// one swap point) instead of each comparing creator fields themselves.
+  TaskCreatorMatcher get creatorMatcher => TaskCreatorMatcher(
+        identityCodes: identityCodes,
+        displayName: currentUserName,
+      );
+
   /// Whether [task] was created by the current user — backs the staff "By Me"
   /// scope. Fails closed while the identity is unresolved, as [_isMine] does.
+  ///
+  /// "Unresolved" deliberately still means *no identity code*, even though the
+  /// creator is matched by name: a display name alone is a weak signal (a
+  /// namesake matches it), so it grants authorship only once the session has
+  /// actually resolved who this user is. Same gate as `TaskAccess`.
   bool _isByMe(Task task) {
-    final codes = identityCodes;
-    if (codes.isEmpty) return false;
-    return codes.contains(task.createdBy);
+    if (identityCodes.isEmpty) return false;
+    return creatorMatcher.matches(task);
   }
 
   /// Distinct assignees referenced by a task this persona can see — offline-safe
@@ -344,6 +403,8 @@ class TasksState extends Equatable {
     String? Function()? errorMessage,
     String? schoolTimeZone,
     TaskPersona? persona,
+    Map<String, List<TaskAttachment>>? attachmentsByTask,
+    Set<String>? attachmentsUnavailable,
   }) {
     final resolvedError =
         errorMessage != null ? errorMessage() : this.errorMessage;
@@ -370,6 +431,9 @@ class TasksState extends Equatable {
       errorNonce: bumpedNonce,
       schoolTimeZone: schoolTimeZone ?? this.schoolTimeZone,
       persona: persona ?? this.persona,
+      attachmentsByTask: attachmentsByTask ?? this.attachmentsByTask,
+      attachmentsUnavailable:
+          attachmentsUnavailable ?? this.attachmentsUnavailable,
     );
   }
 
@@ -394,5 +458,7 @@ class TasksState extends Equatable {
         errorNonce,
         schoolTimeZone,
         persona,
+        attachmentsByTask,
+        attachmentsUnavailable,
       ];
 }

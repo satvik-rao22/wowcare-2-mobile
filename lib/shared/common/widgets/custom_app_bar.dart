@@ -140,16 +140,16 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       leading: hasBackButton
           ? IconButton(
               icon: SvgPicture.asset(MediaRes.backButton),
-              onPressed: () {
-                // Always do something useful: pop one level if possible,
-                // otherwise go home to Dashboard. Previously this was just
-                // Navigator.maybePop — which silently does nothing on a tab
-                // branch root (e.g. /messageFeed for staff has
-                // hasBackButton:true but nothing to pop), so the back icon
-                // appeared broken.
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                } else {
+              onPressed: () async {
+                // maybePop (not a bare pop) so a screen that has blocked
+                // popping — e.g. a form with an upload/save in flight, via
+                // Form.canPop/PopScope — actually blocks this tap too, not
+                // just the system back gesture. Still falls through to
+                // Dashboard when there's nothing to pop (e.g. /messageFeed for
+                // staff has hasBackButton:true but nothing to pop, where a
+                // bare Navigator.maybePop would silently do nothing).
+                final handled = await Navigator.of(context).maybePop();
+                if (!handled && context.mounted) {
                   context.go(DashboardScreen.routeName);
                 }
               },

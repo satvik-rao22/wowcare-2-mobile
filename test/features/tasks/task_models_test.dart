@@ -8,9 +8,9 @@ import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
 
 void main() {
   // The creator is what the staff "By Me" scope and the "Created By" filter
-  // match on. It isn't in the documented §5a/§6/§7 item shape, so the spelling
-  // the service actually uses is accepted in either form rather than the whole
-  // scope silently reading as empty.
+  // match on. The service sends it as a display name, so `createdBy` is kept
+  // verbatim while a stable code (when one ever arrives) lands in the separate
+  // `createdByCode` slot the matcher can be switched onto.
   group('TaskAssignmentModel — creator', () {
     Task parse(Map<String, dynamic> extra) => TaskAssignmentModel.fromJson({
           'code': 'TSA_1',
@@ -22,10 +22,10 @@ void main() {
 
     test('reads the createdBy spelling', () {
       final task = parse(const {
-        'createdBy': 'STF_CREATOR',
+        'createdBy': 'Suhas Biwalkar',
         'createdByName': 'Alice Ng',
       });
-      expect(task.createdBy, 'STF_CREATOR');
+      expect(task.createdBy, 'Suhas Biwalkar');
       expect(task.createdByName, 'Alice Ng');
     });
 
@@ -40,9 +40,27 @@ void main() {
       expect(task.createdByName, 'Alice Ng');
     });
 
-    test('reads the Code-suffixed spellings', () {
-      expect(parse(const {'createdByCode': 'STF_A'}).createdBy, 'STF_A');
-      expect(parse(const {'assignedByCode': 'STF_B'}).createdBy, 'STF_B');
+    test('keeps a creator code in its own field, not in createdBy', () {
+      // `createdBy` is the display name the service sends; a code must never be
+      // conflated with it, or switching the matcher onto codes would be a no-op.
+      final task = parse(const {
+        'createdBy': 'Suhas Biwalkar',
+        'createdByCode': 'STF_A',
+      });
+      expect(task.createdBy, 'Suhas Biwalkar');
+      expect(task.createdByCode, 'STF_A');
+    });
+
+    test('accepts the other creator-code spellings', () {
+      expect(
+        parse(const {'createdByStaffCode': 'STF_A'}).createdByCode,
+        'STF_A',
+      );
+      expect(parse(const {'assignedByCode': 'STF_B'}).createdByCode, 'STF_B');
+    });
+
+    test('leaves the creator code empty on the current payload', () {
+      expect(parse(const {'createdBy': 'Suhas Biwalkar'}).createdByCode, '');
     });
 
     test('prefers createdBy when several spellings are present', () {
@@ -58,6 +76,96 @@ void main() {
       expect(
         parse(const {'createdBy': '   ', 'assignedBy': 'STF_B'}).createdBy,
         'STF_B',
+      );
+    });
+
+    test('reads the last modifier for display', () {
+      expect(parse(const {'updatedBy': 'Mohan Sonone'}).updatedBy,
+          'Mohan Sonone');
+      expect(parse(const {'modifiedBy': 'Mohan Sonone'}).updatedBy,
+          'Mohan Sonone');
+      expect(parse(const {}).updatedBy, '');
+    });
+
+    test('createdByLabel prefers the denormalized name over createdBy', () {
+      expect(
+        parse(const {'createdBy': 'A B', 'createdByName': 'Alice Ng'})
+            .createdByLabel,
+        'Alice Ng',
+      );
+      // With no separate name field, the label falls back to whatever
+      // `createdBy` holds — which is the display name on today's payload.
+      expect(parse(const {'createdBy': 'Suhas Biwalkar'}).createdByLabel,
+          'Suhas Biwalkar');
+      expect(parse(const {}).createdByLabel, '');
+    });
+  });
+
+  group('TaskAssignmentModel — audit timestamps', () {
+    Task parse(Map<String, dynamic> extra) => TaskAssignmentModel.fromJson({
+          'code': 'TSA_1',
+          'taskCode': 'TSK_1',
+          'title': 'x',
+          'occurrenceDate': '2026-07-15',
+          ...extra,
+        }).toEntity();
+
+    test('uses the real createdAt/updatedAt instants', () {
+      final task = parse(const {
+        'createdAt': '2026-07-30T12:38:24.557942Z',
+        'updatedAt': '2026-07-30T14:27:13.791819Z',
+      });
+      expect(task.createdAt, DateTime.utc(2026, 7, 30, 12, 38, 24, 557, 942));
+      expect(task.updatedAt, DateTime.utc(2026, 7, 30, 14, 27, 13, 791, 819));
+    });
+
+    test('falls back to the occurrence day when the payload omits them', () {
+      // The older assignment shape sent neither; the card must still have
+      // *some* instant, since `createdAt` is non-nullable on the entity.
+      final task = parse(const {});
+      expect(task.createdAt, DateTime(2026, 7, 15));
+      expect(task.updatedAt, DateTime(2026, 7, 15));
+    });
+
+    test('an unmodified task reports updatedAt as its createdAt', () {
+      final task = parse(const {'createdAt': '2026-07-30T12:38:24Z'});
+      expect(task.updatedAt, task.createdAt);
+    });
+  });
+
+  group('TaskAssignmentModel — assetCodes', () {
+    List<String> parse(dynamic raw) => TaskAssignmentModel.fromJson({
+          'code': 'TSA_1',
+          'taskCode': 'TSK_1',
+          'title': 'x',
+          'occurrenceDate': '2026-07-15',
+          'assetCodes': raw,
+        }).toEntity().assetCodes;
+
+    test('carries the attachment asset codes onto the card', () {
+      expect(parse(const ['AST_F51F0D20-F', 'AST_A1C49808-D']),
+          ['AST_F51F0D20-F', 'AST_A1C49808-D']);
+    });
+
+    test('an empty list means the task has no attachments', () {
+      expect(parse(const <String>[]), isEmpty);
+    });
+
+    test('trims entries and drops blanks', () {
+      expect(parse(const ['  AST_A  ', '', '   ']), ['AST_A']);
+    });
+
+    test('degrades to none for an absent or malformed value', () {
+      expect(parse(null), isEmpty);
+      expect(parse('AST_A'), isEmpty);
+      expect(
+        TaskAssignmentModel.fromJson(const {
+          'code': 'TSA_1',
+          'taskCode': 'TSK_1',
+          'title': 'x',
+          'occurrenceDate': '2026-07-15',
+        }).toEntity().assetCodes,
+        isEmpty,
       );
     });
   });

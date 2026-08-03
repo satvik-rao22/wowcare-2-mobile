@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_attachment.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 
 Task _card({
@@ -41,6 +42,7 @@ TasksState _state({
   DateTime? dateTo,
   bool overdueOnly = false,
   String currentUserCode = '',
+  String currentUserName = '',
   String currentStaffCode = '',
   TaskPersona persona = TaskPersona.admin,
 }) =>
@@ -58,17 +60,20 @@ TasksState _state({
       dateTo: dateTo,
       overdueOnly: overdueOnly,
       currentUserCode: currentUserCode,
-      currentUserName: '',
+      currentUserName: currentUserName,
       currentStaffCode: currentStaffCode,
       persona: persona,
     );
 
 void main() {
+  // The API reports the creator as a display name, so "By Me" is decided by
+  // `currentUserName` (via `TaskCreatorMatcher`), while "mine" stays a code
+  // match on the assignee. The fixtures mirror that split deliberately.
   group('filteredTasks — scope', () {
     final tasks = [
-      _card(code: '1', assignee: 'STF_ME', createdBy: 'STF_OTHER'),
-      _card(code: '2', assignee: 'STF_OTHER', createdBy: 'STF_ME'),
-      _card(code: '3', assignee: 'STF_OTHER', createdBy: 'STF_OTHER'),
+      _card(code: '1', assignee: 'STF_ME', createdBy: 'Mohan Sonone'),
+      _card(code: '2', assignee: 'STF_OTHER', createdBy: 'Suhas Biwalkar'),
+      _card(code: '3', assignee: 'STF_OTHER', createdBy: 'Mohan Sonone'),
     ];
 
     test('all shows everything', () {
@@ -89,6 +94,7 @@ void main() {
         tasks: tasks,
         scope: TaskScope.byMe,
         currentStaffCode: 'STF_ME',
+        currentUserName: 'Suhas Biwalkar',
       );
       expect(s.filteredTasks.map((t) => t.code), ['2']);
     });
@@ -99,21 +105,43 @@ void main() {
       final s = _state(
         tasks: [
           ...tasks,
-          _card(code: '4', assignee: 'STF_ME', createdBy: 'STF_ME'),
+          _card(code: '4', assignee: 'STF_ME', createdBy: 'Suhas Biwalkar'),
         ],
         scope: TaskScope.byMe,
         currentStaffCode: 'STF_ME',
+        currentUserName: 'Suhas Biwalkar',
       );
       expect(s.filteredTasks.map((t) => t.code), ['2', '4']);
     });
 
-    test('byMe also matches on the currentUserCode', () {
-      final s = _state(
+    test('byMe matches the creator name, not the identity codes', () {
+      // Guards the current wire shape: the payload's creator is a name, so a
+      // resolved staff code alone must not be treated as authorship.
+      final byName = _state(
+        tasks: [_card(code: '1', assignee: 'STF_X', createdBy: 'Suhas Biwalkar')],
+        scope: TaskScope.byMe,
+        currentUserCode: 'USR_ME',
+        currentUserName: 'suhas   biwalkar',
+      );
+      expect(byName.filteredTasks, hasLength(1));
+
+      final byCodeOnly = _state(
         tasks: [_card(code: '1', assignee: 'STF_X', createdBy: 'USR_ME')],
         scope: TaskScope.byMe,
         currentUserCode: 'USR_ME',
       );
-      expect(s.filteredTasks, hasLength(1));
+      expect(byCodeOnly.filteredTasks, isEmpty);
+    });
+
+    test('byMe needs a resolved identity code, not just a name', () {
+      // A display name on its own is a weak signal — a namesake matches it — so
+      // authorship is granted only once the session knows who this user is.
+      final s = _state(
+        tasks: [_card(code: '1', assignee: 'STF_X', createdBy: 'Suhas Biwalkar')],
+        scope: TaskScope.byMe,
+        currentUserName: 'Suhas Biwalkar',
+      );
+      expect(s.filteredTasks, isEmpty);
     });
 
     test('mine/byMe fail closed while identity is unresolved', () {
@@ -123,6 +151,17 @@ void main() {
           isEmpty);
       expect(_state(tasks: tasks, scope: TaskScope.byMe).filteredTasks,
           isEmpty);
+    });
+
+    test('byMe fails closed when only the staff code is resolved', () {
+      // The name is what decides authorship today; without it there is nothing
+      // to compare, so the tab must be empty rather than showing everything.
+      final s = _state(
+        tasks: tasks,
+        scope: TaskScope.byMe,
+        currentStaffCode: 'STF_ME',
+      );
+      expect(s.filteredTasks, isEmpty);
     });
 
     test('mine also matches on the currentUserCode', () {
@@ -137,9 +176,9 @@ void main() {
 
   group('visibleTasks — persona read boundary (PRD §5.2)', () {
     final tasks = [
-      _card(code: '1', assignee: 'STF_ME', createdBy: 'STF_OTHER'),
-      _card(code: '2', assignee: 'STF_OTHER', createdBy: 'STF_ME'),
-      _card(code: '3', assignee: 'STF_OTHER', createdBy: 'STF_OTHER'),
+      _card(code: '1', assignee: 'STF_ME', createdBy: 'Mohan Sonone'),
+      _card(code: '2', assignee: 'STF_OTHER', createdBy: 'Suhas Biwalkar'),
+      _card(code: '3', assignee: 'STF_OTHER', createdBy: 'Mohan Sonone'),
     ];
 
     test('admin sees every loaded task', () {
@@ -151,9 +190,21 @@ void main() {
       final s = _state(
         tasks: tasks,
         currentStaffCode: 'STF_ME',
+        currentUserName: 'Suhas Biwalkar',
         persona: TaskPersona.staff,
       );
       expect(s.visibleTasks.map((t) => t.code), ['1', '2']);
+    });
+
+    test('staff with a resolved code but no name still sees assigned tasks', () {
+      // Authorship needs the name; assignment does not. Losing the creator half
+      // of the boundary must not cost a staff member their own assigned work.
+      final s = _state(
+        tasks: tasks,
+        currentStaffCode: 'STF_ME',
+        persona: TaskPersona.staff,
+      );
+      expect(s.visibleTasks.map((t) => t.code), ['1']);
     });
 
     test('staff scope "all" cannot widen past their own tasks', () {
@@ -161,6 +212,7 @@ void main() {
         tasks: tasks,
         scope: TaskScope.all,
         currentStaffCode: 'STF_ME',
+        currentUserName: 'Suhas Biwalkar',
         persona: TaskPersona.staff,
       );
       expect(s.filteredTasks.map((t) => t.code), ['1', '2']);
@@ -414,6 +466,90 @@ void main() {
       final s = _state(tasks: [_card(code: 'TSA_9')]);
       expect(s.taskByCode('TSA_9')?.code, 'TSA_9');
       expect(s.taskByCode('missing'), isNull);
+    });
+  });
+
+  // The Tasks API has no attachments read endpoint, but the assignment payload
+  // now carries the series' `assetCodes` — so a card can show its attachments
+  // from its own data, and only falls back to the fetched cache for the richer
+  // metadata (file name, size, detachable row code).
+  group('attachmentsFor — assetCodes fallback', () {
+    Task cardWithAssets(List<String> assetCodes) => Task(
+          code: 'TSA_1',
+          taskCode: 'TSK_1',
+          title: 'x',
+          assetCodes: assetCodes,
+          startDate: DateTime.utc(2026, 7, 30),
+          dueDate: DateTime.utc(2026, 7, 30),
+          createdAt: DateTime.utc(2026, 7, 30),
+          updatedAt: DateTime.utc(2026, 7, 30),
+        );
+
+    test('synthesizes attachments from the card assetCodes', () {
+      final task = cardWithAssets(['AST_A', 'AST_B']);
+      final s = _state(tasks: [task]);
+      expect(
+        s.attachmentsFor(task).map((a) => a.assetCode),
+        ['AST_A', 'AST_B'],
+      );
+    });
+
+    test('synthesized entries cannot be detached (no row code)', () {
+      // The detach endpoint takes the `ATT_…` row code, which `assetCodes`
+      // doesn't carry — the UI keys its Remove affordance off exactly this.
+      final task = cardWithAssets(['AST_A']);
+      expect(_state(tasks: [task]).attachmentsFor(task).single.code, isEmpty);
+    });
+
+    test('a fetched set wins, since it carries names, sizes and row codes', () {
+      final task = cardWithAssets(['AST_A']);
+      final s = _state(tasks: [task]).copyWith(
+        attachmentsByTask: {
+          'TSK_1': const [
+            TaskAttachment(
+              assetCode: 'AST_A',
+              code: 'ATT_1',
+              fileName: 'brief.pdf',
+            ),
+          ],
+        },
+      );
+      expect(s.attachmentsFor(task).single.fileName, 'brief.pdf');
+      expect(s.attachmentsFor(task).single.code, 'ATT_1');
+    });
+
+    test('assetCodes still win over a cached empty list', () {
+      // "Fetched, found none" is not authoritative against a payload that lists
+      // assets — that combination is exactly how an attachment appeared to
+      // vanish before.
+      final task = cardWithAssets(['AST_A']);
+      final s = _state(tasks: [task]).copyWith(
+        attachmentsByTask: const {'TSK_1': <TaskAttachment>[]},
+      );
+      expect(s.attachmentsFor(task), hasLength(1));
+    });
+
+    test('a card with no assetCodes and no cache has no attachments', () {
+      final task = cardWithAssets(const []);
+      expect(_state(tasks: [task]).attachmentsFor(task), isEmpty);
+      expect(_state(tasks: [task]).hasLoadedAttachments(task), isFalse);
+    });
+
+    test('assetCodes make attachments readable despite a failed fetch', () {
+      // Readable means "we can show the truth": with the codes in hand, a dead
+      // attachments endpoint must not put up the "couldn't load" notice.
+      final task = cardWithAssets(['AST_A']);
+      final s = _state(tasks: [task])
+          .copyWith(attachmentsUnavailable: const {'TSK_1'});
+      expect(s.attachmentsAreReadable('TSK_1'), isFalse);
+      expect(s.attachmentsReadableForTask(task), isTrue);
+    });
+
+    test('a task with no assetCodes still reports an unreadable fetch', () {
+      final task = cardWithAssets(const []);
+      final s = _state(tasks: [task])
+          .copyWith(attachmentsUnavailable: const {'TSK_1'});
+      expect(s.attachmentsReadableForTask(task), isFalse);
     });
   });
 

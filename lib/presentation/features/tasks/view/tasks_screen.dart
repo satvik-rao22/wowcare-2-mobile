@@ -516,6 +516,7 @@ class _TasksScreenState extends State<TasksScreen> {
       task: task,
       userCode: state.currentUserCode,
       staffCode: state.currentStaffCode,
+      userName: state.currentUserName,
     );
     return TaskCard(
       // Stable identity so Flutter reuses elements when the overdue-first

@@ -665,6 +665,7 @@ class _EventsScreenState extends State<EventsScreen> {
         task: task,
         userCode: state.currentUserCode,
         staffCode: state.currentStaffCode,
+        userName: state.currentUserName,
       );
       return TaskCard(
         key: ValueKey(task.code),

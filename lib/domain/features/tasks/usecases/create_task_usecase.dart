@@ -7,7 +7,8 @@ class CreateTaskUseCase {
 
   final TaskRepository _repository;
 
-  Future<void> call({
+  /// Returns the created series' `TSK_…` code.
+  Future<String> call({
     required Task draft,
     required List<TaskAssignee> assignees,
     TaskHolidayPolicy? holidayPolicy,

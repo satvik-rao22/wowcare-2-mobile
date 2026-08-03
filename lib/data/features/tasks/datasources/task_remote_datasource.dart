@@ -6,6 +6,7 @@ import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../domain/features/tasks/entities/task.dart';
 import '../../../../domain/features/tasks/entities/task_assignee.dart';
+import '../../../../domain/features/tasks/entities/task_attachment.dart';
 import '../../../../domain/features/tasks/entities/task_board.dart';
 import '../../../../domain/features/tasks/entities/task_occurrence.dart';
 import '../../../../domain/features/tasks/entities/task_query.dart';
@@ -155,6 +156,16 @@ abstract class TaskRemoteDataSource {
   /// `POST /api/v1/tasks/upload-session` — open a school-wide shared upload
   /// session for task attachments (Tasks API §8).
   Future<TaskUploadSession> createUploadSession();
+
+  /// `GET /api/v1/tasks/{code}/attachments` — the series' current attachments.
+  /// Empty list when the endpoint is absent (see [ApiPaths.taskAttachments]).
+  Future<List<TaskAttachment>> getAttachments(String code);
+
+  /// `DELETE /api/v1/tasks/{code}/attachments/{attachmentCode}`.
+  Future<void> deleteAttachment({
+    required String code,
+    required String attachmentCode,
+  });
 }
 
 class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
@@ -481,6 +492,40 @@ class TaskRemoteDataSourceImpl implements TaskRemoteDataSource {
       response.data,
       fallbackDocumentBasePath:
           ApiConstants.isUat ? '/api/v1/document' : '/document-ms/api/v1',
+    );
+  }
+
+  @override
+  Future<List<TaskAttachment>> getAttachments(String code) async {
+    final trimmed = code.trim();
+    if (trimmed.isEmpty) return const <TaskAttachment>[];
+    try {
+      final response = await _client.get<dynamic>(
+        _url(ApiPaths.taskAttachments(trimmed)),
+        options: await _options(),
+      );
+      return TaskResponseParser.attachmentList(response.data);
+    } on DioException catch (e) {
+      // The Tasks service documents only the write side of attachments, so a
+      // deployment without the read endpoint is expected. Surface that as
+      // "unavailable" rather than "none": the two must not be confused,
+      // because `assetCodes` is a full replace on save.
+      final status = e.response?.statusCode ?? 0;
+      if (status == 404 || status == 405 || status == 501) {
+        throw const TaskAttachmentsUnavailable();
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<void> deleteAttachment({
+    required String code,
+    required String attachmentCode,
+  }) async {
+    await _client.delete<dynamic>(
+      _url(ApiPaths.taskAttachment(code, attachmentCode)),
+      options: await _options(),
     );
   }
 

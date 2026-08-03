@@ -398,7 +398,19 @@ class ImageUploadService {
     void Function(int sent, int total)? onSendProgress,
     void Function(int sentBytes, int totalBytes, int percent)? onProgress,
   }) async {
-    final uploadClient = Dio();
+    // A bare `Dio()` has NO timeouts (connect/send/receive all null), so a
+    // half-open connection to storage makes this `await` hang forever — and
+    // every caller sets a "uploading" flag before it, so the UI is stuck until
+    // the app is killed. Storage is a plain PUT of at most a few MB, so these
+    // are generous enough for a slow mobile link while still bounding a dead
+    // socket.
+    final uploadClient = Dio(
+      BaseOptions(
+        connectTimeout: const Duration(seconds: 30),
+        sendTimeout: const Duration(minutes: 5),
+        receiveTimeout: const Duration(minutes: 1),
+      ),
+    );
     final bytes = await file.readAsBytes();
     final headers = <String, dynamic>{};
     requiredHeaders.forEach((key, value) {
@@ -458,6 +470,58 @@ class ImageUploadService {
         errorData: e.response?.data,
       );
       rethrow;
+    }
+  }
+
+  /// Waits only as long as it's useful for assets that are about to be
+  /// **attached to a record** (task attachments, message media), and never
+  /// throws. Returns false *only* when the service says an asset definitively
+  /// FAILED; true otherwise, including on timeout.
+  ///
+  /// Deliberately different from [waitUntilAssetsReady], which blocks until
+  /// every asset is literally `READY` because its callers (profile photos) must
+  /// render a delivery URL the moment they return. An attachment needs none of
+  /// that: the record stores the **asset code**, and the URL is resolved lazily
+  /// at display time by [getMediaAssetUrlByCode] (which does its own waiting).
+  ///
+  /// Applying the stricter gate here made attaching impossible: document-ms
+  /// leaves these assets at `UPLOADED`, `READY` never arrived, and the caller
+  /// polled the session ~60 times over two minutes before failing an upload that
+  /// had actually succeeded. So `UPLOADED` counts as good enough, an
+  /// unrecognized session payload stops the polling immediately instead of
+  /// burning the whole timeout, and a slow processing pipeline can no longer
+  /// block the user from saving.
+  Future<bool> awaitAssetsAttachable({
+    required String sessionCode,
+    required List<String> expectedAssetCodes,
+    Duration pollEvery = const Duration(seconds: 2),
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    final expectedSet = expectedAssetCodes
+        .map((e) => e.trim())
+        .where((e) => e.isNotEmpty)
+        .toSet();
+    if (expectedSet.isEmpty) return true;
+
+    final deadline = DateTime.now().add(timeout);
+    while (true) {
+      _UploadSessionStatusResult result;
+      try {
+        result = await _getUploadSessionStatus(
+          sessionCode: sessionCode,
+          expectedAssetCodes: expectedSet,
+        );
+      } catch (_) {
+        // The status endpoint is a courtesy here, not a requirement.
+        return true;
+      }
+      if (result.hasFailure) return false;
+      if (result.isAttachable) return true;
+      // Nothing recognizable in the payload — polling it again will not change
+      // that, so stop rather than repeating the request until the deadline.
+      if (result.isUnknown) return true;
+      if (DateTime.now().isAfter(deadline)) return true;
+      await Future.delayed(pollEvery);
     }
   }
 
@@ -521,12 +585,20 @@ class ImageUploadService {
       expectedAssetCodes: expectedAssetCodes,
     );
     if (statuses.isEmpty) {
-      return const _UploadSessionStatusResult(isReady: false);
+      // Either the session doesn't list these assets or the payload isn't the
+      // shape this parses. Flagged as *unknown* rather than "not ready" so a
+      // caller can stop polling something that will never answer.
+      return const _UploadSessionStatusResult(isReady: false, isUnknown: true);
     }
     var readyCount = 0;
+    var attachableCount = 0;
     for (final status in statuses.values) {
       final normalized = status.trim().toUpperCase();
       if (normalized == 'READY') readyCount++;
+      // Stored and acknowledged by document-ms. It may still have processing to
+      // do (derivatives, virus scan), but the asset code is already usable as a
+      // reference — which is all an attachment needs.
+      if (normalized == 'READY' || normalized == 'UPLOADED') attachableCount++;
       if (normalized == 'FAILED') {
         return const _UploadSessionStatusResult(
           isReady: false,
@@ -536,6 +608,7 @@ class ImageUploadService {
     }
     return _UploadSessionStatusResult(
       isReady: readyCount == expectedAssetCodes.length,
+      isAttachable: attachableCount == expectedAssetCodes.length,
     );
   }
 
@@ -1193,10 +1266,25 @@ class ImageUploadService {
 class _UploadSessionStatusResult {
   const _UploadSessionStatusResult({
     required this.isReady,
+    this.isAttachable = false,
+    this.isUnknown = false,
     this.failureMessage,
   });
 
+  /// Every expected asset reports `READY` — it has a delivery URL.
   final bool isReady;
+
+  /// Every expected asset reports `READY` *or* `UPLOADED` — stored, so its code
+  /// can be attached to a record even if processing hasn't finished.
+  final bool isAttachable;
+
+  /// The session payload said nothing about the expected assets, so polling it
+  /// again is pointless.
+  final bool isUnknown;
+
   final String? failureMessage;
+
+  bool get hasFailure =>
+      failureMessage != null && failureMessage!.trim().isNotEmpty;
 }
 
