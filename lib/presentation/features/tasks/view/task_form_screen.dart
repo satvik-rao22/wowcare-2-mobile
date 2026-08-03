@@ -20,7 +20,6 @@ import 'package:wowcare/presentation/features/tasks/utils/task_schedule_utils.da
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/assignee_picker_sheet.dart';
-import 'package:wowcare/presentation/features/tasks/widgets/task_attachment_picker.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';

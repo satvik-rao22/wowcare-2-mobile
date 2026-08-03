@@ -1,7 +1,7 @@
 #!/bin/sh
 # This is a generated file; do not edit or check into version control.
-export "FLUTTER_ROOT=/Users/atharvapatwardhan/fvm/versions/3.41.9"
-export "FLUTTER_APPLICATION_PATH=/Users/atharvapatwardhan/work/wowcare2-mobile"
+export "FLUTTER_ROOT=/Users/deepaksingh/Documents/Flutter/flutter_sdk"
+export "FLUTTER_APPLICATION_PATH=/Users/deepaksingh/Documents/Flutter/projects/wowcare2-mobile"
 export "COCOAPODS_PARALLEL_CODE_SIGN=true"
 export "FLUTTER_BUILD_DIR=build"
 export "FLUTTER_BUILD_NAME=1.0.0"

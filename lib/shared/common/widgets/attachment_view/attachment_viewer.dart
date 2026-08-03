@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:dio/dio.dart';
@@ -6,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/shared/common/widgets/attachment_view/attachment_asset_builder.dart';
+import 'package:wowcare/shared/common/widgets/attachment_view/attachment_tiles.dart';
 import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
 
 /// Opens the full-screen attachment viewer at [initialIndex].
@@ -15,16 +14,16 @@ import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
 /// `List<String>` can call it directly.
 Future<void> openAttachmentViewer(
   BuildContext context, {
-  required List<String> assetCodes,
+  required List<AttachmentAsset> assets,
   int initialIndex = 0,
 }) {
-  if (assetCodes.isEmpty) return Future<void>.value();
+  if (assets.isEmpty) return Future<void>.value();
   return Navigator.of(context).push<void>(
     MaterialPageRoute<void>(
       fullscreenDialog: true,
       builder: (_) => AttachmentViewer(
-        assetCodes: assetCodes,
-        initialIndex: initialIndex.clamp(0, assetCodes.length - 1),
+        assets: assets,
+        initialIndex: initialIndex.clamp(0, assets.length - 1),
       ),
     ),
   );
@@ -39,13 +38,16 @@ Future<void> openAttachmentExternally(
   BuildContext context,
   AttachmentAsset asset,
 ) async {
-  if (asset.url.isEmpty) return;
+  // The presigned original when available, else the processed artifact.
+  final source =
+      asset.downloadUrl.isNotEmpty ? asset.downloadUrl : asset.fullUrl;
+  if (source.isEmpty) return;
   try {
     final dir = await getTemporaryDirectory();
     final safeName = asset.displayName.replaceAll(RegExp(r'[\\/]'), '_');
     final path = '${dir.path}/$safeName';
     // Bare Dio: the URL is presigned, so an auth header would break it.
-    await Dio().download(asset.url, path);
+    await Dio().download(source, path);
     final result = await OpenFile.open(path);
     if (!context.mounted || result.type == ResultType.done) return;
     CoreUtils.showTopSnackBar(
@@ -73,12 +75,13 @@ Future<void> openAttachmentExternally(
 /// the OS.
 class AttachmentViewer extends StatefulWidget {
   const AttachmentViewer({
-    required this.assetCodes,
+    required this.assets,
     this.initialIndex = 0,
     super.key,
   });
 
-  final List<String> assetCodes;
+  /// Already resolved by the caller — the viewer does no fetching of its own.
+  final List<AttachmentAsset> assets;
   final int initialIndex;
 
   @override
@@ -98,7 +101,7 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
 
   @override
   Widget build(BuildContext context) {
-    final total = widget.assetCodes.length;
+    final total = widget.assets.length;
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
@@ -110,89 +113,65 @@ class _AttachmentViewerState extends State<AttachmentViewer> {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
         ),
         actions: [
-          AttachmentAssetBuilder(
-            assetCode: widget.assetCodes[_index],
-            builder: (context, snapshot) {
-              final asset = snapshot.asset;
-              if (asset == null || !asset.isReady) return const SizedBox();
-              return IconButton(
-                tooltip: 'Open outside the app',
-                icon: const Icon(Icons.open_in_new_rounded),
-                onPressed: () => openAttachmentExternally(context, asset),
-              );
-            },
-          ),
+          if (widget.assets[_index].isReady)
+            IconButton(
+              tooltip: 'Open outside the app',
+              icon: const Icon(Icons.open_in_new_rounded),
+              onPressed: () =>
+                  openAttachmentExternally(context, widget.assets[_index]),
+            ),
         ],
       ),
       body: PageView.builder(
         controller: _controller,
         itemCount: total,
         onPageChanged: (i) => setState(() => _index = i),
-        itemBuilder: (context, i) => _Page(assetCode: widget.assetCodes[i]),
+        itemBuilder: (context, i) => _Page(asset: widget.assets[i]),
       ),
     );
   }
 }
 
 class _Page extends StatelessWidget {
-  const _Page({required this.assetCode});
+  const _Page({required this.asset});
 
-  final String assetCode;
+  final AttachmentAsset asset;
 
   @override
   Widget build(BuildContext context) {
-    return AttachmentAssetBuilder(
-      assetCode: assetCode,
-      builder: (context, snapshot) {
-        if (snapshot.isLoading) {
-          return const Center(
-            child: SizedBox(
-              width: 26,
-              height: 26,
-              child: CircularProgressIndicator(strokeWidth: 2.4),
-            ),
-          );
-        }
-        final asset = snapshot.asset;
-        if (asset == null || asset.hasFailed) {
-          return _Failure(
-            asset: asset,
-            onRetry: snapshot.retry,
-          );
-        }
-        if (asset.isImage) {
-          return Column(
-            children: [
-              Expanded(
-                child: InteractiveViewer(
-                  maxScale: 5,
-                  // Fitted to the screen first; zoom is for detail, not for
-                  // making the image legible in the first place.
-                  child: Center(
-                    child: CachedNetworkImage(
-                      imageUrl: asset.url,
-                      fit: BoxFit.contain,
-                      placeholder: (_, __) => const Center(
-                        child: SizedBox(
-                          width: 26,
-                          height: 26,
-                          child: CircularProgressIndicator(strokeWidth: 2.4),
-                        ),
-                      ),
-                      errorWidget: (_, __, ___) => _Failure(
-                        asset: asset,
-                        onRetry: snapshot.retry,
-                      ),
-                    ),
-                  ),
-                ),
+    if (asset.unavailableLabel.isNotEmpty) {
+      return _Unavailable(label: asset.unavailableLabel);
+    }
+    if (!asset.isImage) return _NonPreviewable(asset: asset);
+
+    return Column(
+      children: [
+        Expanded(
+          child: InteractiveViewer(
+            maxScale: 5,
+            // Fitted to the screen first; zoom is for detail, not for making the
+            // image legible in the first place.
+            child: Center(
+              child: Image.network(
+                 asset.fullUrl,
+                fit: BoxFit.contain,
+                // placeholder: (_, __) => const Center(
+                //   child: SizedBox(
+                //     width: 26,
+                //     height: 26,
+                //     child: CircularProgressIndicator(strokeWidth: 2.4),
+                //   ),
+                // ),
+                // errorWidget: (_, url, error) {
+                //   debugPrint('AttachmentViewer: $url failed — $error');
+                //   return const _Unavailable(label: "Couldn't load this image");
+                // },
               ),
-              _Caption(asset: asset),
-            ],
-          );
-        }
-        return _NonPreviewable(asset: asset);
-      },
+            ),
+          ),
+        ),
+        _Caption(asset: asset),
+      ],
     );
   }
 }
@@ -283,15 +262,13 @@ class _NonPreviewable extends StatelessWidget {
   }
 }
 
-class _Failure extends StatelessWidget {
-  const _Failure({required this.asset, required this.onRetry});
+class _Unavailable extends StatelessWidget {
+  const _Unavailable({required this.label});
 
-  final AttachmentAsset? asset;
-  final VoidCallback onRetry;
+  final String label;
 
   @override
   Widget build(BuildContext context) {
-    final retryable = asset?.isRetryable ?? true;
     return Center(
       child: Padding(
         padding: const EdgeInsets.all(28),
@@ -305,22 +282,10 @@ class _Failure extends StatelessWidget {
             ),
             const SizedBox(height: 14),
             Text(
-              asset?.failureLabel ?? "Couldn't load this file",
+              label,
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.white, fontSize: 14),
             ),
-            if (retryable) ...[
-              const SizedBox(height: 18),
-              OutlinedButton.icon(
-                onPressed: onRetry,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text('Try again'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  side: const BorderSide(color: Colors.white38),
-                ),
-              ),
-            ],
           ],
         ),
       ),

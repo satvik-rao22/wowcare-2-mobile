@@ -1,183 +1,173 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 
-/// Why an asset could not be shown. Kept distinct from "not resolved yet" so the
-/// UI can say something true instead of spinning forever.
-enum AttachmentAssetFailure {
-  /// The document service has no such asset (404), or it was detached.
-  notFound,
-
-  /// The asset exists but has no delivery URL yet — still finalizing.
-  notReady,
-
-  /// Network/permission/parse problem. Retryable.
-  error,
-}
-
-/// One resolved attachment: where to fetch it and enough metadata to render it
-/// without a second request.
+/// One resolved attachment: URLs plus enough metadata to render it.
 ///
-/// This is the read-side counterpart to [PickedFile]: the picker produces
-/// [PickedFile] going up, [AttachmentAssetService] produces this coming back.
+/// Read-side counterpart to [PickedFile] — the picker produces [PickedFile] on
+/// the way up, [AttachmentAssetService] produces this on the way back.
+///
+/// Built straight from `POST /media-assets/resolve`. Note which URL is which:
+/// [thumbnailUrl] and [deliveryUrl] are unsigned CloudFront links and so are
+/// safe to hold for the life of the app, while [downloadUrl] is a presigned S3
+/// link that expires in minutes and must be re-resolved rather than stored.
 class AttachmentAsset extends Equatable {
   const AttachmentAsset({
     required this.assetCode,
-    this.url = '',
     this.fileName = '',
     this.contentType = '',
     this.mediaType = '',
     this.sizeBytes = 0,
     this.status = '',
-    this.failure,
-    this.failureMessage = '',
-    this.resolvedAt,
+    this.thumbnailUrl = '',
+    this.deliveryUrl = '',
+    this.downloadUrl = '',
+    this.width = 0,
+    this.height = 0,
+    this.isMissing = false,
   });
 
-  /// A failed resolution, carried as a value so callers never have to catch.
-  factory AttachmentAsset.failed({
-    required String assetCode,
-    required AttachmentAssetFailure failure,
-    String message = '',
-    DateTime? resolvedAt,
-  }) {
+  /// The asset code came back under `missingAssetCodes`, or the request failed.
+  factory AttachmentAsset.missing(String assetCode) =>
+      AttachmentAsset(assetCode: assetCode, isMissing: true);
+
+  factory AttachmentAsset.fromJson(Map<dynamic, dynamic> json) {
+    // Primary variant carries the pixel dimensions, which let a preview reserve
+    // the right aspect ratio instead of jumping once the image decodes.
+    var width = 0;
+    var height = 0;
+    final variants = json['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final isDefault =
+            (row['defaultVariant'] ?? false).toString().toLowerCase() == 'true';
+        if (!isDefault) continue;
+        width = _int(row['width']);
+        height = _int(row['height']);
+        break;
+      }
+    }
+
     return AttachmentAsset(
-      assetCode: assetCode,
-      failure: failure,
-      failureMessage: message,
-      resolvedAt: resolvedAt,
+      assetCode: (json['assetCode'] ?? '').toString().trim(),
+      fileName: (json['fileName'] ?? '').toString().trim(),
+      contentType: (json['contentType'] ?? '').toString().trim().toLowerCase(),
+      mediaType: (json['mediaType'] ?? '').toString().trim().toUpperCase(),
+      sizeBytes: _int(json['sizeBytes']),
+      status: (json['status'] ?? '').toString().trim().toUpperCase(),
+      thumbnailUrl: (json['thumbnailUrl'] ?? '').toString().trim(),
+      deliveryUrl: (json['deliveryUrl'] ?? '').toString().trim(),
+      downloadUrl: (json['downloadUrl'] ?? '').toString().trim(),
+      width: width,
+      height: height,
     );
   }
 
   final String assetCode;
-
-  /// Delivery URL. Empty when the asset could not be resolved.
-  ///
-  /// Presigned and therefore short-lived — never persist it. The service's TTL
-  /// exists precisely so a stale one is re-resolved rather than rendered as a
-  /// broken image.
-  final String url;
-
   final String fileName;
   final String contentType;
 
-  /// `IMAGE` / `VIDEO` / `DOCUMENT` as classified by the document service.
+  /// `IMAGE` / `VIDEO` / `DOCUMENT`.
   final String mediaType;
   final int sizeBytes;
 
-  /// `UPLOADED` / `READY` / … as reported by the service.
+  /// `READY` / `PROCESSING` / `UPLOADED` / `FAILED`.
   final String status;
 
-  final AttachmentAssetFailure? failure;
-  final String failureMessage;
+  /// 256px webp — a few KB. What lists and small tiles should load.
+  final String thumbnailUrl;
 
-  /// When this was resolved — the service compares it against its TTL.
-  final DateTime? resolvedAt;
+  /// Full-size processed artifact. What the viewer loads.
+  final String deliveryUrl;
 
-  bool get isReady => url.isNotEmpty && failure == null;
-  bool get hasFailed => failure != null;
+  /// Presigned S3 link for handing the original to another app. Expires in
+  /// ~15 minutes, so re-resolve rather than reuse a stored copy.
+  final String downloadUrl;
 
-  /// Whether retrying could plausibly help. A missing asset will stay missing.
-  bool get isRetryable => failure != AttachmentAssetFailure.notFound;
+  final int width;
+  final int height;
 
-  String get _extension {
-    final fromName = fileName.lastIndexOf('.');
-    if (fromName >= 0 && fromName < fileName.length - 1) {
-      return fileName.substring(fromName + 1).toLowerCase();
+  final bool isMissing;
+
+  /// Whether there is something to show. `PROCESSING` assets have no URLs yet.
+  bool get isReady => !isMissing && deliveryUrl.isNotEmpty;
+
+  bool get isProcessing => !isMissing && !isReady && status != 'FAILED';
+
+  /// Best URL for a small tile — the thumbnail when the service made one.
+  String get previewUrl =>
+      thumbnailUrl.isNotEmpty ? thumbnailUrl : deliveryUrl;
+
+  /// Best URL for a full-screen view.
+  String get fullUrl => deliveryUrl.isNotEmpty ? deliveryUrl : thumbnailUrl;
+
+  double? get aspectRatio =>
+      (width > 0 && height > 0) ? width / height : null;
+
+  String get extension {
+    final dot = fileName.lastIndexOf('.');
+    if (dot >= 0 && dot < fileName.length - 1) {
+      return fileName.substring(dot + 1).toLowerCase();
     }
-    // Presigned URLs often carry the extension even when the payload omits a
-    // file name.
-    final path = (Uri.tryParse(url)?.path ?? '').toLowerCase();
-    final fromUrl = path.lastIndexOf('.');
-    if (fromUrl >= 0 && fromUrl < path.length - 1) {
-      return path.substring(fromUrl + 1);
+    // Fall back to the content type — the processed artifact is webp even when
+    // the original was a jpg, so the file name is the better source.
+    final slash = contentType.lastIndexOf('/');
+    if (slash >= 0 && slash < contentType.length - 1) {
+      return contentType.substring(slash + 1);
     }
     return '';
   }
 
-  String get extension => _extension;
+  bool get isImage =>
+      mediaType == 'IMAGE' || contentType.startsWith('image/');
 
-  bool get isImage {
-    if (mediaType == 'IMAGE') return true;
-    if (contentType.startsWith('image/')) return true;
-    return const {'jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp', 'heic', 'heif'}
-        .contains(_extension);
-  }
+  bool get isVideo =>
+      mediaType == 'VIDEO' || contentType.startsWith('video/');
 
-  bool get isVideo {
-    if (mediaType == 'VIDEO') return true;
-    if (contentType.startsWith('video/')) return true;
-    return const {'mp4', 'mov', 'webm'}.contains(_extension);
-  }
-
-  bool get isPdf =>
-      contentType == 'application/pdf' || _extension == 'pdf';
+  bool get isPdf => contentType == 'application/pdf' || extension == 'pdf';
 
   bool get isDocument => !isImage && !isVideo;
 
-  /// Never empty — falls back to the code so a row always has a label.
-  String get displayName => fileName.trim().isEmpty ? assetCode : fileName;
+  /// Never empty — falls back to the code so a row is always labelled.
+  String get displayName => fileName.isEmpty ? assetCode : fileName;
 
-  /// Empty when the payload omitted the size, so callers can hide the line.
   String get displaySize =>
       sizeBytes <= 0 ? '' : FilePickerUtils.formatBytes(sizeBytes);
 
-  /// `JPG · 78 KB`, or just one half when the other is unknown.
+  /// `JPG · 74 KB`, or whichever half is known.
   String get displaySubtitle {
-    final type = _extension.toUpperCase();
-    final size = displaySize;
-    if (type.isEmpty) return size;
-    if (size.isEmpty) return type;
-    return '$type · $size';
+    final parts = <String>[
+      if (extension.isNotEmpty) extension.toUpperCase(),
+      if (displaySize.isNotEmpty) displaySize,
+    ];
+    return parts.join(' · ');
   }
 
-  /// A short, user-facing reason. Deliberately plain — the raw server message
-  /// is kept in [failureMessage] for logs.
-  String get failureLabel {
-    switch (failure) {
-      case AttachmentAssetFailure.notFound:
-        return 'This file is no longer available';
-      case AttachmentAssetFailure.notReady:
-        return 'Still processing — try again in a moment';
-      case AttachmentAssetFailure.error:
-        return "Couldn't load this file";
-      case null:
-        return '';
-    }
+  /// Short, user-facing reason this cannot be shown. Empty when it can.
+  String get unavailableLabel {
+    if (isMissing) return 'This file is no longer available';
+    if (status == 'FAILED') return "This file couldn't be processed";
+    if (isProcessing) return 'Still processing — check back shortly';
+    return '';
   }
 
-  AttachmentAsset copyWith({
-    String? url,
-    String? fileName,
-    String? contentType,
-    String? mediaType,
-    int? sizeBytes,
-    String? status,
-    DateTime? resolvedAt,
-  }) {
-    return AttachmentAsset(
-      assetCode: assetCode,
-      url: url ?? this.url,
-      fileName: fileName ?? this.fileName,
-      contentType: contentType ?? this.contentType,
-      mediaType: mediaType ?? this.mediaType,
-      sizeBytes: sizeBytes ?? this.sizeBytes,
-      status: status ?? this.status,
-      failure: failure,
-      failureMessage: failureMessage,
-      resolvedAt: resolvedAt ?? this.resolvedAt,
-    );
+  static int _int(Object? raw) {
+    if (raw is num) return raw.toInt();
+    return int.tryParse((raw ?? '').toString()) ?? 0;
   }
 
   @override
   List<Object?> get props => [
         assetCode,
-        url,
         fileName,
         contentType,
         mediaType,
         sizeBytes,
         status,
-        failure,
-        failureMessage,
+        thumbnailUrl,
+        deliveryUrl,
+        downloadUrl,
+        width,
+        height,
+        isMissing,
       ];
 }

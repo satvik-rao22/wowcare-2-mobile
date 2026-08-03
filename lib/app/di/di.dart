@@ -75,7 +75,6 @@ import '../../domain/features/tasks/usecases/update_task_occurrence_usecase.dart
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
 import '../../domain/features/tasks/usecases/detach_task_attachment_usecase.dart';
 import '../../domain/features/tasks/usecases/get_task_attachments_usecase.dart';
-import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
 import '../../domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/assessments/datasources/assessment_local_datasource.dart';

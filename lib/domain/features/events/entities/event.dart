@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/events/entities/recurrence_rule.dart';
+import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
 
 export 'package:wowcare/domain/features/events/entities/recurrence_rule.dart';
 
@@ -136,6 +137,7 @@ class Event extends Equatable {
     this.recurrence,
     this.attachmentName,
     this.attachmentUrl,
+    this.attachments = const <AttachmentAsset>[],
     this.version = 0,
     this.createdBy = '',
     this.createdByName = '',
@@ -176,6 +178,14 @@ class Event extends Equatable {
   final RecurrenceRule? recurrence;
   final String? attachmentName;
   final String? attachmentUrl;
+
+  /// Attachments as the occurrence payload returns them — already carrying
+  /// `deliveryUrl` and `thumbnailUrl`, so nothing needs resolving to show them.
+  ///
+  /// Unlike tasks, events hand the URLs over inline, which is why the detail
+  /// screen renders these directly instead of going through
+  /// `AttachmentAssetService`.
+  final List<AttachmentAsset> attachments;
 
   /// Optimistic-locking version echoed back as the `If-Match` header on
   /// `PATCH`/`DELETE` requests, mirroring [Holiday.version].
@@ -256,6 +266,7 @@ class Event extends Equatable {
     RecurrenceRule? Function()? recurrence,
     String? Function()? attachmentName,
     String? Function()? attachmentUrl,
+    List<AttachmentAsset>? attachments,
     int? version,
     String? createdBy,
     String? createdByName,
@@ -286,6 +297,7 @@ class Event extends Equatable {
           attachmentName != null ? attachmentName() : this.attachmentName,
       attachmentUrl:
           attachmentUrl != null ? attachmentUrl() : this.attachmentUrl,
+      attachments: attachments ?? this.attachments,
       version: version ?? this.version,
       createdBy: createdBy ?? this.createdBy,
       createdByName: createdByName ?? this.createdByName,
@@ -316,6 +328,7 @@ class Event extends Equatable {
         recurrence,
         attachmentName,
         attachmentUrl,
+        attachments,
         version,
         createdBy,
         createdByName,

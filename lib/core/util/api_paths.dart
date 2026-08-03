@@ -821,9 +821,15 @@ class ApiPaths {
       ? '/api/v1/document/media-assets/${Uri.encodeComponent(assetCode.trim())}'
       : '/api/v1/media-assets/${Uri.encodeComponent(assetCode.trim())}';
 
-  /// POST /api/v1/document/media-assets/resolve — Resolve media asset codes to download URLs.
-  static const String documentMediaAssetsResolve =
-      '/api/v1/document/media-assets/resolve';
+  /// `POST` … `/media-assets/resolve` — resolves asset codes to delivery,
+  /// thumbnail and download URLs in one call.
+  ///
+  /// Same host/prefix split as [documentMediaAssetByCodePath]: UAT namespaces the
+  /// document service under `/api/v1/document`, while dev/QA reach it through the
+  /// `document-ms` base path.
+  static String get documentMediaAssetsResolve => ApiConstants.isUat
+      ? '/api/v1/document/media-assets/resolve'
+      : '/api/v1/media-assets/resolve';
 
   // ─── Messaging / Communication microservice ──────────────────────────────
   // Base resource roots (new backend — no /messaging/ prefix).

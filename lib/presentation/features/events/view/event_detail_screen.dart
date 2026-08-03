@@ -17,6 +17,7 @@ import 'package:wowcare/presentation/features/events/widgets/event_rsvp_summary.
 import 'package:wowcare/presentation/features/events/widgets/event_type_chip.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/attachment_view/attachment_section.dart';
 
 class EventDetailScreen extends StatelessWidget {
   const EventDetailScreen({
@@ -102,8 +103,7 @@ class EventDetailScreen extends StatelessWidget {
                   event,
                   canSeeRsvps: canSeeSummary,
                 ),
-                if (event.attachmentName != null &&
-                    event.attachmentName!.isNotEmpty) ...[
+                if (event.attachments.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   _attachmentCard(context, event),
                 ],
@@ -368,25 +368,13 @@ class EventDetailScreen extends StatelessWidget {
 
   Widget _attachmentCard(BuildContext context, Event event) {
     return _sectionCard(
-      title: 'Attachment',
-      child: Row(
-        children: [
-          const Icon(Icons.attach_file, size: 18, color: AppColors.themeColor),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              event.attachmentName!,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                fontSize: 13,
-                color: AppColors.themeColor,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
-      ),
+      title: event.attachments.length == 1
+          ? 'Attachment'
+          : 'Attachments (${event.attachments.length})',
+      // Same widget, same viewer as the task detail screen. Events use the
+      // `.resolved` constructor because their occurrence payload already
+      // includes `deliveryUrl`/`thumbnailUrl` — no resolve request needed.
+      child: AttachmentSection.resolved(attachments: event.attachments),
     );
   }
 

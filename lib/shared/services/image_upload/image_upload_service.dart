@@ -1001,7 +1001,13 @@ class ImageUploadService {
         .then((String url) {
       if (url.isNotEmpty) _assetUrlCache[normalized] = url;
       return url;
-    }).whenComplete(() => _assetUrlInFlight.remove(normalized));
+    }).whenComplete(() {
+      // Block body, not an arrow: `Map.remove` returns the removed value, and
+      // the value here IS the future `whenComplete` is completing — an arrow
+      // callback makes it await itself, so the resolve never finishes. This is
+      // what left attachment thumbnails spinning forever.
+      _assetUrlInFlight.remove(normalized);
+    });
 
     _assetUrlInFlight[normalized] = future;
     return future;

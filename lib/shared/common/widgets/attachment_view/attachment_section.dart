@@ -1,38 +1,59 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/shared/common/widgets/attachment_view/attachment_asset_builder.dart';
+import 'package:wowcare/shared/common/widgets/attachment_view/attachment_tiles.dart';
 import 'package:wowcare/shared/common/widgets/attachment_view/attachment_viewer.dart';
 import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
+import 'package:wowcare/shared/services/attachment_view/attachment_asset_service.dart';
 
 /// How a list of attachments is laid out.
 enum AttachmentLayout {
-  /// Images get a full-width preview big enough to read at a glance; documents
-  /// stay as compact rows. The default for detail screens.
+  /// Images get a full-width preview big enough to read without opening
+  /// anything; documents stay compact rows. The default for detail screens.
   preview,
 
-  /// Everything is a compact row with a small thumbnail — for dense lists and
-  /// cards where vertical space is scarce.
+  /// Everything is a compact row with a small thumbnail — for cards and dense
+  /// lists where vertical space is scarce.
   compact,
 }
 
-/// Displays attachments for a list of asset codes.
+/// Shows the attachments for a list of asset codes.
 ///
-/// The one widget every screen should use to show attachments: give it asset
-/// codes and it resolves, caches, renders and handles failures. Tapping opens the
-/// full-screen viewer, swipeable across the whole set.
-///
-/// Built for reuse — the task detail screen and the event detail screen pass the
-/// same thing, and neither knows how resolution works.
-class AttachmentSection extends StatelessWidget {
+/// The one widget any screen needs: hand it asset codes and it resolves them in a
+/// single request, renders images large, documents as rows, and opens a
+/// full-screen zoomable viewer on tap. Task detail and event detail pass exactly
+/// the same thing.
+class AttachmentSection extends StatefulWidget {
+  /// Resolves [assetCodes] through [AttachmentAssetService] — for callers that
+  /// only have codes, which is how tasks arrive.
   const AttachmentSection({
     required this.assetCodes,
     this.layout = AttachmentLayout.preview,
     this.onRemove,
     this.previewHeight = 200,
+    this.service,
     super.key,
-  });
+  }) : resolved = null;
+
+  /// Renders attachments the caller already has, with no network call at all.
+  ///
+  /// Events take this path: their occurrence payload returns `attachments[]`
+  /// with `deliveryUrl` and `thumbnailUrl` inline, so there is nothing to
+  /// resolve. Same rendering, same viewer — only the source differs.
+  const AttachmentSection.resolved({
+    required List<AttachmentAsset> attachments,
+    this.layout = AttachmentLayout.preview,
+    this.onRemove,
+    this.previewHeight = 200,
+    super.key,
+  })  : resolved = attachments,
+        assetCodes = const <String>[],
+        service = null;
 
   final List<String> assetCodes;
+
+  /// Non-null when the caller supplied resolved attachments.
+  final List<AttachmentAsset>? resolved;
   final AttachmentLayout layout;
 
   /// Shows a remove control per attachment when provided.
@@ -41,21 +62,110 @@ class AttachmentSection extends StatelessWidget {
   /// Height of an image preview in [AttachmentLayout.preview].
   final double previewHeight;
 
+  /// Injectable for tests; defaults to the registered singleton.
+  final AttachmentAssetService? service;
+
+  @override
+  State<AttachmentSection> createState() => _AttachmentSectionState();
+}
+
+class _AttachmentSectionState extends State<AttachmentSection> {
+  late Future<List<AttachmentAsset>> _future;
+
+  AttachmentAssetService get _service =>
+      widget.service ?? serviceLocator<AttachmentAssetService>();
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _resolve();
+  }
+
+  @override
+  void didUpdateWidget(AttachmentSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Compared by content, not identity: a parent rebuild often hands over an
+    // equal-but-new list, and identity comparison would re-resolve every frame.
+    String key(AttachmentSection w) => [
+          ...w.assetCodes,
+          ...?w.resolved?.map((a) => a.assetCode),
+        ].join(',');
+
+    if (key(oldWidget) != key(widget)) {
+      // Block body, not an arrow: `_future = _resolve()` evaluates to the Future
+      // itself, so an arrow closure would return it and setState asserts that a
+      // callback must not return a Future.
+      setState(() {
+        _future = _resolve();
+      });
+    }
+  }
+
+  /// One request for the whole list — not one per row, which is what the resolve
+  /// endpoint's array parameter exists to avoid.
+  Future<List<AttachmentAsset>> _resolve({bool forceRefresh = false}) {
+    final supplied = widget.resolved;
+    if (supplied != null) return Future.value(supplied);
+    return _service.resolveAll(widget.assetCodes, forceRefresh: forceRefresh);
+  }
+
+  void _retry() {
+    setState(() {
+      _future = _resolve(forceRefresh: true);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (assetCodes.isEmpty) return const SizedBox.shrink();
+    if (widget.assetCodes.isEmpty && (widget.resolved?.isEmpty ?? true)) {
+      return const SizedBox.shrink();
+    }
+
+    // A FutureBuilder rather than hand-rolled loading flags: there is no way for
+    // it to get stuck in a loading state that never clears.
+    return FutureBuilder<List<AttachmentAsset>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return _placeholders();
+        }
+        if (snapshot.hasError) {
+          debugPrint('AttachmentSection: resolve failed — ${snapshot.error}');
+          return _Shell(
+            borderColor: AppColors.errorColor.withValues(alpha: 0.35),
+            child: _UnavailableRow(
+              label: "Couldn't load attachments",
+              onRetry: _retry,
+            ),
+          );
+        }
+
+        final assets = snapshot.data ?? const <AttachmentAsset>[];
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (var i = 0; i < assets.length; i++) ...[
+              if (i > 0) const SizedBox(height: 10),
+              _entry(context, assets, i),
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _placeholders() {
+    final height =
+        widget.layout == AttachmentLayout.preview ? widget.previewHeight : 64.0;
+    final count = widget.resolved?.length ?? widget.assetCodes.length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < assetCodes.length; i++) ...[
+        for (var i = 0; i < count; i++) ...[
           if (i > 0) const SizedBox(height: 10),
-          AttachmentAssetBuilder(
-            assetCode: assetCodes[i],
-            builder: (context, snapshot) => _entry(
-              context,
-              snapshot: snapshot,
-              index: i,
-            ),
+          _Shell(
+            child:
+                SizedBox(height: height, child: const AttachmentLoadingTile()),
           ),
         ],
       ],
@@ -63,53 +173,41 @@ class AttachmentSection extends StatelessWidget {
   }
 
   Widget _entry(
-    BuildContext context, {
-    required AttachmentAssetSnapshot snapshot,
-    required int index,
-  }) {
-    final asset = snapshot.asset;
+    BuildContext context,
+    List<AttachmentAsset> assets,
+    int index,
+  ) {
+    final asset = assets[index];
 
-    if (snapshot.isLoading || asset == null) {
+    if (asset.unavailableLabel.isNotEmpty) {
       return _Shell(
-        child: SizedBox(
-          height: layout == AttachmentLayout.preview ? previewHeight : 64,
-          child: const AttachmentLoadingTile(),
+        borderColor: AppColors.errorColor.withValues(alpha: 0.35),
+        child: _UnavailableRow(
+          label: asset.unavailableLabel,
+          fileName: asset.fileName,
+          onRetry: _retry,
         ),
       );
     }
 
-    if (asset.hasFailed) {
-      return _Shell(
-        borderColor: AppColors.errorColor.withValues(alpha: 0.35),
-        child: _FailedRow(asset: asset, onRetry: snapshot.retry),
-      );
-    }
-
-    final open = () => openAttachmentViewer(
+    void open() => openAttachmentViewer(
           context,
-          assetCodes: assetCodes,
+          assets: assets,
           initialIndex: index,
         );
 
-    // A picture is worth showing large — that is the whole point of the preview
-    // layout. Everything else reads better as a titled row.
-    if (layout == AttachmentLayout.preview && asset.isImage) {
+    final onRemove = widget.onRemove;
+    final remove = onRemove == null ? null : () => onRemove(asset.assetCode);
+
+    if (widget.layout == AttachmentLayout.preview && asset.isImage) {
       return _PreviewCard(
         asset: asset,
-        height: previewHeight,
+        height: widget.previewHeight,
         onTap: open,
-        onExpired: snapshot.retry,
-        onRemove:
-            onRemove == null ? null : () => onRemove!(asset.assetCode),
+        onRemove: remove,
       );
     }
-
-    return _Row(
-      asset: asset,
-      onTap: open,
-      onExpired: snapshot.retry,
-      onRemove: onRemove == null ? null : () => onRemove!(asset.assetCode),
-    );
+    return _Row(asset: asset, onTap: open, onRemove: remove);
   }
 }
 
@@ -141,21 +239,19 @@ class _Shell extends StatelessWidget {
   }
 }
 
-/// Full-width image preview: legible without opening anything, tappable for the
+/// Full-width image preview — legible without opening anything, tappable for the
 /// zoomable viewer.
 class _PreviewCard extends StatelessWidget {
   const _PreviewCard({
     required this.asset,
     required this.height,
     required this.onTap,
-    required this.onExpired,
     this.onRemove,
   });
 
   final AttachmentAsset asset;
   final double height;
   final VoidCallback onTap;
-  final VoidCallback onExpired;
   final VoidCallback? onRemove;
 
   @override
@@ -170,16 +266,13 @@ class _PreviewCard extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                AttachmentImage(asset: asset, onExpired: onExpired),
-                // Affordance for the viewer — without it a tappable image reads
-                // as decoration.
-                Positioned(
+                // Full artifact, not the 256px thumbnail: at this size the
+                // thumbnail would visibly soften.
+                AttachmentImage(asset: asset, fullSize: true),
+                const Positioned(
                   right: 8,
                   bottom: 8,
-                  child: _Pill(
-                    icon: Icons.zoom_out_map_rounded,
-                    label: 'View',
-                  ),
+                  child: _Pill(icon: Icons.zoom_out_map_rounded, label: 'View'),
                 ),
                 if (onRemove != null)
                   Positioned(
@@ -199,16 +292,10 @@ class _PreviewCard extends StatelessWidget {
 
 /// Compact row for documents, and for the dense layout.
 class _Row extends StatelessWidget {
-  const _Row({
-    required this.asset,
-    required this.onTap,
-    required this.onExpired,
-    this.onRemove,
-  });
+  const _Row({required this.asset, required this.onTap, this.onRemove});
 
   final AttachmentAsset asset;
   final VoidCallback onTap;
-  final VoidCallback onExpired;
   final VoidCallback? onRemove;
 
   @override
@@ -224,9 +311,7 @@ class _Row extends StatelessWidget {
               child: SizedBox(
                 width: 52,
                 height: 52,
-                child: asset.isImage
-                    ? AttachmentImage(asset: asset, onExpired: onExpired)
-                    : AttachmentGlyphTile(asset: asset, size: 52),
+                child: AttachmentImage(asset: asset),
               ),
             ),
             const SizedBox(width: 12),
@@ -318,12 +403,17 @@ class _Caption extends StatelessWidget {
   }
 }
 
-/// The state that used to be an endless spinner: says what went wrong and offers
-/// a way out.
-class _FailedRow extends StatelessWidget {
-  const _FailedRow({required this.asset, required this.onRetry});
+/// The state that used to be an endless spinner: says what is wrong, offers a way
+/// out.
+class _UnavailableRow extends StatelessWidget {
+  const _UnavailableRow({
+    required this.label,
+    required this.onRetry,
+    this.fileName = '',
+  });
 
-  final AttachmentAsset asset;
+  final String label;
+  final String fileName;
   final VoidCallback onRetry;
 
   @override
@@ -332,7 +422,7 @@ class _FailedRow extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       child: Row(
         children: [
-          Icon(
+          const Icon(
             Icons.error_outline_rounded,
             size: 22,
             color: AppColors.errorColor,
@@ -343,17 +433,17 @@ class _FailedRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  asset.failureLabel,
+                  label,
                   style: const TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                     color: AppColors.errorColor,
                   ),
                 ),
-                if (asset.fileName.isNotEmpty) ...[
+                if (fileName.isNotEmpty) ...[
                   const SizedBox(height: 2),
                   Text(
-                    asset.fileName,
+                    fileName,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
@@ -362,16 +452,15 @@ class _FailedRow extends StatelessWidget {
               ],
             ),
           ),
-          if (asset.isRetryable)
-            TextButton(
-              onPressed: onRetry,
-              style: TextButton.styleFrom(
-                foregroundColor: AppColors.themeColor,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                minimumSize: const Size(0, 34),
-              ),
-              child: const Text('Retry', style: TextStyle(fontSize: 12.5)),
+          TextButton(
+            onPressed: onRetry,
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.themeColor,
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+              minimumSize: const Size(0, 34),
             ),
+            child: const Text('Retry', style: TextStyle(fontSize: 12.5)),
+          ),
         ],
       ),
     );

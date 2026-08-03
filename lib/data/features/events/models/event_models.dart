@@ -1,5 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
+import 'package:wowcare/shared/services/attachment_view/attachment_asset.dart';
 import 'package:wowcare/domain/features/events/entities/event_upload_session.dart';
 
 /// JSON-serializable event DTO. The shape mirrors what the future events
@@ -27,6 +28,7 @@ class EventModel extends Equatable {
     this.recurrence,
     this.attachmentName,
     this.attachmentUrl,
+    this.attachments = const <AttachmentAsset>[],
     this.version = 0,
     this.createdBy = '',
     this.createdByName = '',
@@ -144,6 +146,7 @@ class EventModel extends Equatable {
     final myRsvpImplicit = myRsvp is Map && myRsvp['implicit'] == true;
 
     return EventModel(
+      attachments: _parseAttachments(json['attachments']),
       code: (json['eventCode'] ?? '').toString().trim(),
       occurrenceCode: (json['occurrenceCode'] ?? '').toString().trim(),
       type: (json['type'] ?? '').toString(),
@@ -271,6 +274,9 @@ class EventModel extends Equatable {
   final RecurrenceRule? recurrence;
   final String? attachmentName;
   final String? attachmentUrl;
+
+  /// Straight from the payload's `attachments[]`, URLs included.
+  final List<AttachmentAsset> attachments;
   final int version;
   final String createdBy;
   final String createdByName;
@@ -615,12 +621,25 @@ class EventModel extends Equatable {
       recurrence: recurrence,
       attachmentName: attachmentName,
       attachmentUrl: attachmentUrl,
+      attachments: attachments,
       version: version,
       createdBy: createdBy,
       createdByName: createdByName,
       createdAt: createdAt,
       updatedAt: updatedAt,
     );
+  }
+
+  /// Reads `attachments[]`. The event payload already includes `deliveryUrl`
+  /// and `thumbnailUrl`, and the keys line up with [AttachmentAsset.fromJson],
+  /// so this needs no resolve round trip — unlike tasks, which return codes only.
+  static List<AttachmentAsset> _parseAttachments(dynamic raw) {
+    if (raw is! List) return const <AttachmentAsset>[];
+    return [
+      for (final row in raw.whereType<Map>())
+        if ((row['assetCode'] ?? '').toString().trim().isNotEmpty)
+          AttachmentAsset.fromJson(row),
+    ];
   }
 
   static DateTime? _parseDate(dynamic raw) {
