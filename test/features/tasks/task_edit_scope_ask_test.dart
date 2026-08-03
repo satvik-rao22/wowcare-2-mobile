@@ -24,9 +24,11 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_us
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 
 /// Minimal fakes: only the series fetch (§2a) is exercised here.
 class _FakeStorage implements StorageService {
@@ -95,6 +97,12 @@ class _FakeStaffRepository implements StaffRepository {
   dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
+/// Only needs to satisfy the cubit's constructor — this suite never uploads.
+class _FakeUploadManager implements AttachmentUploadManager {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
+}
+
 TasksCubit _buildCubit(_FakeTaskRepository repo) => TasksCubit(
       GetTasksUseCase(repo),
       CreateTaskUseCase(repo),
@@ -111,6 +119,7 @@ TasksCubit _buildCubit(_FakeTaskRepository repo) => TasksCubit(
       UpdateTaskOccurrenceUseCase(repo),
       CancelTaskOccurrenceUseCase(repo),
       UpdateTaskUseCase(repo),
+      UploadTaskAttachmentsUseCase(repo, _FakeUploadManager()),
     );
 
 Task _card({DateTime? occurrenceDate, String taskCode = 'TSK_1'}) => Task(

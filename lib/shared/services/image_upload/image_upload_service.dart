@@ -174,6 +174,170 @@ class ImageUploadService {
     );
   }
 
+  /// Presigns every file in [assets] with one call to `presign/batch`.
+  ///
+  /// Results come back in request order — the endpoint returns `uploads` in the
+  /// order the assets were sent — and a count mismatch is treated as an error
+  /// rather than silently uploading files to the wrong signed URLs.
+  ///
+  /// Prefer this over calling [createAssetPresign] in a loop: the endpoint is
+  /// already a batch, so N files cost one round trip instead of N.
+  Future<List<AssetPresignResult>> createAssetPresignBatch({
+    required String sessionCode,
+    required String documentApiBasePath,
+    required List<AssetPresignRequest> assets,
+  }) async {
+    if (assets.isEmpty) return const <AssetPresignResult>[];
+
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final path = ApiPaths.documentAssetPresignPath(
+      documentApiBasePath: documentApiBasePath,
+      sessionCode: sessionCode,
+    );
+
+    final response = await _apiClient.client
+        .post<dynamic>(
+          '$origin$path',
+          data: <String, dynamic>{
+            'assets': assets.map((a) => a.toJson()).toList(),
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(message.isNotEmpty ? message : 'Assets presign failed');
+    }
+
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API data format');
+    }
+
+    final uploads = data['uploads'];
+    if (uploads is! List) {
+      throw Exception('Unexpected assets presign uploads format');
+    }
+    if (uploads.length != assets.length) {
+      throw Exception(
+        'Presign returned ${uploads.length} URLs for ${assets.length} files',
+      );
+    }
+
+    return uploads.map(_parsePresignUpload).toList();
+  }
+
+  /// Reads one `uploads[]` entry into an [AssetPresignResult].
+  static AssetPresignResult _parsePresignUpload(dynamic item) {
+    if (item is! Map) {
+      throw Exception('Unexpected assets presign upload item format');
+    }
+
+    final assetCode = (item['assetCode'] ?? '').toString().trim();
+    final presignedPutUrl = (item['presignedPutUrl'] ?? '').toString().trim();
+    if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
+      throw Exception('Missing assetCode or presignedPutUrl in presign response');
+    }
+
+    final rawHeaders = item['requiredHeaders'];
+    final requiredHeaders = <String, String>{};
+    if (rawHeaders is Map) {
+      rawHeaders.forEach((key, value) {
+        final k = key.toString().trim();
+        final v = value.toString().trim();
+        if (k.isNotEmpty && v.isNotEmpty) requiredHeaders[k] = v;
+      });
+    }
+
+    return AssetPresignResult(
+      assetCode: assetCode,
+      presignedPutUrl: presignedPutUrl,
+      requiredHeaders: requiredHeaders,
+    );
+  }
+
+  /// Streams [file] to its presigned URL instead of buffering it in memory.
+  ///
+  /// [uploadFileToPresignedUrl] reads the whole file into RAM, which is fine
+  /// one file at a time but multiplies with concurrency — several videos at
+  /// once will OOM a mid-range device. This sends the bytes from disk, so peak
+  /// memory stays flat regardless of file size or how many run in parallel.
+  ///
+  /// Only `Content-Type` is signed by the presign (`X-Amz-SignedHeaders=
+  /// content-type;host`), so `Content-Length` is safe to add and is required
+  /// for a streamed body. No auth interceptor runs here — a bearer token on the
+  /// PUT would invalidate the signature.
+  Future<void> uploadFileStreamedToPresignedUrl({
+    required File file,
+    required String presignedPutUrl,
+    Map<String, String> requiredHeaders = const {},
+    String fallbackContentType = 'application/octet-stream',
+    void Function(int sentBytes, int totalBytes)? onProgress,
+    CancelToken? cancelToken,
+  }) async {
+    final uploadClient = Dio();
+    final totalBytes = await file.length();
+
+    final headers = <String, dynamic>{};
+    requiredHeaders.forEach((key, value) {
+      final k = key.trim();
+      final v = value.trim();
+      if (k.isNotEmpty && v.isNotEmpty) headers[k] = v;
+    });
+    headers.putIfAbsent('Content-Type', () => fallbackContentType);
+    headers[Headers.contentLengthHeader] = totalBytes;
+
+    final putUri = Uri.parse(presignedPutUrl);
+    final logUrl = '${putUri.scheme}://${putUri.host}${putUri.path}';
+    ApiLogger.logRequest(
+      url: logUrl,
+      method: 'PUT',
+      headers: headers,
+      body: '<streamed: $totalBytes bytes>',
+    );
+
+    try {
+      final response = await uploadClient.putUri<dynamic>(
+        putUri,
+        data: file.openRead(),
+        cancelToken: cancelToken,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.plain,
+          validateStatus: (status) =>
+              status != null && status >= 200 && status < 300,
+        ),
+        onSendProgress: (sent, total) {
+          onProgress?.call(sent, total > 0 ? total : totalBytes);
+        },
+      );
+      ApiLogger.logResponse(
+        url: logUrl,
+        method: 'PUT',
+        statusCode: response.statusCode,
+        data: response.data,
+      );
+    } on DioException catch (e) {
+      ApiLogger.logError(
+        url: logUrl,
+        method: 'PUT',
+        message: e.message,
+        statusCode: e.response?.statusCode,
+        errorData: e.response?.data,
+      );
+      rethrow;
+    }
+  }
+
   String _extractErrorMessageFromDio(DioException error) {
     final data = error.response?.data;
     if (data is Map) {

@@ -1,6 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_all_staff_usecase.dart';
@@ -21,7 +23,9 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_us
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_diff.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 
@@ -49,6 +53,7 @@ class TasksCubit extends Cubit<TasksState> {
     this._updateOccurrence,
     this._cancelOccurrence,
     this._updateTask,
+    this._uploadAttachments,
   ) : super(const TasksState.initial());
 
   final GetTasksUseCase _getTasks;
@@ -66,6 +71,7 @@ class TasksCubit extends Cubit<TasksState> {
   final UpdateTaskOccurrenceUseCase _updateOccurrence;
   final CancelTaskOccurrenceUseCase _cancelOccurrence;
   final UpdateTaskUseCase _updateTask;
+  final UploadTaskAttachmentsUseCase _uploadAttachments;
 
   /// The "My Tasks" default is derived from the persona once per cubit
   /// lifetime so later loads don't clobber the user's own toggle choice.
@@ -624,6 +630,25 @@ class TasksCubit extends Cubit<TasksState> {
       ));
       return null;
     }
+  }
+
+  /// Uploads every picked attachment in one batch and returns the outcome.
+  ///
+  /// Progress is streamed through [onProgress] rather than pushed into
+  /// [TasksState]: it belongs to the form that is mid-save, not to the task list
+  /// this cubit is shared with, and it changes many times a second. Failures
+  /// come back on the returned state so the caller can decide whether to go
+  /// ahead with the save — they are not emitted as a cubit-level error.
+  Future<AttachmentUploadState> uploadAttachments({
+    required List<PickedFile> files,
+    void Function(AttachmentUploadState state)? onProgress,
+    CancelToken? cancelToken,
+  }) {
+    return _uploadAttachments(
+      files: files,
+      onProgress: onProgress,
+      cancelToken: cancelToken,
+    );
   }
 
   /// Quick status change from the Kanban tabs / card menu (PRD FR-TK-13/16).

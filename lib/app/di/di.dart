@@ -73,6 +73,7 @@ import '../../domain/features/tasks/usecases/update_task_assignment_usecase.dart
 import '../../domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import '../../domain/features/tasks/usecases/update_task_usecase.dart';
 import '../../domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import '../../domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import '../../presentation/features/tasks/cubit/tasks_cubit.dart';
 import '../../data/features/assessments/datasources/assessment_local_datasource.dart';
 import '../../data/features/assessments/datasources/assessment_seed_datasource.dart';
@@ -307,6 +308,7 @@ import '../../core/cache/session_local_cache_wiper.dart';
 import '../../presentation/features/communication/cubit/communication_cubit.dart';
 import '../../presentation/features/communication/cubit/create_conversation_cubit.dart';
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
+import '../../shared/services/attachment_upload/attachment_upload_manager.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
 import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
@@ -358,6 +360,14 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerLazySingleton<ImageUploadService>(
     () => ImageUploadService(serviceLocator<ApiClient>()),
+  );
+  // Domain-blind: the session opener is supplied per call site, so tasks,
+  // events and anything else attaching files share this one instance.
+  serviceLocator.registerLazySingleton<AttachmentUploadManager>(
+    () => AttachmentUploadManager(
+      serviceLocator<ImageUploadService>(),
+      serviceLocator<StorageService>(),
+    ),
   );
 
   // Auth Data Sources
@@ -546,6 +556,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<UploadTaskAttachmentUseCase>(
     () => UploadTaskAttachmentUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<UploadTaskAttachmentsUseCase>(
+    () => UploadTaskAttachmentsUseCase(
+      serviceLocator(),
+      serviceLocator<AttachmentUploadManager>(),
+    ),
+  );
   serviceLocator.registerFactory<GetTaskUseCase>(
     () => GetTaskUseCase(serviceLocator()),
   );
@@ -592,6 +608,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
       serviceLocator<UpdateTaskOccurrenceUseCase>(),
       serviceLocator<CancelTaskOccurrenceUseCase>(),
       serviceLocator<UpdateTaskUseCase>(),
+      serviceLocator<UploadTaskAttachmentsUseCase>(),
     ),
   );
 

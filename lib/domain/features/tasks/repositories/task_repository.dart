@@ -4,6 +4,7 @@ import '../entities/task_board.dart';
 import '../entities/task_occurrence.dart';
 import '../entities/task_query.dart';
 import '../entities/task_series.dart';
+import '../entities/task_upload_session.dart';
 
 /// Tasks are backed by the events-todo microservice. A [Task] here is one
 /// **task assignment** card (one person on one occurrence); create/update/
@@ -160,4 +161,12 @@ abstract class TaskRepository {
     required String fileName,
     required String contentType,
   });
+
+  /// Opens a shared upload session for task attachments (Tasks API §8
+  /// `POST /tasks/upload-session`) without uploading anything.
+  ///
+  /// Exposed so a multi-file upload can open one session and presign every file
+  /// against it in a single batch, rather than repeating the whole round trip
+  /// per file the way [uploadAttachment] does.
+  Future<TaskUploadSession> createUploadSession();
 }

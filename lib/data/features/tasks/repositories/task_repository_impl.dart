@@ -9,6 +9,7 @@ import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
@@ -266,6 +267,11 @@ class TaskRepositoryImpl implements TaskRepository {
       occurrenceCode: occurrenceCode.trim(),
       reason: reason,
     );
+  }
+
+  @override
+  Future<TaskUploadSession> createUploadSession() {
+    return _remoteDataSource.createUploadSession();
   }
 
   @override

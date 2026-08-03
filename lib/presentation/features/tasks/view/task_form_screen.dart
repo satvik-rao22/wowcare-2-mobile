@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -21,7 +20,9 @@ import 'package:wowcare/presentation/features/tasks/utils/task_timezone.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_ui_utils.dart';
 import 'package:wowcare/presentation/features/tasks/widgets/assignee_picker_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
 
 /// Create/edit form for a task. A single scrollable mobile form replaces the
 /// web design's dialog: basics up top, scheduling and recurrence below.
@@ -115,30 +116,19 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
   int _startMonthDay = 1;
   int _dueMonthDay = 25;
 
-  /// Existing remote attachment, shown in edit mode. A freshly picked local
-  /// file overrides it for display and, on save, replaces it.
-  String? _attachmentName;
-  String? _attachmentUrl;
-  String? _attachmentType;
+  /// Files picked on this form, held locally and uploaded inside [_save] — so
+  /// nothing is uploaded for a form the user abandons.
+  ///
+  /// Attachments already on an edited task are NOT prefilled here, because the
+  /// tasks API returns none on read: neither the series nor the assignment
+  /// payload carries an assets list. That gap is why [_attachmentNotice] warns
+  /// about replacement on edit.
+  List<PickedFile> _attachments = const [];
 
-  /// A freshly picked local file, held (not uploaded) until the form is
-  /// submitted. The §8/§9 upload runs inside [_save], right before create/
-  /// update — so nothing is uploaded for a form the user abandons.
-  String? _pickedAttachmentPath;
-  int? _pickedAttachmentSize;
+  /// Live per-file upload progress while a save is running; null otherwise.
+  AttachmentUploadState? _uploadState;
 
-  /// True only while the held file is uploading during save.
-  bool _uploadingAttachment = false;
-
-  /// Attachment picker limits (mirrors the tile's helper text).
-  static const int _maxAttachmentBytes = 10 * 1024 * 1024;
-  static const List<String> _attachmentExtensions = [
-    'jpg',
-    'jpeg',
-    'png',
-    'webp',
-    'pdf',
-  ];
+  bool get _isUploading => _uploadState?.isUploading ?? false;
 
   bool get _isEditing => _editing != null;
 
@@ -239,9 +229,10 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _startMonthDay = int.tryParse(task.startDay ?? '') ?? _startMonthDay;
       _dueMonthDay = int.tryParse(task.dueDay ?? '') ?? _dueMonthDay;
     }
-    _attachmentName = task.attachmentName;
-    _attachmentUrl = task.attachmentUrl;
-    _attachmentType = task.attachmentType;
+    // Attachments are deliberately not prefilled: `task.attachmentName/Url/Type`
+    // are never populated from the wire (no read parses them, because no task
+    // response returns them), so reading them here would only ever show null
+    // while implying the form knows what is attached.
   }
 
   /// Converts [task]'s UTC wire start/due date+time into the school-local
@@ -442,8 +433,16 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                 decoration: _inputDecoration('in hours'),
               ),
               const SizedBox(height: 14),
-              _label('Attachment'),
-              _attachmentSection(),
+              _label('Attachments'),
+              AttachmentPickerField(
+                files: _attachments,
+                onChanged: (files) => setState(() => _attachments = files),
+                // Locked mid-upload: the manager is already iterating this list
+                // and the asset codes are tied to what it was handed.
+                enabled: !_isUploading,
+                uploadState: _uploadState,
+              ),
+              ..._attachmentNotice(),
               const SizedBox(height: 22),
               _saveButton(),
             ],
@@ -899,190 +898,47 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
     );
   }
 
-  // ------------------------------------------------------- attachment
+  // ------------------------------------------------------- attachments
 
-  /// Whether any attachment (a freshly picked local file, or an existing remote
-  /// one in edit mode) is currently on the form.
-  bool get _hasAttachment =>
-      _pickedAttachmentPath != null || (_attachmentName ?? '').isNotEmpty;
-
-  Widget _attachmentSection() {
-    if (_uploadingAttachment) {
-      return Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: _tileDecoration(),
+  /// Warning shown on edit once files are staged.
+  ///
+  /// `assetCodes` is a full replace on the tasks API, and the form cannot show
+  /// what is already attached because reads return no assets. Saving new files
+  /// therefore drops whatever was there before, and the only honest thing to do
+  /// is say so rather than silently destroy them.
+  List<Widget> _attachmentNotice() {
+    if (!_isEditing || _attachments.isEmpty) return const [];
+    return [
+      const SizedBox(height: 8),
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: AppColors.warningColor.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: AppColors.warningColor.withValues(alpha: 0.35),
+          ),
+        ),
         child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: AppColors.themeColor,
-              ),
+            const Icon(
+              Icons.info_outline_rounded,
+              size: 15,
+              color: AppColors.warningColor,
             ),
-            const SizedBox(width: 10),
-            Text(
-              'Uploading attachment…',
-              style: TextStyle(fontSize: 13, color: Colors.grey[700]),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                'Saving replaces any files already attached to this task. '
+                'Existing attachments cannot be shown yet.',
+                style: TextStyle(fontSize: 11.5, color: Colors.grey[800]),
+              ),
             ),
           ],
         ),
-      );
-    }
-    if (_hasAttachment) return _attachmentPreview();
-    return _fieldTile(
-      icon: Icons.upload_file_outlined,
-      text: 'Add attachment (JPEG, PNG, WebP, PDF • max 10MB)',
-      onTap: _pickAttachment,
-    );
-  }
-
-  /// Preview card for the chosen attachment: an inline thumbnail for images, a
-  /// file glyph otherwise, plus the name, a size/"uploads on save" hint, and a
-  /// remove control. The actual upload is deferred to [_save].
-  Widget _attachmentPreview() {
-    return Container(
-      padding: const EdgeInsets.all(10),
-      decoration: _tileDecoration(),
-      child: Row(
-        children: [
-          _attachmentThumbnail(),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _attachmentName ?? 'Attachment',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(fontSize: 13, color: Colors.black87),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  _attachmentSubtitle(),
-                  style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-          GestureDetector(
-            onTap: _pickAttachment,
-            child: const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 6),
-              child: Icon(Icons.swap_horiz,
-                  size: 20, color: AppColors.themeColor),
-            ),
-          ),
-          GestureDetector(
-            onTap: _removeAttachment,
-            child: Icon(Icons.close, size: 18, color: Colors.grey[600]),
-          ),
-        ],
       ),
-    );
-  }
-
-  Widget _attachmentThumbnail() {
-    const double size = 46;
-    final radius = BorderRadius.circular(8);
-    final fallback = Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: AppColors.themeColor.withValues(alpha: 0.08),
-        borderRadius: radius,
-      ),
-      child: Icon(
-        _isImageAttachment(_attachmentType)
-            ? Icons.image_outlined
-            : Icons.description_outlined,
-        size: 22,
-        color: AppColors.themeColor,
-      ),
-    );
-    if (!_isImageAttachment(_attachmentType)) return fallback;
-    Widget? image;
-    if (_pickedAttachmentPath != null) {
-      image = Image.file(
-        File(_pickedAttachmentPath!),
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
-      );
-    } else if ((_attachmentUrl ?? '').isNotEmpty) {
-      image = Image.network(
-        _attachmentUrl!,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (_, __, ___) => fallback,
-      );
-    }
-    return image == null
-        ? fallback
-        : ClipRRect(borderRadius: radius, child: image);
-  }
-
-  String _attachmentSubtitle() {
-    if (_pickedAttachmentSize != null) {
-      final kb = _pickedAttachmentSize! / 1024;
-      final size =
-          kb >= 1024 ? '${(kb / 1024).toStringAsFixed(1)} MB' : '${kb.toStringAsFixed(0)} KB';
-      return '$size • uploads when you save';
-    }
-    final type = (_attachmentType ?? '').replaceAll('.', '').toUpperCase();
-    return type.isEmpty ? 'Attached' : type;
-  }
-
-  void _removeAttachment() {
-    setState(() {
-      _pickedAttachmentPath = null;
-      _pickedAttachmentSize = null;
-      _attachmentName = null;
-      _attachmentUrl = null;
-      _attachmentType = null;
-    });
-  }
-
-  static bool _isImageAttachment(String? type) {
-    final normalized = (type ?? '').toLowerCase().replaceAll('.', '');
-    return normalized == 'jpg' ||
-        normalized == 'jpeg' ||
-        normalized == 'png' ||
-        normalized == 'webp';
-  }
-
-  /// Picks one file and holds it locally for preview. Does NOT upload — that
-  /// happens on submit (§8/§9), inside [_save].
-  Future<void> _pickAttachment() async {
-    final picked = await FilePickerUtils.pickFile(
-      allowedExtensions: _attachmentExtensions,
-      context: context,
-    );
-    final path = picked?.path;
-    if (picked == null || path == null) return;
-
-    if (picked.size > _maxAttachmentBytes) {
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Attachment must be 10MB or smaller.',
-        isWarning: true,
-      );
-      return;
-    }
-
-    setState(() {
-      _pickedAttachmentPath = path;
-      _pickedAttachmentSize = picked.size;
-      _attachmentName = picked.name;
-      _attachmentType = picked.extension;
-      // A new local file supersedes any existing remote attachment preview.
-      _attachmentUrl = null;
-    });
+    ];
   }
 
   // ------------------------------------------------------------- save
@@ -1114,7 +970,8 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
             TaskFormValidation.isEffortValid(_effortController.text);
         return BlocBuilder<TasksCubit, TasksState>(
           builder: (context, state) {
-            final enabled = canSave && !state.isSaving;
+            final busy = state.isSaving || _isUploading;
+            final enabled = canSave && !busy;
             return SizedBox(
           height: 46,
           child: DecoratedBox(
@@ -1132,14 +989,32 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
               ),
-              child: state.isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
+              child: busy
+                  // While attachments are moving, say so and show how far —
+                  // a bare spinner on a multi-file upload reads as a hang.
+                  ? Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (_isUploading) ...[
+                          const SizedBox(width: 10),
+                          Text(
+                            _uploadState!.summary,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ],
                     )
                   : Text(
                       _isEditing ? 'Save Changes' : 'Create Task',
@@ -1221,9 +1096,6 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       recurringEndDate: () => _recurring ? _recurringEndDate : null,
       startDay: () => _recurringDayValue(isStart: true),
       dueDay: () => _recurringDayValue(isStart: false),
-      attachmentName: () => _attachmentName,
-      attachmentUrl: () => _attachmentUrl,
-      attachmentType: () => _attachmentType,
     );
 
     // Validate the scope chosen back on Edit against what actually changed,
@@ -1240,41 +1112,45 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       scope = TaskEditScope.thisOccurrence;
     }
 
-    // Upload the held attachment (if any) only now, on submit (§8/§9). A
-    // failed upload aborts the save so the task is never created without its
-    // intended attachment.
-    String? uploadedAssetCode;
-    if (_pickedAttachmentPath != null) {
-      setState(() => _uploadingAttachment = true);
-      uploadedAssetCode = await cubit.uploadAttachment(
-        filePath: _pickedAttachmentPath!,
-        fileName: _attachmentName ?? 'attachment',
-        contentType: FilePickerUtils.getMimeType(_attachmentType),
+    // Upload every held file only now, on submit (§8/§9): one session, one
+    // batched presign, bounded-parallel transfers. An abandoned form uploads
+    // nothing, and a failed upload aborts the save so a task is never persisted
+    // without the attachments it was meant to carry.
+    List<String> uploadedAssetCodes = const [];
+    if (_attachments.isNotEmpty) {
+      final result = await cubit.uploadAttachments(
+        files: _attachments,
+        onProgress: (state) {
+          if (mounted) setState(() => _uploadState = state);
+        },
       );
       if (!mounted) return;
-      setState(() => _uploadingAttachment = false);
-      if (uploadedAssetCode == null || uploadedAssetCode.isEmpty) {
+      setState(() => _uploadState = result);
+
+      if (!result.allSucceeded) {
+        // Partial success is still a failure for the save: silently dropping
+        // the files that did not make it would be worse than not saving. The
+        // per-card overlays already show which ones, so the toast stays short.
         CoreUtils.showTopSnackBar(
           context: context,
-          message: 'Could not upload the attachment. Please try again.',
+          message: result.summary,
           isError: true,
         );
+        setState(() => _uploadState = null);
         return;
       }
+      uploadedAssetCodes = result.assetCodes;
     }
 
     final bool ok;
     if (_isEditing) {
-      // Attachments persist through the series' assetCodes full-replace (§3c):
-      // send the freshly-uploaded asset, an empty list when the existing one
-      // was removed, or null to leave attachments untouched.
-      List<String>? assetCodes;
-      if (uploadedAssetCode != null) {
-        assetCodes = [uploadedAssetCode];
-      } else if ((_editing?.attachmentName ?? '').isNotEmpty &&
-          !_hasAttachment) {
-        assetCodes = const <String>[];
-      }
+      // `assetCodes` is a full replace (§3c): send the freshly-uploaded set when
+      // the user staged files, otherwise null to leave whatever is attached
+      // alone. There is deliberately no "clear" path — the form cannot show
+      // existing attachments (reads return none), so it must not claim to know
+      // that the user removed them.
+      final List<String>? assetCodes =
+          uploadedAssetCodes.isEmpty ? null : uploadedAssetCodes;
       // The card being edited keeps its own assignee (draft inherits it from
       // _editing). Anything picked that wasn't already on the series is a new
       // assignee; the cubit appends each to the roster so the backend
@@ -1297,8 +1173,7 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       ok = await cubit.create(
         draft,
         assignees,
-        assetCodes:
-            uploadedAssetCode == null ? const [] : [uploadedAssetCode],
+        assetCodes: uploadedAssetCodes,
       );
     }
 

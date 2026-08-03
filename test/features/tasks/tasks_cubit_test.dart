@@ -10,6 +10,7 @@ import 'package:wowcare/domain/features/tasks/entities/task_board.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_occurrence.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_query.dart';
 import 'package:wowcare/domain/features/tasks/entities/task_series.dart';
+import 'package:wowcare/domain/features/tasks/entities/task_upload_session.dart';
 import 'package:wowcare/domain/features/tasks/repositories/task_repository.dart';
 import 'package:wowcare/domain/features/tasks/usecases/cancel_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/create_task_usecase.dart';
@@ -24,8 +25,10 @@ import 'package:wowcare/domain/features/tasks/usecases/update_task_assignment_us
 import 'package:wowcare/domain/features/tasks/usecases/update_task_occurrence_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/update_task_usecase.dart';
 import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachment_usecase.dart';
+import 'package:wowcare/domain/features/tasks/usecases/upload_task_attachments_usecase.dart';
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 import 'package:wowcare/presentation/features/tasks/utils/task_edit_scope.dart';
+import 'package:wowcare/shared/services/attachment_upload/attachment_upload_manager.dart';
 
 /// In-memory [StorageService] so the cubit's identity/role reads never touch
 /// SharedPreferences or the network staff-code resolver (a non-empty staffCode
@@ -332,6 +335,21 @@ class _FakeTaskRepository implements TaskRepository {
     };
     return uploadResult;
   }
+
+  @override
+  Future<TaskUploadSession> createUploadSession() async =>
+      const TaskUploadSession(
+        sessionCode: 'UPS_1',
+        documentApiBasePath: '/document-ms/api/v1',
+      );
+}
+
+/// The multi-file upload path is exercised in
+/// `attachment_upload_manager_test.dart`; here it only needs to satisfy the
+/// cubit's constructor, so every call throws via [noSuchMethod].
+class _FakeUploadManager implements AttachmentUploadManager {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => throw UnimplementedError();
 }
 
 /// Minimal [StaffRepository] fake: only [getAllStaff] is exercised (name
@@ -406,6 +424,7 @@ TasksCubit _buildCubit(
       UpdateTaskOccurrenceUseCase(repo),
       CancelTaskOccurrenceUseCase(repo),
       UpdateTaskUseCase(repo),
+      UploadTaskAttachmentsUseCase(repo, _FakeUploadManager()),
     );
 
 void main() {

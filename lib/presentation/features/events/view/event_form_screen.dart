@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/events/entities/event.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
@@ -18,6 +19,7 @@ import 'package:wowcare/presentation/features/events/utils/recurrence_summary.da
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/attachment_picker_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 
 /// Create/edit form for an event. A single scrollable mobile form replaces
@@ -78,6 +80,15 @@ class _EventFormScreenState extends State<EventFormScreen> {
   /// are clamped (not replaced) when the unit or start date changes.
   bool _recurEndManual = false;
   bool _includeParents = false;
+
+  /// Files picked on this form but not yet uploaded.
+  ///
+  /// These are held locally until save. Nothing is sent yet: the events API
+  /// accepts no `assetCodes` on create/update and returns none on read, so
+  /// there is nowhere to put them. Once that lands, [_save] uploads these and
+  /// passes the resulting asset codes through — the picker UI does not change.
+  List<PickedFile> _attachments = const [];
+
   List<EventAttendee> _classrooms = const [];
   List<EventAttendee> _students = const [];
   List<EventAttendee> _staff = const [];
@@ -291,6 +302,16 @@ class _EventFormScreenState extends State<EventFormScreen> {
                   'e.g. What to bring, where to meet…',
                 ),
               ),
+              // Series-level, so hidden while overriding a single occurrence
+              // (that mode only carries name, description, date and times).
+              if (!_isOccurrenceEdit) ...[
+                const SizedBox(height: 14),
+                _label('Attachments'),
+                AttachmentPickerField(
+                  files: _attachments,
+                  onChanged: (files) => setState(() => _attachments = files),
+                ),
+              ],
               const SizedBox(height: 14),
               _label('Attendees', required: _type != EventType.school),
               ..._audienceSection(),
