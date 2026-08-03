@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/services/attachment_upload/attachment_upload_models.dart';
@@ -189,7 +189,7 @@ class AttachmentPickerField extends StatelessWidget {
       return;
     }
     // Anything else is handed to whatever app on the device owns the type.
-    await OpenFile.open(file.path);
+    await OpenFilex.open(file.path);
   }
 }
 

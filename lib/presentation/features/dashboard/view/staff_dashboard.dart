@@ -1,14 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_day_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
+import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_coordinator_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_cubit.dart';
-// import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_welcome_header.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_attendance_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_day_card.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/my_shifts_card.dart';
@@ -28,51 +28,20 @@ class StaffDashboard extends StatefulWidget {
 }
 
 class _StaffDashboardState extends State<StaffDashboard> {
-  late final StaffDashboardCubit _dashboardCubit;
-  late final GeofenceCubit _geofenceCubit;
-  late final RatioMonitoringCubit _ratioMonitoringCubit;
-  late final MyDayCubit _myDayCubit;
-  late final MyAttendanceCubit _myAttendanceCubit;
-  late final MyShiftsCubit _myShiftsCubit;
+  late final StaffDashboardCoordinatorCubit _coordinator;
 
-  static const double _maxContentWidth = 640;
+  // static const double _maxContentWidth = 640;
 
   @override
   void initState() {
     super.initState();
-    _dashboardCubit = serviceLocator<StaffDashboardCubit>();
-    _geofenceCubit = serviceLocator<GeofenceCubit>();
-    _ratioMonitoringCubit = serviceLocator<RatioMonitoringCubit>();
-    _myDayCubit = serviceLocator<MyDayCubit>();
-    _myAttendanceCubit = serviceLocator<MyAttendanceCubit>();
-    _myShiftsCubit = serviceLocator<MyShiftsCubit>();
-    // ignore: discarded_futures
-    _initGeofence();
-    // ignore: discarded_futures
-    _myDayCubit.load(isSilent: true);
-  }
-
-  Future<void> _initGeofence() async {
-    final storage = serviceLocator<StorageService>();
-    final schoolCode = await storage.getString(StorageKeys.schoolCode);
-    if (schoolCode != null && schoolCode.isNotEmpty) {
-      _geofenceCubit.initForSchool(schoolCode: schoolCode);
-    }
+    _coordinator = serviceLocator<StaffDashboardCoordinatorCubit>();
   }
 
   @override
   void dispose() {
-    // ignore: discarded_futures
-    _dashboardCubit.close();
-    // GeofenceCubit is a singleton — do NOT close it here; it must survive navigation.
-    // ignore: discarded_futures
-    _ratioMonitoringCubit.close();
-    // ignore: discarded_futures
-    _myDayCubit.close();
-    // ignore: discarded_futures
-    _myAttendanceCubit.close();
-    // ignore: discarded_futures
-    _myShiftsCubit.close();
+    // StaffDashboardCoordinatorCubit is closed automatically by BlocProvider,
+    // which then automatically disposes of all screen-scoped child cubits.
     super.dispose();
   }
 
@@ -89,105 +58,144 @@ class _StaffDashboardState extends State<StaffDashboard> {
     }
   }
 
-  // Widget _buildHeader(String userName) {
-  //   return Material(
-  //     type: MaterialType.transparency,
-  //     child: Column(
-  //       crossAxisAlignment: CrossAxisAlignment.start,
-  //       children: [
-  //         DashboardWelcomeHeader(userName: userName, showSectionLabel: false),
-  //         const SizedBox(height: 16),
-  //       ],
-  //     ),
-  //   );
-  // }
-
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 20),
-      child: MultiBlocProvider(
-        providers: [
-          BlocProvider<StaffDashboardCubit>.value(value: _dashboardCubit),
-          BlocProvider<GeofenceCubit>.value(value: _geofenceCubit),
-          BlocProvider<RatioMonitoringCubit>.value(
-            value: _ratioMonitoringCubit,
-          ),
-          BlocProvider<MyDayCubit>.value(value: _myDayCubit),
-          BlocProvider<MyShiftsCubit>.value(value: _myShiftsCubit),
-          BlocProvider<MyAttendanceCubit>.value(value: _myAttendanceCubit),
-        ],
-        child: _buildScaffold(),
+    return BlocProvider<StaffDashboardCoordinatorCubit>(
+      create: (context) => _coordinator,
+      child: Builder(
+        builder: (context) {
+          final coordinator = context.read<StaffDashboardCoordinatorCubit>();
+          return Padding(
+            padding: const EdgeInsets.only(top: 20),
+            child: MultiBlocProvider(
+              providers: [
+                BlocProvider<StaffDashboardCubit>.value(
+                  value: coordinator.dashboardCubit,
+                ),
+                BlocProvider<GeofenceCubit>.value(
+                  value: coordinator.geofenceCubit,
+                ),
+                BlocProvider<RatioMonitoringCubit>.value(
+                  value: coordinator.ratioMonitoringCubit,
+                ),
+                BlocProvider<MyDayCubit>.value(value: coordinator.myDayCubit),
+                BlocProvider<MyShiftsCubit>.value(
+                  value: coordinator.myShiftsCubit,
+                ),
+                BlocProvider<MyAttendanceCubit>.value(
+                  value: coordinator.myAttendanceCubit,
+                ),
+              ],
+              child: _buildScaffold(context),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildScaffold() {
-    return GlobalScaffold(
-      showCustomNavigationBar: true,
-      bodyPadding: EdgeInsets.zero,
-      body: Material(
-        type: MaterialType.transparency,
-        child: BlocBuilder<StaffDashboardCubit, StaffDashboardState>(
-          builder: (context, dashState) {
-            return CustomRefreshIndicator(
-              onRefresh: () => Future.wait([
-                _myDayCubit.refresh(),
-                _myAttendanceCubit.refresh(),
-                _myShiftsCubit.load(forceRefresh: true),
-              ]),
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+  Widget _buildScaffold(BuildContext context) {
+    final coordinator = context.read<StaffDashboardCoordinatorCubit>();
+    return BlocListener<StaffDashboardCoordinatorCubit, DashboardState>(
+      listenWhen: (prev, curr) {
+        if (curr.isFailure && !prev.isFailure) return true;
+        if (curr.isPartialError && !prev.isPartialError) return true;
+        if (prev.isRefreshing && curr.isReady) return true;
+        return false;
+      },
+      listener: (context, state) {
+        if (state.isFailure) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message:
+                state.errorMessage ??
+                'Unable to load dashboard data. Please try again.',
+            isError: true,
+          );
+        }
+        // else if (state.isPartialError) {
+        //   CoreUtils.showTopSnackBar(
+        //     context: context,
+        //     message: 'Some sections could not be loaded. Pull down to retry.',
+        //     isWarning: true,
+        //   );
+        // }
+        else if (state.isReady) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Dashboard refreshed successfully.',
+            isSuccess: true,
+          );
+        }
+      },
+      child: GlobalScaffold(
+        showCustomNavigationBar: true,
+        bodyPadding: EdgeInsets.zero,
+        body: Material(
+          type: MaterialType.transparency,
+          child: CustomRefreshIndicator(
+            onRefresh: () => coordinator.refresh(),
+            child: _DashboardCardList(cardFor: _cardFor),
+          ),
+        ),
+      ),
+    );
+  }
+}
 
-                  return Align(
-                    alignment: Alignment.topCenter,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(
-                        maxWidth: _maxContentWidth,
-                      ),
-                      child: CustomScrollView(
-                        physics: const AlwaysScrollableScrollPhysics(),
-                        slivers: [
-                          // SliverPadding(
-                          //   padding: EdgeInsets.fromLTRB(gutter, 16, gutter, 0),
-                          //   sliver: SliverToBoxAdapter(
-                          //     child: _buildHeader(dashState.userName),
-                          //   ),
-                          // ),
-                          SliverPadding(
-                            padding: EdgeInsets.fromLTRB(gutter, 0, gutter, 28),
-                            sliver: SliverReorderableList(
-                              itemCount: dashState.cards.length,
-                              onReorder: context
-                                  .read<StaffDashboardCubit>()
-                                  .reorderCard,
-                              itemBuilder: (context, index) {
-                                final card = dashState.cards[index];
-                                return ReorderableDelayedDragStartListener(
-                                  key: ValueKey(card),
-                                  index: index,
-                                  child: Padding(
-                                    padding: const EdgeInsets.only(bottom: 16),
-                                    child: Material(
-                                      type: MaterialType.transparency,
-                                      child: _cardFor(card),
-                                    ),
-                                  ),
-                                );
-                              },
+class _DashboardCardList extends StatelessWidget {
+  const _DashboardCardList({required this.cardFor});
+
+  final Widget Function(StaffDashboardCard) cardFor;
+
+  static const double _maxContentWidth = 640;
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<StaffDashboardCubit, StaffDashboardState>(
+      buildWhen: (prev, curr) => prev.cards != curr.cards,
+      builder: (context, dashState) {
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final double gutter = constraints.maxWidth < 360 ? 12 : 16;
+
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxContentWidth),
+                child: CustomScrollView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.fromLTRB(gutter, 24, gutter, 28),
+                      sliver: SliverReorderableList(
+                        itemCount: dashState.cards.length,
+                        onReorder: context
+                            .read<StaffDashboardCubit>()
+                            .reorderCard,
+                        itemBuilder: (context, index) {
+                          final card = dashState.cards[index];
+                          return ReorderableDelayedDragStartListener(
+                            key: ValueKey(card),
+                            index: index,
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Material(
+                                type: MaterialType.transparency,
+                                child: cardFor(card),
+                              ),
                             ),
-                          ),
-                        ],
+                          );
+                        },
                       ),
                     ),
-                  );
-                },
+                  ],
+                ),
               ),
             );
           },
-        ),
-      ),
+        );
+      },
     );
   }
 }

@@ -350,5 +350,7 @@ String _futureShiftToApi(FutureAvailabilityShift shift) {
       return 'AFTERNOON';
     case FutureAvailabilityShift.all:
       return 'ALL';
+    case FutureAvailabilityShift.twoShifts:
+      return 'TWO_SHIFTS';
   }
 }

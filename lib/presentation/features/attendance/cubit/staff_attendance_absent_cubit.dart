@@ -1,5 +1,6 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:flutter/foundation.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 
 import '../../../../domain/features/attendance/entities/staff_attendance_absent.dart';
@@ -40,7 +41,12 @@ class StaffAttendanceAbsentCubit extends Cubit<StaffAttendanceAbsentState> {
     List<String>? tagCodes,
     String? search,
   }) async {
-    if (state.isRefreshing) return;
+    final filtersChanged = !listEquals(classroomCodes, state.classroomCodes) ||
+        !listEquals(tagCodes, state.tagCodes) ||
+        search != state.search ||
+        state.fromDate != fromDate ||
+        state.toDate != toDate;
+    if (state.isRefreshing && !filtersChanged) return;
 
     final fromStr = _formatDate(fromDate);
     final toStr = _formatDate(toDate);

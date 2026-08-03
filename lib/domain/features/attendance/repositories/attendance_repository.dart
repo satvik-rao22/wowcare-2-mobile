@@ -367,8 +367,10 @@ abstract class AttendanceRepository {
   });
 
   /// Submits a staff sign-out.
+  /// Set [isSelf] to true to use the self sign-out endpoint.
   Future<AttendanceActionResult> submitStaffSignOut({
     required Map<String, dynamic> payload,
+    bool isSelf = false,
   });
 
   /// Submits a staff classroom transfer.
@@ -412,6 +414,18 @@ abstract class AttendanceRepository {
   /// GET student absent view list (paginated, filterable).
   Future<Map<String, dynamic>?> fetchStudentAttendanceAbsentView({
     required Map<String, dynamic> queryParameters,
+  });
+
+  /// GET student absent view with classroom filter + allowed scope applied.
+  Future<Map<String, dynamic>?> getStudentAttendanceAbsentView({
+    required String fromAbsenceDate,
+    required String toAbsenceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    String? search,
+    int page = 0,
+    int size = 10,
+    List<String>? sort,
   });
 }
 

@@ -45,7 +45,8 @@ class CustomTextWidget extends StatelessWidget {
     return Text(
       text ?? '',
       textAlign: textAlign,
-      style: textStyle ??
+      style:
+          textStyle ??
           TextStyle(
             fontFamily: fontFamily ?? 'Manrope',
             fontSize: fontSize ?? responsive.titleFontSize,

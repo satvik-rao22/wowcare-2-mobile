@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -32,9 +33,9 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
   MyAttendanceCubit({
     required AttendanceRepository attendanceRepository,
     required StorageService storageService,
-  })  : _repo = attendanceRepository,
-        _storage = storageService,
-        super(const MyAttendanceState());
+  }) : _repo = attendanceRepository,
+       _storage = storageService,
+       super(const MyAttendanceState());
 
   final AttendanceRepository _repo;
   final StorageService _storage;
@@ -59,7 +60,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
 
     _isFetching = true;
 
-    final now = DateTime.now();
+    final now = AppTime.now();
     final from = DateTime(now.year, now.month, 1);
     final to = now;
 
@@ -68,14 +69,16 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
     final displayName =
         (await _storage.getString(StorageKeys.displayName) ?? '').trim();
 
-    emit(state.copyWith(
-      status: _Status.loading,
-      staffCode: staffCode,
-      staffName: displayName.isNotEmpty ? displayName : state.staffName,
-      fromDate: from,
-      toDate: to,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        status: _Status.loading,
+        staffCode: staffCode,
+        staffName: displayName.isNotEmpty ? displayName : state.staffName,
+        fromDate: from,
+        toDate: to,
+        clearError: true,
+      ),
+    );
 
     await _fetchAttendance(
       staffCode: staffCode,
@@ -101,8 +104,10 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
       return;
     }
 
-    final from = state.fromDate ?? DateTime(DateTime.now().year, DateTime.now().month, 1);
-    final to = state.toDate ?? DateTime.now();
+    final from =
+        state.fromDate ??
+        DateTime(AppTime.now().year, AppTime.now().month, 1);
+    final to = state.toDate ?? AppTime.now();
 
     await Future.wait([
       _fetchAttendance(
@@ -136,9 +141,10 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
           : await _resolveStaffCode();
       if (staffCode.isEmpty) return;
 
-      final from = state.fromDate ??
-          DateTime(DateTime.now().year, DateTime.now().month, 1);
-      final to = state.toDate ?? DateTime.now();
+      final from =
+          state.fromDate ??
+          DateTime(AppTime.now().year, AppTime.now().month, 1);
+      final to = state.toDate ?? AppTime.now();
 
       await _fetchAbsent(
         staffCode: staffCode,
@@ -194,20 +200,21 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
       return;
     }
 
-    emit(state.copyWith(
-      status: _Status.loading,
-      fromDate: from,
-      toDate: to,
-      attendanceRecords: const [],
-      attendancePage: 0,
-      attendanceHasMore: false,
-      attendanceLoaded: false,
-      absentRecords: const [],
-      absentPage: 0,
-      absentHasMore: false,
-      absentLoaded: false,
-      clearError: true,
-    ));
+    emit(
+      state.copyWith(
+        status: _Status.loading,
+        fromDate: from,
+        toDate: to,
+        attendanceRecords: const [],
+        attendancePage: 0,
+        attendanceHasMore: false,
+        absentRecords: const [],
+        absentPage: 0,
+        absentHasMore: false,
+        absentLoaded: false,
+        clearError: true,
+      ),
+    );
 
     await _fetchAttendance(
       staffCode: staffCode,
@@ -258,10 +265,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
       );
 
       if (raw == null) {
-        emit(state.copyWith(
-          status: _Status.loaded,
-          attendanceLoaded: true,
-        ));
+        emit(state.copyWith(status: _Status.loaded, attendanceLoaded: true));
         return;
       }
 
@@ -289,19 +293,21 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
         }
       }
 
-      emit(state.copyWith(
-        status: _Status.loaded,
-        staffName: staffName,
-        attendanceRecords: merged,
-        attendancePage: parsed.page,
-        attendanceHasMore: parsed.hasMore,
-        attendanceLoaded: true,
-        attendedDays: parsed.attendedDays,
-        attendedHours: attendedHours,
-        attendedMinutes: attendedMinutes,
-        totalAttendedTime: parsed.totalAttendedHours,
-        clearError: true,
-      ));
+      emit(
+        state.copyWith(
+          status: _Status.loaded,
+          staffName: staffName,
+          attendanceRecords: merged,
+          attendancePage: parsed.page,
+          attendanceHasMore: parsed.hasMore,
+          attendanceLoaded: true,
+          attendedDays: parsed.attendedDays,
+          attendedHours: attendedHours,
+          attendedMinutes: attendedMinutes,
+          totalAttendedTime: parsed.totalAttendedHours,
+          clearError: true,
+        ),
+      );
 
       AppLogger.d(
         '[MyAttendanceCubit] attendance page=$page '
@@ -310,11 +316,13 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
     } catch (e) {
       AppLogger.e('[MyAttendanceCubit] fetchAttendance error: $e');
       if (!append) {
-        emit(state.copyWith(
-          status: _Status.error,
-          errorMessage: ApiErrorHandler.extractErrorMessage(e),
-          attendanceLoaded: true,
-        ));
+        emit(
+          state.copyWith(
+            status: _Status.error,
+            errorMessage: ApiErrorHandler.extractErrorMessage(e),
+            attendanceLoaded: true,
+          ),
+        );
       } else {
         // On load-more error keep existing data, just stop the spinner.
         emit(state.copyWith(status: _Status.loaded));
@@ -346,10 +354,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
       );
 
       if (raw == null) {
-        emit(state.copyWith(
-          status: _Status.loaded,
-          absentLoaded: true,
-        ));
+        emit(state.copyWith(status: _Status.loaded, absentLoaded: true));
         return;
       }
 
@@ -359,15 +364,17 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
           ? [...state.absentRecords, ...parsed.items]
           : parsed.items;
 
-      emit(state.copyWith(
-        status: _Status.loaded,
-        absentRecords: merged,
-        absentPage: parsed.page,
-        absentHasMore: parsed.hasMore,
-        absentLoaded: true,
-        absentDays: parsed.absentDays,
-        clearError: true,
-      ));
+      emit(
+        state.copyWith(
+          status: _Status.loaded,
+          absentRecords: merged,
+          absentPage: parsed.page,
+          absentHasMore: parsed.hasMore,
+          absentLoaded: true,
+          absentDays: parsed.absentDays,
+          clearError: true,
+        ),
+      );
 
       AppLogger.d(
         '[MyAttendanceCubit] absent page=$page '
@@ -376,10 +383,7 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
     } catch (e) {
       AppLogger.e('[MyAttendanceCubit] fetchAbsent error: $e');
       if (!append) {
-        emit(state.copyWith(
-          status: _Status.loaded,
-          absentLoaded: true,
-        ));
+        emit(state.copyWith(status: _Status.loaded, absentLoaded: true));
       } else {
         emit(state.copyWith(status: _Status.loaded));
       }
@@ -391,7 +395,8 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
   // ---------------------------------------------------------------------------
 
   Future<String> _resolveStaffCode() async {
-    final code = (await _storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    final code =
+        (await _storage.getString(StorageKeys.staffCode))?.trim() ?? '';
     return code;
   }
 

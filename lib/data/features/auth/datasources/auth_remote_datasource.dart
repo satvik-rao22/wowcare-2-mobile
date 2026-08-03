@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/network/api_logger.dart';
 import 'package:wowcare/core/util/api_constants.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/network/api_response.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
@@ -320,7 +321,7 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
       'lastLoginApp': lastLoginApp ?? 'wowcare',
       'lastLoginOrganizationCode': (org == null || org.isEmpty) ? null : org,
       'lastLoginSchoolCode': (school == null || school.isEmpty) ? null : school,
-      'lastLoginAt': (lastLoginAt ?? DateTime.now().toUtc()).toIso8601String(),
+      'lastLoginAt': (lastLoginAt ?? AppTime.nowUtc()).toIso8601String(),
     };
     final requestBody = jsonEncode(body);
 

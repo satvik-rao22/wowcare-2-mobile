@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
@@ -303,7 +304,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
       final result = await serviceLocator<StudentRepository>()
           .getStudentHealth(studentCode: code);
       _healthCache[code] = _HealthCacheEntry(
-        fetchedAt: DateTime.now(),
+        fetchedAt: AppTime.nowUtc(),
         health: result,
       );
       if (!mounted) return;
@@ -465,7 +466,7 @@ final Map<String, Future<StudentHealth?>> _healthInflight =
 StudentHealth? _cachedHealthIfFresh(String studentCode) {
   final entry = _healthCache[studentCode];
   if (entry == null) return null;
-  if (DateTime.now().difference(entry.fetchedAt) > _healthCacheTtl) {
+  if (AppTime.nowUtc().difference(entry.fetchedAt) > _healthCacheTtl) {
     _healthCache.remove(studentCode);
     return null;
   }
@@ -493,7 +494,7 @@ Future<void> prefetchStudentDetailsHealth(String studentCode) async {
       final result = await serviceLocator<StudentRepository>()
           .getStudentHealth(studentCode: code);
       _healthCache[code] = _HealthCacheEntry(
-        fetchedAt: DateTime.now(),
+        fetchedAt: AppTime.nowUtc(),
         health: result,
       );
       return result;

@@ -1,8 +1,6 @@
 import 'dart:convert';
-
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../../../../../core/network/api_client.dart';
 import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/school_timezone_resolver.dart';
@@ -10,7 +8,7 @@ import '../../../../../../core/util/school_zone_datetime.dart';
 import '../../../../../../core/util/staff_code_resolver.dart';
 import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../domain/features/attendance/usecases/mark_students_absent_usecase.dart';
-
+import 'package:wowcare/core/util/server_time_service.dart';
 part 'student_mark_absent_state.dart';
 
 /// Cubit for [StudentMarkAbsentForm].
@@ -26,10 +24,10 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
     required MarkStudentsAbsentUseCase markStudentsAbsentUseCase,
     required StorageService storageService,
     required ApiClient apiClient,
-  })  : _markStudentsAbsentUseCase = markStudentsAbsentUseCase,
-        _storageService = storageService,
-        _apiClient = apiClient,
-        super(StudentMarkAbsentState.initial());
+  }) : _markStudentsAbsentUseCase = markStudentsAbsentUseCase,
+       _storageService = storageService,
+       _apiClient = apiClient,
+       super(StudentMarkAbsentState.initial());
 
   final MarkStudentsAbsentUseCase _markStudentsAbsentUseCase;
   final StorageService _storageService;
@@ -66,7 +64,8 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
             final roleCode = ((r as Map<String, dynamic>)['role'] ?? '')
                 .toString()
                 .toUpperCase();
-            if (roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN') {
+            if (roleCode == 'SCHOOL_ADMIN' ||
+                roleCode == 'ORGANIZATION_ADMIN') {
               isAdmin = true;
               break;
             }
@@ -77,12 +76,14 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
       final DateTime start = (schoolIana != null && schoolIana.isNotEmpty)
           ? SchoolZoneDateTime.schoolCalendarTodayOnly(schoolIana)
           : _localToday();
-      emit(state.copyWith(
-        schoolIana: schoolIana,
-        isStaffAdminPersona: isAdmin,
-        startDate: start,
-        endDate: start,
-      ));
+      emit(
+        state.copyWith(
+          schoolIana: schoolIana,
+          isStaffAdminPersona: isAdmin,
+          startDate: start,
+          endDate: start,
+        ),
+      );
     } catch (_) {}
   }
 
@@ -93,22 +94,16 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
     emit(state.copyWith(students: updated));
   }
 
-  /// Picks the absence start date, clamped to (not after) the school's today
-  /// and keeping the end date on/after the start date.
+  /// Picks the absence start date, keeping end date on/after the start date.
   void selectStartDate(DateTime date) {
-    final today = _schoolToday();
-    final picked = DateTime(date.year, date.month, date.day);
-    final start = picked.isAfter(today) ? today : picked;
+    final start = DateTime(date.year, date.month, date.day);
     final end = state.endDate.isBefore(start) ? start : state.endDate;
     emit(state.copyWith(startDate: start, endDate: end));
   }
 
-  /// Picks the absence end date, clamped to (not after) the school's today and
-  /// never before the start date.
+  /// Picks the absence end date, never before the start date.
   void selectEndDate(DateTime date) {
-    final today = _schoolToday();
-    final picked = DateTime(date.year, date.month, date.day);
-    var end = picked.isAfter(today) ? today : picked;
+    var end = DateTime(date.year, date.month, date.day);
     if (end.isBefore(state.startDate)) end = state.startDate;
     emit(state.copyWith(endDate: end));
   }
@@ -153,8 +148,9 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
       );
     }
 
-    final absenceReason =
-        reason.trim().isNotEmpty ? reason.trim() : 'Marked Absent';
+    final absenceReason = reason.trim().isNotEmpty
+        ? reason.trim()
+        : 'Marked Absent';
     final absenceNotes = <String, String>{};
     for (final code in studentCodes) {
       final note = (notes[code] ?? '').trim();
@@ -187,15 +183,8 @@ class StudentMarkAbsentFormCubit extends Cubit<StudentMarkAbsentState> {
     }
   }
 
-  DateTime _schoolToday() {
-    final iana = state.schoolIana;
-    return (iana != null && iana.isNotEmpty)
-        ? SchoolZoneDateTime.schoolCalendarTodayOnly(iana)
-        : _localToday();
-  }
-
   static DateTime _localToday() {
-    final now = DateTime.now();
+    final now = ServerTimeService.instance.now();
     return DateTime(now.year, now.month, now.day);
   }
 
@@ -218,13 +207,13 @@ class MarkAbsentSubmitOutcome {
   });
 
   const MarkAbsentSubmitOutcome.success(String message)
-      : this._(success: true, message: message);
+    : this._(success: true, message: message);
 
   const MarkAbsentSubmitOutcome.failure(String message)
-      : this._(success: false, message: message);
+    : this._(success: false, message: message);
 
   const MarkAbsentSubmitOutcome.error(Object error)
-      : this._(success: false, error: error);
+    : this._(success: false, error: error);
 
   const MarkAbsentSubmitOutcome.noop() : this._(success: false);
 

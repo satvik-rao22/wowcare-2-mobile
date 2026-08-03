@@ -7,6 +7,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
+import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -92,8 +93,13 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
           return const _EnrollmentCardShimmer();
         }
 
-        if (state.isError && !state.isLoaded) {
-          return Container(
+        // On error, fall through to the normal card layout below — it
+        // renders whatever values are in state (zeros on a first-load
+        // failure) instead of replacing the card with an error banner.
+        return DashboardCardErrorOverlay(
+          show: state.isError,
+          onRetry: _loadData,
+          child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
@@ -101,221 +107,211 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Column(
-              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Icon(
-                  Icons.error_outline,
-                  color: AppColors.errorColor,
-                  size: 36,
+                DashboardCardHeader(
+                  title: "Today's School Status",
+                  minimized: _minimized,
+                  onToggle: () => setState(() => _minimized = !_minimized),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  state.errorMessage ?? 'Failed to load school status',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
+
+                if (!_minimized) ...[
+                  const SizedBox(height: 16),
+
+                  // ── Capacity summary — three stat columns ─────────────────────
+                  // classroomClassrooms excludes admin/non-teaching rooms.
+                  IntrinsicHeight(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: _StatColumn(
+                            value: state.classroomClassrooms.toString(),
+                            label: 'Total \n Classrooms',
+                          ),
+                        ),
+                        // VerticalDivider(
+                        //   width: 1,
+                        //   color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        // ),
+                        Expanded(
+                          child: _StatColumn(
+                            value: state.capacity.toString(),
+                            label: 'Total \n Capacity',
+                          ),
+                        ),
+                        // VerticalDivider(
+                        //   width: 1,
+                        //   color: AppColors.primaryColor.withValues(alpha: 0.1),
+                        // ),
+                        Expanded(
+                          child: _StatColumn(
+                            value: '${state.schoolFte.toStringAsFixed(0)}%',
+                            label: 'Full time \n Equivalent',
+                            showTrend: true,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 12),
-                TextButton(
-                  onPressed: () => _loadData(),
-                  child: const Text('Retry'),
-                ),
+                  const SizedBox(height: 16),
+                  Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+                  const SizedBox(height: 16),
+
+                  // ── Breakdown bars (shared CustomStatBarCard) ─────────────────
+                  CustomStatBarCard(
+                    title: 'Enrolled Students',
+                    number: state.enrolledCount.toString(),
+                    fullWidthBar: true,
+                    embedded: true,
+                    titleFontSize: 14,
+                    onHeaderTap: () {
+                      // context.push(ClassroomOverviewScreen.routeName);
+                    },
+                    onLegendTap: (label, filterValue) {
+                      final normalized = label.trim().toLowerCase();
+                      String filter = 'ACTIVE';
+                      if (normalized.startsWith('active')) {
+                        filter = 'ACTIVE';
+                      } else if (normalized.startsWith('upcoming')) {
+                        filter = 'UPCOMING';
+                      }
+                      debugPrint(
+                        '[EnrollmentCard] Navigating to Student Attendance: '
+                        'filter=$filter, route=${StudentAttendanceTabbedView.routeName}',
+                      );
+                      context.push(
+                        StudentAttendanceTabbedView.routeName,
+                        extra: {'filter': filter, 'hasBackButton': true},
+                      );
+                    },
+                    items: _percentItems(
+                      total: state.enrolledCount,
+                      raw: [
+                        _Seg(
+                          'Active',
+                          state.activeCount,
+                          AppColors.lightBlueProgressBar,
+                        ),
+                        _Seg(
+                          'Upcoming',
+                          state.upcomingCount,
+                          AppColors.mustardProgressBar,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+                  CustomStatBarCard(
+                    title: 'Expected Students',
+                    number: state.studentExpected.toString(),
+                    fullWidthBar: true,
+                    embedded: true,
+                    titleFontSize: 14,
+                    onHeaderTap: () {
+                      // context.push(
+                      // StudentAttendanceTabbedView.routeName,
+                      // extra: {'filter': 'Expected'},
+                      // );
+                    },
+                    onLegendTap: (label, filterValue) {
+                      final normalized = label.trim().toLowerCase();
+                      String filter = 'Expected';
+                      if (normalized.startsWith('signed-in')) {
+                        filter = 'Present';
+                      } else if (normalized.startsWith('signed-out')) {
+                        filter = 'Signed Out';
+                      } else if (normalized.startsWith('absent')) {
+                        filter = 'Absent';
+                      } else if (normalized.startsWith('not')) {
+                        filter = 'Not Marked';
+                      }
+                      debugPrint(
+                        '[EnrollmentCard] Navigating to Student Attendance: '
+                        'filter=$filter, label=$label, route=${StudentAttendanceTabbedView.routeName}',
+                      );
+                      context.push(
+                        StudentAttendanceTabbedView.routeName,
+                        extra: {'filter': filter, 'hasBackButton': true},
+                      );
+                    },
+                    items: _percentItems(
+                      total: state.studentExpected,
+                      raw: [
+                        _Seg(
+                          'Signed-in',
+                          state.studentPresent,
+                          AppColors.colorBox,
+                        ),
+                        _Seg(
+                          'Absent',
+                          state.studentAbsent,
+                          AppColors.colorBox2,
+                        ),
+                        _Seg(
+                          'Signed-out',
+                          state.studentSignOut,
+                          _signedOutColor,
+                        ),
+                        _Seg(
+                          'Not Marked',
+                          state.studentNotMarked,
+                          _notMarkedColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                  Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
+                  CustomStatBarCard(
+                    title: 'Expected Staff',
+                    number: state.staffExpected.toString(),
+                    fullWidthBar: true,
+                    embedded: true,
+                    titleFontSize: 14,
+                    onHeaderTap: () {
+                      // context.push(
+                      //   StaffAttendanceTabbedView.routeName,
+                      //   extra: {'filter': 'Expected'},
+                      // );
+                    },
+                    onLegendTap: (label, filterValue) {
+                      final normalized = label.trim().toLowerCase();
+                      String filter = 'Expected';
+                      if (normalized.startsWith('signed-in')) {
+                        filter = 'Present';
+                      } else if (normalized.startsWith('signed-out')) {
+                        filter = 'Signed Out';
+                      } else if (normalized.startsWith('absent')) {
+                        filter = 'Absent';
+                      } else if (normalized.startsWith('not')) {
+                        filter = 'Not Marked';
+                      }
+                      context.push(
+                        StaffAttendanceTabbedView.routeName,
+                        extra: {'filter': filter, 'hasBackButton': true},
+                      );
+                    },
+                    items: _percentItems(
+                      total: state.staffExpected,
+                      raw: [
+                        _Seg(
+                          'Signed-in',
+                          state.staffPresent,
+                          AppColors.colorBox,
+                        ),
+                        _Seg('Absent', state.staffAbsent, AppColors.colorBox2),
+                        _Seg('Signed-out', state.staffSignOut, _signedOutColor),
+                        _Seg(
+                          'Not Marked',
+                          state.staffNotMarked,
+                          _notMarkedColor,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ],
             ),
-          );
-        }
-
-        return Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            border: Border.all(color: AppColors.cardBorderColor),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              DashboardCardHeader(
-                title: "Today's School Status",
-                minimized: _minimized,
-                onToggle: () => setState(() => _minimized = !_minimized),
-              ),
-
-              if (!_minimized) ...[
-                const SizedBox(height: 16),
-
-                // ── Capacity summary — three stat columns ─────────────────────
-                // classroomClassrooms excludes admin/non-teaching rooms.
-                IntrinsicHeight(
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: _StatColumn(
-                          value: state.classroomClassrooms.toString(),
-                          label: 'Total Classrooms',
-                        ),
-                      ),
-                      // VerticalDivider(
-                      //   width: 1,
-                      //   color: AppColors.primaryColor.withValues(alpha: 0.1),
-                      // ),
-                      Expanded(
-                        child: _StatColumn(
-                          value: state.capacity.toString(),
-                          label: 'Total Capacity',
-                        ),
-                      ),
-                      // VerticalDivider(
-                      //   width: 1,
-                      //   color: AppColors.primaryColor.withValues(alpha: 0.1),
-                      // ),
-                      Expanded(
-                        child: _StatColumn(
-                          value: '${state.schoolFte.toStringAsFixed(0)}%',
-                          label: 'Full time Equivalent',
-                          showTrend: true,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-                const SizedBox(height: 16),
-
-                // ── Breakdown bars (shared CustomStatBarCard) ─────────────────
-                CustomStatBarCard(
-                  title: 'Enrolled Students',
-                  number: state.enrolledCount.toString(),
-                  fullWidthBar: true,
-                  embedded: true,
-                  titleFontSize: 14,
-                  onHeaderTap: () {
-                    // context.push(ClassroomOverviewScreen.routeName);
-                  },
-                  onLegendTap: (label, filterValue) {
-                    final normalized = label.trim().toLowerCase();
-                    String filter = 'ACTIVE';
-                    if (normalized.startsWith('active')) {
-                      filter = 'ACTIVE';
-                    } else if (normalized.startsWith('upcoming')) {
-                      filter = 'UPCOMING';
-                    }
-                    context.push(
-                      StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
-                    );
-                  },
-                  items: _percentItems(
-                    total: state.enrolledCount,
-                    raw: [
-                      _Seg(
-                        'Active',
-                        state.activeCount,
-                        AppColors.lightBlueProgressBar,
-                      ),
-                      _Seg(
-                        'Upcoming',
-                        state.upcomingCount,
-                        AppColors.mustardProgressBar,
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-                CustomStatBarCard(
-                  title: 'Expected Students',
-                  number: state.studentExpected.toString(),
-                  fullWidthBar: true,
-                  embedded: true,
-                  titleFontSize: 14,
-                  onHeaderTap: () {
-                    // context.push(
-                    // StudentAttendanceTabbedView.routeName,
-                    // extra: {'filter': 'Expected'},
-                    // );
-                  },
-                  onLegendTap: (label, filterValue) {
-                    final normalized = label.trim().toLowerCase();
-                    String filter = 'Expected';
-                    if (normalized.startsWith('signed-in')) {
-                      filter = 'Present';
-                    } else if (normalized.startsWith('signed-out')) {
-                      filter = 'Signed Out';
-                    } else if (normalized.startsWith('absent')) {
-                      filter = 'Absent';
-                    } else if (normalized.startsWith('not')) {
-                      filter = 'Not Marked';
-                    }
-                    context.push(
-                      StudentAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
-                    );
-                  },
-                  items: _percentItems(
-                    total: state.studentExpected,
-                    raw: [
-                      _Seg(
-                        'Signed-in',
-                        state.studentPresent,
-                        AppColors.colorBox,
-                      ),
-                      _Seg('Absent', state.studentAbsent, AppColors.colorBox2),
-                      _Seg('Signed-out', state.studentSignOut, _signedOutColor),
-                      _Seg(
-                        'Not Marked',
-                        state.studentNotMarked,
-                        _notMarkedColor,
-                      ),
-                    ],
-                  ),
-                ),
-                Divider(color: AppColors.primaryColor.withValues(alpha: 0.1)),
-                CustomStatBarCard(
-                  title: 'Expected Staff',
-                  number: state.staffExpected.toString(),
-                  fullWidthBar: true,
-                  embedded: true,
-                  titleFontSize: 14,
-                  onHeaderTap: () {
-                    // context.push(
-                    //   StaffAttendanceTabbedView.routeName,
-                    //   extra: {'filter': 'Expected'},
-                    // );
-                  },
-                  onLegendTap: (label, filterValue) {
-                    final normalized = label.trim().toLowerCase();
-                    String filter = 'Expected';
-                    if (normalized.startsWith('signed-in')) {
-                      filter = 'Present';
-                    } else if (normalized.startsWith('signed-out')) {
-                      filter = 'Signed Out';
-                    } else if (normalized.startsWith('absent')) {
-                      filter = 'Absent';
-                    } else if (normalized.startsWith('not')) {
-                      filter = 'Not Marked';
-                    }
-                    context.push(
-                      StaffAttendanceTabbedView.routeName,
-                      extra: {'filter': filter},
-                    );
-                  },
-                  items: _percentItems(
-                    total: state.staffExpected,
-                    raw: [
-                      _Seg('Signed-in', state.staffPresent, AppColors.colorBox),
-                      _Seg('Absent', state.staffAbsent, AppColors.colorBox2),
-                      _Seg('Signed-out', state.staffSignOut, _signedOutColor),
-                      _Seg('Not Marked', state.staffNotMarked, _notMarkedColor),
-                    ],
-                  ),
-                ),
-              ],
-            ],
           ),
         );
       },
@@ -361,28 +357,28 @@ class _StatColumn extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        if (showTrend) ...[
-          const SizedBox(height: 6),
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
-              SizedBox(width: 3),
-              Flexible(
-                child: Text(
-                  '5% vs last month',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.successColor,
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+        // if (showTrend) ...[
+        //   const SizedBox(height: 6),
+        //   const Row(
+        //     mainAxisAlignment: MainAxisAlignment.center,
+        //     crossAxisAlignment: CrossAxisAlignment.start,
+        //     children: [
+        //       Icon(Icons.trending_up, size: 12, color: AppColors.successColor),
+        //       SizedBox(width: 3),
+        //       Flexible(
+        //         child: Text(
+        //           '0% vs last month',
+        //           textAlign: TextAlign.center,
+        //           style: TextStyle(
+        //             color: AppColors.successColor,
+        //             fontSize: 10,
+        //             fontWeight: FontWeight.w600,
+        //           ),
+        //         ),
+        //       ),
+        //     ],
+        //   ),
+        // ],
       ],
     );
   }

@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
@@ -12,7 +13,7 @@ class CustomHorizontalDatePicker extends StatefulWidget {
 
 class _CustomHorizontalDatePickerState extends State<CustomHorizontalDatePicker> {
   CalendarFormat _calendarFormat = CalendarFormat.week;
-  DateTime _focusedDay = DateTime.now();
+  DateTime _focusedDay = AppTime.now();
   DateTime? _selectedDay;
 
   @override

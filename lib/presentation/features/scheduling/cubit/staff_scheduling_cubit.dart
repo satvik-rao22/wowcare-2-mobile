@@ -455,6 +455,13 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         organizationCode: organizationCode,
         dateFrom: day,
         dateTo: day,
+        // Published-only for every persona here (admin included) — this
+        // per-staff shift summary should never show unpublished drafts,
+        // matching the hours-range call below (`publishedOnly: true`,
+        // already unconditional). Scoped to Staff Scheduling only; the
+        // classroom-based Scheduling screen (scheduling_cubit.dart) is
+        // intentionally untouched.
+        shiftStatus: const <String>['PUBLISHED'],
       );
 
       if (isClosed) return;
@@ -471,6 +478,7 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
           organizationCode: organizationCode,
           startDate: day,
           endDate: day,
+          publishedOnly: true,
           staffCodes: <String>[staffCode],
         );
         totals = StaffHoursAggregator.sumForStaffOnDay(
@@ -502,30 +510,6 @@ class StaffSchedulingCubit extends Cubit<StaffSchedulingState> {
         ),
       );
     }
-  }
-
-  void selectStaffByName(String? name) {
-    if (name == null || name.isEmpty || name == 'Select Staff') {
-      emit(
-        state.copyWith(
-          clearSelectedStaffCode: true,
-          shiftSummary: StaffShiftDaySummary.empty,
-        ),
-      );
-      return;
-    }
-
-    StaffMember? match;
-    for (final s in state.staffList) {
-      if (s.name == name) {
-        match = s;
-        break;
-      }
-    }
-    if (match == null) return;
-
-    emit(state.copyWith(selectedStaffCode: match.code));
-    _loadShiftsForSelection();
   }
 
   /// Selects a staff member by code (notification deep-link). No-op if the code

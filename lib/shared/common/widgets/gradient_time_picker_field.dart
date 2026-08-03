@@ -108,6 +108,7 @@
 //   }
 // }
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -117,16 +118,20 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 class GradientTimePickerField extends StatelessWidget {
   const GradientTimePickerField({
     super.key,
-    required this.label,
+    this.label,
     required this.time,
     required this.onTimeSelected,
     this.errorText,
     this.isRequired = false,
     this.enabled = true,
     this.onClear,
+    this.minuteInterval,
   });
 
-  final String label;
+  /// Optional in-field label rendered above the picker. When null or empty,
+  /// no label row is drawn — useful where the caller already renders its own
+  /// label (e.g. the attendance forms use `AppText.label('Time')`).
+  final String? label;
   final String? errorText;
   final TimeOfDay? time;
   final ValueChanged<TimeOfDay> onTimeSelected;
@@ -142,6 +147,12 @@ class GradientTimePickerField extends StatelessWidget {
   /// the input.
   final VoidCallback? onClear;
 
+  /// When set (e.g. 15), the field opens a wheel picker that only allows
+  /// minutes in multiples of this value (00/15/30/45 for 15) — the restriction
+  /// is enforced in the picker UI, so off-interval minutes can't be chosen.
+  /// When null (the default), the normal themed clock picker is used.
+  final int? minuteInterval;
+
   String _formatHourMinute(TimeOfDay? t) {
     if (t == null) return 'hh:mm AM';
 
@@ -155,6 +166,12 @@ class GradientTimePickerField extends StatelessWidget {
   }
 
   Future<void> _pickTime(BuildContext context) async {
+    // Interval-restricted mode: minutes are limited to multiples of
+    // [minuteInterval] directly in the picker UI (a wheel picker).
+    if (minuteInterval != null) {
+      return _pickTimeRestricted(context);
+    }
+
     final initial = time ?? const TimeOfDay(hour: 9, minute: 0);
 
     try {
@@ -205,36 +222,122 @@ class GradientTimePickerField extends StatelessWidget {
     } catch (_) {}
   }
 
+  /// Wheel picker whose minute column only shows multiples of [minuteInterval]
+  /// (e.g. 00/15/30/45). The restriction is enforced by the picker itself, so a
+  /// user can never land on an off-interval minute.
+  Future<void> _pickTimeRestricted(BuildContext context) async {
+    final interval = minuteInterval!;
+    final now = time ?? const TimeOfDay(hour: 9, minute: 0);
+    // The wheel's initial minute must already be a valid multiple.
+    final snappedMinute = (now.minute ~/ interval) * interval;
+    var selected = DateTime(2020, 1, 1, now.hour, snappedMinute);
+
+    final result = await showModalBottomSheet<TimeOfDay>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          decoration: const BoxDecoration(
+            color: AppColors.cardColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: SafeArea(
+            top: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(),
+                        child: const Text(
+                          'Cancel',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            color: AppColors.primaryColor,
+                          ),
+                        ),
+                      ),
+                      const Text(
+                        'Select time',
+                        style: TextStyle(
+                          fontFamily: 'Manrope',
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.primaryColor,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(
+                          TimeOfDay(hour: selected.hour, minute: selected.minute),
+                        ),
+                        child: const Text(
+                          'OK',
+                          style: TextStyle(
+                            fontFamily: 'Manrope',
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.themeColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(
+                  height: 200,
+                  child: CupertinoDatePicker(
+                    mode: CupertinoDatePickerMode.time,
+                    minuteInterval: interval,
+                    use24hFormat: false,
+                    initialDateTime: selected,
+                    onDateTimeChanged: (dt) => selected = dt,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (result != null) onTimeSelected(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
 
+    final hasLabel = label != null && label!.isNotEmpty;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        RichText(
-          text: TextSpan(
-            text: label,
-            style: const TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: AppColors.primaryColor,
-            ),
-            children: [
-              if (isRequired)
-                const TextSpan(
-                  text: ' *',
-                  style: TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.w700,
+        if (hasLabel) ...[
+          RichText(
+            text: TextSpan(
+              text: label,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primaryColor,
+              ),
+              children: [
+                if (isRequired)
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(
+                      color: Colors.red,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
-        ),
-
-        const SizedBox(height: 6),
+          const SizedBox(height: 6),
+        ],
 
         GestureDetector(
           onTap: enabled ? () => _pickTime(context) : null,
@@ -258,46 +361,20 @@ class GradientTimePickerField extends StatelessWidget {
             child: Row(
               children: [
                 Expanded(
-                  child: Row(
-                    children: [
-                      Text(
-                        _formatHourMinute(time),
-                        style: const TextStyle(
-                          color: AppColors.primaryColor,
-                          fontSize: 15,
-                          fontFamily: 'Manrope',
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-
-                      const SizedBox(width: 8),
-
-                      // Container(
-                      //   padding: const EdgeInsets.symmetric(
-                      //     horizontal: 10,
-                      //     vertical: 4,
-                      //   ),
-
-                      //   decoration: BoxDecoration(
-                      //     color: AppColors.themeColor,
-
-                      //     borderRadius: BorderRadius.circular(6),
-                      //   ),
-
-                      //   child: Text(
-                      //     _formatPeriod(time),
-
-                      //     style: const TextStyle(
-                      //       color: Colors.white,
-                      //       fontSize: 11,
-                      //       fontFamily: 'Manrope',
-                      //       fontWeight: FontWeight.w700,
-                      //     ),
-                      //   ),
-                      // ),
-                    ],
+                  child: Text(
+                    _formatHourMinute(time),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: AppColors.primaryColor,
+                      fontSize: 15,
+                      fontFamily: 'Manrope',
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
+
+                const SizedBox(width: 8),
 
                 if (onClear != null && time != null && enabled) ...[
                   GestureDetector(

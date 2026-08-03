@@ -1,3 +1,4 @@
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/scheduling/entities/staff_shift_hours_entry.dart';
 
 class StaffShiftHoursRangeRequestModel {
@@ -6,6 +7,7 @@ class StaffShiftHoursRangeRequestModel {
     required this.endDate,
     required this.schoolCode,
     required this.organizationCode,
+    required this.publishedOnly,
     this.staffCodes = const <String>[],
   });
 
@@ -13,6 +15,7 @@ class StaffShiftHoursRangeRequestModel {
   final String endDate;
   final String schoolCode;
   final String organizationCode;
+  final bool publishedOnly;
   final List<String> staffCodes;
 
   Map<String, dynamic> toJson() {
@@ -21,6 +24,7 @@ class StaffShiftHoursRangeRequestModel {
       'endDate': endDate,
       'schoolCode': schoolCode,
       'organizationCode': organizationCode,
+      'publishedOnly': publishedOnly,
     };
     if (staffCodes.isNotEmpty) {
       json['staffCode'] = staffCodes;
@@ -63,7 +67,7 @@ class StaffShiftHoursEntryModel {
     final parsed = DateTime.tryParse(shiftDate);
     final date = parsed != null
         ? DateTime(parsed.year, parsed.month, parsed.day)
-        : DateTime.now();
+        : AppTime.today();
 
     return StaffShiftHoursEntry(
       staffCode: staffCode,

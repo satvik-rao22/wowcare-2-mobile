@@ -41,18 +41,30 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
   final Set<int> checkedIndices;
   final ValueChanged<Set<int>> onChanged;
 
+  // Empty set is the implicit "all selected" state; a full explicit set means
+  // the same thing. Both render as Select All + every student checked.
   bool get _isAllSelected {
-    return checkedIndices.isEmpty;
+    return checkedIndices.isEmpty ||
+        checkedIndices.length >= studentNames.length;
   }
 
   void _toggleIndex(int index, bool isChecked) {
-    final next = Set<int>.from(checkedIndices);
+    // Materialize the implicit "all selected" (empty) state into an explicit
+    // set first, so unchecking one student keeps the rest selected.
+    final next = checkedIndices.isEmpty
+        ? <int>{for (var k = 0; k < studentNames.length; k++) k}
+        : Set<int>.from(checkedIndices);
     if (isChecked) {
       next.add(index);
     } else {
       next.remove(index);
     }
-    onChanged(next);
+    // Normalize "everything selected" back to empty so it reads as Select All.
+    if (next.length >= studentNames.length) {
+      onChanged(<int>{});
+    } else {
+      onChanged(next);
+    }
   }
 
   void _toggleSelectAll(bool isChecked) {
@@ -103,7 +115,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                 final n = studentNames[i].trim().isEmpty
                     ? 'Student'
                     : studentNames[i];
-                final isChecked = checkedIndices.contains(i);
+                final isChecked = _isAllSelected || checkedIndices.contains(i);
                 final initials = n
                     .split(RegExp(r'\s+'))
                     .where((e) => e.trim().isNotEmpty)

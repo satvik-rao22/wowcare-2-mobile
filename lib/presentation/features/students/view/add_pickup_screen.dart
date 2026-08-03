@@ -94,8 +94,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
       _firstNameController.text = (widget.initialFirstName ?? '').trim();
       _lastNameController.text = (widget.initialLastName ?? '').trim();
       _emailController.text = (widget.initialEmail ?? '').trim();
-      _phoneController.text =
-          _formatPhoneInput((widget.initialPhoneNumber ?? '').trim());
+      _phoneController.text = _formatPhoneInput(
+        (widget.initialPhoneNumber ?? '').trim(),
+      );
       _relationController.text = (widget.initialRelation ?? '').trim();
       _selectedRelation = (widget.initialRelation ?? '').trim().isEmpty
           ? null
@@ -126,11 +127,13 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         return;
       }
 
-      final names =
-          await _getGuardianNamesForSchoolUseCase(schoolCode: schoolCode);
+      final names = await _getGuardianNamesForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
       final repo = serviceLocator<StudentRepository>();
-      final rawGuardians =
-          await repo.getGuardiansRawForSchool(schoolCode: schoolCode);
+      final rawGuardians = await repo.getGuardiansRawForSchool(
+        schoolCode: schoolCode,
+      );
       final details = <String, Map<String, String>>{};
       for (final g in rawGuardians) {
         final first = (g['firstName'] ?? '').toString().trim();
@@ -193,8 +196,10 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
         // but the payload shape matches the normal pickup create.
         final display = _selectedCarer!.trim();
         final guardian = _guardianDetailsByName[display];
-        final parts =
-            display.split(' ').where((e) => e.trim().isNotEmpty).toList();
+        final parts = display
+            .split(' ')
+            .where((e) => e.trim().isNotEmpty)
+            .toList();
         final first = (guardian?['firstName'] ?? '').trim().isNotEmpty
             ? guardian!['firstName']!.trim()
             : (parts.isEmpty ? display : parts.first);
@@ -204,8 +209,10 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
 
         final guardianCode = (guardian?['code'] ?? '').trim();
         final email = (guardian?['email'] ?? '').trim();
-        final mobileDigits =
-            (guardian?['mobile'] ?? '').replaceAll(RegExp(r'\D'), '');
+        final mobileDigits = (guardian?['mobile'] ?? '').replaceAll(
+          RegExp(r'\D'),
+          '',
+        );
 
         final relationEnum = (_selectedRelation ?? '')
             .trim()
@@ -361,11 +368,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
     } catch (e) {
       if (!mounted) return;
       final msg = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: msg,
-        isError: true,
-      );
+      CoreUtils.showTopSnackBar(context: context, message: msg, isError: true);
       setState(() {
         _isSubmitting = false;
       });
@@ -401,8 +404,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
               children: [
                 const SizedBox(height: 16),
                 Padding(
-                  padding:
-                      EdgeInsets.symmetric(horizontal: responsive.horizontalSpacing),
+                  padding: EdgeInsets.symmetric(
+                    horizontal: responsive.horizontalSpacing,
+                  ),
                   child: Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
@@ -421,7 +425,8 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                   child: Container(
                     width: responsive.containerWidth,
                     margin: EdgeInsets.symmetric(
-                        horizontal: responsive.horizontalSpacing),
+                      horizontal: responsive.horizontalSpacing,
+                    ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
                       color: Colors.white,
@@ -430,7 +435,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -479,8 +484,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                               fontWeight: FontWeight.w400,
                               color: const Color(0xff573353),
                             ),
-                            labelBottomSpacing:
-                                responsive.isTablet ? 8.0 : 6.0,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                             fieldHeight: responsive.isTablet ? 64.0 : 56.0,
                             selectedTextStyle: TextStyle(
                               fontFamily: 'Manrope',
@@ -535,14 +539,18 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   isRequired: true,
                                   textCapitalization: TextCapitalization.words,
                                   inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r"[A-Za-z\s'-]"),
+                                    ),
                                     LengthLimitingTextInputFormatter(50),
                                     NameCapitalizationFormatter(),
                                     TrimFormatter(),
                                   ],
                                 ),
                               ),
-                              SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
+                              SizedBox(
+                                width: responsive.isTablet ? 24.0 : 16.0,
+                              ),
                               Expanded(
                                 child: _buildInputField(
                                   label: 'Last Name',
@@ -551,7 +559,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                                   isRequired: true,
                                   textCapitalization: TextCapitalization.words,
                                   inputFormatters: [
-                                    FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                                    FilteringTextInputFormatter.allow(
+                                      RegExp(r"[A-Za-z\s'-]"),
+                                    ),
                                     LengthLimitingTextInputFormatter(50),
                                     NameCapitalizationFormatter(),
                                     TrimFormatter(),
@@ -589,7 +599,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             isRequired: true,
                             textCapitalization: TextCapitalization.words,
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r"[A-Za-z\s'-]")),
+                              FilteringTextInputFormatter.allow(
+                                RegExp(r"[A-Za-z\s'-]"),
+                              ),
                               LengthLimitingTextInputFormatter(50),
                               NameCapitalizationFormatter(),
                               TrimFormatter(),
@@ -617,7 +629,7 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -680,7 +692,9 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
           decoration: BoxDecoration(
             color: Colors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -747,9 +761,11 @@ class PhoneNumberFormatter extends TextInputFormatter {
     } else if (charCount <= 3) {
       formattedText = '($digitsOnly';
     } else if (charCount <= 6) {
-      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
+      formattedText =
+          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3)}';
     } else {
-      formattedText = '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
+      formattedText =
+          '(${digitsOnly.substring(0, 3)}) ${digitsOnly.substring(3, 6)}-${digitsOnly.substring(6)}';
     }
 
     return TextEditingValue(
@@ -801,4 +817,3 @@ class TrimFormatter extends TextInputFormatter {
     );
   }
 }
-

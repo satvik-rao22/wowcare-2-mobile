@@ -1,9 +1,12 @@
 package com.wiseowl.wowcareapp
 
+import android.Manifest
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Build
+import androidx.core.content.ContextCompat
 import com.google.android.gms.location.Geofence
 import com.google.android.gms.location.GeofencingClient
 import com.google.android.gms.location.GeofencingRequest
@@ -42,8 +45,33 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
         when (call.method) {
             "updateSchoolLocation" -> handleUpdateSchoolLocation(call, result)
+            "getGeofenceStatus" -> handleGetGeofenceStatus(result)
+            "updateSignInStatus" -> handleUpdateSignInStatus(call, result)
             else -> result.notImplemented()
         }
+    }
+
+    private fun handleGetGeofenceStatus(result: MethodChannel.Result) {
+        val config = GeofencePrefs.readConfig(appContext)
+        val isInside = GeofencePrefs.getLastInside(appContext)
+        result.success(mapOf(
+            "isInside" to isInside,
+            "schoolCode" to (config?.schoolCode ?: ""),
+            "latitude" to (config?.latitude ?: 0.0),
+            "longitude" to (config?.longitude ?: 0.0),
+            "radiusMeters" to (config?.radiusMeters ?: 0.0),
+            "gpsSignInEnabled" to (config?.gpsSignInEnabled ?: false),
+        ))
+    }
+
+    private fun handleUpdateSignInStatus(call: MethodCall, result: MethodChannel.Result) {
+        val args = call.arguments as? Map<*, *> ?: run {
+            result.error("bad_args", "Missing args", null)
+            return
+        }
+        val nothingToDo = (args["nothingToDo"] as? Boolean) ?: false
+        GeofencePrefs.setNothingToDo(appContext, nothingToDo)
+        result.success(true)
     }
 
     private fun handleUpdateSchoolLocation(call: MethodCall, result: MethodChannel.Result) {
@@ -73,8 +101,21 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
 
         if (!gpsEnabled) {
             GeofenceRegistrar.clear(appContext)
+            GeofenceForegroundService.stop(appContext)
             result.success(true)
             return
+        }
+
+        // The foreground service exists solely to keep the process alive for
+        // background/terminated geofence delivery — only start it when the user
+        // has actually granted background location ("Allow All the Time"). For
+        // "While Using the App" only, GeofencingClient registration below still
+        // proceeds (delivers events while foregrounded/recently backgrounded),
+        // but the persistent keep-alive service and its notification stay off.
+        if (hasBackgroundLocationPermission()) {
+            GeofenceForegroundService.start(appContext)
+        } else {
+            GeofenceForegroundService.stop(appContext)
         }
 
         GeofenceRegistrar.register(
@@ -90,13 +131,26 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         )
     }
 
+    /**
+     * True only when the user granted "Allow All the Time" (background
+     * location). Pre-Android 10 has no separate background permission —
+     * foreground grant implies background access, so checkSelfPermission
+     * against the declared ACCESS_BACKGROUND_LOCATION already returns
+     * granted there without any extra branching.
+     */
+    private fun hasBackgroundLocationPermission(): Boolean {
+        return ContextCompat.checkSelfPermission(
+            appContext,
+            Manifest.permission.ACCESS_BACKGROUND_LOCATION,
+        ) == PackageManager.PERMISSION_GRANTED
+    }
+
     private fun geofencePendingIntent(context: Context): PendingIntent {
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java).apply {
             action = GeofenceBroadcastReceiver.ACTION_GEOFENCE_EVENT
         }
-        val flags =
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        // GeofencingClient.addGeofences() requires FLAG_MUTABLE to add geofence transition data
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         return PendingIntent.getBroadcast(context, 0, intent, flags)
     }
 
@@ -175,9 +229,8 @@ private object GeofenceRegistrar {
         val intent = Intent(context, GeofenceBroadcastReceiver::class.java).apply {
             action = GeofenceBroadcastReceiver.ACTION_GEOFENCE_EVENT
         }
-        val flags =
-            PendingIntent.FLAG_UPDATE_CURRENT or
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) PendingIntent.FLAG_IMMUTABLE else 0
+        // GeofencingClient.addGeofences() requires FLAG_MUTABLE to add geofence transition data
+        val flags = PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_MUTABLE
         return PendingIntent.getBroadcast(context, 0, intent, flags)
     }
 }

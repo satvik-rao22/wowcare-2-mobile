@@ -1,4 +1,5 @@
 import '../storage/storage_service.dart';
+import 'app_time.dart';
 import 'storage_keys.dart';
 
 /// Global cache manager for handling cached data with timestamps and expiration.
@@ -37,7 +38,7 @@ class CacheManager {
   /// [payload] - Data to cache (must be JSON-serializable)
   Future<void> saveCache(String key, Map<String, dynamic> payload) async {
     final cache = {
-      'timestamp': DateTime.now().millisecondsSinceEpoch,
+      'timestamp': AppTime.nowUtc().millisecondsSinceEpoch,
       'payload': payload,
     };
     await _storageService.saveJson(key, cache);
@@ -59,7 +60,7 @@ class CacheManager {
     if (timestampMillis == null) return null;
 
     final cachedAt = DateTime.fromMillisecondsSinceEpoch(timestampMillis);
-    final age = DateTime.now().difference(cachedAt);
+    final age = AppTime.nowUtc().difference(cachedAt);
     final maxAge = validFor ?? StorageKeys.cacheValidDuration;
     if (age > maxAge) {
       return null; // Cache expired
@@ -78,7 +79,7 @@ class CacheManager {
     if (timestampMillis == null) return false;
 
     final cachedAt = DateTime.fromMillisecondsSinceEpoch(timestampMillis);
-    final age = DateTime.now().difference(cachedAt);
+    final age = AppTime.nowUtc().difference(cachedAt);
     final maxAge = validFor ?? StorageKeys.cacheValidDuration;
     return age <= maxAge;
   }
@@ -112,6 +113,22 @@ class CacheManager {
     for (final key in keys) {
       if (!key.contains(_cacheKeyMarker)) continue;
       if (protectedKeys.contains(key)) continue;
+      await _storageService.remove(key);
+    }
+  }
+
+  /// Removes every standardized cache entry belonging to [feature] — any key
+  /// shaped `{feature}_{resource}_cache_{identifier}`. Use after a mutation to
+  /// drop all of a feature's cached reads so the next fetch is fresh.
+  ///
+  /// Example: `clearFeatureCaches('billing')` clears overview / family-summary /
+  /// ledger caches in one call.
+  Future<void> clearFeatureCaches(String feature) async {
+    final prefix = '${feature}_';
+    final keys = await _storageService.getKeys();
+    for (final key in keys) {
+      if (!key.contains(_cacheKeyMarker)) continue;
+      if (!key.startsWith(prefix)) continue;
       await _storageService.remove(key);
     }
   }

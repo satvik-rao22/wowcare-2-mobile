@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
@@ -24,6 +27,7 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_entity.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -35,10 +39,11 @@ import 'dart:convert';
 
 class StaffAttendanceTabbedView extends StatefulWidget {
   const StaffAttendanceTabbedView({
-    super.key, 
-    this.initialTabIndex = 0, 
+    super.key,
+    this.initialTabIndex = 0,
     this.dailyIncomingFilter,
     this.classroomFilter,
+    this.hasBackButton = false,
   });
 
   static const String routeName = '/dashboard/staff-attendance-tabbed-view';
@@ -46,13 +51,16 @@ class StaffAttendanceTabbedView extends StatefulWidget {
   final int initialTabIndex; // 0: Daily, 1: Custom, 2: Absent
   final String? dailyIncomingFilter; // forwarded to Daily screen
   final FilterData? classroomFilter; // classroom filter data
+  final bool hasBackButton;
 
   @override
-  State<StaffAttendanceTabbedView> createState() => _StaffAttendanceTabbedViewState();
+  State<StaffAttendanceTabbedView> createState() =>
+      _StaffAttendanceTabbedViewState();
 }
 
 class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     with TickerProviderStateMixin, AutomaticKeepAliveClientMixin {
+  late final UnreadBadgeCubit _unreadBadgeCubit;
   late final TabController _tabController;
   bool _isParentRole = false;
   bool? _isTeacherStaffPersona;
@@ -60,7 +68,25 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   // Hide the floating add button while the drawer is open so it isn't painted
   // on top of (and brighter than) the drawer's dim scrim.
   bool _isDrawerOpen = false;
-  
+
+  // Show/hide the bottom nav bar on scroll, mirroring GlobalScaffold (this view
+  // uses its own Scaffold for the tabbed app bar, so it replicates that here).
+  bool _showBars = true;
+
+  /// Hide the bottom nav while scrolling down (reverse), reveal it scrolling up.
+  bool _handleScrollNotification(ScrollNotification notification) {
+    if (notification is UserScrollNotification &&
+        notification.metrics.axis == Axis.vertical) {
+      final direction = notification.direction;
+      if (direction == ScrollDirection.reverse && _showBars) {
+        setState(() => _showBars = false);
+      } else if (direction == ScrollDirection.forward && !_showBars) {
+        setState(() => _showBars = true);
+      }
+    }
+    return false;
+  }
+
   // Keys to reach each tab's state so an attendance action can reload all
   // three tabs (Daily, Custom, Absent) — see _refreshAllAfterAttendanceFlow.
   final GlobalKey _dailyViewKey = GlobalKey();
@@ -70,7 +96,15 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this, initialIndex: widget.initialTabIndex.clamp(0, 2));
+    // Shared app-session singleton (registered in di.dart) — `startWatching`
+    // is idempotent, so re-calling it here on mount keeps badges fresh
+    // without opening a second, duplicate set of Firestore listeners.
+    _unreadBadgeCubit = serviceLocator<UnreadBadgeCubit>()..startWatching();
+    _tabController = TabController(
+      length: 3,
+      vsync: this,
+      initialIndex: widget.initialTabIndex.clamp(0, 2),
+    );
     _tabController.addListener(_onTabChanged);
     _initPersonaFlags();
   }
@@ -87,16 +121,29 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   }
 
   Future<bool> _resolveIsParentSession() async {
-    if (context.read<RoleCubit>().isParent) return true;
+    final roleCubit = context.read<RoleCubit>();
+    // Once RoleCubit has resolved the ACTIVE persona, it is authoritative —
+    // trust it even when false. A dual-role account (e.g. SCHOOL_ADMIN +
+    // GUARDIAN) has 'GUARDIAN' somewhere in its full roles list regardless of
+    // which persona is currently active, so scanning that list below would
+    // wrongly flip an admin who switched profiles back to the guardian view.
+    // Only fall through to the best-effort scan while RoleCubit is still
+    // bootstrapping (no active persona resolved yet).
+    if (roleCubit.hasResolvedAccess) return roleCubit.isParent;
+    if (roleCubit.isParent) return true;
     try {
       final storage = serviceLocator<StorageService>();
-      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '').trim();
+      final rolesJson = (await storage.getString(StorageKeys.roles) ?? '')
+          .trim();
       if (rolesJson.isNotEmpty) {
         final decoded = jsonDecode(rolesJson);
         if (decoded is List) {
           for (final role in decoded) {
             if (role is! Map) continue;
-            final roleName = (role['role'] ?? '').toString().toUpperCase().trim();
+            final roleName = (role['role'] ?? '')
+                .toString()
+                .toUpperCase()
+                .trim();
             if (roleName.contains('PARENT') || roleName.contains('GUARDIAN')) {
               return true;
             }
@@ -104,7 +151,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         }
       }
       final loginContext = await storage.getJson(StorageKeys.loginContext);
-      final raw = jsonEncode(loginContext ?? const <String, dynamic>{}).toUpperCase();
+      final raw = jsonEncode(
+        loginContext ?? const <String, dynamic>{},
+      ).toUpperCase();
       if (raw.contains('PARENT') || raw.contains('GUARDIAN')) {
         return true;
       }
@@ -116,33 +165,24 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
 
   Future<void> _loadStaffPersonaFlags() async {
     try {
+      // Roles are per-school (a user can be SCHOOL_ADMIN in one school and STAFF
+      // in another), so scanning the global login roles/staffType mis-detects
+      // the persona. RoleCubit resolves the ACTIVE school's role, so key off it:
+      // only the staff (teacher) persona gets the self-scoped view; the admin
+      // persona manages all staff. staffCode is still loaded for self-scoping.
+      final isStaffPersona = context.read<RoleCubit>().isStaff;
+
       final storage = serviceLocator<StorageService>();
-      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+      var staffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+          .trim();
       if (staffCode.isEmpty) {
         staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
-      }
-      final staffType =
-          (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
-
-      bool isStaffAdmin =
-          staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN';
-
-      if (!isStaffAdmin) {
-        final rolesJson = await storage.getString(StorageKeys.roles);
-        if (rolesJson != null && rolesJson.trim().isNotEmpty) {
-          final List<dynamic> roles = jsonDecode(rolesJson) as List<dynamic>;
-          isStaffAdmin = roles.any((r) {
-            if (r is! Map<String, dynamic>) return false;
-            final roleCode = (r['role'] ?? '').toString().toUpperCase();
-            return roleCode == 'SCHOOL_ADMIN' || roleCode == 'ORGANIZATION_ADMIN';
-          });
-        }
       }
 
       if (!mounted) return;
       setState(() {
         _loggedInStaffCode = staffCode;
-        _isTeacherStaffPersona = staffCode.isNotEmpty && !isStaffAdmin;
+        _isTeacherStaffPersona = isStaffPersona && staffCode.isNotEmpty;
       });
     } catch (_) {
       if (!mounted) return;
@@ -165,6 +205,8 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
   void dispose() {
     _tabController.removeListener(_onTabChanged);
     _tabController.dispose();
+    // Do NOT close _unreadBadgeCubit: it is a shared app-session singleton
+    // (registered in di.dart), not owned by this widget.
     super.dispose();
   }
 
@@ -181,136 +223,152 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     final double screenWidth = mediaQuery.size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
-    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final double floatingButtonSize = isLargeTablet
+        ? 72.0
+        : (isTablet ? 56.0 : 40.0);
 
     // Align the button with the TabBar headings row (Daily/Custom/Absent)
     // by vertically centering it within the TabBar height.
     final floatingButtonTop =
-        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+        safeAreaTop +
+        appBarHeight +
+        (kTextTabBarHeight - floatingButtonSize) / 2;
     // Align the floating button horizontally with the main content padding,
     // similar to how GradientAddButton is aligned in StaffScreen.
     final floatingButtonRight = contentPadding.right;
-    
-    return Stack(
-      children: [
-        Container(
-          decoration: const BoxDecoration(
-            image: DecorationImage(
-              image: AssetImage(MediaRes.wowcareMobileBg),
-              fit: BoxFit.cover,
+
+    return BlocProvider<UnreadBadgeCubit>.value(
+      value: _unreadBadgeCubit,
+      child: Stack(
+        children: [
+          Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage(MediaRes.wowcareMobileBg),
+                fit: BoxFit.cover,
+              ),
             ),
-          ),
-          child: Scaffold(
-            appBar: CustomAppBar(
-              hasBackButton: false,
-              tabController: _tabController,
-              tabBarStyle: TabBarStyle(
-                indicator: const UnderlineTabIndicator(
-                  borderSide: BorderSide(
-                    color: AppColors.themeColor,
+            child: Scaffold(
+              appBar: CustomAppBar(
+                hasBackButton: widget.hasBackButton,
+                tabController: _tabController,
+                tabBarStyle: TabBarStyle(
+                  indicator: const UnderlineTabIndicator(
+                    borderSide: BorderSide(color: AppColors.themeColor),
+                  ),
+                  dividerColor: Colors.transparent,
+                  indicatorPadding: EdgeInsets.only(
+                    bottom: responsive.isTablet ? 10 : 8,
+                  ),
+                  tabAlignment: TabAlignment.start,
+                  isScrollable: true,
+                  labelStyle: TextStyle(
+                    fontFamily: Fonts.manrope,
+                    color: Colors.black,
+                    fontSize: responsive.isTablet ? 18 : 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  unselectedLabelStyle: TextStyle(
+                    fontFamily: Fonts.manrope,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                    fontSize: responsive.isTablet ? 18 : 16,
+                    fontWeight: FontWeight.w400,
                   ),
                 ),
-                dividerColor: Colors.transparent,
-                indicatorPadding: EdgeInsets.only(
-                  bottom: responsive.isTablet ? 10 : 8,
-                ),
-                tabAlignment: TabAlignment.start,
-                isScrollable: true,
-                labelStyle: TextStyle(
-                  fontFamily: Fonts.manrope,
-                  color: Colors.black,
-                  fontSize: responsive.isTablet ? 18 : 16,
-                  fontWeight: FontWeight.w600,
-                ),
-                unselectedLabelStyle: TextStyle(
-                  fontFamily: Fonts.manrope,
-                  color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  fontSize: responsive.isTablet ? 18 : 16,
-                  fontWeight: FontWeight.w400,
-                ),
+                tabs: const [
+                  Tab(text: 'Daily'),
+                  Tab(text: 'Custom'),
+                  Tab(text: 'Absent'),
+                ],
               ),
-              tabs: const [
-                Tab(text: 'Daily'),
-                Tab(text: 'Custom'),
-                Tab(text: 'Absent'),
-              ],
-            ),
-            drawer: const CustomDrawer(),
-            drawerEnableOpenDragGesture: false,
-            onDrawerChanged: (isOpen) {
-              if (mounted) setState(() => _isDrawerOpen = isOpen);
-            },
-            body: SafeArea(
-              // Allow the tab contents to respect the device's bottom inset
-              // so that the scrollable lists aren't clipped underneath
-              // the bottom navigation bar and can scroll naturally.
-              bottom: true,
-              child: GradientBackground(
-                child: Padding(
-                  padding: ResponsiveSizing.contentPadding(context),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4, bottom: 8),
-                        child: Text(
-                          'Staff Attendance',
-                          style: TextStyle(
-                            fontFamily: Fonts.manrope,
-                            fontSize: responsive.isTablet ? 22 : 18,
-                            fontWeight: FontWeight.w600,
-                            color: AppColors.primaryColor,
+              drawer: const CustomDrawer(),
+              drawerEnableOpenDragGesture: false,
+              onDrawerChanged: (isOpen) {
+                if (mounted) setState(() => _isDrawerOpen = isOpen);
+              },
+              body: NotificationListener<ScrollNotification>(
+                onNotification: _handleScrollNotification,
+                child: SafeArea(
+                  // Allow the tab contents to respect the device's bottom inset
+                  // so that the scrollable lists aren't clipped underneath
+                  // the bottom navigation bar and can scroll naturally.
+                  bottom: true,
+                  child: GradientBackground(
+                    child: Padding(
+                      padding: ResponsiveSizing.contentPadding(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.only(top: 4, bottom: 8),
+                            child: Text(
+                              'Staff Attendance',
+                              style: TextStyle(
+                                fontFamily: Fonts.manrope,
+                                fontSize: responsive.isTablet ? 22 : 18,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.primaryColor,
+                              ),
+                            ),
                           ),
-                        ),
+                          Expanded(
+                            child: TabBarView(
+                              controller: _tabController,
+                              children: [
+                                StaffAttendanceDailyViewScreen(
+                                  key: _dailyViewKey,
+                                  incomingFilter: widget.dailyIncomingFilter,
+                                  contentOnly: true,
+                                  classroomFilter: widget.classroomFilter,
+                                  onAttendanceMutated: _refreshSecondaryTabs,
+                                ),
+                                StaffAttendanceCustomView(
+                                  key: _customViewKey,
+                                  contentOnly: true,
+                                ),
+                                StaffAttendanceAbsentView(
+                                  key: _absentViewKey,
+                                  contentOnly: true,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            StaffAttendanceDailyViewScreen(
-                        key: _dailyViewKey,
-                        incomingFilter: widget.dailyIncomingFilter,
-                        contentOnly: true,
-                        classroomFilter: widget.classroomFilter,
-                        onAttendanceMutated: _refreshSecondaryTabs,
-                      ),
-                      StaffAttendanceCustomView(
-                        key: _customViewKey,
-                        contentOnly: true,
-                      ),
-                      StaffAttendanceAbsentView(
-                        key: _absentViewKey,
-                        contentOnly: true,
-                      ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            extendBody: true,
-            // Attendance is the bottom-nav slot at index 1 (a popup slot with
-            // no branch), so highlight it explicitly while on this view.
-            bottomNavigationBar:
-                const CustomNavigationBar(activeTabIndexOverride: 1),
-          ),
-        ),
-        // Floating button positioned over the tab bar. Hidden while the drawer
-        // is open so it doesn't sit above the drawer's dim scrim.
-        if (!_isDrawerOpen)
-          Positioned(
-            top: floatingButtonTop,
-            right: floatingButtonRight,
-            child: GradientAddButton(
-              onTap: () => _showActionMenu(context),
-              isTablet: isTablet,
-              isLargeTablet: isLargeTablet,
-              wantedButtonSize: floatingButtonSize,
+              extendBody: true,
+              // Attendance is the bottom-nav slot at index 1 (a popup slot with
+              // no branch), so highlight it explicitly while on this view.
+              // Animate the bar away while scrolling down, like GlobalScaffold.
+              bottomNavigationBar: AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeInOut,
+                child: _showBars
+                    ? const CustomNavigationBar(
+                        activeItemOverride: BottomNavigationItem.attendance,
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ),
           ),
-      ],
+          // Floating button positioned over the tab bar. Hidden while the drawer
+          // is open so it doesn't sit above the drawer's dim scrim.
+          if (!_isDrawerOpen)
+            Positioned(
+              top: floatingButtonTop,
+              right: floatingButtonRight,
+              child: GradientAddButton(
+                onTap: () => _showActionMenu(context),
+                isTablet: isTablet,
+                isLargeTablet: isLargeTablet,
+                wantedButtonSize: floatingButtonSize,
+              ),
+            ),
+        ],
+      ),
     );
   }
 
@@ -356,9 +414,13 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
     final double screenWidth = mediaQuery.size.width;
     final bool isTablet = screenWidth >= 600;
     final bool isLargeTablet = screenWidth >= 900;
-    final double floatingButtonSize = isLargeTablet ? 72.0 : (isTablet ? 56.0 : 40.0);
+    final double floatingButtonSize = isLargeTablet
+        ? 72.0
+        : (isTablet ? 56.0 : 40.0);
     final floatingButtonTop =
-        safeAreaTop + appBarHeight + (kTextTabBarHeight - floatingButtonSize) / 2;
+        safeAreaTop +
+        appBarHeight +
+        (kTextTabBarHeight - floatingButtonSize) / 2;
     final floatingButtonRight = contentPadding.right;
 
     showDialog(
@@ -383,7 +445,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.1),
+                  color: Colors.black.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -404,8 +466,10 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   const SizedBox(height: 5),
                   _buildMenuItem(context, MediaRes.Sign_out, 'Sign-Out'),
                   const SizedBox(height: 5),
-                  _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
-                  const SizedBox(height: 5),
+                  if (!(_isTeacherStaffPersona ?? false))
+                    _buildMenuItem(context, MediaRes.transfer, 'Transfer'),
+                  if (!(_isTeacherStaffPersona ?? false))
+                    const SizedBox(height: 5),
                   _buildMenuItem(context, MediaRes.Mark_absent, 'Absent'),
                 ],
               ),
@@ -426,7 +490,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           Container(
             padding: const EdgeInsets.symmetric(vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
+              color: Colors.blue.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: SvgPicture.asset(svgPath, height: 24, width: 24),
@@ -454,7 +518,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: const SnackBar(
-          content: Text('Staff attendance actions are unavailable for parent accounts.'),
+          content: Text(
+            'Staff attendance actions are unavailable for parent accounts.',
+          ),
           backgroundColor: AppColors.warningColor,
         ),
       );
@@ -467,8 +533,12 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         id: 0,
         name: display.fullName.isNotEmpty ? display.fullName : 'My Attendance',
         primaryRoomId: 0,
-        photoUuid: display.profilePhotoUrl.isNotEmpty ? display.profilePhotoUrl : null,
-        staffCode: display.staffCode.isNotEmpty ? display.staffCode : _loggedInStaffCode,
+        photoUuid: display.profilePhotoUrl.isNotEmpty
+            ? display.profilePhotoUrl
+            : null,
+        staffCode: display.staffCode.isNotEmpty
+            ? display.staffCode
+            : _loggedInStaffCode,
       );
       if (!mounted) return;
       switch (label) {
@@ -499,7 +569,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
         case 'Absent':
           Navigator.push<void>(
             context,
-            MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
+            MaterialPageRoute(
+              builder: (_) => StaffMarkAbsentForm(staff: staff),
+            ),
           ).then((_) {
             if (mounted) _refreshAllAfterAttendanceFlow();
           });
@@ -536,7 +608,9 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       case 'Absent':
         Navigator.push<void>(
           context,
-          MaterialPageRoute(builder: (_) => const StaffSelectionMarkAbsentForm()),
+          MaterialPageRoute(
+            builder: (_) => const StaffSelectionMarkAbsentForm(),
+          ),
         ).then((_) {
           if (mounted) _refreshAllAfterAttendanceFlow();
         });

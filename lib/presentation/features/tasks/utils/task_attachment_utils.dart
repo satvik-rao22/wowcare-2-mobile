@@ -2,7 +2,7 @@ import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:open_file/open_file.dart';
+import 'package:open_filex/open_filex.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -177,7 +177,7 @@ class TaskAttachmentUtils {
       );
       return;
     }
-    final result = await OpenFile.open(attachment.path);
+    final result = await OpenFilex.open(attachment.path);
     if (!context.mounted || result.type == ResultType.done) return;
     CoreUtils.showTopSnackBar(
       context: context,
@@ -208,7 +208,7 @@ class TaskAttachmentUtils {
         await Dio().download(url, target);
       }
 
-      final result = await OpenFile.open(target);
+      final result = await OpenFilex.open(target);
       if (!context.mounted || result.type == ResultType.done) return;
       CoreUtils.showTopSnackBar(
         context: context,

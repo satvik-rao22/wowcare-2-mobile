@@ -49,6 +49,22 @@ class AppColors {
     Color.fromRGBO(156, 132, 255, 1),
   ];
 
+  /// Messaging: every staff/admin/teacher/director message renders with
+  /// this gradient, on whichever side the canonical role-based alignment
+  /// rule puts it (see docs/messaging/06-ui-standards.md). This is a
+  /// semantic alias for the existing [primaryGradientColors] — reusing it
+  /// rather than introducing a second, visually-identical token.
+  static const List<Color> staffGradientColors = primaryGradientColors;
+
+  /// Messaging: every guardian/parent message renders with this gradient,
+  /// on whichever side the canonical role-based alignment rule puts it.
+  /// Placeholder tone pending design confirmation — same two-stop,
+  /// similar-saturation style as [primaryGradientColors].
+  static const List<Color> pinkGradientColors = [
+    Color.fromRGBO(255, 154, 196, 1),
+    Color.fromRGBO(255, 107, 157, 1),
+  ];
+
   static var chipBackground;
 
   static LinearGradient buildScaffoldGradient() => const LinearGradient(
@@ -65,6 +81,18 @@ class AppColors {
 
   static LinearGradient buildSecondaryGradient({
     List<Color> colors = secondaryGradientColors,
+    Alignment begin = Alignment.centerLeft,
+    Alignment end = Alignment.centerRight,
+  }) => LinearGradient(colors: colors, begin: begin, end: end);
+
+  /// Semantic alias for [buildPrimaryGradient] — see [staffGradientColors].
+  static LinearGradient buildStaffGradient({
+    Alignment begin = Alignment.centerLeft,
+    Alignment end = Alignment.centerRight,
+  }) => buildPrimaryGradient(begin: begin, end: end);
+
+  static LinearGradient buildPinkGradient({
+    List<Color> colors = pinkGradientColors,
     Alignment begin = Alignment.centerLeft,
     Alignment end = Alignment.centerRight,
   }) => LinearGradient(colors: colors, begin: begin, end: end);
@@ -139,7 +167,9 @@ class AppColors {
   static final Color billingCardBorderColor = primaryColor.withValues(
     alpha: 0.2,
   );
-  static final Color billingCardShadowColor = Colors.black.withOpacity(0.03);
+  static final Color billingCardShadowColor = Colors.black.withValues(
+    alpha: 0.03,
+  );
 
   // Divider colors
   static final Color billingDividerColor = primaryColor.withValues(alpha: 0.1);
@@ -158,7 +188,9 @@ class AppColors {
   static final Color billingGreyLight = Colors.grey.shade100;
   static final Color billingGreyMedium = Colors.grey.shade500;
   static final Color billingGreyDark = Colors.grey.shade700;
-  static final Color billingGreyTransparent = Colors.grey.withOpacity(0.3);
+  static final Color billingGreyTransparent = Colors.grey.withValues(
+    alpha: 0.3,
+  );
 
   // Success color
   static const Color billingSuccessColor = Colors.green;
@@ -168,9 +200,13 @@ class AppColors {
   static const Color billingTransparentColor = Colors.transparent;
 
   // Shadow colors
-  static final Color billingShadowColor = Colors.black.withOpacity(0.03);
-  static final Color billingShadowColorLight = Colors.black.withOpacity(0.05);
-  static final Color billingShadowColorMedium = Colors.black.withOpacity(0.08);
+  static final Color billingShadowColor = Colors.black.withValues(alpha: 0.03);
+  static final Color billingShadowColorLight = Colors.black.withValues(
+    alpha: 0.05,
+  );
+  static final Color billingShadowColorMedium = Colors.black.withValues(
+    alpha: 0.08,
+  );
 
   // Border colors with opacity
   static const Color billingBorderLight = Color(

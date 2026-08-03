@@ -18,6 +18,7 @@ class StaffState extends Equatable {
     required this.primaryClassroomCodes,
     required this.classCodes,
     required this.sortBy,
+    required this.attendanceStatuses,
     required this.errorMessage,
   });
 
@@ -38,6 +39,7 @@ class StaffState extends Equatable {
         primaryClassroomCodes = null,
         classCodes = null,
         sortBy = 'desc',
+        attendanceStatuses = null,
         errorMessage = null;
 
   final List<StaffMember> items;
@@ -56,6 +58,7 @@ class StaffState extends Equatable {
   final List<String>? primaryClassroomCodes;
   final List<String>? classCodes;
   final String? sortBy;
+  final List<String>? attendanceStatuses;
   final String? errorMessage;
 
   StaffState copyWith({
@@ -75,6 +78,7 @@ class StaffState extends Equatable {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
     String? errorMessage,
   }) {
     return StaffState(
@@ -99,6 +103,9 @@ class StaffState extends Equatable {
           ? this.classCodes
           : (classCodes.isEmpty ? null : classCodes),
       sortBy: sortBy ?? this.sortBy,
+      attendanceStatuses: attendanceStatuses == null
+          ? this.attendanceStatuses
+          : (attendanceStatuses.isEmpty ? null : attendanceStatuses),
       errorMessage: errorMessage,
     );
   }
@@ -121,6 +128,7 @@ class StaffState extends Equatable {
         primaryClassroomCodes,
         classCodes,
         sortBy,
+        attendanceStatuses,
         errorMessage,
       ];
 }

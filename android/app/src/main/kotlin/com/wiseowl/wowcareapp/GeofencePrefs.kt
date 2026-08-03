@@ -12,6 +12,7 @@ object GeofencePrefs {
     private const val KEY_LAST_INSIDE = "geofence_last_notified_inside"
     private const val KEY_LAST_STATUS = "geofence_last_status"
     private const val KEY_SCHOOL_CODE = "geofence_school_code"
+    private const val KEY_NOTHING_TO_DO = "geofence_nothing_to_do"
 
     fun persistConfig(
         context: Context,
@@ -64,6 +65,26 @@ object GeofencePrefs {
             .putBoolean(KEY_LAST_INSIDE, isInside)
             .putString(KEY_LAST_STATUS, if (isInside) "within" else "outside")
             .apply()
+    }
+
+    fun getLastInside(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_LAST_INSIDE, false)
+    }
+
+    /// Set by Flutter (GeofenceCubit) whenever staff/admin/guardian sign-in
+    /// status changes, so the background/killed-app notification path — which
+    /// has no other visibility into sign-in state — can skip notifying when
+    /// there is nothing left to sign in/out.
+    fun setNothingToDo(context: Context, nothingToDo: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_NOTHING_TO_DO, nothingToDo)
+            .apply()
+    }
+
+    fun getNothingToDo(context: Context): Boolean {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        return prefs.getBoolean(KEY_NOTHING_TO_DO, false)
     }
 
     data class Config(

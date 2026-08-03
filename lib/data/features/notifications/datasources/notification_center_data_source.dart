@@ -1,3 +1,4 @@
+import '../../../../core/util/app_time.dart';
 import '../../../../domain/features/notifications/entities/notification_category.dart';
 import '../models/app_notification_model.dart';
 
@@ -8,10 +9,32 @@ import '../models/app_notification_model.dart';
 /// can be replaced by a REST-backed implementation (calling the eventual
 /// `/api/v1/notifications` endpoints via `ApiClient`) without touching anything
 /// above the repository.
+/// One page of notification-center items plus whether more pages exist.
+typedef NotificationCenterPage = ({
+  List<AppNotificationModel> items,
+  bool hasMore,
+});
+
 abstract class NotificationCenterDataSource {
-  Future<List<AppNotificationModel>> fetchNotifications();
-  Future<List<AppNotificationModel>> markAsRead(String id);
-  Future<List<AppNotificationModel>> markAllAsRead();
+  /// Fetches one page (newest first). [page] is zero-based. [module] filters by
+  /// the notification's top-level module (null = all); [onlyUnread] restricts to
+  /// unread. Both are applied server-side.
+  Future<NotificationCenterPage> fetchNotifications({
+    int page,
+    int size,
+    String? module,
+    bool onlyUnread,
+  });
+
+  /// Marks a single notification read on the backend.
+  Future<void> markAsRead(String id);
+
+  /// Marks every notification read on the backend.
+  Future<void> markAllAsRead();
+
+  /// Authoritative unread / unclicked totals across all pages (bell badge +
+  /// mark-all gating), independent of what's currently loaded.
+  Future<({int unread, int unclicked})> getUnreadCounts();
 }
 
 /// In-memory mock data source with realistic seed data, mirroring the design.
@@ -29,25 +52,49 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   static const Duration _latency = Duration(milliseconds: 600);
 
   @override
-  Future<List<AppNotificationModel>> fetchNotifications() async {
+  Future<NotificationCenterPage> fetchNotifications({
+    int page = 0,
+    int size = 10,
+    String? module,
+    bool onlyUnread = false,
+  }) async {
     await Future<void>.delayed(_latency);
-    return _sortedCopy();
+    var sorted = _sortedCopy();
+    if (module != null && module.trim().isNotEmpty) {
+      final m = module.trim().toUpperCase();
+      sorted = sorted
+          .where((n) => (n.data['module'] ?? '').toUpperCase() == m)
+          .toList();
+    }
+    if (onlyUnread) {
+      sorted = sorted.where((n) => !n.isRead).toList();
+    }
+    final start = page * size;
+    if (start >= sorted.length) {
+      return (items: const <AppNotificationModel>[], hasMore: false);
+    }
+    final end = (start + size).clamp(0, sorted.length);
+    return (items: sorted.sublist(start, end), hasMore: end < sorted.length);
   }
 
   @override
-  Future<List<AppNotificationModel>> markAsRead(String id) async {
+  Future<void> markAsRead(String id) async {
     await Future<void>.delayed(const Duration(milliseconds: 150));
-    _items = _items
-        .map((n) => n.id == id ? _copyRead(n, true) : n)
-        .toList();
-    return _sortedCopy();
+    _items =
+        _items.map((n) => n.id == id ? _copyRead(n, true) : n).toList();
   }
 
   @override
-  Future<List<AppNotificationModel>> markAllAsRead() async {
+  Future<void> markAllAsRead() async {
     await Future<void>.delayed(const Duration(milliseconds: 250));
     _items = _items.map((n) => _copyRead(n, true)).toList();
-    return _sortedCopy();
+  }
+
+  @override
+  Future<({int unread, int unclicked})> getUnreadCounts() async {
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    final unread = _items.where((n) => !n.isRead).length;
+    return (unread: unread, unclicked: unread);
   }
 
   List<AppNotificationModel> _sortedCopy() {
@@ -70,7 +117,7 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
   }
 
   List<AppNotificationModel> _seed() {
-    final now = DateTime.now();
+    final now = AppTime.nowUtc();
     AppNotificationModel item({
       required String id,
       required String title,
@@ -78,6 +125,7 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
       required NotificationCategory category,
       required Duration ago,
       bool isRead = false,
+      Map<String, String> data = const <String, String>{},
     }) {
       return AppNotificationModel(
         id: id,
@@ -86,10 +134,49 @@ class MockNotificationCenterDataSource implements NotificationCenterDataSource {
         category: category,
         createdAt: now.subtract(ago),
         isRead: isRead,
+        data: data,
       );
     }
 
     return <AppNotificationModel>[
+      // ── Task deep-link probes (MOCK ONLY) ───────────────────────────────
+      // There is no notification-center endpoint yet, so these stand in for
+      // real TASK_* items. They carry the same `data` map the FCM push sends,
+      // which is exactly what NotificationRouteResolver reads — so tapping
+      // them exercises the real in-app routing path.
+      //
+      // TODO(notifications): drop this block once a REST-backed data source
+      // replaces this mock.
+      //
+      // Swap `taskCode` for one that exists in your active school (open any
+      // task from the calendar and copy the code) or the detail screen will
+      // correctly report "Task not found".
+      item(
+        id: 'task-assigned',
+        title: 'You have been assigned a new task: Restock the first-aid kit',
+        subjectName: 'Restock the first-aid kit',
+        category: NotificationCategory.staff,
+        ago: const Duration(minutes: 5),
+        data: const {
+          'action': 'TASK_ASSIGNED',
+          'type': 'TASK',
+          'taskCode': 'TSK_REPLACE_ME',
+          'taskTitle': 'Restock the first-aid kit',
+        },
+      ),
+      item(
+        id: 'task-deleted',
+        title: 'The task Restock the first-aid kit has been deleted',
+        subjectName: 'Restock the first-aid kit',
+        category: NotificationCategory.staff,
+        ago: const Duration(minutes: 8),
+        data: const {
+          'action': 'TASK_DELETED',
+          'type': 'TASK',
+          'taskCode': 'TSK_REPLACE_ME',
+          'taskTitle': 'Restock the first-aid kit',
+        },
+      ),
       item(
         id: 'n1',
         title: 'Classroom movement for Parker Long is overdue',

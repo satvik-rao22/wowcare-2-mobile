@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Bottom sheet to pick existing students with the same surname as siblings.
@@ -43,27 +41,19 @@ class _SameLastNameSiblingsBody extends StatefulWidget {
 class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
   final Set<String> _selectedCodes = <String>{};
 
-  void _showLimitReached() {
-    if (!mounted) return;
-    CoreUtils.showTopSnackBar(
-      context: context,
-      message: 'Limit Reached: You can only select one student as a sibling',
-      isWarning: true,
-    );
-  }
+  String? get _selectedCode =>
+      _selectedCodes.isEmpty ? null : _selectedCodes.first;
 
-  void _toggleSingleSelect(String code) {
-    final selected = _selectedCodes.contains(code);
-    if (selected) {
+  // Only one student can be chosen as a sibling, so selecting another replaces
+  // the previous choice. Tapping the already-selected entry clears it.
+  void _selectSingle(String code) {
+    if (_selectedCodes.contains(code)) {
       _selectedCodes.remove(code);
       return;
     }
-
-    if (_selectedCodes.isNotEmpty) {
-      _showLimitReached();
-      return;
-    }
-    _selectedCodes.add(code);
+    _selectedCodes
+      ..clear()
+      ..add(code);
   }
 
   @override
@@ -176,7 +166,6 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                     final status = s.status.trim().toUpperCase();
                     final classroom =
                         s.classroom.trim().isEmpty ? '—' : s.classroom;
-                    final selected = _selectedCodes.contains(code);
 
                     return Material(
                       color: Colors.transparent,
@@ -185,7 +174,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             BorderRadius.circular(borderRadius / 2),
                         onTap: () {
                           setState(() {
-                            _toggleSingleSelect(code);
+                            _selectSingle(code);
                           });
                         },
                         child: Container(
@@ -205,18 +194,24 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             children: [
                               Padding(
                                 padding: const EdgeInsets.only(top: 2),
-                                child: CustomCheckbox(
-                                  value: selected,
-                                  scale: isTablet ? 1.15 : 1.1,
-                                  onChanged: (v) {
-                                    setState(() {
-                                      if (v == true) {
-                                        _toggleSingleSelect(code);
-                                      } else {
-                                        _selectedCodes.remove(code);
-                                      }
-                                    });
-                                  },
+                                child: ShaderMask(
+                                  blendMode: BlendMode.srcIn,
+                                  shaderCallback: (bounds) =>
+                                      AppColors.buildPrimaryGradient()
+                                          .createShader(bounds),
+                                  child: Radio<String>(
+                                    value: code,
+                                    groupValue: _selectedCode,
+                                    activeColor: AppColors.primaryColor,
+                                    visualDensity: VisualDensity.compact,
+                                    materialTapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    onChanged: (_) {
+                                      setState(() {
+                                        _selectSingle(code);
+                                      });
+                                    },
+                                  ),
                                 ),
                               ),
                               SizedBox(width: horizontalPadding / 4),

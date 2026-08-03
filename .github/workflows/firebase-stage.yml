@@ -1,0 +1,178 @@
+name: Firebase App Distribution
+
+on:
+  push:
+    branches:
+      - stage
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firebase-stage-distribution
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: "3.32.0"
+
+jobs:
+  firebase-distribution:
+    name: Android → Firebase App Distribution
+    runs-on: ubuntu-latest
+
+    steps:
+      # ----------------------------------------------------------
+      # Checkout
+      # ----------------------------------------------------------
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ----------------------------------------------------------
+      # Java
+      # ----------------------------------------------------------
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: gradle
+
+      # ----------------------------------------------------------
+      # Flutter
+      # ----------------------------------------------------------
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          channel: stable
+          cache: true
+
+      - name: Flutter Doctor
+        run: flutter doctor -v
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      # ----------------------------------------------------------
+      # Build number
+      # ----------------------------------------------------------
+
+      - name: Set build number
+        run: |
+          echo "BUILD_NUMBER=${GITHUB_RUN_NUMBER}" >> "$GITHUB_ENV"
+          echo "Android build number: ${GITHUB_RUN_NUMBER}"
+
+      # ----------------------------------------------------------
+      # Restore Android signing
+      # ----------------------------------------------------------
+
+      - name: Restore Android keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$KEYSTORE_BASE64" ]; then
+            echo "ANDROID_KEYSTORE_BASE64 is missing."
+            exit 1
+          fi
+
+          echo "$KEYSTORE_BASE64" \
+            | base64 --decode \
+            > android/app/upload-keystore.jks
+
+      - name: Create key.properties
+        env:
+          STORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$STORE_PASSWORD" ] || \
+             [ -z "$KEY_PASSWORD" ] || \
+             [ -z "$KEY_ALIAS" ]; then
+            echo "Android signing secrets are missing."
+            exit 1
+          fi
+
+          cat > android/key.properties <<EOF
+          storePassword=$STORE_PASSWORD
+          keyPassword=$KEY_PASSWORD
+          keyAlias=$KEY_ALIAS
+          storeFile=upload-keystore.jks
+          EOF
+
+      # ----------------------------------------------------------
+      # Build APK
+      # ----------------------------------------------------------
+
+      - name: Build UAT Release APK
+        run: |
+          flutter build apk \
+            --release \
+            --dart-define=ENVIRONMENT=UAT \
+            --build-number="$BUILD_NUMBER"
+
+      - name: Verify APK
+        run: |
+          test -f build/app/outputs/flutter-apk/app-release.apk
+          ls -lh build/app/outputs/flutter-apk/app-release.apk
+
+      # ----------------------------------------------------------
+      # Keep APK as GitHub artifact
+      # ----------------------------------------------------------
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wowcare-uat-apk-${{ github.run_number }}
+          path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 14
+
+      # ----------------------------------------------------------
+      # Firebase credentials
+      # ----------------------------------------------------------
+
+      - name: Configure Firebase credentials
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ]; then
+            echo "FIREBASE_SERVICE_ACCOUNT is missing."
+            exit 1
+          fi
+
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" \
+            > "$RUNNER_TEMP/firebase-service-account.json"
+
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" \
+            >> "$GITHUB_ENV"
+
+      # ----------------------------------------------------------
+      # Firebase CLI
+      # ----------------------------------------------------------
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Firebase CLI
+        run: npm install --global firebase-tools
+
+      # ----------------------------------------------------------
+      # Firebase App Distribution
+      # ----------------------------------------------------------
+
+      - name: Upload to Firebase App Distribution
+        env:
+          FIREBASE_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
+          FIREBASE_TESTER_GROUPS: ${{ vars.FIREBASE_TESTER_GROUPS }}
+        run: |
+          firebase appdistribution:distribute \
+            build/app/outputs/flutter-apk/app-release.apk \
+            --app "$FIREBASE_APP_ID" \
+            --groups "$FIREBASE_TESTER_GROUPS" \
+            --release-notes "Stage build #${GITHUB_RUN_NUMBER} - ${GITHUB_SHA}"

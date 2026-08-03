@@ -54,11 +54,17 @@ Future<String> resolveStaffCodeForLoggedInUser({
       staffCodeOrganization == currentOrganizationCode &&
       staffCodeSchool == currentSchoolCode) {
     // Re-validate cached mapping against backend to avoid using stale staffCode.
+    // Org admins are org-level: the lookup expects '-' and 404s on a real
+    // school code, so resolve the right lookup school instead of the raw one.
     try {
       final verified = await staffRepository.getStaffCodeForUser(
         userCode: currentUserCode,
         organizationCode: currentOrganizationCode,
-        schoolCode: currentSchoolCode,
+        schoolCode: staffCodeLookupSchoolCode(
+          rolesJson: rolesJsonEarly,
+          organizationCode: currentOrganizationCode,
+          schoolCode: currentSchoolCode,
+        ),
       );
       final verifiedTrimmed = (verified ?? '').trim();
       if (verifiedTrimmed.isNotEmpty) {
@@ -108,11 +114,15 @@ Future<String> resolveStaffCodeForLoggedInUser({
   }
 
   // Candidates:
+  // - org admin: mapped org-level, so the backend expects '-' and 404s on a
+  //   real school code. Send '-' only.
   // - normal: use stored schoolCode
-  // - org admin: optionally also try '-'
   final candidates = <String>{};
-  if (schoolCode.isNotEmpty) candidates.add(schoolCode);
-  if (allowOrganizationLevelFallback && isOrgAdmin) candidates.add('-');
+  if (isOrgAdmin) {
+    candidates.add('-');
+  } else if (schoolCode.isNotEmpty) {
+    candidates.add(schoolCode);
+  }
   if (candidates.isEmpty && allowOrganizationLevelFallback) {
     candidates.add('-'); // last-resort fallback
   }

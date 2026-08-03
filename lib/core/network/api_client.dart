@@ -6,6 +6,11 @@ class ApiClient {
   ApiClient({
     required String baseUrl,
     List<Interceptor>? interceptors,
+
+    /// Interceptors that need a reference to the [Dio] they're attached to —
+    /// e.g. one that replays a request after refreshing the access token.
+    /// Added alongside [interceptors], i.e. still BEFORE the logging wrapper.
+    List<Interceptor> Function(Dio dio)? interceptorsBuilder,
     // Long enough to tolerate slow dev tunnels / cold-started local
     // backends, but still bounded so the UI shows an error instead of a
     // frozen spinner forever when the server is genuinely unreachable.
@@ -25,6 +30,9 @@ class ApiClient {
     // Add custom interceptors FIRST (e.g., AuthInterceptor) so they run before logging
     if (interceptors != null && interceptors.isNotEmpty) {
       _dio.interceptors.addAll(interceptors);
+    }
+    if (interceptorsBuilder != null) {
+      _dio.interceptors.addAll(interceptorsBuilder(_dio));
     }
 
     // Global logging interceptor added AFTER auth interceptors

@@ -30,21 +30,12 @@
 	<true/>
 	<key>NSCameraUsageDescription</key>
 	<string>This app needs access to the camera to capture photos.</string>
-	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
-	<string>This app needs access to your location even in the background for geofencing features.</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>This app needs access to your location to provide location-based services.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID is used to unlock your saved password for a quick, secure sign-in.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>This app needs permission to save photos to your photo library.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to your photo library to upload images.</string>
-	<key>UIUserNotificationAlertOptions</key>
-	<integer>7</integer>
-	<key>UserNotifications</key>
-	<dict>
-		<key>Description</key>
-		<string>This app needs permission to send notifications for school sign-in zone alerts.</string>
-	</dict>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
@@ -70,17 +61,18 @@
 	<true/>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
-		<string>fetch</string>
-	</array>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>WowCare uses your location to enable attendance within the school premises.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>WowCare uses your location in the background to enable attendance within the school premises.</string>
 	<key>NSLocationAlwaysUsageDescription</key>
 	<string>WowCare uses your location to enable attendance within the school premises.</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
 	<key>UIMainStoryboardFile</key>
 	<string>Main</string>
 	<key>UISupportedInterfaceOrientations</key>
@@ -95,10 +87,6 @@
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
-	<key>UIBackgroundModes</key>
-	<array>
-		<string>location</string>
 	</array>
 </dict>
 </plist>

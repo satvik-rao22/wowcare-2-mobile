@@ -139,7 +139,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         '[AddStudent] Returning to previous screen with studentName="$studentName"',
       );
       CoreUtils.showTopSnackBar(
-        duration: sameName ? Duration(seconds: 2) :Duration(seconds: 4) ,
+        duration: sameName ? Duration(seconds: 2) : Duration(seconds: 4),
         context: context,
         message: widget.isEdit
             ? (sameName
@@ -235,7 +235,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -360,7 +360,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),

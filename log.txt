@@ -1,0 +1,16 @@
+flutter run --dart-define=ENVIRONMENT=UAT
+Launching lib/main.dart on Uttam Singh in debug mode...
+Automatically signing iOS for device deployment using specified development team in Xcode project: 55SKR34CFC
+Running Xcode build...                                          
+Xcode build done.                                           57.8s
+Installing and launching...                                     
+You may be prompted to give access to control Xcode. Flutter uses Xcode to run your app. If access is not allowed, you can change this through your Settings > Privacy & Security > Automation.
+Xcode is taking longer than expected to start debugging the app. If the issue persists, try closing Xcode and re-running your Flutter command.
+Error starting debug session in Xcode: Timed out waiting for CONFIGURATION_BUILD_DIR to update.
+Could not run build/ios/iphoneos/Runner.app on 00008120-001668A11A01A01E.
+Try launching Xcode and selecting "Product > Run" to fix the problem:
+  open ios/Runner.xcworkspace
+
+Installing and launching...                                       181.0s
+Error launching application on Uttam Singh.
+make: *** [uat-run] Error 1

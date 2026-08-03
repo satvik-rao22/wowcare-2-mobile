@@ -1,8 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/network/api_client.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_timezone_resolver.dart';
+import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -78,6 +84,22 @@ class _EditStudentPhysicalExamScreenState
     }
   }
 
+  /// Date-only "today" in the school's timezone (falls back to the last-known
+  /// zone, then UTC) — used so date validation matches the school's calendar day.
+  Future<DateTime> _schoolTodayDateOnly() async {
+    try {
+      final tzName = await SchoolTimezoneResolver.resolveForCurrentSchool(
+        storage: serviceLocator<StorageService>(),
+        apiClient: serviceLocator<ApiClient>(),
+      );
+      return SchoolZoneDateTime.schoolCalendarTodayOnly(tzName);
+    } catch (_) {
+      return SchoolZoneDateTime.schoolCalendarTodayOnly(
+        SchoolTimezoneResolver.lastKnownTimeZone,
+      );
+    }
+  }
+
   Future<void> _save() async {
     if (_isSaving) return;
 
@@ -98,28 +120,55 @@ class _EditStudentPhysicalExamScreenState
       return;
     }
 
+    // Map display status text back to API enum values.
+    String apiStatus;
+    switch ((_status ?? '').toUpperCase()) {
+      case 'COMPLETED':
+        apiStatus = 'COMPLETED';
+        break;
+      case 'SCHEDULED':
+        apiStatus = 'SCHEDULED';
+        break;
+      case 'DUE':
+        apiStatus = 'DUE';
+        break;
+      case 'OVERDUE':
+        apiStatus = 'OVERDUE';
+        break;
+      default:
+        apiStatus = 'DUE';
+    }
+
+    // Validate the date against the chosen status on the client so we can show a
+    // friendly warning instead of the raw backend error. Today is always allowed.
+    // "Today" must be the SCHOOL's calendar day (not the device's) so a valid
+    // same-day entry isn't rejected when the device is in another timezone.
+    final today = await _schoolTodayDateOnly();
+    if (!mounted) return;
+    final picked = DateTime(_examDate!.year, _examDate!.month, _examDate!.day);
+    if (apiStatus == 'COMPLETED' && picked.isAfter(today)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Completed date cannot be a future date. Please select today or a past date.',
+        isWarning: true,
+      );
+      return;
+    }
+    if ((apiStatus == 'SCHEDULED' || apiStatus == 'DUE') &&
+        picked.isBefore(today)) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            '$_status date cannot be a past date. Please select today or a future date.',
+        isWarning: true,
+      );
+      return;
+    }
+
     setState(() => _isSaving = true);
     try {
       final repo = serviceLocator<StudentRepository>();
-
-      // Map display status text back to API enum values.
-      String apiStatus;
-      switch ((_status ?? '').toUpperCase()) {
-        case 'COMPLETED':
-          apiStatus = 'COMPLETED';
-          break;
-        case 'SCHEDULED':
-          apiStatus = 'SCHEDULED';
-          break;
-        case 'DUE':
-          apiStatus = 'DUE';
-          break;
-        case 'OVERDUE':
-          apiStatus = 'OVERDUE';
-          break;
-        default:
-          apiStatus = 'DUE';
-      }
 
       await repo.addStudentPhysicalExam(
         studentCode: widget.studentCode,
@@ -157,17 +206,22 @@ class _EditStudentPhysicalExamScreenState
         : 'Select Date';
 
     return StaffFormLayout(
-      title: 'Edit Physical Exam',
+      title: 'Add Physical Examination',
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
-          const Text(
-            'Physical Checkup Date *',
-            style: TextStyle(
-              fontFamily: 'Manrope',
-              fontSize: 15,
-              fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+          const Text.rich(
+            TextSpan(
+              text: 'Physical Checkup Date',
+              style: TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: Color(0xff573353),
+              ),
+              children: [
+                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              ],
             ),
           ),
           const SizedBox(height: 6),
@@ -191,10 +245,13 @@ class _EditStudentPhysicalExamScreenState
                       fontFamily: 'Manrope',
                     ),
                   ),
-                  const Icon(
-                    Icons.calendar_today_outlined,
-                    size: 18,
-                    color: AppColors.primaryColor,
+                  SvgPicture.asset(
+                    MediaRes.calender_icon,
+                    height: 20,
+                    colorFilter: const ColorFilter.mode(
+                      AppColors.primaryColor,
+                      BlendMode.srcIn,
+                    ),
                   ),
                 ],
               ),

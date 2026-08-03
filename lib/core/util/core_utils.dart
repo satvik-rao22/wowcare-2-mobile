@@ -3,6 +3,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 // import 'package:schoolerp/core/extentions/context_extentions.dart'; // backend/context extensions not available
 // import 'package:schoolerp/core/res/colors.dart'; // backend colors not available
@@ -75,7 +77,7 @@ class CoreUtils {
 
     void showBanner(BuildContext ctx) {
       if (!ctx.mounted) return;
-      final now = DateTime.now();
+      final now = AppTime.nowUtc();
       if (_lastOnScreenErrorMessage == trimmed &&
           _lastOnScreenErrorAt != null &&
           now.difference(_lastOnScreenErrorAt!) < dedupeWindow) {
@@ -140,7 +142,7 @@ class CoreUtils {
       context: context,
       message: message,
       backgroundColor: bg,
-      borderColor: bg.withOpacity(0.85),
+      borderColor: bg.withValues(alpha: 0.85),
       contentColor: onBg,
       icon: Icons.info_outline_rounded,
       duration: const Duration(seconds: 2),
@@ -233,7 +235,7 @@ class CoreUtils {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -360,9 +362,16 @@ class CoreUtils {
         ? Icons.check_circle_outline_rounded
         : Icons.info_outline_rounded;
 
+    // Error/warning banners get sanitized so a raw exception string passed
+    // straight in (e.g. `e.toString()`) is never shown to the user. Success/info
+    // messages are app-authored and left untouched.
+    final displayMessage = (isError || isWarning)
+        ? ApiErrorHandler.sanitizeMessage(message)
+        : message;
+
     _showTopOverlayBanner(
       context: context,
-      message: message,
+      message: displayMessage,
       backgroundColor: backgroundColor,
       borderColor: borderColor,
       contentColor: contentColor,

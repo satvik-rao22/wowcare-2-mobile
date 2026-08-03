@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +17,8 @@ import 'package:wowcare/presentation/features/students/view/student_profile_scre
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
@@ -38,6 +41,7 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_mark_absent_form.dart'
     as absent_form;
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
+import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 
 class _AttendanceCacheEntry {
   const _AttendanceCacheEntry({
@@ -94,7 +98,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final GlobalKey _highlightRowKey = GlobalKey();
   bool _isHighlightTarget(String code) {
     final target = (widget.highlightCode ?? '').trim();
-    return target.isNotEmpty && target.toUpperCase() == code.trim().toUpperCase();
+    return target.isNotEmpty &&
+        target.toUpperCase() == code.trim().toUpperCase();
   }
 
   late final ClassroomStudentsCubit _cubit;
@@ -123,6 +128,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   bool _attendanceStatusError = false;
   int _visibleAttendanceFetchToken = 0;
   Set<String> _lastVisibleAttendanceCodes = <String>{};
+  bool _staffIsSignedIn = false;
 
   static const Duration _attendanceCacheTtl = Duration(minutes: 10);
   static final Map<String, _AttendanceCacheEntry> _attendanceCacheByKey =
@@ -131,11 +137,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   final List<String> statusDisplayValues = ['Active', 'Upcoming'];
   final List<String> statuses = ['ACTIVE', 'UPCOMING'];
 
-  final List<String> tags = [
-    'Tag 1',
-    'Tag 2',
-    'Tag 3',
-  ];
+  final List<String> tags = ['Tag 1', 'Tag 2', 'Tag 3'];
 
   @override
   void initState() {
@@ -145,6 +147,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     _loadNapStartStudentCodes(refresh: false);
+    _loadStaffSignInStatus();
     classroomStudentsRefreshTick.addListener(_handleExternalRefresh);
   }
 
@@ -158,6 +161,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _lastVisibleAttendanceCodes = <String>{};
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
+    _loadStaffSignInStatus();
   }
 
   /// Pull-to-refresh: re-run every API this tab uses (student roster, today's
@@ -168,12 +172,30 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
+    // Refresh the shared classroom dropdown list too, so a pull refreshes the
+    // whole page's data — not just this tab.
+    await _reloadClassroomList();
+    await _loadStaffSignInStatus();
     if (_isNappingFilter) {
       // Napping filter on: refresh nap-start codes + roster scoped to nappers.
       await _applyNappingFilter(refresh: true);
     } else {
       _loadForSelectedRoom(refresh: true);
       await _loadNapStartStudentCodes(refresh: true);
+    }
+  }
+
+  /// Force-reloads the classroom dropdown list (bypassing its cache) via the
+  /// shared [ClassroomCubit] provided by the Classroom screen. Non-fatal: if the
+  /// provider isn't in scope the pull-to-refresh still refreshes this tab.
+  Future<void> _reloadClassroomList() async {
+    try {
+      await context.read<ClassroomCubit>().loadActiveClassrooms(
+        force: true,
+        applyAttendanceStaffScope: true,
+      );
+    } catch (_) {
+      // Provider missing or reload failed — ignore.
     }
   }
 
@@ -184,12 +206,24 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// the user selects the same student the attendance gate computes against
   /// stale data and "Sign In" stays disabled after a successful Sign Out
   /// (and vice versa). Wiping the room's cache here forces a fresh fetch.
+  void _dismissSelectionPanel() {
+    if (!mounted) return;
+    setState(() {
+      isSelectAllChecked = false;
+      studentSelections.updateAll((key, val) => false);
+      _showActivitiesPanel = false;
+      _currentPanel = StudentPanelType.none;
+    });
+  }
+
   void _refreshAfterAttendanceAction() {
+    _dismissSelectionPanel();
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
+    _loadStaffSignInStatus();
   }
 
   /// Called after an activity is recorded from the Activities panel. A new
@@ -197,12 +231,14 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   /// so drop the roster + attendance + nap-start caches and refetch the list.
   void _refreshAfterActivityRecorded() {
     if (!mounted) return;
+    _dismissSelectionPanel();
     _attendanceCacheByKey.remove(_attendanceCacheKeyForRoomToday());
     _attendanceStatusByStudentCode.clear();
     _lastVisibleAttendanceCodes = <String>{};
     _clearAttendanceEntityCaches();
     _loadForSelectedRoom(refresh: true);
     _loadNapStartStudentCodes(refresh: true);
+    _loadStaffSignInStatus();
   }
 
   void _loadForSelectedRoom({
@@ -216,10 +252,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         ? null
         : _searchController.text.trim();
 
-    final status =
-        _selectedStatus.isEmpty ? null : List<String>.from(_selectedStatus);
-    final tagCodes =
-        _selectedTagCodes.isEmpty ? null : List<String>.from(_selectedTagCodes);
+    final status = _selectedStatus.isEmpty
+        ? null
+        : List<String>.from(_selectedStatus);
+    final tagCodes = _selectedTagCodes.isEmpty
+        ? null
+        : List<String>.from(_selectedTagCodes);
 
     if (refresh) {
       _cubit.refresh(
@@ -249,8 +287,9 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       setState(() => _napCodesLoading = true);
     }
     try {
-      final codes =
-          await _getNapStartStudentsUseCase(classroomCode: classroomCode);
+      final codes = await _getNapStartStudentsUseCase(
+        classroomCode: classroomCode,
+      );
       final normalized = codes
           .map((e) => e.trim().toUpperCase())
           .where((e) => e.isNotEmpty)
@@ -305,6 +344,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       });
       _loadForSelectedRoom(refresh: false);
       _loadNapStartStudentCodes(refresh: true);
+      _loadStaffSignInStatus();
     }
   }
 
@@ -402,9 +442,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         onPressed: _openClassroomStudentFilter,
         child: Text(
@@ -481,24 +519,19 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     List<StudentClassroomItem> selected,
   ) {
     final roomCode = widget.selectedRoom?.code.trim() ?? '';
-    return selected
-        .map(
-          (s) {
-            final norm = s.studentCode.trim().toUpperCase();
-            final napping =
-                s.nap || _nappingStudentCodes.contains(norm);
-            return <String, dynamic>{
-              'name': s.fullName,
-              'studentCode': s.studentCode,
-              'classroomCode': s.classroomCode.trim().isNotEmpty
-                  ? s.classroomCode.trim()
-                  : roomCode,
-              'nappingStatus': napping,
-              'isNapping': napping,
-            };
-          },
-        )
-        .toList();
+    return selected.map((s) {
+      final norm = s.studentCode.trim().toUpperCase();
+      final napping = s.nap || _nappingStudentCodes.contains(norm);
+      return <String, dynamic>{
+        'name': s.fullName,
+        'studentCode': s.studentCode,
+        'classroomCode': s.classroomCode.trim().isNotEmpty
+            ? s.classroomCode.trim()
+            : roomCode,
+        'nappingStatus': napping,
+        'isNapping': napping,
+      };
+    }).toList();
   }
 
   Map<String, dynamic> _getStudentIcons(StudentClassroomItem student) {
@@ -519,24 +552,18 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       };
     }
     if (student.medication) {
-      icons["medication"] = {
-        "icon": MediaRes.healthIcon,
-        "info": 'Medication'
-      };
+      icons["medication"] = {"icon": MediaRes.healthIcon, "info": 'Medication'};
     }
     if (student.notes) {
       icons["note"] = {"icon": MediaRes.docsIcon, "info": 'Notes'};
     }
     if (student.allergies) {
-      icons["allergies"] = {
-        "icon": MediaRes.alertIcon,
-        "info": 'Allergies'
-      };
+      icons["allergies"] = {"icon": MediaRes.alertIcon, "info": 'Allergies'};
     }
     if (student.dietaryRestriction) {
       icons["dietRestriction"] = {
         "icon": MediaRes.foodIcon2,
-        "info": 'Dietary Restrictions'
+        "info": 'Dietary Restrictions',
       };
     }
 
@@ -563,8 +590,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     if (selectedStudents.length > 1) {
       final roomFallback = (widget.selectedRoom?.code ?? '').trim();
       final firstCc = selectedStudents.first.classroomCode.trim();
-      final canonical =
-          firstCc.isNotEmpty ? firstCc : roomFallback;
+      final canonical = firstCc.isNotEmpty ? firstCc : roomFallback;
       if (canonical.isEmpty) return false;
       final sameRoom = selectedStudents.every((s) {
         final c = s.classroomCode.trim().isNotEmpty
@@ -581,9 +607,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     });
   }
 
-  String? _activitiesDisabledHint(
-    List<StudentClassroomItem> selectedStudents,
-  ) {
+  String? _activitiesDisabledHint(List<StudentClassroomItem> selectedStudents) {
     if (!hasSelectedStudents) return null;
     if (_attendanceStatusLoading) {
       return 'Hang on—we are loading attendance. Try Activities again in a moment.';
@@ -624,7 +648,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   String _attendanceCacheKeyForRoomToday() {
     final classroomCode = (widget.selectedRoom?.code ?? '').trim();
-    final date = _formatDate(DateTime.now());
+    final date = _formatDate(AppTime.now());
     return 'students:$classroomCode:$date';
   }
 
@@ -726,7 +750,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     final cacheKey = _attendanceCacheKeyForRoomToday();
     final cached = _attendanceCacheByKey[cacheKey];
     if (cached != null &&
-        DateTime.now().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
+        AppTime.nowUtc().difference(cached.fetchedAt) <= _attendanceCacheTtl) {
       if (!mounted) return;
       setState(() {
         _attendanceStatusByStudentCode
@@ -770,7 +794,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         _attendanceStatusError = false;
       });
       _attendanceCacheByKey[cacheKey] = _AttendanceCacheEntry(
-        fetchedAt: DateTime.now(),
+        fetchedAt: AppTime.nowUtc(),
         statusByCode: Map<String, String>.from(map),
       );
     } catch (_) {
@@ -783,6 +807,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     }
   }
 
+  Future<void> _loadStaffSignInStatus() async {}
+
   StudentAttendanceActionAvailability _attendanceAvailabilityForSelection(
     List<StudentClassroomItem> selected,
   ) {
@@ -790,6 +816,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       return StudentAttendanceActionAvailability.allDisabled;
     }
     if (_attendanceStatusLoading || _attendanceStatusError) {
+      return StudentAttendanceActionAvailability.allDisabled;
+    }
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+      context,
+    )) {
       return StudentAttendanceActionAvailability.allDisabled;
     }
     final gates = selected.map((s) {
@@ -805,6 +836,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         todayStatusRaw: _todayStatusForStudentCode(s.studentCode),
       );
     });
+
     return StudentAttendanceActionAvailability.fromGates(gates);
   }
 
@@ -823,7 +855,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     List<StudentClassroomItem> visibleStudents,
   ) {
     for (final s in visibleStudents) {
-      final hasHealthIcon = s.allergies ||
+      final hasHealthIcon =
+          s.allergies ||
           s.medication ||
           s.dietaryRestriction ||
           !s.photoPermission;
@@ -851,7 +884,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       return;
     }
 
-    final date = _formatDate(DateTime.now());
+    final date = _formatDate(AppTime.now());
     final token = ++_attendancePrefetchToken;
     final roomCode = (widget.selectedRoom?.code ?? '').trim();
     final classroomCodes = roomCode.isEmpty ? null : <String>[roomCode];
@@ -865,7 +898,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
     try {
       final signInUseCase = serviceLocator<GetStudentSignInFormListUseCase>();
       final signOutUseCase = serviceLocator<GetStudentSignOutFormListUseCase>();
-      final transferUseCase = serviceLocator<GetStudentTransferFormListUseCase>();
+      final transferUseCase =
+          serviceLocator<GetStudentTransferFormListUseCase>();
       final absentUseCase = serviceLocator<GetStudentAbsentFormListUseCase>();
 
       final signInFuture = signInUseCase(
@@ -1171,6 +1205,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
               classroomNameToCode: classroomNameToCode,
               refreshCallback: _refreshAfterAttendanceAction,
               popOnSuccess: true,
+              // The room being viewed is authoritative for "where the student is
+              // now" — the student record still points at their enrolled room
+              // after a transfer, which previously left this room selectable as
+              // a transfer destination.
+              currentClassroomCode: widget.selectedRoom?.code,
+              currentClassroomName: widget.selectedRoom?.name,
             ),
           ),
         );
@@ -1233,6 +1273,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
   @override
   Widget build(BuildContext context) {
+    context.watch<GeofenceCubit>();
     return BlocProvider.value(
       value: _cubit,
       child: BlocBuilder<ClassroomStudentsCubit, ClassroomStudentsState>(
@@ -1251,8 +1292,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
               return false;
             }
             return true;
-          }).toList()
-            ..sort((a, b) => a.fullName.compareTo(b.fullName));
+          }).toList()..sort((a, b) => a.fullName.compareTo(b.fullName));
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
             // Status is fetched for the full roster (not `visibleStudents`)
@@ -1263,11 +1303,15 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
           final effectiveVisibleStudents =
               _isNappingFilter && _napFilterEmptyResult
-                  ? <StudentClassroomItem>[]
-                  : visibleStudents;
+              ? <StudentClassroomItem>[]
+              : visibleStudents;
 
-          final selectedStudents = _getSelectedStudents(effectiveVisibleStudents);
-          final canStudentActivities = _canShowActivitiesPanel(selectedStudents);
+          final selectedStudents = _getSelectedStudents(
+            effectiveVisibleStudents,
+          );
+          final canStudentActivities = _canShowActivitiesPanel(
+            selectedStudents,
+          );
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
             if (!canStudentActivities &&
@@ -1289,6 +1333,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   left: BorderSide(color: AppColors.themeColor),
                   top: BorderSide(color: AppColors.themeColor),
                   right: BorderSide(color: AppColors.themeColor),
+                  bottom: BorderSide(color: AppColors.themeColor),
                 ),
                 color: Colors.white,
                 child: Padding(
@@ -1303,12 +1348,12 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                               constraints: const BoxConstraints(minHeight: 36),
                               backgroundColor:
                                   const WidgetStatePropertyAll<Color>(
-                                Colors.white,
-                              ),
+                                    Colors.white,
+                                  ),
                               surfaceTintColor:
                                   const WidgetStatePropertyAll<Color>(
-                                Colors.white,
-                              ),
+                                    Colors.white,
+                                  ),
                               hintText: 'Search',
                               hintStyle: const WidgetStatePropertyAll(
                                 TextStyle(
@@ -1346,126 +1391,180 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                           ),
                         ],
                       ),
-                  const SizedBox(height: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
+                      const SizedBox(height: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: CustomCheckbox(
-                              borderColor:
-                                  AppColors.primaryColor.withValues(alpha: 0.2),
-                              value: isSelectAllChecked,
-                              onChanged: (val) =>
-                                  _toggleSelectAll(val, effectiveVisibleStudents),
-                            ),
-                          ),
-                          const Text(
-                            'Select All',
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              color: AppColors.primaryColor,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const Spacer(),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
                             children: [
-                              for (final status in _selectedStatus) ...[
-                                _buildStatusChip(status),
-                                const SizedBox(width: 8),
-                              ],
-                              Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 2),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(6),
-                                  gradient: AppColors.buildPrimaryGradient(),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
                                 ),
-                                child: TextButton(
-                                  style: TextButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 3,
-                                    ),
-                                    minimumSize: Size.zero,
-                                    tapTargetSize:
-                                        MaterialTapTargetSize.shrinkWrap,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                  onPressed: _clearAllSelections,
-                                  child: const Text(
-                                    'Clear All',
-                                    style: TextStyle(fontFamily: 'Manrope', fontSize: 12),
+                                child: CustomCheckbox(
+                                  borderColor: AppColors.primaryColor
+                                      .withValues(alpha: 0.2),
+                                  value: isSelectAllChecked,
+                                  onChanged: (val) => _toggleSelectAll(
+                                    val,
+                                    effectiveVisibleStudents,
                                   ),
                                 ),
                               ),
-                              IconButton(
-                                onPressed: () {
-                                  showDialog(
-                                    context: context,
-                                    builder: (BuildContext context) {
-                                      return AlertDialog(
-                                        title: const Text('Information'),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children:
-                                              details.entries.map((entry) {
-                                            bool isSvg =
-                                                entry.key.endsWith('.svg');
-                                            return Padding(
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                      vertical: 4.0),
-                                              child: Row(
-                                                children: [
-                                                  isSvg
-                                                      ? SvgPicture.asset(
-                                                          entry.key,
-                                                          width: 24,
-                                                          height: 24,
-                                                        )
-                                                      : Image.asset(
-                                                          entry.key,
-                                                          width: 24,
-                                                          height: 24,
-                                                        ),
-                                                  const SizedBox(width: 20),
-                                                  Expanded(
-                                                    child: Text(
-                                                      entry.value,
-                                                      style: const TextStyle(
-                                                          fontFamily: 'Manrope', fontSize: 14),
-                                                    ),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }).toList(),
+                              const Text(
+                                'Select All',
+                                style: TextStyle(
+                                  fontFamily: 'Manrope',
+                                  color: AppColors.primaryColor,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const Spacer(),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  for (final status in _selectedStatus) ...[
+                                    _buildStatusChip(status),
+                                    const SizedBox(width: 8),
+                                  ],
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(6),
+                                      gradient:
+                                          AppColors.buildPrimaryGradient(),
+                                    ),
+                                    child: TextButton(
+                                      style: TextButton.styleFrom(
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 4,
+                                          vertical: 3,
                                         ),
-                                        actions: <Widget>[
-                                          TextButton(
-                                            child: const Text('Close'),
-                                            onPressed: () {
-                                              Navigator.of(context).pop();
-                                            },
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
                                           ),
-                                        ],
+                                        ),
+                                      ),
+                                      onPressed: _clearAllSelections,
+                                      child: const Text(
+                                        'Clear All',
+                                        style: TextStyle(
+                                          fontFamily: 'Manrope',
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (BuildContext context) {
+                                          return AlertDialog(
+                                            title: const Text('Information'),
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: details.entries.map((
+                                                entry,
+                                              ) {
+                                                bool isSvg = entry.key.endsWith(
+                                                  '.svg',
+                                                );
+                                                return Padding(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        vertical: 4.0,
+                                                      ),
+                                                  child: Row(
+                                                    children: [
+                                                      isSvg
+                                                          ? SvgPicture.asset(
+                                                              entry.key,
+                                                              width: 24,
+                                                              height: 24,
+                                                            )
+                                                          : Image.asset(
+                                                              entry.key,
+                                                              width: 24,
+                                                              height: 24,
+                                                            ),
+                                                      const SizedBox(width: 20),
+                                                      Expanded(
+                                                        child: Text(
+                                                          entry.value,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontFamily:
+                                                                    'Manrope',
+                                                                fontSize: 14,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }).toList(),
+                                            ),
+                                            actions: <Widget>[
+                                              TextButton(
+                                                child: const Text('Close'),
+                                                onPressed: () {
+                                                  Navigator.of(context).pop();
+                                                },
+                                              ),
+                                            ],
+                                          );
+                                        },
                                       );
                                     },
-                                  );
+                                    icon: const Icon(
+                                      Icons.info_outline_rounded,
+                                      color: AppColors.primaryColor,
+                                      size: 20,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              CustomToggle(
+                                label: 'Signed In',
+                                isToggled: _isPresentFilter,
+                                onToggle: (value) {
+                                  setState(() {
+                                    _isPresentFilter = value;
+                                  });
                                 },
-                                icon: const Icon(
-                                  Icons.info_outline_rounded,
+                                labelStyle: const TextStyle(
+                                  fontFamily: 'Manrope',
                                   color: AppColors.primaryColor,
-                                  size: 20,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              const SizedBox(width: 20),
+                              CustomToggle(
+                                label: 'Napping',
+                                isToggled: _isNappingFilter,
+                                onToggle: (value) {
+                                  _applyNappingToggle(value);
+                                },
+                                labelStyle: const TextStyle(
+                                  fontFamily: 'Manrope',
+                                  color: AppColors.primaryColor,
+                                  fontSize: 15,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ],
@@ -1473,269 +1572,266 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                         ],
                       ),
                       const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          CustomToggle(
-                            label: 'Signed In',
-                            isToggled: _isPresentFilter,
-                            onToggle: (value) {
-                              setState(() {
-                                _isPresentFilter = value;
-                              });
-                            },
-                            labelStyle: const TextStyle(
-                              fontFamily: 'Manrope',
-                              color: AppColors.primaryColor,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          const SizedBox(width: 20),
-                          CustomToggle(
-                            label: 'Napping',
-                            isToggled: _isNappingFilter,
-                            onToggle: (value) {
-                              _applyNappingToggle(value);
-                            },
-                            labelStyle: const TextStyle(
-                              fontFamily: 'Manrope',
-                              color: AppColors.primaryColor,
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Expanded(
-                    child: Builder(
-                      builder: (context) {
-                          if ((state.isLoading || _isLoadingNapStudents) &&
-                              effectiveVisibleStudents.isEmpty) {
-                            return const ClassroomStudentsListShimmer();
-                          }
+                      Expanded(
+                        child: Builder(
+                          builder: (context) {
+                            if ((state.isLoading || _isLoadingNapStudents) &&
+                                effectiveVisibleStudents.isEmpty) {
+                              return const ClassroomStudentsListShimmer();
+                            }
 
-                          if (effectiveVisibleStudents.isEmpty) {
-                            return CustomRefreshIndicator(
-                              onRefresh: _refreshAll,
-                              child: LayoutBuilder(
-                                builder: (context, constraints) {
-                                  return ListView(
-                                    children: [
-                                      SizedBox(
-                                        height: constraints.maxHeight,
-                                        child: Center(
-                                          child: Text(
-                                            _isNappingFilter && _napFilterEmptyResult
-                                                ? 'No students are currently napping.'
-                                                : _isNappingFilter
-                                                ? 'No students are napping.'
-                                                : 'No students assigned.',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: 16,
-                                  color: AppColors.primaryColor
-                                      .withValues(alpha: 0.6),
-                                ),
+                            if (effectiveVisibleStudents.isEmpty) {
+                              return CustomRefreshIndicator(
+                                onRefresh: _refreshAll,
+                                child: LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    return ListView(
+                                      children: [
+                                        SizedBox(
+                                          height: constraints.maxHeight,
+                                          child: Center(
+                                            child: Text(
+                                              _isNappingFilter &&
+                                                      _napFilterEmptyResult
+                                                  ? 'No students are currently napping.'
+                                                  : _isNappingFilter
+                                                  ? 'No students are napping.'
+                                                  : 'No students assigned.',
+                                              style: TextStyle(
+                                                fontFamily: 'Manrope',
+                                                fontSize: 16,
+                                                color: AppColors.primaryColor
+                                                    .withValues(alpha: 0.6),
+                                              ),
+                                            ),
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                      ],
+                                    );
+                                  },
+                                ),
+                              );
+                            }
+
+                            final upcomingOnlyFilter =
+                                _selectedStatus.length == 1 &&
+                                _selectedStatus.first.trim().toUpperCase() ==
+                                    'UPCOMING';
+
+                            return CustomRefreshIndicator(
+                              onRefresh: _refreshAll,
+                              child: ListView.builder(
+                                // Always scrollable so a short roster (too few
+                                // students to fill the viewport) can still be
+                                // pulled to refresh.
+                                physics: const AlwaysScrollableScrollPhysics(),
+                                itemCount: effectiveVisibleStudents.length,
+                                itemBuilder: (context, index) {
+                                  final student =
+                                      effectiveVisibleStudents[index];
+                                  final isTarget = _isHighlightTarget(
+                                    student.studentCode,
+                                  );
+                                  return HighlightableCard(
+                                    key: isTarget ? _highlightRowKey : null,
+                                    code: student.studentCode,
+                                    highlightCode: widget.highlightCode,
+                                    borderRadius: 12,
+                                    onHighlighted: () {
+                                      final ctx =
+                                          _highlightRowKey.currentContext;
+                                      if (ctx != null) {
+                                        Scrollable.ensureVisible(
+                                          ctx,
+                                          duration: const Duration(
+                                            milliseconds: 400,
+                                          ),
+                                          alignment: 0.1,
+                                          curve: Curves.easeOut,
+                                        );
+                                      }
+                                    },
+                                    child: ClassroomStudentListItem(
+                                      studentId: student.studentCode.hashCode,
+                                      studentCode: student.studentCode,
+                                      isSignedIn: student.signedIn,
+                                      isAbsent: student.absent,
+                                      isExpectedToday: student.expectedToday,
+                                      studentStatus: student.status,
+                                      todayAttendanceStatusRaw:
+                                          _todayStatusForStudentCode(
+                                            student.studentCode,
+                                          ),
+                                      name: student.fullName,
+                                      imageUrl: student.profilePictureUrl ?? '',
+                                      icons: _getStudentIcons(student),
+                                      forceUpcomingProfileStatusDot:
+                                          upcomingOnlyFilter,
+                                      isSelected:
+                                          studentSelections[student
+                                              .studentCode] ??
+                                          false,
+                                      onSelectionChanged: (bool? value) {
+                                        _toggleStudentSelection(
+                                          student.studentCode,
+                                          value,
+                                          effectiveVisibleStudents,
+                                        );
+                                      },
+                                    ),
                                   );
                                 },
                               ),
                             );
-                          }
-
-                          final upcomingOnlyFilter = _selectedStatus.length == 1 &&
-                              _selectedStatus.first.trim().toUpperCase() ==
-                                  'UPCOMING';
-
-                          return CustomRefreshIndicator(
-                            onRefresh: _refreshAll,
-                            child: ListView.builder(
-                              itemCount: effectiveVisibleStudents.length,
-                              itemBuilder: (context, index) {
-                                final student = effectiveVisibleStudents[index];
-                                final isTarget =
-                                    _isHighlightTarget(student.studentCode);
-                              return HighlightableCard(
-                                key: isTarget ? _highlightRowKey : null,
-                                code: student.studentCode,
-                                highlightCode: widget.highlightCode,
-                                borderRadius: 12,
-                                onHighlighted: () {
-                                  final ctx = _highlightRowKey.currentContext;
-                                  if (ctx != null) {
-                                    Scrollable.ensureVisible(
-                                      ctx,
-                                      duration:
-                                          const Duration(milliseconds: 400),
-                                      alignment: 0.1,
-                                      curve: Curves.easeOut,
-                                    );
-                                  }
-                                },
-                                child: ClassroomStudentListItem(
-                                    studentId: student.studentCode.hashCode,
-                                    studentCode: student.studentCode,
-                                    isSignedIn: student.signedIn,
-                                    isAbsent: student.absent,
-                                    isExpectedToday: student.expectedToday,
-                                    studentStatus: student.status,
-                                    todayAttendanceStatusRaw: _todayStatusForStudentCode(
-                                      student.studentCode,
-                                    ),
-                                    name: student.fullName,
-                                    imageUrl: student.profilePictureUrl ?? '',
-                                    icons: _getStudentIcons(student),
-                                    forceUpcomingProfileStatusDot: upcomingOnlyFilter,
-                                    isSelected:
-                                    studentSelections[student.studentCode] ?? false,
-                                    onSelectionChanged: (bool? value) {
-                                      _toggleStudentSelection(
-                                        student.studentCode,
-                                        value,
-                                        effectiveVisibleStudents,
-                                      );
-                                    },
-                              ),
-                              );
-                            },
-                          ),
-                        );
-                      },
-                    ),
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
-            ),
-          ),
-          // StudentActionPanel shown when students are selected
-          if (hasSelectedStudents)
-            Positioned(
-              right: 16,
-              top: 0,
-              bottom: 0,
-              child: Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    StudentActionPanel(
-                    currentPanel: _currentPanel,
-                    activityStudentMaps: canStudentActivities
-                        ? _activityStudentMaps(selectedStudents)
-                        : null,
-                    onActivityRecorded: _refreshAfterActivityRecorded,
-                    attendanceAvailability:
-                        _attendanceAvailabilityForSelection(selectedStudents),
-                    onAttendanceTap: () {
-                      setState(() {
-                        final open =
-                            _currentPanel == StudentPanelType.attendance;
-                        _currentPanel =
-                            open ? StudentPanelType.none : StudentPanelType.attendance;
-                        _showActivitiesPanel = false;
-                      });
-                    },
-                    onMessageTap: () {},
-                    onActivitiesTap: canStudentActivities
-                        ? () {
-                            setState(() {
-                              _showActivitiesPanel = !_showActivitiesPanel;
-                              _currentPanel = _showActivitiesPanel
-                                  ? StudentPanelType.activities
-                                  : StudentPanelType.none;
-                            });
-                          }
-                        : null,
-                    onProfileTap: _selectedCount == 1
-                        ? () async {
-                            if (selectedStudents.isEmpty) return;
-                            final student = selectedStudents.first;
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => StudentProfileScreen(
-                                  name: student.fullName,
-                                  classroom:
-                                      widget.selectedRoom?.name ?? 'Unknown Class',
-                                  tags: const [],
-                                  schedule: const [
-                                    'Monday',
-                                    'Tuesday',
-                                    'Wednesday',
-                                    'Thursday',
-                                    'Friday'
-                                  ],
-                                  sibling: const {
-                                    'name': [],
-                                    'relation': [],
-                                    'status': []
-                                  },
-                                  studentCode: student.studentCode,
-                                  initialEnrollmentStatus: student.status,
-                                ),
-                              ),
-                            );
-                            if (!mounted) return;
-                            // Profile screen may have mutated student data
-                            // (status, schedule, photo, tags, health, ...).
-                            // Refresh the roster + cached attendance so the
-                            // list reflects the latest values, and drop the
-                            // row-icon details dialog cache for this student
-                            // so the next tap re-fetches their health.
-                            invalidateStudentDetailsHealthCache(
-                              student.studentCode,
-                            );
-                            _refreshAfterAttendanceAction();
-                            _loadNapStartStudentCodes(refresh: true);
-                          }
-                        : null,
-                    onClearSelections: () {
-                      setState(() {
-                        isSelectAllChecked = false;
-                        studentSelections.updateAll((key, val) => false);
-                        _showActivitiesPanel = false;
-                        _currentPanel = StudentPanelType.none;
-                      });
-                    },
-                    isProfileEnabled: _selectedCount == 1,
-                    activitiesEnabled: canStudentActivities,
-                    activitiesDisabledHint:
-                        canStudentActivities
-                            ? null
-                            : _activitiesDisabledHint(selectedStudents),
-                    showAttendanceActions:
-                        _currentPanel == StudentPanelType.attendance,
-                    isAttendanceActionLoading:
-                        _isAttendanceActionLoading ||
-                            _isPrefetchingAttendanceData,
-                    onSignInTap: () => _openAttendanceActionFlow(
-                      allStudents: state.students,
-                      actionName: 'sign_in',
-                    ),
-                    onSignOutTap: () => _openAttendanceActionFlow(
-                      allStudents: state.students,
-                      actionName: 'sign_out',
-                    ),
-                    onTransferTap: () => _openAttendanceActionFlow(
-                      allStudents: state.students,
-                      actionName: 'transfer',
-                    ),
-                    onMarkAbsentTap: () => _openAttendanceActionFlow(
-                      allStudents: state.students,
-                      actionName: 'mark_absent',
-                    ),
-                  ),
-                  ],
                 ),
               ),
-            ),
-        ],
-      );
+              // StudentActionPanel shown when students are selected
+              if (hasSelectedStudents)
+                Positioned(
+                  right: 16,
+                  top: 0,
+                  bottom: 0,
+                  child: Center(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        StudentActionPanel(
+                          currentPanel: _currentPanel,
+                          activityStudentMaps: canStudentActivities
+                              ? _activityStudentMaps(selectedStudents)
+                              : null,
+                          onActivityRecorded: _refreshAfterActivityRecorded,
+                          attendanceAvailability:
+                              _attendanceAvailabilityForSelection(
+                                selectedStudents,
+                              ),
+                          onAttendanceTap: () {
+                            setState(() {
+                              final open =
+                                  _currentPanel == StudentPanelType.attendance;
+                              _currentPanel = open
+                                  ? StudentPanelType.none
+                                  : StudentPanelType.attendance;
+                              _showActivitiesPanel = false;
+                            });
+                          },
+                          onMessageTap: () {
+                            final selected = selectedStudents
+                                .map(
+                                  (s) => SelectedRecipient(
+                                    code: s.studentCode,
+                                    name: s.fullName,
+                                    isStaff: false,
+                                    avatar: s.profilePictureUrl ?? '',
+                                  ),
+                                )
+                                .toList();
+                            openMessagingShortcut(
+                              context,
+                              recipients: selected,
+                            );
+                          },
+                          onActivitiesTap: canStudentActivities
+                              ? () {
+                                  setState(() {
+                                    _showActivitiesPanel =
+                                        !_showActivitiesPanel;
+                                    _currentPanel = _showActivitiesPanel
+                                        ? StudentPanelType.activities
+                                        : StudentPanelType.none;
+                                  });
+                                }
+                              : null,
+                          onProfileTap: _selectedCount == 1
+                              ? () async {
+                                  if (selectedStudents.isEmpty) return;
+                                  final student = selectedStudents.first;
+                                  await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => StudentProfileScreen(
+                                        name: student.fullName,
+                                        classroom:
+                                            widget.selectedRoom?.name ??
+                                            'Unknown Class',
+                                        tags: const [],
+                                        schedule: const [
+                                          'Monday',
+                                          'Tuesday',
+                                          'Wednesday',
+                                          'Thursday',
+                                          'Friday',
+                                        ],
+                                        sibling: const {
+                                          'name': [],
+                                          'relation': [],
+                                          'status': [],
+                                        },
+                                        studentCode: student.studentCode,
+                                        initialEnrollmentStatus: student.status,
+                                      ),
+                                    ),
+                                  );
+                                  if (!mounted) return;
+                                  // Profile screen may have mutated student data
+                                  // (status, schedule, photo, tags, health, ...).
+                                  // Refresh the roster + cached attendance so the
+                                  // list reflects the latest values, and drop the
+                                  // row-icon details dialog cache for this student
+                                  // so the next tap re-fetches their health.
+                                  invalidateStudentDetailsHealthCache(
+                                    student.studentCode,
+                                  );
+                                  _refreshAfterAttendanceAction();
+                                  _loadNapStartStudentCodes(refresh: true);
+                                }
+                              : null,
+                          onClearSelections: () {
+                            setState(() {
+                              isSelectAllChecked = false;
+                              studentSelections.updateAll((key, val) => false);
+                              _showActivitiesPanel = false;
+                              _currentPanel = StudentPanelType.none;
+                            });
+                          },
+                          isProfileEnabled: _selectedCount == 1,
+                          activitiesEnabled: canStudentActivities,
+                          activitiesDisabledHint: canStudentActivities
+                              ? null
+                              : _activitiesDisabledHint(selectedStudents),
+                          showAttendanceActions:
+                              _currentPanel == StudentPanelType.attendance,
+                          isAttendanceActionLoading:
+                              _isAttendanceActionLoading ||
+                              _isPrefetchingAttendanceData,
+                          onSignInTap: () => _openAttendanceActionFlow(
+                            allStudents: state.students,
+                            actionName: 'sign_in',
+                          ),
+                          onSignOutTap: () => _openAttendanceActionFlow(
+                            allStudents: state.students,
+                            actionName: 'sign_out',
+                          ),
+                          onTransferTap: () => _openAttendanceActionFlow(
+                            allStudents: state.students,
+                            actionName: 'transfer',
+                          ),
+                          onMarkAbsentTap: () => _openAttendanceActionFlow(
+                            allStudents: state.students,
+                            actionName: 'mark_absent',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          );
         },
       ),
     );
@@ -1889,8 +1985,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           displayText,
           style: TextStyle(
             fontFamily: 'Manrope',
-            color:
-                _localSelectedItems.isEmpty ? Colors.grey[600] : const Color(0xff573353),
+            color: _localSelectedItems.isEmpty
+                ? Colors.grey[600]
+                : const Color(0xff573353),
             fontSize: 14,
           ),
           overflow: TextOverflow.ellipsis,

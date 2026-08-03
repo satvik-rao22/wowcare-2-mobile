@@ -76,8 +76,8 @@ class MediaRes {
   static const backgroundImage44 = '';
   static const wowcareMobileBg = '$_baseBackgroundImage/wowcare_mobile_bg.png';
 
-  static const userImageMale = '$_baseImages/male.png';
-  static const userImageFemale = '$_baseImages/female.png';
+  static const userImageMale = '$_baseImages/WowCarePNG.png';
+  static const userImageFemale = '$_baseImages/WowCarePNG.png';
   static const logo_wow = '$_baseImages/WowCarePNG.png';
   static const logo_wow_new = '$_baseImages/WowLogoRound.svg';
   static const logout_image = '$_baseImages/logout_image.png';
@@ -207,6 +207,7 @@ class MediaRes {
   static const String message_panel_icon = '$_baseIcons/message_panel.svg';
   static const String backButton = '$_baseIcons/back-button-icon.svg';
   static const String uploadIcon = '$_baseIcons/upload-icon.svg';
+  static const String uploadCloudIcon = '$_baseIcons/Upload cloud.svg';
 
   static const String Sign_in = '$_baseIcons/Sign_in.svg';
   static const String Sign_out = '$_baseIcons/Sign_out.svg';
@@ -305,7 +306,20 @@ class MediaRes {
   // Attendance sign-in/out method icons
   static const String gpsMethodIcon = '$_baseIcons/Gps_fixed.svg';
   static const String pinMethodIcon = '$_baseIcons/pin.svg';
-  static const String qrAttendanceIcon = '$_baseIcons/qr_attendance.svg';
+  // static const String qrAttendanceIcon = '$_baseIcons/qr_attendance.svg';
+  static const String kioskAttendenceIcons = '$_baseIcons/kiosk-attendance.svg';
   static const String webMethodIcon = '$_baseIcons/desktop-icon.svg';
   static const String appMethodIcon = '$_baseIcons/mobile-icon.svg';
+  // Attendance sign-in/out method icons
+  // static const String gpsMethodIcon = '$_baseIcons/map.svg';
+  // static const String pinMethodIcon = '$_baseIcons/pin.svg';
+  static const String qrAttendanceIcon = '$_baseIcons/qrcode.svg';
+  // static const String kioskAttendenceIcons = '$_baseIcons/desktop.svg';
+  // static const String webMethodIcon = '$_baseIcons/desktop.svg';
+  // static const String appMethodIcon = '$_baseIcons/mobile.svg';
+  static const String transferMethodIcon =
+      '$_baseIcons/arrow-right-arrow-left.svg';
+  static const String nfcMethodIcon = '$_baseIcons/id-card.svg';
+  static const String biometricMethodIcon = '$_baseIcons/user.svg';
+  static const String systemMethodIcon = '$_baseIcons/cog.svg';
 }

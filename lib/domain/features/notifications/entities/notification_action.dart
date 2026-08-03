@@ -45,9 +45,19 @@ class NotificationAction {
   static const String birthday = 'BIRTHDAY';
   static const String upcomingClassroomEvent = 'UPCOMING_CLASSROOM_EVENT';
   static const String upcomingEvent = 'UPCOMING_EVENT';
-  static const String assignTask = 'ASSIGN_TASK';
-  static const String taskDue = 'TASK_DUE';
+
+  // ── Tasks ───────────────────────────────────────────────────────────────
+  // The six actions the Tasks backend fires, per the push payload contract.
+  // Every one carries `taskCode` + `organizationCode`/`schoolCode`; the three
+  // assignment-scoped ones also carry `assignmentCode`, which nothing consumes
+  // yet — there is no assignment-detail screen, so they open the task's own
+  // detail screen by `taskCode` (see NotificationRouteResolver).
+  static const String taskAssigned = 'TASK_ASSIGNED';
+  static const String taskUpdated = 'TASK_UPDATED';
+  static const String taskDeleted = 'TASK_DELETED';
+  static const String taskStatusUpdated = 'TASK_STATUS_UPDATED';
   static const String taskOverdue = 'TASK_OVERDUE';
+  static const String taskDueSoon = 'TASK_DUE_SOON';
 
   // ── Scheduling ──────────────────────────────────────────────────────────
   static const String publishShift = 'PUBLISH_SHIFT';
@@ -67,9 +77,14 @@ class NotificationAction {
 
   // ── Activities ──────────────────────────────────────────────────────────
   static const String activityRecorded = 'ACTIVITY_RECORDED';
+  static const String activityEdited = 'ACTIVITY_EDITED';
+  static const String activityDeleted = 'ACTIVITY_DELETED';
+  static const String incidentRecorded = 'INCIDENT_RECORDED';
   static const String incidentApprovalPending = 'INCIDENT_APPROVAL_PENDING';
+  static const String incidentApproved = 'INCIDENT_APPROVED';
   static const String incidentAcknowledgementPending =
       'INCIDENT_ACKNOWLEDGEMENT_PENDING';
+  static const String incidentAcknowledged = 'INCIDENT_ACKNOWLEDGED';
   static const String napAlert = 'NAP_ALERT';
 
   // ── Availability (room movements) ───────────────────────────────────────
@@ -96,11 +111,61 @@ class NotificationAction {
   // ── Settings ────────────────────────────────────────────────────────────
   static const String schoolSettingsChanged = 'SCHOOL_SETTINGS_CHANGED';
 
+  // ── Geofence (device-local, fired by native geofence on enter) ───────────
+  static const String geofenceEnter = 'GEOFENCE_ENTER';
+
   /// Backend variants that should be treated as a known action above.
   static const Map<String, String> aliases = <String, String>{
     'CREATE_CLASSROOM': addClassroom,
     'EDIT_STUDENT': addStudent, // edits land on the student list, highlighted
     'EDIT_STAFF': deleteStaff, // (DELETE_* here just means "staff list" target)
+    // Inbox event types are granular / prefixed; map them onto the combined
+    // canonical actions the redirection table is keyed by.
+    // Attendance
+    'STUDENT_SIGN_IN': studentSignInOut,
+    'STUDENT_SIGN_OUT': studentSignInOut,
+    'STAFF_SIGN_IN': staffSignInOut,
+    'STAFF_SIGN_OUT': staffSignInOut,
+    'CLASSROOM_RATIO_BREACHED': ratioBreached,
+    'CLASSROOM_CAPACITY_EXCEEDED': capacityExceeded,
+    'STUD_ATTENDANCE_NOT_MARKED': attendanceNotMarked,
+    'STAFF_ATTENDANCE_NOT_MARKED': attendanceNotMarked,
+    // Classroom
+    'DEACTIVATE_CLASSROOM': deleteClassroom,
+    // Student
+    'DEACTIVATE_STUDENT': deleteStudent,
+    'STUDENT_IMMUNIZATION_DUE': studentImmunizationDueOverdue,
+    'STUDENT_IMMUNIZATION_OVERDUE': studentImmunizationDueOverdue,
+    'STUDENT_DOCUMENT_ADDED': studentDocumentChanged,
+    'STUDENT_DOCUMENT_DELETED': studentDocumentChanged,
+    'STUDENT_DOCUMENT_EXPIRY': studentDocumentChanged,
+    'STUDENT_DOCUMENT_EXPIRED': studentDocumentChanged,
+    // Staff
+    'ADD_STAFF': deleteStaff, // staff list target
+    'DEACTIVATE_STAFF': deleteStaff,
+    'STAFF_PHYSICAL_DUE': staffPhysicalNotAdded, // staff profile → physical tab
+    'STAFF_PHYSICAL_OVERDUE': staffPhysicalNotAdded,
+    // Scheduling
+    'UPCOMING_SHIFT_AND_BREAK': upcomingShift,
+    'SCHEDULE_UNDER_RATIO': shiftUnderRatio,
+    // Movements
+    'DELETE_RULE': deactivateRule,
+    // Messaging / newsletter
+    'MESSAGE_FROM_STAFF': messageToStaff,
+    'MESSAGE_FROM_PARENT': messageToStudent,
+    'NEWSLETTER_RECEIVED': newsletterSent,
+    // Activities/incidents — backend's actual event-type strings differ from
+    // this file's older constant spellings (e.g. NAP_REMINDER vs NAP_ALERT,
+    // INCIDENT_ACK_PENDING vs INCIDENT_ACKNOWLEDGEMENT_PENDING), so without
+    // these aliases those pushes fell through to the module fallback (or, for
+    // INCIDENT_RECORDED specifically, matched nothing at all) and the tap
+    // did nothing.
+    'NAP_REMINDER': napAlert,
+    'INCIDENT_ACK_PENDING': incidentAcknowledgementPending,
+    // Task action names this app shipped with, superseded by the contract's
+    // TASK_* set above. Kept so an older backend build still routes.
+    'ASSIGN_TASK': taskAssigned,
+    'TASK_DUE': taskDueSoon,
   };
 
   /// Normalises a raw backend action to its canonical constant.

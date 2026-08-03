@@ -457,20 +457,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             horizontal: screenWidth * 0.04,
           ),
         ),
-        style: controller.text.isEmpty
-            ? TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: screenHeight * 0.022,
-                color: const Color(0xFF333333),
-              )
-            : TextStyle(
-                fontFamily: 'Manrope',
-                fontSize: screenHeight * 0.022,
-                foreground: Paint()
-                  ..shader = AppColors.buildPrimaryGradient().createShader(
-                    Rect.fromLTWH(0, 0, 200, 20),
-                  ),
-              ),
+        // Solid color (a gradient `foreground` shader breaks
+        // tap-to-position-cursor on editable fields).
+        style: TextStyle(
+          fontFamily: 'Manrope',
+          fontSize: screenHeight * 0.022,
+          color: AppColors.primaryColor,
+        ),
         onChanged: (value) {
           setState(() {});
         },

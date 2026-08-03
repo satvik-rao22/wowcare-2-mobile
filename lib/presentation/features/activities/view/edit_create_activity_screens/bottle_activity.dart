@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/ounce_input_widget.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -12,6 +11,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 
 import '../../../../../app/di/di.dart';
 import '../../../../../core/util/core_utils.dart';
+import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../cubit/bottle_activity_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -125,6 +125,37 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
 
   Future<void> _onSaveOrAddPressed() async {
     if (_cubit.state.isSubmitting || widget.readOnly) return;
+
+    // Admin picked a staff member other than themselves on create: verify
+    // that staff is signed in right now, same use case + true/false check the
+    // staff persona's own + button is gated on. Admins are never gated on
+    // their OWN sign-in — only on who they're attributing the activity to.
+    if (!widget.isEdit && _cubit.state.isAdminDesignation) {
+      final pickedStaffCode = (_cubit.staffPresentCode ?? '').trim();
+      final ownStaffCode = (_cubit.state.staffCode ?? '').trim();
+      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
+        try {
+          final status =
+              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
+            staffCode: pickedStaffCode,
+          );
+          if (status?.toUpperCase() != 'SIGNED_IN') {
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message:
+                  'Staff is not signed in. You can only add an activity for '
+                  'staff who are signed in.',
+              isWarning: true,
+            );
+            return;
+          }
+        } catch (_) {
+          // Best-effort: a failed status check shouldn't block the admin.
+        }
+      }
+    }
+
     final outcome = widget.isEdit
         ? await _cubit.submitUpdate(
             description: _descriptionController.text,
@@ -236,12 +267,16 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                         crossAxisCount: responsive.isTablet ? 3 : 2,
                         crossAxisSpacing: responsive.isTablet ? 16 : 12,
                         mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                        mainAxisExtent: 50,
+                        mainAxisExtent: 64,
                       ),
                       itemCount: selectedStudents.length,
                       itemBuilder: (context, index) {
                         return ActivityStudentDisplayTile(
                           name: selectedStudents[index],
+                          studentCode: index < state.selectedStudentsData.length
+                              ? state.selectedStudentsData[index]['studentCode']
+                                  as String?
+                              : null,
                         );
                       },
                     )
@@ -254,14 +289,18 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                         crossAxisCount: responsive.isTablet ? 3 : 2,
                         crossAxisSpacing: 12,
                         mainAxisSpacing: 12,
-                        childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                        mainAxisExtent: 64,
                       ),
                       itemCount: selectedStudents.length,
                       itemBuilder: (context, index) {
                         final String name = selectedStudents[index];
-                        return SelectedStudentTile(
+                        return ActivityStudentDisplayTile(
                           name: name,
-                          onTap: () => _removeStudent(name),
+                          studentCode: index < state.selectedStudentsData.length
+                              ? state.selectedStudentsData[index]['studentCode']
+                                  as String?
+                              : null,
+                          onRemove: () => _removeStudent(name),
                         );
                       },
                     ),
@@ -380,6 +419,7 @@ class _BottleActivityViewState extends State<_BottleActivityView> {
                       label: 'Requires Admin Approval',
                       isToggled: state.requireAdminApproval,
                       labelOnLeftSide: true,
+                      enabled: !_layoutAsEdit,
                       onToggle: cubit.setRequireAdminApproval,
                     ),
                   SizedBox(height: responsive.verticalSpacing),

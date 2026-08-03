@@ -1,0 +1,58 @@
+import '../entities/auto_pay_entity.dart';
+import '../entities/payment_settings_entity.dart';
+
+/// Auto-pay / Forte payment-method operations (Billing MS).
+abstract class AutoPayRepository {
+  /// School-level Forte config (provides the `apiLoginId` for tokenization).
+  Future<SchoolForteConfigEntity?> getSchoolForteConfig({
+    required String organizationCode,
+    required String schoolCode,
+  });
+
+  /// School payment settings — accepted method types + who pays the fee.
+  Future<PaymentSettingsEntity?> getPaymentSettings({required String schoolCode});
+
+  /// Whether auto-pay is currently enabled for the guardian.
+  Future<AutoPayStatusEntity> getAutoPayStatus(GuardianScopeParams params);
+
+  /// Enables or disables auto-pay for the guardian.
+  Future<AutoPayStatusEntity> setAutoPayStatus({
+    required GuardianScopeParams scope,
+    required bool autopayEnabled,
+  });
+
+  /// All saved payment methods for the guardian (max 4).
+  Future<List<PaymentMethodEntity>> getPaymentMethods(
+      GuardianScopeParams params);
+
+  /// Adds a new saved payment method from a Forte one-time token.
+  Future<PaymentMethodEntity> addPaymentMethod(AddPaymentMethodParams params);
+
+  /// Marks the given payment method as primary (the default payment method).
+  Future<PaymentMethodEntity> setPrimaryPaymentMethod({
+    required String paymentMethodCode,
+    required GuardianScopeParams scope,
+  });
+
+  /// Marks the given payment method as the auto-pay method.
+  Future<PaymentMethodEntity> setAutopayMethod({
+    required String paymentMethodCode,
+    required GuardianScopeParams scope,
+  });
+
+  /// Removes a saved payment method.
+  Future<void> deletePaymentMethod({
+    required String paymentMethodCode,
+    required GuardianScopeParams scope,
+  });
+
+  /// Updates a saved method's editable metadata (account-holder name / label).
+  Future<PaymentMethodEntity> updatePaymentMethod({
+    required String paymentMethodCode,
+    required UpdatePaymentMethodParams params,
+  });
+
+  /// Charges a guardian's saved payment method (Pay Now). The
+  /// [GuardianPayParams.idempotencyKey] dedupes retries of one attempt.
+  Future<GuardianPayResultEntity> guardianPay(GuardianPayParams params);
+}

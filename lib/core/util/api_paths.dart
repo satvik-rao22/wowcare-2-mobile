@@ -229,6 +229,7 @@ class ApiPaths {
         return ApiMicroservices.user;
       case 'conversations':
       case 'messages':
+      case 'firebase':
         return ApiMicroservices.communication;
       case 'holidays':
       // `/api/v1/events/...`, `/api/v1/occurrences` and
@@ -255,7 +256,13 @@ class ApiPaths {
       case 'ledger-transactions':
       case 'school-forte-configs':
       case 'payment-gateway':
+      case 'payment':
         return ApiMicroservices.billing;
+      case 'reports':
+        // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
+        return nextSeg == 'billing'
+            ? ApiMicroservices.billing
+            : ApiMicroservices.user;
       default:
         return ApiMicroservices.user;
     }
@@ -266,8 +273,35 @@ class ApiPaths {
     if (ApiConstants.isUat) return ApiPathsUat.url(path);
     final p = path.startsWith('/') ? path : '/$path';
     final ms = microserviceKeyFromPath(p);
-    final localPath = _stripLocalMsPrefix(p, ms);
+    final localPath = ms == ApiMicroservices.communication
+        ? _ensureLocalCommunicationSegment(p)
+        : _stripLocalMsPrefix(p, ms);
     return '${ApiConstants.baseUrlForMicroservice(ms)}$localPath';
+  }
+
+  /// LOCAL communication/messaging traffic goes through the shared gateway
+  /// tunnel (devtunnel:gatewayPort, or ngrok when unset — see
+  /// [ApiConstants.communicationBaseUrl]), which — like the UAT gateway —
+  /// disambiguates by a `/messaging/` path segment rather than by a
+  /// dedicated port. Without this, `/api/v1/firebase/token` (and
+  /// conversations/messages) land on the gateway with no matching route and
+  /// 500 with "No static resource ...". Mirrors
+  /// [ApiPathsUat._ensureUatMicroserviceSegment]'s identical fix for the
+  /// exact same symptom.
+  static String _ensureLocalCommunicationSegment(String path) {
+    if (path == '/api/v1/firebase/token') {
+      return '/api/v1/messaging/firebase/token';
+    }
+    if (path.startsWith('/api/v1/messaging/')) return path;
+    if (path.startsWith('/api/v1/conversations')) {
+      return path.replaceFirst(
+          '/api/v1/conversations', '/api/v1/messaging/conversations');
+    }
+    if (path.startsWith('/api/v1/messages')) {
+      return path.replaceFirst(
+          '/api/v1/messages', '/api/v1/messaging/messages');
+    }
+    return path;
   }
 
   /// For LOCAL devtunnel builds the base URL already encodes the microservice
@@ -300,6 +334,15 @@ class ApiPaths {
   static const String authLogout = '/api/v1/auth/logout';
   static const String authForgotPassword = '/api/v1/auth/forgot-password';
   static const String authLoginContext = '/api/v1/auth/login-context';
+
+  /// Authoritative server clock — `POST` with `{ "timeZone": "..." }`. Lives on
+  /// the accounts/billing microservice (see [ServerTimeService]).
+  static const String serverTime = '/api/v1/time';
+
+  /// Access-token renewal. Mirrors the web client's
+  /// `POST {gateway}/api/v1/user/auth/refresh` — the `auth` root maps to the
+  /// `user` microservice (see [ApiPathsUat]), so this resolves to the same URL.
+  static const String authRefresh = '/api/v1/auth/refresh';
 
   // —— Users ——
   static const String userRoot = '/api/v1/users';
@@ -368,6 +411,10 @@ class ApiPaths {
   /// GET sign-in PIN — `/api/v1/staff/my-profile/{staffCode}/pin`.
   static String staffMyProfilePinPath(String staffCode) =>
       '$staffMyProfile/$staffCode/pin';
+
+  /// PATCH work break reminder — `/api/v1/staff/staff/my-profile/{staffCode}/work-break-reminder`.
+  static String staffWorkBreakReminderPath(String staffCode) =>
+      '$staffMyProfile/$staffCode/work-break-reminder';
 
   static const String staffCodeByUser = '/api/v1/staff/code';
   static const String staffDocuments = '/api/v1/staff-documents';
@@ -469,6 +516,11 @@ class ApiPaths {
   /// Direct-MS form here (`/api/v1/student/{code}/siblings`); UAT re-inserts the
   /// gateway `student` segment — the doubled form 404s in LOCAL.
   static String studentSiblings(String code) => '$studentList/$code/siblings';
+
+  /// `POST /api/v1/student/{newStudentCode}/add-sibling` — links siblings onto a
+  /// newly created student (used by the add-student dialog flow, not edit profile).
+  static String studentAddSibling(String code) =>
+      '$studentList/$code/add-sibling';
   static const String studentTags = '/api/v1/student-tags';
 
   /// `POST /api/v1/student-tags/activity-filter` — student codes for tag-based activity filtering.
@@ -502,6 +554,14 @@ class ApiPaths {
   static const String guardian = '/api/v1/guardian';
   static const String guardianChildren = '/api/v1/guardian/children';
   static const String guardianProfile = '/api/v1/guardian/profile';
+
+  /// School-level student settings (health/documents edit permissions).
+  static const String studentSettings = '/api/v1/student-settings';
+
+  /// PATCH the logged-in guardian's own profile (resolves to
+  /// `/api/v1/student/guardian/my-profile`). Identified by schoolCode+userCode
+  /// query params, like [guardianProfile].
+  static const String guardianMyProfile = '/api/v1/guardian/my-profile';
   static const String guardianExisting = '/api/v1/guardian/existing';
   static String guardianProfilePhotoUploadSessionPath(String guardianCode) =>
       '$guardian/${Uri.encodeComponent(guardianCode.trim())}/profile-photo/upload-session';
@@ -647,6 +707,13 @@ class ApiPaths {
   static String attendanceSettings(String schoolCode) =>
       '/api/v1/attendance/schools/$schoolCode/attendance-settings';
 
+  /// GET /api/v1/attendance/schools/{schoolCode}/attendance-settings/allow-teacher-cross-class-attendance
+  /// Lightweight flag: whether teachers can sign in/out (and view) students
+  /// from any classroom. When true, non-admin staff behave like an admin for
+  /// student attendance.
+  static String allowTeacherCrossClassAttendance(String schoolCode) =>
+      '/api/v1/attendance/schools/$schoolCode/attendance-settings/allow-teacher-cross-class-attendance';
+
   // —— Kiosk (attendance MS) ——
   /// POST /api/v1/kiosk/verify-pin — Verify PIN for guardian/staff access.
   static const String kioskVerifyPin = '/api/v1/kiosk/verify-pin';
@@ -685,6 +752,10 @@ class ApiPaths {
   /// POST /api/v1/student/settings/immunization/report — Generate immunization reports (student MS).
   static const String studentImmunizationReport =
       '/api/v1/student/settings/immunization/report';
+
+  // POST /api/v1/staff/staff-shifts/reports/generate - Generate Staff Scheduling reports (staff MS).
+  static const String staffSchedulingReportsGenerate =
+      '/api/v1/staff/staff-shifts/reports/generate';
 
   // —— Classroom MS ([ApiConstants.classroomBaseUrl], devtunnel **8087**) ——
   /// `GET /api/v1/classroom/all`
@@ -756,6 +827,11 @@ class ApiPaths {
       '/api/v2/activities/admin/activities/pending-incident-count';
 
   // —— Document host (base path returned by upload-session response) ——
+
+  /// POST — creates a `SCHOOL_CLOUD` scoped upload session for direct image
+  /// uploads to a school's cloud gallery (owner type `SCHOOL`).
+  static String schoolCloudUploadSessionsPath(String schoolCode) =>
+      '/api/v1/document/schools/${Uri.encodeComponent(schoolCode.trim())}/cloud/upload-sessions';
 
   static String get documentUploadSessionsRoot => ApiConstants.isUat
       ? '/api/v1/document/upload-sessions'
@@ -842,6 +918,11 @@ class ApiPaths {
   static const String messagingCreateMessage = conversations;
   static const String messagingMessages = messages;
 
+  /// Server-side conversation search — GET /conversations/search?q=...&type=...
+  /// Searches ALL of the account's conversations of [type] matching the
+  /// query text, not just whatever page is already loaded client-side.
+  static const String messagingConversationsSearch = '$conversations/search';
+
   // POST /api/v1/messages/conversations/{code}/attachments/upload-session
   // (resolves to .../messaging/messages/conversations/{code}/attachments/
   // upload-session in UAT, confirmed against the working web-app request) —
@@ -874,6 +955,10 @@ class ApiPaths {
       '$conversations/student/$studentCode';
   static String messagingConversationsByClassroom(String classroomCode) =>
       '$conversations/classroom/$classroomCode';
+
+  /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
+  static String messagingClassroomReconcile(String classroomCode) =>
+      '$conversations/classroom/$classroomCode/reconcile';
   static String messagingConversationParticipants(String code) =>
       '$conversations/$code/participants';
   // DELETE /api/v1/conversations/{code}/participants/{userCode}
@@ -1044,13 +1129,17 @@ class ApiPaths {
       '/api/v1/notification/fcm/token/${Uri.encodeComponent(fcmToken.trim())}';
   static String notificationFcmUser(String userCode) =>
       '/api/v1/notification/fcm/user/${Uri.encodeComponent(userCode.trim())}';
-  static const String notificationLogs = '/api/v1/notification/logs';
-  static String notificationLogRead(String code) =>
-      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/read';
-  static String notificationLogClick(String code) =>
-      '/api/v1/notification/logs/${Uri.encodeComponent(code.trim())}/click';
-  static const String notificationLogsReadAll =
-      '/api/v1/notification/logs/read-all';
+  // In-app notification inbox (the app-bar bell list). Replaces the old
+  // `/notification/logs` endpoints. Notification MS.
+  static const String notificationInbox = '/api/v1/notification/inbox';
+  static String notificationInboxRead(String code) =>
+      '/api/v1/notification/inbox/${Uri.encodeComponent(code.trim())}/read';
+  static String notificationInboxClick(String code) =>
+      '/api/v1/notification/inbox/${Uri.encodeComponent(code.trim())}/click';
+  static const String notificationInboxReadAll =
+      '/api/v1/notification/inbox/read-all';
+  static const String notificationInboxUnreadCounts =
+      '/api/v1/notification/inbox/unread-counts';
 
   /// GET/PATCH user notification preferences (in-app / push / email per
   /// notification definition). Notification MS.
@@ -1058,6 +1147,10 @@ class ApiPaths {
       '/api/v1/notification/preferences';
 
   // —— Billing MS ——
+  /// POST /api/v1/reports/billing/generate — generate a billing report (xlsx/pdf); returns the
+  /// stored asset metadata so it downloads via the document service like the other reports.
+  static const String billingReportGenerate =
+      '/api/v1/reports/billing/generate';
   static const String billingStatements = '/api/v1/billing/statements';
   static String billingStatementDownload(String code) =>
       '/api/v1/billing/statements/${Uri.encodeComponent(code.trim())}/download';
@@ -1087,6 +1180,9 @@ class ApiPaths {
   /// Full invoice detail (incl. line items) for the edit form.
   static String invoiceDetailByCode(String code) =>
       '/api/v1/invoices/by-code/${Uri.encodeComponent(code.trim())}';
+
+  /// Edit a draft invoice — `PATCH /api/v1/invoices/{invoiceCode}/draft`.
+  static String invoiceDraft(String code) => '${invoiceByCode(code)}/draft';
   static String invoiceCancel(String code) => '${invoiceByCode(code)}/cancel';
   static String invoiceIssue(String code) => '${invoiceByCode(code)}/issue';
   static String invoiceResend(String code) => '${invoiceByCode(code)}/resend';
@@ -1115,13 +1211,20 @@ class ApiPaths {
   /// School-level Forte config (returns `apiLoginId`).
   static const String schoolForteConfigs = '/api/v1/school-forte-configs';
 
+  /// School payment settings — which method types are accepted and who pays the
+  /// convenience fee. `GET /api/v1/payment/settings?schoolCode=...`.
+  static const String paymentSettings = '/api/v1/payment/settings';
+
   /// Whether auto-pay is enabled for a guardian.
-  static const String autopayStatus =
-      '/api/v1/payment-gateway/autopay/status';
+  static const String autopayStatus = '/api/v1/payment-gateway/autopay/status';
 
   /// List/create saved payment methods (up to 4 per guardian).
   static const String paymentGatewayMethods =
       '/api/v1/payment-gateway/payment-methods';
+
+  /// Charge a guardian's saved payment method (Pay Now).
+  static const String paymentGatewayGuardianPay =
+      '/api/v1/payment-gateway/guardian/pay';
 
   /// A single saved payment method (used for DELETE).
   static String paymentGatewayMethodByCode(String paymentMethodCode) =>

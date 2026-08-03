@@ -48,6 +48,7 @@ class _FakeStaffRepository implements StaffRepository {
     List<String>? primaryClassroomCodes,
     List<String>? classCodes,
     String? sortBy,
+    List<String>? attendanceStatuses,
   }) async {
     requests.add((
       page: page,

@@ -104,6 +104,8 @@ class NewsletterRepositoryImpl
       createdAt: model.createdAt,
       recipientCount: model.recipientCount,
       classroomCodes: model.classroomCodes,
+      recipientNames: model.recipientNames,
+      recipients: model.recipientSummaries,
       createdByName: model.createdByName,
       bodyHtml: buildNewsletterBodyHtml(
         layoutJson: model.layoutJson,

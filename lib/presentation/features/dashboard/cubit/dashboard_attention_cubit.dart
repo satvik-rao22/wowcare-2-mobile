@@ -1,4 +1,5 @@
 import 'package:bloc/bloc.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -8,14 +9,16 @@ import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 part 'dashboard_attention_state.dart';
 
-/// Aggregates four "Need your attention" summary APIs:
+/// Aggregates six "Need your attention" summary APIs:
 ///
-/// 1. `GET /api/v1/individual-movements/status-counts`
-/// 2. `GET /api/v1/staff-documents/expiry-summary`
-/// 3. `GET /api/v1/staff-dates/physical-checkup-summary`
-/// 4. `GET /api/v1/student/student-documents/expiry-count`
+/// 1. `GET /api/v2/activities/admin/activities/pending-incident-count`
+/// 2. `GET /api/v1/individual-movements/status-counts`
+/// 3. `GET /api/v1/staff-documents/expiry-summary`
+/// 4. `GET /api/v1/staff-dates/physical-checkup-summary`
+/// 5. `GET /api/v1/student/student-documents/expiry-count`
+/// 6. `GET /api/v1/student/student/physical-checkup-count/{schoolCode}`
 ///
-/// All four are fetched in parallel via [Future.wait]. A failure in any one
+/// All six are fetched in parallel via [Future.wait]. A failure in any one
 /// API does not block the others — partial results are emitted as
 /// [DashboardAttentionStatus.partialFailure] so the dashboard stays useful.
 class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
@@ -58,12 +61,20 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
 
     final schoolCode = await _storageService.getString(StorageKeys.schoolCode);
     if (schoolCode == null || schoolCode.trim().isEmpty) {
-      emit(state.copyWith(status: DashboardAttentionStatus.loaded));
+      // Not `loaded` — that would permanently block future silent retries
+      // (see `isLoaded`'s silent-revisit guard above) once the school code
+      // actually becomes available.
+      emit(
+        state.copyWith(status: DashboardAttentionStatus.awaitingSchoolContext),
+      );
       _isFetching = false;
       return;
     }
 
-    if (!isSilent && state.isInitial) {
+    final wasNotYetLoaded =
+        state.isInitial ||
+        state.status == DashboardAttentionStatus.awaitingSchoolContext;
+    if (!isSilent && wasNotYetLoaded) {
       emit(state.copyWith(status: DashboardAttentionStatus.loading));
     }
 
@@ -95,12 +106,14 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
   // ---------------------------------------------------------------------------
 
   Future<void> _fetch(String schoolCode) async {
-    final now = DateTime.now();
+    final now = AppTime.now();
     final fromDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-01';
+    // Last day of current month: day-0 of the next month = last day of this month.
+    final lastDayOfMonth = DateTime(now.year, now.month + 1, 0).day;
     final toDate =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
+        '${now.year}-${now.month.toString().padLeft(2, '0')}-${lastDayOfMonth.toString().padLeft(2, '0')}';
 
-    // Run all five in parallel; capture individual errors so one failure
+    // Run all six in parallel; capture individual errors so one failure
     // does not suppress the other results.
     final results = await Future.wait([
       _activityRepository
@@ -127,6 +140,10 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
           .getStudentDocumentExpiryCount(schoolCode: schoolCode)
           .then<Object?>((v) => v)
           .onError((_, __) => null),
+      _studentRepository
+          .getStudentPhysicalCheckupCount(schoolCode: schoolCode)
+          .then<Object?>((v) => v)
+          .onError((_, __) => null),
     ], eagerError: false);
 
     final incidentResult = results[0] as int?;
@@ -135,7 +152,7 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
     final staffDocResult =
         results[2]
             as ({int expiredDocumentCount, int expiringWithinWeekCount})?;
-    final checkupResult =
+    final staffCheckupResult =
         results[3]
             as ({
               int overduePhysicalCheckupCount,
@@ -148,12 +165,17 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
               int expiringWithinWeekCount,
               int totalDocumentsWithExpiry,
             })?;
+    final studentCheckupResult =
+        results[5]
+            as ({int overdueExamCount, int studentsWithoutActiveExamCount})?;
 
-    final anyFailed = incidentResult == null ||
+    final anyFailed =
+        incidentResult == null ||
         movementResult == null ||
         staffDocResult == null ||
-        checkupResult == null ||
-        studentDocResult == null;
+        staffCheckupResult == null ||
+        studentDocResult == null ||
+        studentCheckupResult == null;
 
     emit(
       state.copyWith(
@@ -176,10 +198,17 @@ class DashboardAttentionCubit extends Cubit<DashboardAttentionState> {
             studentDocResult?.expiringWithinWeekCount ??
             state.expiringStudentDocuments,
         overdueCheckups:
-            checkupResult?.overduePhysicalCheckupCount ?? state.overdueCheckups,
+            staffCheckupResult?.overduePhysicalCheckupCount ??
+            state.overdueCheckups,
         missingCheckups:
-            checkupResult?.staffWithoutActivePhysicalCheckupCount ??
+            staffCheckupResult?.staffWithoutActivePhysicalCheckupCount ??
             state.missingCheckups,
+        overdueStudentCheckups:
+            studentCheckupResult?.overdueExamCount ??
+            state.overdueStudentCheckups,
+        missingStudentCheckups:
+            studentCheckupResult?.studentsWithoutActiveExamCount ??
+            state.missingStudentCheckups,
       ),
     );
   }

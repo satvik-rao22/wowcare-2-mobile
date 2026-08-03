@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/tasks/widgets/task_status_selector
 import 'package:wowcare/presentation/features/tasks/widgets/task_edit_scope_sheet.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
 /// Read-only task view with edit/delete affordances for users who own the
@@ -99,6 +100,12 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         builder: (context, state) {
           final task = state.taskByCode(taskCode);
           if (task == null) {
+            // A notification deep link always lands here on a cold cubit, with
+            // the list still in flight — so wait for the load to settle before
+            // claiming the task is missing, or "Task not found" flashes first.
+            if (state.isLoading) {
+              return const Center(child: PrimaryCircularLoader());
+            }
             return const Center(
               child: Text(
                 'Task not found',

@@ -36,10 +36,10 @@ class _SignInFormState extends State<SignInForm> {
             controller: widget.emailController,
             keyboardType: TextInputType.emailAddress,
             hintText: 'Email Address',
+            useGradientBorder: true,
             usePrimaryGradientText: true,
             textFontSize: 16,
             textFontWeight: FontWeight.w400,
-            onChanged: (_) => setState(() {}),
             suffixIcon: const Icon(
               IconlyBroken.message,
               color: AppColors.primaryColor,
@@ -63,11 +63,10 @@ class _SignInFormState extends State<SignInForm> {
             controller: widget.passwordController,
             isPassword: isObscure,
             hintText: 'Password',
-            fillColor: Colors.grey[100],
+            useGradientBorder: true,
             usePrimaryGradientText: true,
             textFontSize: 16,
             textFontWeight: FontWeight.w400,
-            onChanged: (_) => setState(() {}),
             suffixIcon: IconButton(
               color: Colors.black,
               onPressed: () => setState(() {

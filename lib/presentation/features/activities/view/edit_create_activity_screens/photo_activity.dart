@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,7 +10,6 @@ import 'package:wowcare/presentation/features/activities/widgets/staff_present_w
 import 'package:wowcare/presentation/features/activities/widgets/time_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-import 'package:wowcare/shared/common/widgets/selected_student_tile.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -20,6 +20,7 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
+import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -605,7 +606,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       final isVideo = forceVideoPayload || isVideoByExt;
       final extension = lower.contains('.') ? lower.split('.').last : (isVideo ? 'mp4' : 'jpg');
       final generatedFileName =
-          '${isVideo ? 'video' : 'photo'}_${DateTime.now().millisecondsSinceEpoch}.$extension';
+          '${isVideo ? 'video' : 'photo'}_${AppTime.nowUtc().millisecondsSinceEpoch}.$extension';
       final contentType = isVideo
           ? (lower.endsWith('.mov')
               ? 'video/quicktime'
@@ -637,8 +638,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
               ((fileIndex - 1) + (percent / 100)) / totalFiles;
           final overallPercent =
               (overallFraction * 100).clamp(0, 100).round();
-          final displayPercent = overallPercent >= 100 ? 99 : overallPercent;
-          setState(() => _uploadProgressPercent = displayPercent);
+          setState(() => _uploadProgressPercent = overallPercent);
         },
       );
       await _uploadService.completeAssetUpload(
@@ -712,7 +712,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
           'mediaType': widget.isPhoto ? 'PHOTO' : 'VIDEO',
           'sessionCode': sessionCode,
           'assetCodes': assetCodes,
-          'savedAt': DateTime.now().toIso8601String(),
+          'savedAt': AppTime.now().toIso8601String(),
         }),
       );
     } catch (_) {}
@@ -896,14 +896,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
     final descriptionTrim = _descriptionController.text.trim();
     final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
-    if (descriptionTrim.isNotEmpty && descriptionTrim.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (descriptionTrim.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1147,14 +1139,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     );
 
     final desc = _descriptionController.text.trim();
-    if (desc.isNotEmpty && desc.length < 5) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Description must be at least 5 characters long',
-        isWarning: true,
-      );
-      return;
-    }
     if (desc.length > ActivityDescriptionLimits.maxLength) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -1296,6 +1280,37 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
   Future<void> _onSaveOrAddPressed() async {
     if (widget.readOnly) return;
+
+    // Admin picked a staff member other than themselves on create: verify
+    // that staff is signed in right now, same use case + true/false check the
+    // staff persona's own + button is gated on. Admins are never gated on
+    // their OWN sign-in — only on who they're attributing the activity to.
+    if (!widget.isEdit && _isAdminDesignation) {
+      final pickedStaffCode = (_staffPresentCode ?? '').trim();
+      final ownStaffCode = (_staffCode ?? '').trim();
+      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
+        try {
+          final status =
+              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
+            staffCode: pickedStaffCode,
+          );
+          if (status?.toUpperCase() != 'SIGNED_IN') {
+            if (!mounted) return;
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message:
+                  'Staff is not signed in. You can only add an activity for '
+                  'staff who are signed in.',
+              isWarning: true,
+            );
+            return;
+          }
+        } catch (_) {
+          // Best-effort: a failed status check shouldn't block the admin.
+        }
+      }
+    }
+
     if (widget.isEdit) {
       await _submitUpdateActivity();
       return;
@@ -1335,12 +1350,15 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     crossAxisCount: responsive.isTablet ? 3 : 2,
                     crossAxisSpacing: responsive.isTablet ? 16 : 12,
                     mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                    mainAxisExtent: 50,
+                    mainAxisExtent: 64,
                   ),
                   itemCount: _selectedStudents.length,
                   itemBuilder: (context, index) {
                     return ActivityStudentDisplayTile(
                       name: _selectedStudents[index],
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode'] as String?
+                          : null,
                     );
                   },
                 )
@@ -1353,14 +1371,17 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                     crossAxisCount: responsive.isTablet ? 3 : 2,
                     crossAxisSpacing: 12,
                     mainAxisSpacing: 12,
-                    childAspectRatio: responsive.isTablet ? 3.8 : 3.0,
+                    mainAxisExtent: 64,
                   ),
                   itemCount: _selectedStudents.length,
                   itemBuilder: (context, index) {
                     final name = _selectedStudents[index];
-                    return SelectedStudentTile(
+                    return ActivityStudentDisplayTile(
                       name: name,
-                      onTap: () => setState(() {
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode'] as String?
+                          : null,
+                      onRemove: () => setState(() {
                         _selectedStudents.remove(name);
                         _selectedStudentsData.removeWhere(
                           (m) => (m['name'] as String?) == name,
@@ -1544,6 +1565,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                   label: 'Requires Admin Approval',
                   isToggled: _requireAdminApproval,
                   labelOnLeftSide: true,
+                  enabled: !_layoutAsEdit,
                   onToggle: (value) {
                     setState(() {
                       _requireAdminApproval = value;

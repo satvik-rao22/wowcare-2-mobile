@@ -12,6 +12,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
+import 'package:wowcare/presentation/features/attendance/util/attendance_redirect.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 
 // StudentEntity / TagEntity now live in the form's cubit library; re-export
@@ -92,12 +94,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           widget.refreshCallback?.call();
           Navigator.of(context).pop();
         } else {
-          Navigator.of(context).pushAndRemoveUntil(
-            MaterialPageRoute(
-              builder: (_) => const StudentAttendanceTabbedView(),
-            ),
-            (route) => false,
-          );
+          redirectToAttendanceDaily(
+              context, StudentAttendanceTabbedView.routeName);
         }
       case false:
         final message = outcome.error != null
@@ -132,6 +130,27 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
   }
 
   Widget _buildForm(BuildContext context, StudentMarkAbsentState state) {
+    if (!AttendancePermissionService.hasPermissionToManageStudentAttendance(
+      context,
+    )) {
+      return const Scaffold(
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(24.0),
+            child: Text(
+              'Access Denied: You must be inside geofence and signed in to manage student attendance.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.red,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
     final currentStudents = state.students;
     return StaffFormLayout(
       title: 'Mark Absent',
@@ -139,41 +158,6 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const AppText.label('Reason'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: _reasonController,
-              decoration: InputDecoration(
-                hintText: 'Enter absence reason',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: const Color.fromRGBO(87, 51, 83, 0.5),
-                  fontSize: 15,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                  ),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 1,
-                  ),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: Color.fromRGBO(87, 51, 83, 0.4),
-                    width: 2,
-                  ),
-                ),
-                filled: true,
-                fillColor: AppColors.cardColor,
-              ),
-            ),
-            const SizedBox(height: 20),
             Row(
               children: [
                 Expanded(

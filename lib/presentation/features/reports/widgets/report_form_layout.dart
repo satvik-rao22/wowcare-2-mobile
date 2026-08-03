@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -16,6 +17,7 @@ class ReportFormLayout extends StatelessWidget {
     required this.onGenerate,
     this.isLoading = false,
     this.generateLabel = 'Generate Report',
+    this.showButton = true,
   });
 
   final String title;
@@ -23,6 +25,7 @@ class ReportFormLayout extends StatelessWidget {
   final VoidCallback? onGenerate;
   final bool isLoading;
   final String generateLabel;
+  final bool showButton;
 
   @override
   Widget build(BuildContext context) {
@@ -105,35 +108,37 @@ class ReportFormLayout extends StatelessWidget {
           ],
         ),
       ),
-      bottomNavigationBar: Container(
-        padding: EdgeInsets.only(
-          bottom: safeAreaBottom,
-          left: 16,
-          right: 16,
-          top: 8,
-        ),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              offset: const Offset(0, -4),
-              blurRadius: 16,
+      bottomNavigationBar: !showButton
+          ? null
+          : Container(
+              padding: EdgeInsets.only(
+                bottom: safeAreaBottom,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    offset: const Offset(0, -4),
+                    blurRadius: 16,
+                  ),
+                ],
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                ),
+              ),
+              child: CustomButtonLayout(
+                confirmButtonLabel: generateLabel,
+                onPressedConfirm: onGenerate,
+                showCancelButton: false,
+                isForm: false,
+                isLoading: isLoading,
+              ),
             ),
-          ],
-          borderRadius: BorderRadius.only(
-            topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-            topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-          ),
-        ),
-        child: CustomButtonLayout(
-          confirmButtonLabel: generateLabel,
-          onPressedConfirm: onGenerate,
-          showCancelButton: false,
-          isForm: false,
-          isLoading: isLoading,
-        ),
-      ),
     );
   }
 }
@@ -216,7 +221,7 @@ class _ReportMonthYearFieldState extends State<ReportMonthYearField> {
     final picked = await showDialog<DateTime>(
       context: context,
       builder: (_) => _MonthYearPickerDialog(
-        initialMonth: _selected ?? DateTime.now(),
+        initialMonth: _selected ?? AppTime.now(),
         firstYear: widget.firstYear,
         lastYear: widget.lastYear,
       ),
@@ -304,8 +309,8 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
     _year = widget.initialMonth.year;
   }
 
-  int get _minYear => widget.firstYear ?? (DateTime.now().year - 10);
-  int get _maxYear => widget.lastYear ?? (DateTime.now().year + 10);
+  int get _minYear => widget.firstYear ?? (AppTime.now().year - 10);
+  int get _maxYear => widget.lastYear ?? (AppTime.now().year + 10);
 
   void _select(int monthIndex) {
     Navigator.of(context).pop(DateTime(_year, monthIndex + 1, 1));
@@ -419,6 +424,58 @@ class ReportDefaultNote extends StatelessWidget {
           color: Color(0xff4F46E5),
         ),
       ),
+    );
+  }
+}
+
+/// Report format selector dropdown (PDF/XLSX)
+class ReportFormatSelector extends StatelessWidget {
+  const ReportFormatSelector({
+    super.key,
+    required this.selectedFormat,
+    required this.onFormatChanged,
+    this.showLabel = true,
+  });
+
+  final String selectedFormat;
+  final ValueChanged<String> onFormatChanged;
+  final bool showLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final responsive = ResponsiveHelper(context);
+    return DropdownButtonFormField<String>(
+      initialValue: selectedFormat,
+      decoration: InputDecoration(
+        labelText: showLabel ? 'Export Format *' : null,
+        filled: true,
+        fillColor: AppColors.fieldBackgroundColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(10),
+          borderSide: BorderSide.none,
+        ),
+        labelStyle: TextStyle(
+          fontSize: responsive.labelFontSize,
+          fontFamily: 'Manrope',
+          fontWeight: FontWeight.w400,
+          color: const Color(0xff573353),
+        ),
+        hintText: !showLabel ? 'Select Format' : null,
+        hintStyle: TextStyle(
+          fontSize: responsive.labelFontSize,
+          fontFamily: 'Manrope',
+          color: const Color(0xff573353).withValues(alpha: 0.5),
+        ),
+      ),
+      items: const [
+        DropdownMenuItem(value: 'PDF', child: Text('PDF')),
+        DropdownMenuItem(value: 'XLSX', child: Text('XLSX')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          onFormatChanged(value);
+        }
+      },
     );
   }
 }

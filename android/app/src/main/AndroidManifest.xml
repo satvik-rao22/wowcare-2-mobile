@@ -1,4 +1,5 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
@@ -15,17 +16,21 @@
         android:maxSdkVersion="29" />
     <application
         android:label="wowcare"
-        android:requestLegacyExternalStorage="true"
         android:name="${applicationName}"
         android:largeHeap="true"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        tools:replace="android:allowBackup"
+        android:enableOnBackInvokedCallback="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
             android:launchMode="singleTop"
             android:taskAffinity=""
-            android:enableOnBackInvokedCallback="false"
+            android:enableOnBackInvokedCallback="true"
             android:supportsPictureInPicture="true"
             android:resizeableActivity="true"
             android:theme="@style/LaunchTheme"
@@ -50,12 +55,27 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- Default channel FCM uses for notification-type messages received while
+             the app is backgrounded/killed. Matches the 'wowcare_alerts_v2'
+             channel created in main.dart / GeofenceNotificationService (high
+             importance + system sound + vibration) so every tray push is audible,
+             and silences "Missing Default Notification Channel metadata". -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="wowcare_alerts_v2" />
         <!-- Foreground service for continuous location monitoring -->
         <service
             android:name="com.baseflow.geolocator.GeolocatorService"
             android:foregroundServiceType="location"
             android:enabled="true"
             android:exported="false" />
+        <!-- Keeps process alive on OEM devices to ensure geofence delivery -->
+        <service
+            android:name="com.wiseowl.wowcareapp.GeofenceForegroundService"
+            android:foregroundServiceType="location"
+            android:enabled="true"
+            android:exported="false"
+            android:stopWithTask="false" />
         <!-- flutter_local_notifications: required for notification action callbacks -->
         <receiver android:exported="false"
             android:name="com.dexterous.flutterlocalnotifications.ActionBroadcastReceiver" />

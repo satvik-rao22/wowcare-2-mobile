@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
@@ -176,7 +177,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(isLoading: false, isRefreshing: false, errorMessage: e.toString()));
+      emit(state.copyWith(isLoading: false, isRefreshing: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 
@@ -217,7 +218,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }
@@ -316,7 +317,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }
@@ -364,7 +365,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }
@@ -400,7 +401,7 @@ class IndividualMovementsCubit extends Cubit<IndividualMovementsState> {
       return message;
     } catch (e) {
       if (!isClosed) {
-        emit(state.copyWith(isTransitioning: false, errorMessage: e.toString()));
+        emit(state.copyWith(isTransitioning: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
       }
       rethrow;
     }

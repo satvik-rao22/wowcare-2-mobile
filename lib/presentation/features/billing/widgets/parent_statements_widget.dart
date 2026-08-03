@@ -20,15 +20,9 @@ class ParentStatementsWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Center(
-          child: CircularProgressIndicator(),
-        ),
-      );
-    }
-
+    // The sibling list/balance is static data, so it stays visible at all times.
+    // `isLoading` only reflects the (simulated) "Generate" action, which is shown
+    // on the Generate button below — it must not blank out the panel.
     if (familyChildren.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -61,6 +55,8 @@ class ParentStatementsWidget extends StatelessWidget {
               final name = child['name'] ?? child['fullName'] ?? 'Unknown';
               final room = child['room'] ?? child['roomName'] ?? '';
 
+              // Match the Student(s) tiles on the parent Billing screen
+              // (SiblingCardsWidget): 30px avatar, name 14/w600, role 12.
               return Row(
                 children: [
                   DocumentImageWidget(
@@ -80,7 +76,7 @@ class ParentStatementsWidget extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: AppTextStyles.value.copyWith(
-                            color: AppColors.primaryColor,
+                            color: const Color(0xff573353),
                             fontWeight: FontWeight.w600,
                             fontSize: 14,
                           ),
@@ -92,7 +88,7 @@ class ParentStatementsWidget extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: AppTextStyles.value.copyWith(
                               fontSize: 12,
-                              color: AppColors.primaryColor.withValues(alpha: 0.8),
+                              color: const Color(0xff573353),
                             ),
                           ),
                       ],
@@ -130,7 +126,7 @@ class ParentStatementsWidget extends StatelessWidget {
               ),
               const Spacer(),
               OutlinedButton(
-                onPressed: onGenerate,
+                onPressed: isLoading ? null : onGenerate,
                 style: OutlinedButton.styleFrom(
                   side: const BorderSide(color: AppColors.themeColor, width: 1.5),
                   padding: const EdgeInsets.symmetric(horizontal: 40, vertical: 16),
@@ -138,14 +134,25 @@ class ParentStatementsWidget extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                child: AppText.value(
-                  'Generate',
-                  style: AppTextStyles.value.copyWith(
-                    color: AppColors.themeColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+                child: isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            AppColors.themeColor,
+                          ),
+                        ),
+                      )
+                    : AppText.value(
+                        'Generate',
+                        style: AppTextStyles.value.copyWith(
+                          color: AppColors.themeColor,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
               ),
             ],
           ),

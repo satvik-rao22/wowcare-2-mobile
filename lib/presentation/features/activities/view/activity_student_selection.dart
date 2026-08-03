@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/view/choose_activity.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -38,7 +39,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
   String? _selectedClassroom;
   bool _selectAll = false;
   List<String> _selectedTags = [];
-  DateTime _selectedAttendanceDate = DateTime.now();
+  DateTime _selectedAttendanceDate = AppTime.now();
   bool _filtersAdopted = false;
 
   late final ActivityStudentSelectionCubit _cubit;
@@ -430,6 +431,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
                           return _ActivityStudentListItem(
                             name: name,
+                            studentCode: studentCode,
                             isNapping: isNapping,
                             isSelected: isSelected,
                             onSelectionChanged: (selected) {
@@ -545,12 +547,14 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
 
 class _ActivityStudentListItem extends StatelessWidget {
   final String name;
+  final String? studentCode;
   final bool isNapping;
   final bool isSelected;
   final ValueChanged<bool?> onSelectionChanged;
 
   const _ActivityStudentListItem({
     required this.name,
+    this.studentCode,
     required this.isNapping,
     required this.isSelected,
     required this.onSelectionChanged,
@@ -585,6 +589,9 @@ class _ActivityStudentListItem extends StatelessWidget {
               DocumentImageWidget(
                 fileUuid: '',
                 name: name,
+                studentCode: (studentCode ?? '').trim().isEmpty
+                    ? null
+                    : studentCode!.trim(),
                 size: 32,
                 fontSize: 14,
               ),

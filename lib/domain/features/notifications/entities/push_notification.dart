@@ -25,6 +25,13 @@ class PushNotification extends Equatable {
   String? get classroomCode => data['classroomCode'];
   String? get classroomName => data['classroomName'];
 
+  /// Org/school the notification belongs to. A multi-school user may receive a
+  /// push for a school other than the one currently selected — the app switches
+  /// to it before redirecting. Backend may send camelCase or snake_case.
+  String? get organizationCode =>
+      data['organizationCode'] ?? data['orgCode'] ?? data['organization_code'];
+  String? get schoolCode => data['schoolCode'] ?? data['school_code'];
+
   @override
   List<Object?> get props => [title, body, action, type, data, messageId];
 }

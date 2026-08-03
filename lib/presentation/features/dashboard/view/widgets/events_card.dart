@@ -34,79 +34,80 @@ class _EventsCardState extends State<EventsCard> {
           ),
           if (!_minimized) ...[
             const SizedBox(height: 16),
-          // UI-only: simplified horizontal calendar header
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Icon(Icons.chevron_left, color: Colors.grey[500]),
-              Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(7, (index) {
-                      return SizedBox(
-                        width: 40,
-                        child: Center(
-                          child: Text(
-                            ['S', 'M', 'T', 'W', 'T', 'F', 'S'][index],
-                            style: TextStyle(color: Colors.grey[600]),
-                          ),
-                        ),
-                      );
-                    }),
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: List.generate(7, (index) {
-                      final bool isSelected = index == 4;
-                      return Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(125),
-                          gradient: isSelected
-                              ? AppColors.buildPrimaryGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                )
-                              : null,
-                        ),
-                        child: Center(
-                          child: Text(
-                            (13 + index).toString(),
-                            style: TextStyle(
-                              color:
-                                  isSelected ? Colors.white : Colors.grey[600],
+            // UI-only: simplified horizontal calendar header
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(Icons.chevron_left, color: Colors.grey[500]),
+                Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(7, (index) {
+                        return SizedBox(
+                          width: 40,
+                          child: Center(
+                            child: Text(
+                              ['S', 'M', 'T', 'W', 'T', 'F', 'S'][index],
+                              style: TextStyle(color: Colors.grey[600]),
                             ),
                           ),
-                        ),
-                      );
-                    }),
-                  ),
-                ],
-              ),
-              Icon(Icons.chevron_right, color: Colors.grey[500]),
-            ],
-          ),
-          const SizedBox(height: 8),
-          EventItem(
-            date: '17',
-            month: 'Nov',
-            title: 'Erica’s Birthday',
-            borderColor: Colors.orange,
-          ),
-          EventItem(
-            date: '26',
-            month: 'Nov',
-            title: 'Thanksgiving Party',
-            borderColor: Colors.yellow,
-          ),
-          EventItem(
-            date: '30',
-            month: 'Nov',
-            title: 'Parent Teacher Conference',
-            borderColor: Colors.pink,
-          ),
+                        );
+                      }),
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: List.generate(7, (index) {
+                        final bool isSelected = index == 4;
+                        return Container(
+                          width: 40,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(125),
+                            gradient: isSelected
+                                ? AppColors.buildPrimaryGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                  )
+                                : null,
+                          ),
+                          child: Center(
+                            child: Text(
+                              (13 + index).toString(),
+                              style: TextStyle(
+                                color: isSelected
+                                    ? Colors.white
+                                    : Colors.grey[600],
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                  ],
+                ),
+                Icon(Icons.chevron_right, color: Colors.grey[500]),
+              ],
+            ),
+            const SizedBox(height: 8),
+            EventItem(
+              date: '17',
+              month: 'Nov',
+              title: 'Erica’s Birthday',
+              borderColor: Colors.orange,
+            ),
+            EventItem(
+              date: '26',
+              month: 'Nov',
+              title: 'Thanksgiving Party',
+              borderColor: Colors.yellow,
+            ),
+            EventItem(
+              date: '30',
+              month: 'Nov',
+              title: 'Parent Teacher Conference',
+              borderColor: Colors.pink,
+            ),
           ],
         ],
       ),
@@ -140,10 +141,7 @@ class EventItem extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  month,
-                  style: TextStyle(color: Colors.grey[500]),
-                ),
+                Text(month, style: TextStyle(color: Colors.grey[500])),
                 Text(
                   date,
                   style: const TextStyle(
@@ -155,11 +153,7 @@ class EventItem extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            width: 3,
-            height: 48,
-            color: borderColor,
-          ),
+          Container(width: 3, height: 48, color: borderColor),
           const SizedBox(width: 16),
           Expanded(
             child: Text(

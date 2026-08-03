@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -9,7 +10,7 @@ import 'package:wowcare/domain/features/staff/usecases/get_important_dates_useca
 import 'package:wowcare/presentation/features/staff/view/edit_important_dates_screen.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
+import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
@@ -29,6 +30,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
   bool _isLoading = true;
   String? _errorMessage;
   final Map<String, String> _datesByType = {};
+
   /// Full list from API/cache for passing to edit screen and Physical Checkup display.
   List<Map<String, String>> _importantDatesList = [];
 
@@ -161,6 +163,10 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
   Widget _buildPhysicalCheckupSection() {
     final physical = _getEntryByType('PHYSICAL_CHECKUP');
+    if (physical == null) {
+      return const SizedBox.shrink();
+    }
+
     const completedColor = Color.fromRGBO(56, 200, 32, 1);
     const completedBg = Color.fromRGBO(56, 200, 32, 0.1);
     const dueColor = Color.fromRGBO(234, 186, 0, 1);
@@ -170,103 +176,84 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     const scheduledColor = Color.fromRGBO(30, 94, 255, 1);
     const scheduledBg = Color.fromRGBO(30, 94, 255, 0.12);
 
-    String statusUpper = '';
+    final statusUpper = (physical['status'] ?? '').toUpperCase();
+    final dueDate = (physical['dueDate'] ?? '').trim();
+    final completedDate = (physical['completedDate'] ?? '').trim();
+    final bool isCompleted = statusUpper == 'COMPLETED';
+    final bool showMore = !isCompleted;
     final cards = <Widget>[];
 
-    if (physical == null) {
+    if (dueDate.isNotEmpty) {
+      String dueLabel;
+      String editStatusUi;
+      Color dueLabelColor;
+      Color dueLabelBg;
+      switch (statusUpper) {
+        case 'COMPLETED':
+          dueLabel = 'Completed';
+          editStatusUi = 'Completed';
+          dueLabelColor = completedColor;
+          dueLabelBg = completedBg;
+          break;
+        case 'DUE':
+          dueLabel = 'Due';
+          editStatusUi = 'Due';
+          dueLabelColor = dueColor;
+          dueLabelBg = dueBg;
+          break;
+        case 'OVERDUE':
+          dueLabel = 'Overdue';
+          // Keep edit dropdown compatible (it doesn't have "Overdue").
+          editStatusUi = 'Due';
+          dueLabelColor = overdueColor;
+          dueLabelBg = overdueBg;
+          break;
+        default:
+          dueLabel = 'Scheduled';
+          editStatusUi = 'Scheduled';
+          dueLabelColor = scheduledColor;
+          dueLabelBg = scheduledBg;
+      }
       cards.add(
         _PhysicalCard(
-          statusLabel: '-',
-          statusColor: AppColors.primaryColor.withOpacity(0.5),
-          statusBg: AppColors.primaryColor.withOpacity(0.1),
-          date: '-',
+          statusLabel: dueLabel,
+          statusColor: dueLabelColor,
+          statusBg: dueLabelBg,
+          date: _formatDate(dueDate),
+          showMore: showMore,
+          onMore: showMore
+              ? () => _openEditPhysicalDialog(
+                  initialDateIso: dueDate,
+                  initialStatusUi: editStatusUi,
+                )
+              : null,
         ),
       );
-    } else {
-      statusUpper = (physical['status'] ?? '').toUpperCase();
-      final dueDate = (physical['dueDate'] ?? '').trim();
-      final completedDate = (physical['completedDate'] ?? '').trim();
-      final bool isCompleted = statusUpper == 'COMPLETED';
-      final bool showMore = !isCompleted;
+    }
 
-      if (dueDate.isNotEmpty) {
-        String dueLabel;
-        String editStatusUi;
-        Color dueLabelColor;
-        Color dueLabelBg;
-        switch (statusUpper) {
-          case 'COMPLETED':
-            dueLabel = 'Completed';
-            editStatusUi = 'Completed';
-            dueLabelColor = completedColor;
-            dueLabelBg = completedBg;
-            break;
-          case 'DUE':
-            dueLabel = 'Due';
-            editStatusUi = 'Due';
-            dueLabelColor = dueColor;
-            dueLabelBg = dueBg;
-            break;
-          case 'OVERDUE':
-            dueLabel = 'Overdue';
-            // Keep edit dropdown compatible (it doesn't have "Overdue").
-            editStatusUi = 'Due';
-            dueLabelColor = overdueColor;
-            dueLabelBg = overdueBg;
-            break;
-          default:
-            dueLabel = 'Scheduled';
-            editStatusUi = 'Scheduled';
-            dueLabelColor = scheduledColor;
-            dueLabelBg = scheduledBg;
-        }
-        cards.add(
-          _PhysicalCard(
-            statusLabel: dueLabel,
-            statusColor: dueLabelColor,
-            statusBg: dueLabelBg,
-            date: _formatDate(dueDate),
-            showMore: showMore,
-            onMore: showMore
-                ? () => _openEditPhysicalDialog(
-                      initialDateIso: dueDate,
-                      initialStatusUi: editStatusUi,
-                    )
-                : null,
-          ),
-        );
-      }
+    if (completedDate.isNotEmpty) {
+      cards.add(
+        _PhysicalCard(
+          statusLabel: 'Completed',
+          statusColor: completedColor,
+          statusBg: completedBg,
+          date: _formatDate(completedDate),
+        ),
+      );
+    }
 
-      if (completedDate.isNotEmpty) {
-        cards.add(
-          _PhysicalCard(
-            statusLabel: 'Completed',
-            statusColor: completedColor,
-            statusBg: completedBg,
-            date: _formatDate(completedDate),
-          ),
-        );
-      }
-
-      if (cards.isEmpty) {
-        cards.add(
-          _PhysicalCard(
-            statusLabel: '-',
-            statusColor: AppColors.primaryColor.withOpacity(0.5),
-            statusBg: AppColors.primaryColor.withOpacity(0.1),
-            date: '-',
-          ),
-        );
-      }
+    if (cards.isEmpty) {
+      return const SizedBox.shrink();
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        const SizedBox(height: 12),
         Text(
           'Physical Checkup',
           style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.5),
+            color: AppColors.primaryColor.withValues(alpha: 0.5),
             fontSize: 16,
             letterSpacing: 14 * (-3 / 100),
           ),
@@ -285,11 +272,15 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 
     DateTime? selectedDate;
     try {
-      selectedDate = initialDateIso.isNotEmpty ? DateTime.parse(initialDateIso) : null;
+      selectedDate = initialDateIso.isNotEmpty
+          ? DateTime.parse(initialDateIso)
+          : null;
     } catch (_) {
       selectedDate = null;
     }
-    String statusUi = initialStatusUi.isNotEmpty ? initialStatusUi : 'Scheduled';
+    String statusUi = initialStatusUi.isNotEmpty
+        ? initialStatusUi
+        : 'Scheduled';
 
     bool isSaving = false;
 
@@ -303,7 +294,9 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
         final isLargeTablet = screenWidth > 900;
         final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-        final horizontalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+        final horizontalPadding = isLargeTablet
+            ? 32.0
+            : (isTablet ? 24.0 : 16.0);
         final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
         final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
         final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
@@ -350,7 +343,10 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                           ),
                           IconButton(
                             onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close, color: AppColors.primaryColor),
+                            icon: const Icon(
+                              Icons.close,
+                              color: AppColors.primaryColor,
+                            ),
                           ),
                         ],
                       ),
@@ -362,7 +358,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               child: _DialogField(
                                 label: 'Physical Checkup Date *',
                                 value: selectedDate != null
-                                    ? _apiFormatter.format(selectedDate!)
+                                    ? _displayFormatter.format(selectedDate!)
                                     : '',
                                 suffix: SvgPicture.asset(
                                   MediaRes.calender_icon,
@@ -373,20 +369,32 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                   ),
                                 ),
                                 onTap: () async {
-                                  final now = DateTime.now();
-                                  final today = DateTime(now.year, now.month, now.day);
-                                  final statusUpper = statusUi.trim().toUpperCase();
-                                  final result = await showDialog<Map<String, dynamic>>(
-                                    context: context,
-                                    builder: (context) => CalendarDialog(
-                                      isRangePicker: false,
-                                      isTimePicker: false,
-                                      initialDate: selectedDate,
-                                      firstDate: statusUpper == 'COMPLETED' ? null : today,
-                                      lastDate: statusUpper == 'COMPLETED' ? today : null,
-                                    ),
+                                  final now = AppTime.now();
+                                  final today = DateTime(
+                                    now.year,
+                                    now.month,
+                                    now.day,
                                   );
-                                  if (result == null || result['date'] == null) return;
+                                  final statusUpper = statusUi
+                                      .trim()
+                                      .toUpperCase();
+                                  final result =
+                                      await showDialog<Map<String, dynamic>>(
+                                        context: context,
+                                        builder: (context) => CalendarDialog(
+                                          isRangePicker: false,
+                                          isTimePicker: false,
+                                          initialDate: selectedDate,
+                                          firstDate: statusUpper == 'COMPLETED'
+                                              ? null
+                                              : today,
+                                          lastDate: statusUpper == 'COMPLETED'
+                                              ? today
+                                              : null,
+                                        ),
+                                      );
+                                  if (result == null || result['date'] == null)
+                                    return;
                                   final picked = result['date'] as DateTime;
                                   final pickedOnly = DateTime(
                                     picked.year,
@@ -426,24 +434,32 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               child: _DialogDropdown(
                                 label: 'Status *',
                                 value: statusUi,
-                                options: const ['Due', 'Scheduled', 'Completed'],
+                                options: const [
+                                  'Due',
+                                  'Scheduled',
+                                  'Completed',
+                                ],
                                 onChanged: (v) {
                                   setLocalState(() => statusUi = v);
                                   if (selectedDate == null) return;
-                                  final now = DateTime.now();
-                                  final today =
-                                      DateTime(now.year, now.month, now.day);
+                                  final now = AppTime.now();
+                                  final today = DateTime(
+                                    now.year,
+                                    now.month,
+                                    now.day,
+                                  );
                                   final pickedOnly = DateTime(
                                     selectedDate!.year,
                                     selectedDate!.month,
                                     selectedDate!.day,
                                   );
-                                  final statusUpper =
-                                      statusUi.trim().toUpperCase();
+                                  final statusUpper = statusUi
+                                      .trim()
+                                      .toUpperCase();
                                   final isDueScheduled =
                                       statusUpper == 'DUE' ||
-                                          statusUpper == 'SCHEDULED' ||
-                                          statusUpper == 'OVERDUE';
+                                      statusUpper == 'SCHEDULED' ||
+                                      statusUpper == 'OVERDUE';
 
                                   if (isDueScheduled &&
                                       pickedOnly.isBefore(today)) {
@@ -477,7 +493,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                             _DialogField(
                               label: 'Physical Checkup Date *',
                               value: selectedDate != null
-                                  ? _apiFormatter.format(selectedDate!)
+                                  ? _displayFormatter.format(selectedDate!)
                                   : '',
                               suffix: SvgPicture.asset(
                                 MediaRes.calender_icon,
@@ -488,20 +504,32 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 ),
                               ),
                               onTap: () async {
-                                final now = DateTime.now();
-                                final today = DateTime(now.year, now.month, now.day);
-                                final statusUpper = statusUi.trim().toUpperCase();
-                                final result = await showDialog<Map<String, dynamic>>(
-                                  context: context,
-                                  builder: (context) => CalendarDialog(
-                                    isRangePicker: false,
-                                    isTimePicker: false,
-                                    initialDate: selectedDate,
-                                    firstDate: statusUpper == 'COMPLETED' ? null : today,
-                                    lastDate: statusUpper == 'COMPLETED' ? today : null,
-                                  ),
+                                final now = AppTime.now();
+                                final today = DateTime(
+                                  now.year,
+                                  now.month,
+                                  now.day,
                                 );
-                                if (result == null || result['date'] == null) return;
+                                final statusUpper = statusUi
+                                    .trim()
+                                    .toUpperCase();
+                                final result =
+                                    await showDialog<Map<String, dynamic>>(
+                                      context: context,
+                                      builder: (context) => CalendarDialog(
+                                        isRangePicker: false,
+                                        isTimePicker: false,
+                                        initialDate: selectedDate,
+                                        firstDate: statusUpper == 'COMPLETED'
+                                            ? null
+                                            : today,
+                                        lastDate: statusUpper == 'COMPLETED'
+                                            ? today
+                                            : null,
+                                      ),
+                                    );
+                                if (result == null || result['date'] == null)
+                                  return;
                                 final picked = result['date'] as DateTime;
                                 final pickedOnly = DateTime(
                                   picked.year,
@@ -543,20 +571,24 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                               onChanged: (v) {
                                 setLocalState(() => statusUi = v);
                                 if (selectedDate == null) return;
-                                final now = DateTime.now();
-                                final today =
-                                    DateTime(now.year, now.month, now.day);
+                                final now = AppTime.now();
+                                final today = DateTime(
+                                  now.year,
+                                  now.month,
+                                  now.day,
+                                );
                                 final pickedOnly = DateTime(
                                   selectedDate!.year,
                                   selectedDate!.month,
                                   selectedDate!.day,
                                 );
-                                final statusUpper =
-                                    statusUi.trim().toUpperCase();
+                                final statusUpper = statusUi
+                                    .trim()
+                                    .toUpperCase();
                                 final isDueScheduled =
                                     statusUpper == 'DUE' ||
-                                        statusUpper == 'SCHEDULED' ||
-                                        statusUpper == 'OVERDUE';
+                                    statusUpper == 'SCHEDULED' ||
+                                    statusUpper == 'OVERDUE';
 
                                 if (isDueScheduled &&
                                     pickedOnly.isBefore(today)) {
@@ -586,7 +618,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                       SizedBox(height: verticalPadding),
                       Builder(
                         builder: (_) {
-                          final now = DateTime.now();
+                          final now = AppTime.now();
                           final today = DateTime(now.year, now.month, now.day);
                           final hasDate = selectedDate != null;
                           final picked = selectedDate;
@@ -605,14 +637,14 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 statusUpper == 'DUE' ||
                                 statusUpper == 'OVERDUE' ||
                                 statusUpper == 'SCHEDULED';
-                            final bool isCompleted =
-                                statusUpper == 'COMPLETED';
+                            final bool isCompleted = statusUpper == 'COMPLETED';
 
                             // Enforce the status-specific constraints live in UI.
                             if (isDueScheduled && pickedOnly.isBefore(today)) {
                               validationMessage =
                                   'For Due/Scheduled status, Physical Checkup Date must be today or future';
-                            } else if (isCompleted && pickedOnly.isAfter(today)) {
+                            } else if (isCompleted &&
+                                pickedOnly.isAfter(today)) {
                               validationMessage =
                                   'For Completed status, Physical Checkup Date must be today or past';
                             }
@@ -645,22 +677,36 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                     ? () async {
                                         if (!canSave) return;
 
-                                        final dueIso = _apiFormatter.format(picked!);
+                                        final dueIso = _apiFormatter.format(
+                                          picked!,
+                                        );
                                         final statusApi =
                                             statusUpper == 'COMPLETED'
-                                                ? 'COMPLETED'
-                                                : statusUpper == 'SCHEDULED'
-                                                    ? 'SCHEDULED'
-                                                    : 'DUE';
+                                            ? 'COMPLETED'
+                                            : statusUpper == 'SCHEDULED'
+                                            ? 'SCHEDULED'
+                                            : 'DUE';
 
-                                        final payload =
-                                            <String, String>{
+                                        // Preserve any existing completed date
+                                        // (the read-only "Completed" card) when
+                                        // this edit isn't itself marking the
+                                        // checkup completed — otherwise the
+                                        // backend nulls it and that card vanishes.
+                                        final existingCompleted =
+                                            (_getEntryByType(
+                                                      'PHYSICAL_CHECKUP',
+                                                    )?['completedDate'] ??
+                                                    '')
+                                                .trim();
+                                        final payload = <String, String>{
                                           'importantDateType':
                                               'PHYSICAL_CHECKUP',
                                           'dueDate': dueIso,
                                           'status': statusApi,
                                           if (statusApi == 'COMPLETED')
-                                            'completedDate': dueIso,
+                                            'completedDate': dueIso
+                                          else if (existingCompleted.isNotEmpty)
+                                            'completedDate': existingCompleted,
                                         };
 
                                         setLocalState(() => isSaving = true);
@@ -669,9 +715,9 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                               serviceLocator<StaffRepository>();
                                           final msg = await repo
                                               .updateImportantDates(
-                                            staffCode: widget.staffCode,
-                                            dates: [payload],
-                                          );
+                                                staffCode: widget.staffCode,
+                                                dates: [payload],
+                                              );
                                           if (!context.mounted) return;
                                           CoreUtils.showTopSnackBar(
                                             context: context,
@@ -694,7 +740,8 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                         } finally {
                                           if (context.mounted) {
                                             setLocalState(
-                                                () => isSaving = false);
+                                              () => isSaving = false,
+                                            );
                                           }
                                         }
                                       }
@@ -766,11 +813,19 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                             builder: (context) => EditImportantDatesScreen(
                               staffCode: widget.staffCode,
                               initialHireDate: _parseIsoDate(hire?['dueDate']),
-                              initialCdaExaminationDate: _parseIsoDate(cda?['dueDate']),
-                              initialFirstAidCprExpirationDate: _parseIsoDate(firstAid?['dueDate']),
-                              initialBackgroundRecordCheckExpirationDate: _parseIsoDate(brc?['dueDate']),
-                              initialPhysicalCheckupDate: _parseIsoDate(physical?['dueDate']),
-                              initialPhysicalCheckupStatus: _apiStatusToDropdown(physical?['status']),
+                              initialCdaExaminationDate: _parseIsoDate(
+                                cda?['dueDate'],
+                              ),
+                              initialFirstAidCprExpirationDate: _parseIsoDate(
+                                firstAid?['dueDate'],
+                              ),
+                              initialBackgroundRecordCheckExpirationDate:
+                                  _parseIsoDate(brc?['dueDate']),
+                              initialPhysicalCheckupDate: _parseIsoDate(
+                                physical?['dueDate'],
+                              ),
+                              initialPhysicalCheckupStatus:
+                                  _apiStatusToDropdown(physical?['status']),
                             ),
                           ),
                         ).then((_) {
@@ -796,12 +851,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                 ),
                 const SizedBox(height: 16),
                 if (_isLoading)
-                  const Center(
-                    child: PrimaryCircularLoader(
-                      size: 24,
-                      strokeWidth: 2,
-                    ),
-                  )
+                  const StaffDatesShimmer()
                 else if (_errorMessage != null)
                   Text(
                     _errorMessage!,
@@ -831,7 +881,6 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     label: 'Background Record Check Expiration Date',
                     text: brcDate.isEmpty ? '' : brcDate,
                   ),
-                  const SizedBox(height: 12),
                   _buildPhysicalCheckupSection(),
                 ],
               ],
@@ -844,7 +893,11 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
 }
 
 class _DateRow extends StatelessWidget {
-  const _DateRow({required this.label, required this.text, this.showInfo = false});
+  const _DateRow({
+    required this.label,
+    required this.text,
+    this.showInfo = false,
+  });
   final String label;
   final String text;
   final bool showInfo;
@@ -861,7 +914,7 @@ class _DateRow extends StatelessWidget {
               child: Text(
                 label,
                 style: TextStyle(
-                  color: AppColors.primaryColor.withOpacity(0.5),
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
                   fontSize: 16,
                   letterSpacing: 14 * (-3 / 100),
                 ),
@@ -879,9 +932,12 @@ class _DateRow extends StatelessWidget {
                 showDuration: Duration(seconds: 2),
                 verticalOffset: 6,
                 margin: const EdgeInsets.symmetric(horizontal: 8),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
-                  color: AppColors.primaryColor.withOpacity(0.95),
+                  color: AppColors.primaryColor.withValues(alpha: 0.95),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 textStyle: const TextStyle(
@@ -945,7 +1001,9 @@ class _PhysicalCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        border: Border.all(color: AppColors.primaryColor.withOpacity(0.2)),
+        border: Border.all(
+          color: AppColors.primaryColor.withValues(alpha: 0.2),
+        ),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -955,7 +1013,10 @@ class _PhysicalCard extends StatelessWidget {
             children: [
               Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: statusBg,
                   borderRadius: BorderRadius.circular(8),
@@ -974,9 +1035,15 @@ class _PhysicalCard extends StatelessWidget {
               if (showMore)
                 IconButton(
                   onPressed: onMore,
-                  icon: const Icon(Icons.more_horiz, color: AppColors.primaryColor),
+                  icon: const Icon(
+                    Icons.more_horiz,
+                    color: AppColors.primaryColor,
+                  ),
                   visualDensity: VisualDensity.compact,
-                  constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                  constraints: const BoxConstraints(
+                    minWidth: 36,
+                    minHeight: 36,
+                  ),
                 ),
             ],
           ),
@@ -986,7 +1053,7 @@ class _PhysicalCard extends StatelessWidget {
               Text(
                 'Checkup Date',
                 style: TextStyle(
-                  color: AppColors.primaryColor.withOpacity(0.5),
+                  color: AppColors.primaryColor.withValues(alpha: 0.5),
                   letterSpacing: 14 * (-3 / 100),
                 ),
               ),
@@ -1027,7 +1094,7 @@ class _DialogField extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
+            color: AppColors.primaryColor.withValues(alpha: 0.6),
             fontFamily: 'Manrope',
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -1088,7 +1155,7 @@ class _DialogDropdown extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: AppColors.primaryColor.withOpacity(0.6),
+            color: AppColors.primaryColor.withValues(alpha: 0.6),
             fontFamily: 'Manrope',
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -1106,7 +1173,10 @@ class _DialogDropdown extends StatelessWidget {
             child: DropdownButton<String>(
               value: value,
               isExpanded: true,
-              icon: const Icon(Icons.keyboard_arrow_down, color: AppColors.primaryColor),
+              icon: const Icon(
+                Icons.keyboard_arrow_down,
+                color: AppColors.primaryColor,
+              ),
               items: options
                   .map(
                     (o) => DropdownMenuItem<String>(
@@ -1134,4 +1204,3 @@ class _DialogDropdown extends StatelessWidget {
     );
   }
 }
-

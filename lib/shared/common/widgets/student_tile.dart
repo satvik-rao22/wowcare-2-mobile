@@ -33,7 +33,7 @@ class StudentTile extends StatelessWidget {
         decoration: BoxDecoration(
           //color: isSelected ? const Color(0xFFF8F7FA) : Colors.white,
           color: isSelected
-              ? const Color(0xFFB1AFE9).withOpacity(0.102)
+              ? const Color(0xFFB1AFE9).withValues(alpha: 0.102)
               : Colors.white,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(

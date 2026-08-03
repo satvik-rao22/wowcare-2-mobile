@@ -77,20 +77,22 @@ class _DeleteConfirmationBottomSheetState
 
     final String typeText = isPlanAction
         ? (widget.type == 'plan_cancel'
-            ? 'Do you want to cancel this plan - "${widget.planName ?? ''}" for student ${widget.name}?'
-            : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
+              ? 'Do you want to cancel this plan - "${widget.planName ?? ''}" for student ${widget.name}?'
+              : 'Do you want to pause this plan - "${widget.planName ?? ''}" for student ${widget.name}?')
         : widget.type == 'guardian'
         ? 'Do you want to delete this Parent/Guardian -\n"${widget.name}" ?'
         : widget.type == 'pickup'
         ? 'Do you want to delete this Pickup -\n"${widget.name}" ?'
         : widget.type == 'user'
-        ? "Do you want to delete this User"
+        ? 'Do you want to delete this User'
         : widget.type == 'Activity'
         ? 'Do you want to delete this activity -\n"${widget.name}" ?'
         : widget.type == 'staff_deactivate'
         ? 'Do you want to deactivate this Staff -\n"${widget.name}" ?'
         : widget.type == 'staff_reactivate'
         ? 'Do you want to reactivate this Staff -\n"${widget.name}" ?'
+        : widget.type == 'staff_delete'
+        ? 'Do you want to delete this Staff -\n"${widget.name}" ?'
         : widget.type == 'student_deactivate'
         ? 'Do you want to deactivate this Student -\n"${widget.name}" ?'
         : widget.type == 'student_reactivate'
@@ -100,25 +102,25 @@ class _DeleteConfirmationBottomSheetState
         : widget.type == 'subsidy'
         ? 'Do you want to delete the subsidy -\n${widget.name} ?'
         : widget.type == 'classroom'
-        ? "Do you want to delete this Classroom"
+        ? 'Do you want to delete this Classroom'
         : widget.type == 'vendor_category'
-        ? "Do you want to delete this Vendor Category"
+        ? 'Do you want to delete this Vendor Category'
         : widget.type == 'vendor'
-        ? "Do you want to delete this Vendor"
+        ? 'Do you want to delete this Vendor'
         : widget.type == 'product_category'
-        ? "Do you want to delete this Product Category"
+        ? 'Do you want to delete this Product Category'
         : widget.type == 'product'
-        ? "Do you want to delete this Product"
+        ? 'Do you want to delete this Product'
         : widget.type == 'request'
-        ? "Do you want to delete request made for product name"
+        ? 'Do you want to delete request made for product name'
         : widget.type == 'purchase_order'
-        ? "Do you want to delete this Purchase Order"
+        ? 'Do you want to delete this Purchase Order'
         : widget.type == 'complete_purchase'
-        ? "Are you sure you want to mark this purchase \"${widget.name}\" as completed? This action cannot be reversed."
+        ? 'Are you sure you want to mark this purchase \"${widget.name}\" as completed? This action cannot be reversed.'
         : widget.type == 'order_purchase'
-        ? "Are you sure you want to mark this purchase \"${widget.name}\" as ordered? This action cannot be reversed."
+        ? 'Are you sure you want to mark this purchase \"${widget.name}\" as ordered? This action cannot be reversed.'
         : widget.type == 'reject_request'
-        ? "Are you sure you want to reject this request for \"${widget.name}\"? This action cannot be reversed."
+        ? 'Are you sure you want to reject this request for \"${widget.name}\"? This action cannot be reversed.'
         : widget.type == 'activity_approve'
         ? 'Are you sure you want to approve this pending activity card?'
         : widget.type == 'activity_reject'
@@ -131,26 +133,50 @@ class _DeleteConfirmationBottomSheetState
         ? 'Do you want to delete this Physician -\n"${widget.name}" ?'
         : widget.type == 'shift'
         ? (widget.name.isEmpty
-            ? 'Do you want to delete this shift?'
-            : 'Do you want to delete this shift -\n"${widget.name}" ?')
+              ? 'Do you want to delete this shift?'
+              : 'Do you want to delete this shift -\n"${widget.name}" ?')
         : widget.type == 'shift_series'
         ? (widget.name.isEmpty
-            ? 'Do you want to delete this entire shift series?'
-            : 'Do you want to delete the entire shift series for\n"${widget.name}" ?')
+              ? 'Do you want to delete this entire shift series?'
+              : 'Do you want to delete the entire shift series for\n"${widget.name}" ?')
+        : widget.type == 'ledger_deactivate'
+        ? 'Do you want to deactivate this Ledger -\n"${widget.name}" ?'
+        : widget.type == 'ledger_reactivate'
+        ? 'Do you want to reactivate this Ledger -\n"${widget.name}" ?'
+        : widget.type == 'ledger_delete'
+        ? 'Do you want to delete this Ledger -\n"${widget.name}" ?'
+        : widget.type == 'invoice_cancel'
+        ? 'Do you want to cancel this Invoice -\n"${widget.name}" ?\nThis action cannot be undone.'
+        : widget.type == 'invoice_delete'
+        ? 'Do you want to delete this Invoice -\n"${widget.name}" ?'
+        : widget.type == 'payment_method'
+        ? 'Do you want to remove this payment method -\n"${widget.name}" ?'
         : '';
 
     String buttonText = widget.type == 'complete_purchase'
         ? "Mark Complete"
         : widget.type == 'Activity'
         ? 'Delete'
-        : (widget.type == 'staff_deactivate' || widget.type == 'student_deactivate')
-        ? "Deactivate"
-        : (widget.type == 'staff_reactivate' || widget.type == 'student_reactivate')
-        ? "Reactivate"
+        : (widget.type == 'staff_deactivate' ||
+              widget.type == 'student_deactivate' ||
+              widget.type == 'ledger_deactivate')
+        ? 'Deactivate'
+        : (widget.type == 'staff_reactivate' ||
+              widget.type == 'student_reactivate' ||
+              widget.type == 'ledger_reactivate')
+        ? 'Reactivate'
+        : widget.type == 'ledger_delete'
+        ? 'Delete'
+        : widget.type == 'invoice_cancel'
+        ? 'Cancel Invoice'
+        : widget.type == 'invoice_delete'
+        ? 'Delete'
+        : widget.type == 'payment_method'
+        ? 'Remove'
         : widget.type == 'order_purchase'
-        ? "Mark as Ordered"
+        ? 'Mark as Ordered'
         : widget.type == 'reject_request'
-        ? "Reject Request"
+        ? 'Reject Request'
         : widget.type == 'activity_approve'
         ? 'Approve'
         : widget.type == 'activity_reject'
@@ -200,17 +226,17 @@ class _DeleteConfirmationBottomSheetState
                       )
                     : Image.asset(
                         'assets/icons/delete.png',
-                        width:
-                            isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                        height:
-                            isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        width: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                        height: isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
                         errorBuilder: (context, error, stackTrace) {
                           // Fallback icon if image is not found
                           return Container(
-                            width:
-                                isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
-                            height:
-                                isLargeTablet ? 80.0 : (isTablet ? 70.0 : 60.0),
+                            width: isLargeTablet
+                                ? 80.0
+                                : (isTablet ? 70.0 : 60.0),
+                            height: isLargeTablet
+                                ? 80.0
+                                : (isTablet ? 70.0 : 60.0),
                             decoration: const BoxDecoration(
                               color: Color(0xFFF85A5A),
                               shape: BoxShape.circle,

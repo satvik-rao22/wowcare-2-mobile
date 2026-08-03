@@ -13,6 +13,7 @@ class SelectedStudentTile extends StatelessWidget {
     this.avatarUrl,
     this.onTap,
     this.isViewActivityScreen = false,
+
     /// Full-width row with wrapped name (edit/view activity) — avoids truncation in grid cells.
     this.fillWidth = false,
   });
@@ -39,8 +40,9 @@ class SelectedStudentTile extends StatelessWidget {
     final preferLongPressTooltip = onTap != null;
 
     final row = Row(
-      crossAxisAlignment:
-          fillWidth ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: fillWidth
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       mainAxisSize: fillWidth
           ? MainAxisSize.max
           : (isViewActivityScreen ? MainAxisSize.min : MainAxisSize.max),
@@ -50,6 +52,14 @@ class SelectedStudentTile extends StatelessWidget {
       children: [
         DocumentImageWidget(
           fileUuid: '',
+          // `avatarUrl` is either a resolved URL or a raw media-asset code
+          // depending on the caller — `fileUuid` is never actually used to
+          // resolve an image (only `imageUrl`/`mediaAssetCode` are), so
+          // route to whichever matches the value's shape.
+          imageUrl: (avatarUrl ?? '').startsWith('http') ? avatarUrl : null,
+          mediaAssetCode: (avatarUrl ?? '').startsWith('http')
+              ? null
+              : avatarUrl,
           name: name,
           size: 35,
         ),
@@ -98,7 +108,7 @@ class SelectedStudentTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: useViewColors
             ? Colors.white
-            : const Color(0xFFB1AFE9).withOpacity(0.102),
+            : const Color(0xFFB1AFE9).withValues(alpha: 0.102),
         borderRadius: BorderRadius.circular(useViewColors ? 24 : 12),
         border: Border.all(color: AppColors.themeColor, width: 1),
       ),

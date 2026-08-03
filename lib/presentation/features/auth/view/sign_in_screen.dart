@@ -5,6 +5,9 @@ import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/auth/secure_credential_store.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
@@ -53,10 +56,25 @@ class _SignInScreenState extends State<SignInScreen>
   void initState() {
     super.initState();
     _bottomMenuHeightAnimationController.forward();
+    // Keep the Sign-In button's enabled state in sync with the fields so it
+    // stays disabled until both email and password have been entered.
+    emailController.addListener(_onCredentialsChanged);
+    passwordController.addListener(_onCredentialsChanged);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadSavedCredentials();
     });
   }
+
+  /// Both fields must be non-empty before the user can submit.
+  bool get _canSubmit =>
+      emailController.text.trim().isNotEmpty &&
+      passwordController.text.trim().isNotEmpty;
+
+  void _onCredentialsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  bool _offeredBiometricPrefill = false;
 
   Future<void> _loadSavedCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
@@ -64,26 +82,80 @@ class _SignInScreenState extends State<SignInScreen>
     final storage = serviceLocator<StorageService>();
     final rememberMeValue =
         await storage.getBool(StorageKeys.rememberMe) ?? false;
+    AppLogger.d(
+      '[RememberMe] load: rememberMe=$rememberMeValue '
+      'savedUser="${credentials['username'] ?? ''}"',
+    );
 
     if (mounted) {
       setState(() {
         emailController.text = credentials['username'] ?? '';
-        // SECURITY: the password is never persisted, so it is never restored.
-        // "Remember me" only pre-fills the username; the user re-enters the
-        // password (or stays signed in via the cached token).
         rememberMe = rememberMeValue;
       });
+    }
+
+    // "Remember me" password pre-fill: the password lives only in the secure
+    // store. If the device has a biometric / passcode we prompt for it first;
+    // if it has neither, the password is filled in without a prompt so
+    // "Remember me" still works on unsecured devices.
+    if (rememberMeValue) {
+      await _offerBiometricPrefill();
+    }
+  }
+
+  Future<void> _offerBiometricPrefill() async {
+    if (_offeredBiometricPrefill) return;
+    _offeredBiometricPrefill = true;
+    try {
+      final secureStore = serviceLocator<SecureCredentialStore>();
+      final has = await secureStore.hasSavedPassword();
+      AppLogger.d('[RememberMe] prefill: hasSavedPassword=$has');
+      if (!has) {
+        AppLogger.d(
+          '[RememberMe] prefill ABORTED — no password in Keychain. It was '
+          'either never saved, or wiped (see freshInstallCheck above).',
+        );
+        return;
+      }
+      final creds = await secureStore.revealWithBiometrics(
+        reason: 'Unlock your saved password to sign in',
+      );
+      AppLogger.d(
+        '[RememberMe] prefill: revealed=${creds != null} '
+        'pwLen=${creds?['password']?.length ?? 0}',
+      );
+      if (creds == null || !mounted) return;
+      setState(() {
+        final user = creds['username'] ?? '';
+        if (user.isNotEmpty) emailController.text = user;
+        passwordController.text = creds['password'] ?? '';
+      });
+    } catch (e) {
+      AppLogger.d('[SignIn] biometric prefill error: $e');
+      // Biometric cancelled/unavailable — user just types the password.
     }
   }
 
   Future<void> _saveCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
+    final secureStore = serviceLocator<SecureCredentialStore>();
+    final username = emailController.text.trim().toLowerCase();
+    final password = passwordController.text.trim();
 
-    await localDataSource.saveCredentials(
-      emailController.text.trim(),
-      passwordController.text.trim(),
-      rememberMe,
+    AppLogger.d(
+      '[SignIn] _saveCredentials rememberMe=$rememberMe user="$username" '
+      'pwLen=${password.length}',
     );
+    // Username + rememberMe flag stay in normal storage (non-sensitive).
+    await localDataSource.saveCredentials(username, password, rememberMe);
+
+    // Password goes ONLY into the biometric-gated secure store, and only while
+    // "Remember me" is on. Unchecking it wipes the saved password immediately.
+    if (rememberMe) {
+      await secureStore.save(username: username, password: password);
+    } else {
+      await secureStore.clear();
+    }
   }
 
   Future<void> _navigateToSchoolSelection(BuildContext context) async {
@@ -107,11 +179,13 @@ class _SignInScreenState extends State<SignInScreen>
 
   Future<void> _handleSignIn(BuildContext context) async {
     if (formKey.currentState!.validate()) {
+      // Emails are case-insensitive; normalise so an upper-case entry doesn't
+      // get rejected as invalid credentials.
       await _saveCredentials();
 
       final authCubit = context.read<AuthCubit>();
       await authCubit.login(
-        username: emailController.text.trim(),
+        username: emailController.text.trim().toLowerCase(),
         password: passwordController.text.trim(),
       );
     }
@@ -137,6 +211,18 @@ class _SignInScreenState extends State<SignInScreen>
     if (state is AuthLoaded) {
       // Save credentials after successful login
       _saveCredentials();
+
+      // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
+      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      if (loginResponseIsKioskUser(state.loginResponse.roles)) {
+        AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
+        if (context.mounted) {
+          context.go('/kiosk');
+        }
+        return;
+      }
+      AppLogger.d('[SignIn] Not a kiosk user - continuing normal flow');
+
       await _preloadGuardianChildrenIfNeeded(context);
 
       // The await above can outlive this screen (e.g. a duplicate auth event
@@ -168,6 +254,9 @@ class _SignInScreenState extends State<SignInScreen>
       // Role selection screen is no longer part of the flow.
       context.go(DashboardScreen.routeName);
     } else if (state is AuthError) {
+      // A failed login likely means the saved password is now wrong — wipe it
+      // from the secure store so we never pre-fill stale/incorrect credentials.
+      serviceLocator<SecureCredentialStore>().clear();
       // Show backend error message using the shared top snackbar
       CoreUtils.showTopSnackBar(
         context: context,
@@ -180,6 +269,8 @@ class _SignInScreenState extends State<SignInScreen>
   @override
   void dispose() {
     _bottomMenuHeightAnimationController.dispose();
+    emailController.removeListener(_onCredentialsChanged);
+    passwordController.removeListener(_onCredentialsChanged);
     emailController.dispose();
     passwordController.dispose();
     super.dispose();
@@ -320,6 +411,7 @@ class _SignInScreenState extends State<SignInScreen>
                             key: const ValueKey('button'),
                             label: 'Sign-In',
                             isLoading: isLoading,
+                            enabled: _canSubmit,
                             onPressed: () => _handleSignIn(context),
                             gradient: AppColors.buildPrimaryGradient(),
                             lableColor: Colors.white,
@@ -352,6 +444,7 @@ class _SignInScreenState extends State<SignInScreen>
 class RoundedButtonNew extends StatelessWidget {
   final String label;
   final bool isLoading;
+  final bool enabled;
   final VoidCallback onPressed;
   final Gradient gradient;
   final Color lableColor;
@@ -362,31 +455,36 @@ class RoundedButtonNew extends StatelessWidget {
     required this.onPressed,
     required this.gradient,
     required this.lableColor,
+    this.enabled = true,
     super.key,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isInteractive = enabled && !isLoading;
     return GestureDetector(
-      onTap: isLoading ? null : onPressed,
-      child: Container(
-        width: double.infinity,
-        height: 50,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
-          gradient: gradient,
-        ),
-        alignment: Alignment.center,
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : Text(
-                label,
-                style: TextStyle(
-                  color: lableColor,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+      onTap: isInteractive ? onPressed : null,
+      child: Opacity(
+        opacity: isInteractive ? 1.0 : 0.5,
+        child: Container(
+          width: double.infinity,
+          height: 50,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(25),
+            gradient: gradient,
+          ),
+          alignment: Alignment.center,
+          child: isLoading
+              ? const CircularProgressIndicator(color: Colors.white)
+              : Text(
+                  label,
+                  style: TextStyle(
+                    color: lableColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
+        ),
       ),
     );
   }

@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/colors.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../../../../domain/features/staff/usecases/get_staff_page_usecase.dart';
+import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/presentation/features/activities/widgets/checkbox_widget.dart';
 
@@ -41,7 +44,8 @@ class StaffPresentWidget extends StatefulWidget {
   final bool prefillWithStaffName;
   final bool showStaffDropdown;
   final String? signatureEncodedValue;
-  final void Function(String? selectedName, String? selectedCode)? onStaffChanged;
+  final void Function(String? selectedName, String? selectedCode)?
+  onStaffChanged;
 
   /// When false, [staffName] is shown as-is (e.g. guardian name from profile API).
   /// When true, names may match the staff directory case-insensitive (can distort casing).
@@ -52,15 +56,110 @@ class StaffPresentWidget extends StatefulWidget {
 }
 
 class _StaffPresentWidgetState extends State<StaffPresentWidget> {
- List<String> staffList = const <String>[];
- String? selectedStaff;
- bool clickToSign = false;
- final List<String> _fetchedStaffNames = [];
-final Map<String, String> _staffCodeByNameLower = <String, String>{};
-final Map<String, String> _staffNameByCodeLower = <String, String>{};
- bool _loadingStaffs = false;
+  List<String> staffList = const <String>[];
+  String? selectedStaff;
+  bool clickToSign = false;
+  final List<String> _fetchedStaffNames = [];
+  final Map<String, String> _staffCodeByNameLower = <String, String>{};
+  final Map<String, String> _staffNameByCodeLower = <String, String>{};
+  bool _loadingStaffs = false;
+
+  /// Last selection that passed the admin sign-in check — reverted to when a
+  /// newly picked staff turns out not to be signed in.
+  String? _lastAcceptedStaff;
+
+  /// Inline error shown under the dropdown when the picked staff isn't signed in.
+  String? _staffSignInError;
+  bool _checkingStaffSignIn = false;
+
+  /// True only for the ADMIN persona (staff have `isAdmin` true as well, so the
+  /// `!isStaff` half is what isolates a real admin). Staff pick themselves and
+  /// are gated on their own sign-in at the + button instead.
+  bool get _isAdminPersona {
+    try {
+      final role = context.read<RoleCubit>();
+      return role.isAdmin && !role.isStaff;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Admin-only: an activity may only be recorded against a staff member who is
+  /// signed in right now, so verify the pick before accepting it. Uses the same
+  /// today-status use case the staff persona is gated on.
+  ///
+  /// Deliberately called ONLY from the dropdown's onSelect — never from the
+  /// prefill/rebuild paths — so opening a form (or the staff persona's own
+  /// flow) never fires this request.
+  Future<void> _verifyAdminPickedStaffIsSignedIn(String? pickedName) async {
+    final name = (pickedName ?? '').trim();
+    if (name.isEmpty) {
+      _lastAcceptedStaff = pickedName;
+      return;
+    }
+    final code = (_staffCodeByNameLower[name.toLowerCase()] ?? '').trim();
+    if (code.isEmpty) {
+      // Can't resolve a code to check — accept rather than block on a lookup gap.
+      _lastAcceptedStaff = pickedName;
+      return;
+    }
+
+    // Admins are never gated on their OWN sign-in — only on who they're
+    // attributing the activity to. Picking themselves must never show the
+    // "not signed in" warning (or fire the status check at all).
+    final storage = serviceLocator<StorageService>();
+    final ownStaffCode =
+        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+    if (ownStaffCode.isNotEmpty &&
+        code.toUpperCase() == ownStaffCode.toUpperCase()) {
+      if (!mounted) return;
+      setState(() {
+        _lastAcceptedStaff = pickedName;
+        _staffSignInError = null;
+        _checkingStaffSignIn = false;
+      });
+      return;
+    }
+
+    setState(() {
+      _checkingStaffSignIn = true;
+      _staffSignInError = null;
+    });
+    try {
+      final status = await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
+        staffCode: code,
+      );
+      if (!mounted) return;
+      final signedIn = status?.toUpperCase() == 'SIGNED_IN';
+      if (signedIn) {
+        setState(() {
+          _lastAcceptedStaff = pickedName;
+          _staffSignInError = null;
+          _checkingStaffSignIn = false;
+        });
+        return;
+      }
+      // Not signed in → reject the pick and restore the previous valid one, so
+      // an un-signed-in staff can never end up on the submitted activity.
+      setState(() {
+        selectedStaff = _lastAcceptedStaff;
+        _staffSignInError =
+            '$name is not signed in. You can only add an activity for staff '
+            'who are signed in.';
+        _checkingStaffSignIn = false;
+      });
+      _emitStaffChanged();
+    } catch (_) {
+      // Best-effort: a failed status check shouldn't block the admin.
+      if (!mounted) return;
+      setState(() {
+        _lastAcceptedStaff = pickedName;
+        _checkingStaffSignIn = false;
+      });
+    }
+  }
   @override
-  void initState(){
+  void initState() {
     super.initState();
     _rebuildStaffSelection();
     clickToSign = widget.isAlreadySigned;
@@ -93,21 +192,22 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
       if (v.isEmpty) return;
       if (unique.add(v.toLowerCase())) ordered.add(v);
     }
+
     addName(seedName);
     if (widget.isEditable) {
       for (final n in _fetchedStaffNames) {
         addName(n);
       }
     }
-    staffList = [
-      ...ordered,
-    ];
+    staffList = [...ordered];
     if (seedName.isNotEmpty) {
       selectedStaff = staffList.firstWhere(
         (s) => s.toLowerCase() == seedName.toLowerCase(),
         orElse: () => seedName,
       );
-      if (!staffList.any((s) => s.toLowerCase() == selectedStaff!.toLowerCase())) {
+      if (!staffList.any(
+        (s) => s.toLowerCase() == selectedStaff!.toLowerCase(),
+      )) {
         staffList = [selectedStaff!, ...staffList];
       }
       _emitStaffChanged();
@@ -142,8 +242,9 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
 
   void _emitStaffChanged() {
     final selected = (selectedStaff ?? '').trim();
-    final code =
-        selected.isEmpty ? null : _staffCodeByNameLower[selected.toLowerCase()];
+    final code = selected.isEmpty
+        ? null
+        : _staffCodeByNameLower[selected.toLowerCase()];
     widget.onStaffChanged?.call(selectedStaff, code);
   }
 
@@ -174,10 +275,10 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
     _loadingStaffs = true;
     try {
       final storage = serviceLocator<StorageService>();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) return;
 
       final repo = serviceLocator<StaffRepository>();
@@ -219,11 +320,12 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
     // signature band from a pre-filled fingerprint until checked.
     final gateSignatureRevealOnIncidentCheckbox =
         widget.incidentActivity && widget.showSignCheckbox && signEditable;
-    final showIncidentSignatureBand = widget.incidentActivity &&
+    final showIncidentSignatureBand =
+        widget.incidentActivity &&
         (gateSignatureRevealOnIncidentCheckbox
             ? clickToSign
             : (clickToSign ||
-                (widget.signatureEncodedValue ?? '').trim().isNotEmpty));
+                  (widget.signatureEncodedValue ?? '').trim().isNotEmpty));
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -234,13 +336,16 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
               text: TextSpan(
                 style: TextStyle(
                   color: AppColors.primaryColor,
-                  fontSize:  13,
+                  fontSize: 13,
                   fontWeight: FontWeight.w400,
                   fontFamily: 'Manrope',
                 ),
                 children: [
                   TextSpan(text: widget.fieldLabel),
-                  const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                  const TextSpan(
+                    text: ' *',
+                    style: TextStyle(color: Colors.red),
+                  ),
                 ],
               ),
             ),
@@ -262,7 +367,7 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                   : const SizedBox.shrink(),
           ],
         ),
-        SizedBox(height: responsive.isTablet ? 8.0 : 6.0 ),
+        SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         if (widget.showStaffDropdown)
           InkWell(
             onTap: null,
@@ -273,13 +378,21 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                 items: staffList,
                 selectedItem: selectedStaff,
                 isEnabled: widget.isEditable,
-                onSelect: widget.isEditable?
-                (String? value) {
-                  setState(() {
-                    selectedStaff = value;
-                  });
-                  _emitStaffChanged();
-                }: null,
+                onSelect: widget.isEditable
+                    ? (String? value) {
+                        setState(() {
+                          selectedStaff = value;
+                          _staffSignInError = null;
+                        });
+                        _emitStaffChanged();
+                        // Admin only: verify the picked staff is signed in.
+                        if (_isAdminPersona) {
+                          _verifyAdminPickedStaffIsSignedIn(value);
+                        } else {
+                          _lastAcceptedStaff = value;
+                        }
+                      }
+                    : null,
               ),
             ),
           )
@@ -305,13 +418,49 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
               overflow: TextOverflow.ellipsis,
             ),
           ),
-        SizedBox(height: responsive.verticalSpacing,),
+        // Admin-only: why the picked staff was rejected / is being checked.
+        if (_checkingStaffSignIn)
+          const Padding(
+            padding: EdgeInsets.only(top: 6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 12,
+                  height: 12,
+                  child: CircularProgressIndicator(strokeWidth: 1.5),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  'Checking sign-in status…',
+                  style: TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 12,
+                    color: Color(0xff573353),
+                  ),
+                ),
+              ],
+            ),
+          )
+        else if (_staffSignInError != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(
+              _staffSignInError!,
+              style: const TextStyle(
+                fontFamily: 'Manrope',
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Colors.red,
+              ),
+            ),
+          ),
+        SizedBox(height: responsive.verticalSpacing),
         if (showIncidentSignatureBand)
           Container(
             constraints: const BoxConstraints(minHeight: 60),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFB1AFE9).withOpacity(0.102),
+              color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(
@@ -321,18 +470,20 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                 children: [
                   Center(
                     child: Text(
-                    selectedStaff ?? widget.staffName,
-                    style: const TextStyle(
-                      fontFamily: 'MervaleScript',
-                      fontSize: 24,
-                      fontWeight: FontWeight.w400,
-                      color: Color(0xff573353),
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+                      selectedStaff ?? widget.staffName,
+                      style: const TextStyle(
+                        fontFamily: 'MervaleScript',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w400,
+                        color: Color(0xff573353),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
                     ),
                   ),
-                  if ((widget.signatureEncodedValue ?? '').trim().isNotEmpty) ...[
+                  if ((widget.signatureEncodedValue ?? '')
+                      .trim()
+                      .isNotEmpty) ...[
                     const SizedBox(height: 10),
                     SelectableText(
                       'Signature-ID - ${widget.signatureEncodedValue!.trim()}',
@@ -348,10 +499,11 @@ final Map<String, String> _staffNameByCodeLower = <String, String>{};
                 ],
               ),
             ),
-          )
+          ),
       ],
     );
   }
+
   // Widget _buildCustomDropdown(
   //     String hintText,
   //     List<String> items,
