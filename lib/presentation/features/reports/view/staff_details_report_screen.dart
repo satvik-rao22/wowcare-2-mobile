@@ -65,6 +65,7 @@ class _StaffDirectoryReportScreenState
   void initState() {
     super.initState();
     _selectedStaffFields = _defaultStaffFields.toSet();
+    _selectedClassrooms = List<String>.from(widget.classrooms);
   }
 
   bool get _selectAll => _selectedStaffFields.length == _staffFields.length;

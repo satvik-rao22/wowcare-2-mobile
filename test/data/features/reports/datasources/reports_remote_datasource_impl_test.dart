@@ -10,6 +10,9 @@ class FakeDio extends Fake implements Dio {
   DioException? exception;
 
   @override
+  Options get options => Options();
+
+  @override
   Future<Response<T>> post<T>(
     String path, {
     dynamic data,

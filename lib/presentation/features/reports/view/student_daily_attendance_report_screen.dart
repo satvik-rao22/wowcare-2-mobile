@@ -40,6 +40,7 @@ class _StudentDailyAttendanceReportScreenState
   void initState() {
     super.initState();
     _date = ValueNotifier<DateTime>(AppTime.now());
+    _selectedClassrooms.value = List<String>.from(widget.classrooms);
   }
 
   @override

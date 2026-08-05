@@ -72,6 +72,7 @@ class _StudentImmunizationReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
+    _selectedClassrooms = List<String>.from(widget.classrooms);
   }
 
   // void _onGenerate() {
