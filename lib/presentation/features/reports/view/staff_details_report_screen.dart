@@ -6,7 +6,6 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/staff_details_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -179,8 +178,12 @@ class _StaffDirectoryReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }

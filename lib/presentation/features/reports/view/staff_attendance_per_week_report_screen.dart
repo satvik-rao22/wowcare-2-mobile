@@ -1,12 +1,12 @@
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -67,11 +67,13 @@ class _StaffAttendancePerWeekReportScreenState
     final reportsState = cubit.state;
 
     // Convert staff names to codes
-    final staffCodes = _selectedStaff.isNotEmpty
-        ? _selectedStaff
-              .map((name) => reportsState.staffNameToCode[name] ?? name)
-              .toList()
-        : null;
+    final staffCodes = resolveReportCodes(
+      context: context,
+      names: _selectedStaff,
+      nameToCode: reportsState.staffNameToCode,
+      labelPlural: 'staff',
+    );
+    if (staffCodes == null) return;
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -86,11 +88,13 @@ class _StaffAttendancePerWeekReportScreenState
       return;
     }
     // Convert classroom names to codes
-    final classroomCodes = _selectedClassrooms.isNotEmpty
-        ? _selectedClassrooms
-              .map((name) => reportsState.classroomNameToCode[name] ?? name)
-              .toList()
-        : null;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms,
+      nameToCode: reportsState.classroomNameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
 
     final params = ReportRequestParams(
       reportType: ReportType.staffAttendancePerStaff,
@@ -162,8 +166,16 @@ class _StaffAttendancePerWeekReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // This screen was pushed via a plain Navigator.push (see
+                  // ReportsScreen._openStaffReportForm), not a go_router
+                  // route — context.go() alone updates the hub's route
+                  // state but never dismisses this screen, so the user
+                  // never actually sees the tab switch. Popping (with a
+                  // `true` result) is what the hub's own
+                  // `.then((success) => _tabController.animateTo(0))`
+                  // callback is already waiting for.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }

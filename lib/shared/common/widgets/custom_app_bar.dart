@@ -166,43 +166,53 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   : role.isAdmin
                   ? badgeState.adminTotal
                   : badgeState.staffTotal;
-              return Stack(
-                children: [
-                  IconButton(
-                    icon: SvgPicture.asset(
-                      MediaRes.chatsIcon,
-                      width: 22,
-                      height: 22,
-                    ),
-                    // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
-                    // role-gated, each with its unread badge) instead of jumping straight to
-                    // one surface — so the user can pick which messaging area to open, as on web.
-                    onPressed: () => context.push(AppRoutes.messagingEntry),
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color.fromRGBO(179, 38, 30, 1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          unreadCount > 99 ? '99+' : '$unreadCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+              // Icon + badge share ONE tap target (InkResponse via IconButton
+              // below) instead of the badge being a bare, non-interactive
+              // Positioned Container layered on top of it — tapping directly
+              // on the count number wasn't reliably reaching the IconButton
+              // underneath it.
+              return IconButton(
+                icon: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SvgPicture.asset(
+                        MediaRes.chatsIcon,
+                        width: 22,
+                        height: 22,
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: -6,
+                          top: -6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color.fromRGBO(179, 38, 30, 1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : '$unreadCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
+                // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
+                // role-gated, each with its unread badge) instead of jumping straight to
+                // one surface — so the user can pick which messaging area to open, as on web.
+                onPressed: () => context.push(AppRoutes.messagingEntry),
               );
             },
           ),
@@ -210,51 +220,60 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           BlocBuilder<NotificationBadgeCubit, NotificationBadgeState>(
             builder: (context, badgeState) {
               final int unreadCount = badgeState.unreadCount;
-              return Stack(
-                children: [
-                  IconButton(
-                    icon: SvgPicture.asset(
-                      MediaRes.notificationsIcon,
-                      width: 22,
-                      height: 22,
-                    ),
-                    onPressed: () async {
-                      // Don't stack a second notification page when the bell is
-                      // tapped again while already on it.
-                      if (currentRoute == NotificationCenterScreen.routeName)
-                        return;
-                      await context.push(NotificationCenterScreen.routeName);
-                      // The user may have read notifications in the center —
-                      // reconcile the badge with the server on return.
-                      if (context.mounted) {
-                        context.read<NotificationBadgeCubit>().refresh();
-                      }
-                    },
-                  ),
-                  if (unreadCount > 0)
-                    Positioned(
-                      right: 8,
-                      top: 8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color.fromRGBO(179, 38, 30, 1),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          unreadCount > 99 ? '99+' : '$unreadCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
+              // Icon + badge share ONE tap target — see the chat bell above
+              // for why (the badge number wasn't reliably tappable as a
+              // bare Positioned sibling of the IconButton).
+              return IconButton(
+                icon: SizedBox(
+                  width: 22,
+                  height: 22,
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      SvgPicture.asset(
+                        MediaRes.notificationsIcon,
+                        width: 22,
+                        height: 22,
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: -6,
+                          top: -6,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 5,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: const Color.fromRGBO(179, 38, 30, 1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : '$unreadCount',
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
                         ),
-                      ),
-                    ),
-                ],
+                    ],
+                  ),
+                ),
+                onPressed: () async {
+                  // Don't stack a second notification page when the bell is
+                  // tapped again while already on it.
+                  if (currentRoute == NotificationCenterScreen.routeName) {
+                    return;
+                  }
+                  await context.push(NotificationCenterScreen.routeName);
+                  // The user may have read notifications in the center —
+                  // reconcile the badge with the server on return.
+                  if (context.mounted) {
+                    context.read<NotificationBadgeCubit>().refresh();
+                  }
+                },
               );
             },
           ),

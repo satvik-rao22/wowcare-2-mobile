@@ -6,7 +6,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -75,16 +75,20 @@ class _StudentAttendancePerStudentReportScreenState
     final cubit = context.read<ReportsCubit>();
     final reportsState = cubit.state;
 
-    final studentCodes = _selectedStudents.isNotEmpty
-        ? _selectedStudents
-              .map((name) => reportsState.studentNameToCode[name] ?? name)
-              .toList()
-        : null;
-    final classroomCodes = _selectedClassrooms.isNotEmpty
-        ? _selectedClassrooms
-              .map((name) => reportsState.classroomNameToCode[name] ?? name)
-              .toList()
-        : null;
+    final studentCodes = resolveReportCodes(
+      context: context,
+      names: _selectedStudents,
+      nameToCode: reportsState.studentNameToCode,
+      labelPlural: 'students',
+    );
+    if (studentCodes == null) return;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms,
+      nameToCode: reportsState.classroomNameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -162,8 +166,12 @@ class _StudentAttendancePerStudentReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }

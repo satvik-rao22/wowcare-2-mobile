@@ -5,7 +5,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/students_and_family_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -133,9 +133,13 @@ class _StudentsAndFamilyReportScreenState
 
     final cubit = context.read<ReportsCubit>();
     final classroomNameToCode = cubit.state.classroomNameToCode;
-    final classroomCodes = _selectedClassrooms.value
-        .map((name) => classroomNameToCode[name] ?? name)
-        .toList();
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.value,
+      nameToCode: classroomNameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -208,8 +212,12 @@ class _StudentsAndFamilyReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }
