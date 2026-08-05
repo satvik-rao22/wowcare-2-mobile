@@ -110,6 +110,11 @@ class ReportsCubit extends Cubit<ReportsState> {
       tagNames: state.tagNames,
       classroomNameToCode: state.classroomNameToCode,
       staffNameToCode: state.staffNameToCode,
+      // Carry the student name→code map forward. Omitting it reset it to the
+      // empty default, so a later generate could no longer resolve the selected
+      // student names → "Could not resolve student …" (first attempt worked,
+      // the next failed).
+      studentNameToCode: state.studentNameToCode,
       generatedReport: null,
       recentReports: state.recentReports,
       dynamicTagNames: state.dynamicTagNames,
@@ -234,6 +239,11 @@ class ReportsCubit extends Cubit<ReportsState> {
       tagNames: state.tagNames,
       classroomNameToCode: state.classroomNameToCode,
       staffNameToCode: state.staffNameToCode,
+      // Carry the student name→code map forward. Omitting it reset it to the
+      // empty default, so a later generate could no longer resolve the selected
+      // student names → "Could not resolve student …" (first attempt worked,
+      // the next failed).
+      studentNameToCode: state.studentNameToCode,
       generatedReport: null,
       recentReports: state.recentReports,
       dynamicTagNames: state.dynamicTagNames,
