@@ -95,13 +95,13 @@ void main() {
     });
   });
 
-  group('TASK_DELETED → notification inbox', () {
-    test('opens the notification center, since the task is gone', () {
+  group('TASK_DELETED → task list', () {
+    test('opens the task list, since the task is gone', () {
       final destination = NotificationRouteResolver.resolve(
         push('TASK_DELETED'),
       );
 
-      expect(destination!.path, '/notifications');
+      expect(destination!.path, '/dashboard/tasks');
       expect(destination.queryParameters, isEmpty);
     });
   });

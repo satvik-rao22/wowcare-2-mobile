@@ -60,6 +60,7 @@ class NotificationRouteResolver {
   static const String _staffAttendanceProfileByCode =
       '/dashboard/staff-attendance-profile-by-code';
   static const String _tasksDetail = '/dashboard/tasks/detail';
+  static const String _tasksList = '/dashboard/tasks';
   static const String _eventsDetail = '/dashboard/events/detail';
   static const String _eventsList = '/dashboard/events';
 
@@ -617,10 +618,10 @@ class NotificationRouteResolver {
     NotificationAction.taskStatusUpdated: _taskDetail,
     NotificationAction.taskOverdue: _taskDetail,
     NotificationAction.taskDueSoon: _taskDetail,
-    // Deleted: the task no longer exists, so there is nothing to open — land on
-    // the bell inbox, where the "task deleted" item itself is readable.
+    // Deleted: the task no longer exists, so there is no card to open — land on
+    // the Task list instead (mirrors EVENT_DELETED → the Events list).
     NotificationAction.taskDeleted: (n) =>
-        const NotificationDestination(path: _notificationCenter),
+        const NotificationDestination(path: _tasksList),
 
     // ── Scheduling ───────────────────────────────────────────────────────────
     // Shift mutations open the per-staff Staff Scheduling day view (jump to the

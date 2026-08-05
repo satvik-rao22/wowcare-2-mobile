@@ -76,14 +76,14 @@ void main() {
     }
   });
 
-  test('TASK_DELETED → the bell inbox, since the card no longer exists', () {
+  test('TASK_DELETED → the task list, since the card no longer exists', () {
     final dest = NotificationRouteResolver.resolve(push('TASK_DELETED', {
       'taskCode': series,
       'taskTitle': 'Restock the first-aid kit',
     }));
 
     expect(dest, isNotNull);
-    expect(dest!.path, '/notifications');
+    expect(dest!.path, '/dashboard/tasks');
   });
 
   test('a task push with neither code falls back to the inbox, not an empty card',
