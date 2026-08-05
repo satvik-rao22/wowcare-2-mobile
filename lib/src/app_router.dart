@@ -834,14 +834,20 @@ final GoRouter appRouter = GoRouter(
                   pageBuilder: (context, state) {
                     final args = state.extra as Map<String, dynamic>?;
                     // Occurrence rows arrive fully hydrated (roster, names,
-                    // myRsvp) — the detail screen needs no extra cubits or
-                    // hydration calls.
+                    // myRsvp) via `extra` when pushed in-app (calendar / events
+                    // list). A notification deep link carries only a URL, so
+                    // `eventCode` falls back to the query param, and the cubit
+                    // needs its own silent load since a cold launch means the
+                    // events list was never opened to populate it.
                     return _fastPage(
                       state,
                       BlocProvider<EventsCubit>.value(
-                        value: serviceLocator<EventsCubit>(),
+                        value: serviceLocator<EventsCubit>()
+                          ..load(silent: true),
                         child: EventDetailScreen(
-                          eventCode: args?['eventCode'] as String? ?? '',
+                          eventCode: (args?['eventCode'] as String?) ??
+                              state.uri.queryParameters['eventCode'] ??
+                              '',
                           occurrenceCode:
                               args?['occurrenceCode'] as String? ?? '',
                         ),
@@ -943,6 +949,11 @@ final GoRouter appRouter = GoRouter(
                           taskCode: (args?['taskCode'] as String?) ??
                               state.uri.queryParameters['taskCode'] ??
                               '',
+                          // Only ever arrives via the query param — a deep
+                          // link with just the series (TASK_ASSIGNED /
+                          // TASK_UPDATED); an in-app push always has the real
+                          // assignment code already.
+                          seriesCode: state.uri.queryParameters['seriesCode'],
                         ),
                       ),
                     );

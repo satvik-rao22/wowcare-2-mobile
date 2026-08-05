@@ -25,36 +25,43 @@ void main() {
   }
 
   group('task notifications → task detail', () {
-    const detailActions = <String>[
-      'TASK_ASSIGNED',
-      'TASK_UPDATED',
+    // TASK_STATUS_UPDATED / TASK_OVERDUE / TASK_DUE_SOON carry the real
+    // assignmentCode in the actual contract — it rides as the `taskCode`
+    // query param (the identity TaskDetailScreen matches a card by), while
+    // the series still travels as `seriesCode` for the Schedule section.
+    const assignmentScopedActions = <String>[
       'TASK_STATUS_UPDATED',
       'TASK_OVERDUE',
       'TASK_DUE_SOON',
     ];
 
-    for (final action in detailActions) {
-      test('$action opens the task detail screen by taskCode', () {
+    for (final action in assignmentScopedActions) {
+      test('$action opens the task detail screen by its assignmentCode', () {
+        final destination = NotificationRouteResolver.resolve(
+          push(action, data: {'assignmentCode': 'TSA_1E7A4D9F3C'}),
+        );
+
+        expect(destination, isNotNull);
+        expect(destination!.path, '/dashboard/tasks/detail');
+        expect(destination.queryParameters['taskCode'], 'TSA_1E7A4D9F3C');
+        expect(destination.queryParameters['seriesCode'], 'TSK_A1B2C3D4');
+      });
+    }
+
+    // TASK_ASSIGNED / TASK_UPDATED send only the series taskCode — the screen
+    // pairs it with the signed-in user's identity (myAssignmentInSeries) to
+    // find their own card, so no `taskCode` param can be produced here.
+    for (final action in const ['TASK_ASSIGNED', 'TASK_UPDATED']) {
+      test('$action opens the task detail screen by its series, no assignment yet',
+          () {
         final destination = NotificationRouteResolver.resolve(push(action));
 
         expect(destination, isNotNull);
         expect(destination!.path, '/dashboard/tasks/detail');
-        expect(destination.queryParameters['taskCode'], 'TSK_A1B2C3D4');
-        expect(
-          destination.location,
-          '/dashboard/tasks/detail?taskCode=TSK_A1B2C3D4',
-        );
+        expect(destination.queryParameters['seriesCode'], 'TSK_A1B2C3D4');
+        expect(destination.queryParameters.containsKey('taskCode'), isFalse);
       });
     }
-
-    test('assignmentCode is ignored — no assignment detail screen exists', () {
-      final destination = NotificationRouteResolver.resolve(
-        push('TASK_STATUS_UPDATED', data: {'assignmentCode': 'TSA_1E7A4D9F3C'}),
-      );
-
-      expect(destination!.path, '/dashboard/tasks/detail');
-      expect(destination.queryParameters, {'taskCode': 'TSK_A1B2C3D4'});
-    });
 
     test('snake_case task_code is accepted too', () {
       final destination = NotificationRouteResolver.resolve(
@@ -70,7 +77,7 @@ void main() {
         ),
       );
 
-      expect(destination!.queryParameters['taskCode'], 'TSK_SNAKE');
+      expect(destination!.queryParameters['seriesCode'], 'TSK_SNAKE');
     });
 
     test('a missing taskCode falls back to the inbox, not an empty screen', () {
@@ -106,7 +113,7 @@ void main() {
       );
 
       expect(destination!.path, '/dashboard/tasks/detail');
-      expect(destination.queryParameters['taskCode'], 'TSK_A1B2C3D4');
+      expect(destination.queryParameters['seriesCode'], 'TSK_A1B2C3D4');
     });
 
     test('TASK_DUE is treated as TASK_DUE_SOON', () {

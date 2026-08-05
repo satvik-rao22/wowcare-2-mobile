@@ -46,12 +46,28 @@ class NotificationAction {
   static const String upcomingClassroomEvent = 'UPCOMING_CLASSROOM_EVENT';
   static const String upcomingEvent = 'UPCOMING_EVENT';
 
+  // The six `eventTypeCode`s from "Push Notification Payload Contract —
+  // Events": `EVENT_INVITED` on create, `EVENT_UPDATED` on update,
+  // `EVENT_DELETED` on delete, `EVENT_RSVP_SUBMITTED` on an RSVP, and
+  // `EVENT_REMINDER_TOMORROW` / `EVENT_RSVP_REMINDER` fired daily by
+  // `EventReminderScheduler`. `EVENT_DELETED` and `EVENT_RSVP_SUBMITTED` are
+  // in-app only — no push — per `EVENT_*_DEF.allowedChannels`, but still route
+  // the same way if ever tapped from the in-app list.
+  static const String eventInvited = 'EVENT_INVITED';
+  static const String eventUpdated = 'EVENT_UPDATED';
+  static const String eventDeleted = 'EVENT_DELETED';
+  static const String eventReminderTomorrow = 'EVENT_REMINDER_TOMORROW';
+  static const String eventRsvpReminder = 'EVENT_RSVP_REMINDER';
+  static const String eventRsvpSubmitted = 'EVENT_RSVP_SUBMITTED';
+
   // ── Tasks ───────────────────────────────────────────────────────────────
   // The six actions the Tasks backend fires, per the push payload contract.
-  // Every one carries `taskCode` + `organizationCode`/`schoolCode`; the three
-  // assignment-scoped ones also carry `assignmentCode`, which nothing consumes
-  // yet — there is no assignment-detail screen, so they open the task's own
-  // detail screen by `taskCode` (see NotificationRouteResolver).
+  // Every one carries `taskCode` (the series) + `organizationCode`/
+  // `schoolCode`; the three assignment-scoped ones also carry the real
+  // `assignmentCode`, which names one specific card outright — `TASK_ASSIGNED`
+  // / `TASK_UPDATED` send only the series, so the screen resolves those
+  // against the signed-in user's own identity (a task push only ever reaches
+  // the device of the person it concerns). See NotificationRouteResolver.
   static const String taskAssigned = 'TASK_ASSIGNED';
   static const String taskUpdated = 'TASK_UPDATED';
   static const String taskDeleted = 'TASK_DELETED';

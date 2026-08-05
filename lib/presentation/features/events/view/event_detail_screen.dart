@@ -45,6 +45,14 @@ class EventDetailScreen extends StatelessWidget {
           final event =
               state.eventByOccurrence(occurrenceCode, eventCode: eventCode);
           if (event == null) {
+            // A notification tap opens this screen on a cold cubit, so the
+            // board is briefly empty before the (silent) load returns — that
+            // is "still loading", not "missing", and must not flash "not
+            // found". `isLoading` alone can't be relied on: the deep-link
+            // route loads silently, which leaves it false throughout.
+            if (state.isLoading || state.events.isEmpty) {
+              return const Center(child: CircularProgressIndicator());
+            }
             // Deleted (possibly by this screen) or unknown code.
             return const Center(
               child: Text(

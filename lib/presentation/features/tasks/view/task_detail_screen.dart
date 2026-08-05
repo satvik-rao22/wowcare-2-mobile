@@ -29,11 +29,25 @@ import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 /// Read-only task view with edit/delete affordances for users who own the
 /// task (PRD FR-TK-26/28).
 class TaskDetailScreen extends StatefulWidget {
-  const TaskDetailScreen({required this.taskCode, super.key});
+  const TaskDetailScreen({
+    required this.taskCode,
+    this.seriesCode,
+    super.key,
+  });
 
   static const String routeName = '/dashboard/tasks/detail';
 
+  /// The **assignment** code (`TSA_…`) of the card to show — the identity
+  /// `TasksState.taskByCode` matches on. May be empty when the caller only
+  /// knows the owning series, in which case [seriesCode] is used instead.
   final String taskCode;
+
+  /// The owning **series** code (`TSK_…`), when known. Serves two purposes: it
+  /// lets the Schedule section and attachments load before (or without) the
+  /// card resolving, and it is the fallback identity for notifications that
+  /// carry only the series — `TASK_ASSIGNED` / `TASK_UPDATED` — where the card
+  /// is found by pairing the series with the signed-in user.
+  final String? seriesCode;
 
   @override
   State<TaskDetailScreen> createState() => _TaskDetailScreenState();
@@ -64,8 +78,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     await cubit.ensureAttachmentsLoaded(seriesCode);
   }
 
-  String _seriesCodeFrom(TasksState state) =>
-      state.taskByCode(widget.taskCode)?.taskCode.trim() ?? '';
+  /// The card this screen is showing. Resolved by assignment code when the
+  /// caller had one, otherwise by pairing the deep-linked series with the
+  /// signed-in user (see [TasksState.myAssignmentInSeries]).
+  Task? _resolveTask(TasksState state) {
+    final assignmentCode = widget.taskCode.trim();
+    if (assignmentCode.isNotEmpty) {
+      final byAssignment = state.taskByCode(assignmentCode);
+      if (byAssignment != null) return byAssignment;
+    }
+    return state.myAssignmentInSeries(widget.seriesCode ?? '');
+  }
+
+  /// The owning series' code — straight off the deep link when the
+  /// notification carried it (so the schedule and attachments can load
+  /// without waiting for the card), otherwise off the resolved card.
+  String _seriesCodeFrom(TasksState state) {
+    final fromLink = widget.seriesCode?.trim() ?? '';
+    if (fromLink.isNotEmpty) return fromLink;
+    return _resolveTask(state)?.taskCode.trim() ?? '';
+  }
 
   /// (Re)fetches the owning series and applies it if still mounted. Called on
   /// open and again after an edit, since a recurring task's start time only
@@ -80,7 +112,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final taskCode = widget.taskCode;
     final roles = context.watch<RoleCubit>();
     return GlobalScaffold(
       hasBackButton: true,
@@ -99,12 +130,14 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         },
         child: BlocBuilder<TasksCubit, TasksState>(
         builder: (context, state) {
-          final task = state.taskByCode(taskCode);
+          final task = _resolveTask(state);
           if (task == null) {
             // A notification deep link always lands here on a cold cubit, with
             // the list still in flight — so wait for the load to settle before
             // claiming the task is missing, or "Task not found" flashes first.
-            if (state.isLoading) {
+            // `isLoading` alone can't be relied on: the deep-link route loads
+            // silently, which leaves it false throughout.
+            if (state.isLoading || state.tasks.isEmpty) {
               return const Center(child: PrimaryCircularLoader());
             }
             return const Center(

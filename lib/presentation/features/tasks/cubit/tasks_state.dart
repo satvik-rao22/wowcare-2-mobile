@@ -384,6 +384,33 @@ class TasksState extends Equatable {
     return null;
   }
 
+  /// The signed-in user's own assignment within the series [seriesCode] — the
+  /// bridge for notifications that name only the series (`TSK_…`) and not the
+  /// assignment (`TSA_…`), which is what a card is keyed by.
+  ///
+  /// Identity is what picks one card out of the series: a series has one
+  /// assignment per assignee, and a task notification only ever reaches the
+  /// device of the person it concerns, so "this series, assigned to me" names
+  /// exactly one card. Fails closed while the identity is unresolved — the same
+  /// rule [_isMine] uses — so an unknown user never lands on a colleague's card.
+  ///
+  /// A recurring series holds one assignment per occurrence, so several may
+  /// match; the soonest-due one wins, which is the occurrence a reminder or a
+  /// fresh assignment is realistically about.
+  Task? myAssignmentInSeries(String seriesCode) {
+    final series = seriesCode.trim();
+    if (series.isEmpty) return null;
+    final codes = identityCodes;
+    if (codes.isEmpty) return null;
+    Task? match;
+    for (final task in tasks) {
+      if (task.taskCode.trim() != series) continue;
+      if (!codes.contains(task.assigneeCode)) continue;
+      if (match == null || task.dueAt.isBefore(match.dueAt)) match = task;
+    }
+    return match;
+  }
+
   TasksState copyWith({
     List<Task>? tasks,
     bool? isLoading,

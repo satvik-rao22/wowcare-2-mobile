@@ -60,6 +60,8 @@ class NotificationRouteResolver {
   static const String _staffAttendanceProfileByCode =
       '/dashboard/staff-attendance-profile-by-code';
   static const String _tasksDetail = '/dashboard/tasks/detail';
+  static const String _eventsDetail = '/dashboard/events/detail';
+  static const String _eventsList = '/dashboard/events';
 
   /// The bell inbox (a top-level route, not a dashboard child).
   static const String _notificationCenter = '/notifications';
@@ -117,6 +119,12 @@ class NotificationRouteResolver {
         return _dest(_students, n, highlight: _kStudent);
       case 'STAFF':
         return _dest(_staff, n, highlight: _kStaff);
+      case 'EVENTS':
+      case 'EVENT':
+        return _eventDetail(n);
+      case 'TASKS':
+      case 'TASK':
+        return _taskDetail(n);
       case 'ATTENDANCE':
       case 'STUDENT_ATTENDANCE':
       case 'STAFF_ATTENDANCE':
@@ -438,16 +446,33 @@ class NotificationRouteResolver {
         path: _staffProfileByCode, queryParameters: params);
   }
 
+  // `taskCode` is the SERIES (`TSK_…`, one row per task definition);
+  // `assignmentCode` is one assignee on one occurrence (`TSA_…`) — the actual
+  // identity `TaskDetailScreen`/`TasksState.taskByCode` matches a card by. A
+  // series with three assignees has three cards, so the series code alone
+  // does not name one.
   static const _kTask = ['taskCode', 'task_code'];
+  static const _kTaskAssignment = [
+    'assignmentCode',
+    'assignment_code',
+    'taskAssignmentCode',
+    'task_assignment_code',
+  ];
 
-  /// Task notifications open the task's own detail screen, keyed by `taskCode`.
+  /// Task notifications open the task's own detail screen.
   ///
-  /// The contract points the three assignment-scoped actions
-  /// (`TASK_STATUS_UPDATED` / `TASK_OVERDUE` / `TASK_DUE_SOON`) at an
-  /// "assignment detail" screen, which doesn't exist in the app — their
-  /// `assignmentCode` is deliberately ignored and they land on the task instead.
+  /// `TASK_STATUS_UPDATED` / `TASK_OVERDUE` / `TASK_DUE_SOON` send the real
+  /// `assignmentCode` — passed through as the `taskCode` query param, since
+  /// that's the identity `TaskDetailScreen` already matches a card by
+  /// (`TasksState.taskByCode` keys on `Task.code`, the assignment). No screen
+  /// change needed for these three.
   ///
-  /// `taskCode` rides as a QUERY parameter rather than go_router's `extra`,
+  /// `TASK_ASSIGNED` / `TASK_UPDATED` send only the series `taskCode` — carried
+  /// separately as `seriesCode`, which the screen pairs with the signed-in
+  /// user's own identity to find their own assignment within that series (see
+  /// `TasksState.myAssignmentInSeries` / `TaskDetailScreen`).
+  ///
+  /// Both params ride as QUERY parameters rather than go_router's `extra`,
   /// because notification routing goes through `appRouter.go(location)` and a
   /// location string is all it can carry. The route reads either (see
   /// `tasks/detail` in app_router), so the calendar's existing `push(extra:)`
@@ -458,15 +483,37 @@ class NotificationRouteResolver {
   /// dashboard, while opening the same screen normally (pushed from the calendar
   /// feed) keeps whatever stack the user built.
   static NotificationDestination _taskDetail(PushNotification n) {
-    final code = _firstCode(n, _kTask);
-    // No code to open (shouldn't happen — the contract makes taskCode
+    final assignment = _firstCode(n, _kTaskAssignment);
+    final series = _firstCode(n, _kTask);
+    // No code at all (shouldn't happen — the contract makes taskCode
     // required): fall back to the inbox instead of an empty detail screen.
-    if (code == null) {
+    if (assignment == null && series == null) {
       return const NotificationDestination(path: _notificationCenter);
     }
+    final query = <String, String>{};
+    if (assignment != null) query['taskCode'] = assignment;
+    if (series != null) query['seriesCode'] = series;
+    return NotificationDestination(path: _tasksDetail, queryParameters: query);
+  }
+
+  static const _kEvent = ['eventCode', 'event_code'];
+
+  /// Event notifications open the event's own detail screen by `eventCode` —
+  /// unlike Tasks, every Events action sends the real code directly, no
+  /// series/assignment split to resolve client-side.
+  ///
+  /// `eventCode` rides as a QUERY parameter for the same reason as Tasks
+  /// above; the route reads either it or `extra` (see `events/detail` in
+  /// app_router), so the calendar's existing `push(extra:)` call is unaffected.
+  static NotificationDestination _eventDetail(PushNotification n) {
+    final code = _firstCode(n, _kEvent);
+    // No code at all: land on the list rather than a permanently empty card.
+    if (code == null) {
+      return const NotificationDestination(path: _eventsList);
+    }
     return NotificationDestination(
-      path: _tasksDetail,
-      queryParameters: {'taskCode': code},
+      path: _eventsDetail,
+      queryParameters: {'eventCode': code},
     );
   }
 
@@ -553,7 +600,18 @@ class NotificationRouteResolver {
     NotificationAction.upcomingEvent: (n) =>
         const NotificationDestination(path: AppRoutes.dashboard),
 
-    // ── Tasks (all open the task's detail screen by taskCode) ───────────────
+    // Push Notification Payload Contract — Events: all 6 open the event's
+    // detail card (RSVP lives there too). EVENT_DELETED is the exception —
+    // the event is gone, so land on the list instead (see [_eventDetail]).
+    NotificationAction.eventInvited: _eventDetail,
+    NotificationAction.eventUpdated: _eventDetail,
+    NotificationAction.eventReminderTomorrow: _eventDetail,
+    NotificationAction.eventRsvpReminder: _eventDetail,
+    NotificationAction.eventRsvpSubmitted: _eventDetail,
+    NotificationAction.eventDeleted: (n) =>
+        const NotificationDestination(path: _eventsList),
+
+    // ── Tasks (all open the task's detail screen) ────────────────────────────
     NotificationAction.taskAssigned: _taskDetail,
     NotificationAction.taskUpdated: _taskDetail,
     NotificationAction.taskStatusUpdated: _taskDetail,
