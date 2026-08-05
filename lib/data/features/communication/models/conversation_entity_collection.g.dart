@@ -5476,18 +5476,23 @@ const ParticipantEntityCollectionSchema = Schema(
       name: r'role',
       type: IsarType.string,
     ),
-    r'updatedAt': PropertySchema(
+    r'staffCode': PropertySchema(
       id: 10,
+      name: r'staffCode',
+      type: IsarType.string,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 11,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'userCode': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'userCode',
       type: IsarType.string,
     ),
     r'userName': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'userName',
       type: IsarType.string,
     )
@@ -5511,6 +5516,12 @@ int _participantEntityCollectionEstimateSize(
     }
   }
   bytesCount += 3 + object.role.length * 3;
+  {
+    final value = object.staffCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.userCode.length * 3;
   bytesCount += 3 + object.userName.length * 3;
   return bytesCount;
@@ -5532,9 +5543,10 @@ void _participantEntityCollectionSerialize(
   writer.writeBool(offsets[7], object.muted);
   writer.writeBool(offsets[8], object.notificationsEnabled);
   writer.writeString(offsets[9], object.role);
-  writer.writeDateTime(offsets[10], object.updatedAt);
-  writer.writeString(offsets[11], object.userCode);
-  writer.writeString(offsets[12], object.userName);
+  writer.writeString(offsets[10], object.staffCode);
+  writer.writeDateTime(offsets[11], object.updatedAt);
+  writer.writeString(offsets[12], object.userCode);
+  writer.writeString(offsets[13], object.userName);
 }
 
 ParticipantEntityCollection _participantEntityCollectionDeserialize(
@@ -5554,9 +5566,10 @@ ParticipantEntityCollection _participantEntityCollectionDeserialize(
   object.muted = reader.readBoolOrNull(offsets[7]);
   object.notificationsEnabled = reader.readBoolOrNull(offsets[8]);
   object.role = reader.readString(offsets[9]);
-  object.updatedAt = reader.readDateTime(offsets[10]);
-  object.userCode = reader.readString(offsets[11]);
-  object.userName = reader.readString(offsets[12]);
+  object.staffCode = reader.readStringOrNull(offsets[10]);
+  object.updatedAt = reader.readDateTime(offsets[11]);
+  object.userCode = reader.readString(offsets[12]);
+  object.userName = reader.readString(offsets[13]);
   return object;
 }
 
@@ -5588,10 +5601,12 @@ P _participantEntityCollectionDeserializeProp<P>(
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 12:
+      return (reader.readString(offset)) as P;
+    case 13:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -6319,6 +6334,162 @@ extension ParticipantEntityCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'staffCode',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'staffCode',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'staffCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+          QAfterFilterCondition>
+      staffCodeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'staffCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+          QAfterFilterCondition>
+      staffCodeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'staffCode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ParticipantEntityCollection, ParticipantEntityCollection,
+      QAfterFilterCondition> staffCodeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'staffCode',
         value: '',
       ));
     });

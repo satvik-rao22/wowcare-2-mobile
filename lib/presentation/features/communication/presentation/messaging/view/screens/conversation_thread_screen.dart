@@ -228,6 +228,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       removeReactionUseCase: serviceLocator(),
       markConversationReadUseCase: serviceLocator(),
       attachmentUploader: serviceLocator(),
+      cacheDraftMessageUseCase: serviceLocator(),
+      markDraftMessageFailedUseCase: serviceLocator(),
+      getCachedMessagesEntityUseCase: serviceLocator(),
       isDraft: widget.isDraft,
       onResolveConversation: widget.onResolveConversation,
     );

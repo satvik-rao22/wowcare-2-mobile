@@ -158,6 +158,12 @@ class EntityMessageTile extends StatelessWidget {
           onReactionAdded: onReactionAdded,
           onRemoveReaction: onRemoveReaction,
           onReactionTap: onReactionTap,
+          onRetry: (snapshot.message.isFailed ||
+                  snapshot.message.hasProcessingAttachments)
+              ? () => context
+                  .read<ConversationThreadCubit>()
+                  .retrySendMessage(snapshot.message)
+              : null,
           isParentMessaging: isParentMessaging,
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,

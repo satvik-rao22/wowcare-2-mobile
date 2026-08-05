@@ -692,6 +692,13 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                         );
                                                   }
                                                 },
+                                                onRetry: (msg) => context
+                                                    .read<CommunicationCubit>()
+                                                    .retrySendMessage(
+                                                      widget.staffInfo['code']
+                                                          as String,
+                                                      msg,
+                                                    ),
                                                 currentUserCode:
                                                     _currentUserCode,
                                                 reactionsController:
@@ -995,6 +1002,16 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                               );
                                                         }
                                                       },
+                                                      onRetry: (msg) => context
+                                                          .read<
+                                                            CommunicationCubit
+                                                          >()
+                                                          .retrySendMessage(
+                                                            widget
+                                                                    .staffInfo['code']
+                                                                as String,
+                                                            msg,
+                                                          ),
                                                       currentUserCode:
                                                           _currentUserCode,
                                                       reactionsController:

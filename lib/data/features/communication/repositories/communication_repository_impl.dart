@@ -4,6 +4,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/isar_utils.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../core/util/school_zone_datetime.dart';
@@ -149,6 +150,16 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       await cacheService.put(
         MessageCollection.fromEntity(sentMessage, threadId),
       );
+
+      // The confirmed message is cached under its real server `code`, a
+      // different Isar row (isarId is hashed from code) than the draft row
+      // [cacheMessage] wrote under the client-side temp id passed in via
+      // `message.id`/`message.code` — without this, the draft row lingers
+      // as a stale duplicate every time an attachment message sends
+      // successfully.
+      if (message.id.isNotEmpty && message.id != sentMessage.code) {
+        await cacheService.delete<MessageCollection>(fastHash(message.id));
+      }
 
       return Right(sentMessage);
     } catch (e) {
@@ -361,6 +372,29 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
               .toList()
             ..sort((a, b) => a.time.compareTo(b.time));
       return Right(cachedMessages);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> cacheMessage(
+    String threadId,
+    Message message,
+  ) async {
+    try {
+      await cacheService.put(MessageCollection.fromEntity(message, threadId));
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> discardCachedMessage(String messageId) async {
+    try {
+      await cacheService.delete<MessageCollection>(fastHash(messageId));
+      return const Right(null);
     } catch (e) {
       return Left(CacheFailure(e.toString()));
     }

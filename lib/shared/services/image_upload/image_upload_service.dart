@@ -448,6 +448,110 @@ class ImageUploadService {
     }
   }
 
+  /// Backoff schedule for [waitUntilAssetsReadyBackoff]: check immediately,
+  /// then 4 quick re-checks 1.5s apart, then 12 slower re-checks 3s apart
+  /// (~42s total) — fast first checks catch the common "already done by the
+  /// time we ask" case without hammering the endpoint, easing off for
+  /// larger files that take longer to transcode.
+  static const List<Duration> _readyPollDelays = [
+    Duration.zero,
+    Duration(milliseconds: 1500),
+    Duration(milliseconds: 1500),
+    Duration(milliseconds: 1500),
+    Duration(milliseconds: 1500),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+  ];
+
+  static const Set<String> _terminalFailureStatuses = {
+    'FAILED',
+    'DELETED',
+    'ABANDONED',
+  };
+
+  /// Batch-resolves [assetCodes] against `POST .../media-assets/resolve` —
+  /// the same endpoint the reports download flow already uses. Returns each
+  /// resolved asset's status/deliveryUrl/thumbnailUrl, keyed by assetCode.
+  /// Codes missing from the response (not yet visible to the resolve
+  /// endpoint) are simply absent from the result.
+  Future<Map<String, ({String status, String deliveryUrl, String thumbnailUrl})>>
+  resolveMediaAssets(List<String> assetCodes) async {
+    final codes = assetCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (codes.isEmpty) return const {};
+
+    final response = await _apiClient.client.post<dynamic>(
+      ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
+      data: <String, dynamic>{'assetCodes': codes},
+    );
+
+    final body = response.data;
+    final result = <String, ({String status, String deliveryUrl, String thumbnailUrl})>{};
+    if (body is! Map) return result;
+    final data = body['data'];
+    if (data is! Map) return result;
+    final assets = data['assets'];
+    if (assets is! List) return result;
+
+    for (final item in assets) {
+      if (item is! Map) continue;
+      final assetCode = (item['assetCode'] ?? '').toString().trim();
+      if (assetCode.isEmpty) continue;
+      result[assetCode] = (
+        status: (item['status'] ?? '').toString().trim().toUpperCase(),
+        deliveryUrl: (item['deliveryUrl'] ?? '').toString().trim(),
+        thumbnailUrl: (item['thumbnailUrl'] ?? '').toString().trim(),
+      );
+    }
+    return result;
+  }
+
+  /// Blocks until every one of [assetCodes] is `READY` (has a delivery URL),
+  /// polling [resolveMediaAssets] on [_readyPollDelays]'s backoff schedule.
+  /// Throws immediately on a terminal failure status (`FAILED`/`DELETED`/
+  /// `ABANDONED`) for any asset, or once the schedule is exhausted without
+  /// every asset reaching READY. Returns `assetCode → deliveryUrl` on
+  /// success.
+  Future<Map<String, String>> waitUntilAssetsReadyBackoff({
+    required List<String> assetCodes,
+  }) async {
+    final pending = assetCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+    if (pending.isEmpty) return const {};
+
+    final resolved = <String, String>{};
+    for (final delay in _readyPollDelays) {
+      if (delay > Duration.zero) await Future.delayed(delay);
+
+      final statuses = await resolveMediaAssets(pending.toList());
+      for (final code in pending.toList()) {
+        final info = statuses[code];
+        if (info == null) continue;
+        if (_terminalFailureStatuses.contains(info.status)) {
+          throw Exception('Attachment processing failed. Please retry.');
+        }
+        final url = info.deliveryUrl.isNotEmpty
+            ? info.deliveryUrl
+            : info.thumbnailUrl;
+        if (info.status == 'READY' && url.isNotEmpty) {
+          resolved[code] = url;
+          pending.remove(code);
+        }
+      }
+      if (pending.isEmpty) return resolved;
+    }
+
+    throw Exception('Attachment processing took too long. Please retry.');
+  }
+
   Future<Map<String, String>> getUploadAssetStatuses({
     required String sessionCode,
     required List<String> expectedAssetCodes,

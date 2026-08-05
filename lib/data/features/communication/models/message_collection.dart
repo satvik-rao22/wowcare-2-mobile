@@ -30,6 +30,14 @@ class MessageCollection {
   bool? isPrivate;
   String? privateParentUserCode;
 
+  /// Draft/in-flight bookkeeping — without these, a message cached while
+  /// still uploading/sending (or one that failed) round-trips back as an
+  /// ordinary confirmed message once reloaded from Isar, silently dropping
+  /// the local preview/retry affordance that made it worth caching in the
+  /// first place. See [Message.isSending]/[Message.isFailed].
+  bool? isSending;
+  bool? isFailed;
+
   List<RecipientStatusCollection>? deliveredTo;
   List<RecipientStatusCollection>? readBy;
   List<ChatAttachmentCollection>? attachments;
@@ -54,6 +62,8 @@ class MessageCollection {
       ..senderName = message.senderName
       ..isPrivate = message.isPrivate
       ..privateParentUserCode = message.privateParentUserCode
+      ..isSending = message.isSending
+      ..isFailed = message.isFailed
       ..receivers = message.receivers
       ..deliveredTo = message.deliveredTo
           .map((e) => RecipientStatusCollection.fromEntity(e))
@@ -109,6 +119,8 @@ class MessageCollection {
       isPrivate: (isPrivate ?? false) ||
           ((privateParentUserCode ?? '').isNotEmpty),
       privateParentUserCode: privateParentUserCode,
+      isSending: isSending ?? false,
+      isFailed: isFailed ?? false,
       receivers: receivers ?? [],
       deliveredTo: deliveredTo?.map((e) => e.toEntity()).toList() ?? [],
       readBy: readBy?.map((e) => e.toEntity()).toList() ?? [],

@@ -23,6 +23,23 @@ class Message extends Equatable {
   final bool isPrivate;
   final String? privateParentUserCode;
 
+  /// True when this message failed to send (upload or API error) — the
+  /// bubble should show a retry affordance.
+  final bool isFailed;
+
+  /// True while this message is still in flight — attachments uploading (or
+  /// awaiting the document service's READY status) and/or the create-message
+  /// API call itself not yet confirmed. Drives the bubble's tick row: a
+  /// small spinner instead of the sent/delivered/read tick, so an in-flight
+  /// send never looks identical to a confirmed one.
+  final bool isSending;
+
+  /// True when this message sent successfully but at least one attachment
+  /// is still waiting on the document service to finish processing it into
+  /// a real URL — the bubble shows the local preview with a "Processing"
+  /// badge instead of a broken/blank image.
+  final bool hasProcessingAttachments;
+
   const Message({
     required this.id,
     required this.code,
@@ -43,6 +60,9 @@ class Message extends Equatable {
     this.senderUserCode,
     this.isPrivate = false,
     this.privateParentUserCode,
+    this.isFailed = false,
+    this.hasProcessingAttachments = false,
+    this.isSending = false,
   });
 
   bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
@@ -88,6 +108,9 @@ class Message extends Equatable {
     List<ChatAttachment>? attachments,
     String? privateParentUserCode,
     List<ReactionEntry>? reactions,
+    bool? isFailed,
+    bool? hasProcessingAttachments,
+    bool? isSending,
   }) {
     return Message(
       id: id,
@@ -109,6 +132,10 @@ class Message extends Equatable {
       senderUserCode: senderUserCode,
       isPrivate: isPrivate,
       privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
+      isFailed: isFailed ?? this.isFailed,
+      hasProcessingAttachments:
+          hasProcessingAttachments ?? this.hasProcessingAttachments,
+      isSending: isSending ?? this.isSending,
     );
   }
 
@@ -133,6 +160,9 @@ class Message extends Equatable {
         senderUserCode,
         isPrivate,
         privateParentUserCode,
+        isFailed,
+        hasProcessingAttachments,
+        isSending,
       ];
 }
 
@@ -189,14 +219,19 @@ class ChatAttachment extends Equatable {
 
   bool get isUploaded => (code ?? '').isNotEmpty && attachmentId != null;
 
-  ChatAttachment copyWith({String? remoteUrl, String? code, int? attachmentId}) {
+  ChatAttachment copyWith({
+    String? remoteUrl,
+    String? code,
+    int? attachmentId,
+    String? localPath,
+  }) {
     return ChatAttachment(
       name: name,
       type: type,
       sizeBytes: sizeBytes,
       mimeType: mimeType,
       remoteUrl: remoteUrl ?? this.remoteUrl,
-      localPath: localPath,
+      localPath: localPath ?? this.localPath,
       code: code ?? this.code,
       attachmentId: attachmentId ?? this.attachmentId,
     );

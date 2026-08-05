@@ -48,6 +48,13 @@ Message mapMessageEntityToMessage(
     quotedMessageId: entity.threadParentCode,
     isPrivate: entity.isPrivate,
     privateParentUserCode: entity.privateParentUserCode,
+    isFailed: entity.isFailed,
+    hasProcessingAttachments: entity.hasProcessingAttachments,
+    // In flight for the whole optimistic window — including the entire
+    // upload/wait-until-ready pipeline, which now blocks the send (see
+    // ChatAttachmentUploader.uploadAll) — until the server confirms or the
+    // send fails.
+    isSending: entity.status == MessageStatus.pending,
     attachments: entity.attachments
         .map(
           (a) => ChatAttachment(

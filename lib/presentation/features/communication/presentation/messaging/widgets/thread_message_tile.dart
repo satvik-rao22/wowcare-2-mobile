@@ -38,6 +38,7 @@ class ThreadMessageTile extends StatelessWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onRetry,
     this.isParentMessaging = false,
     this.isInactive = false,
     this.senderIsOrgSide,
@@ -62,6 +63,11 @@ class ThreadMessageTile extends StatelessWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+
+  /// See [MessageBubble.onRetry]. Called with the failed/still-uploading
+  /// [Message] itself so the caller can invoke
+  /// `CommunicationCubit.retrySendMessage(threadId, message)`.
+  final void Function(Message message)? onRetry;
   final bool isParentMessaging;
   final bool isInactive;
 
@@ -112,6 +118,10 @@ class ThreadMessageTile extends StatelessWidget {
           onReactionAdded: onReactionAdded,
           onRemoveReaction: onRemoveReaction,
           onReactionTap: onReactionTap,
+          onRetry: (snapshot.message.isFailed ||
+                  snapshot.message.hasProcessingAttachments)
+              ? () => onRetry?.call(snapshot.message)
+              : null,
           isParentMessaging: isParentMessaging,
           isInactive: isInactive,
           isGrouped: isGrouped,

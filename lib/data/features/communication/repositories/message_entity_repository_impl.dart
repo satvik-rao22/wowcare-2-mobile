@@ -119,6 +119,8 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
+    List<AttachmentEntity> attachments = const [],
+    String? localTempCode,
     bool isPrivate = false,
     String? privateParentUserCode,
     String? threadParentCode,
@@ -126,7 +128,10 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     final org = await _orgCode;
     final school = await _schoolCode;
     final currentUser = await _currentUserCode;
-    final tempCode = _uuid.v4();
+    // Reuse the caller's own temp code (already cached via
+    // [cacheDraftMessage]) when given, so this updates that SAME Isar row
+    // instead of leaving it behind as an orphaned duplicate draft.
+    final tempCode = localTempCode ?? _uuid.v4();
 
     // Optimistic local entity
     final optimistic = MessageEntity(
@@ -145,9 +150,12 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       isPrivate: isPrivate,
       privateParentUserCode: privateParentUserCode,
       localTempCode: tempCode,
+      attachments: attachments,
     );
 
-    // Persist optimistically so the UI shows immediately
+    // Persist optimistically so the UI shows immediately (idempotent — a
+    // no-op re-write when the caller already cached this exact row via
+    // [cacheDraftMessage]).
     await _local.saveMessage(optimistic);
 
     try {
@@ -198,6 +206,18 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
       return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
+
+  @override
+  Future<void> cacheDraftMessage(MessageEntity message) =>
+      _local.saveMessage(message);
+
+  @override
+  Future<void> markDraftMessageFailed(String localTempCode) =>
+      _local.updateMessageStatus(
+        localTempCode: localTempCode,
+        confirmedCode: localTempCode,
+        status: MessageStatus.failed.toApiString(),
+      );
 
   @override
   Future<Either<Failure, MessageEntity>> retryFailedMessage(

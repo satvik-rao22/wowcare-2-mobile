@@ -54,14 +54,42 @@ abstract class MessageEntityRepository {
   /// [AttachmentEntity.attachmentId]), already uploaded and registered
   /// against [conversationCode] by the caller before this is invoked (see
   /// `ChatAttachmentUploader`). Not document-service asset codes.
+  ///
+  /// [attachments] — the caller's own optimistic [AttachmentEntity] list
+  /// (carrying [AttachmentEntity.localFilePath] for not-yet-resolved
+  /// previews), persisted onto the optimistic entity so a resumed/cached
+  /// draft still has something to render. When empty, falls back to
+  /// whatever the caller already cached via [cacheDraftMessage].
+  ///
+  /// [localTempCode] — reuses the caller's own temp code (e.g. one already
+  /// shown via [cacheDraftMessage]) instead of minting a new one, so the
+  /// SAME Isar row is updated in place rather than leaving behind an
+  /// orphaned duplicate draft.
   Future<Either<Failure, MessageEntity>> sendMessage({
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
+    List<AttachmentEntity> attachments = const [],
+    String? localTempCode,
     bool isPrivate = false,
     String? privateParentUserCode,
     String? threadParentCode,
   });
+
+  /// Persists [message] (typically a [MessageStatus.pending] optimistic
+  /// entity, attachments included) to Isar immediately — before any upload
+  /// or network call runs — so it survives navigating away or the app being
+  /// killed mid-send. [sendMessage] (called after) reuses the same
+  /// [MessageEntity.localTempCode] to update this same row rather than
+  /// creating a second one.
+  Future<void> cacheDraftMessage(MessageEntity message);
+
+  /// Marks a previously-cached draft (by [localTempCode]) as
+  /// [MessageStatus.failed] without touching the sync queue — used when an
+  /// ATTACHMENT upload/registration fails before [sendMessage] is ever
+  /// called (so there is no API call to retry, only the local attachment
+  /// pipeline).
+  Future<void> markDraftMessageFailed(String localTempCode);
 
   /// Edit a message the current user sent (admin/director may edit any).
   ///

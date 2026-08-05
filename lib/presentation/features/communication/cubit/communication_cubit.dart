@@ -13,6 +13,7 @@ import '../../../../domain/features/communication/usecases/get_conversations_use
 import '../../../../domain/features/communication/usecases/get_messages_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
+import '../../../../domain/features/communication/usecases/cache_message_usecase.dart';
 import '../../../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../../../domain/features/communication/usecases/send_message_usecase.dart';
 import '../../../../domain/features/communication/usecases/edit_message_usecase.dart';
@@ -25,6 +26,7 @@ import '../../../../domain/features/communication/usecases/mark_conversation_rea
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
@@ -51,6 +53,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final MarkConversationDeliveredUseCase markConversationDeliveredUseCase;
   final MarkConversationReadUseCase markConversationReadUseCase;
   final StorageService storageService;
+  final CacheMessageUseCase cacheMessageUseCase;
+  final DiscardCachedMessageUseCase discardCachedMessageUseCase;
 
   CommunicationCubit({
     required this.getMessagesUseCase,
@@ -71,6 +75,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.markConversationDeliveredUseCase,
     required this.markConversationReadUseCase,
     required this.storageService,
+    required this.cacheMessageUseCase,
+    required this.discardCachedMessageUseCase,
   }) : super(CommunicationInitial());
 
   /// Marks a conversation as read via the API so the unread badge and count
@@ -206,6 +212,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             ]);
             newThreads[threadId] = mergedMessages;
             final int debugPrevCount = currentMessages.length;
+            final draftsInMerged =
+                mergedMessages.where((m) => m.isSending || m.isFailed).toList();
+            AppLogger.i(
+              '[DRAFT SEED] startWatchingThread threadId=$threadId — '
+              'incomingFromStream=${messages.length}, stillPending=${stillPending.length}, '
+              'mergedTotal=${mergedMessages.length}, draftsInMerged=${draftsInMerged.length}',
+            );
             emit(
               priorState?.copyWith(
                     threads: newThreads,
@@ -508,6 +521,27 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     return sorted;
   }
 
+  /// A refresh (pull-to-refresh, lifecycle resume, this thread's own
+  /// [loadMessages] re-running) must never interrupt or visually roll back a
+  /// send that's still in flight — [sendMessage]'s upload can take several
+  /// seconds, easily long enough for a refresh to land mid-way. [fresh] is
+  /// whatever a cache or remote fetch just returned (which only knows about
+  /// confirmed/cached messages); this adds back any message CURRENTLY held
+  /// in memory for [threadId] that's still [Message.isSending] or
+  /// [Message.isFailed] and isn't represented in [fresh] yet, so the
+  /// in-progress bubble (and its local attachment preview) keeps showing
+  /// uninterrupted through the refresh instead of flickering out and back.
+  List<Message> _preserveInFlightSend(String threadId, List<Message> fresh) {
+    final inMemory = state is CommunicationLoaded
+        ? (state as CommunicationLoaded).threads[threadId] ?? const []
+        : const <Message>[];
+    final freshCodes = fresh.map((m) => m.code).toSet();
+    final stillInFlight = inMemory.where(
+      (m) => (m.isSending || m.isFailed) && !freshCodes.contains(m.code),
+    );
+    return _sortByTime([...fresh, ...stillInFlight]);
+  }
+
   Future<void> loadMessages(String threadId, {String? currentUserId}) async {
     // A fresh bootstrap/refresh of the latest window — whatever older-history
     // pagination progress existed before is no longer valid.
@@ -525,13 +559,29 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       threadId,
       currentUserId: currentUserId,
     );
+    // Local-only drafts (still uploading/sending, or failed) — the API
+    // response in step 3 below only knows about server-confirmed messages,
+    // so without holding onto these separately and re-merging them back in,
+    // an in-flight/failed send present in the cache gets wiped the instant
+    // the remote fetch's result replaces the thread's message list.
+    List<Message> cachedDrafts = const [];
     cacheResult.fold(
       (_) => null, // Ignore cache errors
       (cachedMessages) {
+        cachedDrafts =
+            cachedMessages.where((m) => m.isSending || m.isFailed).toList();
+        AppLogger.i(
+          '[DRAFT SEED] loadMessages threadId=$threadId — '
+          'cachedTotal=${cachedMessages.length}, drafts=${cachedDrafts.length}, '
+          'draftIds=${cachedDrafts.map((m) => m.id).toList()}',
+        );
         if (cachedMessages.isNotEmpty && !isClosed) {
           final newThreads = Map<String, List<Message>>.from(currentThreads);
-          final sortedCached = _sortByTime(cachedMessages);
-          newThreads[threadId] = sortedCached;
+          // Merge, don't overwrite: a send that started just before this
+          // refresh may not have landed its draft write to Isar yet — the
+          // in-memory version (see _preserveInFlightSend) is still the most
+          // current one for that narrow window.
+          newThreads[threadId] = _preserveInFlightSend(threadId, cachedMessages);
           emit(
             CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
           );
@@ -583,7 +633,21 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             ? (state as CommunicationLoaded).threads
             : {};
         final newThreads = Map<String, List<Message>>.from(latestThreads);
-        final sortedMessages = _sortByTime(messages);
+        final freshCodes = messages.map((m) => m.code).toSet();
+        final unconfirmedDrafts = cachedDrafts
+            .where((d) => !freshCodes.contains(d.code))
+            .toList();
+        AppLogger.i(
+          '[DRAFT SEED] loadMessages threadId=$threadId — '
+          'remoteCount=${messages.length}, unconfirmedDraftsMerged=${unconfirmedDrafts.length}',
+        );
+        // Merge in the Isar-known drafts, then also re-check against
+        // whatever's CURRENTLY in memory (see _preserveInFlightSend) — a
+        // send that made progress (or even fully completed) while this
+        // remote fetch was in flight is the most up-to-date source, and
+        // must win over this now-slightly-stale API response.
+        final withCachedDrafts = [...messages, ...unconfirmedDrafts];
+        final sortedMessages = _preserveInFlightSend(threadId, withCachedDrafts);
         newThreads[threadId] = sortedMessages;
         emit(
           CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
@@ -706,6 +770,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         ? state as CommunicationLoaded
         : CommunicationLoaded(threads: const {}, activeThreadId: threadId);
 
+    // Copy picked files out of the OS's ephemeral temp dir into permanent
+    // app storage before anything else — same reasoning as the v2 stack's
+    // ConversationThreadCubit.sendMessage: the local preview must survive
+    // navigating away or the app backgrounding mid-upload, neither of which
+    // a temp-dir path can promise.
+    attachments = await PendingAttachmentStorage.persistLocally(attachments);
+
     // id/code must be unique per message, not per thread/sender — reusing
     // threadId/senderUserCode meant two messages sent in quick succession
     // (before either round-trips) collided: same ValueKey in the list, same
@@ -727,6 +798,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       receivers: receivers,
       isPrivate: isPrivate,
       privateParentUserCode: privateParentUserCode,
+      isSending: true,
     );
 
     // Optimistic update — append then re-sort so the new bubble lands at bottom
@@ -740,9 +812,30 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     emit(
       CommunicationSending(threads: updatedThreads, activeThreadId: threadId),
     );
+    // Persist right away too — before upload starts — so navigating away,
+    // the thread's cubit being recreated (every reopen creates a fresh
+    // CommunicationCubit — see _openThread), or the app being killed still
+    // leaves something to resume/retry from, with its local attachment
+    // previews, instead of the whole draft vanishing outright.
+    final draftCacheResult = await cacheMessageUseCase(threadId, tempMessage);
+    draftCacheResult.fold(
+      (f) => AppLogger.e(
+        '[DRAFT CACHE] FAILED TO CACHE — threadId=$threadId, tempId=$tempId: ${f.message}',
+      ),
+      (_) => AppLogger.i(
+        '[DRAFT CACHE] CACHED — threadId=$threadId, tempId=$tempId, '
+        'attachments=${tempMessage.attachments.length}, '
+        'localPaths=${tempMessage.attachments.map((a) => a.localPath).toList()}',
+      ),
+    );
 
-    // Upload any attachments that are still local-only before sending, so
-    // the backend receives real attachment codes rather than dropping them.
+    // Upload any attachments that are still local-only before sending —
+    // blocks until every attachment has a real delivery URL (see
+    // ChatAttachmentUploader.uploadAll); the backend must never receive
+    // (or the recipient ever see) a message whose attachment isn't ready
+    // yet. On failure the optimistic bubble is kept and marked failed
+    // (not rolled back/removed) so [retrySendMessage] has something to
+    // retry from instead of the picked files silently vanishing.
     List<ChatAttachment> uploadedAttachments = attachments;
     if (attachments.any((a) => !a.isUploaded)) {
       try {
@@ -752,51 +845,190 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         );
       } catch (e) {
         if (isClosed) return;
-        emit(CommunicationError(ApiErrorHandler.extractErrorMessage(e)));
-        emit(currentState);
+        await _emitSendFailure(
+          threadId: threadId,
+          failedMessage: tempMessage,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        );
         return;
       }
     }
-    final messageToSend = Message(
-      id: tempMessage.id,
-      code: tempMessage.code,
-      text: tempMessage.text,
-      isSentByMe: tempMessage.isSentByMe,
-      senderUserCode: tempMessage.senderUserCode,
-      time: tempMessage.time,
+    final messageToSend = tempMessage.copyWith(
       attachments: uploadedAttachments,
-      quotedMessageId: tempMessage.quotedMessageId,
-      senderName: tempMessage.senderName,
-      receivers: tempMessage.receivers,
-      isPrivate: tempMessage.isPrivate,
-      privateParentUserCode: tempMessage.privateParentUserCode,
+      isSending: true,
     );
 
     final result = await sendMessageUseCase(threadId, messageToSend);
     if (isClosed) return;
 
-    result.fold(
-      (failure) {
-        // Rollback on failure
-        final rollbackThreads = Map<String, List<Message>>.from(
-          currentState.threads,
-        );
-        emit(CommunicationError(failure.message ?? 'Unknown error'));
-        emit(currentState.copyWith(threads: rollbackThreads));
-      },
-      (sentMessage) {
-        // Update state with confirmed message
+    await result.fold(
+      (failure) => _emitSendFailure(
+        threadId: threadId,
+        failedMessage: messageToSend,
+        errorMessage: failure.message ?? 'Unknown error',
+      ),
+      (sentMessage) async {
+        // Update state with confirmed message — merged onto whatever is
+        // CURRENT right now (see _latestLoadedState), not a pre-upload
+        // snapshot, so nothing Firestore delivered during the upload wait
+        // gets rolled back.
+        final latestState = _latestLoadedState(threadId);
         final confirmedThreads = Map<String, List<Message>>.from(
-          updatedThreads,
+          latestState.threads,
         );
-        final threadMessages = List<Message>.from(confirmedThreads[threadId]!);
+        final threadMessages = List<Message>.from(
+          confirmedThreads[threadId] ?? [],
+        );
         final idx = threadMessages.indexWhere((m) => m.id == tempMessage.id);
         if (idx != -1) {
           threadMessages[idx] = sentMessage;
+        } else {
+          threadMessages.add(sentMessage);
         }
-        confirmedThreads[threadId] = threadMessages;
+        confirmedThreads[threadId] = _sortByTime(threadMessages);
 
-        emit(currentState.copyWith(threads: confirmedThreads));
+        emit(
+          latestState.copyWith(
+            threads: confirmedThreads,
+            activeThreadId: threadId,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Base state to merge a completed send's result onto — always the
+  /// cubit's CURRENT state, never a snapshot captured back when the send
+  /// started. Attachment uploads now block for several seconds (S3 PUT +
+  /// register + wait-until-ready), which is plenty of time for
+  /// [startWatchingThread]'s Firestore listener to merge in unrelated
+  /// updates (another message, a reaction, a receipt). Building the final
+  /// emission from a stale pre-upload snapshot instead of this would
+  /// silently discard whatever arrived in that window the instant the send
+  /// finishes — the message would flash in from the optimistic emit, then
+  /// appear to vanish a few seconds later when the stale snapshot rolls
+  /// the thread back.
+  CommunicationLoaded _latestLoadedState(String threadId) {
+    return state is CommunicationLoaded
+        ? state as CommunicationLoaded
+        : CommunicationLoaded(threads: const {}, activeThreadId: threadId);
+  }
+
+  /// Marks [failedMessage] failed in place within the thread's current
+  /// message list, rather than rolling the send back and discarding the
+  /// bubble outright — the discarded bubble was the actual cause of "no
+  /// retry option" for every legacy (STAFF_DIRECT / Parent) thread: there
+  /// was nothing left in state for a retry affordance to attach to. Still
+  /// emits [CommunicationError] momentarily first so whatever BlocListener
+  /// shows the error toast fires.
+  Future<void> _emitSendFailure({
+    required String threadId,
+    required Message failedMessage,
+    required String errorMessage,
+  }) async {
+    final latestState = _latestLoadedState(threadId);
+    final failedThreads = Map<String, List<Message>>.from(latestState.threads);
+    final threadMessages = List<Message>.from(failedThreads[threadId] ?? []);
+    final idx = threadMessages.indexWhere((m) => m.id == failedMessage.id);
+    final failed = failedMessage.copyWith(isFailed: true, isSending: false);
+    if (idx != -1) {
+      threadMessages[idx] = failed;
+    } else {
+      threadMessages.add(failed);
+    }
+    failedThreads[threadId] = threadMessages;
+    emit(CommunicationError(errorMessage));
+    emit(latestState.copyWith(threads: failedThreads, activeThreadId: threadId));
+    // Persist the failed state too — otherwise a failed-but-not-retried
+    // draft (attachments un-uploaded, message never confirmed) reverts to
+    // whatever was cached by the last successful `sendMessage` write (i.e.
+    // just disappears) the next time this thread's cubit is recreated.
+    await cacheMessageUseCase(threadId, failed);
+  }
+
+  /// Retries a message that failed to send — re-runs the same
+  /// upload-then-send pipeline, reusing [message]'s own id so the existing
+  /// failed bubble is replaced in place rather than adding a new one.
+  /// [ChatAttachmentUploader.uploadAll]'s own classification (ready /
+  /// registered-but-unresolved / needs full upload) skips whatever already
+  /// finished on the previous attempt.
+  Future<void> retrySendMessage(String threadId, Message message) async {
+    final currentState = state is CommunicationLoaded
+        ? state as CommunicationLoaded
+        : CommunicationLoaded(threads: const {}, activeThreadId: threadId);
+
+    final retrying = message.copyWith(isFailed: false, isSending: true);
+    final retryingThreads = Map<String, List<Message>>.from(
+      currentState.threads,
+    );
+    final threadMessages = List<Message>.from(
+      retryingThreads[threadId] ?? [],
+    );
+    final idx = threadMessages.indexWhere((m) => m.id == message.id);
+    if (idx != -1) {
+      threadMessages[idx] = retrying;
+    } else {
+      threadMessages.add(retrying);
+    }
+    retryingThreads[threadId] = threadMessages;
+
+    emit(
+      CommunicationSending(
+        threads: retryingThreads,
+        activeThreadId: threadId,
+      ),
+    );
+    await cacheMessageUseCase(threadId, retrying);
+
+    List<ChatAttachment> uploadedAttachments = retrying.attachments;
+    if (retrying.attachments.any((a) => !a.isUploaded)) {
+      try {
+        uploadedAttachments = await attachmentUploader.uploadAll(
+          conversationCode: threadId,
+          attachments: retrying.attachments,
+        );
+      } catch (e) {
+        if (isClosed) return;
+        await _emitSendFailure(
+          threadId: threadId,
+          failedMessage: retrying,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        );
+        return;
+      }
+    }
+
+    final messageToSend = retrying.copyWith(attachments: uploadedAttachments);
+    final result = await sendMessageUseCase(threadId, messageToSend);
+    if (isClosed) return;
+
+    await result.fold(
+      (failure) => _emitSendFailure(
+        threadId: threadId,
+        failedMessage: messageToSend,
+        errorMessage: failure.message ?? 'Unknown error',
+      ),
+      (sentMessage) async {
+        // Merge onto the CURRENT state, not the pre-upload `retryingThreads`
+        // snapshot — see _latestLoadedState.
+        final latestState = _latestLoadedState(threadId);
+        final confirmedThreads = Map<String, List<Message>>.from(
+          latestState.threads,
+        );
+        final msgs = List<Message>.from(confirmedThreads[threadId] ?? []);
+        final confirmedIdx = msgs.indexWhere((m) => m.id == message.id);
+        if (confirmedIdx != -1) {
+          msgs[confirmedIdx] = sentMessage;
+        } else {
+          msgs.add(sentMessage);
+        }
+        confirmedThreads[threadId] = _sortByTime(msgs);
+        emit(
+          latestState.copyWith(
+            threads: confirmedThreads,
+            activeThreadId: threadId,
+          ),
+        );
       },
     );
   }

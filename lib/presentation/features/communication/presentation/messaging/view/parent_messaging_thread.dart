@@ -776,6 +776,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           );
                         }
                       },
+                      onRetry: (msg) => context
+                          .read<CommunicationCubit>()
+                          .retrySendMessage(
+                            widget.parentInfo['code'] as String,
+                            msg,
+                          ),
                       currentUserCode: _currentUserCode,
                       reactionsController: _reactionsController,
                       isParentMessaging: true,
@@ -1091,6 +1097,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 );
                                                           }
                                                         },
+                                                        onRetry: (msg) => context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .retrySendMessage(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              msg,
+                                                            ),
                                                         currentUserCode:
                                                             _currentUserCode,
                                                         reactionsController:
@@ -1391,6 +1406,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 );
                                                           }
                                                         },
+                                                        onRetry: (msg) => context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .retrySendMessage(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              msg,
+                                                            ),
                                                         currentUserCode:
                                                             _currentUserCode,
                                                         reactionsController:
@@ -1696,6 +1720,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 );
                                                           }
                                                         },
+                                                        onRetry: (msg) => context
+                                                            .read<
+                                                              CommunicationCubit
+                                                            >()
+                                                            .retrySendMessage(
+                                                              widget.parentInfo['code']
+                                                                  as String,
+                                                              msg,
+                                                            ),
                                                         currentUserCode:
                                                             _currentUserCode,
                                                         reactionsController:
@@ -2104,6 +2137,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     );
                                                               }
                                                             },
+                                                            onRetry: (msg) => context
+                                                                .read<
+                                                                  CommunicationCubit
+                                                                >()
+                                                                .retrySendMessage(
+                                                                  widget.parentInfo['code']
+                                                                      as String,
+                                                                  msg,
+                                                                ),
                                                             currentUserCode:
                                                                 _currentUserCode,
                                                             reactionsController:
@@ -2408,6 +2450,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     );
                                                               }
                                                             },
+                                                            onRetry: (msg) => context
+                                                                .read<
+                                                                  CommunicationCubit
+                                                                >()
+                                                                .retrySendMessage(
+                                                                  widget.parentInfo['code']
+                                                                      as String,
+                                                                  msg,
+                                                                ),
                                                             currentUserCode:
                                                                 _currentUserCode,
                                                             reactionsController:
@@ -2722,6 +2773,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     );
                                                               }
                                                             },
+                                                            onRetry: (msg) => context
+                                                                .read<
+                                                                  CommunicationCubit
+                                                                >()
+                                                                .retrySendMessage(
+                                                                  widget.parentInfo['code']
+                                                                      as String,
+                                                                  msg,
+                                                                ),
                                                             currentUserCode:
                                                                 _currentUserCode,
                                                             reactionsController:

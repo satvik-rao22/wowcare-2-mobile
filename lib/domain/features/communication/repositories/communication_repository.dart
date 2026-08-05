@@ -50,6 +50,21 @@ abstract class CommunicationRepository {
   });
   Future<Either<Failure, List<Conversation>>> loadCachedConversations();
   Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId, {String? currentUserId});
+
+  /// Persists [message] (typically a [Message.isSending] or
+  /// [Message.isFailed] optimistic bubble) into the local cache immediately —
+  /// independent of [sendMessage]'s own post-success cache write — so an
+  /// in-flight or failed send (including its local attachment previews)
+  /// survives navigating away, the thread's cubit being recreated, or the
+  /// app being killed before the server confirms it.
+  Future<Either<Failure, void>> cacheMessage(String threadId, Message message);
+
+  /// Removes a single cached draft row by [messageId] (its [Message.id],
+  /// the local temp id assigned before the server confirms) — used once a
+  /// send finally succeeds, since [sendMessage] caches the *confirmed*
+  /// message under its real server code rather than overwriting the draft
+  /// row, which would otherwise leave a stale duplicate behind.
+  Future<Either<Failure, void>> discardCachedMessage(String messageId);
   Future<Either<Failure, void>> addReaction(
     String threadId,
     String messageCode,

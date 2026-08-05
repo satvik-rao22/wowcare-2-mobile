@@ -6,6 +6,7 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:http/http.dart' as http;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:thumbnailer/thumbnailer.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_open_helper.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_url_resolver.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
@@ -47,6 +48,12 @@ class MessageBubble extends StatefulWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+
+  /// Retries a message that failed to send, or (when it sent fine but an
+  /// attachment is still stuck on "Processing") re-polls for the resolved
+  /// delivery URL. Shown only for [Message.isSentByMe] messages that are
+  /// [Message.isFailed] or [Message.hasProcessingAttachments].
+  final VoidCallback? onRetry;
   final bool isParentMessaging;
   final bool isInactive;
   final bool isDeleted;
@@ -82,6 +89,7 @@ class MessageBubble extends StatefulWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onRetry,
     this.isParentMessaging = false,
     this.isInactive = false,
     this.isDeleted = false,
@@ -1016,7 +1024,41 @@ class _MessageBubbleState extends State<MessageBubble>
                           // literal sender (isMe) sees their own message's
                           // delivery status, regardless of which side it
                           // renders on.
-                          if (isMe) ...[
+                          if (isMe && widget.message.isFailed) ...[
+                            const SizedBox(width: 6),
+                            _RetryAffordance(
+                              label: 'Failed · Retry',
+                              icon: Icons.error_outline,
+                              color: const Color(0xFFD63031),
+                              onTap: widget.onRetry,
+                            ),
+                          ] else if (isMe &&
+                              widget.message.hasProcessingAttachments) ...[
+                            const SizedBox(width: 6),
+                            _RetryAffordance(
+                              label: 'Processing',
+                              icon: Icons.sync,
+                              color: useLightText
+                                  ? Colors.white.withValues(alpha: 0.8)
+                                  : Colors.grey[600]!,
+                              onTap: widget.onRetry,
+                            ),
+                          ] else if (isMe && widget.message.isSending) ...[
+                            const SizedBox(width: 4),
+                            // WhatsApp-style "queued/sending, not yet
+                            // reached the server" clock — the local bubble
+                            // (with its local attachment preview) is already
+                            // visible while this shows; it just marks the
+                            // message as not-yet-confirmed, same as the
+                            // single/double tick marks confirmed states.
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 13,
+                              color: useLightText
+                                  ? Colors.white.withValues(alpha: 0.7)
+                                  : Colors.grey[600],
+                            ),
+                          ] else if (isMe) ...[
                             const SizedBox(width: 4),
                             Icon(
                               widget.message.isRead
@@ -1115,7 +1157,14 @@ class _MessageBubbleState extends State<MessageBubble>
                   ),
                 ),
               ],
-              if (isMe) ...[
+              if (isMe && message.isSending) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 12,
+                  color: Colors.grey.withValues(alpha: 0.7),
+                ),
+              ] else if (isMe) ...[
                 const SizedBox(width: 4),
                 Icon(
                   widget.message.isRead
@@ -1386,6 +1435,18 @@ class _MessageBubbleState extends State<MessageBubble>
                     ? displayImages.first.copyWith(remoteUrl: resolvedUrl)
                     : displayImages.first;
                 final hasSource = att.displaySource != null;
+                // Not yet registered against the conversation (code +
+                // attachmentId both present) — still picked/uploading, even
+                // though the local file already renders fine above this.
+                final stillUploading = !att.isUploaded;
+                AppLogger.i(
+                  '[ATTACHMENT RENDER] msg=${widget.message.code} '
+                  'name=${att.name} localPath=${att.localPath} '
+                  'remoteUrl=${att.remoteUrl} code=${att.code} '
+                  'attachmentId=${att.attachmentId} hasSource=$hasSource '
+                  'stillUploading=$stillUploading isLoading=$isLoading '
+                  'isProcessing=$isProcessing resolvedUrl=$resolvedUrl',
+                );
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -1463,6 +1524,10 @@ class _MessageBubbleState extends State<MessageBubble>
                               ),
                       ),
                     ),
+                    if (hasSource && stillUploading)
+                      const Positioned.fill(
+                        child: IgnorePointer(child: _UploadingOverlay()),
+                      ),
                   ],
                 );
               },
@@ -1496,6 +1561,7 @@ class _MessageBubbleState extends State<MessageBubble>
                           ? rawAtt.copyWith(remoteUrl: resolvedUrl)
                           : rawAtt;
                       final hasSource = att.displaySource != null;
+                      final stillUploading = !att.isUploaded;
                       return GestureDetector(
                         onTap: () {
                           if (hasMoreImages && isLast) {
@@ -1595,7 +1661,9 @@ class _MessageBubbleState extends State<MessageBubble>
                                     fontColor: Colors.white,
                                   ),
                                 ),
-                              ),
+                              )
+                            else if (hasSource && stillUploading)
+                              const _UploadingOverlay(compact: true),
                           ],
                         ),
                       );
@@ -1618,6 +1686,39 @@ class _MessageBubbleState extends State<MessageBubble>
 /// attachment's asset as still `PROCESSING` (no delivery URL yet) rather
 /// than an outright failure — tells the user it's still on its way instead
 /// of looking like a load error.
+/// Semi-transparent scrim + spinner drawn over an already-visible local
+/// image preview while the attachment hasn't finished uploading/registering
+/// yet (no delivery URL). Distinct from [_AttachmentProcessingPlaceholder],
+/// which replaces the whole tile when there's no local preview to show at
+/// all (a cached/history message with only a still-processing remote asset)
+/// — here the picked photo is already on screen, this just signals "still
+/// going" on top of it, the way a chat app overlays an in-flight send.
+class _UploadingOverlay extends StatelessWidget {
+  const _UploadingOverlay({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: SizedBox(
+          width: compact ? 20 : 26,
+          height: compact ? 20 : 26,
+          child: const CircularProgressIndicator(
+            strokeWidth: 2.5,
+            valueColor: AlwaysStoppedAnimation(Colors.white),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _AttachmentProcessingPlaceholder extends StatelessWidget {
   const _AttachmentProcessingPlaceholder({this.compact = false});
 
@@ -1639,6 +1740,50 @@ class _AttachmentProcessingPlaceholder extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Small tappable status shown next to a sent message's timestamp instead of
+/// the normal delivery tick — either "Failed · Retry" (the send itself
+/// errored: attachment upload or the API call) or "Processing" (sent fine,
+/// but an attachment is still waiting on the document service; tapping just
+/// re-polls, it does not re-send). No-op decoration (not a real button) when
+/// [onTap] is null, e.g. a cached/legacy message with no retry wired up.
+class _RetryAffordance extends StatelessWidget {
+  const _RetryAffordance({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

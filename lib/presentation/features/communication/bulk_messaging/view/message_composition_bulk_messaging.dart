@@ -5,9 +5,10 @@ import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:mime/mime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:rich_field_controller/rich_field_controller.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/cubit/bulk_messaging_composition_cubit.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -37,45 +38,70 @@ class _MessageCompositionBulkMessagingState
     extends State<MessageCompositionBulkMessaging> {
   late final BulkMessagingCompositionCubit _compositionCubit;
   late final FocusNode _focusNode;
-  late final RichFieldController _controller;
+  late final HtmlAwareTextController _controller;
 
   static const int maxChars = 2000;
 
   Future<void> _pickImage() async {
     final picker = ImagePicker();
-    final picked = await picker.pickImage(source: ImageSource.gallery);
-    if (picked == null) return;
+    final picked = await picker.pickMultiImage();
+    if (picked.isEmpty) return;
 
-    final file = File(picked.path);
-    if (await file.length() > 10 * 1024 * 1024) {
-      if (!mounted) return;
-      _showWarningMessage('File too large (max 10 MB)');
-      return;
+    final valid = <File>[];
+    var anyTooLarge = false;
+    for (final xfile in picked) {
+      final file = File(xfile.path);
+      if (await file.length() > 10 * 1024 * 1024) {
+        anyTooLarge = true;
+        continue;
+      }
+      valid.add(file);
     }
 
     if (!mounted) return;
-    _compositionCubit.addAttachment(file, isImage: true);
+    if (anyTooLarge) {
+      _showWarningMessage(
+        valid.isEmpty
+            ? 'File too large (max 10 MB)'
+            : 'Some files were skipped (max 10 MB each)',
+      );
+    }
+    if (valid.isEmpty) return;
+    _compositionCubit.addAttachments(valid, isImage: true);
   }
 
   Future<void> _pickFile() async {
     final result = await FilePicker.pickFiles(
       type: FileType.custom,
       allowedExtensions: FilePickerUtils.allowedDocumentExtensions,
+      allowMultiple: true,
     );
 
     if (result == null || result.files.isEmpty) return;
 
-    final platformFile = result.files.single;
-    final file = File(platformFile.path!);
-
-    if (await file.length() > 10 * 1024 * 1024) {
-      if (!mounted) return;
-      _showWarningMessage('File too large (max 10 MB)');
-      return;
+    final valid = <File>[];
+    var anyTooLarge = false;
+    for (final platformFile in result.files) {
+      final path = platformFile.path;
+      if (path == null) continue;
+      final file = File(path);
+      if (await file.length() > 10 * 1024 * 1024) {
+        anyTooLarge = true;
+        continue;
+      }
+      valid.add(file);
     }
 
     if (!mounted) return;
-    _compositionCubit.addAttachment(file, isImage: false);
+    if (anyTooLarge) {
+      _showWarningMessage(
+        valid.isEmpty
+            ? 'File too large (max 10 MB)'
+            : 'Some files were skipped (max 10 MB each)',
+      );
+    }
+    if (valid.isEmpty) return;
+    _compositionCubit.addAttachments(valid, isImage: false);
   }
 
   void _removeAttachment(int index) {
@@ -106,9 +132,12 @@ class _MessageCompositionBulkMessagingState
       sendMessageUseCase: serviceLocator(),
       attachmentUploader: serviceLocator(),
       storageService: serviceLocator(),
+      cacheMessageUseCase: serviceLocator(),
+      discardCachedMessageUseCase: serviceLocator(),
+      cacheDraftMessageUseCase: serviceLocator(),
     );
     _focusNode = FocusNode();
-    _controller = RichFieldController(focusNode: _focusNode);
+    _controller = HtmlAwareTextController();
 
     _controller.addListener(_onTextChanged);
   }
@@ -286,6 +315,28 @@ class _MessageCompositionBulkMessagingState
                                         ),
                                         child: Column(
                                           children: [
+                                            // Same persistent formatting
+                                            // toolbar as the 1:1 chat
+                                            // composer (ChatInputBar) —
+                                            // wraps the selection/cursor in
+                                            // the same <b>/<i>/<u>/<s> tags
+                                            // MessageContentProcessor.enrich
+                                            // renders on the recipient side,
+                                            // unlike the previous
+                                            // RichFieldController.updateStyle
+                                            // calls, which only restyled the
+                                            // field visually and never
+                                            // touched the plain text this
+                                            // screen actually sends.
+                                            ClipRRect(
+                                              borderRadius:
+                                                  const BorderRadius.vertical(
+                                                    top: Radius.circular(11),
+                                                  ),
+                                              child: RichTextToolbar(
+                                                controller: _controller,
+                                              ),
+                                            ),
                                             TextField(
                                               controller: _controller,
                                               focusNode: _focusNode,
@@ -293,88 +344,18 @@ class _MessageCompositionBulkMessagingState
                                               minLines: 5,
                                               textCapitalization:
                                                   TextCapitalization.sentences,
-                                              contextMenuBuilder: (context, editableTextState) {
-                                                return AdaptiveTextSelectionToolbar.buttonItems(
-                                                  anchors: editableTextState
-                                                      .contextMenuAnchors,
-                                                  buttonItems: <ContextMenuButtonItem>[
-                                                    ContextMenuButtonItem(
-                                                      label: 'Bold',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Italic',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            fontStyle: FontStyle
-                                                                .italic,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Underline',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            decoration:
-                                                                TextDecoration
-                                                                    .underline,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Strikethrough',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            decoration:
-                                                                TextDecoration
-                                                                    .lineThrough,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-                                                    ContextMenuButtonItem(
-                                                      label: 'Link',
-                                                      onPressed: () {
-                                                        _controller.updateStyle(
-                                                          const TextStyle(
-                                                            color: Colors.blue,
-                                                            decoration:
-                                                                TextDecoration
-                                                                    .underline,
-                                                            decorationColor:
-                                                                Colors.blue,
-                                                          ),
-                                                        );
-                                                        editableTextState
-                                                            .hideToolbar();
-                                                      },
-                                                    ),
-
-                                                    ...editableTextState
-                                                        .contextMenuButtonItems,
-                                                  ],
-                                                );
-                                              },
+                                              // Copy/Cut/Paste/Select All that
+                                              // work against the plain text
+                                              // (tags stripped), matching the
+                                              // 1:1 chat composer.
+                                              contextMenuBuilder:
+                                                  (context, editableTextState) =>
+                                                      HtmlAwareTextSelectionControls
+                                                          .buildContextMenu(
+                                                        context,
+                                                        editableTextState,
+                                                        _controller,
+                                                      ),
                                               maxLength: maxChars,
                                               decoration: const InputDecoration(
                                                 hintText: 'Type a message…',

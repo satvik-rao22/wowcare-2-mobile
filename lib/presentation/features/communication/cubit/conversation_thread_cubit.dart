@@ -12,13 +12,17 @@ import 'package:wowcare/domain/features/communication/entities/message.dart'
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
@@ -49,6 +53,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required RemoveReactionUseCase removeReactionUseCase,
     required MarkConversationReadUseCase markConversationReadUseCase,
     required ChatAttachmentUploader attachmentUploader,
+    required CacheDraftMessageUseCase cacheDraftMessageUseCase,
+    required MarkDraftMessageFailedUseCase markDraftMessageFailedUseCase,
+    required GetCachedMessagesEntityUseCase getCachedMessagesEntityUseCase,
     Duration markReadDebounceDuration = const Duration(seconds: 2),
     bool isDraft = false,
     Future<ConversationEntity?> Function()? onResolveConversation,
@@ -65,6 +72,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        _removeReactionUseCase = removeReactionUseCase,
        _markConversationReadUseCase = markConversationReadUseCase,
        _attachmentUploader = attachmentUploader,
+       _cacheDraftMessageUseCase = cacheDraftMessageUseCase,
+       _markDraftMessageFailedUseCase = markDraftMessageFailedUseCase,
+       _getCachedMessagesEntityUseCase = getCachedMessagesEntityUseCase,
        _markReadDebounceDuration = markReadDebounceDuration,
        super(
          ConversationThreadState.initial(
@@ -101,6 +111,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   final AddReactionEntityUseCase _addReactionUseCase;
   final RemoveReactionUseCase _removeReactionUseCase;
   final MarkConversationReadUseCase _markConversationReadUseCase;
+  final CacheDraftMessageUseCase _cacheDraftMessageUseCase;
+  final MarkDraftMessageFailedUseCase _markDraftMessageFailedUseCase;
+  final GetCachedMessagesEntityUseCase _getCachedMessagesEntityUseCase;
 
   StreamSubscription<List<MessageEntity>>? _messagesSubscription;
   bool _firestoreActive = false;
@@ -150,6 +163,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    // Fire-and-forget: seeds any locally-cached draft (a send interrupted by
+    // navigating away, or the app being killed, before the server confirmed
+    // it) back into the thread. Whichever emission (this seed, or the
+    // Firestore/REST load below) lands second still ends up with the draft —
+    // [_mergePendingMessages] preserves any `pending`/`failed` +
+    // `localTempCode` entry already in `state.messages` that the fresh
+    // batch doesn't confirm.
+    unawaited(_seedCachedLocalDrafts());
+
     _messagesSubscription?.cancel();
     // Use this conversation's own org/school rather than the session's
     // currently-active one — a stale/mismatched active school (multi-school
@@ -184,6 +206,34 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             if (!_firestoreActive) unawaited(loadMessages());
           },
         );
+  }
+
+  /// Merges any locally-cached, never-confirmed message (interrupted by
+  /// navigating away, closing the app, or losing connectivity mid-send —
+  /// including one still finishing an attachment upload) into
+  /// [state.messages], so it's visible again instead of silently vanishing
+  /// once this fresh cubit instance's in-memory state starts empty.
+  Future<void> _seedCachedLocalDrafts() async {
+    final result = await _getCachedMessagesEntityUseCase(
+      state.conversationCode,
+      currentUserCode: _currentUserCode,
+    );
+    if (isClosed) return;
+    result.fold((_) {}, (cached) {
+      final drafts = cached
+          .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
+          .toList();
+      if (drafts.isEmpty) return;
+      final existingCodes = state.messages.map((m) => m.code).toSet();
+      final newDrafts =
+          drafts.where((d) => !existingCodes.contains(d.code)).toList();
+      if (newDrafts.isEmpty) return;
+      emit(
+        state.copyWith(
+          messages: _sortedOldestFirst([...state.messages, ...newDrafts]),
+        ),
+      );
+    });
   }
 
   /// Emits a loaded-but-empty state for a draft thread so the UI shows the
@@ -270,6 +320,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           ),
         );
         _scheduleMarkRead();
+        unawaited(_seedCachedLocalDrafts());
       },
     );
   }
@@ -367,16 +418,23 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ///
   /// Immediately inserts a [MessageStatus.pending] placeholder — including
   /// local attachment previews — so the bubble appears at the bottom without
-  /// waiting for upload or the backend round-trip. Replaces it with the
-  /// confirmed message on success, or marks it [MessageStatus.failed] so the
-  /// user can retry.
+  /// waiting for upload or the backend round-trip, AND persists that same
+  /// placeholder to Isar right away (via [_cacheDraftMessageUseCase]) so it
+  /// survives navigating away or the app being killed before the send
+  /// finishes — [_seedCachedLocalDrafts] brings it back on the next open.
   ///
-  /// [attachments] are uploaded here (session → presign → S3 → complete →
-  /// register, via the same [ChatAttachmentUploader] legacy messaging uses)
-  /// before the message is sent. All-or-nothing: if any attachment fails to
-  /// upload, the send is aborted entirely — no partial/text-only message is
-  /// sent, and the failure is surfaced via [ConversationThreadState.sendError]
-  /// so the caller can retry without losing the picked files.
+  /// [attachments] are uploaded here (session → presign(batch) → S3 PUT →
+  /// complete → register → wait-until-ready, via the same
+  /// [ChatAttachmentUploader.uploadAll] documents/activities use) and the
+  /// message is NOT sent until every attachment has a real delivery URL —
+  /// [ChatAttachmentUploader.uploadAll] blocks on that itself. A message is
+  /// never published with a still-processing attachment. If the
+  /// upload/registration/wait fails or times out, the send is aborted — no
+  /// partial/text-only message is sent — and the failure is surfaced via
+  /// [ConversationThreadState.sendError] so the caller can retry without
+  /// losing the picked files. [_reconcileAttachments] after a successful
+  /// send is then a pure safety net (see its doc comment) rather than the
+  /// primary path.
   Future<void> sendMessage({
     required String text,
     required String senderCode,
@@ -393,6 +451,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       final resolved = await _resolveDraftConversation();
       if (!resolved) return;
     }
+
+    // Copy picked files out of the OS's ephemeral temp dir into permanent
+    // app storage BEFORE anything else — the local preview needs to survive
+    // navigating away, the app backgrounding, or a restart, none of which a
+    // temp-dir path can promise (the OS is free to clear it at any time,
+    // which silently blanks the preview even though the message/attachment
+    // record itself is fine). See [PendingAttachmentStorage].
+    attachments = await PendingAttachmentStorage.persistLocally(attachments);
 
     final tempCode = 'temp-${AppTime.nowUtc().millisecondsSinceEpoch}';
 
@@ -436,12 +502,16 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         clearSendError: true,
       ),
     );
+    // Persist right away too — before upload starts — so an interrupted
+    // send (navigation, app kill, lost connectivity) still has something to
+    // resume/retry from instead of vanishing outright.
+    await _cacheDraftMessageUseCase(optimistic);
 
-    // Upload any attachments that aren't already uploaded, mirroring
-    // CommunicationCubit.sendMessage's exact pipeline via the same shared
+    // Upload any attachments that aren't already uploaded, via the shared
     // uploader — one batched upload session/presign call for the whole
-    // selection, not one per file; if any attachment fails, abort the send —
-    // no partial message is created.
+    // selection, not one per file. Blocks until every attachment is READY
+    // (see [ChatAttachmentUploader.uploadAll]); if upload, registration, or
+    // the wait itself fails, abort the send — no partial message is created.
     List<ChatAttachment> uploadedAttachments = attachments;
     if (attachments.any((a) => !a.isUploaded)) {
       try {
@@ -450,6 +520,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           attachments: attachments,
         );
       } catch (e) {
+        await _markDraftMessageFailedUseCase(tempCode);
         if (isClosed) return;
         final failed = _replaceMessage(
           state.messages,
@@ -479,6 +550,8 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       conversationCode: state.conversationCode,
       text: text,
       attachmentIds: attachmentIds,
+      attachments: uploadedOptimisticAttachments,
+      localTempCode: tempCode,
       isPrivate: isPrivate,
       threadParentCode: threadParentCode,
     );
@@ -522,6 +595,185 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             clearSendError: true,
           ),
         );
+        // Attachments are already READY by this point (uploadAll blocked on
+        // it) — this only does anything if the *server's own* echoed
+        // attachment objects lag behind with an empty fileUrl.
+        unawaited(_reconcileAttachments(finalMessage));
+      },
+    );
+  }
+
+  /// Converts an [AttachmentEntity] back into the [ChatAttachment] shape
+  /// [ChatAttachmentUploader] operates on — the inverse of
+  /// [mapChatAttachmentToAttachmentEntity].
+  ChatAttachment _toChatAttachment(AttachmentEntity a) => ChatAttachment(
+        name: a.fileName,
+        type: a.isImage ? 'image' : 'file',
+        sizeBytes: a.fileSizeBytes,
+        mimeType: a.mimeType,
+        remoteUrl: a.fileUrl,
+        localPath: a.localFilePath,
+        code: a.code.isEmpty ? null : a.code,
+        attachmentId: a.attachmentId,
+      );
+
+  /// Resolves the real delivery URL for any of [message]'s attachments still
+  /// showing a local preview (uploaded + registered, but the document
+  /// service hasn't finished processing them into a URL yet). Since
+  /// [ChatAttachmentUploader.uploadAll] already blocks a send until every
+  /// attachment is READY, this is a safety net for the cases that skip that
+  /// wait: a server-echoed attachment lagging behind with an empty fileUrl
+  /// right after send, or resuming a message that was interrupted (app
+  /// killed, navigation) mid-wait on a prior attempt. A single best-effort
+  /// poll, not a blocking wait — safe to call repeatedly; a no-op once
+  /// nothing is left processing.
+  Future<void> _reconcileAttachments(MessageEntity message) async {
+    if (!message.hasProcessingAttachments) return;
+    final resolved = await _attachmentUploader.resolveDeliveryUrls(
+      message.attachments.map(_toChatAttachment).toList(),
+    );
+
+    var changed = false;
+    final updatedAttachments = <AttachmentEntity>[];
+    for (var i = 0; i < message.attachments.length; i++) {
+      final original = message.attachments[i];
+      final r = resolved[i];
+      if (r.remoteUrl.isNotEmpty && r.remoteUrl != original.fileUrl) {
+        updatedAttachments.add(
+          original.copyWith(fileUrl: r.remoteUrl, clearLocalFilePath: true),
+        );
+        changed = true;
+        // The real delivery URL now renders fine — drop the durable local
+        // copy [PendingAttachmentStorage] made so it doesn't sit around
+        // forever. Fire-and-forget: never blocks showing the resolved image.
+        unawaited(PendingAttachmentStorage.delete(original.localFilePath));
+      } else {
+        updatedAttachments.add(original);
+      }
+    }
+    if (!changed) return;
+
+    final updatedMessage = message.copyWith(attachments: updatedAttachments);
+    await _cacheDraftMessageUseCase(updatedMessage);
+    if (isClosed) return;
+    // The conversation may have moved on (older message no longer in the
+    // loaded window) — only emit if it's still there to replace.
+    if (!state.messages.any((m) => m.code == message.code)) return;
+    final updated = _replaceMessage(state.messages, message.code, updatedMessage);
+    emit(state.copyWith(messages: updated));
+  }
+
+  /// Retries a message that either never finished uploading its attachments
+  /// (picks up from [AttachmentEntity.localFilePath] — nothing needed if the
+  /// user closed the app before the file was even picked-and-persisted,
+  /// since that never got this far) or is fully sent but still has an
+  /// attachment stuck on "Processing" (just re-polls, no re-upload). When a
+  /// retry does re-run [ChatAttachmentUploader.uploadAll], its own 3-way
+  /// classification (ready / registered-but-not-uploaded / needs full
+  /// upload) makes sure nothing that already finished gets redone.
+  Future<void> retrySendMessage(MessageEntity message) async {
+    if (!message.isFailed && !message.hasUnuploadedAttachments) {
+      // Already sent — nothing failed, just poll again for the ones still
+      // processing.
+      unawaited(_reconcileAttachments(message));
+      return;
+    }
+
+    final tempCode = (message.localTempCode ?? '').isNotEmpty
+        ? message.localTempCode!
+        : message.code;
+    final targetCode = message.code;
+
+    final retrying = message.copyWith(status: MessageStatus.pending);
+    emit(
+      state.copyWith(
+        messages: _replaceMessage(state.messages, targetCode, retrying),
+        isSending: true,
+        clearSendError: true,
+      ),
+    );
+    await _cacheDraftMessageUseCase(retrying);
+
+    final asChatAttachments = message.attachments.map(_toChatAttachment).toList();
+    List<ChatAttachment> uploaded = asChatAttachments;
+    if (asChatAttachments.any((a) => !a.isUploaded)) {
+      try {
+        uploaded = await _attachmentUploader.uploadAll(
+          conversationCode: state.conversationCode,
+          attachments: asChatAttachments,
+        );
+      } catch (e) {
+        await _markDraftMessageFailedUseCase(tempCode);
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            messages: _replaceMessage(
+              state.messages,
+              targetCode,
+              retrying.copyWith(status: MessageStatus.failed),
+            ),
+            isSending: false,
+            sendError: ApiErrorHandler.extractErrorMessage(e),
+          ),
+        );
+        return;
+      }
+    }
+
+    final attachmentIds =
+        uploaded.map((a) => a.attachmentId).whereType<int>().toList();
+    final entityAttachments = uploaded
+        .map(
+          (a) => mapChatAttachmentToAttachmentEntity(
+            a,
+            messageCode: tempCode,
+            conversationCode: state.conversationCode,
+            uploadedBy: message.senderCode,
+          ),
+        )
+        .toList();
+
+    final result = await _sendMessageUseCase(
+      conversationCode: state.conversationCode,
+      text: message.text,
+      attachmentIds: attachmentIds,
+      attachments: entityAttachments,
+      localTempCode: tempCode,
+      isPrivate: message.isPrivate,
+      threadParentCode: message.threadParentCode,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(
+          state.copyWith(
+            messages: _replaceMessage(
+              state.messages,
+              targetCode,
+              retrying.copyWith(
+                status: MessageStatus.failed,
+                attachments: entityAttachments,
+              ),
+            ),
+            isSending: false,
+            sendError: failure.message ?? 'Failed to send message.',
+          ),
+        );
+      },
+      (confirmed) {
+        final finalMessage = confirmed.attachments.isNotEmpty
+            ? confirmed
+            : confirmed.copyWith(attachments: entityAttachments);
+        emit(
+          state.copyWith(
+            messages: _replaceMessage(state.messages, targetCode, finalMessage),
+            isSending: false,
+            clearSendError: true,
+          ),
+        );
+        unawaited(_reconcileAttachments(finalMessage));
       },
     );
   }

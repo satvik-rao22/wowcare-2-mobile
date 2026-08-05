@@ -54,70 +54,80 @@ const MessageCollectionSchema = CollectionSchema(
       name: r'id',
       type: IsarType.string,
     ),
-    r'isPrivate': PropertySchema(
+    r'isFailed': PropertySchema(
       id: 7,
+      name: r'isFailed',
+      type: IsarType.bool,
+    ),
+    r'isPrivate': PropertySchema(
+      id: 8,
       name: r'isPrivate',
       type: IsarType.bool,
     ),
+    r'isSending': PropertySchema(
+      id: 9,
+      name: r'isSending',
+      type: IsarType.bool,
+    ),
     r'isSentByMe': PropertySchema(
-      id: 8,
+      id: 10,
       name: r'isSentByMe',
       type: IsarType.bool,
     ),
     r'privateParentUserCode': PropertySchema(
-      id: 9,
+      id: 11,
       name: r'privateParentUserCode',
       type: IsarType.string,
     ),
     r'quotedMessageId': PropertySchema(
-      id: 10,
+      id: 12,
       name: r'quotedMessageId',
       type: IsarType.string,
     ),
     r'reactions': PropertySchema(
-      id: 11,
+      id: 13,
       name: r'reactions',
       type: IsarType.objectList,
       target: r'MessageReactionCollection',
     ),
     r'readAt': PropertySchema(
-      id: 12,
+      id: 14,
       name: r'readAt',
       type: IsarType.dateTime,
     ),
     r'readBy': PropertySchema(
-      id: 13,
+      id: 15,
       name: r'readBy',
       type: IsarType.objectList,
       target: r'RecipientStatusCollection',
     ),
     r'receivers': PropertySchema(
-      id: 14,
+      id: 16,
       name: r'receivers',
       type: IsarType.stringList,
     ),
     r'senderName': PropertySchema(
-      id: 15,
+      id: 17,
       name: r'senderName',
       type: IsarType.string,
     ),
     r'senderUserCode': PropertySchema(
-      id: 16,
+      id: 18,
       name: r'senderUserCode',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 17,
+      id: 19,
       name: r'text',
       type: IsarType.string,
     ),
     r'threadId': PropertySchema(
-      id: 18,
+      id: 20,
       name: r'threadId',
       type: IsarType.string,
     ),
     r'time': PropertySchema(
-      id: 19,
+      id: 21,
       name: r'time',
       type: IsarType.dateTime,
     )
@@ -282,29 +292,31 @@ void _messageCollectionSerialize(
   );
   writer.writeDateTime(offsets[5], object.editedAt);
   writer.writeString(offsets[6], object.id);
-  writer.writeBool(offsets[7], object.isPrivate);
-  writer.writeBool(offsets[8], object.isSentByMe);
-  writer.writeString(offsets[9], object.privateParentUserCode);
-  writer.writeString(offsets[10], object.quotedMessageId);
+  writer.writeBool(offsets[7], object.isFailed);
+  writer.writeBool(offsets[8], object.isPrivate);
+  writer.writeBool(offsets[9], object.isSending);
+  writer.writeBool(offsets[10], object.isSentByMe);
+  writer.writeString(offsets[11], object.privateParentUserCode);
+  writer.writeString(offsets[12], object.quotedMessageId);
   writer.writeObjectList<MessageReactionCollection>(
-    offsets[11],
+    offsets[13],
     allOffsets,
     MessageReactionCollectionSchema.serialize,
     object.reactions,
   );
-  writer.writeDateTime(offsets[12], object.readAt);
+  writer.writeDateTime(offsets[14], object.readAt);
   writer.writeObjectList<RecipientStatusCollection>(
-    offsets[13],
+    offsets[15],
     allOffsets,
     RecipientStatusCollectionSchema.serialize,
     object.readBy,
   );
-  writer.writeStringList(offsets[14], object.receivers);
-  writer.writeString(offsets[15], object.senderName);
-  writer.writeString(offsets[16], object.senderUserCode);
-  writer.writeString(offsets[17], object.text);
-  writer.writeString(offsets[18], object.threadId);
-  writer.writeDateTime(offsets[19], object.time);
+  writer.writeStringList(offsets[16], object.receivers);
+  writer.writeString(offsets[17], object.senderName);
+  writer.writeString(offsets[18], object.senderUserCode);
+  writer.writeString(offsets[19], object.text);
+  writer.writeString(offsets[20], object.threadId);
+  writer.writeDateTime(offsets[21], object.time);
 }
 
 MessageCollection _messageCollectionDeserialize(
@@ -331,29 +343,31 @@ MessageCollection _messageCollectionDeserialize(
   );
   object.editedAt = reader.readDateTimeOrNull(offsets[5]);
   object.id = reader.readString(offsets[6]);
-  object.isPrivate = reader.readBoolOrNull(offsets[7]);
-  object.isSentByMe = reader.readBoolOrNull(offsets[8]);
-  object.privateParentUserCode = reader.readStringOrNull(offsets[9]);
-  object.quotedMessageId = reader.readStringOrNull(offsets[10]);
+  object.isFailed = reader.readBoolOrNull(offsets[7]);
+  object.isPrivate = reader.readBoolOrNull(offsets[8]);
+  object.isSending = reader.readBoolOrNull(offsets[9]);
+  object.isSentByMe = reader.readBoolOrNull(offsets[10]);
+  object.privateParentUserCode = reader.readStringOrNull(offsets[11]);
+  object.quotedMessageId = reader.readStringOrNull(offsets[12]);
   object.reactions = reader.readObjectList<MessageReactionCollection>(
-    offsets[11],
+    offsets[13],
     MessageReactionCollectionSchema.deserialize,
     allOffsets,
     MessageReactionCollection(),
   );
-  object.readAt = reader.readDateTimeOrNull(offsets[12]);
+  object.readAt = reader.readDateTimeOrNull(offsets[14]);
   object.readBy = reader.readObjectList<RecipientStatusCollection>(
-    offsets[13],
+    offsets[15],
     RecipientStatusCollectionSchema.deserialize,
     allOffsets,
     RecipientStatusCollection(),
   );
-  object.receivers = reader.readStringList(offsets[14]);
-  object.senderName = reader.readStringOrNull(offsets[15]);
-  object.senderUserCode = reader.readStringOrNull(offsets[16]);
-  object.text = reader.readString(offsets[17]);
-  object.threadId = reader.readString(offsets[18]);
-  object.time = reader.readDateTime(offsets[19]);
+  object.receivers = reader.readStringList(offsets[16]);
+  object.senderName = reader.readStringOrNull(offsets[17]);
+  object.senderUserCode = reader.readStringOrNull(offsets[18]);
+  object.text = reader.readString(offsets[19]);
+  object.threadId = reader.readString(offsets[20]);
+  object.time = reader.readDateTime(offsets[21]);
   return object;
 }
 
@@ -393,36 +407,40 @@ P _messageCollectionDeserializeProp<P>(
     case 8:
       return (reader.readBoolOrNull(offset)) as P;
     case 9:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 10:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 11:
+      return (reader.readStringOrNull(offset)) as P;
+    case 12:
+      return (reader.readStringOrNull(offset)) as P;
+    case 13:
       return (reader.readObjectList<MessageReactionCollection>(
         offset,
         MessageReactionCollectionSchema.deserialize,
         allOffsets,
         MessageReactionCollection(),
       )) as P;
-    case 12:
+    case 14:
       return (reader.readDateTimeOrNull(offset)) as P;
-    case 13:
+    case 15:
       return (reader.readObjectList<RecipientStatusCollection>(
         offset,
         RecipientStatusCollectionSchema.deserialize,
         allOffsets,
         RecipientStatusCollection(),
       )) as P;
-    case 14:
-      return (reader.readStringList(offset)) as P;
-    case 15:
-      return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readStringList(offset)) as P;
     case 17:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 18:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 19:
+      return (reader.readString(offset)) as P;
+    case 20:
+      return (reader.readString(offset)) as P;
+    case 21:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1277,6 +1295,34 @@ extension MessageCollectionQueryFilter
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isFailedIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'isFailed',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isFailedIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'isFailed',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isFailedEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isFailed',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
       isPrivateIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -1299,6 +1345,34 @@ extension MessageCollectionQueryFilter
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'isPrivate',
+        value: value,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSendingIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'isSending',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSendingIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'isSending',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      isSendingEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'isSending',
         value: value,
       ));
     });
@@ -2971,6 +3045,20 @@ extension MessageCollectionQuerySortBy
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsFailed() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsFailedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
       sortByIsPrivate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isPrivate', Sort.asc);
@@ -2981,6 +3069,20 @@ extension MessageCollectionQuerySortBy
       sortByIsPrivateDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isPrivate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsSending() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortByIsSendingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.desc);
     });
   }
 
@@ -3183,6 +3285,20 @@ extension MessageCollectionQuerySortThenBy
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsFailed() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsFailedDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isFailed', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
       thenByIsPrivate() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isPrivate', Sort.asc);
@@ -3193,6 +3309,20 @@ extension MessageCollectionQuerySortThenBy
       thenByIsPrivateDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'isPrivate', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsSending() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenByIsSendingDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'isSending', Sort.desc);
     });
   }
 
@@ -3375,9 +3505,23 @@ extension MessageCollectionQueryWhereDistinct
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctByIsFailed() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isFailed');
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
       distinctByIsPrivate() {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'isPrivate');
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctByIsSending() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'isSending');
     });
   }
 
@@ -3510,9 +3654,21 @@ extension MessageCollectionQueryProperty
     });
   }
 
+  QueryBuilder<MessageCollection, bool?, QQueryOperations> isFailedProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isFailed');
+    });
+  }
+
   QueryBuilder<MessageCollection, bool?, QQueryOperations> isPrivateProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'isPrivate');
+    });
+  }
+
+  QueryBuilder<MessageCollection, bool?, QQueryOperations> isSendingProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'isSending');
     });
   }
 

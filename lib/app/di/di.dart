@@ -276,6 +276,7 @@ import '../../domain/features/communication/usecases/create_conversation_usecase
 import '../../domain/features/communication/usecases/get_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_conversations_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_usecase.dart';
+import '../../domain/features/communication/usecases/cache_message_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_usecase.dart';
 import '../../domain/features/communication/usecases/clear_cache_usecase.dart';
@@ -299,7 +300,10 @@ import '../../domain/features/communication/usecases/toggle_private_mode_usecase
 import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
 import '../../domain/features/communication/usecases/get_messages_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_entity_usecase.dart';
+import '../../domain/features/communication/usecases/cache_draft_message_usecase.dart';
+import '../../domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import '../../domain/features/communication/usecases/edit_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
@@ -1220,6 +1224,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetCachedMessagesUseCase>(
     () => GetCachedMessagesUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<CacheMessageUseCase>(
+    () => CacheMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<DiscardCachedMessageUseCase>(
+    () => DiscardCachedMessageUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<AddReactionUseCase>(
     () => AddReactionUseCase(serviceLocator()),
   );
@@ -1302,6 +1312,15 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<SendMessageEntityUseCase>(
     () => SendMessageEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<CacheDraftMessageUseCase>(
+    () => CacheDraftMessageUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<MarkDraftMessageFailedUseCase>(
+    () => MarkDraftMessageFailedUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetCachedMessagesEntityUseCase>(
+    () => GetCachedMessagesEntityUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<EditMessageEntityUseCase>(
     () => EditMessageEntityUseCase(serviceLocator()),
@@ -1687,6 +1706,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       markConversationReadUseCase:
           serviceLocator<MarkConversationReadUseCase>(),
       storageService: serviceLocator<StorageService>(),
+      cacheMessageUseCase: serviceLocator<CacheMessageUseCase>(),
+      discardCachedMessageUseCase:
+          serviceLocator<DiscardCachedMessageUseCase>(),
     ),
   );
 

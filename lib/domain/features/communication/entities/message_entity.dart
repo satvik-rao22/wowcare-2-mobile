@@ -103,6 +103,17 @@ class MessageEntity extends Equatable {
   bool get hasAttachments => attachments.isNotEmpty;
   bool get isThreaded => threadParentCode != null;
 
+  /// True when at least one attachment has uploaded and registered but the
+  /// document service hasn't resolved a real delivery URL for it yet — the
+  /// bubble should keep showing the local preview with a "Processing" badge.
+  bool get hasProcessingAttachments => attachments.any((a) => a.isProcessing);
+
+  /// True when at least one attachment was picked but never even finished
+  /// uploading (no asset code) — nothing to reconcile, only a retry (from
+  /// [AttachmentEntity.localFilePath]) can recover it.
+  bool get hasUnuploadedAttachments =>
+      attachments.any((a) => a.code.isEmpty && a.localFilePath != null);
+
   int get reactionCount => reactions.length;
 
   /// Emoji → count map for display.
@@ -263,6 +274,34 @@ class AttachmentEntity extends Equatable {
 
   bool get isImage => attachmentType == AttachmentType.image;
   bool get isCached => localFilePath != null;
+
+  /// Uploaded and registered against the conversation (has a document-service
+  /// asset [code] and messaging-service [attachmentId]) but the document
+  /// service hasn't finished processing it into a real [fileUrl] yet.
+  bool get isProcessing =>
+      (code).isNotEmpty && attachmentId != null && fileUrl.isEmpty;
+
+  AttachmentEntity copyWith({
+    String? fileUrl,
+    String? thumbnailUrl,
+    bool clearLocalFilePath = false,
+  }) {
+    return AttachmentEntity(
+      code: code,
+      messageCode: messageCode,
+      conversationCode: conversationCode,
+      fileName: fileName,
+      fileUrl: fileUrl ?? this.fileUrl,
+      mimeType: mimeType,
+      fileSizeBytes: fileSizeBytes,
+      attachmentType: attachmentType,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      localFilePath: clearLocalFilePath ? null : localFilePath,
+      uploadedBy: uploadedBy,
+      uploadedAt: uploadedAt,
+      attachmentId: attachmentId,
+    );
+  }
 
   @override
   List<Object?> get props => [
