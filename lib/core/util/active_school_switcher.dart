@@ -83,9 +83,9 @@ Future<bool> switchActiveSchoolIfNeeded({
     return false;
   }
 
-  final schoolName = (match['schoolName'] ?? '').trim().isNotEmpty
+    final String? schoolName = (match['schoolName'] ?? '').trim().isNotEmpty
       ? match['schoolName']!.trim()
-      : school;
+      : null;
 
   AppLogger.d(
     '[FCM] Switching active school for notification: '

@@ -11,16 +11,20 @@ import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../core/util/school_context_helper.dart';
 
 class StudentIncidentReportScreen extends StatefulWidget {
-  const StudentIncidentReportScreen({super.key, required this.students});
+  const StudentIncidentReportScreen({
+    super.key,
+    required this.students,
+    required this.classrooms,
+  });
 
   static const String routeName = '/reports/student/incident';
 
   final List<String> students;
+  final List<String> classrooms;
 
   @override
   State<StudentIncidentReportScreen> createState() =>
@@ -32,6 +36,7 @@ class _StudentIncidentReportScreenState
   late DateTime _startDate;
   late DateTime _endDate;
   List<String> _selectedStudents = <String>[];
+  late List<String> _selectedClassrooms;
   String _format = 'PDF';
 
   @override
@@ -40,6 +45,7 @@ class _StudentIncidentReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = DateTime(now.year, now.month + 1, 0);
+    _selectedClassrooms = List<String>.from(widget.classrooms);
   }
 
   void _onGenerate() async {
@@ -66,6 +72,14 @@ class _StudentIncidentReportScreenState
     );
     if (studentCodes == null) return;
 
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms,
+      nameToCode: cubit.state.classroomNameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
+
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -83,7 +97,8 @@ class _StudentIncidentReportScreenState
       reportType: ReportType.studentIncident,
       startDate: _startDate,
       endDate: _endDate,
-      studentCodes: studentCodes.isEmpty ? null : studentCodes,
+      studentCodes: studentCodes,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       format: _format,
       schoolName: schoolName,
     );
@@ -183,6 +198,18 @@ class _StudentIncidentReportScreenState
                 ),
                 const ReportDefaultNote(
                   text: 'Note: All Students will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
+                CustomMultiSelectDropdown(
+                  label: 'Classroom',
+                  hintText: 'Select Classroom',
+                  items: widget.classrooms,
+                  selectedItems: _selectedClassrooms,
+                  onChanged: (s) => setState(() => _selectedClassrooms = s),
+                  showSelectAll: true,
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
                 ),
                 SizedBox(height: responsive.verticalSpacing),
                 const ReportFieldLabel(label: 'Export Format'),

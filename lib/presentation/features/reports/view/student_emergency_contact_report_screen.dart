@@ -35,6 +35,12 @@ class _StudentEmergencyContactReportScreenState
   final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
 
   @override
+  void initState() {
+    super.initState();
+    _selectedClassrooms.value = List<String>.from(widget.classrooms);
+  }
+
+  @override
   void dispose() {
     _selectedClassrooms.dispose();
     _format.dispose();

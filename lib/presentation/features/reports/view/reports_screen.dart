@@ -106,7 +106,10 @@ class _ReportsScreenState extends State<ReportsScreen>
         );
         break;
       case 'School Incident Report':
-        screen = StudentIncidentReportScreen(students: reports.studentNames);
+        screen = StudentIncidentReportScreen(
+          students: reports.studentNames,
+          classrooms: reports.classroomNames,
+        );
         break;
     }
 

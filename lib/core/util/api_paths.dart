@@ -285,11 +285,15 @@ class ApiPaths {
     if (path.startsWith('/api/v1/messaging/')) return path;
     if (path.startsWith('/api/v1/conversations')) {
       return path.replaceFirst(
-          '/api/v1/conversations', '/api/v1/messaging/conversations');
+        '/api/v1/conversations',
+        '/api/v1/messaging/conversations',
+      );
     }
     if (path.startsWith('/api/v1/messages')) {
       return path.replaceFirst(
-          '/api/v1/messages', '/api/v1/messaging/messages');
+        '/api/v1/messages',
+        '/api/v1/messaging/messages',
+      );
     }
     return path;
   }
@@ -716,6 +720,10 @@ class ApiPaths {
   /// GET /api/v1/attendance/student-attendance/reports/recent — Get recent student attendance reports.
   static const String studentAttendanceReportsRecent =
       '/api/v1/attendance/student-attendance/reports/recent';
+
+  /// POST /api/v1/student/student/reports/generate — Generate student incident reports.
+  static const String studentIncidentReportsGenerate =
+      '/api/v1/student/student/reports/generate';
 
   /// POST /api/v1/attendance/staff-attendance/reports/generate — Generate staff attendance reports.
   static const String staffAttendanceReportsGenerate =

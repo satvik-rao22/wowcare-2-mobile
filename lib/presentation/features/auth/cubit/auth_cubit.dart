@@ -861,7 +861,9 @@ class AuthCubit extends Cubit<AuthState> {
       );
       var schoolList = result.dataWithCodes.isNotEmpty
           ? result.dataWithCodes
-          : result.data.map((n) => {'schoolCode': n, 'schoolName': n}).toList();
+          : result.data
+                .map((n) => {'schoolCode': n, 'schoolName': ''})
+                .toList();
 
       // If API returns empty (or unexpected payload), fallback to static catalog.
       if (schoolList.isEmpty && staticFallback.isNotEmpty) {
@@ -914,6 +916,49 @@ class AuthCubit extends Cubit<AuthState> {
           redirectUrl: prev?.redirectUrl,
         ),
       );
+
+      // Persist fetched school names into the local organizations+schools
+      // cache so helpers (SchoolContextHelper) can resolve display names
+      // even after app restart. Merge into existing list while updating
+      // names for matching org+school entries.
+      try {
+        final existing = await _localDataSource.getOrganizationsAndSchools();
+        final merged = List<Map<String, String>>.from(existing);
+        for (final e in schoolList) {
+          final code = (e['schoolCode'] ?? '').toString().trim();
+          final name = (e['schoolName'] ?? '').toString().trim();
+          if (code.isEmpty) continue;
+          final entry = <String, String>{
+            'organizationCode': organizationCode,
+            'schoolCode': code,
+            'schoolName': name,
+          };
+          final idx = merged.indexWhere(
+            (m) =>
+                (m['organizationCode'] ?? '') == organizationCode &&
+                (m['schoolCode'] ?? '') == code,
+          );
+          if (idx != -1) {
+            final existingName = (merged[idx]['schoolName'] ?? '')
+                .toString()
+                .trim();
+            // Avoid overwriting an existing pretty name with an empty value
+            // or with a code. Only replace when the new name is non-empty
+            // and appears more informative.
+            if (name.isNotEmpty && name != code) {
+              merged[idx] = entry;
+            } else if (existingName.isEmpty) {
+              // existing had no name, accept whatever we have (even code)
+              merged[idx] = entry;
+            }
+          } else {
+            merged.insert(0, entry);
+          }
+        }
+        await _localDataSource.saveOrganizationsAndSchools(merged);
+      } catch (e) {
+        AppLogger.d('[AUTH] failed to persist organizationsAndSchools: $e');
+      }
     } catch (e) {
       // Fallback to static catalog when API fails so user can still continue.
       if (staticFallback.isNotEmpty) {

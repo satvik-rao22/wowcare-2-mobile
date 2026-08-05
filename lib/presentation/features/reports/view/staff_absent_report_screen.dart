@@ -38,6 +38,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
+    _selectedClassrooms.value = List<String>.from(widget.classrooms);
   }
 
   @override

@@ -50,6 +50,7 @@ class _StaffAttendancePerWeekReportScreenState
     super.initState();
     final now = AppTime.now();
     _periodMonth = DateTime(now.year, now.month, 1);
+    _selectedClassrooms = List<String>.from(widget.classrooms);
   }
 
   void _onGenerate() async {

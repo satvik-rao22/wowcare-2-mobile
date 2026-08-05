@@ -21,19 +21,42 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     required Map<String, dynamic> requestBody,
   }) async {
     final endpoint = _generateEndpointFor(reportType);
+    final headers = Map<String, dynamic>.from(_dio.options.headers);
 
-    AppLogger.d(
-      '[REPORTS] Generating ${reportType.backendValue} -> $endpoint, payload: $requestBody',
-    );
+    AppLogger.d('========== REPORT REQUEST ==========');
+    AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+    AppLogger.d('Headers: $headers');
+    AppLogger.d('Payload: $requestBody');
+    AppLogger.d('====================================');
     _logPayloadFieldTypes(requestBody);
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiPaths.url(endpoint),
-      data: requestBody,
-    );
 
-    final responseData = response.data ?? {};
-    AppLogger.d('[REPORTS] Response from $endpoint: $responseData');
-    return ReportResponseModel.fromJson(responseData);
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiPaths.url(endpoint),
+        data: requestBody,
+      );
+      final responseData = response.data ?? {};
+
+      AppLogger.d('========== REPORT RESPONSE ==========');
+      AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.d('Status Code: ${response.statusCode}');
+      AppLogger.d('Response Body: $responseData');
+      AppLogger.d('=====================================');
+
+      return ReportResponseModel.fromJson(responseData);
+    } catch (error, stackTrace) {
+      AppLogger.e('========== REPORT ERROR ==========', error, stackTrace);
+      AppLogger.e('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.e('Request Headers: $headers');
+      AppLogger.e('Request Payload: $requestBody');
+      if (error is DioException) {
+        AppLogger.e('DioException type: ${error.type}');
+        AppLogger.e('DioException response: ${error.response?.data}');
+        AppLogger.e('DioException statusCode: ${error.response?.statusCode}');
+      }
+      AppLogger.e('=====================================');
+      rethrow;
+    }
   }
 
   /// Logs the runtime type of every collection-shaped field in the outgoing
@@ -84,9 +107,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
         return ApiPaths.staffReportsGenerate;
       case ReportType.studentsAndFamily:
       case ReportType.emergencyContacts:
-      case ReportType.studentIncident:
       case ReportType.annualStateImmunization:
         return ApiPaths.studentManagementReportsGenerate;
+      case ReportType.studentIncident:
+        return ApiPaths.studentIncidentReportsGenerate;
       case ReportType.immunization:
         // TODO(backend-confirm): unverified whether this dedicated route is
         // still live, or whether immunization now goes through

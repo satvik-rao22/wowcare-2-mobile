@@ -65,7 +65,8 @@ class ReportRequestParams extends Equatable implements ReportParams {
       'reportType': reportType.backendValue,
       'startDate': startDate.toIso8601String().split('T')[0],
       if (endDate != null) 'endDate': endDate!.toIso8601String().split('T')[0],
-      if (schoolName != null) 'schoolName': schoolName,
+      if (schoolName != null && schoolName!.trim().isNotEmpty)
+        'schoolName': schoolName,
       'format': format,
     };
 
@@ -74,26 +75,27 @@ class ReportRequestParams extends Equatable implements ReportParams {
     if (reportType == ReportType.studentAbsent ||
         reportType == ReportType.studentAttendancePerStudent ||
         reportType == ReportType.staffAttendancePerStaff ||
-        reportType == ReportType.emergencyContacts) {
-      // These reports use roomCodes instead of classroomCodes
-      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+        reportType == ReportType.emergencyContacts ||
+        reportType == ReportType.studentIncident) {
+      // These reports use roomCodes instead of classroomCodes.
+      if (classroomCodes != null) {
         body['roomCodes'] = classroomCodes;
       }
     } else {
-      // Other reports use classroomCodes
-      if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+      // Other reports use classroomCodes.
+      if (classroomCodes != null) {
         body['classroomCodes'] = classroomCodes;
       }
     }
 
-    // Add optional fields
-    if (studentCodes != null && studentCodes!.isNotEmpty) {
+    // Add optional fields.
+    if (studentCodes != null) {
       body['studentCodes'] = studentCodes;
     }
-    if (staffCodes != null && staffCodes!.isNotEmpty) {
+    if (staffCodes != null) {
       body['staffCodes'] = staffCodes;
     }
-    if (tagCodes != null && tagCodes!.isNotEmpty) {
+    if (tagCodes != null) {
       body['tagCodes'] = tagCodes;
     }
     if (search != null && search!.trim().isNotEmpty) {

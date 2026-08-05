@@ -49,12 +49,14 @@ class ReportsRepositoryImpl implements ReportsRepository {
         await _storageService.getString(StorageKeys.organizationCode) ?? '';
     final userCode =
         await _storageService.getString(StorageKeys.userCode) ?? '';
-    // Pass the schoolName properly insted of the schoolCode in the SchoolName field
+    // Pass the schoolName properly instead of the schoolCode in the schoolName field.
     final schoolName = await SchoolContextHelper.getSchoolName();
     requestBody['schoolCode'] = schoolCode;
     requestBody['organizationCode'] = organizationCode;
     requestBody['generatedBy'] = userCode;
-    requestBody['schoolName'] = schoolName;
+    if (schoolName != null && schoolName.isNotEmpty) {
+      requestBody['schoolName'] = schoolName;
+    }
 
     AppLogger.d('[REPORTS-REPO] Calling remote datasource for fresh API call');
 

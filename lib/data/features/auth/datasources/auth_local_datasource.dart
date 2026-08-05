@@ -254,7 +254,11 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     final orgCode = _str(context['LastLoginOrganizationCode']);
     final schoolCode = _str(context['LastLoginSchoolCode']);
     final schoolName = _str(context['schoolName']);
-    final displayName = schoolName.isNotEmpty ? schoolName : schoolCode;
+    // Do NOT substitute the schoolCode for the display name here. Store an
+    // empty display name when the context provides none so later cache
+    // merges can distinguish "no pretty name known" from a name equal to
+    // the code.
+    final displayName = schoolName.isNotEmpty ? schoolName : '';
 
     if (orgCode.isEmpty || schoolCode.isEmpty) {
       return false;
@@ -311,8 +315,10 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
             (m) => {
               'organizationCode': (m['organizationCode'] ?? '').toString(),
               'schoolCode': (m['schoolCode'] ?? '').toString(),
-              'schoolName': (m['schoolName'] ?? m['schoolCode'] ?? '')
-                  .toString(),
+              // Preserve the stored schoolName exactly. Do NOT auto-fill with
+              // schoolCode here — that makes it impossible to distinguish a
+              // missing display name from an actual name equal to the code.
+              'schoolName': (m['schoolName'] ?? '').toString(),
             },
           )
           .where((m) => m['organizationCode']!.isNotEmpty)
@@ -375,10 +381,7 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     }
     await _storage.saveString(StorageKeys.organizationCode, organizationCode);
     await _storage.saveString(StorageKeys.schoolCode, next);
-    await _storage.saveString(
-      StorageKeys.selectedSchoolName,
-      schoolName ?? next,
-    );
+    await _storage.saveString(StorageKeys.selectedSchoolName, schoolName ?? '');
     if (newOrg.isNotEmpty && next.isNotEmpty) {
       await _storage.saveBool(StorageKeys.loginCompleted, true);
     }

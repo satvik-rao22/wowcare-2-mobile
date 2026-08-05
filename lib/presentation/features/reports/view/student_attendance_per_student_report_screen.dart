@@ -43,7 +43,7 @@ class _StudentAttendancePerStudentReportScreenState
   String _frequency = 'Monthly';
   late DateTime _periodDate;
   List<String> _selectedStudents = <String>[];
-  List<String> _selectedClassrooms = <String>[];
+  late List<String> _selectedClassrooms;
   String _format = 'PDF';
 
   @override
@@ -51,6 +51,7 @@ class _StudentAttendancePerStudentReportScreenState
     super.initState();
     final now = AppTime.now();
     _periodDate = DateTime(now.year, now.month, 1);
+    _selectedClassrooms = List<String>.from(widget.classrooms);
   }
 
   void _onGenerate() async {
@@ -105,15 +106,7 @@ class _StudentAttendancePerStudentReportScreenState
     final params = ReportRequestParams(
       reportType: ReportType.studentAttendancePerStudent,
       startDate: _periodDate,
-      endDate: _periodDate.add(
-        Duration(
-          days: _frequency == 'Daily'
-              ? 0
-              : _frequency == 'Weekly'
-              ? 6
-              : 30,
-        ),
-      ),
+      endDate: _rangeEndForFrequency(_periodDate),
       studentCodes: studentCodes,
       format: _format,
       schoolName: schoolName.isNotEmpty ? schoolName : null,
@@ -121,6 +114,18 @@ class _StudentAttendancePerStudentReportScreenState
     );
 
     unawaited(cubit.generateReport(params));
+  }
+
+  DateTime _rangeEndForFrequency(DateTime startDate) {
+    switch (_frequency) {
+      case 'Daily':
+        return startDate;
+      case 'Weekly':
+        return startDate.add(const Duration(days: 6));
+      case 'Monthly':
+      default:
+        return DateTime(startDate.year, startDate.month + 1, 0);
+    }
   }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(

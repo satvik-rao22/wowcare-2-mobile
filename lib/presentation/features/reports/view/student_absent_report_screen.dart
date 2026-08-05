@@ -30,8 +30,7 @@ class StudentAbsentReportScreen extends StatefulWidget {
 class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
   late final ValueNotifier<DateTime> _fromDate;
   late final ValueNotifier<DateTime> _toDate;
-  final ValueNotifier<List<String>> _selectedClassrooms =
-      ValueNotifier<List<String>>(<String>[]);
+  late final ValueNotifier<List<String>> _selectedClassrooms;
   final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
 
   @override
@@ -40,6 +39,9 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
+    _selectedClassrooms = ValueNotifier<List<String>>(
+      List<String>.from(widget.classrooms),
+    );
   }
 
   @override
