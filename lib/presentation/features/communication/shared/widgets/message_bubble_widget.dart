@@ -72,6 +72,16 @@ class MessageBubble extends StatefulWidget {
   /// [_alignRight]).
   final bool? senderIsOrgSide;
 
+  /// Whether the CURRENT VIEWER (not the sender) is staff/admin/teacher/
+  /// director (true) or guardian/parent (false). Null for Staff Direct
+  /// (matches [senderIsOrgSide]'s nullability). Room Chat / Admin Chat colour
+  /// spec (docs/messaging AC11/AC12): a parent's messages render on the left
+  /// in a pink gradient for a staff/admin viewer, and staff/admin messages
+  /// render on the left for a parent viewer — i.e. alignment there is
+  /// role-based ("does this message's side match MY side"), not purely
+  /// identity-based. See [_alignRight].
+  final bool? viewerIsOrgSide;
+
   const MessageBubble({
     required this.message,
     required this.reactionsController,
@@ -95,6 +105,7 @@ class MessageBubble extends StatefulWidget {
     this.isDeleted = false,
     this.isGrouped = false,
     this.senderIsOrgSide,
+    this.viewerIsOrgSide,
     super.key,
   });
 
@@ -227,24 +238,51 @@ class _MessageBubbleState extends State<MessageBubble>
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  bool get _isMe =>
-      widget.message.isSentByMe ||
-      (widget.currentUserCode != null &&
-          widget.currentUserCode == widget.message.senderUserCode);
+  /// [Message.isSentByMe] is already the fully-informed answer by the time
+  /// it reaches this widget: computed from raw code-matching upstream, AND
+  /// (for screens where persona ambiguity is possible — see
+  /// `ThreadMessageTile.isGuardian`/`withRoleAwareOwnership`) narrowed to
+  /// `false` when [Message.senderRole] says this specific message was sent
+  /// under a DIFFERENT persona of the same account. The raw
+  /// `currentUserCode == senderUserCode` fallback below must therefore only
+  /// fire when there's no [Message.senderRole] to have reasoned about at
+  /// all — otherwise it silently re-derives "mine" from the account code
+  /// alone and undoes that narrowing for a dual-role account's message sent
+  /// under its other persona (exactly the bug this getter was fixing before
+  /// senderRole existed: a message the client can verify is the current
+  /// user's own account always rendering on their side, regardless of a
+  /// separately-unreliable role signal — [senderIsOrgSide] here, which is
+  /// still trusted for bubble *colour* on messages that aren't mine, per
+  /// its own doc comment. `senderRole` is a different, per-message-accurate
+  /// field from that older `senderIsOrgSide` problem).
+  bool get _isMe {
+    if (widget.message.isSentByMe) return true;
+    final role = widget.message.senderRole;
+    if (role != null && role.isNotEmpty) return false;
+    return widget.currentUserCode != null &&
+        widget.currentUserCode == widget.message.senderUserCode;
+  }
 
-  /// Which side this bubble renders on. Always identity-based ([_isMe]) —
-  /// matches the documented contract on [MessageBubble.senderIsOrgSide]
-  /// ("it never drives alignment"). A message the client can verify is the
-  /// current user's own (by [Message.senderUserCode]/[currentUserCode])
-  /// always renders on their side, regardless of what `senderRole` the
-  /// backend attributes to it — a dual-role account (e.g. SCHOOL_ADMIN +
-  /// GUARDIAN) has been observed getting a message it just sent back
-  /// attributed to its OTHER persona, which previously flipped the sender's
-  /// own bubble onto the opposite side because [senderIsOrgSide] (derived
-  /// from that same unreliable `senderRole`) was trusted over identity.
-  /// [senderIsOrgSide] still drives bubble *colour* for messages that
-  /// aren't mine, per its own doc comment.
-  bool get _alignRight => _isMe;
+  /// Which side this bubble renders on.
+  ///
+  /// Staff Direct (both [senderIsOrgSide]/[viewerIsOrgSide] null) keeps the
+  /// legacy identity-based rule: only the viewer's own messages go right.
+  ///
+  /// Room Chat / Admin Chat: role-based, per AC11/AC12 — a staff/admin
+  /// viewer sees ALL staff/admin messages (their own AND other staff's) on
+  /// the right, and ALL parent messages on the left; a parent viewer sees
+  /// ALL parent messages (their own AND other parents') on the right, and
+  /// ALL staff/admin messages on the left. [_isMe] is checked first purely
+  /// as a safety net so a message the viewer definitely sent never renders
+  /// on the left even if the sender/viewer role snapshots momentarily
+  /// disagree.
+  bool get _alignRight {
+    if (_isMe) return true;
+    final viewerOrg = widget.viewerIsOrgSide;
+    final senderOrg = widget.senderIsOrgSide;
+    if (viewerOrg == null || senderOrg == null) return false;
+    return senderOrg == viewerOrg;
+  }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info and no reactions — there's no
@@ -805,27 +843,27 @@ class _MessageBubbleState extends State<MessageBubble>
                       // fire only for newly added/removed reactions.
                       // Deleted messages show no reaction pills.
                       if (!widget.isDeleted)
-                      AnimatedBuilder(
-                        animation: widget.reactionsController,
-                        builder: (context, _) {
-                          final messageId = widget.message.code.isNotEmpty
-                              ? widget.message.code
-                              : widget.message.id;
-                          final counts = widget.reactionsController
-                              .getReactionCounts(messageId);
-                          return Transform.translate(
-                            offset: const Offset(0, -6),
-                            child: _AnimatedReactionBadge(
-                              counts: counts,
-                              // Per-chip toggle: tapping a specific emoji
-                              // adds/removes just that emoji for the current
-                              // user. Whole-badge onTap kept as a fallback.
-                              onEmojiTap: _handleEmojiChipTap,
-                              onTap: _handleExistingReactionTap,
-                            ),
-                          );
-                        },
-                      ),
+                        AnimatedBuilder(
+                          animation: widget.reactionsController,
+                          builder: (context, _) {
+                            final messageId = widget.message.code.isNotEmpty
+                                ? widget.message.code
+                                : widget.message.id;
+                            final counts = widget.reactionsController
+                                .getReactionCounts(messageId);
+                            return Transform.translate(
+                              offset: const Offset(0, -6),
+                              child: _AnimatedReactionBadge(
+                                counts: counts,
+                                // Per-chip toggle: tapping a specific emoji
+                                // adds/removes just that emoji for the current
+                                // user. Whole-badge onTap kept as a fallback.
+                                onEmojiTap: _handleEmojiChipTap,
+                                onTap: _handleExistingReactionTap,
+                              ),
+                            );
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -844,15 +882,21 @@ class _MessageBubbleState extends State<MessageBubble>
     final isDeleted = widget.isDeleted;
     final orgSide = widget.senderIsOrgSide;
     // Room/Admin Chat (orgSide non-null): "my" message always keeps the
-    // current sender gradient (light text) no matter which side of the
-    // conversation I'm on. A message that isn't mine is colored by the
-    // *sender's* role instead: an org-side (staff/admin/teacher/director)
-    // sender gets a flat white bubble with primary-colored text, a
-    // guardian sender keeps the pink gradient (light text). Staff Direct
-    // (orgSide null) keeps the legacy look: gradient (light text) only for
-    // the viewer's own messages, flat light background (dark text) for the
-    // other party's.
-    final useLightText = orgSide == null ? isMe : !(orgSide && !isMe);
+    // current sender gradient (light text). Staff Direct (orgSide null)
+    // keeps the legacy look: gradient (light text) only for the viewer's
+    // own messages, flat light background (dark text) for the other
+    // party's.
+    //
+    // AC11/AC12: pink is a highlight reserved for a guardian's message when
+    // read by the OPPOSITE role (staff/admin) — never for a fellow parent
+    // reading another parent's message (that's a same-role peer, plain
+    // white, per AC12's "other parent's messages ... white background").
+    final viewerOrg = widget.viewerIsOrgSide;
+    final isOppositeRoleGuardian =
+        orgSide == false && (viewerOrg == null || viewerOrg == true);
+    final useLightText = orgSide == null
+        ? isMe
+        : (isMe || isOppositeRoleGuardian);
 
     // Emoji-only analysis — skip for deleted / attached / quoted messages so
     // those always render through the normal bubble with full metadata.
@@ -879,10 +923,10 @@ class _MessageBubbleState extends State<MessageBubble>
       bubbleGradient = isMe ? AppColors.buildPrimaryGradient() : null;
     } else if (isMe) {
       bubbleGradient = AppColors.buildPrimaryGradient();
-    } else if (orgSide) {
-      bubbleColor = Colors.white;
-    } else {
+    } else if (isOppositeRoleGuardian) {
       bubbleGradient = AppColors.buildPinkGradient();
+    } else {
+      bubbleColor = Colors.white;
     }
 
     return Material(
@@ -1557,7 +1601,8 @@ class _MessageBubbleState extends State<MessageBubble>
                   child: AttachmentUrlResolver(
                     attachment: rawAtt,
                     builder: (context, resolvedUrl, isLoading, isProcessing) {
-                      final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
+                      final att =
+                          (resolvedUrl != null && resolvedUrl.isNotEmpty)
                           ? rawAtt.copyWith(remoteUrl: resolvedUrl)
                           : rawAtt;
                       final hasSource = att.displaySource != null;
@@ -1618,14 +1663,15 @@ class _MessageBubbleState extends State<MessageBubble>
                                         backgroundColor: Colors.white,
                                         iconColor: Colors.green,
                                       ),
-                                      errorBuilder: (context, error) => Container(
-                                        color: Colors.grey[300],
-                                        child: const Icon(
-                                          Icons.image,
-                                          size: 50,
-                                          color: Colors.grey,
-                                        ),
-                                      ),
+                                      errorBuilder: (context, error) =>
+                                          Container(
+                                            color: Colors.grey[300],
+                                            child: const Icon(
+                                              Icons.image,
+                                              size: 50,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
                                     )
                                   : Container(
                                       color: Colors.grey[300],

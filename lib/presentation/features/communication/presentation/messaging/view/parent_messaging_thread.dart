@@ -6,6 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/role_aware_ownership.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/parent_participant_chips.dart';
@@ -97,6 +99,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   String? _lastMessageId;
   bool _initialLoadInFlight = true;
   bool _ownSendPending = false;
+
+  /// True once the thread has successfully loaded at least once — see the
+  /// matching field in StaffMessagingThread for why this is needed: a
+  /// mid-thread action failure's `CommunicationError` is immediately
+  /// superseded by a follow-up `CommunicationLoaded` emit in the same
+  /// cubit call, so it never survives to a painted frame and `build()`
+  /// alone silently skips it. Only the `listener` callback (synchronous
+  /// per-emission, not frame-batched) reliably catches it.
+  bool _hasLoadedThreadOnce = false;
   TabController? _tabController;
 
   /// False until the very first scroll-to-bottom has actually landed on the
@@ -443,7 +454,16 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     final state = context.read<CommunicationCubit>().state;
     if (state is CommunicationLoaded) {
       final threadId = widget.parentInfo['code'] as String;
-      final messages = state.threads[threadId] ?? [];
+      final messages =
+          state.threads[threadId]
+              ?.map(
+                (m) => withRoleAwareOwnership(
+                  m,
+                  viewingAsGuardian: widget.isGuardian,
+                ),
+              )
+              .toList() ??
+          [];
       if (widget.isGuardian) {
         return messages.where((m) {
           if (!m.isPrivate) return true;
@@ -765,6 +785,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                     if (showDateHeader) const SizedBox(height: 10),
                     SizedBox(height: isGrouped ? 2.0 : 8.0),
                     ThreadMessageTile(
+                      isGuardian: widget.isGuardian,
                       threadId: widget.parentInfo['code'] as String,
                       messageCode: message.code,
                       quotedMessageId: message.quotedMessageId,
@@ -776,9 +797,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           );
                         }
                       },
-                      onRetry: (msg) => context
-                          .read<CommunicationCubit>()
-                          .retrySendMessage(
+                      onRetry: (msg) =>
+                          context.read<CommunicationCubit>().retrySendMessage(
                             widget.parentInfo['code'] as String,
                             msg,
                           ),
@@ -787,6 +807,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                       isParentMessaging: true,
                       participants: _participants,
                       senderIsOrgSide: _isOrgSideSender(message),
+                      viewerIsOrgSide: !widget.isGuardian,
                       onReply: message.isDeleted
                           ? null
                           : () {
@@ -903,7 +924,17 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     return BlocConsumer<CommunicationCubit, CommunicationState>(
       listener: (context, state) {
         if (state is CommunicationLoaded) {
+          _hasLoadedThreadOnce = true;
           _onMessagesChanged(_activeMessages);
+        } else if (state is CommunicationError && _hasLoadedThreadOnce) {
+          // Mid-thread failure (the thread was already showing) — surface
+          // it as a snackbar. A true initial-load failure instead falls
+          // through to the full-page error branch in `build()` below.
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message,
+            isError: true,
+          );
         }
       },
       builder: (context, state) {
@@ -1074,6 +1105,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             : 8.0,
                                                       ),
                                                       ThreadMessageTile(
+                                                        isGuardian:
+                                                            widget.isGuardian,
                                                         threadId:
                                                             widget.parentInfo['code']
                                                                 as String,
@@ -1117,6 +1150,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             _isOrgSideSender(
                                                               message,
                                                             ),
+                                                        viewerIsOrgSide:
+                                                            !widget.isGuardian,
                                                         onReply:
                                                             message.isDeleted
                                                             ? null
@@ -1383,6 +1418,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             : 8.0,
                                                       ),
                                                       ThreadMessageTile(
+                                                        isGuardian:
+                                                            widget.isGuardian,
                                                         threadId:
                                                             widget.parentInfo['code']
                                                                 as String,
@@ -1426,6 +1463,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             _isOrgSideSender(
                                                               message,
                                                             ),
+                                                        viewerIsOrgSide:
+                                                            !widget.isGuardian,
                                                         onReply:
                                                             message.isDeleted
                                                             ? null
@@ -1697,6 +1736,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             : 8.0,
                                                       ),
                                                       ThreadMessageTile(
+                                                        isGuardian:
+                                                            widget.isGuardian,
                                                         threadId:
                                                             widget.parentInfo['code']
                                                                 as String,
@@ -1740,6 +1781,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             _isOrgSideSender(
                                                               message,
                                                             ),
+                                                        viewerIsOrgSide:
+                                                            !widget.isGuardian,
                                                         onReply:
                                                             message.isDeleted
                                                             ? null
@@ -2114,6 +2157,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             ),
 
                                                           ThreadMessageTile(
+                                                            isGuardian: widget
+                                                                .isGuardian,
                                                             threadId:
                                                                 widget.parentInfo['code']
                                                                     as String,
@@ -2158,6 +2203,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _isOrgSideSender(
                                                                   message,
                                                                 ),
+                                                            viewerIsOrgSide:
+                                                                !widget
+                                                                    .isGuardian,
                                                             onReply:
                                                                 message
                                                                     .isDeleted
@@ -2427,6 +2475,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             ),
 
                                                           ThreadMessageTile(
+                                                            isGuardian: widget
+                                                                .isGuardian,
                                                             threadId:
                                                                 widget.parentInfo['code']
                                                                     as String,
@@ -2471,6 +2521,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _isOrgSideSender(
                                                                   message,
                                                                 ),
+                                                            viewerIsOrgSide:
+                                                                !widget
+                                                                    .isGuardian,
                                                             onReply:
                                                                 message
                                                                     .isDeleted
@@ -2750,6 +2803,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                             ),
 
                                                           ThreadMessageTile(
+                                                            isGuardian: widget
+                                                                .isGuardian,
                                                             threadId:
                                                                 widget.parentInfo['code']
                                                                     as String,
@@ -2794,6 +2849,9 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 _isOrgSideSender(
                                                                   message,
                                                                 ),
+                                                            viewerIsOrgSide:
+                                                                !widget
+                                                                    .isGuardian,
                                                             onReply:
                                                                 message
                                                                     .isDeleted
@@ -3238,13 +3296,25 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
   /// True if [m]'s sender is staff/admin/teacher/director, false if
   /// guardian/parent — the role-class signal the canonical bubble
-  /// alignment rule needs (docs/messaging/06-ui-standards.md). Defaults to
-  /// guardian (false) when the sender can't be matched against the current
-  /// participant list (e.g. a system message, or stale data mid-refresh) —
-  /// errs toward the side this screen already renders by default rather
-  /// than risk surprising a guardian viewer with their own message
-  /// suddenly flipping sides.
+  /// alignment rule needs (docs/messaging/06-ui-standards.md).
+  ///
+  /// Prefers [Message.senderRole] — the exact role THIS message was sent
+  /// under — over a participant-list lookup by `senderUserCode`. A dual-role
+  /// account (e.g. an admin who is also the enrolled child's guardian) has
+  /// TWO participant entries sharing the same userCode; looking up "by code"
+  /// alone can't tell which persona sent a given message and would silently
+  /// pick whichever entry happens to be first, exactly the bug already fixed
+  /// for message ownership via `senderRole` (see [withRoleAwareOwnership]) —
+  /// this is that same fix applied to the org/guardian colour-and-alignment
+  /// signal. Only falls back to the participant list (defaulting to
+  /// guardian) when a message has no `senderRole` at all (older cached rows,
+  /// system messages, or stale data mid-refresh).
   bool _isOrgSideSender(Message m) {
+    final senderRole = m.senderRole;
+    if (senderRole != null && senderRole.isNotEmpty) {
+      return ParticipantRole.fromApiString(senderRole) !=
+          ParticipantRole.parent;
+    }
     final code = m.senderUserCode;
     final role =
         _participantDisplayData

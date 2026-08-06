@@ -111,23 +111,28 @@ const MessageCollectionSchema = CollectionSchema(
       name: r'senderName',
       type: IsarType.string,
     ),
-    r'senderUserCode': PropertySchema(
+    r'senderRole': PropertySchema(
       id: 18,
+      name: r'senderRole',
+      type: IsarType.string,
+    ),
+    r'senderUserCode': PropertySchema(
+      id: 19,
       name: r'senderUserCode',
       type: IsarType.string,
     ),
     r'text': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'text',
       type: IsarType.string,
     ),
     r'threadId': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'threadId',
       type: IsarType.string,
     ),
     r'time': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'time',
       type: IsarType.dateTime,
     )
@@ -259,6 +264,12 @@ int _messageCollectionEstimateSize(
     }
   }
   {
+    final value = object.senderRole;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
+  {
     final value = object.senderUserCode;
     if (value != null) {
       bytesCount += 3 + value.length * 3;
@@ -313,10 +324,11 @@ void _messageCollectionSerialize(
   );
   writer.writeStringList(offsets[16], object.receivers);
   writer.writeString(offsets[17], object.senderName);
-  writer.writeString(offsets[18], object.senderUserCode);
-  writer.writeString(offsets[19], object.text);
-  writer.writeString(offsets[20], object.threadId);
-  writer.writeDateTime(offsets[21], object.time);
+  writer.writeString(offsets[18], object.senderRole);
+  writer.writeString(offsets[19], object.senderUserCode);
+  writer.writeString(offsets[20], object.text);
+  writer.writeString(offsets[21], object.threadId);
+  writer.writeDateTime(offsets[22], object.time);
 }
 
 MessageCollection _messageCollectionDeserialize(
@@ -364,10 +376,11 @@ MessageCollection _messageCollectionDeserialize(
   );
   object.receivers = reader.readStringList(offsets[16]);
   object.senderName = reader.readStringOrNull(offsets[17]);
-  object.senderUserCode = reader.readStringOrNull(offsets[18]);
-  object.text = reader.readString(offsets[19]);
-  object.threadId = reader.readString(offsets[20]);
-  object.time = reader.readDateTime(offsets[21]);
+  object.senderRole = reader.readStringOrNull(offsets[18]);
+  object.senderUserCode = reader.readStringOrNull(offsets[19]);
+  object.text = reader.readString(offsets[20]);
+  object.threadId = reader.readString(offsets[21]);
+  object.time = reader.readDateTime(offsets[22]);
   return object;
 }
 
@@ -437,10 +450,12 @@ P _messageCollectionDeserializeProp<P>(
     case 18:
       return (reader.readStringOrNull(offset)) as P;
     case 19:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 20:
       return (reader.readString(offset)) as P;
     case 21:
+      return (reader.readString(offset)) as P;
+    case 22:
       return (reader.readDateTime(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2457,6 +2472,160 @@ extension MessageCollectionQueryFilter
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'senderRole',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'senderRole',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'senderRole',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'senderRole',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'senderRole',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'senderRole',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
+      senderRoleIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'senderRole',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterFilterCondition>
       senderUserCodeIsNull() {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(const FilterCondition.isNull(
@@ -3157,6 +3326,20 @@ extension MessageCollectionQuerySortBy
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortBySenderRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      sortBySenderRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
       sortBySenderUserCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'senderUserCode', Sort.asc);
@@ -3411,6 +3594,20 @@ extension MessageCollectionQuerySortThenBy
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenBySenderRole() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.asc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
+      thenBySenderRoleDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'senderRole', Sort.desc);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QAfterSortBy>
       thenBySenderUserCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'senderUserCode', Sort.asc);
@@ -3570,6 +3767,13 @@ extension MessageCollectionQueryWhereDistinct
   }
 
   QueryBuilder<MessageCollection, MessageCollection, QDistinct>
+      distinctBySenderRole({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'senderRole', caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<MessageCollection, MessageCollection, QDistinct>
       distinctBySenderUserCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'senderUserCode',
@@ -3725,6 +3929,13 @@ extension MessageCollectionQueryProperty
       senderNameProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'senderName');
+    });
+  }
+
+  QueryBuilder<MessageCollection, String?, QQueryOperations>
+      senderRoleProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'senderRole');
     });
   }
 

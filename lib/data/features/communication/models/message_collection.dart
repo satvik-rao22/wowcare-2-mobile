@@ -15,6 +15,13 @@ class MessageCollection {
   late String text;
   bool? isSentByMe;
   String? senderUserCode;
+
+  /// Raw backend role string the sender was acting AS for this message —
+  /// see [Message.senderRole]. Passed through as-is; the role-aware
+  /// "is this genuinely mine" correction happens at render time (screens
+  /// that can be viewed as more than one persona for the same account
+  /// know which persona is active — this cache layer doesn't).
+  String? senderRole;
   late DateTime time;
   DateTime? deliveredAt;
   DateTime? readAt;
@@ -53,6 +60,7 @@ class MessageCollection {
       ..text = message.text
       ..isSentByMe = message.isSentByMe
       ..senderUserCode = message.senderUserCode
+      ..senderRole = message.senderRole
       ..time = message.time
       ..deliveredAt = message.deliveredAt
       ..readAt = message.readAt
@@ -105,6 +113,7 @@ class MessageCollection {
       text: text,
       isSentByMe: resolvedIsSentByMe,
       senderUserCode: normalizedSenderCode,
+      senderRole: senderRole,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,

@@ -26,6 +26,7 @@ class MessageModel extends Message {
     super.attachments,
     super.senderName,
     super.receivers,
+    super.senderRole,
     super.isPrivate = false,
     super.privateParentUserCode,
   }) : super(senderUserCode: senderUserCode);
@@ -87,6 +88,13 @@ class MessageModel extends Message {
       senderName: (json['senderDisplayName'] as String?)?.isNotEmpty == true
           ? json['senderDisplayName'] as String
           : json['senderName'] as String?,
+      // Which persona the sender was acting AS — see Message.senderRole.
+      // The messaging service is only known to key this as `senderRole`;
+      // `role` is a defensive fallback in case some endpoint variant uses
+      // the same key the send request itself sends this under.
+      senderRole: (json['senderRole'] as String?)?.trim().isNotEmpty == true
+          ? (json['senderRole'] as String).trim()
+          : (json['role'] as String?)?.trim(),
       receivers: const [],
       // Privacy is driven by the presence of privateParentUserCode (the backend
       // invariant is isPrivate = privateParentUserCode != null). ppc-presence
