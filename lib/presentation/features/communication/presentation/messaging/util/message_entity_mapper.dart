@@ -14,6 +14,19 @@ Message mapMessageEntityToMessage(
   MessageEntity entity,
   String currentUserCode, {
   int recipientCount = 0,
+
+  /// Which persona the CURRENT screen instance is showing — mirrors the v1
+  /// stack's `ThreadMessageTile.isGuardian`/`withRoleAwareOwnership`. Null
+  /// (the default) skips the role-aware narrowing below, preserving plain
+  /// userCode-only ownership.
+  ///
+  /// A single account can hold more than one persona in the SAME
+  /// conversation (e.g. an admin who is also the enrolled child's
+  /// guardian) — `entity.senderCode == currentUserCode` alone can't tell
+  /// those two personas apart, so a message sent under the account's OTHER
+  /// persona would otherwise render as "mine" here regardless of which
+  /// persona the viewer is currently looking at the thread as.
+  bool? viewingAsGuardian,
 }) {
   // Group read/delivered ticks (ALL-recipients): a group message counts as delivered/read only when
   // EVERY active recipient has delivered/read it. readReceipts only contains recipients already
@@ -24,8 +37,9 @@ Message mapMessageEntityToMessage(
   DateTime? aggregatedDeliveredAt;
   DateTime? aggregatedReadAt;
   if (recipientCount > 0) {
-    final deliveredCount =
-        entity.readReceipts.where((r) => r.deliveredAt != null).length;
+    final deliveredCount = entity.readReceipts
+        .where((r) => r.deliveredAt != null)
+        .length;
     final readCount = entity.readReceipts.where((r) => r.readAt != null).length;
     if (readCount >= recipientCount) {
       aggregatedReadAt = entity.sentAt;
@@ -34,7 +48,11 @@ Message mapMessageEntityToMessage(
       aggregatedDeliveredAt = entity.sentAt;
     }
   }
-  final isMine = entity.senderCode == currentUserCode;
+  var isMine = entity.senderCode == currentUserCode;
+  if (isMine && viewingAsGuardian != null) {
+    final senderIsGuardianRole = entity.senderRole == ParticipantRole.parent;
+    if (senderIsGuardianRole != viewingAsGuardian) isMine = false;
+  }
   AppLogger.d(
     '[CHAT OWNERSHIP v2] code=${entity.code} '
     'senderCode=${entity.senderCode} senderName=${entity.senderName} '
@@ -53,6 +71,13 @@ Message mapMessageEntityToMessage(
     reactions: entity.reactions,
     senderName: entity.senderName,
     senderUserCode: entity.senderCode,
+    // Without this, `Message.senderRole` is null on every v2-mapped message,
+    // which makes `MessageBubble._isMe`'s raw-userCode fallback (meant only
+    // for messages with NO role info at all) fire and silently re-derive
+    // "mine" from `senderUserCode == currentUserCode` — undoing the
+    // `viewingAsGuardian` narrowing above for a dual-role account's message
+    // sent under its other persona.
+    senderRole: entity.senderRole.toApiString(),
     quotedMessageId: entity.threadParentCode,
     isPrivate: entity.isPrivate,
     privateParentUserCode: entity.privateParentUserCode,
