@@ -11,7 +11,7 @@ import '../../../../domain/features/reports/usecases/get_recent_reports_usecase.
 import '../../../../domain/features/reports/usecases/get_student_tags_usecase.dart';
 import '../../../../domain/features/reports/usecases/download_report_usecase.dart';
 import '../../../../domain/features/reports/usecases/report_params.dart';
-import '../../../../domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
+import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../../../data/features/reports/repositories/file_download_repository.dart';
 part 'reports_state.dart';
 
@@ -27,14 +27,14 @@ part 'reports_state.dart';
 class ReportsCubit extends Cubit<ReportsState> {
   ReportsCubit({
     required StorageService storageService,
-    required GetTagNamesForSchoolUseCase getTagNamesForSchoolUseCase,
+    required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapForSchoolUseCase,
     required GenerateReportUseCase generateReportUseCase,
     required GetRecentReportsUseCase getRecentReportsUseCase,
     required GetStudentTagsUseCase getStudentTagsUseCase,
     required DownloadReportUseCase downloadReportUseCase,
     required FileDownloadRepository fileDownloadRepository,
   }) : _storageService = storageService,
-       _getTagNamesForSchoolUseCase = getTagNamesForSchoolUseCase,
+       _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
        _generateReportUseCase = generateReportUseCase,
        _getRecentReportsUseCase = getRecentReportsUseCase,
        _getStudentTagsUseCase = getStudentTagsUseCase,
@@ -43,7 +43,7 @@ class ReportsCubit extends Cubit<ReportsState> {
        super(const ReportsState.initial());
 
   final StorageService _storageService;
-  final GetTagNamesForSchoolUseCase _getTagNamesForSchoolUseCase;
+  final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   final GenerateReportUseCase _generateReportUseCase;
   final GetRecentReportsUseCase _getRecentReportsUseCase;
   final GetStudentTagsUseCase _getStudentTagsUseCase;
@@ -53,19 +53,31 @@ class ReportsCubit extends Cubit<ReportsState> {
   /// Prevent concurrent loadRecentReports calls
   bool _isLoadingRecentReports = false;
 
-  /// Loads the school's tag names. Tags are optional metadata, so failures are
-  /// swallowed and the rest of the screen keeps working.
+  /// Loads the school's tags (names + name→TAG_* code map) and stores both in
+  /// state. Tags are optional metadata so failures are swallowed.
   Future<void> loadTags() async {
     try {
       final schoolCode =
           (await _storageService.getString(StorageKeys.schoolCode) ?? '')
               .trim();
       if (schoolCode.isEmpty) return;
-      final tags = await _getTagNamesForSchoolUseCase(schoolCode: schoolCode);
+
+      final nameToCode = await _getTagNameCodeMapForSchoolUseCase(
+        schoolCode: schoolCode,
+      );
+
+      AppLogger.d('[ReportsCubit] Loaded tag name→code map: $nameToCode');
+
       if (isClosed) return;
-      emit(state.copyWith(tagNames: tags));
-    } catch (_) {
+      emit(
+        state.copyWith(
+          tagNames: nameToCode.keys.toList(),
+          tagNameToCode: nameToCode,
+        ),
+      );
+    } catch (e) {
       // Tags are optional; ignore failures.
+      AppLogger.w('[ReportsCubit] loadTags failed (non-fatal): $e');
     }
   }
 

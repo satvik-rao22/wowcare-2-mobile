@@ -7,10 +7,15 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../core/util/school_context_helper.dart';
 
 class StaffAbsentReportScreen extends StatefulWidget {
@@ -31,6 +36,8 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
   final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  List<String> _availableClassrooms = <String>[];
+  Map<String, String> _classroomNameToCode = <String, String>{};
 
   @override
   void initState() {
@@ -39,6 +46,42 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
     _selectedClassrooms.value = List<String>.from(widget.classrooms);
+    _availableClassrooms = List<String>.from(widget.classrooms);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadAllStaffClassrooms();
+      }
+    });
+  }
+
+  Future<void> _loadAllStaffClassrooms() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isNotEmpty) {
+        final classrooms =
+            await serviceLocator<GetActiveClassroomsUseCase>()(
+              schoolCode: schoolCode,
+              onlyTypeClassroom: false,
+            );
+        final nameToCodeMap = <String, String>{};
+        final names = <String>[];
+        for (final c in classrooms) {
+          names.add(c.name);
+          nameToCodeMap[c.name] = c.code;
+        }
+        if (mounted) {
+          setState(() {
+            _availableClassrooms = names;
+            _classroomNameToCode = nameToCodeMap;
+            _selectedClassrooms.value = List<String>.from(names);
+          });
+        }
+      }
+    } catch (e) {
+      AppLogger.e('[STAFF-ABSENT-UI] Failed to load staff classrooms: $e');
+    }
   }
 
   @override
@@ -64,6 +107,26 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       );
       return;
     }
+
+    final cubit = context.read<ReportsCubit>();
+    final nameToCode = _classroomNameToCode.isNotEmpty
+        ? _classroomNameToCode
+        : cubit.state.classroomNameToCode;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.value,
+      nameToCode: nameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
+
+    AppLogger.d(
+      '[STAFF-ABSENT-UI] Selected classrooms: ${_selectedClassrooms.value}',
+    );
+    AppLogger.d(
+      '[STAFF-ABSENT-UI] Resolved roomCodes: $classroomCodes',
+    );
+
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -79,17 +142,13 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     }
 
     AppLogger.d('[STAFF-ABSENT-UI] Creating report params');
-    final cubit = context.read<ReportsCubit>();
     final params = ReportRequestParams(
       reportType: ReportType.staffAbsent,
       format: _format.value, // PDF or XLSX
       startDate: _fromDate.value,
       endDate: _toDate.value,
-      roomCodes: _selectedClassrooms.value.isEmpty
-          ? null
-          : _selectedClassrooms.value,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       schoolName: schoolName,
-      // Use the school name from the cubit state
     );
 
     AppLogger.d('[STAFF-ABSENT-UI] Calling cubit.generateReport()');
@@ -99,6 +158,9 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final classroomItems = _availableClassrooms.isNotEmpty
+        ? _availableClassrooms
+        : widget.classrooms;
 
     return MultiBlocListener(
       listeners: [
@@ -183,7 +245,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
                     label: 'Classroom',
                     hintText: 'Select Classroom',
-                    items: widget.classrooms,
+                    items: classroomItems,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,

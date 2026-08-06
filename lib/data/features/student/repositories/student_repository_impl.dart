@@ -15,6 +15,7 @@ import '../../../../domain/features/student/entities/student_physician.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/entities/student_regular_schedule.dart';
+import '../../../../domain/features/student/entities/vaccine_item.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
@@ -1226,6 +1227,30 @@ class StudentRepositoryImpl
   @override
   Future<StudentSettings> getStudentSettings({required String schoolCode}) {
     return _remoteDataSource.getStudentSettings(schoolCode: schoolCode);
+  }
+
+  @override
+  Future<List<VaccineItem>> getImmunizationSettings({
+    required String schoolCode,
+  }) async {
+    final models = await _remoteDataSource.getImmunizationSettings(
+      schoolCode: schoolCode,
+    );
+    return models.map((m) => m.toEntity()).toList();
+  }
+
+  @override
+  Future<Map<String, String>> getVaccineNameToCodeMapForSchool({
+    required String schoolCode,
+  }) async {
+    final vaccines = await getImmunizationSettings(schoolCode: schoolCode);
+    final map = <String, String>{};
+    for (final v in vaccines) {
+      if (v.name.isNotEmpty && v.code.isNotEmpty) {
+        map[v.name] = v.code;
+      }
+    }
+    return map;
   }
 
   @override

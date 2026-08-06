@@ -552,6 +552,11 @@ class ApiPaths {
   /// School-level student settings (health/documents edit permissions).
   static const String studentSettings = '/api/v1/student-settings';
 
+  /// GET /api/v1/student/settings/immunization?schoolCode={schoolCode}
+  /// Available immunizations (vaccines) for a school.
+  static const String studentImmunizationSettings =
+      '/api/v1/student/settings/immunization';
+
   /// PATCH the logged-in guardian's own profile (resolves to
   /// `/api/v1/student/guardian/my-profile`). Identified by schoolCode+userCode
   /// query params, like [guardianProfile].

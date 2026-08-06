@@ -12,7 +12,7 @@ import 'package:wowcare/presentation/features/reports/utils/report_code_resolver
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+// import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../core/util/school_context_helper.dart';
 
@@ -20,7 +20,8 @@ class StudentIncidentReportScreen extends StatefulWidget {
   const StudentIncidentReportScreen({
     super.key,
     required this.students,
-    required this.classrooms,
+    this.classrooms = const [],
+    // required this.classrooms,
   });
 
   static const String routeName = '/reports/student/incident';
@@ -38,7 +39,7 @@ class _StudentIncidentReportScreenState
   late DateTime _startDate;
   late DateTime _endDate;
   List<String> _selectedStudents = <String>[];
-  late List<String> _selectedClassrooms;
+  // late List<String> _selectedClassrooms;
   String _format = 'PDF';
 
   @override
@@ -47,7 +48,18 @@ class _StudentIncidentReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = DateTime(now.year, now.month + 1, 0);
-    _selectedClassrooms = List<String>.from(widget.classrooms);
+    _selectedStudents = List<String>.from(widget.students);
+    // _selectedClassrooms = List<String>.from(widget.classrooms);
+  }
+
+  @override
+  void didUpdateWidget(covariant StudentIncidentReportScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.students != widget.students) {
+      setState(() {
+        _selectedStudents = List<String>.from(widget.students);
+      });
+    }
   }
 
   void _onGenerate() async {
@@ -74,13 +86,13 @@ class _StudentIncidentReportScreenState
     );
     if (studentCodes == null) return;
 
-    final classroomCodes = resolveReportCodes(
-      context: context,
-      names: _selectedClassrooms,
-      nameToCode: cubit.state.classroomNameToCode,
-      labelPlural: 'classrooms',
-    );
-    if (classroomCodes == null) return;
+    // final classroomCodes = resolveReportCodes(
+    //   context: context,
+    //   names: _selectedClassrooms,
+    //   nameToCode: cubit.state.classroomNameToCode,
+    //   labelPlural: 'classrooms',
+    // );
+    // if (classroomCodes == null) return;
 
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
@@ -100,7 +112,7 @@ class _StudentIncidentReportScreenState
       startDate: _startDate,
       endDate: _endDate,
       studentCodes: studentCodes,
-      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      // roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       format: _format,
       schoolName: schoolName,
     );
@@ -201,18 +213,18 @@ class _StudentIncidentReportScreenState
                 const ReportDefaultNote(
                   text: 'Note: All Students will be selected by Default.',
                 ),
-                SizedBox(height: responsive.verticalSpacing),
-                CustomMultiSelectDropdown(
-                  label: 'Classroom',
-                  hintText: 'Select Classroom',
-                  items: widget.classrooms,
-                  selectedItems: _selectedClassrooms,
-                  onChanged: (s) => setState(() => _selectedClassrooms = s),
-                  showSelectAll: true,
-                ),
-                const ReportDefaultNote(
-                  text: 'Note: All Classrooms will be selected by Default.',
-                ),
+                // SizedBox(height: responsive.verticalSpacing),
+                // CustomMultiSelectDropdown(
+                //   label: 'Classroom',
+                //   hintText: 'Select Classroom',
+                //   items: widget.classrooms,
+                //   selectedItems: _selectedClassrooms,
+                //   onChanged: (s) => setState(() => _selectedClassrooms = s),
+                //   showSelectAll: true,
+                // ),
+                // const ReportDefaultNote(
+                //   text: 'Note: All Classrooms will be selected by Default.',
+                // ),
                 SizedBox(height: responsive.verticalSpacing),
                 const ReportFieldLabel(label: 'Export Format'),
                 ReportFormatSelector(

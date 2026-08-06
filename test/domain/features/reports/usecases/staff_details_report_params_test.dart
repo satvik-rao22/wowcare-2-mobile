@@ -13,8 +13,6 @@ void main() {
     test('creates instance with required fields', () {
       final params = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
-        startDate: startDate,
-        endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
         format: 'PDF',
@@ -22,8 +20,8 @@ void main() {
       );
 
       expect(params.reportType, ReportType.staffDetails);
-      expect(params.startDate, startDate);
-      expect(params.endDate, endDate);
+      expect(params.startDate, isNull);
+      expect(params.endDate, isNull);
       expect(params.staffFieldsSelected, staffFields);
       expect(params.statusFilter, statusFilter);
     });
@@ -31,8 +29,6 @@ void main() {
     test('creates instance with optional classrooms', () {
       final params = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
-        startDate: startDate,
-        endDate: endDate,
         staffFieldsSelected: staffFields,
         statusFilter: statusFilter,
         classroomCodes: classrooms,
@@ -43,11 +39,26 @@ void main() {
       expect(params.classroomCodes, classrooms);
     });
 
-    test('toRequestBody includes all field selections as booleans', () {
+    test('toRequestBody excludes startDate and endDate', () {
       final params = StaffDetailsReportParams(
         reportType: ReportType.staffDetails,
         startDate: startDate,
         endDate: endDate,
+        staffFieldsSelected: staffFields,
+        statusFilter: statusFilter,
+        schoolName: 'Test School',
+        format: 'PDF',
+      );
+
+      final body = params.toRequestBody();
+
+      expect(body.containsKey('startDate'), false);
+      expect(body.containsKey('endDate'), false);
+    });
+
+    test('toRequestBody includes all field selections as booleans', () {
+      final params = StaffDetailsReportParams(
+        reportType: ReportType.staffDetails,
         staffFieldsSelected: const {'Name', 'Email ID'},
         statusFilter: statusFilter,
         schoolName: 'Test School',

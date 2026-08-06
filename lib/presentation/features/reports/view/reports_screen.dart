@@ -419,7 +419,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         BlocProvider<ClassroomCubit>(
           create: (_) =>
               serviceLocator<ClassroomCubit>()
-                ..loadActiveClassrooms(onlyTypeClassroom: true),
+                ..loadActiveClassrooms(force: true, onlyTypeClassroom: true),
         ),
         BlocProvider<StudentCubit>(
           create: (_) => serviceLocator<StudentCubit>()..loadInitial(),

@@ -17,6 +17,7 @@ class ReportsState extends Equatable {
     this.classroomNameToCode = const <String, String>{},
     this.staffNameToCode = const <String, String>{},
     this.studentNameToCode = const <String, String>{},
+    this.tagNameToCode = const <String, String>{},
     this.generatedReport,
     this.recentReports = const <ReportMetadataEntity>[],
     this.dynamicTagNames = const <String>[],
@@ -35,6 +36,7 @@ class ReportsState extends Equatable {
         classroomNameToCode = const <String, String>{},
         staffNameToCode = const <String, String>{},
         studentNameToCode = const <String, String>{},
+        tagNameToCode = const <String, String>{},
         generatedReport = null,
         recentReports = const <ReportMetadataEntity>[],
         dynamicTagNames = const <String>[],
@@ -51,6 +53,7 @@ class ReportsState extends Equatable {
   final Map<String, String> classroomNameToCode;
   final Map<String, String> staffNameToCode;
   final Map<String, String> studentNameToCode;
+  final Map<String, String> tagNameToCode;
   final dynamic generatedReport;
   final List<ReportMetadataEntity> recentReports;
   final List<String> dynamicTagNames;
@@ -76,6 +79,7 @@ class ReportsState extends Equatable {
     Map<String, String>? classroomNameToCode,
     Map<String, String>? staffNameToCode,
     Map<String, String>? studentNameToCode,
+    Map<String, String>? tagNameToCode,
     dynamic generatedReport,
     List<ReportMetadataEntity>? recentReports,
     List<String>? dynamicTagNames,
@@ -93,6 +97,7 @@ class ReportsState extends Equatable {
       classroomNameToCode: classroomNameToCode ?? this.classroomNameToCode,
       staffNameToCode: staffNameToCode ?? this.staffNameToCode,
       studentNameToCode: studentNameToCode ?? this.studentNameToCode,
+      tagNameToCode: tagNameToCode ?? this.tagNameToCode,
       generatedReport: generatedReport ?? this.generatedReport,
       recentReports: recentReports ?? this.recentReports,
       dynamicTagNames: dynamicTagNames ?? this.dynamicTagNames,
@@ -113,6 +118,7 @@ class ReportsState extends Equatable {
         classroomNameToCode,
         staffNameToCode,
         studentNameToCode,
+        tagNameToCode,
         generatedReport,
         recentReports,
         dynamicTagNames,

@@ -215,6 +215,8 @@ import '../../domain/features/student/usecases/get_student_codes_for_activity_ta
 import '../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import '../../presentation/features/billing/cubit/select_students_cubit.dart';
 import '../../domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
+import '../../domain/features/student/usecases/get_immunization_settings_usecase.dart';
+import '../../domain/features/student/usecases/get_vaccine_name_to_code_map_for_school_usecase.dart';
 import '../../domain/features/activity/repositories/activity_repository.dart';
 import '../../domain/features/activity/usecases/get_classroom_activity_settings_usecase.dart';
 import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
@@ -813,7 +815,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<ReportsCubit>(
     () => ReportsCubit(
       storageService: serviceLocator(),
-      getTagNamesForSchoolUseCase: serviceLocator(),
+      getTagNameCodeMapForSchoolUseCase: serviceLocator(),
       generateReportUseCase: serviceLocator(),
       getRecentReportsUseCase: serviceLocator(),
       getStudentTagsUseCase: serviceLocator(),
@@ -1058,6 +1060,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetGuardianNameCodeMapForSchoolUseCase>(
     () => GetGuardianNameCodeMapForSchoolUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetImmunizationSettingsUseCase>(
+    () => GetImmunizationSettingsUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetVaccineNameToCodeMapForSchoolUseCase>(
+    () => GetVaccineNameToCodeMapForSchoolUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetStudentCountsUseCase>(
     () => GetStudentCountsUseCase(serviceLocator()),

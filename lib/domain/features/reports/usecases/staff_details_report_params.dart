@@ -9,8 +9,8 @@ import 'report_params.dart';
 class StaffDetailsReportParams extends Equatable implements ReportParams {
   const StaffDetailsReportParams({
     required this.reportType,
-    required this.startDate,
-    required this.endDate,
+    this.startDate,
+    this.endDate,
     required this.staffFieldsSelected,
     required this.statusFilter,
     required this.format,
@@ -22,10 +22,10 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
   final ReportType reportType;
 
   @override
-  final DateTime startDate;
+  final DateTime? startDate;
   final String schoolName;
 
-  final DateTime endDate;
+  final DateTime? endDate;
 
   /// Set of selected staff field names (e.g., {'Name', 'Email ID', 'Designation'})
   final Set<String> staffFieldsSelected;
@@ -43,8 +43,6 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
   Map<String, dynamic> toRequestBody() {
     return {
       'reportType': 'STAFF_DETAILS',
-      'startDate': startDate.toIso8601String().split('T')[0],
-      'endDate': endDate.toIso8601String().split('T')[0],
       'status': _mapStatusToBackendValue(statusFilter),
 
       // Staff field selections (13 fields)
@@ -98,8 +96,8 @@ class StaffDetailsReportParams extends Equatable implements ReportParams {
   String toCacheIdentifier() {
     final parts = <String>[
       'STAFF_DETAILS',
-      startDate.toIso8601String().split('T')[0],
-      endDate.toIso8601String().split('T')[0],
+      if (startDate != null) startDate!.toIso8601String().split('T')[0],
+      if (endDate != null) endDate!.toIso8601String().split('T')[0],
       'staffFields=${staffFieldsSelected.toList()..sort()}',
       'status=$statusFilter',
       if (classroomCodes != null && classroomCodes!.isNotEmpty)
