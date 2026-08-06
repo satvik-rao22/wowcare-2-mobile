@@ -17,7 +17,6 @@ import 'package:wowcare/presentation/features/tasks/widgets/task_filter_sheet.da
 import 'package:wowcare/shared/common/widgets/access_restricted_view.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// How the Tasks module lays out its content. Mobile Kanban uses status tabs
@@ -67,6 +66,7 @@ class _TasksScreenState extends State<TasksScreen> {
     return GlobalScaffold(
       hasBackButton: false,
       showCustomNavigationBar: true,
+      floatingActionButton: _addFab(context, roles),
       // RoleCubit resolves the persona asynchronously (it starts on its
       // 'admin' default and settles once /users/details answers). The route
       // applies whatever persona is known when the board opens, so re-apply it
@@ -99,8 +99,6 @@ class _TasksScreenState extends State<TasksScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _header(context, roles),
-                  const SizedBox(height: 10),
                   _controlsRow(context, state, roles),
                   const SizedBox(height: 10),
                   _toolbar(context, state),
@@ -122,33 +120,40 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  // ------------------------------------------------------------ header
+  // --------------------------------------------------------------- fab
 
-  Widget _header(BuildContext context, RoleCubit roles) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Tasks',
-              style: TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            Text(
-              'Manage and track tasks for your team',
-              style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
-            ),
-          ],
+  /// Bottom-right FAB for creating a task, matching the Events screen's add
+  /// button (same size, radius and gradient). Returns null when the persona
+  /// can't create tasks, so no button renders.
+  Widget? _addFab(BuildContext context, RoleCubit roles) {
+    if (!TaskAccess.canCreateTasks(roles)) return null;
+
+    return Container(
+      width: 64,
+      height: 64,
+      margin: const EdgeInsets.only(bottom: 6),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: AppColors.buildPrimaryGradient(),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primaryColor.withValues(alpha: 0.30),
+            blurRadius: 14,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(18),
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _openCreateForm(context),
+          child: const Center(
+            child: Icon(Icons.add, color: Colors.white, size: 32),
+          ),
         ),
-        if (TaskAccess.canCreateTasks(roles))
-          GradientAddButton(onTap: () => _openCreateForm(context)),
-      ],
+      ),
     );
   }
 

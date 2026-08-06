@@ -24,6 +24,10 @@ class NotificationDestination {
 
   static const String highlightParam = 'highlightCode';
 
+  /// Holidays are the one module whose payload carries no entity code, so its
+  /// deep-link target is named instead of coded — see [HolidayHighlight].
+  static const String highlightHolidayParam = 'highlightHoliday';
+
   /// The go_router location string, e.g. `/classroom-screen?classroomCode=CLS_1`.
   String get location => Uri(
         path: path,
@@ -63,6 +67,12 @@ class NotificationRouteResolver {
   static const String _tasksList = '/dashboard/tasks';
   static const String _eventsDetail = '/dashboard/events/detail';
   static const String _eventsList = '/dashboard/events';
+
+  /// The Holiday List is the Events screen's second tab, not a route of its
+  /// own — `tab=holidays` selects it (see `EventsTab.fromQueryValue`). Omitting
+  /// the param leaves the screen on its default Events tab, so event deep links
+  /// are unaffected.
+  static const String _holidaysTabValue = 'holidays';
 
   /// The bell inbox (a top-level route, not a dashboard child).
   static const String _notificationCenter = '/notifications';
@@ -126,6 +136,9 @@ class NotificationRouteResolver {
       case 'TASKS':
       case 'TASK':
         return _taskDetail(n);
+      case 'HOLIDAY':
+      case 'HOLIDAYS':
+        return _holidayList(n);
       case 'ATTENDANCE':
       case 'STUDENT_ATTENDANCE':
       case 'STAFF_ATTENDANCE':
@@ -518,6 +531,69 @@ class NotificationRouteResolver {
     );
   }
 
+  static const _kHolidayName = ['holidayName', 'holiday_name'];
+
+  /// Payload keys carrying the holiday's START date. `fromDate` is a single
+  /// date (school-created); `holidayDate` (federal approved) is a RANGE string
+  /// — `"2026-12-25 to 2026-12-25"` — hence [_holidayYear]'s scan for the first
+  /// date inside it rather than a plain parse. `toDate` is deliberately absent:
+  /// the list groups holidays by start year, so a holiday spanning the new year
+  /// (Winter Break, Dec 21 → Jan 2) lives under the earlier one.
+  static const _kHolidayStartDate = [
+    'fromDate',
+    'from_date',
+    'holidayDate',
+    'holiday_date',
+  ];
+
+  /// `FEDERAL_HOLIDAYS_REVIEW` names no date at all — only the year whose
+  /// federal holidays need approving.
+  static const _kHolidayYear = ['year'];
+
+  /// The year the Holiday List should open on, or null when the payload gives
+  /// nothing usable (the list then stays on its current year).
+  static String? _holidayYear(PushNotification n) {
+    final raw = _firstCode(n, _kHolidayStartDate);
+    if (raw != null) {
+      final firstDate = RegExp(r'\d{4}-\d{2}-\d{2}').firstMatch(raw)?.group(0);
+      final parsed = DateTime.tryParse(firstDate ?? raw);
+      if (parsed != null) return parsed.year.toString();
+    }
+    final year = _firstCode(n, _kHolidayYear);
+    if (year != null && int.tryParse(year) != null) return year;
+    return null;
+  }
+
+  /// Holiday notifications open the **Holiday List** (Events screen → Holidays
+  /// tab), scoped to the holiday's year and flashing the named card.
+  ///
+  /// Unlike Events (`eventCode`) and Tasks (`taskCode`/`assignmentCode`), the
+  /// holiday payload carries **no entity code** — and the app has no
+  /// individual-holiday detail screen — so there is nothing to deep-link to a
+  /// single record. `holidayName` rides along as `highlightHoliday` so the
+  /// matching row still flashes in the list (see [HolidayHighlight]); if the
+  /// backend later adds a `holidayCode` (and a detail screen exists), this is
+  /// the one method to change.
+  ///
+  /// [identifyHoliday] is false for `SCHOOL_HOLIDAY_DELETED`: the holiday is
+  /// gone, so there is no card left to flash — mirrors `EVENT_DELETED` /
+  /// `TASK_DELETED` landing on their lists.
+  static NotificationDestination _holidayList(
+    PushNotification n, {
+    bool identifyHoliday = true,
+  }) {
+    final query = <String, String>{'tab': _holidaysTabValue};
+    if (identifyHoliday) {
+      final name = _firstCode(n, _kHolidayName);
+      if (name != null) {
+        query[NotificationDestination.highlightHolidayParam] = name;
+      }
+    }
+    final year = _holidayYear(n);
+    if (year != null) query['year'] = year;
+    return NotificationDestination(path: _eventsList, queryParameters: query);
+  }
+
   /// Open a student's ATTENDANCE profile by code (self-loads identity + data).
   static NotificationDestination _studentAttendanceProfile(PushNotification n) =>
       NotificationDestination(
@@ -622,6 +698,16 @@ class NotificationRouteResolver {
     // the Task list instead (mirrors EVENT_DELETED → the Events list).
     NotificationAction.taskDeleted: (n) =>
         const NotificationDestination(path: _tasksList),
+
+    // ── Holidays ─────────────────────────────────────────────────────────────
+    // Push Notification Payload Contract — Holidays: no payload carries a
+    // holiday code, so all four open the Holiday List (see [_holidayList]).
+    NotificationAction.schoolHolidayCreated: _holidayList,
+    NotificationAction.federalHolidayApproved: _holidayList,
+    NotificationAction.federalHolidaysReview: _holidayList,
+    // Deleted: nothing left to flash, just the list.
+    NotificationAction.schoolHolidayDeleted: (n) =>
+        _holidayList(n, identifyHoliday: false),
 
     // ── Scheduling ───────────────────────────────────────────────────────────
     // Shift mutations open the per-staff Staff Scheduling day view (jump to the

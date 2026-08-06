@@ -75,6 +75,18 @@ class NotificationAction {
   static const String taskOverdue = 'TASK_OVERDUE';
   static const String taskDueSoon = 'TASK_DUE_SOON';
 
+  // ── Holidays ────────────────────────────────────────────────────────────
+  // The four actions the Holidays backend fires, per "Push Notification
+  // Payload Contract — Holidays". They carry `module: HOLIDAY` (there is no
+  // `type: HOLIDAY` key — branch on `action`) plus `holidayName` and, for
+  // three of them, a date; `FEDERAL_HOLIDAYS_REVIEW` carries a `year` instead.
+  // None carries a holiday entity code, so all four open the Holiday List
+  // rather than a single record — see NotificationRouteResolver.
+  static const String schoolHolidayCreated = 'SCHOOL_HOLIDAY_CREATED';
+  static const String schoolHolidayDeleted = 'SCHOOL_HOLIDAY_DELETED';
+  static const String federalHolidayApproved = 'FEDERAL_HOLIDAY_APPROVED';
+  static const String federalHolidaysReview = 'FEDERAL_HOLIDAYS_REVIEW';
+
   // ── Scheduling ──────────────────────────────────────────────────────────
   static const String publishShift = 'PUBLISH_SHIFT';
   static const String upcomingShift = 'UPCOMING_SHIFT';

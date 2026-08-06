@@ -11,6 +11,7 @@ import 'package:wowcare/domain/features/events/entities/holiday.dart';
 import 'package:wowcare/presentation/features/events/cubit/events_cubit.dart';
 import 'package:wowcare/presentation/features/events/utils/event_access.dart';
 import 'package:wowcare/presentation/features/events/utils/event_ui_utils.dart';
+import 'package:wowcare/presentation/features/events/utils/holiday_year_window.dart';
 import 'package:wowcare/presentation/features/events/view/event_detail_screen.dart';
 import 'package:wowcare/domain/features/tasks/entities/task.dart';
 import 'package:wowcare/presentation/features/events/utils/calendar_feed_mappers.dart';
@@ -28,6 +29,7 @@ import 'package:wowcare/presentation/features/events/widgets/event_grid_card.dar
 import 'package:wowcare/presentation/features/events/widgets/holiday_card.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_dialogs.dart';
 import 'package:wowcare/presentation/features/events/widgets/holiday_form_sheet.dart';
+import 'package:wowcare/presentation/features/events/widgets/holiday_highlight.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/access_restricted_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -38,10 +40,63 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 /// calendar / grid / list switcher.
 enum _EventsViewMode { calendar, grid, list }
 
+/// The screen's two tabs. Also the deep-link vocabulary: holiday notifications
+/// route to `/dashboard/events?tab=holidays` (see `NotificationRouteResolver`),
+/// since the Holiday List is a tab here rather than a route of its own.
+enum EventsTab {
+  events('events'),
+  holidays('holidays');
+
+  const EventsTab(this.queryValue);
+
+  final String queryValue;
+
+  /// Parses the `tab` query parameter. Anything unrecognised — including the
+  /// null of an event/task deep link that carries no `tab` at all — keeps the
+  /// screen on its default [EventsTab.events].
+  static EventsTab fromQueryValue(String? raw) {
+    final value = (raw ?? '').trim().toLowerCase();
+    // Tolerate the singular, matching the payload's `module: HOLIDAY`.
+    if (value == holidays.queryValue || value == 'holiday') return holidays;
+    return events;
+  }
+}
+
 class EventsScreen extends StatefulWidget {
-  const EventsScreen({super.key});
+  const EventsScreen({
+    super.key,
+    this.initialTab = EventsTab.events,
+    this.initialYear,
+    this.highlightHolidayName,
+  });
+
+  /// Builds the screen from a go_router query map — the one place a holiday
+  /// notification's `?tab=&year=&highlightHoliday=` (produced by
+  /// `NotificationRouteResolver`) is turned into screen state. An empty map
+  /// yields the plain default screen, which is what in-app navigation and
+  /// event/task deep links pass.
+  factory EventsScreen.fromQuery(Map<String, String> query, {Key? key}) {
+    return EventsScreen(
+      key: key,
+      initialTab: EventsTab.fromQueryValue(query['tab']),
+      initialYear: int.tryParse(query['year'] ?? ''),
+      highlightHolidayName: query['highlightHoliday'],
+    );
+  }
 
   static const String routeName = '/dashboard/events';
+
+  /// Tab to open on. Defaults to Events, so in-app navigation is unchanged.
+  final EventsTab initialTab;
+
+  /// Holiday year to select on open (a holiday notification's year). Ignored
+  /// when outside [HolidayYearWindow], which the year selector cannot show.
+  final int? initialYear;
+
+  /// Name of the holiday to scroll to and flash — holiday payloads carry no
+  /// entity code, so the name is the deep link's only handle on a row (see
+  /// [HolidayHighlight]).
+  final String? highlightHolidayName;
 
   @override
   State<EventsScreen> createState() => _EventsScreenState();
@@ -81,7 +136,12 @@ class _EventsScreenState extends State<EventsScreen> {
     return _viewMode;
   }
 
-  int _tabIndex = 0; // 0 = Events, 1 = Holidays
+  static const int _eventsTabIndex = 0;
+  static const int _holidaysTabIndex = 1;
+
+  late int _tabIndex = widget.initialTab == EventsTab.holidays
+      ? _holidaysTabIndex
+      : _eventsTabIndex;
   _EventsViewMode _viewMode = _EventsViewMode.calendar;
 
   /// When true, every view shows completed events (most recently completed
@@ -103,6 +163,7 @@ class _EventsScreenState extends State<EventsScreen> {
     // — no point fetching rows the screen may not show.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (_tabIndex == _holidaysTabIndex) _openHolidayDeepLink();
       final roles = context.read<RoleCubit>();
       if (!_canReadCalendar(roles)) return;
       context.read<EventsCubit>().loadCalendarFeed(
@@ -110,6 +171,22 @@ class _EventsScreenState extends State<EventsScreen> {
             scope: _feedScope(roles),
           );
     });
+  }
+
+  /// Applies the holiday notification deep link: select the notified year (when
+  /// the selector can show it) and refetch, so the flashed card is actually in
+  /// the list. `setSelectedYear` already refetches; only the same-year case
+  /// needs the explicit refresh the Holidays tab does on every open.
+  void _openHolidayDeepLink() {
+    final cubit = context.read<EventsCubit>();
+    final year = widget.initialYear;
+    if (year != null &&
+        year != cubit.state.selectedYear &&
+        HolidayYearWindow.contains(year)) {
+      cubit.setSelectedYear(year);
+      return;
+    }
+    cubit.refreshHolidays();
   }
 
   @override
@@ -164,7 +241,7 @@ class _EventsScreenState extends State<EventsScreen> {
                     // const SizedBox(height: 10),
                     _tabSwitcher(),
                     const SizedBox(height: 10),
-                    if (_tabIndex == 0)
+                    if (_tabIndex == _eventsTabIndex)
                       Expanded(child: _eventsTab(context, state, roles))
                     else
                       Expanded(child: _holidaysTab(context, state, roles)),
@@ -195,7 +272,8 @@ class _EventsScreenState extends State<EventsScreen> {
             fontWeight: FontWeight.w500,
           ),
         ),
-        if (_tabIndex == 0 && _viewMode == _EventsViewMode.calendar)
+        if (_tabIndex == _eventsTabIndex &&
+            _viewMode == _EventsViewMode.calendar)
           TextButton(
             onPressed: () {
               setState(() {
@@ -218,7 +296,7 @@ class _EventsScreenState extends State<EventsScreen> {
   /// (Holidays tab). Returns null when the current tab/role can't add, so no
   /// button renders. Staff may add events but not holidays; parents neither.
   Widget? _addFab(BuildContext context, RoleCubit roles) {
-    final VoidCallback? onTap = _tabIndex == 0
+    final VoidCallback? onTap = _tabIndex == _eventsTabIndex
         ? (EventAccess.canCreateEvents(roles) ? () => _openForm(context) : null)
         : (EventAccess.canManageHolidays(roles)
               ? () => showHolidayFormSheet(context)
@@ -263,7 +341,7 @@ class _EventsScreenState extends State<EventsScreen> {
             setState(() => _tabIndex = index);
             // Holidays are the scheduler API's source of truth — fetch fresh
             // whenever the tab is opened so the list can't go stale.
-            if (index == 1) {
+            if (index == _holidaysTabIndex) {
               context.read<EventsCubit>().refreshHolidays();
             }
           },
@@ -1285,13 +1363,16 @@ class _EventsScreenState extends State<EventsScreen> {
                   for (final holiday in pending)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: HolidayCard(
-                        holiday: holiday,
-                        onStatusChanged: (status) => _changeHolidayStatus(
-                          context,
-                          cubit,
-                          holiday.code,
-                          status,
+                      child: _highlightable(
+                        holiday,
+                        HolidayCard(
+                          holiday: holiday,
+                          onStatusChanged: (status) => _changeHolidayStatus(
+                            context,
+                            cubit,
+                            holiday.code,
+                            status,
+                          ),
                         ),
                       ),
                     ),
@@ -1314,27 +1395,30 @@ class _EventsScreenState extends State<EventsScreen> {
                   for (final holiday in active)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: HolidayCard(
-                        holiday: holiday,
-                        onEdit: canManage && holiday.type == HolidayType.school
-                            ? () => showHolidayFormSheet(
-                                context,
-                                holiday: holiday,
-                              )
-                            : null,
-                        onDelete:
-                            canManage && holiday.type == HolidayType.school
-                            ? () => _confirmDeleteHoliday(context, holiday)
-                            : null,
-                        onStatusChanged:
-                            canManage && holiday.type == HolidayType.federal
-                            ? (status) => _changeHolidayStatus(
-                                context,
-                                cubit,
-                                holiday.code,
-                                status,
-                              )
-                            : null,
+                      child: _highlightable(
+                        holiday,
+                        HolidayCard(
+                          holiday: holiday,
+                          onEdit: canManage && holiday.type == HolidayType.school
+                              ? () => showHolidayFormSheet(
+                                  context,
+                                  holiday: holiday,
+                                )
+                              : null,
+                          onDelete:
+                              canManage && holiday.type == HolidayType.school
+                              ? () => _confirmDeleteHoliday(context, holiday)
+                              : null,
+                          onStatusChanged:
+                              canManage && holiday.type == HolidayType.federal
+                              ? (status) => _changeHolidayStatus(
+                                  context,
+                                  cubit,
+                                  holiday.code,
+                                  status,
+                                )
+                              : null,
+                        ),
                       ),
                     ),
                 ],
@@ -1356,13 +1440,16 @@ class _EventsScreenState extends State<EventsScreen> {
                   for (final holiday in rejected)
                     Padding(
                       padding: const EdgeInsets.only(bottom: 8),
-                      child: HolidayCard(
-                        holiday: holiday,
-                        onStatusChanged: (status) => _changeHolidayStatus(
-                          context,
-                          cubit,
-                          holiday.code,
-                          status,
+                      child: _highlightable(
+                        holiday,
+                        HolidayCard(
+                          holiday: holiday,
+                          onStatusChanged: (status) => _changeHolidayStatus(
+                            context,
+                            cubit,
+                            holiday.code,
+                            status,
+                          ),
                         ),
                       ),
                     ),
@@ -1374,11 +1461,20 @@ class _EventsScreenState extends State<EventsScreen> {
     );
   }
 
+  /// Flashes [card] when a holiday notification deep link named this holiday.
+  /// A no-op (zero-cost passthrough) in normal navigation, where
+  /// `highlightHolidayName` is null.
+  Widget _highlightable(Holiday holiday, Widget card) => HolidayHighlight(
+    holiday: holiday,
+    highlightName: widget.highlightHolidayName,
+    child: card,
+  );
+
   /// Year dropdown — current year ±2 (5 years total), default current year
   /// (FR-HL-07/08).
   Widget _yearSelector(BuildContext context, EventsState state) {
     final currentYear = DateTime.now().year;
-    final years = [for (var y = currentYear - 2; y <= currentYear + 2; y++) y];
+    final years = HolidayYearWindow.options();
     return Align(
       alignment: Alignment.centerRight,
       child: Container(

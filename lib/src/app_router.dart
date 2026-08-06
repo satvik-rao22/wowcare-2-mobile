@@ -824,7 +824,14 @@ final GoRouter appRouter = GoRouter(
                             ..applyPersona(context.read<RoleCubit>().role),
                         ),
                       ],
-                      child: const EventsScreen(),
+                      // Holiday notifications deep-link here rather than to a
+                      // detail route: their payload carries no holiday code and
+                      // the Holiday List is a tab of this screen. `tab`
+                      // selects it, `year` scopes the list to the holiday's
+                      // year and `highlightHoliday` names the row to flash.
+                      // All three are absent on normal navigation and on
+                      // event/task links, which keep the default Events tab.
+                      child: EventsScreen.fromQuery(state.uri.queryParameters),
                     ),
                   ),
                 ),

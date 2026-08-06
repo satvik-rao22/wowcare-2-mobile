@@ -156,7 +156,7 @@ android {
     buildTypes {
         release {
             // ⚠️ Replace with your release keystore later
-            signingConfig = signingConfigs.getByName("release")
+            signingConfig = signingConfigs.getByName("debug")
             // ✅ Enable shrinking
             isMinifyEnabled = true
             isShrinkResources = true
