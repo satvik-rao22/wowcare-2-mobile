@@ -85,7 +85,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       format: _format.value, // PDF or XLSX
       startDate: _fromDate.value,
       endDate: _toDate.value,
-      classroomCodes: _selectedClassrooms.value.isEmpty
+      roomCodes: _selectedClassrooms.value.isEmpty
           ? null
           : _selectedClassrooms.value,
       schoolName: schoolName,

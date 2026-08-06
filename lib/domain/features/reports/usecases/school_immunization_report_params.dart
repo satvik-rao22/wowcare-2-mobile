@@ -52,6 +52,26 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
   /// Optional tag codes (empty = all tags)
   final List<String>? tagCodes;
 
+  // @override
+  // Map<String, dynamic> toRequestBody() {
+  //   return {
+  //     'reportType': 'IMMUNIZATION',
+  //     'startDate': startDate.toIso8601String().split('T')[0],
+  //     'endDate': endDate.toIso8601String().split('T')[0],
+  //     'vaccineCodes': vaccineCodes,
+  //     'schoolName': schoolName,
+  //     // Key names confirmed against the web client's verified IMMUNIZATION
+  //     // payload: roomCodes/tagCodes/statusFilter, not classrooms/tags/statuses.
+  //     'statusFilter': statusFilters,
+  //     'includeParentName': includeParentName,
+  //     'includeParentEmail': includeParentEmail,
+  //     if (classroomCodes != null && classroomCodes!.isNotEmpty)
+  //       'roomCodes': classroomCodes,
+  //     if (tagCodes != null && tagCodes!.isNotEmpty) 'tagCodes': tagCodes,
+  //     'format': format,
+  //   };
+  // }
+
   @override
   Map<String, dynamic> toRequestBody() {
     return {
@@ -60,14 +80,11 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
       'endDate': endDate.toIso8601String().split('T')[0],
       'vaccineCodes': vaccineCodes,
       'schoolName': schoolName,
-      // Key names confirmed against the web client's verified IMMUNIZATION
-      // payload: roomCodes/tagCodes/statusFilter, not classrooms/tags/statuses.
       'statusFilter': statusFilters,
       'includeParentName': includeParentName,
       'includeParentEmail': includeParentEmail,
-      if (classroomCodes != null && classroomCodes!.isNotEmpty)
-        'roomCodes': classroomCodes,
-      if (tagCodes != null && tagCodes!.isNotEmpty) 'tagCodes': tagCodes,
+      'roomCodes': classroomCodes ?? <String>[],
+      'tagCodes': tagCodes ?? <String>[],
       'format': format,
     };
   }

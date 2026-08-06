@@ -110,7 +110,7 @@ class _StudentAttendancePerStudentReportScreenState
       studentCodes: studentCodes,
       format: _format,
       schoolName: schoolName.isNotEmpty ? schoolName : null,
-      classroomCodes: classroomCodes,
+      roomCodes: classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));

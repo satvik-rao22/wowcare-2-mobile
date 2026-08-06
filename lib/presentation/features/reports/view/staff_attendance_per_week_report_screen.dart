@@ -102,7 +102,7 @@ class _StaffAttendancePerWeekReportScreenState
       startDate: _periodMonth,
       endDate: _periodMonth.add(const Duration(days: 30)),
       staffCodes: staffCodes,
-      classroomCodes: classroomCodes,
+      roomCodes: classroomCodes,
       format: _format,
       schoolName: schoolName,
     );

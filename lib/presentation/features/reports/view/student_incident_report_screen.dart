@@ -11,7 +11,9 @@ import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
-import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';import 'package:wowcare/shared/utils/responsive_helper.dart';
+import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
+import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../core/util/school_context_helper.dart';
 
 class StudentIncidentReportScreen extends StatefulWidget {
@@ -98,7 +100,7 @@ class _StudentIncidentReportScreenState
       startDate: _startDate,
       endDate: _endDate,
       studentCodes: studentCodes,
-      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       format: _format,
       schoolName: schoolName,
     );
