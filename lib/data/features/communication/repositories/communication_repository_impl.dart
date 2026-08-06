@@ -422,8 +422,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // A user may hold multiple distinct emojis; only append this (me, emoji)
       // pair if it isn't already present — do NOT replace their other emojis.
       final list = List<MessageReactionCollection>.from(originalReactions);
-      final alreadyPresent =
-          list.any((r) => r.userId == 'me' && r.emoji == emoji);
+      final alreadyPresent = list.any(
+        (r) => r.userId == 'me' && r.emoji == emoji,
+      );
       if (!alreadyPresent) {
         list.add(
           MessageReactionCollection()
@@ -704,7 +705,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           if (toBackfill.isNotEmpty) {
             _refreshedConversationCodes.addAll(toBackfill);
             try {
-              await getConversations(type: type); // source of truth → persists to Isar
+              await getConversations(
+                type: type,
+              ); // source of truth → persists to Isar
             } catch (_) {
               // best-effort; a later snapshot / pull-to-refresh will retry
             }
@@ -739,11 +742,22 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     final userCode = await _userCode;
     if (org.isEmpty || school.isEmpty || userCode.isEmpty) return;
 
-    final roleJson = (await storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
-    final activeRole = (await storageService.getString(StorageKeys.activeSchoolRole) ?? '').toUpperCase();
-    
-    final isStaff = activeRole == 'STAFF' || activeRole == 'TEACHER' || (activeRole.isEmpty && (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
-    final isAdmin = activeRole.contains('ADMIN') || activeRole.contains('DIRECTOR') || (activeRole.isEmpty && (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
+    final roleJson = (await storageService.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
+    final activeRole =
+        (await storageService.getString(StorageKeys.activeSchoolRole) ?? '')
+            .toUpperCase();
+
+    final isStaff =
+        activeRole == 'STAFF' ||
+        activeRole == 'TEACHER' ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin =
+        activeRole.contains('ADMIN') ||
+        activeRole.contains('DIRECTOR') ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* messageRealtimeDataSource
         .watchMessages(
@@ -795,10 +809,22 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       ..senderUserCode = entity.senderCode.isNotEmpty
           ? entity.senderCode
           : existing?.senderUserCode
-      // entity.senderRole always has a value (defaults to ParticipantRole.staff
-      // when the Firestore doc omits it — see MessageFirestoreItem), so unlike
-      // senderCode above there's no "empty means keep the old one" case here.
-      ..senderRole = entity.senderRole.toApiString()
+      // A message's sender role can never change after the fact — so once
+      // cached (from the initial REST load, pagination, or a prior realtime
+      // merge), always keep it. Firestore is only trusted for a message code
+      // seen here for the first time. This matters because older Firestore
+      // docs (written before the backend started stamping `senderRole` on
+      // writes) parse to a hardcoded 'PARENT' fallback (see
+      // MessageFirestoreItem.fromFirestore) — the realtime listener re-reads
+      // the WHOLE thread's docs on every snapshot event (new message,
+      // reaction, read receipt, anything), so without this guard that bad
+      // default would silently overwrite an already-correct cached value on
+      // the very next unrelated event, long after the message was first
+      // loaded — exactly the "alignment looks right, then breaks again"
+      // symptom this was fixed for.
+      ..senderRole = (existing?.senderRole?.isNotEmpty ?? false)
+          ? existing!.senderRole
+          : entity.senderRole.toApiString()
       ..time = existing?.time ?? entity.sentAt
       ..deliveredAt = existing?.deliveredAt
       ..readAt = existing?.readAt
