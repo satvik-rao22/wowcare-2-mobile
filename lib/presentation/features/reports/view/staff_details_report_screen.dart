@@ -1,4 +1,3 @@
-import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -6,12 +5,17 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/staff_details_report_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../core/util/school_context_helper.dart';
 
 class StaffDirectoryReportScreen extends StatefulWidget {
@@ -60,12 +64,50 @@ class _StaffDirectoryReportScreenState
   String _status = 'Active Staff';
   List<String> _selectedClassrooms = <String>[];
   String _format = 'PDF';
+  List<String> _availableClassrooms = <String>[];
+  Map<String, String> _classroomNameToCode = <String, String>{};
 
   @override
   void initState() {
     super.initState();
     _selectedStaffFields = _defaultStaffFields.toSet();
     _selectedClassrooms = List<String>.from(widget.classrooms);
+    _availableClassrooms = List<String>.from(widget.classrooms);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadAllStaffClassrooms();
+      }
+    });
+  }
+
+  Future<void> _loadAllStaffClassrooms() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isNotEmpty) {
+        final classrooms =
+            await serviceLocator<GetActiveClassroomsUseCase>()(
+              schoolCode: schoolCode,
+              onlyTypeClassroom: false,
+            );
+        final nameToCodeMap = <String, String>{};
+        final names = <String>[];
+        for (final c in classrooms) {
+          names.add(c.name);
+          nameToCodeMap[c.name] = c.code;
+        }
+        if (mounted) {
+          setState(() {
+            _availableClassrooms = names;
+            _classroomNameToCode = nameToCodeMap;
+            _selectedClassrooms = List<String>.from(names);
+          });
+        }
+      }
+    } catch (e) {
+      AppLogger.e('[STAFF-DETAILS-UI] Failed to load staff classrooms: $e');
+    }
   }
 
   bool get _selectAll => _selectedStaffFields.length == _staffFields.length;
@@ -103,6 +145,25 @@ class _StaffDirectoryReportScreenState
       return;
     }
 
+    final cubit = context.read<ReportsCubit>();
+    final nameToCode = _classroomNameToCode.isNotEmpty
+        ? _classroomNameToCode
+        : cubit.state.classroomNameToCode;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms,
+      nameToCode: nameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
+
+    AppLogger.d(
+      '[STAFF-DETAILS-UI] Selected classrooms: $_selectedClassrooms',
+    );
+    AppLogger.d(
+      '[STAFF-DETAILS-UI] Resolved classroomCodes: $classroomCodes',
+    );
+
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -120,14 +181,11 @@ class _StaffDirectoryReportScreenState
     AppLogger.d(
       '[STAFF-DETAILS-UI] Creating report params with ${_selectedStaffFields.length} fields',
     );
-    final cubit = context.read<ReportsCubit>();
     final params = StaffDetailsReportParams(
       reportType: ReportType.staffDetails,
-      startDate: AppTime.now(),
-      endDate: AppTime.now(),
       staffFieldsSelected: _selectedStaffFields,
       statusFilter: _status,
-      classroomCodes: _selectedClassrooms.isEmpty ? null : _selectedClassrooms,
+      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
       format: _format,
       schoolName: schoolName,
     );
@@ -145,6 +203,9 @@ class _StaffDirectoryReportScreenState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final classroomItems = _availableClassrooms.isNotEmpty
+        ? _availableClassrooms
+        : widget.classrooms;
 
     return MultiBlocListener(
       listeners: [
@@ -244,7 +305,7 @@ class _StaffDirectoryReportScreenState
                 CustomMultiSelectDropdown(
                   label: 'Classroom',
                   hintText: 'Select Classroom',
-                  items: widget.classrooms,
+                  items: classroomItems,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
                   showSelectAll: true,

@@ -12,6 +12,10 @@ import 'package:wowcare/presentation/features/reports/widgets/multi_select_filte
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../core/util/school_context_helper.dart';
 
 class StaffAttendancePerWeekReportScreen extends StatefulWidget {
@@ -44,6 +48,14 @@ class _StaffAttendancePerWeekReportScreenState
   List<String> _selectedStaff = <String>[];
   List<String> _selectedClassrooms = <String>[];
   String _format = 'PDF';
+  List<String> _availableClassrooms = <String>[];
+  Map<String, String> _classroomNameToCode = <String, String>{};
+
+  List<String> _getAvailableStaff(BuildContext context) {
+    final cubitStaff = context.watch<ReportsCubit>().state.staffNames;
+    if (cubitStaff.isNotEmpty) return cubitStaff;
+    return widget.staff;
+  }
 
   @override
   void initState() {
@@ -51,6 +63,43 @@ class _StaffAttendancePerWeekReportScreenState
     final now = AppTime.now();
     _periodMonth = DateTime(now.year, now.month, 1);
     _selectedClassrooms = List<String>.from(widget.classrooms);
+    _selectedStaff = List<String>.from(widget.staff);
+    _availableClassrooms = List<String>.from(widget.classrooms);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadAllStaffClassrooms();
+      }
+    });
+  }
+
+  Future<void> _loadAllStaffClassrooms() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isNotEmpty) {
+        final classrooms =
+            await serviceLocator<GetActiveClassroomsUseCase>()(
+              schoolCode: schoolCode,
+              onlyTypeClassroom: false,
+            );
+        final nameToCodeMap = <String, String>{};
+        final names = <String>[];
+        for (final c in classrooms) {
+          names.add(c.name);
+          nameToCodeMap[c.name] = c.code;
+        }
+        if (mounted) {
+          setState(() {
+            _availableClassrooms = names;
+            _classroomNameToCode = nameToCodeMap;
+            _selectedClassrooms = List<String>.from(names);
+          });
+        }
+      }
+    } catch (e) {
+      AppLogger.e('[STAFF-ATTENDANCE-WEEKLY-UI] Failed to load staff classrooms: $e');
+    }
   }
 
   void _onGenerate() async {
@@ -89,10 +138,13 @@ class _StaffAttendancePerWeekReportScreenState
       return;
     }
     // Convert classroom names to codes
+    final nameToCode = _classroomNameToCode.isNotEmpty
+        ? _classroomNameToCode
+        : reportsState.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
       names: _selectedClassrooms,
-      nameToCode: reportsState.classroomNameToCode,
+      nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
     if (classroomCodes == null) return;
@@ -102,7 +154,7 @@ class _StaffAttendancePerWeekReportScreenState
       startDate: _periodMonth,
       endDate: _periodMonth.add(const Duration(days: 30)),
       staffCodes: staffCodes,
-      classroomCodes: classroomCodes,
+      roomCodes: classroomCodes,
       format: _format,
       schoolName: schoolName,
     );
@@ -132,9 +184,24 @@ class _StaffAttendancePerWeekReportScreenState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final classroomItems = _availableClassrooms.isNotEmpty
+        ? _availableClassrooms
+        : widget.classrooms;
+    final availableStaff = _getAvailableStaff(context);
 
     return MultiBlocListener(
       listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.staffNames != current.staffNames,
+          listener: (context, state) {
+            if (_selectedStaff.isEmpty && state.staffNames.isNotEmpty) {
+              setState(() {
+                _selectedStaff = List<String>.from(state.staffNames);
+              });
+            }
+          },
+        ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.generationError != current.generationError,
@@ -231,7 +298,7 @@ class _StaffAttendancePerWeekReportScreenState
                 MultiSelectFilterField<String>(
                   label: 'Staff',
                   hintText: 'Select Staff Members',
-                  items: widget.staff,
+                  items: availableStaff,
                   selectedItems: _selectedStaff,
                   onChanged: (s) => setState(() => _selectedStaff = s),
                   itemToString: (item) => item,
@@ -245,7 +312,7 @@ class _StaffAttendancePerWeekReportScreenState
                 CustomMultiSelectDropdown(
                   label: 'Classroom',
                   hintText: 'Select Classroom',
-                  items: widget.classrooms,
+                  items: classroomItems,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
                   showSelectAll: true,

@@ -87,7 +87,7 @@ class _StudentEmergencyContactReportScreenState
       startDate: AppTime.now(),
       endDate: AppTime.now(),
       format: _format.value, // PDF or XLSX
-      classroomCodes: classroomCodes,
+      roomCodes: classroomCodes,
       schoolName: schoolName,
     );
     cubit.generateReport(params);

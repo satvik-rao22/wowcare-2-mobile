@@ -15,7 +15,7 @@ void main() {
         startDate: startDate,
         endDate: endDate,
         format: 'PDF',
-        classroomCodes: classroomCodes,
+        roomCodes: classroomCodes,
         studentCodes: studentCodes,
         schoolName: 'Test School',
       );
@@ -35,7 +35,7 @@ void main() {
         startDate: startDate,
         endDate: endDate,
         format: 'PDF',
-        classroomCodes: classroomCodes,
+        roomCodes: classroomCodes,
         studentCodes: studentCodes,
         schoolName: 'Test School',
       );
@@ -47,13 +47,34 @@ void main() {
       expect(body.containsKey('classroomCodes'), false);
     });
 
+    test('uses roomCodes for STAFF_ABSENT', () {
+      final params = ReportRequestParams(
+        reportType: ReportType.staffAbsent,
+        startDate: startDate,
+        endDate: endDate,
+        format: 'PDF',
+        roomCodes: classroomCodes,
+        schoolName: 'Test School',
+      );
+
+      final body = params.toRequestBody();
+
+      expect(body['reportType'], 'STAFF_ABSENT');
+      expect(body['startDate'], '2026-01-01');
+      expect(body['endDate'], '2026-01-31');
+      expect(body['roomCodes'], classroomCodes);
+      expect(body.containsKey('classroomCodes'), false);
+      expect(body['schoolName'], 'Test School');
+      expect(body['format'], 'PDF');
+    });
+
     test('omits schoolName when null', () {
       final params = ReportRequestParams(
         reportType: ReportType.studentAttendancePerStudent,
         startDate: startDate,
         endDate: endDate,
         format: 'PDF',
-        classroomCodes: classroomCodes,
+        roomCodes: classroomCodes,
         schoolName: null,
       );
 

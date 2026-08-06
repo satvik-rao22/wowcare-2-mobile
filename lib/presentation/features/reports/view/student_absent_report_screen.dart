@@ -91,7 +91,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
       endDate: _toDate.value,
       format: _format.value,
       schoolName: schoolName.isNotEmpty ? schoolName : null,
-      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      roomCodes: classroomCodes.isEmpty ? null : classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));

@@ -51,34 +51,18 @@ class _StudentDailyAttendanceReportScreenState
     super.dispose();
   }
 
-  // void _onGenerate() {
-  //   final cubit = context.read<ReportsCubit>();
-  //   final classroomNameToCode = cubit.state.classroomNameToCode;
-  //   final classroomCodes = _selectedClassrooms.value
-  //       .map((name) => classroomNameToCode[name] ?? name)
-  //       .toList();
-
-  //   final params = ReportRequestParams(
-  //     reportType: ReportType.studentDailyAttendance,
-  //     startDate: _date.value,
-  //     endDate: _date.value,
-  //     classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
-  //   );
-
-  //   unawaited(cubit.generateReport(params));
-  // }
   Future<void> _onGenerate() async {
     final cubit = context.read<ReportsCubit>();
 
     final classroomNameToCode = cubit.state.classroomNameToCode;
 
-    final classroomCodes = resolveReportCodes(
+    final roomCodes = resolveReportCodes(
       context: context,
       names: _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
-    if (classroomCodes == null) return;
+    if (roomCodes == null) return;
 
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
@@ -96,9 +80,10 @@ class _StudentDailyAttendanceReportScreenState
     final params = ReportRequestParams(
       reportType: ReportType.studentDailyAttendance,
       startDate: _date.value,
-      endDate: _date.value,
+      date: _date.value,
+      // endDate: _date.value,
       format: _format.value, // PDF or XLSX
-      classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
+      roomCodes: roomCodes.isEmpty ? null : roomCodes,
       schoolName: schoolName,
     );
 

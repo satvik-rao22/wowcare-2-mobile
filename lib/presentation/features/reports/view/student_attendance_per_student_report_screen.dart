@@ -2,9 +2,17 @@ import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/school_context_helper.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
+import 'package:wowcare/domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
 import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
@@ -12,13 +20,11 @@ import 'package:wowcare/presentation/features/reports/widgets/multi_select_filte
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-import '../../../../core/util/logger_service.dart';
-import '../../../../core/util/school_context_helper.dart';
 
 class StudentAttendancePerStudentReportScreen extends StatefulWidget {
   const StudentAttendancePerStudentReportScreen({
     super.key,
-    required this.students,
+    this.students = const <String>[],
     required this.classrooms,
   });
 
@@ -44,6 +50,11 @@ class _StudentAttendancePerStudentReportScreenState
   late DateTime _periodDate;
   List<String> _selectedStudents = <String>[];
   late List<String> _selectedClassrooms;
+  List<String> _availableStudents = <String>[];
+  Map<String, String> _studentCodeByName = <String, String>{};
+  Map<String, String> _classroomCodeByName = <String, String>{};
+  bool _isLoadingStudents = false;
+  int _fetchId = 0;
   String _format = 'PDF';
 
   @override
@@ -52,18 +63,137 @@ class _StudentAttendancePerStudentReportScreenState
     final now = AppTime.now();
     _periodDate = DateTime(now.year, now.month, 1);
     _selectedClassrooms = List<String>.from(widget.classrooms);
+    _availableStudents = List<String>.from(widget.students);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _fetchStudentsForClassrooms(_selectedClassrooms);
+    });
   }
 
-  void _onGenerate() async {
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isError: true,
-      );
+  Future<Map<String, String>> _resolveClassroomNameToCodeMap() async {
+    final cubitMap = context.read<ReportsCubit>().state.classroomNameToCode;
+    if (cubitMap.isNotEmpty) {
+      _classroomCodeByName.addAll(cubitMap);
+      return Map<String, String>.from(_classroomCodeByName);
+    }
+    if (_classroomCodeByName.isNotEmpty) {
+      return Map<String, String>.from(_classroomCodeByName);
+    }
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isNotEmpty) {
+        final classrooms =
+            await serviceLocator<GetActiveClassroomsUseCase>()(
+              schoolCode: schoolCode,
+            );
+        for (final c in classrooms) {
+          _classroomCodeByName[c.name] = c.code;
+        }
+      }
+    } catch (_) {}
+    return Map<String, String>.from(_classroomCodeByName);
+  }
+
+  Future<void> _fetchStudentsForClassrooms(
+    List<String> selectedClassroomNames,
+  ) async {
+    final currentFetchId = ++_fetchId;
+    if (selectedClassroomNames.isEmpty) {
+      if (!mounted) return;
+      setState(() {
+        _availableStudents = <String>[];
+        _selectedStudents = <String>[];
+        _studentCodeByName = <String, String>{};
+        _isLoadingStudents = false;
+      });
       return;
     }
 
+    setState(() {
+      _isLoadingStudents = true;
+    });
+
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+
+      final classroomNameToCode = await _resolveClassroomNameToCodeMap();
+      final classroomCodes =
+          selectedClassroomNames
+              .map((name) => classroomNameToCode[name])
+              .whereType<String>()
+              .where((c) => c.trim().isNotEmpty)
+              .toSet()
+              .toList();
+
+      if (classroomCodes.isEmpty) {
+        if (!mounted || currentFetchId != _fetchId) return;
+        setState(() {
+          _availableStudents = <String>[];
+          _selectedStudents = <String>[];
+          _isLoadingStudents = false;
+        });
+        return;
+      }
+
+      final getStudentClassroomListUseCase =
+          serviceLocator<GetStudentClassroomListUseCase>();
+
+      final results = await Future.wait(
+        classroomCodes.map(
+          (code) => getStudentClassroomListUseCase(
+            schoolCode: schoolCode,
+            classroomCode: code,
+            status: const ['ACTIVE'],
+            refresh: true,
+          ).catchError((_) => <StudentClassroomItem>[]),
+        ),
+      );
+
+      if (!mounted || currentFetchId != _fetchId) return;
+
+      final newStudentCodeByName = <String, String>{};
+      for (final studentList in results) {
+        for (final s in studentList) {
+          final fullName = s.fullName.trim();
+          if (fullName.isNotEmpty && s.studentCode.trim().isNotEmpty) {
+            newStudentCodeByName[fullName] = s.studentCode.trim();
+          }
+        }
+      }
+
+      final sortedNames =
+          newStudentCodeByName.keys.toList()
+            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+      setState(() {
+        _studentCodeByName = newStudentCodeByName;
+        _availableStudents = sortedNames;
+        _selectedStudents =
+            _selectedStudents
+                .where((s) => newStudentCodeByName.containsKey(s))
+                .toList();
+        _isLoadingStudents = false;
+      });
+
+      if (mounted) {
+        context.read<ReportsCubit>().setStudentNames(
+          sortedNames,
+          nameToCodeMap: newStudentCodeByName,
+        );
+      }
+    } catch (e) {
+      if (!mounted || currentFetchId != _fetchId) return;
+      setState(() {
+        _isLoadingStudents = false;
+      });
+    }
+  }
+
+  void _onGenerate() async {
     if (_selectedClassrooms.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -73,23 +203,45 @@ class _StudentAttendancePerStudentReportScreenState
       return;
     }
 
+    if (_selectedStudents.isEmpty) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: 'Please select at least one student',
+        isError: true,
+      );
+      return;
+    }
+
     final cubit = context.read<ReportsCubit>();
     final reportsState = cubit.state;
+
+    final mergedStudentNameToCode = <String, String>{
+      ...reportsState.studentNameToCode,
+      ..._studentCodeByName,
+    };
 
     final studentCodes = resolveReportCodes(
       context: context,
       names: _selectedStudents,
-      nameToCode: reportsState.studentNameToCode,
+      nameToCode: mergedStudentNameToCode,
       labelPlural: 'students',
     );
     if (studentCodes == null) return;
+
+    final classroomNameToCode = await _resolveClassroomNameToCodeMap();
+    final mergedClassroomNameToCode = <String, String>{
+      ...reportsState.classroomNameToCode,
+      ...classroomNameToCode,
+    };
+
     final classroomCodes = resolveReportCodes(
       context: context,
       names: _selectedClassrooms,
-      nameToCode: reportsState.classroomNameToCode,
+      nameToCode: mergedClassroomNameToCode,
       labelPlural: 'classrooms',
     );
     if (classroomCodes == null) return;
+
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -110,7 +262,7 @@ class _StudentAttendancePerStudentReportScreenState
       studentCodes: studentCodes,
       format: _format,
       schoolName: schoolName.isNotEmpty ? schoolName : null,
-      classroomCodes: classroomCodes,
+      roomCodes: classroomCodes,
     );
 
     unawaited(cubit.generateReport(params));
@@ -142,8 +294,9 @@ class _StudentAttendancePerStudentReportScreenState
     return MultiBlocListener(
       listeners: [
         BlocListener<ReportsCubit, ReportsState>(
-          listenWhen: (previous, current) =>
-              previous.generationError != current.generationError,
+          listenWhen:
+              (previous, current) =>
+                  previous.generationError != current.generationError,
           listener: (context, state) {
             if (state.generationError != null &&
                 state.generationError!.isNotEmpty) {
@@ -156,8 +309,9 @@ class _StudentAttendancePerStudentReportScreenState
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
-          listenWhen: (previous, current) =>
-              previous.generationSuccess != current.generationSuccess,
+          listenWhen:
+              (previous, current) =>
+                  previous.generationSuccess != current.generationSuccess,
           listener: (context, state) {
             if (state.generationSuccess != null &&
                 state.generationSuccess!.isNotEmpty) {
@@ -219,8 +373,8 @@ class _StudentAttendancePerStudentReportScreenState
                           const ReportFieldLabel(label: 'Period'),
                           ReportMonthYearField(
                             initialMonth: _periodDate,
-                            onMonthSelected: (d) =>
-                                setState(() => _periodDate = d),
+                            onMonthSelected:
+                                (d) => setState(() => _periodDate = d),
                           ),
                         ],
                       ),
@@ -228,10 +382,30 @@ class _StudentAttendancePerStudentReportScreenState
                   ],
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                CustomMultiSelectDropdown(
+                  label: 'Classroom',
+                  hintText: 'Select Classroom',
+                  items: widget.classrooms,
+                  selectedItems: _selectedClassrooms,
+                  onChanged: (s) {
+                    setState(() => _selectedClassrooms = s);
+                    _fetchStudentsForClassrooms(s);
+                  },
+                  showSelectAll: true,
+                ),
+                const ReportDefaultNote(
+                  text: 'Note: All Classrooms will be selected by Default.',
+                ),
+                SizedBox(height: responsive.verticalSpacing),
                 MultiSelectFilterField<String>(
                   label: 'Student',
-                  hintText: 'Select Students',
-                  items: widget.students,
+                  hintText:
+                      _isLoadingStudents
+                          ? 'Loading Students...'
+                          : (_selectedClassrooms.isEmpty
+                              ? 'Select Classroom First'
+                              : 'Select Students'),
+                  items: _availableStudents,
                   selectedItems: _selectedStudents,
                   onChanged: (s) => setState(() => _selectedStudents = s),
                   itemToString: (item) => item,
@@ -240,18 +414,6 @@ class _StudentAttendancePerStudentReportScreenState
                   showSelectAll: true,
                   enableSearch: true,
                   searchHintText: 'Search Students',
-                ),
-                SizedBox(height: responsive.verticalSpacing),
-                CustomMultiSelectDropdown(
-                  label: 'Classroom',
-                  hintText: 'Select Classroom',
-                  items: widget.classrooms,
-                  selectedItems: _selectedClassrooms,
-                  onChanged: (s) => setState(() => _selectedClassrooms = s),
-                  showSelectAll: true,
-                ),
-                const ReportDefaultNote(
-                  text: 'Note: All Classrooms will be selected by Default.',
                 ),
                 SizedBox(height: responsive.verticalSpacing),
                 const ReportFieldLabel(label: 'Export Format'),

@@ -7,6 +7,8 @@ import '../models/student_models.dart';
 import '../models/student_document_models.dart';
 import '../models/student_pickup_models.dart';
 import '../models/student_physician_models.dart';
+import '../models/vaccine_model.dart';
+import '../../../../core/util/logger_service.dart';
 
 abstract class StudentRemoteDataSource {
   Future<StudentPageModel> getStudentPage({
@@ -250,6 +252,12 @@ abstract class StudentRemoteDataSource {
 
   /// School-level student settings via `GET /api/v1/student-settings`.
   Future<StudentSettings> getStudentSettings({required String schoolCode});
+
+  /// Immunization settings (available vaccines) via
+  /// `GET /api/v1/student/settings/immunization?schoolCode={schoolCode}`.
+  Future<List<VaccineModel>> getImmunizationSettings({
+    required String schoolCode,
+  });
 
   /// Fetches children linked to a guardian via
   /// `GET /api/v1/guardian/children`.
@@ -1388,6 +1396,65 @@ class StudentRemoteDataSourceImpl implements StudentRemoteDataSource {
       canStaffEditTheirOwnHealthRecords:
           asBool(data['canStaffEditTheirOwnHealthRecords']),
     );
+  }
+
+  @override
+  Future<List<VaccineModel>> getImmunizationSettings({
+    required String schoolCode,
+  }) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentImmunizationSettings,
+      ApiConstants.studentBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: <String, dynamic>{'schoolCode': schoolCode},
+    );
+
+    AppLogger.d(
+      '[IMMUNIZATION_API] Raw immunization API response: ${response.data}',
+    );
+
+    final root = response.data;
+    List<dynamic> list = const [];
+    if (root is List) {
+      list = root;
+    } else if (root is Map<String, dynamic>) {
+      final data = root['data'];
+      if (data is List) {
+        list = data;
+      } else if (data is Map<String, dynamic>) {
+        final inner =
+            data['items'] ??
+            data['vaccines'] ??
+            data['immunizations'] ??
+            data['list'] ??
+            data['settings'];
+        if (inner is List) {
+          list = inner;
+        }
+      } else if (root['items'] is List) {
+        list = root['items'] as List;
+      } else if (root['vaccines'] is List) {
+        list = root['vaccines'] as List;
+      } else if (root['immunizations'] is List) {
+        list = root['immunizations'] as List;
+      }
+    }
+
+    final vaccines = <VaccineModel>[];
+    for (final item in list) {
+      if (item is Map<String, dynamic>) {
+        final model = VaccineModel.fromJson(item);
+        if (model.name.isNotEmpty || model.code.isNotEmpty) {
+          vaccines.add(model);
+        }
+      }
+    }
+
+    AppLogger.d('[IMMUNIZATION_API] Parsed vaccine models: $vaccines');
+    return vaccines;
   }
 
   @override

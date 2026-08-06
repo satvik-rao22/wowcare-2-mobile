@@ -138,10 +138,12 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
       _filteredItems = widget.items;
     } else {
       _filteredItems = widget.items
-          .where((item) => widget
-              .itemToString(item)
-              .toLowerCase()
-              .contains(_searchQuery.toLowerCase()))
+          .where(
+            (item) => widget
+                .itemToString(item)
+                .toLowerCase()
+                .contains(_searchQuery.toLowerCase()),
+          )
           .toList();
     }
   }
@@ -293,7 +295,8 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
                               child: TextField(
                                 controller: _searchController,
                                 decoration: InputDecoration(
-                                  hintText: widget.searchHintText ??
+                                  hintText:
+                                      widget.searchHintText ??
                                       'Search ${widget.pluralLabel}',
                                   prefixIcon: const Icon(Icons.search),
                                   border: OutlineInputBorder(
@@ -314,36 +317,38 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
                             ),
                           // Select All / Clear All buttons
                           if (widget.showSelectAll)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    child: _SelectAllButton(
-                                      isAllSelected: _isAllSelected(),
-                                      onSelectAll: () {
-                                        setOverlayState(_selectAll);
-                                        setState(() {});
-                                      },
+                            InkWell(
+                              onTap: () {
+                                setOverlayState(() {
+                                  if (_isAllSelected()) {
+                                    _clearAll();
+                                  } else {
+                                    _selectAll();
+                                  }
+                                });
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                                child: Row(
+                                  children: [
+                                    _buildCheckbox(_isAllSelected()),
+                                    const SizedBox(width: 12),
+                                    const Expanded(
+                                      child: Text(
+                                        'Select All',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
                                     ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: _ClearAllButton(
-                                      isEmpty: _localSelectedItems.isEmpty,
-                                      onClearAll: () {
-                                        setOverlayState(_clearAll);
-                                        setState(() {});
-                                      },
-                                    ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          const Divider(height: 8, thickness: 0.5),
                           // Items list
                           Expanded(
                             child: _filteredItems.isEmpty
@@ -384,7 +389,8 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
                                                     color: Colors.black87,
                                                     fontWeight: FontWeight.w400,
                                                   ),
-                                                  overflow: TextOverflow.ellipsis,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
                                                 ),
                                               ),
                                             ],
@@ -434,7 +440,10 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
             children: [
               TextSpan(text: widget.label),
               if (widget.showAsterisk)
-                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: Colors.red),
+                ),
             ],
           ),
         ),
@@ -529,10 +538,7 @@ class _ClearAllButton extends StatelessWidget {
   final bool isEmpty;
   final VoidCallback onClearAll;
 
-  const _ClearAllButton({
-    required this.isEmpty,
-    required this.onClearAll,
-  });
+  const _ClearAllButton({required this.isEmpty, required this.onClearAll});
 
   @override
   Widget build(BuildContext context) {

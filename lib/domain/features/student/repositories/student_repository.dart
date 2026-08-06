@@ -10,6 +10,7 @@ import '../entities/student_pickup.dart';
 import '../entities/student_profile.dart';
 import '../entities/student_regular_schedule.dart';
 import '../entities/student_settings.dart';
+import '../entities/vaccine_item.dart';
 
 abstract class StudentRepository {
   /// Fetches a single student profile via `GET /api/v1/student/student/{code}`.
@@ -214,6 +215,18 @@ abstract class StudentRepository {
 
   /// School-level student settings from `GET /api/v1/student-settings`.
   Future<StudentSettings> getStudentSettings({required String schoolCode});
+
+  /// Immunization settings (available vaccines) via
+  /// `GET /api/v1/student/settings/immunization?schoolCode={schoolCode}`.
+  Future<List<VaccineItem>> getImmunizationSettings({
+    required String schoolCode,
+  });
+
+  /// Returns a mapping of vaccine display names to backend vaccine codes (`VCC_*`)
+  /// for a given school.
+  Future<Map<String, String>> getVaccineNameToCodeMapForSchool({
+    required String schoolCode,
+  });
 
   /// Fetches student counts (active, upcoming, enrolled) for a school.
   ///
