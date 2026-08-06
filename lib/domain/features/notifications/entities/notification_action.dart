@@ -63,11 +63,14 @@ class NotificationAction {
   // ── Tasks ───────────────────────────────────────────────────────────────
   // The six actions the Tasks backend fires, per the push payload contract.
   // Every one carries `taskCode` (the series) + `organizationCode`/
-  // `schoolCode`; the three assignment-scoped ones also carry the real
-  // `assignmentCode`, which names one specific card outright — `TASK_ASSIGNED`
-  // / `TASK_UPDATED` send only the series, so the screen resolves those
-  // against the signed-in user's own identity (a task push only ever reaches
-  // the device of the person it concerns). See NotificationRouteResolver.
+  // `schoolCode`; every action except TASK_DELETED also carries the real
+  // `assignmentCode`, which names one specific card outright (backend added it
+  // to TASK_ASSIGNED/TASK_UPDATED 2026-08-07 — they used to send only the
+  // series). See NotificationRouteResolver — `_taskDetail` reads whichever
+  // code is present, so no action-specific branching was needed there.
+  // `TasksState.myAssignmentInSeries` (pairing the series with the signed-in
+  // user) is kept as the fallback for a degraded/legacy payload that still
+  // omits `assignmentCode`.
   static const String taskAssigned = 'TASK_ASSIGNED';
   static const String taskUpdated = 'TASK_UPDATED';
   static const String taskDeleted = 'TASK_DELETED';

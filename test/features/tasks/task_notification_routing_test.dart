@@ -5,9 +5,12 @@ import 'package:wowcare/presentation/features/notifications/routing/notification
 import 'package:wowcare/presentation/features/tasks/cubit/tasks_cubit.dart';
 
 /// The Task push-notification contract, end to end on the client side: the six
-/// `TASK_*` actions the backend fires must each resolve to a destination, and
-/// the two that carry only the series code must still land on one specific
-/// card via `TasksState.myAssignmentInSeries`.
+/// `TASK_*` actions the backend fires must each resolve to a destination.
+/// Every action except `TASK_DELETED` now carries the real `assignmentCode`
+/// (backend added it to `TASK_ASSIGNED`/`TASK_UPDATED` 2026-08-07 — they used
+/// to send only the series), so the resolver opens the exact card directly;
+/// `TasksState.myAssignmentInSeries` is exercised separately below as the
+/// fallback for a degraded/legacy payload that still omits it.
 void main() {
   // The contract's own sample codes, so a failure here reads against the doc.
   const org = 'ORG_67F60097-C';
@@ -31,12 +34,14 @@ void main() {
         },
       );
 
-  group('resolver — actions carrying the assignment code open that card', () {
-    // TASK_STATUS_UPDATED / TASK_OVERDUE / TASK_DUE_SOON all send the real
-    // assignmentCode, which names the card outright — it rides as the
-    // `taskCode` query param, since that's the identity TaskDetailScreen
-    // already matches a card by.
+  group('resolver — every non-deleted action carries the assignment code', () {
+    // All five open the exact card — no series/identity pairing needed. The
+    // resolver reads whichever code is present without branching on the
+    // action, so TASK_ASSIGNED / TASK_UPDATED joining the other three needed
+    // no resolver change, only this test to lock the contract in.
     for (final action in const [
+      'TASK_ASSIGNED',
+      'TASK_UPDATED',
       'TASK_STATUS_UPDATED',
       'TASK_OVERDUE',
       'TASK_DUE_SOON',
@@ -59,9 +64,13 @@ void main() {
     }
   });
 
-  group('resolver — actions carrying only the series code', () {
+  group('resolver — degraded payload carrying only the series code', () {
+    // A legacy/degraded TASK_ASSIGNED or TASK_UPDATED that still omits
+    // assignmentCode falls back to seriesCode + myAssignmentInSeries — see the
+    // group below. Not the normal case per the current contract, but the
+    // resolver must not break on it.
     for (final action in const ['TASK_ASSIGNED', 'TASK_UPDATED']) {
-      test('$action → detail with seriesCode and no taskCode', () {
+      test('$action without assignmentCode → detail with seriesCode only', () {
         final dest = NotificationRouteResolver.resolve(push(action, {
           'taskCode': series,
           'taskTitle': 'Restock the first-aid kit',
@@ -106,8 +115,10 @@ void main() {
     expect(dest.queryParameters['seriesCode'], series);
   });
 
-  // The series-only actions (TASK_ASSIGNED / TASK_UPDATED) rely on the client
-  // pairing the series with the signed-in user's identity to find the one card.
+  // Exercised directly (independent of the resolver) as the fallback a
+  // degraded/legacy TASK_ASSIGNED / TASK_UPDATED payload — one still missing
+  // assignmentCode — falls back to: pairing the series with the signed-in
+  // user's identity to find the one card.
   group('myAssignmentInSeries — series code + identity → one card', () {
     Task task({
       required String code,

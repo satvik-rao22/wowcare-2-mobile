@@ -475,16 +475,19 @@ class NotificationRouteResolver {
 
   /// Task notifications open the task's own detail screen.
   ///
-  /// `TASK_STATUS_UPDATED` / `TASK_OVERDUE` / `TASK_DUE_SOON` send the real
-  /// `assignmentCode` — passed through as the `taskCode` query param, since
-  /// that's the identity `TaskDetailScreen` already matches a card by
-  /// (`TasksState.taskByCode` keys on `Task.code`, the assignment). No screen
-  /// change needed for these three.
+  /// Every action except `TASK_DELETED` sends the real `assignmentCode` —
+  /// passed through as the `taskCode` query param, since that's the identity
+  /// `TaskDetailScreen` already matches a card by (`TasksState.taskByCode`
+  /// keys on `Task.code`, the assignment). Deliberately action-agnostic: this
+  /// method just reads whichever code is present, so backend adding
+  /// `assignmentCode` to `TASK_ASSIGNED`/`TASK_UPDATED` (2026-08-07 — they used
+  /// to send only the series) needed no change here.
   ///
-  /// `TASK_ASSIGNED` / `TASK_UPDATED` send only the series `taskCode` — carried
-  /// separately as `seriesCode`, which the screen pairs with the signed-in
-  /// user's own identity to find their own assignment within that series (see
-  /// `TasksState.myAssignmentInSeries` / `TaskDetailScreen`).
+  /// A degraded/legacy payload that still omits `assignmentCode` (only
+  /// `taskCode`, the series) falls back to `seriesCode`, which the screen
+  /// pairs with the signed-in user's own identity to find their one
+  /// assignment within that series (see `TasksState.myAssignmentInSeries` /
+  /// `TaskDetailScreen`).
   ///
   /// Both params ride as QUERY parameters rather than go_router's `extra`,
   /// because notification routing goes through `appRouter.go(location)` and a

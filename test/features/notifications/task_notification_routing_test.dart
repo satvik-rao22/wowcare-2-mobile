@@ -25,11 +25,15 @@ void main() {
   }
 
   group('task notifications → task detail', () {
-    // TASK_STATUS_UPDATED / TASK_OVERDUE / TASK_DUE_SOON carry the real
-    // assignmentCode in the actual contract — it rides as the `taskCode`
-    // query param (the identity TaskDetailScreen matches a card by), while
-    // the series still travels as `seriesCode` for the Schedule section.
+    // Every action except TASK_DELETED carries the real assignmentCode in the
+    // current contract (backend added it to TASK_ASSIGNED/TASK_UPDATED
+    // 2026-08-07 — they used to send only the series) — it rides as the
+    // `taskCode` query param (the identity TaskDetailScreen matches a card
+    // by), while the series still travels as `seriesCode` for the Schedule
+    // section.
     const assignmentScopedActions = <String>[
+      'TASK_ASSIGNED',
+      'TASK_UPDATED',
       'TASK_STATUS_UPDATED',
       'TASK_OVERDUE',
       'TASK_DUE_SOON',
@@ -48,11 +52,13 @@ void main() {
       });
     }
 
-    // TASK_ASSIGNED / TASK_UPDATED send only the series taskCode — the screen
-    // pairs it with the signed-in user's identity (myAssignmentInSeries) to
-    // find their own card, so no `taskCode` param can be produced here.
+    // A degraded/legacy TASK_ASSIGNED or TASK_UPDATED that still omits
+    // assignmentCode falls back to the series taskCode — the screen pairs it
+    // with the signed-in user's identity (myAssignmentInSeries) to find their
+    // own card, so no `taskCode` param can be produced here. Not the normal
+    // case per the current contract; kept as a safety-net regression test.
     for (final action in const ['TASK_ASSIGNED', 'TASK_UPDATED']) {
-      test('$action opens the task detail screen by its series, no assignment yet',
+      test('$action without assignmentCode falls back to series only',
           () {
         final destination = NotificationRouteResolver.resolve(push(action));
 

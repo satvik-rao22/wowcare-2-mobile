@@ -385,8 +385,11 @@ class TasksState extends Equatable {
   }
 
   /// The signed-in user's own assignment within the series [seriesCode] — the
-  /// bridge for notifications that name only the series (`TSK_…`) and not the
-  /// assignment (`TSA_…`), which is what a card is keyed by.
+  /// bridge for a notification that names only the series (`TSK_…`) and not the
+  /// assignment (`TSA_…`), which is what a card is keyed by. Every current
+  /// task action now sends the real assignment code (see
+  /// `NotificationRouteResolver._taskDetail`), so this is the fallback for a
+  /// degraded/legacy payload that still doesn't.
   ///
   /// Identity is what picks one card out of the series: a series has one
   /// assignment per assignee, and a task notification only ever reaches the

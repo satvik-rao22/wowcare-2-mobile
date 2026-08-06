@@ -44,9 +44,11 @@ class TaskDetailScreen extends StatefulWidget {
 
   /// The owning **series** code (`TSK_…`), when known. Serves two purposes: it
   /// lets the Schedule section and attachments load before (or without) the
-  /// card resolving, and it is the fallback identity for notifications that
-  /// carry only the series — `TASK_ASSIGNED` / `TASK_UPDATED` — where the card
-  /// is found by pairing the series with the signed-in user.
+  /// card resolving, and it is the fallback identity for a degraded/legacy
+  /// notification that carries only the series — every current task action
+  /// sends the real assignment code, so this path is a safety net, not the
+  /// normal case — where the card is found by pairing the series with the
+  /// signed-in user.
   final String? seriesCode;
 
   @override
