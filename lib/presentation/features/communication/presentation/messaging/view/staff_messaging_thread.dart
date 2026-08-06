@@ -56,6 +56,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   bool _initialLoadInFlight = true;
   bool _ownSendPending = false;
 
+  /// True once the thread has successfully loaded at least once. Used to
+  /// tell a genuine initial-load failure (shown as a full-page error, see
+  /// `build()`) apart from a MID-thread action failure (reaction/delete/
+  /// send/etc.) — the latter's `CommunicationError` state is immediately
+  /// superseded by a follow-up `CommunicationLoaded` emit in the same
+  /// cubit call (see `CommunicationCubit._emitSendFailure`), so it never
+  /// survives to a painted frame; `build()` alone silently skips it. The
+  /// `listener` callback below fires synchronously per-emission regardless
+  /// of frame batching, so it's the only reliable place to catch it.
+  bool _hasLoadedThreadOnce = false;
+
   /// False until the very first scroll-to-bottom has actually landed on the
   /// true latest message. The real message list stays hidden behind the
   /// shimmer until this flips, so opening a thread shows the conversation
@@ -517,7 +528,17 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     return BlocConsumer<CommunicationCubit, CommunicationState>(
       listener: (context, state) {
         if (state is CommunicationLoaded) {
+          _hasLoadedThreadOnce = true;
           _onMessagesChanged(state.messages);
+        } else if (state is CommunicationError && _hasLoadedThreadOnce) {
+          // Mid-thread failure (the thread was already showing) — surface
+          // it as a snackbar. A true initial-load failure instead falls
+          // through to the full-page error branch in `build()` below.
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: state.message,
+            isError: true,
+          );
         }
       },
       builder: (context, state) {

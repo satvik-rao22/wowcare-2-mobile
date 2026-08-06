@@ -20,6 +20,20 @@ class Message extends Equatable {
   final String? senderName;
   final List<String> receivers;
   final String? senderUserCode;
+
+  /// Raw backend role string (e.g. `"ADMIN"`, `"GUARDIAN"`, `"STAFF"`) the
+  /// sender was acting AS when this specific message was sent — distinct
+  /// from [senderUserCode], which only identifies the underlying account.
+  ///
+  /// A single account can hold more than one persona in the SAME
+  /// conversation (e.g. a staff member who is also the enrolled child's
+  /// guardian shows up in `participants` twice, once per role, sharing one
+  /// `userCode`). Comparing [senderUserCode] alone against the viewer's own
+  /// code isn't enough in that case — a message the account sent under its
+  /// OTHER persona would incorrectly render as "mine". Screens that can be
+  /// opened as either persona (see `ParentMessagingThread.isGuardian`) must
+  /// also compare this against the persona currently being viewed AS.
+  final String? senderRole;
   final bool isPrivate;
   final String? privateParentUserCode;
 
@@ -58,6 +72,7 @@ class Message extends Equatable {
     this.senderName,
     this.receivers = const [],
     this.senderUserCode,
+    this.senderRole,
     this.isPrivate = false,
     this.privateParentUserCode,
     this.isFailed = false,
@@ -111,12 +126,13 @@ class Message extends Equatable {
     bool? isFailed,
     bool? hasProcessingAttachments,
     bool? isSending,
+    bool? isSentByMe,
   }) {
     return Message(
       id: id,
       code: code,
       text: text,
-      isSentByMe: isSentByMe,
+      isSentByMe: isSentByMe ?? this.isSentByMe,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,
@@ -130,6 +146,7 @@ class Message extends Equatable {
       senderName: senderName,
       receivers: receivers,
       senderUserCode: senderUserCode,
+      senderRole: senderRole,
       isPrivate: isPrivate,
       privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
       isFailed: isFailed ?? this.isFailed,
@@ -158,6 +175,7 @@ class Message extends Equatable {
         senderName,
         receivers,
         senderUserCode,
+        senderRole,
         isPrivate,
         privateParentUserCode,
         isFailed,

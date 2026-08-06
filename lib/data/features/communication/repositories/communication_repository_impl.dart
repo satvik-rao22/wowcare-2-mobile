@@ -795,6 +795,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       ..senderUserCode = entity.senderCode.isNotEmpty
           ? entity.senderCode
           : existing?.senderUserCode
+      // entity.senderRole always has a value (defaults to ParticipantRole.staff
+      // when the Firestore doc omits it — see MessageFirestoreItem), so unlike
+      // senderCode above there's no "empty means keep the old one" case here.
+      ..senderRole = entity.senderRole.toApiString()
       ..time = existing?.time ?? entity.sentAt
       ..deliveredAt = existing?.deliveredAt
       ..readAt = existing?.readAt

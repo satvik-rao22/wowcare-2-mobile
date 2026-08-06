@@ -500,9 +500,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   /// userCode → display name, for resolving receipt names in the status dialog
   /// (realtime receipts carry no display name).
   Map<String, String> get _participantNameByCode => {
-        for (final p in _conversation.participants)
-          if (p.userName.isNotEmpty) p.userCode: p.userName,
-      };
+    for (final p in _conversation.participants)
+      if (p.userName.isNotEmpty) p.userCode: p.userName,
+  };
 
   List<ParticipantDisplayData> get _participantData =>
       _conversation.participants.map((p) {
@@ -1299,6 +1299,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 },
                 isParentMessaging: _senderRole == ParticipantRole.parent,
                 senderIsOrgSide: _isOrgSideSender(msg),
+                viewerIsOrgSide: _senderRole != ParticipantRole.parent,
               ),
             ],
           );

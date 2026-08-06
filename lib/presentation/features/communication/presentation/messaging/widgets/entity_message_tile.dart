@@ -33,7 +33,10 @@ Message? _denormalizedQuote(MessageEntity reply, String currentUserCode) {
 /// Active recipients = participants still in the conversation (leftAt == null), excluding the
 /// sender/current user. Drives the group read/delivered tick: a group message is delivered/read
 /// only once ALL of these have delivered/read it.
-int _activeRecipientCount(ConversationEntity? conversation, String currentUserCode) {
+int _activeRecipientCount(
+  ConversationEntity? conversation,
+  String currentUserCode,
+) {
   if (conversation == null) return 0;
   return conversation.participants
       .where((p) => p.leftAt == null && p.userCode != currentUserCode)
@@ -73,6 +76,7 @@ class EntityMessageTile extends StatelessWidget {
     this.onReactionTap,
     this.isParentMessaging = false,
     this.senderIsOrgSide,
+    this.viewerIsOrgSide,
   });
 
   final String messageCode;
@@ -95,6 +99,9 @@ class EntityMessageTile extends StatelessWidget {
 
   /// See [MessageBubble.senderIsOrgSide].
   final bool? senderIsOrgSide;
+
+  /// See [MessageBubble.viewerIsOrgSide].
+  final bool? viewerIsOrgSide;
 
   @override
   Widget build(BuildContext context) {
@@ -158,15 +165,17 @@ class EntityMessageTile extends StatelessWidget {
           onReactionAdded: onReactionAdded,
           onRemoveReaction: onRemoveReaction,
           onReactionTap: onReactionTap,
-          onRetry: (snapshot.message.isFailed ||
+          onRetry:
+              (snapshot.message.isFailed ||
                   snapshot.message.hasProcessingAttachments)
-              ? () => context
-                  .read<ConversationThreadCubit>()
-                  .retrySendMessage(snapshot.message)
+              ? () => context.read<ConversationThreadCubit>().retrySendMessage(
+                  snapshot.message,
+                )
               : null,
           isParentMessaging: isParentMessaging,
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,
+          viewerIsOrgSide: viewerIsOrgSide,
         );
       },
     );

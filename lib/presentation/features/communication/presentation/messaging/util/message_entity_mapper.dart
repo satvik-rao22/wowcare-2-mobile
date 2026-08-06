@@ -1,5 +1,6 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 
@@ -33,11 +34,18 @@ Message mapMessageEntityToMessage(
       aggregatedDeliveredAt = entity.sentAt;
     }
   }
+  final isMine = entity.senderCode == currentUserCode;
+  AppLogger.d(
+    '[CHAT OWNERSHIP v2] code=${entity.code} '
+    'senderCode=${entity.senderCode} senderName=${entity.senderName} '
+    'senderRole=${entity.senderRole} currentUserCode=$currentUserCode '
+    'isMine=$isMine',
+  );
   return Message(
     id: entity.id,
     code: entity.code,
     text: entity.text,
-    isSentByMe: entity.senderCode == currentUserCode,
+    isSentByMe: isMine,
     time: entity.sentAt,
     deliveredAt: aggregatedDeliveredAt,
     readAt: aggregatedReadAt,

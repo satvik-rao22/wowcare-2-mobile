@@ -164,7 +164,12 @@ class CommunicationRemoteDataSourceImpl
       final attachments = message.attachments.isNotEmpty
           ? message.attachments
           : parsed.attachments;
-      // The sender is always the current user for outbound messages.
+      // The sender is always the current user for outbound messages. Prefer
+      // the response's own senderRole, but fall back to `activeRole` — the
+      // role this exact request was sent under (see `body['role']` above,
+      // and Message.senderRole's doc comment on why this can't just be
+      // "whichever role the account holds") — since that's known with
+      // certainty regardless of whether the backend echoes it back.
       return MessageModel(
         id: parsed.id,
         code: parsed.code,
@@ -177,6 +182,9 @@ class CommunicationRemoteDataSourceImpl
         attachments: attachments,
         reactions: parsed.reactions,
         senderName: parsed.senderName,
+        senderRole: (parsed.senderRole?.isNotEmpty ?? false)
+            ? parsed.senderRole
+            : (activeRole.isNotEmpty ? activeRole : null),
         isPrivate: parsed.isPrivate,
         privateParentUserCode: parsed.privateParentUserCode,
       );
