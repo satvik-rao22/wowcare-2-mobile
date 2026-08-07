@@ -71,7 +71,7 @@ class _StaffDirectoryReportScreenState
   void initState() {
     super.initState();
     _selectedStaffFields = _defaultStaffFields.toSet();
-    _selectedClassrooms = List<String>.from(widget.classrooms);
+    
     _availableClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -101,7 +101,7 @@ class _StaffDirectoryReportScreenState
           setState(() {
             _availableClassrooms = names;
             _classroomNameToCode = nameToCodeMap;
-            _selectedClassrooms = List<String>.from(names);
+            _selectedClassrooms = <String>[];
           });
         }
       }
@@ -151,7 +151,7 @@ class _StaffDirectoryReportScreenState
         : cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );

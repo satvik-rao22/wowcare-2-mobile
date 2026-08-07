@@ -74,7 +74,7 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
 
   @override
   Map<String, dynamic> toRequestBody() {
-    return {
+    final body = <String, dynamic>{
       'reportType': 'IMMUNIZATION',
       'startDate': startDate.toIso8601String().split('T')[0],
       'endDate': endDate.toIso8601String().split('T')[0],
@@ -83,10 +83,17 @@ class SchoolImmunizationReportParams extends Equatable implements ReportParams {
       'statusFilter': statusFilters,
       'includeParentName': includeParentName,
       'includeParentEmail': includeParentEmail,
-      'roomCodes': classroomCodes ?? <String>[],
-      'tagCodes': tagCodes ?? <String>[],
       'format': format,
     };
+
+    if (classroomCodes != null && classroomCodes!.isNotEmpty) {
+      body['roomCodes'] = classroomCodes;
+    }
+    if (tagCodes != null && tagCodes!.isNotEmpty) {
+      body['tagCodes'] = tagCodes;
+    }
+
+    return body;
   }
 
   @override

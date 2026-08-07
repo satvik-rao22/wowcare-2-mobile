@@ -423,7 +423,7 @@ void main() {
       ),
       attachmentUploader: attachmentUploader,
       // Short duration so the test doesn't wait 2 real seconds.
-      markReadDebounceDuration: const Duration(milliseconds: 20),
+      markReadDebounceDuration: const Duration(milliseconds: 20), cacheDraftMessageUseCase: , markDraftMessageFailedUseCase: , getCachedMessagesEntityUseCase: ,
     );
   });
 

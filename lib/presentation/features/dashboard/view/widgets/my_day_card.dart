@@ -440,13 +440,13 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   /// [_loadStaffIdentity]'s async status fetch resolves, so whichever of the
   /// two finishes last is the one that actually decides whether to show it.
   void _maybeShowSignInPopup() {
-    if (!mounted || !_signInStatusLoaded) return;
+    if (!mounted) return;
     if (_geofencePopupShownThisEntry) return;
-    // TODO: Temporarily disabled Sign Out bottom sheet when signed in.
-    // Only show the sheet if user is signed out (needs to sign in).
-    if (_isSignedIn) return;
     final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.isSignInStatusLoading) return;
     if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    if (geofenceState.isStaffSignedIn) return;
+    
     _geofencePopupShownThisEntry = true;
     // GeofenceCubit already fires the notification via
     // _triggerNotificationIfNeeded — no need to do it here too.
@@ -456,7 +456,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
         GeofenceSignInSheet.show(
           context,
           role: 'staff',
-          isSignedIn: _isSignedIn,
+          isSignedIn: geofenceState.isStaffSignedIn,
         ),
       );
     });
@@ -957,21 +957,43 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<GeofenceCubit, GeofenceState>(
-      listenWhen: (prev, curr) {
-        // Reset popup guard whenever we leave withinRange — covers both
-        // actual zone exit (→ outsideRange) and a dashboard refresh cycle
-        // (→ fetchingSchoolLocation → withinRange). Without this, the guard
-        // would stay true across a refresh and block the sheet from re-showing.
-        if (prev.status == GeofenceCubitStatus.withinRange &&
-            curr.status != GeofenceCubitStatus.withinRange) {
-          _geofencePopupShownThisEntry = false;
-        }
-        // Fire only on the transition INTO withinRange.
-        return prev.status != GeofenceCubitStatus.withinRange &&
-            curr.status == GeofenceCubitStatus.withinRange;
-      },
-      listener: (context, _) => _maybeShowSignInPopup(),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<GeofenceCubit, GeofenceState>(
+          listenWhen: (prev, curr) {
+            // Reset popup guard whenever we leave withinRange — covers both
+            // actual zone exit (→ outsideRange) and a dashboard refresh cycle
+            // (→ fetchingSchoolLocation → withinRange). Without this, the guard
+            // would stay true across a refresh and block the sheet from re-showing.
+            if (prev.status == GeofenceCubitStatus.withinRange &&
+                curr.status != GeofenceCubitStatus.withinRange) {
+              _geofencePopupShownThisEntry = false;
+            }
+            // Fire when transitioning into withinRange OR when sign-in status finishes loading while withinRange
+            if (curr.status == GeofenceCubitStatus.withinRange) {
+              if (prev.status != GeofenceCubitStatus.withinRange) return true;
+              if (prev.isSignInStatusLoading && !curr.isSignInStatusLoading) return true;
+            }
+            return false;
+          },
+          listener: (context, _) => _maybeShowSignInPopup(),
+        ),
+        BlocListener<RoleCubit, RoleState>(
+          listenWhen: (prev, curr) => prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
+          listener: (context, state) {
+            setState(() {
+              _signInStatusLoaded = false;
+              _todayStatusRaw = null;
+              _isSignedIn = false;
+              _staffCode = '';
+              _userCode = '';
+              _staffIdentityLoaded = false;
+            });
+            unawaited(_loadStaffIdentity());
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+          },
+        ),
+      ],
       child: BlocConsumer<MyDayCubit, MyDayState>(
         // Re-compute countdown whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>

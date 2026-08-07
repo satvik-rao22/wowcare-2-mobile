@@ -62,7 +62,7 @@ class _StudentAttendancePerStudentReportScreenState
     super.initState();
     final now = AppTime.now();
     _periodDate = DateTime(now.year, now.month, 1);
-    _selectedClassrooms = List<String>.from(widget.classrooms);
+    
     _availableStudents = List<String>.from(widget.students);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -236,7 +236,7 @@ class _StudentAttendancePerStudentReportScreenState
 
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
       nameToCode: mergedClassroomNameToCode,
       labelPlural: 'classrooms',
     );

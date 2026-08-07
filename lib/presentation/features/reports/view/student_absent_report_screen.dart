@@ -39,9 +39,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
-    _selectedClassrooms = ValueNotifier<List<String>>(
-      List<String>.from(widget.classrooms),
-    );
+    _selectedClassrooms = ValueNotifier<List<String>>([]);
   }
 
   @override
@@ -67,7 +65,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     final classroomNameToCode = cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value,
+      names: _selectedClassrooms.value.isEmpty ? widget.classrooms : _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );

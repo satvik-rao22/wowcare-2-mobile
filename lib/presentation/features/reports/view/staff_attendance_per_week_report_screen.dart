@@ -62,7 +62,7 @@ class _StaffAttendancePerWeekReportScreenState
     super.initState();
     final now = AppTime.now();
     _periodMonth = DateTime(now.year, now.month, 1);
-    _selectedClassrooms = List<String>.from(widget.classrooms);
+    
     _selectedStaff = List<String>.from(widget.staff);
     _availableClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -93,7 +93,7 @@ class _StaffAttendancePerWeekReportScreenState
           setState(() {
             _availableClassrooms = names;
             _classroomNameToCode = nameToCodeMap;
-            _selectedClassrooms = List<String>.from(names);
+            _selectedClassrooms = <String>[];
           });
         }
       }
@@ -143,7 +143,7 @@ class _StaffAttendancePerWeekReportScreenState
         : reportsState.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );

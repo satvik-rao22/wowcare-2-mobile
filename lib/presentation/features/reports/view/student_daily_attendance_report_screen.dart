@@ -40,7 +40,7 @@ class _StudentDailyAttendanceReportScreenState
   void initState() {
     super.initState();
     _date = ValueNotifier<DateTime>(AppTime.now());
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
+    
   }
 
   @override
@@ -58,7 +58,7 @@ class _StudentDailyAttendanceReportScreenState
 
     final roomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value,
+      names: _selectedClassrooms.value.isEmpty ? widget.classrooms : _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
