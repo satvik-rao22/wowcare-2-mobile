@@ -143,6 +143,7 @@ class ReportsCubit extends Cubit<ReportsState> {
         // student names → "Could not resolve student …" (first attempt worked,
         // the next failed).
         studentNameToCode: state.studentNameToCode,
+        tagNameToCode: state.tagNameToCode,
         generatedReport: null,
         recentReports: state.recentReports,
         dynamicTagNames: state.dynamicTagNames,
@@ -299,6 +300,7 @@ class ReportsCubit extends Cubit<ReportsState> {
         // student names → "Could not resolve student …" (first attempt worked,
         // the next failed).
         studentNameToCode: state.studentNameToCode,
+        tagNameToCode: state.tagNameToCode,
         generatedReport: null,
         recentReports: state.recentReports,
         dynamicTagNames: state.dynamicTagNames,

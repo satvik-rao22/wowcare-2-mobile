@@ -101,7 +101,7 @@ class StudentsAndFamilyReportParams extends Equatable implements ReportParams {
 
       // Backend expects an array even though the UI is single-select
       // (confirmed against the web client's payload for this report type).
-      'statusFilter': [statusFilter],
+      'statusFilter': [statusFilter.toUpperCase()],
       'format': format,
       'schoolName': schoolName,
     };

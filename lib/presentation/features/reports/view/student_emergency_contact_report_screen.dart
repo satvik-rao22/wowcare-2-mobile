@@ -37,7 +37,7 @@ class _StudentEmergencyContactReportScreenState
   @override
   void initState() {
     super.initState();
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
+    
   }
 
   @override
@@ -63,7 +63,7 @@ class _StudentEmergencyContactReportScreenState
     final classroomNameToCode = cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value,
+      names: _selectedClassrooms.value.isEmpty ? widget.classrooms : _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
