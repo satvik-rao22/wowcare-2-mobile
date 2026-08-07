@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -485,6 +486,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
       );
 
       if (success) {
+        AttendanceEvents.notifyChanged();
         if (widget.isKiosk) {
           // For kiosk: show success for 2 seconds then return to kiosk dashboard
           await Future.delayed(const Duration(seconds: 2));
@@ -494,14 +496,15 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
             unawaited(context.read<KioskDashboardCubit>().loadQrCode());
             context.go('/kiosk');
           }
-        } else if (!isStaffAdmin) {
-          // Teacher/staff persona: no forced navigation — stay on
-          // whatever screen this action was started from.
-          Navigator.of(context).pop();
         } else {
-          redirectToAttendanceDaily(
-            context,
-            StaffAttendanceTabbedView.routeName,
+          final isSelfSignOut = _isSelfTarget;
+          if (isSelfSignOut) {
+            context.read<GeofenceCubit>().updateStaffSignInStatus(false);
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+          }
+          _navigateAfterSubmit(
+            isSelfSignOut: isSelfSignOut,
+            isStaffAdmin: isStaffAdmin,
           );
         }
       }
@@ -521,6 +524,34 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
           _isSubmitting = false;
         });
       }
+    }
+  }
+
+  void _navigateAfterSubmit({
+    required bool isSelfSignOut,
+    required bool isStaffAdmin,
+  }) {
+    if (widget.qrToken.isNotEmpty) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      context.go('/dashboard');
+      return;
+    }
+
+    if (isSelfSignOut || !isStaffAdmin) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/dashboard');
+      }
+    } else {
+      redirectToAttendanceDaily(
+        context,
+        StaffAttendanceTabbedView.routeName,
+      );
     }
   }
 

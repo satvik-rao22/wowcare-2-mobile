@@ -21,6 +21,7 @@ import '../../../../shared/services/geofence_notification_service.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 part 'geofence_state.dart';
@@ -1094,22 +1095,53 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     emit(state.copyWith(isSignInStatusLoading: true));
     try {
       final storage = serviceLocator<StorageService>();
-      final staffCode = await storage.getString(StorageKeys.staffCode);
-      if (staffCode == null || staffCode.isEmpty) {
+      String staffCode = await resolveStaffCodeForLoggedInUser();
+      if (staffCode.isEmpty) {
+        staffCode =
+            (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+      }
+      if (staffCode.isEmpty) {
+        final activeRole =
+            (await storage.getString(StorageKeys.activeSchoolRole))
+                ?.trim()
+                .toUpperCase() ??
+            '';
+        if (activeRole == 'ADMIN') {
+          staffCode =
+              (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
+        }
+      }
+      if (staffCode.isEmpty) {
         if (currentGen == _signInCheckGeneration) {
-          emit(state.copyWith(isStaffSignedIn: false, isSignInStatusLoading: false));
+          emit(
+            state.copyWith(
+              isStaffSignedIn: false,
+              isSignInStatusLoading: false,
+            ),
+          );
         }
         return;
       }
-      final getStaffStatusUseCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
+      final getStaffStatusUseCase =
+          serviceLocator<GetStaffTodaySignInStatusUseCase>();
       final status = await getStaffStatusUseCase(staffCode: staffCode);
       if (currentGen != _signInCheckGeneration) return;
       final isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
-      emit(state.copyWith(isStaffSignedIn: isSignedIn, isSignInStatusLoading: false));
+      emit(
+        state.copyWith(
+          isStaffSignedIn: isSignedIn,
+          isSignInStatusLoading: false,
+        ),
+      );
       _reevaluateNotificationForCurrentStatus();
     } catch (_) {
       if (currentGen == _signInCheckGeneration) {
-        emit(state.copyWith(isStaffSignedIn: false, isSignInStatusLoading: false));
+        emit(
+          state.copyWith(
+            isStaffSignedIn: false,
+            isSignInStatusLoading: false,
+          ),
+        );
         _reevaluateNotificationForCurrentStatus();
       }
     }

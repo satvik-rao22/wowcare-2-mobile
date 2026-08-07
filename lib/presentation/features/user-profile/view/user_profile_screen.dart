@@ -24,6 +24,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -175,6 +176,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // APIs are done. Only show the button loader.
       await _cubit.persistPersonaSwitch(backendRole);
       if (!mounted) return;
+      try {
+        context.read<GeofenceCubit>().handleProfileSwitch();
+      } catch (_) {}
       context.read<ParentChildCubit>().invalidate();
       // Preload guardian data BEFORE RoleCubit flips to parent so the global
       // dropdown doesn't show a loading state.
