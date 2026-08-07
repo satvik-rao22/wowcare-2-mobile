@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.da
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
@@ -59,6 +60,9 @@ class MyDayCard extends StatefulWidget {
 }
 
 class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
+  // Token / generation counter to invalidate stale async operations on persona switch
+  int _profileGeneration = 0;
+
   // ---- collapse state ----
   bool _minimized = false;
 
@@ -72,6 +76,21 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   // Prevents didChangeDependencies from stacking multiple geofence-init
   // callbacks when ancestor InheritedWidgets rebuild.
   bool _geofenceInitScheduled = false;
+
+  void _resetForProfileSwitch() {
+    _profileGeneration++;
+    setState(() {
+      _signInStatusLoaded = false;
+      _staffIdentityLoaded = false;
+      _todayStatusRaw = null;
+      _isSignedIn = false;
+      _staffCode = '';
+      _userCode = '';
+      _staffDisplayName = '';
+      _staffDesignation = '';
+      _geofencePopupShownThisEntry = false;
+    });
+  }
 
   // ---- sign-in status ----
   bool _isSignedIn = false;
@@ -392,15 +411,19 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   /// Loads staff identity and sign-in status in one pass so button taps
   /// never hit a timing window where storage hasn't resolved yet.
   Future<void> _loadStaffIdentity() async {
+    final generation = ++_profileGeneration;
     final storage = serviceLocator<StorageService>();
-    final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    String code = await resolveStaffCodeForLoggedInUser();
+    if (code.isEmpty) {
+      code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    }
     final userCode =
         (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
     final name = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
     final designation =
         (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
-    if (!mounted) return;
+    if (!mounted || generation != _profileGeneration) return;
     setState(() {
       _staffCode = code;
       _userCode = userCode;
@@ -410,22 +433,33 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     });
     final effectiveCode = _effectiveStaffCode;
     if (effectiveCode.isEmpty) {
-      if (mounted) setState(() => _signInStatusLoaded = true);
+      if (mounted && generation == _profileGeneration) {
+        setState(() {
+          _todayStatusRaw = null;
+          _isSignedIn = false;
+          _signInStatusLoaded = true;
+        });
+      }
       return;
     }
     try {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
       final status = await useCase(staffCode: effectiveCode);
-      if (!mounted) return;
+      if (!mounted || generation != _profileGeneration) return;
+      final signedIn = status?.toUpperCase() == 'SIGNED_IN';
       setState(() {
         _todayStatusRaw = status;
-        _isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
+        _isSignedIn = signedIn;
         _signInStatusLoaded = true;
       });
+      unawaited(context.read<GeofenceCubit>().updateStaffSignInStatus(signedIn));
     } catch (_) {
       // sign-in status check is best-effort
-      if (mounted) setState(() => _signInStatusLoaded = true);
+      if (mounted && generation == _profileGeneration) {
+        setState(() => _signInStatusLoaded = true);
+      }
     }
+    if (!mounted || generation != _profileGeneration) return;
     // Covers the race where the geofence-entry listener fired (and skipped
     // showing the sheet) while this fetch was still in flight — re-evaluate
     // now that the real sign-in status is known.
@@ -441,22 +475,27 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   /// two finishes last is the one that actually decides whether to show it.
   void _maybeShowSignInPopup() {
     if (!mounted) return;
+    if (!_signInStatusLoaded) return;
+    if (!_staffIdentityLoaded) return;
+    if (_effectiveStaffCode.isEmpty) return;
+    if (_isSignedIn) return;
+    if (_todayStatusRaw?.toUpperCase() == 'SIGNED_IN') return;
     if (_geofencePopupShownThisEntry) return;
+
     final geofenceState = context.read<GeofenceCubit>().state;
     if (geofenceState.isSignInStatusLoading) return;
     if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
     if (geofenceState.isStaffSignedIn) return;
     
     _geofencePopupShownThisEntry = true;
-    // GeofenceCubit already fires the notification via
-    // _triggerNotificationIfNeeded — no need to do it here too.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!_signInStatusLoaded || !_staffIdentityLoaded || _isSignedIn) return;
       unawaited(
         GeofenceSignInSheet.show(
           context,
           role: 'staff',
-          isSignedIn: geofenceState.isStaffSignedIn,
+          isSignedIn: false,
         ),
       );
     });
@@ -488,8 +527,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       ),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -521,8 +562,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -554,12 +597,14 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       ),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      // Keep GeofenceCubit.isStaffSignedIn in sync immediately after sign-in —
-      // it now also drives suppressing the "you can now Sign In or Sign Out"
-      // notification, so leaving it stale here would let that notification
-      // wrongly fire again right after the user just signed in.
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        // Keep GeofenceCubit.isStaffSignedIn in sync immediately after sign-in —
+        // it now also drives suppressing the "you can now Sign In or Sign Out"
+        // notification, so leaving it stale here would let that notification
+        // wrongly fire again right after the user just signed in.
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -578,8 +623,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       context,
     ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -979,23 +1026,17 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
           listener: (context, _) => _maybeShowSignInPopup(),
         ),
         BlocListener<RoleCubit, RoleState>(
-          listenWhen: (prev, curr) => prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
+          listenWhen: (prev, curr) =>
+              prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
           listener: (context, state) {
-            setState(() {
-              _signInStatusLoaded = false;
-              _todayStatusRaw = null;
-              _isSignedIn = false;
-              _staffCode = '';
-              _userCode = '';
-              _staffIdentityLoaded = false;
-            });
+            _resetForProfileSwitch();
             unawaited(_loadStaffIdentity());
             unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
           },
         ),
       ],
       child: BlocConsumer<MyDayCubit, MyDayState>(
-        // Re-compute countdown whenever schedule data changes or first loads.
+        // Re-compute countdown and re-sync identity whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>
             curr.isLoaded &&
             (!prev.isLoaded ||
@@ -1005,7 +1046,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                 prev.schoolClosed != curr.schoolClosed ||
                 prev.allWorkSchedules != curr.allWorkSchedules ||
                 prev.allBreakSchedules != curr.allBreakSchedules ||
-                prev.schoolTimeZone != curr.schoolTimeZone),
+                prev.schoolTimeZone != curr.schoolTimeZone ||
+                prev.status != curr.status),
         listener: (context, state) {
           _computeCountdownFromSchedule(
             state.todaySchedule,
@@ -1016,6 +1058,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
             allBreakSchedules: state.allBreakSchedules,
           );
           _startTicker();
+          unawaited(_loadStaffIdentity());
         },
         builder: (context, state) {
           return DashboardCardErrorOverlay(

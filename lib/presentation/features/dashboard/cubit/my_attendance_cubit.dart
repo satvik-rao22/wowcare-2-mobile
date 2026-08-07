@@ -4,6 +4,7 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/attendance/models/student_attendance_models.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
@@ -395,8 +396,10 @@ class MyAttendanceCubit extends Cubit<MyAttendanceState> {
   // ---------------------------------------------------------------------------
 
   Future<String> _resolveStaffCode() async {
-    final code =
-        (await _storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    String code = await resolveStaffCodeForLoggedInUser();
+    if (code.isEmpty) {
+      code = (await _storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    }
     return code;
   }
 

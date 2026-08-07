@@ -675,13 +675,16 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     try {
       final result = await serviceLocator<AttendanceRepository>()
           .submitStaffSignIn(payload: payload, isSelf: isSelfSignIn);
-      final success = result.success;
+      final isAlreadySignedIn = !result.success &&
+          result.message.toLowerCase().contains('already signed');
+      final success = result.success || isAlreadySignedIn;
       var message = result.message;
 
       if (!mounted) return;
 
-      // Normalize success messages for better UX
-      if (success &&
+      if (isAlreadySignedIn) {
+        message = 'Already signed in for today';
+      } else if (success &&
           (message.toLowerCase().contains('sign in') ||
               message.toLowerCase().contains('sign-in') ||
               message.toLowerCase().contains('signed in'))) {
@@ -711,6 +714,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         } else {
           if (isSelfSignIn) {
             context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
           }
           if (!isStaffAdmin) {
             // Teacher/staff persona: no forced navigation — stay on
@@ -727,13 +731,45 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
+      final isAlreadySignedIn =
+          errorMessage.toLowerCase().contains('already signed');
+      if (isAlreadySignedIn) {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Already signed in for today'),
+            backgroundColor: AppColors.successColor,
+          ),
+        );
+        if (widget.isKiosk) {
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            unawaited(context.read<KioskDashboardCubit>().loadQrCode());
+            context.go('/kiosk');
+          }
+        } else {
+          if (isSelfSignIn) {
+            context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+          }
+          if (!isStaffAdmin) {
+            Navigator.of(context).pop();
+          } else {
+            redirectToAttendanceDaily(
+              context,
+              StaffAttendanceTabbedView.routeName,
+            );
+          }
+        }
+      } else {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
