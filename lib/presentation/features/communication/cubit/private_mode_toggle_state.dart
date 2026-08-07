@@ -10,10 +10,23 @@ class PrivateModeToggleState extends Equatable {
     this.isLoading = false,
     this.errorMessage,
     this.successMessage,
+    this.activatedBy,
   });
 
   /// Whether private mode is currently active.
   final bool isEnabled;
+
+  /// userCode of the guardian who turned private mode on — only they (or an
+  /// admin/director) can turn it off; the backend enforces this and 403s
+  /// otherwise. Previously this only ever lived in a screen-local field
+  /// captured once at mount (`widget.parentInfo['privateModeActivatedBy']`/
+  /// `widget.conversation.privateModeActivatedBy`) and never refreshed, so a
+  /// guardian who wasn't (or was no longer) the activator could still see
+  /// the toggle as tappable and get a confusing 403 on tap. Now tracked
+  /// live here instead, updated by [PrivateModeToggleCubit.syncFromRemote]
+  /// and [PrivateModeToggleCubit.toggle] so the UI can disable the control
+  /// correctly before the request is even sent.
+  final String? activatedBy;
 
   /// True while the [TogglePrivateModeUseCase] call is in flight.
   final bool isLoading;
@@ -33,18 +46,28 @@ class PrivateModeToggleState extends Equatable {
     bool? isLoading,
     String? errorMessage,
     String? successMessage,
+    String? activatedBy,
     bool clearError = false,
     bool clearSuccess = false,
+    bool clearActivatedBy = false,
   }) {
     return PrivateModeToggleState(
       isEnabled: isEnabled ?? this.isEnabled,
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : (errorMessage ?? this.errorMessage),
-      successMessage:
-          clearSuccess ? null : (successMessage ?? this.successMessage),
+      successMessage: clearSuccess
+          ? null
+          : (successMessage ?? this.successMessage),
+      activatedBy: clearActivatedBy ? null : (activatedBy ?? this.activatedBy),
     );
   }
 
   @override
-  List<Object?> get props => [isEnabled, isLoading, errorMessage, successMessage];
+  List<Object?> get props => [
+    isEnabled,
+    isLoading,
+    errorMessage,
+    successMessage,
+    activatedBy,
+  ];
 }

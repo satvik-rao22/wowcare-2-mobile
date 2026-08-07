@@ -284,6 +284,7 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
               col.unreadCount = prev.unreadCount;
               col.lastMessageAt = prev.lastMessageAt;
               col.lastMessageBy = prev.lastMessageBy;
+              col.lastMessageSenderName = prev.lastMessageSenderName;
             }
             return col;
           }).toList();
@@ -682,6 +683,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                 item.lastMessageAt ?? existing.lastMessageAt;
             existing.lastMessageBy =
                 item.lastMessageSenderCode ?? existing.lastMessageBy;
+            existing.lastMessageSenderName =
+                item.lastMessageSenderName ?? existing.lastMessageSenderName;
             // Take the inbox preview verbatim, including empty. The Firestore snapshot is a
             // full-document read, so an empty preview means the backend cleared it (every
             // message in the conversation was deleted) — not a partial update. The previous

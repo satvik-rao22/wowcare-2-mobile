@@ -22,6 +22,7 @@ class ConversationCollection {
   late String updatedBy;
   DateTime? lastMessageAt;
   String? lastMessageBy;
+  String? lastMessageSenderName;
   bool privateModeActive = false;
   String? privateModeActivatedBy;
   DateTime? privateModeActivatedAt;
@@ -49,6 +50,7 @@ class ConversationCollection {
       ..updatedBy = entity.updatedBy
       ..lastMessageAt = entity.lastMessageAt
       ..lastMessageBy = entity.lastMessageBy
+      ..lastMessageSenderName = entity.lastMessageSenderName
       ..privateModeActive = entity.privateModeActive
       ..privateModeActivatedBy = entity.privateModeActivatedBy
       ..privateModeActivatedAt = entity.privateModeActivatedAt
@@ -77,6 +79,7 @@ class ConversationCollection {
       updatedBy: updatedBy,
       lastMessageAt: lastMessageAt,
       lastMessageBy: lastMessageBy,
+      lastMessageSenderName: lastMessageSenderName,
       privateModeActive: privateModeActive,
       privateModeActivatedBy: privateModeActivatedBy,
       privateModeActivatedAt: privateModeActivatedAt,

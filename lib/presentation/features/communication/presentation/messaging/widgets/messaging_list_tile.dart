@@ -30,16 +30,21 @@ class MessagingListTile extends StatelessWidget {
   /// list-level summary). `lastMessageAt` is what actually distinguishes
   /// "no messages yet" from "the last message just had no text", so use
   /// that instead of treating both cases as the empty-preview case.
+  ///
+  /// Prefixed with the sender's name (`SenderName: message`) to match the
+  /// web app's chat list — this was previously dropped entirely on mobile.
+  /// The backend doesn't actually send a dedicated sender-name field, so
+  /// `Conversation.lastMessageSenderDisplayName` derives it from
+  /// `lastMessageBy` + `participants` instead. Only the "no messages yet"
+  /// placeholder stays sender-less.
   String _lastMessagePreviewText(Conversation conversation) {
-    if (conversation.lastMessagePreview.isNotEmpty) {
-      return MessageContentProcessor.previewText(
-        conversation.lastMessagePreview,
-      );
-    }
-    if (conversation.lastMessageAt != null) {
-      return '📎 Attachment';
-    }
-    return 'Start a new conversation';
+    final body = conversation.lastMessagePreview.isNotEmpty
+        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
+        : (conversation.lastMessageAt != null ? '📎 Attachment' : null);
+    if (body == null) return 'Start a new conversation';
+    final senderName = conversation.lastMessageSenderDisplayName?.trim();
+    if (senderName == null || senderName.isEmpty) return body;
+    return '$senderName: $body';
   }
 
   String _formatMessageTime(DateTime? dateTime) =>
@@ -132,11 +137,7 @@ class MessagingListTile extends StatelessWidget {
               if (conversation.privateModeActive)
                 const Padding(
                   padding: EdgeInsets.only(right: 4),
-                  child: Icon(
-                    Icons.lock,
-                    size: 13,
-                    color: Color(0xFF636E72),
-                  ),
+                  child: Icon(Icons.lock, size: 13, color: Color(0xFF636E72)),
                 ),
               Flexible(
                 fit: FlexFit.tight,

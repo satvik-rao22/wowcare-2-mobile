@@ -119,9 +119,15 @@ Future<void> _openSingleRecipientConversation(
   if (!context.mounted) return;
   final conversation = result.fold((_) => null, (c) => c);
   if (conversation == null) {
+    // Surface the backend's actual reason (e.g. "This student has no
+    // parent/guardian added...") instead of a generic message that hides
+    // why the conversation couldn't be opened.
+    final failureMessage = result.fold((f) => f.message, (_) => null);
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Could not open a conversation with ${recipient.name}',
+      message: (failureMessage != null && failureMessage.trim().isNotEmpty)
+          ? failureMessage
+          : 'Could not open a conversation with ${recipient.name}',
       isWarning: true,
     );
     return;

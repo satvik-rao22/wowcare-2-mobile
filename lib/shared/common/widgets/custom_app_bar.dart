@@ -223,57 +223,72 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               // Icon + badge share ONE tap target — see the chat bell above
               // for why (the badge number wasn't reliably tappable as a
               // bare Positioned sibling of the IconButton).
-              return IconButton(
-                icon: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SvgPicture.asset(
-                        MediaRes.notificationsIcon,
-                        width: 22,
-                        height: 22,
-                      ),
-                      if (unreadCount > 0)
-                        Positioned(
-                          right: -6,
-                          top: -6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color.fromRGBO(179, 38, 30, 1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              unreadCount > 99 ? '99+' : '$unreadCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
+              //
+              // This count is account-wide (userCode + schoolCode + role) —
+              // the backend has no per-student notification scoping, so a
+              // parent with multiple children sees ONE combined total here
+              // regardless of which child is selected in the dropdown right
+              // next to it. Without this tooltip that reads as a bug ("this
+              // notification isn't about the child I have selected") rather
+              // than the actual, current behaviour — this is a UI
+              // clarification, not a fix, since scoping it per child would
+              // require the backend to accept a studentCode filter.
+              return Tooltip(
+                message: isParent
+                    ? 'Notifications for all your children'
+                    : 'Notifications',
+                child: IconButton(
+                  icon: SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      children: [
+                        SvgPicture.asset(
+                          MediaRes.notificationsIcon,
+                          width: 22,
+                          height: 22,
+                        ),
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: -6,
+                            top: -6,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 5,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color.fromRGBO(179, 38, 30, 1),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Text(
+                                unreadCount > 99 ? '99+' : '$unreadCount',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
+                  onPressed: () async {
+                    // Don't stack a second notification page when the bell is
+                    // tapped again while already on it.
+                    if (currentRoute == NotificationCenterScreen.routeName) {
+                      return;
+                    }
+                    await context.push(NotificationCenterScreen.routeName);
+                    // The user may have read notifications in the center —
+                    // reconcile the badge with the server on return.
+                    if (context.mounted) {
+                      context.read<NotificationBadgeCubit>().refresh();
+                    }
+                  },
                 ),
-                onPressed: () async {
-                  // Don't stack a second notification page when the bell is
-                  // tapped again while already on it.
-                  if (currentRoute == NotificationCenterScreen.routeName) {
-                    return;
-                  }
-                  await context.push(NotificationCenterScreen.routeName);
-                  // The user may have read notifications in the center —
-                  // reconcile the badge with the server on return.
-                  if (context.mounted) {
-                    context.read<NotificationBadgeCubit>().refresh();
-                  }
-                },
               );
             },
           ),

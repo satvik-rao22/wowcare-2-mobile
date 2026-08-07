@@ -223,9 +223,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     if (!mounted) return;
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation == null) {
+      final failureMessage = result.fold((f) => f.message, (_) => null);
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Could not start a conversation with $name',
+        message: (failureMessage != null && failureMessage.trim().isNotEmpty)
+            ? failureMessage
+            : 'Could not start a conversation with $name',
         isError: true,
       );
       return;
@@ -412,6 +415,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       },
       child: CustomScrollView(
         controller: _conversationScrollController,
+        // Short/empty lists don't fill the viewport, and without this a
+        // CustomScrollView with unfilled content isn't scrollable at all —
+        // so the pull-to-refresh gesture never registers. The manual
+        // refresh button above was a workaround for exactly this; this
+        // makes the pull gesture itself work regardless of list length.
+        physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           SliverToBoxAdapter(child: const SizedBox(height: 15)),
           // search bar and filter icon as well as clear all button and unread messages toggle
@@ -1073,6 +1082,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   'privateModeActivatedAt': null,
                 },
                 isGuardian: false,
+                // This branch is always Room Chat — Admin Chat's staff/admin
+                // view goes through admin_chat_host_screen.dart's separate
+                // (v2) screen instead.
+                conversationType: ConversationType.roomChat,
               ),
       ),
     );

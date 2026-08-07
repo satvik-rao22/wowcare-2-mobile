@@ -164,14 +164,20 @@ class _ParentDirectMessagingScreenState
 
     if (!mounted) return;
     // Ignore if the selected child changed while the lookup was in flight.
-    final currentCode =
-        context.read<ParentChildCubit>().state.selectedChild?.code.trim();
+    final currentCode = context
+        .read<ParentChildCubit>()
+        .state
+        .selectedChild
+        ?.code
+        .trim();
     if (currentCode != code) {
       setState(() => _resolvingExistence = false);
       return;
     }
     result.fold(
-      (_) {}, // on failure keep whatever the list match found; draft stays a fallback
+      (
+        _,
+      ) {}, // on failure keep whatever the list match found; draft stays a fallback
       (conv) {
         if (conv != null && conv.code != _selectedConversation?.code) {
           _selectedConversation = conv;
@@ -299,21 +305,31 @@ class _ParentDirectMessagingScreenState
               'ConversationLoading=${state.isLoading}, '
               'SelectedConversation=${_selectedConversation?.code}',
             );
+            final body = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (state.errorMessage != null)
+                  _buildErrorBanner(state.errorMessage!),
+                Expanded(
+                  child: _buildThreadArea(
+                    state,
+                    isChildLoaded: childState.isLoaded,
+                  ),
+                ),
+              ],
+            );
+            // Once a thread is open, ParentMessagingThread owns its own
+            // pull-to-refresh (refreshing messages AND, via
+            // onRefreshConversationList below, this list) — wrapping it
+            // again here would register two nested RefreshIndicators for
+            // the same drag gesture, firing the list refresh twice while
+            // neither necessarily wins the gesture cleanly. Only wrap here
+            // for the loading/error/no-conversation states, which have no
+            // refresh indicator of their own.
+            if (_selectedConversation != null) return body;
             return CustomRefreshIndicator(
               onRefresh: _listCubit.refresh,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (state.errorMessage != null)
-                    _buildErrorBanner(state.errorMessage!),
-                  Expanded(
-                    child: _buildThreadArea(
-                      state,
-                      isChildLoaded: childState.isLoaded,
-                    ),
-                  ),
-                ],
-              ),
+              child: body,
             );
           },
         ),
@@ -407,6 +423,12 @@ class _ParentDirectMessagingScreenState
         parentInfo: _buildParentInfo(selected),
         showOwnScaffold: false,
         isGuardian: true,
+        conversationType: widget.conversationType,
+        // This screen no longer wraps the thread in its own
+        // RefreshIndicator (see the builder above) — the thread's pull-to-
+        // refresh triggers this too, so the list (and its cache) actually
+        // updates instead of only the currently-open thread's messages.
+        onRefreshConversationList: _listCubit.refresh,
       ),
     );
   }
@@ -486,7 +508,8 @@ class _ParentDirectMessagingScreenState
         setState(() => _isStartingConversation = false);
         CoreUtils.showTopSnackBar(
           context: context,
-          message: failure.message ?? 'Could not start the conversation. Try again.',
+          message:
+              failure.message ?? 'Could not start the conversation. Try again.',
           isError: true,
         );
       },
@@ -513,9 +536,15 @@ class _ParentDirectMessagingScreenState
 
         // A short-lived cubit just to drive this one send — the real,
         // long-lived per-thread cubit takes over once the screen swaps to
-        // ParentMessagingThread below.
+        // ParentMessagingThread below. MUST be awaited: `sendMessage` emits
+        // more than once internally (an optimistic emit, then a
+        // confirmed/failed emit once the POST resolves) — closing the cubit
+        // right after firing it without awaiting raced that second emit
+        // against `close()` below, crashing with "Bad state: Cannot emit new
+        // states after calling close" and silently losing the very first
+        // message a parent ever sends for a brand-new conversation.
         final sendCubit = serviceLocator<CommunicationCubit>();
-        sendCubit.sendMessage(
+        await sendCubit.sendMessage(
           conversation.code,
           text,
           attachments: attachments,

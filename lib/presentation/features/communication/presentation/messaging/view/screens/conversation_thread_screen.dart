@@ -61,9 +61,6 @@ class ConversationThreadScreen extends StatefulWidget {
     /// participant header. Only meaningful for the parent persona.
     this.showPrivateModeToggle = false,
 
-    /// Initial private-mode state seed (from [ConversationEntity.privateModeStates]).
-    this.initialPrivateModeEnabled = false,
-
     /// When true the [conversation] is a placeholder that doesn't exist on the
     /// server yet (e.g. a classroom chat never used). The thread shows the
     /// composer over an empty list, and the conversation is created lazily on
@@ -79,7 +76,6 @@ class ConversationThreadScreen extends StatefulWidget {
   final ConversationEntity conversation;
   final bool showOwnScaffold;
   final bool showPrivateModeToggle;
-  final bool initialPrivateModeEnabled;
   final bool isDraft;
   final Future<ConversationEntity?> Function()? onResolveConversation;
 
@@ -89,7 +85,7 @@ class ConversationThreadScreen extends StatefulWidget {
 }
 
 class _ConversationThreadScreenState extends State<ConversationThreadScreen>
-    with WidgetsBindingObserver {
+    with WidgetsBindingObserver, TickerProviderStateMixin {
   late final ConversationThreadCubit _cubit;
   final HtmlAwareTextController _inputController = HtmlAwareTextController();
 
@@ -159,7 +155,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   String _senderCode = '';
   String _senderName = '';
   ParticipantRole _senderRole = ParticipantRole.staff;
-  String? _conversationPrivateModeActivatedBy;
   String _organizationCode = '';
   String _schoolCode = '';
 
@@ -173,6 +168,95 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   /// Only non-null when [widget.showPrivateModeToggle] is true.
   PrivateModeToggleCubit? _privateModeToggleCubit;
+
+  // ── Per-parent private chat tabs (staff/admin viewer) ───────────────────
+  //
+  // Mirrors the legacy v1 stack's `ParentMessagingThread` tab chips (Group
+  // Chat + one chip per guardian), previously present only for Room Chat's
+  // legacy screen and completely absent here — a staff/admin viewer of THIS
+  // (v2) screen had no way to switch to a specific guardian's private
+  // thread, and worse, every guardian's private messages were shown
+  // unfiltered to every viewer (see [_visibleMessagesForActiveTab]).
+
+  /// Drives which "tab" (Group Chat = 0, guardian N = N) is active. Length
+  /// must match [_tabGuardians]`.length + 1` — recreated via
+  /// [_syncTabController] whenever that changes (e.g. participants/private
+  /// mode state arrive after the conversation resolves).
+  TabController? _tabController;
+
+  /// Every active guardian gets their own private tab — a student can have
+  /// more than two parents/guardians on the roster (e.g. 4), and each one
+  /// needs a way to be shown their own private thread with staff.
+  List<ParticipantEntity> get _tabGuardians => _conversation.participants
+      .where((p) => p.role == ParticipantRole.parent && p.isActive)
+      .toList();
+
+  /// Only staff/admin/director/teacher viewers get tabs — a guardian's own
+  /// thread is always just their single (group + own-private) merged view,
+  /// same as the legacy screen. Tabs only make sense once private mode is
+  /// actually active for at least one guardian; before that there's nothing
+  /// to switch between.
+  bool get _showChatTabs =>
+      _senderRole != ParticipantRole.parent &&
+      (_conversation.type == ConversationType.adminChat ||
+          _conversation.type == ConversationType.roomChat) &&
+      _conversation.hasActivePrivateMode &&
+      _tabGuardians.isNotEmpty;
+
+  /// Creates or resizes [_tabController] to match [_showChatTabs]/
+  /// [_tabGuardians]. Cheap no-op when the required length hasn't changed
+  /// (called every build via [_buildThreadBody]). Preserves the current tab
+  /// selection across a resize where possible, otherwise resets to Group
+  /// Chat (index 0) rather than an out-of-range index.
+  void _syncTabController() {
+    final desiredLength = _showChatTabs ? 1 + _tabGuardians.length : 1;
+    if (_tabController != null && _tabController!.length == desiredLength) {
+      return;
+    }
+    final previousIndex = _tabController?.index ?? 0;
+    _tabController?.dispose();
+    _tabController =
+        TabController(
+          length: desiredLength,
+          vsync: this,
+          initialIndex: previousIndex < desiredLength ? previousIndex : 0,
+        )..addListener(() {
+          if (mounted) setState(() {});
+        });
+  }
+
+  /// Which messages are visible right now, given the currently active chat
+  /// tab (staff/admin: Group Chat vs. a specific guardian's private
+  /// thread), or — for a guardian viewer, who never sees tabs — the
+  /// always-on merge of the group thread with just their OWN private
+  /// messages. Without this, every guardian's private messages were shown
+  /// to every viewer of this screen (staff and other guardians alike) with
+  /// no filtering at all.
+  List<MessageEntity> _visibleMessagesForActiveTab(
+    List<MessageEntity> messages,
+  ) {
+    if (_senderRole == ParticipantRole.parent) {
+      return messages
+          .where((m) => !m.isPrivate || m.privateParentUserCode == _senderCode)
+          .toList();
+    }
+    if (!_showChatTabs) {
+      return messages.where((m) => !m.isPrivate).toList();
+    }
+    final activeIndex = _tabController?.index ?? 0;
+    if (activeIndex == 0) {
+      return messages.where((m) => !m.isPrivate).toList();
+    }
+    final guardians = _tabGuardians;
+    final guardianIndex = activeIndex - 1;
+    if (guardianIndex >= guardians.length) {
+      return messages.where((m) => !m.isPrivate).toList();
+    }
+    final guardianCode = guardians[guardianIndex].userCode;
+    return messages
+        .where((m) => m.isPrivate && m.privateParentUserCode == guardianCode)
+        .toList();
+  }
 
   // ── Draft persistence ─────────────────────────────────────────────────────
 
@@ -250,24 +334,34 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       unawaited(_fetchConversationDetails());
     }
 
-    // Private mode toggle only available in room chats
+    // Private mode applies to both Room Chat and Admin Chat per spec — this
+    // was previously gated to Room Chat only, which meant a guardian could
+    // never turn private mode ON for an Admin Chat thread at all, and staff
+    // would correspondingly never see any private tabs to switch to there.
     final canShowPrivateToggle =
         widget.showPrivateModeToggle &&
-        _conversation.type == ConversationType.roomChat;
+        (_conversation.type == ConversationType.roomChat ||
+            _conversation.type == ConversationType.adminChat);
 
     if (canShowPrivateToggle) {
+      // No local/cached seed for isEnabled or activatedBy — starts unset
+      // (off, unknown activator) and is populated exclusively from the API
+      // fetch below, never from `widget.conversation`. That local data is
+      // exactly what was letting the toggle show a stale value until the
+      // user's own interaction (or a lucky realtime event) corrected it.
       _privateModeToggleCubit = PrivateModeToggleCubit(
         togglePrivateModeUseCase: TogglePrivateModeUseCase(serviceLocator()),
         conversationCode: widget.conversation.code,
         viewerRole: () => _senderRole == ParticipantRole.parent
             ? RoomChatViewerRole.guardian
             : RoomChatViewerRole.staffOrAdmin,
-        initialEnabled:
-            widget.conversation.privateModeActive ||
-            widget.initialPrivateModeEnabled,
+        currentUserCode: () => _senderCode,
       );
-      _conversationPrivateModeActivatedBy =
-          widget.conversation.privateModeActivatedBy;
+      // Unconditionally fetch this conversation via REST — the previous
+      // conditional fetch above only ran when `participants.isEmpty`, which
+      // left the toggle with nothing but that removed local seed for a
+      // conversation that already had a full participant list.
+      unawaited(_fetchConversationDetails());
     }
   }
 
@@ -279,6 +373,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       if (conversation.participants.isNotEmpty) {
         setState(() => _resolvedConversation = conversation);
       }
+      // Independent of the participants check above — privateModeActive/
+      // privateModeActivatedBy are meaningful even when this particular
+      // fetch's participant list happens to come back empty.
+      _privateModeToggleCubit?.syncFromRemote(
+        active: conversation.privateModeActive,
+        activatedBy: conversation.privateModeActivatedBy,
+      );
     });
   }
 
@@ -398,6 +499,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     _searchDebounce?.cancel();
     unawaited(_cubit.close());
     _privateModeToggleCubit?.close();
+    _tabController?.dispose();
     _inputController.dispose();
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
@@ -494,6 +596,22 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     final hasNewLatest = latestCode != null && latestCode != _lastMessageCode;
     _lastMessageCode = latestCode;
     if (!hasNewLatest) return;
+
+    // `_conversation` (participants, privateModeStates) only ever updates
+    // when the CONVERSATION CODE changes (draft → real) — see
+    // `_syncResolvedConversation` — never when its FIELDS change, because
+    // this cubit only watches messages, not the conversation document
+    // itself. If someone else turns private mode on (or a new guardian
+    // joins) mid-session, `_showChatTabs`/`_visibleMessagesForActiveTab`
+    // were left computing against a stale snapshot — a brand-new private
+    // message from a guardian would silently vanish (no tab ever appeared
+    // to reveal it, and it doesn't pass the stale "not private" filter),
+    // looking exactly like "only the previous chat is showing". Refresh the
+    // conversation snapshot whenever a genuinely new INCOMING message
+    // arrives so tabs/filtering stay in sync with reality.
+    if (!wasOwnSend) {
+      unawaited(_fetchConversationDetails());
+    }
 
     // Sending always scrolls to bottom, regardless of scroll position.
     // Other growth (realtime/API/pagination) only scrolls when already near
@@ -601,9 +719,20 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // optimistic message lands in state (before the network call resolves).
     _ownSendPending = true;
     final attachmentsBeingSent = _pendingAttachments;
+    // A guardian sends private via their own toggle; staff/admin has no such
+    // toggle — instead, replying while a specific guardian's tab is active
+    // (see [_showChatTabs]/[_buildChatTabChips]) scopes the reply as private
+    // to THAT guardian automatically, mirroring the legacy screen's
+    // `selectedGuardianUserCode` behaviour. Group Chat (tab 0) never sends
+    // private regardless of who's viewing.
+    final activeTabIndex = _tabController?.index ?? 0;
+    final String? targetGuardianCode = (_showChatTabs && activeTabIndex > 0)
+        ? _tabGuardians[activeTabIndex - 1].userCode
+        : null;
     final bool isPrivate =
-        widget.showPrivateModeToggle &&
-        _privateModeToggleCubit?.state.isEnabled == true;
+        (widget.showPrivateModeToggle &&
+            _privateModeToggleCubit?.state.isEnabled == true) ||
+        targetGuardianCode != null;
 
     await _cubit.sendMessage(
       text: text,
@@ -615,6 +744,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       attachments: attachmentsBeingSent,
       isPrivate: isPrivate,
       threadParentCode: _quotedMessage?.code,
+      privateParentUserCode: targetGuardianCode,
     );
     if (!mounted) return;
     if (_cubit.state.sendError != null) {
@@ -765,10 +895,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   ],
                 ),
               ),
-              // Private Mode toggle — room chats only
+              // Private Mode toggle — Room Chat and Admin Chat.
               if (widget.showPrivateModeToggle &&
                   _privateModeToggleCubit != null &&
-                  _conversation.type == ConversationType.roomChat)
+                  (_conversation.type == ConversationType.roomChat ||
+                      _conversation.type == ConversationType.adminChat))
                 BlocConsumer<PrivateModeToggleCubit, PrivateModeToggleState>(
                   bloc: _privateModeToggleCubit,
                   listener: (context, pmState) {
@@ -786,55 +917,58 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         isSuccess: true,
                       );
                     }
-                    setState(() {
-                      if (pmState.isEnabled) {
-                        _conversationPrivateModeActivatedBy = _senderCode;
-                      } else {
-                        _conversationPrivateModeActivatedBy = null;
-                      }
-                    });
                   },
-                  builder: (_, pmState) => Tooltip(
-                    message: pmState.isEnabled
-                        ? (_conversationPrivateModeActivatedBy == _senderCode ||
-                                  _conversationPrivateModeActivatedBy == null
-                              ? 'Private Mode ON'
-                              : 'Private Mode was enabled by another guardian and can only be disabled by that guardian.')
-                        : 'Private Mode OFF',
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Private Mode',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: pmState.isEnabled
-                                ? const Color(0xFF6C63FF)
-                                : const Color(0xFFB2BEC3),
+                  builder: (_, pmState) {
+                    // `pmState.activatedBy` is now tracked live by the cubit
+                    // itself (see PrivateModeToggleCubit) — this used to be
+                    // a screen-local field re-derived here by ASSUMING the
+                    // current viewer is the activator whenever isEnabled is
+                    // true, which was simply wrong for anyone who didn't
+                    // just personally toggle it (e.g. a remote sync from a
+                    // DIFFERENT guardian turning it on made every other
+                    // guardian's screen think THEY were the activator too).
+                    final isActivator =
+                        pmState.activatedBy == null ||
+                        pmState.activatedBy == _senderCode;
+                    final canOperate =
+                        !pmState.isLoading &&
+                        (isActivator || !pmState.isEnabled);
+                    return Tooltip(
+                      message: pmState.isEnabled
+                          ? (isActivator
+                                ? 'Private Mode ON'
+                                : 'Private Mode was enabled by another guardian and can only be disabled by that guardian.')
+                          : 'Private Mode OFF',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Private Mode',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: pmState.isEnabled
+                                  ? const Color(0xFF6C63FF)
+                                  : const Color(0xFFB2BEC3),
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 4),
-                        Switch.adaptive(
-                          value: pmState.isEnabled,
-                          onChanged: pmState.isLoading
-                              ? null
-                              : (_conversationPrivateModeActivatedBy != null &&
-                                    _conversationPrivateModeActivatedBy !=
-                                        _senderCode &&
-                                    pmState.isEnabled)
-                              ? null
-                              : (_) => _privateModeToggleCubit!.toggle(),
-                          activeThumbColor: const Color(0xFF6C63FF),
-                          activeTrackColor: const Color(
-                            0xFF6C63FF,
-                          ).withValues(alpha: 0.4),
-                          materialTapTargetSize:
-                              MaterialTapTargetSize.shrinkWrap,
-                        ),
-                      ],
-                    ),
-                  ),
+                          const SizedBox(width: 4),
+                          Switch.adaptive(
+                            value: pmState.isEnabled,
+                            onChanged: canOperate
+                                ? (_) => _privateModeToggleCubit!.toggle()
+                                : null,
+                            activeThumbColor: const Color(0xFF6C63FF),
+                            activeTrackColor: const Color(
+                              0xFF6C63FF,
+                            ).withValues(alpha: 0.4),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ],
+                      ),
+                    );
+                  },
                 ),
               Tooltip(
                 message: _showSearch ? 'Close search' : 'Search messages',
@@ -866,7 +1000,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               ),
             ],
           ),
-          if (participants.isNotEmpty) ...[
+          // Read-only guardian/participant chips — hidden once the
+          // interactive tab chips below are showing, since those already
+          // represent every guardian (avatar + name) as a tab; showing both
+          // duplicated every guardian's name/avatar twice in a row. Mirrors
+          // the legacy Room Chat screen's own either/or between its
+          // read-only `ParentParticipantChips` and its interactive tab
+          // chips — never both at once.
+          if (participants.isNotEmpty && !_showChatTabs) ...[
             const SizedBox(height: 8),
             Builder(
               builder: (context) {
@@ -970,6 +1111,15 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               },
             ),
           ],
+          // Staff/admin viewer, private mode active: interactive tab chips
+          // to switch between Group Chat and each guardian's private
+          // thread. This is what was missing compared to Room Chat's
+          // legacy screen — that screen has always had this; this (v2,
+          // Admin Chat included) screen never did.
+          if (_showChatTabs) ...[
+            const SizedBox(height: 8),
+            _buildChatTabChips(),
+          ],
           // Shown to EVERY persona (previously parent-only, which meant an
           // admin/staff viewer could never see who turned private mode on
           // for a conversation they're looking at) — gated instead on the
@@ -985,13 +1135,115 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     );
   }
 
+  /// Horizontal row of "Group Chat" + one chip per guardian in
+  /// [_tabGuardians]. Mirrors the legacy `ParentMessagingThread`'s tab
+  /// chips visually (same colors/shape) — tapping a chip calls
+  /// `_tabController.animateTo`, and [_visibleMessagesForActiveTab] reacts
+  /// to the resulting index change (via the listener in
+  /// [_syncTabController], which just triggers a rebuild).
+  Widget _buildChatTabChips() {
+    final controller = _tabController;
+    if (controller == null) return const SizedBox.shrink();
+    final guardians = _tabGuardians;
+    return SizedBox(
+      height: 28,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        children: [
+          _buildChatTabChip(
+            label: 'Group Chat',
+            tabIndex: 0,
+            // Matches the legacy Room Chat screen's own Group Chat chip
+            // colour exactly (AppColors.themeColor, not primaryColor).
+            color: AppColors.themeColor,
+            showLockIcon: false,
+          ),
+          ...guardians.asMap().entries.map((entry) {
+            final tabIndex = entry.key + 1;
+            final guardian = entry.value;
+            final label = guardian.userName.isNotEmpty
+                ? guardian.userName
+                : guardian.userCode;
+            return Padding(
+              padding: const EdgeInsets.only(left: 6),
+              child: _buildChatTabChip(
+                label: label,
+                tabIndex: tabIndex,
+                color: const Color(0xFF00B4DB),
+                showLockIcon: _conversation.isPrivateModeEnabledFor(
+                  guardian.userCode,
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildChatTabChip({
+    required String label,
+    required int tabIndex,
+    required Color color,
+    required bool showLockIcon,
+  }) {
+    final controller = _tabController!;
+    final isSelected = controller.index == tabIndex;
+    return GestureDetector(
+      onTap: () {
+        if (controller.index != tabIndex) controller.animateTo(tabIndex);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected ? color : color.withValues(alpha: 0.1),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? color : color.withValues(alpha: 0.3),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: isSelected ? Colors.white : color,
+              ),
+            ),
+            if (showLockIcon) ...[
+              const SizedBox(width: 4),
+              Icon(
+                Icons.visibility_off,
+                size: 12,
+                color: isSelected ? Colors.white : const Color(0xFFD63031),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
   /// The userCode of whichever parent actually has private mode enabled —
   /// preferring the per-parent [ConversationEntity.privateModeStates] map
   /// (accurate when several guardians are on the conversation and only one
   /// enabled it) over the room-wide [ConversationEntity.privateModeActivatedBy]
   /// (only meaningful when there's a single relevant guardian).
-  String? _privateModeOwnerCode() {
+  ///
+  /// When [forGuardianCode] is given (the guardian whose tab is currently
+  /// active), prefers THAT guardian's own state entry — a guardian swept
+  /// into private mode by the other parent (per the private-mode spec, both
+  /// parents' threads go private together) still has an entry, just with
+  /// `owner` pointing at whoever actually triggered it.
+  String? _privateModeOwnerCode({String? forGuardianCode}) {
     final states = _conversation.privateModeStates;
+    if (forGuardianCode != null) {
+      final ownState = states[forGuardianCode];
+      if (ownState != null && ownState.enabled) return ownState.owner;
+    }
     for (final entry in states.entries) {
       if (entry.value.enabled) return entry.value.owner;
     }
@@ -1001,7 +1253,24 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   Widget _buildPrivateModeHeader() {
     if (!_conversation.hasActivePrivateMode) return const SizedBox.shrink();
 
-    final ownerCode = _privateModeOwnerCode();
+    // Tabbed staff/admin view: the banner only makes sense while looking at
+    // an actual private (guardian) tab — Group Chat itself is never
+    // private, so showing it there regardless of tab was confusing. Scope
+    // the resolved owner to whichever guardian's tab is active.
+    String? activeGuardianCode;
+    if (_showChatTabs) {
+      final activeIndex = _tabController?.index ?? 0;
+      if (activeIndex == 0) return const SizedBox.shrink();
+      final guardians = _tabGuardians;
+      final guardianIndex = activeIndex - 1;
+      if (guardianIndex < guardians.length) {
+        activeGuardianCode = guardians[guardianIndex].userCode;
+      }
+    }
+
+    final ownerCode = _privateModeOwnerCode(
+      forGuardianCode: activeGuardianCode,
+    );
     final parentParticipant = _conversation.participants.firstWhere(
       (p) => p.userCode == ownerCode,
       orElse: () => _conversation.participants.firstWhere(
@@ -1017,30 +1286,41 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         ? parentParticipant.userName
         : parentParticipant.userCode;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF9E6),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFFFE8B3), width: 1),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.lock_outline, size: 14, color: Color(0xFFC9A000)),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              'Private by $parentName',
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: Color(0xFFC9A000),
+    // A compact pill sized to its own content (matching the tab chips'
+    // scale) — the previous `Expanded` text inside an unconstrained-width
+    // Container stretched the box to the full header width while the text
+    // stayed small, leaving a big empty box around a tiny label.
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        constraints: BoxConstraints(
+          maxWidth: MediaQuery.of(context).size.width * 0.7,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF9E6),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: const Color(0xFFFFE8B3), width: 1),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.lock_outline, size: 14, color: Color(0xFFC9A000)),
+            const SizedBox(width: 5),
+            Flexible(
+              child: Text(
+                'Private by $parentName',
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFFC9A000),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -1122,15 +1402,32 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     }
 
     if (!state.hasMessages) {
-      return const Center(
-        child: Text(
-          'No messages yet. Say hello!',
-          style: TextStyle(color: Color(0xFFB2BEC3), fontSize: 14),
+      // A bare Center has no scrollable ancestor for RefreshIndicator to
+      // detect the pull gesture against — wrap it in a scrollable (matching
+      // the non-empty list below, which already supports pull-to-refresh)
+      // so a brand-new/empty conversation can still be refreshed.
+      return CustomRefreshIndicator(
+        onRefresh: _cubit.refreshMessages,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                child: const Center(
+                  child: Text(
+                    'No messages yet. Say hello!',
+                    style: TextStyle(color: Color(0xFFB2BEC3), fontSize: 14),
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       );
     }
 
-    final messages = state.messages;
+    final messages = _visibleMessagesForActiveTab(state.messages);
 
     // The list (and its ScrollController) must stay mounted — and
     // therefore attached — the whole time, or `scrollToBottom()` has
@@ -1164,6 +1461,12 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       onRefresh: _cubit.refreshMessages,
       child: ListView.builder(
         controller: _scrollController,
+        // A handful of messages don't fill the viewport, and without this a
+        // ListView with unfilled content isn't scrollable at all — so the
+        // pull gesture never reaches CustomRefreshIndicator. Forces it to
+        // stay scrollable (and therefore pull-to-refresh-able) regardless
+        // of message count.
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         reverse: true,
         itemCount: messages.length,
@@ -1388,6 +1691,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         }
       },
       builder: (context, state) {
+        _syncTabController();
         return Column(
           mainAxisSize: MainAxisSize.max,
           crossAxisAlignment: CrossAxisAlignment.start,

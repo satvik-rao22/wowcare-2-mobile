@@ -87,35 +87,91 @@ class ConversationEntity extends Equatable {
   bool isPrivateModeEnabledFor(String parentUserCode) =>
       privateModeStates[parentUserCode]?.enabled ?? false;
 
+  /// The last message's sender, resolved to a display name. Prefers
+  /// [lastMessageSenderName] (in case the backend ever starts sending it —
+  /// the DTO already parses it), but that field is NOT actually present in
+  /// the real `/conversations/type/{TYPE}` list response today (confirmed
+  /// against a live payload) — [lastMessageBy] (just a userCode) IS
+  /// present, and so is the full [participants] array, so this derives the
+  /// name by matching one against the other instead of depending on a
+  /// field the backend doesn't send.
+  String? get lastMessageSenderDisplayName {
+    final direct = lastMessageSenderName?.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final code = lastMessageBy;
+    if (code == null || code.isEmpty) return null;
+    for (final p in participants) {
+      if (p.userCode == code) return p.userName;
+    }
+    return null;
+  }
+
+  /// Only `lastMessageSenderName` is overridable — added specifically for
+  /// [ConversationListCubit]'s cross-source reconciliation (carrying a
+  /// known-good sender name forward when a later, less-complete update
+  /// would otherwise blank it out for the same message). Extend with more
+  /// fields if another caller needs them.
+  ConversationEntity copyWith({String? lastMessageSenderName}) {
+    return ConversationEntity(
+      id: id,
+      code: code,
+      title: title,
+      type: type,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      status: status,
+      description: description,
+      avatarUrl: avatarUrl,
+      createdAt: createdAt,
+      createdBy: createdBy,
+      updatedAt: updatedAt,
+      updatedBy: updatedBy,
+      participantCount: participantCount,
+      unreadCount: unreadCount,
+      lastMessagePreview: lastMessagePreview,
+      participants: participants,
+      lastMessageAt: lastMessageAt,
+      lastMessageBy: lastMessageBy,
+      studentCode: studentCode,
+      classroomCode: classroomCode,
+      lastMessageSenderName:
+          lastMessageSenderName ?? this.lastMessageSenderName,
+      privateModeActive: privateModeActive,
+      privateModeActivatedBy: privateModeActivatedBy,
+      privateModeActivatedAt: privateModeActivatedAt,
+      privateModeStates: privateModeStates,
+    );
+  }
+
   @override
   List<Object?> get props => [
-        id,
-        code,
-        title,
-        type,
-        organizationCode,
-        schoolCode,
-        status,
-        description,
-        avatarUrl,
-        createdAt,
-        createdBy,
-        updatedAt,
-        updatedBy,
-        participantCount,
-        unreadCount,
-        lastMessagePreview,
-        participants,
-        lastMessageAt,
-        lastMessageBy,
-        lastMessageSenderName,
-        privateModeActive,
-        privateModeActivatedBy,
-        privateModeActivatedAt,
-        studentCode,
-        classroomCode,
-        privateModeStates,
-      ];
+    id,
+    code,
+    title,
+    type,
+    organizationCode,
+    schoolCode,
+    status,
+    description,
+    avatarUrl,
+    createdAt,
+    createdBy,
+    updatedAt,
+    updatedBy,
+    participantCount,
+    unreadCount,
+    lastMessagePreview,
+    participants,
+    lastMessageAt,
+    lastMessageBy,
+    lastMessageSenderName,
+    privateModeActive,
+    privateModeActivatedBy,
+    privateModeActivatedAt,
+    studentCode,
+    classroomCode,
+    privateModeStates,
+  ];
 }
 
 /// A participant in a conversation.
@@ -179,25 +235,25 @@ class ParticipantEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        conversationId,
-        userCode,
-        userName,
-        role,
-        joinedAt,
-        leftAt,
-        lastReadAt,
-        muted,
-        notificationsEnabled,
-        createdAt,
-        updatedAt,
-        avatarUrl,
-        staffCode,
-        guardianCode,
-        adminCode,
-        organizationCode,
-        schoolCode,
-      ];
+    id,
+    conversationId,
+    userCode,
+    userName,
+    role,
+    joinedAt,
+    leftAt,
+    lastReadAt,
+    muted,
+    notificationsEnabled,
+    createdAt,
+    updatedAt,
+    avatarUrl,
+    staffCode,
+    guardianCode,
+    adminCode,
+    organizationCode,
+    schoolCode,
+  ];
 }
 
 /// Private mode state for a single parent within a conversation.

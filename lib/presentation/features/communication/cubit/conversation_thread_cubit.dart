@@ -461,6 +461,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     List<ChatAttachment> attachments = const [],
     bool isPrivate = false,
     String? threadParentCode,
+
+    /// Which guardian this private message belongs to. Only meaningful when
+    /// [isPrivate] is true. Defaults to [senderCode] (a guardian composing
+    /// their own private message) when omitted — pass this explicitly when
+    /// STAFF/ADMIN is replying inside a specific guardian's private tab,
+    /// since the sender in that case isn't the private party themselves.
+    String? privateParentUserCode,
   }) async {
     // Draft thread: create the real conversation before sending (web parity).
     if (_isDraft) {
@@ -504,7 +511,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       isPrivate: isPrivate,
-      privateParentUserCode: isPrivate ? senderCode : null,
+      privateParentUserCode: isPrivate
+          ? (privateParentUserCode ?? senderCode)
+          : null,
       threadParentCode: threadParentCode,
       localTempCode: tempCode,
       attachments: attachments.map(toOptimisticEntity).toList(),
@@ -570,6 +579,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       localTempCode: tempCode,
       isPrivate: isPrivate,
       threadParentCode: threadParentCode,
+      privateParentUserCode: optimistic.privateParentUserCode,
     );
 
     if (isClosed) return;

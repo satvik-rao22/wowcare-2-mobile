@@ -712,10 +712,18 @@ class _MessageBubbleState extends State<MessageBubble>
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
-                      // Sender header row (avatar + name) — hidden when grouped.
+                      // Sender header row (avatar + name). Grouping (consecutive
+                      // messages from the same sender within a few minutes) only
+                      // hides this for the VIEWER'S OWN messages — a repeated "You"
+                      // label is redundant. A received (left-side) message always
+                      // shows its sender's name, grouped or not: in a group chat
+                      // with many participants, the whole point of the identity-
+                      // based alignment fix is that different senders share the
+                      // left side, so suppressing the name there would make it
+                      // impossible to tell who sent what.
                       // Parent Messaging shows avatar + name side-by-side;
                       // Staff Direct shows name only (no avatar on the message).
-                      if (!widget.isGrouped)
+                      if (!widget.isGrouped || !isMe)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
                           child: Row(

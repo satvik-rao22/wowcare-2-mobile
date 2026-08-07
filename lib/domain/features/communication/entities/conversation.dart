@@ -16,6 +16,12 @@ class Conversation extends Equatable {
   final String updatedBy;
   final DateTime? lastMessageAt;
   final String? lastMessageBy;
+
+  /// Display name of the last message's sender — used to prefix the
+  /// conversation list's preview ("SenderName: message"), matching the web
+  /// app's chat list. [lastMessageBy] alone is just the raw userCode, not
+  /// display-ready.
+  final String? lastMessageSenderName;
   final bool privateModeActive;
   final String? privateModeActivatedBy;
   final DateTime? privateModeActivatedAt;
@@ -23,6 +29,24 @@ class Conversation extends Equatable {
   final int unreadCount;
   final String lastMessagePreview;
   final List<ConversationParticipant> participants;
+
+  /// The last message's sender, resolved to a display name. Prefers
+  /// [lastMessageSenderName] (in case the backend ever starts sending it),
+  /// but that field is NOT actually present in the real conversation-list
+  /// response today (confirmed against a live payload) — [lastMessageBy]
+  /// (just a userCode) IS present, and so is [participants], so this
+  /// derives the name by matching one against the other instead of
+  /// depending on a field the backend doesn't send.
+  String? get lastMessageSenderDisplayName {
+    final direct = lastMessageSenderName?.trim();
+    if (direct != null && direct.isNotEmpty) return direct;
+    final code = lastMessageBy;
+    if (code == null || code.isEmpty) return null;
+    for (final p in participants) {
+      if (p.userCode == code) return p.userName;
+    }
+    return null;
+  }
 
   const Conversation({
     required this.id,
@@ -40,6 +64,7 @@ class Conversation extends Equatable {
     required this.updatedBy,
     this.lastMessageAt,
     this.lastMessageBy,
+    this.lastMessageSenderName,
     this.privateModeActive = false,
     this.privateModeActivatedBy,
     this.privateModeActivatedAt,
@@ -51,29 +76,30 @@ class Conversation extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        code,
-        title,
-        type,
-        organizationCode,
-        schoolCode,
-        status,
-        description,
-        avatarUrl,
-        createdAt,
-        createdBy,
-        updatedAt,
-        updatedBy,
-        lastMessageAt,
-        lastMessageBy,
-        privateModeActive,
-        privateModeActivatedBy,
-        privateModeActivatedAt,
-        participantCount,
-        unreadCount,
-        lastMessagePreview,
-        participants,
-      ];
+    id,
+    code,
+    title,
+    type,
+    organizationCode,
+    schoolCode,
+    status,
+    description,
+    avatarUrl,
+    createdAt,
+    createdBy,
+    updatedAt,
+    updatedBy,
+    lastMessageAt,
+    lastMessageBy,
+    lastMessageSenderName,
+    privateModeActive,
+    privateModeActivatedBy,
+    privateModeActivatedAt,
+    participantCount,
+    unreadCount,
+    lastMessagePreview,
+    participants,
+  ];
 }
 
 class ConversationParticipant extends Equatable {
@@ -128,22 +154,22 @@ class ConversationParticipant extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        conversationId,
-        userCode,
-        userName,
-        role,
-        joinedAt,
-        leftAt,
-        lastReadAt,
-        muted,
-        notificationsEnabled,
-        createdAt,
-        updatedAt,
-        privateModeEnabled,
-        avatarUrl,
-        staffCode,
-      ];
+    id,
+    conversationId,
+    userCode,
+    userName,
+    role,
+    joinedAt,
+    leftAt,
+    lastReadAt,
+    muted,
+    notificationsEnabled,
+    createdAt,
+    updatedAt,
+    privateModeEnabled,
+    avatarUrl,
+    staffCode,
+  ];
 }
 
 /// One page of the conversation list, mirroring the `StaffPage`/`StudentPage`

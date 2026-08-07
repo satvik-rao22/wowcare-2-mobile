@@ -310,9 +310,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     if (!mounted) return;
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation == null) {
+      final failureMessage = result.fold((f) => f.message, (_) => null);
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Could not start a conversation with $name',
+        message: (failureMessage != null && failureMessage.trim().isNotEmpty)
+            ? failureMessage
+            : 'Could not start a conversation with $name',
         isError: true,
       );
       return;
@@ -827,14 +830,22 @@ class _ConversationTileContent extends StatelessWidget {
   /// exist on the full message entity inside a thread, not this list-level
   /// summary). `lastMessageAt` is what actually distinguishes "no messages
   /// yet" from "the last message just had no text".
+  ///
+  /// Prefixed with the sender's name (`SenderName: message`) to match the
+  /// web app's chat list — this was previously dropped entirely on mobile.
+  /// The backend doesn't actually send a dedicated sender-name field, so
+  /// `ConversationEntity.lastMessageSenderDisplayName` derives it from
+  /// `lastMessageBy` + `participants` instead. Only the "no messages yet"
+  /// placeholder stays sender-less, since there's no sender to attribute it
+  /// to.
   String _lastMessagePreviewText(ConversationEntity conversation) {
-    if (conversation.lastMessagePreview.isNotEmpty) {
-      return conversation.lastMessagePreview;
-    }
-    if (conversation.lastMessageAt != null) {
-      return '📎 Attachment';
-    }
-    return 'Start a new conversation';
+    final body = conversation.lastMessagePreview.isNotEmpty
+        ? conversation.lastMessagePreview
+        : (conversation.lastMessageAt != null ? '📎 Attachment' : null);
+    if (body == null) return 'Start a new conversation';
+    final senderName = conversation.lastMessageSenderDisplayName?.trim();
+    if (senderName == null || senderName.isEmpty) return body;
+    return '$senderName: $body';
   }
 
   @override

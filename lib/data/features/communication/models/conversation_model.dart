@@ -18,6 +18,7 @@ class ConversationModel extends Conversation {
     required super.updatedBy,
     super.lastMessageAt,
     super.lastMessageBy,
+    super.lastMessageSenderName,
     super.privateModeActive = false,
     super.privateModeActivatedBy,
     super.privateModeActivatedAt,
@@ -50,6 +51,7 @@ class ConversationModel extends Conversation {
           ? DateTime.parse(json['lastMessageAt'] as String)
           : null,
       lastMessageBy: json['lastMessageBy'] as String?,
+      lastMessageSenderName: json['lastMessageSenderName'] as String?,
       privateModeActive: json['privateModeActive'] as bool? ?? false,
       privateModeActivatedBy: json['privateModeActivatedBy'] as String?,
       privateModeActivatedAt: json['privateModeActivatedAt'] != null
@@ -58,9 +60,13 @@ class ConversationModel extends Conversation {
       participantCount: json['participantCount'] as int? ?? 0,
       unreadCount: json['unreadCount'] as int? ?? 0,
       lastMessagePreview: json['lastMessagePreview'] as String? ?? '',
-      participants: (json['participants'] as List<dynamic>?)
-              ?.map((e) =>
-                  ConversationParticipantModel.fromJson(e as Map<String, dynamic>))
+      participants:
+          (json['participants'] as List<dynamic>?)
+              ?.map(
+                (e) => ConversationParticipantModel.fromJson(
+                  e as Map<String, dynamic>,
+                ),
+              )
               .toList() ??
           [],
     );
@@ -83,6 +89,7 @@ class ConversationModel extends Conversation {
       'updatedBy': updatedBy,
       'lastMessageAt': lastMessageAt?.toIso8601String(),
       'lastMessageBy': lastMessageBy,
+      'lastMessageSenderName': lastMessageSenderName,
       'privateModeActive': privateModeActive,
       'privateModeActivatedBy': privateModeActivatedBy,
       'privateModeActivatedAt': privateModeActivatedAt?.toIso8601String(),
@@ -124,14 +131,19 @@ class ConversationParticipantModel extends ConversationParticipant {
           ? json['displayName'] as String
           : json['userName'] as String? ?? '',
       // New API uses 'participantType'; old API used 'role'. Accept both.
-      role: json['participantType'] as String? ??
+      role:
+          json['participantType'] as String? ??
           json['role'] as String? ??
           'STAFF',
       joinedAt: json['joinedAt'] != null
           ? DateTime.parse(json['joinedAt'] as String)
           : AppTime.nowUtc(),
-      leftAt: json['leftAt'] != null ? DateTime.parse(json['leftAt'] as String) : null,
-      lastReadAt: json['lastReadAt'] != null ? DateTime.parse(json['lastReadAt'] as String) : null,
+      leftAt: json['leftAt'] != null
+          ? DateTime.parse(json['leftAt'] as String)
+          : null,
+      lastReadAt: json['lastReadAt'] != null
+          ? DateTime.parse(json['lastReadAt'] as String)
+          : null,
       muted: json['muted'] as bool? ?? false,
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
       createdAt: json['createdAt'] != null

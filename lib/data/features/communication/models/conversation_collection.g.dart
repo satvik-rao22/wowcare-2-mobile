@@ -63,69 +63,74 @@ const ConversationCollectionSchema = CollectionSchema(
       name: r'lastMessagePreview',
       type: IsarType.string,
     ),
-    r'organizationCode': PropertySchema(
+    r'lastMessageSenderName': PropertySchema(
       id: 9,
+      name: r'lastMessageSenderName',
+      type: IsarType.string,
+    ),
+    r'organizationCode': PropertySchema(
+      id: 10,
       name: r'organizationCode',
       type: IsarType.string,
     ),
     r'participantCount': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'participantCount',
       type: IsarType.long,
     ),
     r'participants': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'participants',
       type: IsarType.objectList,
       target: r'ConversationParticipantCollection',
     ),
     r'privateModeActivatedAt': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'privateModeActivatedAt',
       type: IsarType.dateTime,
     ),
     r'privateModeActivatedBy': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'privateModeActivatedBy',
       type: IsarType.string,
     ),
     r'privateModeActive': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'privateModeActive',
       type: IsarType.bool,
     ),
     r'schoolCode': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'schoolCode',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'status',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'type',
       type: IsarType.string,
     ),
     r'unreadCount': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'unreadCount',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedBy': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'updatedBy',
       type: IsarType.string,
     )
@@ -164,6 +169,12 @@ int _conversationCollectionEstimateSize(
     }
   }
   bytesCount += 3 + object.lastMessagePreview.length * 3;
+  {
+    final value = object.lastMessageSenderName;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.organizationCode.length * 3;
   {
     final list = object.participants;
@@ -208,24 +219,25 @@ void _conversationCollectionSerialize(
   writer.writeDateTime(offsets[6], object.lastMessageAt);
   writer.writeString(offsets[7], object.lastMessageBy);
   writer.writeString(offsets[8], object.lastMessagePreview);
-  writer.writeString(offsets[9], object.organizationCode);
-  writer.writeLong(offsets[10], object.participantCount);
+  writer.writeString(offsets[9], object.lastMessageSenderName);
+  writer.writeString(offsets[10], object.organizationCode);
+  writer.writeLong(offsets[11], object.participantCount);
   writer.writeObjectList<ConversationParticipantCollection>(
-    offsets[11],
+    offsets[12],
     allOffsets,
     ConversationParticipantCollectionSchema.serialize,
     object.participants,
   );
-  writer.writeDateTime(offsets[12], object.privateModeActivatedAt);
-  writer.writeString(offsets[13], object.privateModeActivatedBy);
-  writer.writeBool(offsets[14], object.privateModeActive);
-  writer.writeString(offsets[15], object.schoolCode);
-  writer.writeString(offsets[16], object.status);
-  writer.writeString(offsets[17], object.title);
-  writer.writeString(offsets[18], object.type);
-  writer.writeLong(offsets[19], object.unreadCount);
-  writer.writeDateTime(offsets[20], object.updatedAt);
-  writer.writeString(offsets[21], object.updatedBy);
+  writer.writeDateTime(offsets[13], object.privateModeActivatedAt);
+  writer.writeString(offsets[14], object.privateModeActivatedBy);
+  writer.writeBool(offsets[15], object.privateModeActive);
+  writer.writeString(offsets[16], object.schoolCode);
+  writer.writeString(offsets[17], object.status);
+  writer.writeString(offsets[18], object.title);
+  writer.writeString(offsets[19], object.type);
+  writer.writeLong(offsets[20], object.unreadCount);
+  writer.writeDateTime(offsets[21], object.updatedAt);
+  writer.writeString(offsets[22], object.updatedBy);
 }
 
 ConversationCollection _conversationCollectionDeserialize(
@@ -244,25 +256,26 @@ ConversationCollection _conversationCollectionDeserialize(
   object.lastMessageAt = reader.readDateTimeOrNull(offsets[6]);
   object.lastMessageBy = reader.readStringOrNull(offsets[7]);
   object.lastMessagePreview = reader.readString(offsets[8]);
-  object.organizationCode = reader.readString(offsets[9]);
-  object.participantCount = reader.readLong(offsets[10]);
+  object.lastMessageSenderName = reader.readStringOrNull(offsets[9]);
+  object.organizationCode = reader.readString(offsets[10]);
+  object.participantCount = reader.readLong(offsets[11]);
   object.participants =
       reader.readObjectList<ConversationParticipantCollection>(
-    offsets[11],
+    offsets[12],
     ConversationParticipantCollectionSchema.deserialize,
     allOffsets,
     ConversationParticipantCollection(),
   );
-  object.privateModeActivatedAt = reader.readDateTimeOrNull(offsets[12]);
-  object.privateModeActivatedBy = reader.readStringOrNull(offsets[13]);
-  object.privateModeActive = reader.readBool(offsets[14]);
-  object.schoolCode = reader.readString(offsets[15]);
-  object.status = reader.readString(offsets[16]);
-  object.title = reader.readString(offsets[17]);
-  object.type = reader.readString(offsets[18]);
-  object.unreadCount = reader.readLong(offsets[19]);
-  object.updatedAt = reader.readDateTime(offsets[20]);
-  object.updatedBy = reader.readString(offsets[21]);
+  object.privateModeActivatedAt = reader.readDateTimeOrNull(offsets[13]);
+  object.privateModeActivatedBy = reader.readStringOrNull(offsets[14]);
+  object.privateModeActive = reader.readBool(offsets[15]);
+  object.schoolCode = reader.readString(offsets[16]);
+  object.status = reader.readString(offsets[17]);
+  object.title = reader.readString(offsets[18]);
+  object.type = reader.readString(offsets[19]);
+  object.unreadCount = reader.readLong(offsets[20]);
+  object.updatedAt = reader.readDateTime(offsets[21]);
+  object.updatedBy = reader.readString(offsets[22]);
   return object;
 }
 
@@ -292,24 +305,24 @@ P _conversationCollectionDeserializeProp<P>(
     case 8:
       return (reader.readString(offset)) as P;
     case 9:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 10:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 11:
+      return (reader.readLong(offset)) as P;
+    case 12:
       return (reader.readObjectList<ConversationParticipantCollection>(
         offset,
         ConversationParticipantCollectionSchema.deserialize,
         allOffsets,
         ConversationParticipantCollection(),
       )) as P;
-    case 12:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 13:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 14:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 15:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 16:
       return (reader.readString(offset)) as P;
     case 17:
@@ -317,10 +330,12 @@ P _conversationCollectionDeserializeProp<P>(
     case 18:
       return (reader.readString(offset)) as P;
     case 19:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 20:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 21:
+      return (reader.readDateTime(offset)) as P;
+    case 22:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -1505,6 +1520,163 @@ extension ConversationCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'lastMessagePreview',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'lastMessageSenderName',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'lastMessageSenderName',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastMessageSenderName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'lastMessageSenderName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'lastMessageSenderName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'lastMessageSenderName',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'lastMessageSenderName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'lastMessageSenderName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      lastMessageSenderNameContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'lastMessageSenderName',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      lastMessageSenderNameMatches(String pattern,
+          {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'lastMessageSenderName',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'lastMessageSenderName',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> lastMessageSenderNameIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'lastMessageSenderName',
         value: '',
       ));
     });
@@ -2999,6 +3171,20 @@ extension ConversationCollectionQuerySortBy
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByLastMessageSenderName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastMessageSenderName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByLastMessageSenderNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastMessageSenderName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
       sortByOrganizationCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'organizationCode', Sort.asc);
@@ -3310,6 +3496,20 @@ extension ConversationCollectionQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByLastMessageSenderName() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastMessageSenderName', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByLastMessageSenderNameDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'lastMessageSenderName', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
       thenByOrganizationCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'organizationCode', Sort.asc);
@@ -3546,6 +3746,14 @@ extension ConversationCollectionQueryWhereDistinct
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
+      distinctByLastMessageSenderName({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'lastMessageSenderName',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
       distinctByOrganizationCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'organizationCode',
@@ -3699,6 +3907,13 @@ extension ConversationCollectionQueryProperty on QueryBuilder<
       lastMessagePreviewProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'lastMessagePreview');
+    });
+  }
+
+  QueryBuilder<ConversationCollection, String?, QQueryOperations>
+      lastMessageSenderNameProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'lastMessageSenderName');
     });
   }
 

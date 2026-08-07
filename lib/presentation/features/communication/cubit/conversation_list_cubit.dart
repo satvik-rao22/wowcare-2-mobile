@@ -96,7 +96,22 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       }
     });
 
-    // 2. Subscribe to Firestore.
+    // 2. Kick off a REST load in parallel with the Firestore subscribe below,
+    // rather than waiting for Firestore to fail first. `onError` below is
+    // NOT a reliable trigger for this: a `permission-denied` (e.g. Firebase
+    // custom-token sign-in still in flight, or having silently failed with
+    // nothing to retry it — see FirebaseAuthService.signIn()'s fire-and-forget
+    // call sites in AuthCubit) gets retried internally inside
+    // FirebaseConversationRealtimeDataSource's retry/backoff logic and NEVER
+    // reaches this listener's `onError` at all, so `_fallbackToApi()` below
+    // was provably unreachable for that failure mode — the inbox just sat on
+    // whatever was in Isar cache (empty on a fresh install) forever. Running
+    // both concurrently guarantees a working inbox regardless of Firestore's
+    // connection/auth state; whichever lands first is shown, and the other
+    // reconciles on top.
+    unawaited(_fallbackToApi());
+
+    // 3. Subscribe to Firestore.
     _firestoreSubscription?.cancel();
     _firestoreSubscription = _watchConversationsUseCase(type: _conversationType)
         .listen(
@@ -107,7 +122,9 @@ class ConversationListCubit extends Cubit<ConversationListState> {
             emit(
               ConversationListState.loaded(
                 conversationType: _conversationType,
-                conversations: _sortedByLatest(conversations),
+                conversations: _sortedByLatest(
+                  _reconcileLastMessageSenderNames(conversations),
+                ),
                 isFromCache: false,
               ),
             );
@@ -118,7 +135,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           },
         );
 
-    // 3. Subscribe to mark-read events so the badge zeroes instantly.
+    // 4. Subscribe to mark-read events so the badge zeroes instantly.
     _markedReadSubscription?.cancel();
     _markedReadSubscription = MessagingEventService
         .instance
@@ -342,7 +359,9 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       (conversations) => emit(
         ConversationListState.loaded(
           conversationType: _conversationType,
-          conversations: _sortedByLatest(conversations),
+          conversations: _sortedByLatest(
+            _reconcileLastMessageSenderNames(conversations),
+          ),
           isFromCache: false,
           page: 0,
           hasMore: conversations.length >= _pageSize,
@@ -387,7 +406,9 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       (conversations) => emit(
         ConversationListState.loaded(
           conversationType: _conversationType,
-          conversations: _sortedByLatest(conversations),
+          conversations: _sortedByLatest(
+            _reconcileLastMessageSenderNames(conversations),
+          ),
           isFromCache: false,
           page: 0,
           hasMore: conversations.length >= _pageSize,
@@ -423,7 +444,9 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       (conversations) => emit(
         ConversationListState.loaded(
           conversationType: _conversationType,
-          conversations: _sortedByLatest(conversations),
+          conversations: _sortedByLatest(
+            _reconcileLastMessageSenderNames(conversations),
+          ),
           isFromCache: false,
           page: 0,
           hasMore: conversations.length >= _pageSize,
@@ -472,6 +495,17 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       studentCode: e.studentCode,
       classroomCode: e.classroomCode,
       privateModeStates: e.privateModeStates,
+      // Without these, every call site silently reset room-wide private
+      // mode to OFF (privateModeActive defaults to false, activatedBy/At to
+      // null on the constructor) — including a guardian's OWN send, since
+      // `markConversationRead` fires for that too and routes through here.
+      // Any screen subscribed to this cubit's stream to sync a local
+      // private-mode toggle (`PrivateModeToggleCubit.syncFromRemote`, see
+      // parent_messaging_thread.dart) would then flip that toggle off a
+      // moment after sending, even though nobody touched it.
+      privateModeActive: e.privateModeActive,
+      privateModeActivatedBy: e.privateModeActivatedBy,
+      privateModeActivatedAt: e.privateModeActivatedAt,
     );
   }
 
@@ -500,13 +534,45 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       (conversations) => emit(
         ConversationListState.loaded(
           conversationType: _conversationType,
-          conversations: _sortedByLatest(conversations),
+          conversations: _sortedByLatest(
+            _reconcileLastMessageSenderNames(conversations),
+          ),
           isFromCache: false,
           page: 0,
           hasMore: conversations.length >= _pageSize,
         ),
       ),
     );
+  }
+
+  /// Once a conversation's true last-message sender name has been shown,
+  /// never let a SUBSEQUENT update blank it out for the SAME message —
+  /// only ever replace it with a genuinely new value. This cubit has two
+  /// independent, uncoordinated sources feeding `emit()` (a parallel REST
+  /// fetch and an ongoing Firestore watch — see [startWatching]'s own
+  /// comment on why both run concurrently); whichever lands last simply
+  /// overwrites the state. The Firestore inbox doc can genuinely lack this
+  /// field even when REST has it — without this guard, if Firestore's
+  /// snapshot happens to land right after a correct REST result and then
+  /// goes quiet (no further activity in that thread), the incomplete data
+  /// becomes permanent: correct for a moment, then silently blanked.
+  /// Matched on `lastMessageAt` so an old sender's name is never
+  /// misattributed to an actually-newer message that legitimately has none.
+  List<ConversationEntity> _reconcileLastMessageSenderNames(
+    List<ConversationEntity> incoming,
+  ) {
+    if (incoming.isEmpty || state.conversations.isEmpty) return incoming;
+    final previousByCode = {for (final c in state.conversations) c.code: c};
+    return incoming.map((c) {
+      if (c.lastMessageSenderName?.trim().isNotEmpty ?? false) return c;
+      final previous = previousByCode[c.code];
+      if (previous == null || previous.lastMessageAt != c.lastMessageAt) {
+        return c;
+      }
+      final priorName = previous.lastMessageSenderName;
+      if (priorName == null || priorName.trim().isEmpty) return c;
+      return c.copyWith(lastMessageSenderName: priorName);
+    }).toList();
   }
 
   List<ConversationEntity> _sortedByLatest(
