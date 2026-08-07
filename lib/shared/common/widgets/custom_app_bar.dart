@@ -142,7 +142,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                   'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}',
                 );
 
-                if (context.canPop()) {
+                if (Navigator.of(context).canPop()) {
+                  Navigator.of(context).pop();
+                } else if (context.canPop()) {
                   context.pop();
                 } else {
                   // Fallback: navigate to dashboard if nothing to pop

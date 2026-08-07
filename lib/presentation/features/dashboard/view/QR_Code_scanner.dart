@@ -165,7 +165,10 @@ class _QrScanViewState extends State<_QrScanView>
     }
 
     unawaited(
-      Navigator.push(context, MaterialPageRoute(builder: (_) => destination)),
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => destination),
+      ),
     );
   }
 

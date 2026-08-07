@@ -13,6 +13,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -702,6 +703,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
 
       if (success) {
+        AttendanceEvents.notifyChanged();
         if (widget.isKiosk) {
           // For kiosk: show success for 2 seconds then return to kiosk dashboard
           await Future.delayed(const Duration(seconds: 2));
@@ -716,16 +718,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
             context.read<GeofenceCubit>().updateStaffSignInStatus(true);
             unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
           }
-          if (!isStaffAdmin) {
-            // Teacher/staff persona: no forced navigation — stay on
-            // whatever screen this action was started from.
-            Navigator.of(context).pop();
-          } else {
-            redirectToAttendanceDaily(
-              context,
-              StaffAttendanceTabbedView.routeName,
-            );
-          }
+          _navigateAfterSubmit(
+            isSelfSignIn: isSelfSignIn,
+            isStaffAdmin: isStaffAdmin,
+          );
         }
       }
     } catch (e) {
@@ -734,6 +730,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       final isAlreadySignedIn =
           errorMessage.toLowerCase().contains('already signed');
       if (isAlreadySignedIn) {
+        AttendanceEvents.notifyChanged();
         CoreUtils.showTopSnackBarFromSnackBar(
           context: context,
           snackBar: const SnackBar(
@@ -752,14 +749,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
             context.read<GeofenceCubit>().updateStaffSignInStatus(true);
             unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
           }
-          if (!isStaffAdmin) {
-            Navigator.of(context).pop();
-          } else {
-            redirectToAttendanceDaily(
-              context,
-              StaffAttendanceTabbedView.routeName,
-            );
-          }
+          _navigateAfterSubmit(
+            isSelfSignIn: isSelfSignIn,
+            isStaffAdmin: isStaffAdmin,
+          );
         }
       } else {
         CoreUtils.showTopSnackBarFromSnackBar(
@@ -776,6 +769,34 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
           _isSubmitting = false;
         });
       }
+    }
+  }
+
+  void _navigateAfterSubmit({
+    required bool isSelfSignIn,
+    required bool isStaffAdmin,
+  }) {
+    if (widget.qrToken.isNotEmpty) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      context.go('/dashboard');
+      return;
+    }
+
+    if (isSelfSignIn || !isStaffAdmin) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/dashboard');
+      }
+    } else {
+      redirectToAttendanceDaily(
+        context,
+        StaffAttendanceTabbedView.routeName,
+      );
     }
   }
 

@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_i
 import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
@@ -145,6 +146,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   // fetched so that context.watch<MyChildsDayCubit>() firing every second
   // (clock timer) does not re-trigger the attendance API on each tick.
   List<String> _lastSignInStatusCodes = [];
+  int _lastRefreshNonce = 0;
 
   // In-flight gate: prevents concurrent network requests when multiple
   // call sites (BlocListener, app-resume, post-sign-in) fire in rapid
@@ -181,6 +183,28 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AttendanceEvents.tick.addListener(_handleAttendanceChanged);
+  }
+
+  void _handleAttendanceChanged() {
+    if (!mounted) return;
+    final childCodes = Provider.of<ParentChildCubit>(
+      context,
+      listen: false,
+    ).children.map((c) => c.code).toList();
+    if (childCodes.isNotEmpty) {
+      _lastSignInStatusCodes = [];
+      unawaited(_loadChildrenSignInStatus(childCodes));
+    }
+    if (_selectedChildCode.isNotEmpty) {
+      try {
+        unawaited(
+          context.read<MyChildsDayCubit>().loadForChild(
+            studentCode: _selectedChildCode,
+          ),
+        );
+      } catch (_) {}
+    }
   }
 
   // Re-checks sign-in status the moment the app comes back to the
@@ -210,6 +234,11 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final parentChildProvider = Provider.of<ParentChildCubit>(context);
+    final parentChildState = parentChildProvider.state;
+    if (parentChildState.refreshNonce != _lastRefreshNonce) {
+      _lastRefreshNonce = parentChildState.refreshNonce;
+      _lastSignInStatusCodes = [];
+    }
     final selectedChild = parentChildProvider.selectedChild;
     final nextChildCode = (selectedChild?.code ?? '').trim();
     if (nextChildCode != _selectedChildCode) {
@@ -527,6 +556,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   @override
   void dispose() {
+    AttendanceEvents.tick.removeListener(_handleAttendanceChanged);
     WidgetsBinding.instance.removeObserver(this);
     _stopCountdownTimer();
     _statusText.dispose();

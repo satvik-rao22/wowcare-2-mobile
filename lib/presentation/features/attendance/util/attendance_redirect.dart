@@ -14,6 +14,8 @@ void redirectToAttendanceDaily(BuildContext context, String tabbedViewRoute) {
   // Capture the router before popping — `context` is unmounted after popUntil.
   final router = GoRouter.of(context);
   final navigator = Navigator.of(context);
-  navigator.popUntil((route) => route.isFirst);
+  if (navigator.canPop()) {
+    navigator.popUntil((route) => route.isFirst);
+  }
   router.go(tabbedViewRoute);
 }

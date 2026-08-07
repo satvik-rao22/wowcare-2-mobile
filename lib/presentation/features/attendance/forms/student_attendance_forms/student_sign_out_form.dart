@@ -12,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -493,6 +494,7 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
       );
 
       if (success) {
+        AttendanceEvents.notifyChanged();
         serviceLocator<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback?.call();
@@ -502,6 +504,11 @@ class _StudentSignOutFormState extends State<StudentSignOutForm> {
           AppLogger.d('[Kiosk] Student sign-out success - reloading QR code');
           unawaited(context.read<KioskDashboardCubit>().loadQrCode());
           context.go('/kiosk');
+        } else if (widget.isQrScan || widget.qrToken.isNotEmpty) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+          context.go('/dashboard');
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {

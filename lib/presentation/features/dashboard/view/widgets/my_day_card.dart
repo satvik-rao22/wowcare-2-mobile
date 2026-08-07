@@ -18,6 +18,7 @@ import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.da
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
@@ -299,8 +300,19 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AttendanceEvents.tick.addListener(_handleAttendanceChanged);
     unawaited(_loadClockPin());
     unawaited(_loadStaffIdentity());
+  }
+
+  void _handleAttendanceChanged() {
+    if (!mounted) return;
+    unawaited(_loadClockPin());
+    unawaited(_loadStaffIdentity());
+    try {
+      final myDayCubit = context.read<MyDayCubit>();
+      unawaited(myDayCubit.load());
+    } catch (_) {}
   }
 
   // Re-checks sign-in status the moment the app comes back to the
@@ -376,6 +388,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    AttendanceEvents.tick.removeListener(_handleAttendanceChanged);
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();
