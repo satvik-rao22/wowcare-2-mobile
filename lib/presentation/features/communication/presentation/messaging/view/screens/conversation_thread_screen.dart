@@ -15,6 +15,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/message
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
@@ -291,9 +292,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
         .trim();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '')
-        .trim()
-        .toUpperCase();
+    // Prefer the active-persona resolver (activeSchoolRole, falling back to
+    // the per-school cached snapshot, then the raw login roles list as a
+    // last resort) over reading the raw `roles` list directly. A dual-role
+    // account's `roles` string can contain BOTH e.g. "PARENT" and "ADMIN"
+    // substrings; matching against it directly could resolve to the WRONG
+    // persona (e.g. parent) even while the admin is genuinely viewing Admin
+    // Chat as an admin, silently inverting `viewerIsOrgSide` and flipping
+    // every message's alignment/colour. See `resolveActiveBackendRole`'s own
+    // doc comment — this is the single source of truth every other
+    // persona-scoping decision in the app already uses.
+    final activeRole = (await resolveActiveBackendRole(
+      storage,
+    )).trim().toUpperCase();
 
     if (!mounted) return;
     setState(() {
@@ -301,7 +312,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       _senderName = displayName.isNotEmpty ? displayName : userCode;
       _organizationCode = orgCode;
       _schoolCode = school;
-      _senderRole = ParticipantRole.fromApiString(rolesRaw);
+      _senderRole = ParticipantRole.fromApiString(activeRole);
     });
   }
 
@@ -959,9 +970,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               },
             ),
           ],
-          if (_senderRole == ParticipantRole.parent &&
-              (_conversation.type == ConversationType.adminChat ||
-                  _conversation.type == ConversationType.roomChat)) ...[
+          // Shown to EVERY persona (previously parent-only, which meant an
+          // admin/staff viewer could never see who turned private mode on
+          // for a conversation they're looking at) — gated instead on the
+          // conversation type plus an actual live "is private mode active"
+          // check inside `_buildPrivateModeHeader` itself.
+          if (_conversation.type == ConversationType.adminChat ||
+              _conversation.type == ConversationType.roomChat) ...[
             const SizedBox(height: 8),
             _buildPrivateModeHeader(),
           ],
@@ -970,12 +985,31 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     );
   }
 
+  /// The userCode of whichever parent actually has private mode enabled —
+  /// preferring the per-parent [ConversationEntity.privateModeStates] map
+  /// (accurate when several guardians are on the conversation and only one
+  /// enabled it) over the room-wide [ConversationEntity.privateModeActivatedBy]
+  /// (only meaningful when there's a single relevant guardian).
+  String? _privateModeOwnerCode() {
+    final states = _conversation.privateModeStates;
+    for (final entry in states.entries) {
+      if (entry.value.enabled) return entry.value.owner;
+    }
+    return _conversation.privateModeActivatedBy;
+  }
+
   Widget _buildPrivateModeHeader() {
+    if (!_conversation.hasActivePrivateMode) return const SizedBox.shrink();
+
+    final ownerCode = _privateModeOwnerCode();
     final parentParticipant = _conversation.participants.firstWhere(
-      (p) => p.role == ParticipantRole.parent && p.userCode != _senderCode,
+      (p) => p.userCode == ownerCode,
       orElse: () => _conversation.participants.firstWhere(
-        (p) => p.role == ParticipantRole.parent,
-        orElse: () => _conversation.participants.first,
+        (p) => p.role == ParticipantRole.parent && p.userCode != _senderCode,
+        orElse: () => _conversation.participants.firstWhere(
+          (p) => p.role == ParticipantRole.parent,
+          orElse: () => _conversation.participants.first,
+        ),
       ),
     );
 
@@ -1025,22 +1059,25 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         lower.contains('403');
   }
 
-  /// True if [senderCode]'s participant is staff/admin/teacher/director,
-  /// false if guardian/parent — see [MessageBubble.senderIsOrgSide] /
-  bool _isOrgSideSender(MessageEntity msg) {
-    if (msg.senderRole != ParticipantRole.parent) {
-      return true;
-    }
-    // Fallback: Firestore realtime updates (reactions) might omit senderRole,
-    // forcing it to ParticipantRole.parent. Check the participant list.
-    final role =
-        _conversation.participants
-            .where((p) => p.userCode == msg.senderCode)
-            .firstOrNull
-            ?.role ??
-        ParticipantRole.parent;
-    return role != ParticipantRole.parent;
-  }
+  /// True if [msg]'s sender is staff/admin/teacher/director, false if
+  /// guardian/parent — see [MessageBubble.senderIsOrgSide].
+  ///
+  /// Trusts [MessageEntity.senderRole] — the exact role THIS message was
+  /// sent under — directly, rather than cross-checking it against a
+  /// participant-list lookup by `senderCode`. A dual-role account (e.g. an
+  /// admin who is also the enrolled child's guardian) has TWO participant
+  /// entries sharing the same userCode; `.where(userCode == ...).firstOrNull`
+  /// can't tell which persona sent THIS message and would silently pick
+  /// whichever entry happens to be first (typically the org-side one),
+  /// wrongly flagging a guardian-sent message as org-side and pulling it
+  /// onto the wrong side/colour — the same class of bug already fixed for
+  /// message ownership via `senderRole` elsewhere (see
+  /// `withRoleAwareOwnership` / `mapMessageEntityToMessage`'s
+  /// `viewingAsGuardian`). `senderRole` is populated reliably from the REST
+  /// response for every message, so there's no missing-data case left to
+  /// fall back to a participant-list guess for.
+  bool _isOrgSideSender(MessageEntity msg) =>
+      msg.senderRole != ParticipantRole.parent;
 
   Widget _buildMessageList(ConversationThreadState state) {
     if (state.isLoading && !state.hasMessages) {
@@ -1437,6 +1474,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                               ? mapMessageEntityToMessage(
                                   _quotedMessage!,
                                   _senderCode,
+                                  viewingAsGuardian:
+                                      _senderRole == ParticipantRole.parent,
                                 )
                               : null,
                           onCancelQuote: () =>
@@ -1445,6 +1484,8 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                               ? mapMessageEntityToMessage(
                                   _editingMessage!,
                                   _senderCode,
+                                  viewingAsGuardian:
+                                      _senderRole == ParticipantRole.parent,
                                 )
                               : null,
                           onCancelEdit: () => setState(() {

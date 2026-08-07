@@ -128,10 +128,18 @@ class EntityMessageTile extends StatelessWidget {
           context.read<ConversationThreadCubit>().state.conversation,
           currentUserCode,
         );
+        // Reuse `viewerIsOrgSide` (already threaded through for alignment) as
+        // the "which persona is the viewer" signal `mapMessageEntityToMessage`
+        // needs to narrow a dual-role account's own-message ownership — see
+        // that function's `viewingAsGuardian` doc comment.
+        final viewingAsGuardian = viewerIsOrgSide == null
+            ? null
+            : !viewerIsOrgSide!;
         final message = mapMessageEntityToMessage(
           snapshot.message,
           currentUserCode,
           recipientCount: recipientCount,
+          viewingAsGuardian: viewingAsGuardian,
         );
         // Prefer the full quoted message (found in the loaded list); otherwise
         // fall back to the denormalized quote context carried on the reply
@@ -139,7 +147,11 @@ class EntityMessageTile extends StatelessWidget {
         // original message isn't currently loaded — or that just arrived live —
         // rendered with no quote bubble.
         final quotedMessage = snapshot.quoted != null
-            ? mapMessageEntityToMessage(snapshot.quoted!, currentUserCode)
+            ? mapMessageEntityToMessage(
+                snapshot.quoted!,
+                currentUserCode,
+                viewingAsGuardian: viewingAsGuardian,
+              )
             : _denormalizedQuote(snapshot.message, currentUserCode);
         return MessageBubble(
           // Forces a fresh element (not an in-place patch) whenever which

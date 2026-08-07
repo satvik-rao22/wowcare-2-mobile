@@ -123,9 +123,10 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
   /// The display classroom label a student is filtered by (name preferred).
   String _classroomLabel(Student s) =>
-      (s.primaryClassroomName != null && s.primaryClassroomName!.trim().isNotEmpty)
-          ? s.primaryClassroomName!.trim()
-          : s.classroom.trim();
+      (s.primaryClassroomName != null &&
+          s.primaryClassroomName!.trim().isNotEmpty)
+      ? s.primaryClassroomName!.trim()
+      : s.classroom.trim();
 
   /// Distinct classroom labels across the loaded students, for the filter sheet.
   List<String> _classroomOptions() {
@@ -141,8 +142,10 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   /// Load the FULL school tag-name list for the filter sheet (same source Room
   /// Chat uses) so every tag is selectable, not just tags on loaded students.
   Future<void> _loadSchoolTags() async {
-    final schoolCode = await serviceLocator<StorageService>()
-            .getString(StorageKeys.schoolCode) ??
+    final schoolCode =
+        await serviceLocator<StorageService>().getString(
+          StorageKeys.schoolCode,
+        ) ??
         '';
     if (schoolCode.isEmpty) return;
     final map = await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
@@ -163,7 +166,10 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     return list;
   }
 
-  bool _matchesStudentFilters(ConversationEntity c, Map<String, Student> byCode) {
+  bool _matchesStudentFilters(
+    ConversationEntity c,
+    Map<String, Student> byCode,
+  ) {
     final code = c.studentCode;
     // Filtering is active but this conversation's student isn't loaded/known —
     // exclude it (we can't confirm a match).
@@ -219,8 +225,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
               label: 'Status',
               hintText: 'Select status',
               items: const ['Active', 'Upcoming', 'Inactive'],
-              initialSelected:
-                  _selectedStatus != null ? [_selectedStatus!] : const [],
+              initialSelected: _selectedStatus != null
+                  ? [_selectedStatus!]
+                  : const [],
               isSingleSelect: true,
             ),
             FilerSection(
@@ -423,11 +430,15 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
                                 onTap: () {
-                                  context.read<ConversationListCubit>().refresh();
+                                  context
+                                      .read<ConversationListCubit>()
+                                      .refresh();
                                   CoreUtils.showTopSnackBar(
                                     context: context,
                                     message: 'Refreshing conversations…',
-                                    duration: const Duration(milliseconds: 1200),
+                                    duration: const Duration(
+                                      milliseconds: 1200,
+                                    ),
                                   );
                                 },
                                 child: Container(
@@ -908,6 +919,20 @@ class _ConversationTileContent extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
+                        // Private Mode indicator — a parent (or the room)
+                        // currently has private mode on. Mirrors
+                        // MessagingListTile's lock icon (Room Chat list),
+                        // which this Admin Chat tile never had.
+                        // `hasActivePrivateMode` covers both the room-wide
+                        // flag and the per-parent state map.
+                        if (conversation.hasActivePrivateMode) ...[
+                          const Icon(
+                            Icons.lock,
+                            size: 12,
+                            color: Color(0xFF636E72),
+                          ),
+                          const SizedBox(width: 3),
+                        ],
                         const Icon(
                           Icons.admin_panel_settings_outlined,
                           size: 12,
@@ -944,7 +969,9 @@ class _ConversationTileContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF00B894).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFF00B894,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

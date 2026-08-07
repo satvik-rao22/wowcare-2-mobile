@@ -172,6 +172,21 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // batch doesn't confirm.
     unawaited(_seedCachedLocalDrafts());
 
+    // Kick off a REST load in parallel with the Firestore subscribe below,
+    // rather than waiting for Firestore to fail first. The `onError` handler
+    // below is NOT a reliable trigger for this: a `permission-denied` (e.g.
+    // the Firebase custom-token sign-in — see FirebaseAuthService.signIn(),
+    // fired-and-forgotten from AuthCubit.completeLogin() — still being in
+    // flight right after login) gets silently retried inside
+    // MessageRealtimeDataSource._watchWithRetry with up to 30s+ of backoff
+    // and never reaches this listener's `onError` at all, so the REST
+    // fallback below was never actually running — the thread just sat empty
+    // until the user pulled-to-refresh (itself a plain REST call). Running
+    // both concurrently guarantees a fast first paint regardless of
+    // Firestore's connection/auth timing; whichever lands first is shown,
+    // and the other reconciles on top via the same merge logic.
+    unawaited(loadMessages());
+
     _messagesSubscription?.cancel();
     // Use this conversation's own org/school rather than the session's
     // currently-active one — a stale/mismatched active school (multi-school
@@ -225,8 +240,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           .toList();
       if (drafts.isEmpty) return;
       final existingCodes = state.messages.map((m) => m.code).toSet();
-      final newDrafts =
-          drafts.where((d) => !existingCodes.contains(d.code)).toList();
+      final newDrafts = drafts
+          .where((d) => !existingCodes.contains(d.code))
+          .toList();
       if (newDrafts.isEmpty) return;
       emit(
         state.copyWith(
@@ -607,15 +623,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   /// [ChatAttachmentUploader] operates on — the inverse of
   /// [mapChatAttachmentToAttachmentEntity].
   ChatAttachment _toChatAttachment(AttachmentEntity a) => ChatAttachment(
-        name: a.fileName,
-        type: a.isImage ? 'image' : 'file',
-        sizeBytes: a.fileSizeBytes,
-        mimeType: a.mimeType,
-        remoteUrl: a.fileUrl,
-        localPath: a.localFilePath,
-        code: a.code.isEmpty ? null : a.code,
-        attachmentId: a.attachmentId,
-      );
+    name: a.fileName,
+    type: a.isImage ? 'image' : 'file',
+    sizeBytes: a.fileSizeBytes,
+    mimeType: a.mimeType,
+    remoteUrl: a.fileUrl,
+    localPath: a.localFilePath,
+    code: a.code.isEmpty ? null : a.code,
+    attachmentId: a.attachmentId,
+  );
 
   /// Resolves the real delivery URL for any of [message]'s attachments still
   /// showing a local preview (uploaded + registered, but the document
@@ -659,7 +675,11 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     // The conversation may have moved on (older message no longer in the
     // loaded window) — only emit if it's still there to replace.
     if (!state.messages.any((m) => m.code == message.code)) return;
-    final updated = _replaceMessage(state.messages, message.code, updatedMessage);
+    final updated = _replaceMessage(
+      state.messages,
+      message.code,
+      updatedMessage,
+    );
     emit(state.copyWith(messages: updated));
   }
 
@@ -694,7 +714,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     );
     await _cacheDraftMessageUseCase(retrying);
 
-    final asChatAttachments = message.attachments.map(_toChatAttachment).toList();
+    final asChatAttachments = message.attachments
+        .map(_toChatAttachment)
+        .toList();
     List<ChatAttachment> uploaded = asChatAttachments;
     if (asChatAttachments.any((a) => !a.isUploaded)) {
       try {
@@ -720,8 +742,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       }
     }
 
-    final attachmentIds =
-        uploaded.map((a) => a.attachmentId).whereType<int>().toList();
+    final attachmentIds = uploaded
+        .map((a) => a.attachmentId)
+        .whereType<int>()
+        .toList();
     final entityAttachments = uploaded
         .map(
           (a) => mapChatAttachmentToAttachmentEntity(
