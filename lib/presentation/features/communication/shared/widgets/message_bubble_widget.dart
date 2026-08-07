@@ -74,12 +74,11 @@ class MessageBubble extends StatefulWidget {
 
   /// Whether the CURRENT VIEWER (not the sender) is staff/admin/teacher/
   /// director (true) or guardian/parent (false). Null for Staff Direct
-  /// (matches [senderIsOrgSide]'s nullability). Room Chat / Admin Chat colour
-  /// spec (docs/messaging AC11/AC12): a parent's messages render on the left
-  /// in a pink gradient for a staff/admin viewer, and staff/admin messages
-  /// render on the left for a parent viewer — i.e. alignment there is
-  /// role-based ("does this message's side match MY side"), not purely
-  /// identity-based. See [_alignRight].
+  /// (matches [senderIsOrgSide]'s nullability). Colour-only, like
+  /// [senderIsOrgSide] — never drives alignment (see [_alignRight]). Used to
+  /// tell "a guardian's message, seen by the opposite role" (pink highlight)
+  /// apart from "a guardian's message, seen by a fellow guardian" (plain
+  /// white) — see the `isOppositeRoleGuardian` check in [_buildBubble].
   final bool? viewerIsOrgSide;
 
   const MessageBubble({
@@ -263,26 +262,14 @@ class _MessageBubbleState extends State<MessageBubble>
         widget.currentUserCode == widget.message.senderUserCode;
   }
 
-  /// Which side this bubble renders on.
-  ///
-  /// Staff Direct (both [senderIsOrgSide]/[viewerIsOrgSide] null) keeps the
-  /// legacy identity-based rule: only the viewer's own messages go right.
-  ///
-  /// Room Chat / Admin Chat: role-based, per AC11/AC12 — a staff/admin
-  /// viewer sees ALL staff/admin messages (their own AND other staff's) on
-  /// the right, and ALL parent messages on the left; a parent viewer sees
-  /// ALL parent messages (their own AND other parents') on the right, and
-  /// ALL staff/admin messages on the left. [_isMe] is checked first purely
-  /// as a safety net so a message the viewer definitely sent never renders
-  /// on the left even if the sender/viewer role snapshots momentarily
-  /// disagree.
-  bool get _alignRight {
-    if (_isMe) return true;
-    final viewerOrg = widget.viewerIsOrgSide;
-    final senderOrg = widget.senderIsOrgSide;
-    if (viewerOrg == null || senderOrg == null) return false;
-    return senderOrg == viewerOrg;
-  }
+  /// Which side this bubble renders on. Always identity-based ([_isMe]) —
+  /// ONLY the viewer's own messages go right, in every context (Staff
+  /// Direct, Room Chat, Admin Chat alike). Everyone else's message — a
+  /// fellow staff member's included — renders on the left; [senderIsOrgSide]/
+  /// [viewerIsOrgSide] still drive bubble *colour* for those (see
+  /// [_buildBubble]), they just never move a message to the right on their
+  /// own.
+  bool get _alignRight => _isMe;
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info and no reactions — there's no
