@@ -103,7 +103,18 @@ class ThreadMessageTile extends StatelessWidget {
         Message? quoted;
         for (final m in thread) {
           if (m.code == messageCode) message = m;
-          if (quotedMessageId != null && m.id == quotedMessageId) quoted = m;
+          // [quotedMessageId] is id-shaped when it came from the REST API's
+          // `replyToMessageId`, but code-shaped when it came from a live
+          // Firestore delta (`threadParentCode`/`parentMessageCode` — see
+          // MessageFirestoreItem.fromFirestore and _mergeRealtimeMessage).
+          // Matching only `m.id` silently never found the quoted message
+          // for a reply that arrived live, so the reply preview never
+          // rendered until a REST refresh replaced it with an id-shaped
+          // value — match both identifier schemes instead.
+          if (quotedMessageId != null &&
+              (m.id == quotedMessageId || m.code == quotedMessageId)) {
+            quoted = m;
+          }
         }
         if (message == null) return null;
         final viewerPersona = isGuardian;
