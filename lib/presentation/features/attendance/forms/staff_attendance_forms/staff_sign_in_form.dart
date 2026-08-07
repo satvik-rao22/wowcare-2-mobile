@@ -13,6 +13,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -675,13 +676,16 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     try {
       final result = await serviceLocator<AttendanceRepository>()
           .submitStaffSignIn(payload: payload, isSelf: isSelfSignIn);
-      final success = result.success;
+      final isAlreadySignedIn = !result.success &&
+          result.message.toLowerCase().contains('already signed');
+      final success = result.success || isAlreadySignedIn;
       var message = result.message;
 
       if (!mounted) return;
 
-      // Normalize success messages for better UX
-      if (success &&
+      if (isAlreadySignedIn) {
+        message = 'Already signed in for today';
+      } else if (success &&
           (message.toLowerCase().contains('sign in') ||
               message.toLowerCase().contains('sign-in') ||
               message.toLowerCase().contains('signed in'))) {
@@ -699,6 +703,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
 
       if (success) {
+        AttendanceEvents.notifyChanged();
         if (widget.isKiosk) {
           // For kiosk: show success for 2 seconds then return to kiosk dashboard
           await Future.delayed(const Duration(seconds: 2));
@@ -711,35 +716,87 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         } else {
           if (isSelfSignIn) {
             context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
           }
-          if (!isStaffAdmin) {
-            // Teacher/staff persona: no forced navigation — stay on
-            // whatever screen this action was started from.
-            Navigator.of(context).pop();
-          } else {
-            redirectToAttendanceDaily(
-              context,
-              StaffAttendanceTabbedView.routeName,
-            );
-          }
+          _navigateAfterSubmit(
+            isSelfSignIn: isSelfSignIn,
+            isStaffAdmin: isStaffAdmin,
+          );
         }
       }
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
+      final isAlreadySignedIn =
+          errorMessage.toLowerCase().contains('already signed');
+      if (isAlreadySignedIn) {
+        AttendanceEvents.notifyChanged();
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Already signed in for today'),
+            backgroundColor: AppColors.successColor,
+          ),
+        );
+        if (widget.isKiosk) {
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            unawaited(context.read<KioskDashboardCubit>().loadQrCode());
+            context.go('/kiosk');
+          }
+        } else {
+          if (isSelfSignIn) {
+            context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+          }
+          _navigateAfterSubmit(
+            isSelfSignIn: isSelfSignIn,
+            isStaffAdmin: isStaffAdmin,
+          );
+        }
+      } else {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
         });
       }
+    }
+  }
+
+  void _navigateAfterSubmit({
+    required bool isSelfSignIn,
+    required bool isStaffAdmin,
+  }) {
+    if (widget.qrToken.isNotEmpty) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      context.go('/dashboard');
+      return;
+    }
+
+    if (isSelfSignIn || !isStaffAdmin) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/dashboard');
+      }
+    } else {
+      redirectToAttendanceDaily(
+        context,
+        StaffAttendanceTabbedView.routeName,
+      );
     }
   }
 

@@ -22,6 +22,7 @@ import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_i
 import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_today_sign_in_status_map_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as student_sign_in;
@@ -105,6 +106,9 @@ class MyChildsDayCard extends StatefulWidget {
 
 class _MyChildsDayCardState extends State<MyChildsDayCard>
     with AutomaticKeepAliveClientMixin, WidgetsBindingObserver {
+  // Token / generation counter to invalidate stale async operations on persona switch
+  int _profileGeneration = 0;
+
   bool _isMinimized = false;
   String _selectedChildCode = '';
   bool _didLoadCommunication = false;
@@ -121,6 +125,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   // reporting `withinRange` from a cached last-known location before the
   // attendance API call resolves) would incorrectly see the Sign-In sheet.
   bool _signInStatusLoaded = false;
+  bool _geofencePopupShownThisEntry = false;
 
   Timer? _countdownTimer;
   final ValueNotifier<String> _statusText = ValueNotifier<String>(
@@ -141,6 +146,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   // fetched so that context.watch<MyChildsDayCubit>() firing every second
   // (clock timer) does not re-trigger the attendance API on each tick.
   List<String> _lastSignInStatusCodes = [];
+  int _lastRefreshNonce = 0;
 
   // In-flight gate: prevents concurrent network requests when multiple
   // call sites (BlocListener, app-resume, post-sign-in) fire in rapid
@@ -149,15 +155,56 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   /// Returns true when the selected child is currently signed in.
   bool get _isSelectedChildSignedIn {
-    final code = _selectedChildCode;
+    final code = _selectedChildCode.trim();
     if (code.isEmpty) return false;
     return (_childrenSignInStatusMap[code] ?? '').toUpperCase() == 'SIGNED_IN';
+  }
+
+  /// Returns true when all children in the map are signed in.
+  bool get _areAllChildrenSignedIn {
+    if (_childrenSignInStatusMap.isEmpty) return false;
+    return _childrenSignInStatusMap.values.every(
+      (status) => status.toUpperCase() == 'SIGNED_IN',
+    );
+  }
+
+  void _resetForProfileSwitch() {
+    _profileGeneration++;
+    setState(() {
+      _signInStatusLoaded = false;
+      _childrenSignInStatusMap = {};
+      _lastSignInStatusCodes = [];
+      _geofencePopupShownThisEntry = false;
+      _isSignInStatusLoading = false;
+    });
   }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AttendanceEvents.tick.addListener(_handleAttendanceChanged);
+  }
+
+  void _handleAttendanceChanged() {
+    if (!mounted) return;
+    final childCodes = Provider.of<ParentChildCubit>(
+      context,
+      listen: false,
+    ).children.map((c) => c.code).toList();
+    if (childCodes.isNotEmpty) {
+      _lastSignInStatusCodes = [];
+      unawaited(_loadChildrenSignInStatus(childCodes));
+    }
+    if (_selectedChildCode.isNotEmpty) {
+      try {
+        unawaited(
+          context.read<MyChildsDayCubit>().loadForChild(
+            studentCode: _selectedChildCode,
+          ),
+        );
+      } catch (_) {}
+    }
   }
 
   // Re-checks sign-in status the moment the app comes back to the
@@ -187,6 +234,11 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   void didChangeDependencies() {
     super.didChangeDependencies();
     final parentChildProvider = Provider.of<ParentChildCubit>(context);
+    final parentChildState = parentChildProvider.state;
+    if (parentChildState.refreshNonce != _lastRefreshNonce) {
+      _lastRefreshNonce = parentChildState.refreshNonce;
+      _lastSignInStatusCodes = [];
+    }
     final selectedChild = parentChildProvider.selectedChild;
     final nextChildCode = (selectedChild?.code ?? '').trim();
     if (nextChildCode != _selectedChildCode) {
@@ -243,6 +295,102 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     }
   }
 
+  Future<void> _loadChildrenSignInStatus(List<String> childCodes) async {
+    final cleanCodes = childCodes
+        .map((c) => c.trim())
+        .where((c) => c.isNotEmpty)
+        .toList();
+    if (cleanCodes.isEmpty || _isSignInStatusLoading) return;
+
+    final generation = ++_profileGeneration;
+    _isSignInStatusLoading = true;
+    context.read<GeofenceCubit>().setSignInStatusLoading(true);
+    try {
+      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
+      final map = await useCase(studentCodes: cleanCodes);
+      if (!mounted || generation != _profileGeneration) return;
+      setState(() {
+        _childrenSignInStatusMap = map;
+        _signInStatusLoaded = true;
+      });
+      final allSignedIn = cleanCodes.every(
+        (code) => (map[code] ?? '').toUpperCase() == 'SIGNED_IN',
+      );
+      unawaited(
+        context.read<GeofenceCubit>().updateChildrenSignInStatus(allSignedIn),
+      );
+    } catch (_) {
+      // If status check fails, keep empty map
+      if (mounted && generation == _profileGeneration) {
+        setState(() => _signInStatusLoaded = true);
+      }
+      if (mounted) {
+        context.read<GeofenceCubit>().setSignInStatusLoading(false);
+      }
+    } finally {
+      if (generation == _profileGeneration) {
+        _isSignInStatusLoading = false;
+      }
+    }
+    if (!mounted || generation != _profileGeneration) return;
+    // Covers the race where the geofence-entry listener fired (and skipped
+    // showing the sheet) while this fetch was still in flight — re-evaluate
+    // now that the real sign-in status is known.
+    _maybeShowChildSignInPopup();
+  }
+
+  /// Shows the geofence Sign-In sheet only when: the selected child is
+  /// currently within the school geofence, their today-sign-in status has
+  /// finished loading and shows them as not signed in. Called both from the
+  /// [GeofenceCubit] entry-transition listener and right after
+  /// [_loadChildrenSignInStatus]'s async fetch resolves, so whichever of the
+  /// two finishes last is the one that actually decides whether to show it.
+  void _maybeShowChildSignInPopup() {
+    if (!mounted) return;
+    if (!_signInStatusLoaded) return;
+    if (_geofencePopupShownThisEntry) return;
+
+    final parentChildProvider = Provider.of<ParentChildCubit>(
+      context,
+      listen: false,
+    );
+    if (parentChildProvider.state.isLoading) return;
+    final children = parentChildProvider.children;
+    if (children.isEmpty) return;
+
+    final selectedChild = parentChildProvider.selectedChild;
+    if (selectedChild == null || selectedChild.code.trim().isEmpty) return;
+
+    final childCode = selectedChild.code.trim();
+    if (!_childrenSignInStatusMap.containsKey(childCode)) return;
+
+    if (_isSelectedChildSignedIn) return;
+    if (_areAllChildrenSignedIn) return;
+
+    final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.isSignInStatusLoading) return;
+    if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    if (geofenceState.allChildrenSignedIn) return;
+
+    _geofencePopupShownThisEntry = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (!_signInStatusLoaded ||
+          _isSelectedChildSignedIn ||
+          _areAllChildrenSignedIn) {
+        return;
+      }
+      unawaited(
+        GeofenceSignInSheet.show(
+          context,
+          role: 'parent',
+          isSignedIn: false,
+          studentName: selectedChild.name,
+        ),
+      );
+    });
+  }
+
   /// Re-checks sign-in status for [children] and reloads the selected
   /// child's schedule — called right after a sign-in/out form succeeds (via
   /// `refreshCallback`) and again once the form's route closes, so the
@@ -262,69 +410,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         ),
       );
     }
-  }
-
-  Future<void> _loadChildrenSignInStatus(List<String> childCodes) async {
-    if (childCodes.isEmpty || _isSignInStatusLoading) return;
-    _isSignInStatusLoading = true;
-    context.read<GeofenceCubit>().setSignInStatusLoading(true);
-    try {
-      final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
-      final map = await useCase(studentCodes: childCodes);
-      if (!mounted) return;
-      setState(() {
-        _childrenSignInStatusMap = map;
-        _signInStatusLoaded = true;
-      });
-      final allSignedIn = childCodes.every(
-        (code) => (map[code] ?? '').toUpperCase() == 'SIGNED_IN',
-      );
-      unawaited(
-        context.read<GeofenceCubit>().updateChildrenSignInStatus(allSignedIn),
-      );
-    } catch (_) {
-      // If status check fails, keep empty map
-      if (mounted) setState(() => _signInStatusLoaded = true);
-      if (mounted) context.read<GeofenceCubit>().setSignInStatusLoading(false);
-    } finally {
-      _isSignInStatusLoading = false;
-    }
-    // Covers the race where the geofence-entry listener fired (and skipped
-    // showing the sheet) while this fetch was still in flight — re-evaluate
-    // now that the real sign-in status is known.
-    _maybeShowChildSignInPopup();
-  }
-
-  /// Shows the geofence Sign-In sheet only when: the selected child is
-  /// currently within the school geofence, their today-sign-in status has
-  /// finished loading and shows them as not signed in. Called both from the
-  /// [GeofenceCubit] entry-transition listener and right after
-  /// [_loadChildrenSignInStatus]'s async fetch resolves, so whichever of the
-  /// two finishes last is the one that actually decides whether to show it.
-  void _maybeShowChildSignInPopup() {
-    if (!mounted) return;
-    final geofenceState = context.read<GeofenceCubit>().state;
-    if (geofenceState.isSignInStatusLoading) return;
-    if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
-    if (geofenceState.allChildrenSignedIn) return;
-
-    final selectedChild = Provider.of<ParentChildCubit>(
-      context,
-      listen: false,
-    ).selectedChild;
-    // GeofenceCubit already fires the notification via
-    // _triggerNotificationIfNeeded — no need to do it here too.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(
-        GeofenceSignInSheet.show(
-          context,
-          role: 'parent',
-          isSignedIn: false, // allChildrenSignedIn is false since we didn't return
-          studentName: selectedChild?.name,
-        ),
-      );
-    });
   }
 
   void _stopCountdownTimer() {
@@ -471,6 +556,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   @override
   void dispose() {
+    AttendanceEvents.tick.removeListener(_handleAttendanceChanged);
     WidgetsBinding.instance.removeObserver(this);
     _stopCountdownTimer();
     _statusText.dispose();
@@ -1010,9 +1096,18 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       // ── Show popup the moment the user enters the zone ──
                       BlocListener<GeofenceCubit, GeofenceState>(
                         listenWhen: (prev, curr) {
+                          if (prev.status == GeofenceCubitStatus.withinRange &&
+                              curr.status != GeofenceCubitStatus.withinRange) {
+                            _geofencePopupShownThisEntry = false;
+                          }
                           if (curr.status == GeofenceCubitStatus.withinRange) {
-                            if (prev.status != GeofenceCubitStatus.withinRange) return true;
-                            if (prev.isSignInStatusLoading && !curr.isSignInStatusLoading) return true;
+                            if (prev.status != GeofenceCubitStatus.withinRange) {
+                              return true;
+                            }
+                            if (prev.isSignInStatusLoading &&
+                                !curr.isSignInStatusLoading) {
+                              return true;
+                            }
                           }
                           return false;
                         },
@@ -1020,15 +1115,18 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       ),
                       // ── Reset sign-in status on profile switch ──
                       BlocListener<RoleCubit, RoleState>(
-                        listenWhen: (prev, curr) => prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
+                        listenWhen: (prev, curr) =>
+                            prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
                         listener: (context, state) {
-                          setState(() {
-                            _signInStatusLoaded = false;
-                            _childrenSignInStatusMap = {};
-                            _lastSignInStatusCodes = [];
-                          });
-                          final parentChildProvider = Provider.of<ParentChildCubit>(context, listen: false);
-                          final allChildCodes = parentChildProvider.children.map((c) => c.code).toList();
+                          _resetForProfileSwitch();
+                          final parentChildProvider =
+                              Provider.of<ParentChildCubit>(
+                            context,
+                            listen: false,
+                          );
+                          final allChildCodes = parentChildProvider.children
+                              .map((c) => c.code)
+                              .toList();
                           if (allChildCodes.isNotEmpty) {
                             unawaited(_loadChildrenSignInStatus(allChildCodes));
                           }
