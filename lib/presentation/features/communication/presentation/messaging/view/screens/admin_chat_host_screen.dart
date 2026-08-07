@@ -109,7 +109,17 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     // Firestore stream auto-loads; no manual pagination needed.
   }
 
-  void _onSearchChanged() => setState(() {});
+  /// Rapid search: hits the student list API on every keystroke, mirroring
+  /// staff_messaging_tab.dart's Room Chat search — without this, `_studentCubit`
+  /// only ever held whatever page `loadInitial()` happened to load once at
+  /// mount, so "START NEW CHAT" silently found nothing for anyone outside
+  /// that first page and never actually queried the backend as you typed.
+  void _onSearchChanged() {
+    setState(() {});
+    final query = _searchController.text.trim();
+    _studentCubit.updateSearch(query);
+    unawaited(_studentCubit.refresh(ignoreRefreshingGuard: true));
+  }
 
   bool get _hasStudentFilters =>
       _selectedClassrooms.isNotEmpty ||
@@ -301,6 +311,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
       type: ConversationType.adminChat,
       studentCode: code,
+      classroomCode: student.classroomCode,
       participantCodes: adminCode.isNotEmpty ? [adminCode] : null,
       title: name,
       avatarUrl: student.profileImage ?? '',

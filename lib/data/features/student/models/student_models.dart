@@ -9,6 +9,7 @@ class StudentListItemModel extends Equatable {
     this.profilePhotoUrl,
     this.profilePhotoAssetCode,
     this.classroom = '',
+    this.classroomCode = '',
     this.dob = '',
     this.movementDate = '',
     this.tags = const <String>[],
@@ -23,12 +24,22 @@ class StudentListItemModel extends Equatable {
   final String? profilePhotoUrl;
   final String? profilePhotoAssetCode;
   final String classroom;
+
+  /// The classroom's actual CODE (`CLS_...`), straight from
+  /// `classroom.code` in this same API response — kept separate from
+  /// [classroom] (the display NAME) rather than folding one into the
+  /// other, so callers that need the code (e.g. scoping a Room Chat
+  /// creation) don't have to re-resolve it by matching the name against a
+  /// separately-loaded classroom list.
+  final String classroomCode;
   final String dob;
   final String movementDate;
   final List<String> tags;
+
   /// Convenience list of abbreviated weekdays derived from `regularSchedules`,
   /// e.g. ["Mon", "Tue"]. Used by UI schedule chips.
   final List<String> schedule;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) -> "start - end".
   final Map<String, String> scheduleByDay;
 
@@ -37,14 +48,19 @@ class StudentListItemModel extends Equatable {
   factory StudentListItemModel.fromJson(Map<String, dynamic> json) {
     final classroomRaw = json['classroom'];
     String classroomCodeOrName = '';
+    // Prefer a flat top-level 'classroomCode' (round-tripped from our own
+    // [toJson]/cache) over re-deriving it from 'classroom', since a cached
+    // blob's 'classroom' is already flattened to just the display name by
+    // the time it's written — the nested {name, code} shape only exists on
+    // a fresh API response.
+    String classroomCode = json['classroomCode']?.toString().trim() ?? '';
     if (classroomRaw is String) {
       classroomCodeOrName = classroomRaw;
     } else if (classroomRaw is Map) {
       final name = classroomRaw['name']?.toString().trim() ?? '';
-      final code = classroomRaw['code'];
-      classroomCodeOrName = name.isNotEmpty
-          ? name
-          : (code?.toString().trim() ?? '');
+      final code = classroomRaw['code']?.toString().trim() ?? '';
+      if (classroomCode.isEmpty) classroomCode = code;
+      classroomCodeOrName = name.isNotEmpty ? name : code;
     }
 
     final rawTags = json['tags'];
@@ -145,6 +161,7 @@ class StudentListItemModel extends Equatable {
       profilePhotoUrl: json['profilePhotoUrl'] as String?,
       profilePhotoAssetCode: json['profilePhotoAssetCode'] as String?,
       classroom: classroomCodeOrName,
+      classroomCode: classroomCode,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
       tags: tags,
@@ -163,6 +180,7 @@ class StudentListItemModel extends Equatable {
       if (profilePhotoAssetCode != null)
         'profilePhotoAssetCode': profilePhotoAssetCode,
       'classroom': classroom,
+      'classroomCode': classroomCode,
       'dob': dob,
       'movementDate': movementDate,
       'tags': tags,
@@ -173,18 +191,19 @@ class StudentListItemModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        firstName,
-        lastName,
-        status,
-        profilePhotoUrl,
-        profilePhotoAssetCode,
-        classroom,
-        dob,
-        movementDate,
-        tags,
-        schedule,
-      ];
+    code,
+    firstName,
+    lastName,
+    status,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+    classroom,
+    classroomCode,
+    dob,
+    movementDate,
+    tags,
+    schedule,
+  ];
 }
 
 class StudentPageModel extends Equatable {
@@ -205,8 +224,14 @@ class StudentPageModel extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 
   factory StudentPageModel.fromJson(Map<String, dynamic> json) {
     final data = json['data'] as Map<String, dynamic>? ?? {};
@@ -299,12 +324,12 @@ class StudentImportantDatesModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        enrollDate,
-        schoolStartDate,
-        currentClassroomStartDate,
-        upcomingMoveDate,
-        schoolLeavingDate,
-      ];
+    enrollDate,
+    schoolStartDate,
+    currentClassroomStartDate,
+    upcomingMoveDate,
+    schoolLeavingDate,
+  ];
 }
 
 class StudentHealthModel extends Equatable {
@@ -358,11 +383,11 @@ class StudentHealthModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        allergy,
-        medications,
-        dietRestrictions,
-        photoPermission,
-      ];
+    allergy,
+    medications,
+    dietRestrictions,
+    photoPermission,
+  ];
 }
 
 class StudentPhysicalExamModel extends Equatable {
@@ -374,8 +399,10 @@ class StudentPhysicalExamModel extends Equatable {
   });
 
   final String code;
+
   /// ISO date string `YYYY-MM-DD` (per backend contract).
   final String? examDate;
+
   /// e.g. `COMPLETED`, `DUE`.
   final String? status;
   final String? notes;
@@ -459,17 +486,17 @@ class StudentImmunizationModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        studentCode,
-        vaccineName,
-        vaccineDoseCode,
-        doseNumber,
-        dueDate,
-        administeredDate,
-        status,
-        exemptionReason,
-        notes,
-      ];
+    code,
+    studentCode,
+    vaccineName,
+    vaccineDoseCode,
+    doseNumber,
+    dueDate,
+    administeredDate,
+    status,
+    exemptionReason,
+    notes,
+  ];
 }
 
 class StudentGuardianModel extends Equatable {
@@ -521,10 +548,9 @@ class StudentGuardianModel extends Equatable {
       // The per-student guardian endpoint returns the code under `code`, while
       // some other guardian endpoints use `guardianCode`. Accept either so the
       // edit/delete flows always have a non-empty code to work with.
-      guardianCode:
-          (json['guardianCode'] as String?)?.trim().isNotEmpty == true
-              ? (json['guardianCode'] as String)
-              : (json['code'] as String? ?? ''),
+      guardianCode: (json['guardianCode'] as String?)?.trim().isNotEmpty == true
+          ? (json['guardianCode'] as String)
+          : (json['code'] as String? ?? ''),
       userCode: json['userCode'] as String? ?? '',
       firstName: json['firstName'] as String? ?? '',
       lastName: json['lastName'] as String? ?? '',
@@ -534,12 +560,17 @@ class StudentGuardianModel extends Equatable {
       relationToStudent: json['relationToStudent'] as String? ?? '',
       primaryContact: json['primaryContact'] as bool? ?? false,
       legalCustody: json['legalCustody'] as bool? ?? false,
-      profilePhotoUrl: firstNonEmpty(
-        const ['profilePhotoUrl', 'photoUrl', 'profileImageUrl', 'imageUrl'],
-      ),
-      profilePhotoAssetCode: firstNonEmpty(
-        const ['profilePhotoAssetCode', 'photoAssetCode', 'mediaAssetCode'],
-      ),
+      profilePhotoUrl: firstNonEmpty(const [
+        'profilePhotoUrl',
+        'photoUrl',
+        'profileImageUrl',
+        'imageUrl',
+      ]),
+      profilePhotoAssetCode: firstNonEmpty(const [
+        'profilePhotoAssetCode',
+        'photoAssetCode',
+        'mediaAssetCode',
+      ]),
     );
   }
 
@@ -562,19 +593,19 @@ class StudentGuardianModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        guardianCode,
-        userCode,
-        firstName,
-        lastName,
-        mobile,
-        email,
-        clockPin,
-        relationToStudent,
-        primaryContact,
-        legalCustody,
-        profilePhotoUrl,
-        profilePhotoAssetCode,
-      ];
+    guardianCode,
+    userCode,
+    firstName,
+    lastName,
+    mobile,
+    email,
+    clockPin,
+    relationToStudent,
+    primaryContact,
+    legalCustody,
+    profilePhotoUrl,
+    profilePhotoAssetCode,
+  ];
 }
 
 class StudentProfileModel extends Equatable {
@@ -585,6 +616,7 @@ class StudentProfileModel extends Equatable {
     required this.lastName,
     required this.status,
     this.classroom,
+    this.classroomCode,
     this.dob,
     this.notes,
     this.profilePhotoUrl,
@@ -605,6 +637,11 @@ class StudentProfileModel extends Equatable {
   final String lastName;
   final String status;
   final String? classroom;
+
+  /// The classroom's actual CODE (`CLS_...`) — see
+  /// [StudentListItemModel.classroomCode] for why this is kept separate
+  /// from [classroom] (the display name) instead of derived from it.
+  final String? classroomCode;
   final String? dob;
   final String? notes;
   final String? profilePhotoUrl;
@@ -613,6 +650,7 @@ class StudentProfileModel extends Equatable {
   final List<dynamic> legalCustodians;
   final bool subsidy;
   final Map<String, dynamic>? address;
+
   /// Raw tags array from profile API. Each item is typically a map with
   /// { code, name, defaultTag }.
   final List<dynamic> tags;
@@ -632,14 +670,16 @@ class StudentProfileModel extends Equatable {
     // Classroom can come as a plain string or as an object { code, name }.
     final classroomRaw = data['classroom'];
     String? classroomName;
+    String? classroomCode = data['classroomCode'] as String?;
     if (classroomRaw is String) {
       classroomName = classroomRaw;
     } else if (classroomRaw is Map) {
       final name = classroomRaw['name'];
-      final code = classroomRaw['code'];
+      final code = classroomRaw['code']?.toString();
+      classroomCode ??= code;
       classroomName = (name?.toString().trim().isNotEmpty ?? false)
           ? name.toString()
-          : (code?.toString() ?? '');
+          : (code ?? '');
     }
 
     return StudentProfileModel(
@@ -649,6 +689,7 @@ class StudentProfileModel extends Equatable {
       lastName: data['lastName'] as String? ?? '',
       status: data['status'] as String? ?? '',
       classroom: classroomName,
+      classroomCode: classroomCode,
       dob: data['dob'] as String?,
       notes: data['notes'] as String?,
       profilePhotoUrl: data['profilePhotoUrl'] as String?,
@@ -674,6 +715,7 @@ class StudentProfileModel extends Equatable {
       'lastName': lastName,
       'status': status,
       if (classroom != null) 'classroom': classroom,
+      if (classroomCode != null) 'classroomCode': classroomCode,
       if (dob != null) 'dob': dob,
       if (notes != null) 'notes': notes,
       if (profilePhotoUrl != null) 'profilePhotoUrl': profilePhotoUrl,
@@ -691,24 +733,24 @@ class StudentProfileModel extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        schoolCode,
-        firstName,
-        lastName,
-        status,
-        classroom,
-        dob,
-        notes,
-        profilePhotoUrl,
-        fte,
-        gender,
-        legalCustodians,
-        subsidy,
-        address,
-        tags,
-        siblings,
-        importantDates,
-        regularSchedules,
-      ];
+    code,
+    schoolCode,
+    firstName,
+    lastName,
+    status,
+    classroom,
+    classroomCode,
+    dob,
+    notes,
+    profilePhotoUrl,
+    fte,
+    gender,
+    legalCustodians,
+    subsidy,
+    address,
+    tags,
+    siblings,
+    importantDates,
+    regularSchedules,
+  ];
 }
-

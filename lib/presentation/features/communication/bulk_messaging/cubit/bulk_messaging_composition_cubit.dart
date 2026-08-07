@@ -70,7 +70,8 @@ class BulkMessagingCompositionState extends Equatable {
   // toolbar inserts — counting it raw would show e.g. "11/2000" for a bolded
   // 4-character word. Count the stripped/visible text the user actually
   // sees instead, matching ChatInputBar's counter.
-  int get charCount => MessageContentProcessor.stripHtmlTags(messageText).length;
+  int get charCount =>
+      MessageContentProcessor.stripHtmlTags(messageText).length;
   bool get canSend =>
       !isLoading &&
       !isBulkStarted &&
@@ -311,17 +312,19 @@ class BulkMessagingCompositionCubit
     if (isClosed || state.failedRecipients.isEmpty) return;
     final toRetry = List<Map<String, dynamic>>.from(state.failedRecipients);
     emit(state.copyWith(failedRecipients: const [], isBulkStarted: true));
-    unawaited(_runBulkJob(
-      orgCode: orgCode,
-      schoolCode: schoolCode,
-      senderUserCode: senderUserCode,
-      actualSenderCode: actualSenderCode,
-      recipients: toRetry,
-      messageText: state.messageText,
-      attachments: List<SelectedAttachment>.from(state.attachments),
-      isStaff: state.isStaff,
-      conversationType: state.conversationType,
-    ));
+    unawaited(
+      _runBulkJob(
+        orgCode: orgCode,
+        schoolCode: schoolCode,
+        senderUserCode: senderUserCode,
+        actualSenderCode: actualSenderCode,
+        recipients: toRetry,
+        messageText: state.messageText,
+        attachments: List<SelectedAttachment>.from(state.attachments),
+        isStaff: state.isStaff,
+        conversationType: state.conversationType,
+      ),
+    );
   }
 
   /// Convert the picker's [SelectedAttachment]s (local files) into unuploaded
@@ -646,6 +649,8 @@ class BulkMessagingCompositionCubit
               final recipient = recipientByCode[recipientCode]!;
               final recipientName = (recipient['name'] ?? 'recipient')
                   .toString();
+              final recipientClassroomCode = (recipient['classroomCode'] ?? '')
+                  .toString();
 
               try {
                 final result = await _createOrOpenConversationUseCase(
@@ -653,6 +658,7 @@ class BulkMessagingCompositionCubit
                       ? ConversationType.adminChat
                       : ConversationType.roomChat,
                   studentCode: recipientCode,
+                  classroomCode: recipientClassroomCode,
                   participantCodes: [
                     if (senderUserCode.isNotEmpty) senderUserCode,
                   ],
@@ -722,13 +728,15 @@ class BulkMessagingCompositionCubit
       );
 
       if (!isClosed) {
-        emit(state.copyWith(
-          isSuccess: failed.isEmpty,
-          failedRecipients: failed,
-          progressMessage: failed.isEmpty
-              ? ''
-              : '${failed.length} message(s) failed to send. Tap retry.',
-        ));
+        emit(
+          state.copyWith(
+            isSuccess: failed.isEmpty,
+            failedRecipients: failed,
+            progressMessage: failed.isEmpty
+                ? ''
+                : '${failed.length} message(s) failed to send. Tap retry.',
+          ),
+        );
       }
     } catch (_) {
       // Catastrophic failure — mark all recipients as failed so retry is offered.
@@ -736,10 +744,12 @@ class BulkMessagingCompositionCubit
         conversationType,
       );
       if (!isClosed) {
-        emit(state.copyWith(
-          failedRecipients: recipients,
-          progressMessage: 'Bulk send failed. Tap retry.',
-        ));
+        emit(
+          state.copyWith(
+            failedRecipients: recipients,
+            progressMessage: 'Bulk send failed. Tap retry.',
+          ),
+        );
       }
     }
   }

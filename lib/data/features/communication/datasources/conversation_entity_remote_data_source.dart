@@ -178,18 +178,26 @@ class ConversationEntityRemoteDataSourceImpl
     final content =
         (data?['data']?['content'] ?? data?['content']) as List<dynamic>? ?? [];
 
-    return content.map((e) {
-      final m = e as Map<String, dynamic>;
-      final userObj = m['user'] as Map<String, dynamic>?;
-      return MessagingStaffResult(
-        userCode: (userObj?['userCode'] ?? userObj?['code'] ?? m['userCode'] ?? '').toString(),
-        staffCode: (m['code'] ?? m['staffCode'] ?? '').toString(),
-        name: '${m['firstName'] ?? ''} ${m['lastName'] ?? ''}'.trim(),
-        designation: (m['designation'] ?? '').toString(),
-        status: (m['status'] ?? 'ACTIVE').toString(),
-        avatarAssetCode: (m['profilePhotoAssetCode'] as String?),
-      );
-    }).where((s) => s.userCode.isNotEmpty).toList();
+    return content
+        .map((e) {
+          final m = e as Map<String, dynamic>;
+          final userObj = m['user'] as Map<String, dynamic>?;
+          return MessagingStaffResult(
+            userCode:
+                (userObj?['userCode'] ??
+                        userObj?['code'] ??
+                        m['userCode'] ??
+                        '')
+                    .toString(),
+            staffCode: (m['code'] ?? m['staffCode'] ?? '').toString(),
+            name: '${m['firstName'] ?? ''} ${m['lastName'] ?? ''}'.trim(),
+            designation: (m['designation'] ?? '').toString(),
+            status: (m['status'] ?? 'ACTIVE').toString(),
+            avatarAssetCode: (m['profilePhotoAssetCode'] as String?),
+          );
+        })
+        .where((s) => s.userCode.isNotEmpty)
+        .toList();
   }
 
   @override
@@ -255,9 +263,7 @@ class ConversationEntityRemoteDataSourceImpl
   }
 
   @override
-  Future<ConversationEntityDto> getConversation(
-    String conversationCode,
-  ) async {
+  Future<ConversationEntityDto> getConversation(String conversationCode) async {
     final endpoint = _url(ApiPaths.messagingConversation(conversationCode));
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversation');
@@ -271,7 +277,9 @@ class ConversationEntityRemoteDataSourceImpl
   Future<List<ConversationEntityDto>> getConversationsForStudent(
     String studentCode,
   ) async {
-    final endpoint = _url(ApiPaths.messagingConversationsByStudent(studentCode));
+    final endpoint = _url(
+      ApiPaths.messagingConversationsByStudent(studentCode),
+    );
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversations for student');
 
@@ -285,8 +293,9 @@ class ConversationEntityRemoteDataSourceImpl
   Future<List<ConversationEntityDto>> getConversationsForClassroom(
     String classroomCode,
   ) async {
-    final endpoint =
-        _url(ApiPaths.messagingConversationsByClassroom(classroomCode));
+    final endpoint = _url(
+      ApiPaths.messagingConversationsByClassroom(classroomCode),
+    );
     final response = await apiClient.client.get(endpoint);
     _assertSuccess(response.data, 'Failed to load conversations for classroom');
 
@@ -305,7 +314,10 @@ class ConversationEntityRemoteDataSourceImpl
     final endpoint = (classroomName != null && classroomName.isNotEmpty)
         ? '$base?classroomName=${Uri.encodeQueryComponent(classroomName)}'
         : base;
-    final response = await apiClient.client.post(endpoint, data: <String, dynamic>{});
+    final response = await apiClient.client.post(
+      endpoint,
+      data: <String, dynamic>{},
+    );
     _assertSuccess(response.data, 'Failed to provision classroom chat');
   }
 
@@ -322,17 +334,30 @@ class ConversationEntityRemoteDataSourceImpl
     String avatarUrl = '',
   }) async {
     final endpoint = _url(ApiPaths.conversations);
+    // ROOM_CHAT/ADMIN_CHAT are always scoped to a student (and optionally a
+    // classroom) — the backend resolves the actual participants (the
+    // student's guardians, the classroom's staff, the creator) from
+    // studentCode/classroomCode server-side, so sending an explicit
+    // participantUserCodes list here is both unnecessary and not what the
+    // backend contract expects for these two types; send an empty
+    // `participants` instead. STAFF_DIRECT has no such scope to resolve
+    // from, so it still needs the explicit recipient list.
+    final isScopedChat = type == 'ROOM_CHAT' || type == 'ADMIN_CHAT';
     final body = <String, dynamic>{
-      'type': type,
       'title': title,
-      'description': description,
+      'type': type,
       if (organizationCode.isNotEmpty) 'organizationCode': organizationCode,
       if (schoolCode.isNotEmpty) 'schoolCode': schoolCode,
       if (studentCode.isNotEmpty) 'studentCode': studentCode,
       if (classroomCode != null && classroomCode.isNotEmpty)
         'classroomCode': classroomCode,
-      if (participantCodes != null && participantCodes.isNotEmpty)
-        'participantUserCodes': participantCodes,
+      if (isScopedChat)
+        'participants': const <String>[]
+      else ...{
+        'description': description,
+        if (participantCodes != null && participantCodes.isNotEmpty)
+          'participantUserCodes': participantCodes,
+      },
       if (avatarUrl.isNotEmpty) 'avatarUrl': avatarUrl,
     };
 
@@ -349,8 +374,9 @@ class ConversationEntityRemoteDataSourceImpl
     required String conversationCode,
     required List<String> userCodes,
   }) async {
-    final endpoint =
-        _url(ApiPaths.messagingConversationParticipants(conversationCode));
+    final endpoint = _url(
+      ApiPaths.messagingConversationParticipants(conversationCode),
+    );
     final response = await apiClient.client.post(
       endpoint,
       data: {'userCodes': userCodes},
@@ -383,25 +409,25 @@ class ConversationEntityRemoteDataSourceImpl
     required String conversationCode,
     required bool enable,
   }) async {
-    final endpoint =
-        _url(ApiPaths.messagingConversationPrivateMode(conversationCode));
-    await apiClient.client.patch(
-      endpoint,
-      data: {'activate': enable},
+    final endpoint = _url(
+      ApiPaths.messagingConversationPrivateMode(conversationCode),
     );
+    await apiClient.client.patch(endpoint, data: {'activate': enable});
   }
 
   @override
   Future<void> markConversationRead(String conversationCode) async {
-    final endpoint =
-        _url(ApiPaths.messagingConversationMarkRead(conversationCode));
+    final endpoint = _url(
+      ApiPaths.messagingConversationMarkRead(conversationCode),
+    );
     await apiClient.client.post(endpoint);
   }
 
   @override
   Future<void> markConversationDelivered(String conversationCode) async {
-    final endpoint =
-        _url(ApiPaths.messagingConversationMarkDelivered(conversationCode));
+    final endpoint = _url(
+      ApiPaths.messagingConversationMarkDelivered(conversationCode),
+    );
     await apiClient.client.post(endpoint);
   }
 

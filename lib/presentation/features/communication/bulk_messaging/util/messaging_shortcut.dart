@@ -21,6 +21,7 @@ class SelectedRecipient {
     this.userCode = '',
     this.avatar = '',
     this.designation = '',
+    this.classroomCode = '',
   });
 
   /// The primary identity code.
@@ -35,6 +36,13 @@ class SelectedRecipient {
   final String userCode;
   final String avatar;
   final String designation;
+
+  /// Room Chat's optional classroom scope — populated only by callers that
+  /// already know it (e.g. a classroom's own Students tab). Left blank for
+  /// screens like Student Directory that aren't scoped to one classroom;
+  /// the backend resolves the conversation from studentCode alone in that
+  /// case, same as it did before this field existed.
+  final String classroomCode;
 }
 
 /// Guards against a rapid double-tap on the Message button firing two
@@ -111,6 +119,7 @@ Future<void> _openSingleRecipientConversation(
   final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
     type: type,
     studentCode: recipient.isStaff ? '' : recipient.code,
+    classroomCode: recipient.isStaff ? null : recipient.classroomCode,
     participantCodes: recipient.isStaff ? [staffParticipantCode] : const [],
     title: recipient.name,
     avatarUrl: recipient.avatar,

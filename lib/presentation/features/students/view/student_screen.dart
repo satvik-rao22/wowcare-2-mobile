@@ -1270,6 +1270,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                   // resolved URL in `profileImage`.
                                   avatar:
                                       students[i].profilePhotoAssetCode ?? '',
+                                  // Straight from the student list API's own
+                                  // `classroom.code` — see
+                                  // Student.classroomCode.
+                                  classroomCode: students[i].classroomCode,
                                 ),
                           ];
                           openMessagingShortcut(context, recipients: selected);

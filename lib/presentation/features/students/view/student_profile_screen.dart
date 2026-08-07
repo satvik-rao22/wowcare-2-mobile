@@ -105,6 +105,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late String _displayName;
   late String _displayClassroom;
 
+  /// The classroom's actual CODE — populated once the Profile tab's own
+  /// fetch (or the deep-link header fetch below) returns real API data.
+  /// See [Student.classroomCode] for why this can't be derived from
+  /// [_displayClassroom] (a display name) via a separate name→code lookup.
+  String _displayClassroomCode = '';
+
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
 
@@ -258,6 +264,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       _displayClassroom = nextClassroom.isEmpty
           ? _displayClassroom
           : nextClassroom;
+      final nextClassroomCode = (profile.classroomCode ?? '').trim();
+      if (nextClassroomCode.isNotEmpty) {
+        _displayClassroomCode = nextClassroomCode;
+      }
       final nextStatus = profile.status.trim().toUpperCase();
       if (nextStatus.isNotEmpty) {
         _profileStatusUpper = nextStatus;
@@ -1150,6 +1160,7 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     code: code,
                     name: _displayName,
                     isStaff: false,
+                    classroomCode: _displayClassroomCode,
                   ),
                 ],
               );

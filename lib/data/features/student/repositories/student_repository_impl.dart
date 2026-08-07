@@ -111,17 +111,19 @@ class StudentRepositoryImpl
       return int.tryParse(v.toString()) ?? 0;
     }
 
-    return rawList.map((e) {
-      final startTime = e['startTime'];
-      final endTime = e['endTime'];
-      return StudentRegularScheduleEntry(
-        dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
-        startHour: _extractInt(startTime, 'hour'),
-        startMinute: _extractInt(startTime, 'minute'),
-        endHour: _extractInt(endTime, 'hour'),
-        endMinute: _extractInt(endTime, 'minute'),
-      );
-    }).toList(growable: false);
+    return rawList
+        .map((e) {
+          final startTime = e['startTime'];
+          final endTime = e['endTime'];
+          return StudentRegularScheduleEntry(
+            dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
+            startHour: _extractInt(startTime, 'hour'),
+            startMinute: _extractInt(startTime, 'minute'),
+            endHour: _extractInt(endTime, 'hour'),
+            endMinute: _extractInt(endTime, 'minute'),
+          );
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -345,8 +347,14 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
-      getStudentDocumentExpiryCount({required String schoolCode}) async {
+  Future<
+    ({
+      int expiredDocumentCount,
+      int expiringWithinWeekCount,
+      int totalDocumentsWithExpiry,
+    })
+  >
+  getStudentDocumentExpiryCount({required String schoolCode}) async {
     return _remoteDataSource.getStudentDocumentExpiryCount(
       schoolCode: schoolCode,
     );
@@ -354,7 +362,7 @@ class StudentRepositoryImpl
 
   @override
   Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
-      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+  getStudentPhysicalCheckupCount({required String schoolCode}) async {
     return _remoteDataSource.getStudentPhysicalCheckupCount(
       schoolCode: schoolCode,
     );
@@ -775,9 +783,7 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<StudentHealth> getStudentHealth({
-    required String studentCode,
-  }) async {
+  Future<StudentHealth> getStudentHealth({required String studentCode}) async {
     final cached = await _cacheManager.loadCache(
       _studentHealthCacheKey(studentCode),
     );
@@ -1390,8 +1396,7 @@ class StudentRepositoryImpl
         if (list.isNotEmpty) {
           // Older cached payloads may not include the guardian code. If so,
           // bypass cache so the edit/delete flows can resolve a valid code.
-          final hasMissingCode =
-              list.any((g) => g.guardianCode.trim().isEmpty);
+          final hasMissingCode = list.any((g) => g.guardianCode.trim().isEmpty);
           if (!hasMissingCode) {
             return list.map((m) => m.toEntity()).toList(growable: false);
           }
@@ -1490,6 +1495,7 @@ class StudentRepositoryImpl
               profileImage: m.profilePhotoUrl,
               profilePhotoAssetCode: m.profilePhotoAssetCode,
               classroom: m.classroom,
+              classroomCode: m.classroomCode,
               dob: m.dob,
               movementDate: m.movementDate,
               tags: m.tags,

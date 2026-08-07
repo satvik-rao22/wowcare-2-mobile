@@ -193,11 +193,16 @@ class StudentCubit extends Cubit<StudentState> {
       ),
     );
 
-    // Snapshot the status this load is fetching. If the filter changes while
-    // we're in flight (e.g. a deep-link resolves a deactivated student and flips
-    // to Inactive while the route's default Active load is still running), the
-    // older result must NOT clobber the newer one — drop it before emitting.
+    // Snapshot the status and search query this load is fetching. If either
+    // changes while we're in flight (e.g. a deep-link resolves a deactivated
+    // student and flips to Inactive while the route's default Active load is
+    // still running — or rapid-fire search-as-you-type callers like
+    // staff_messaging_tab.dart/admin_chat_host_screen.dart fire a fresh
+    // refresh() on every keystroke with `ignoreRefreshingGuard: true`,
+    // letting requests race), an older, slower response must NOT clobber a
+    // newer one just because it happened to land last — drop it instead.
     final requestedStatus = state.statusFilter;
+    final requestedSearch = state.searchQuery;
 
     try {
       final firstPageFuture = _getStudentPageUseCase(
@@ -253,6 +258,7 @@ class StudentCubit extends Cubit<StudentState> {
       // Drop a stale result: the filter changed while this load was in flight,
       // so a newer refresh owns the list now.
       if (state.statusFilter != requestedStatus) return;
+      if (state.searchQuery != requestedSearch) return;
 
       emit(
         state.copyWith(
@@ -357,7 +363,12 @@ class StudentCubit extends Cubit<StudentState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(isLoadingMore: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 

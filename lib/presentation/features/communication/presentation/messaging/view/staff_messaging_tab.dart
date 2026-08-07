@@ -194,7 +194,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// a background request: shows a brief "Creating…" notice, then either a
   /// success notice (and opens the thread) or a failure notice — matches
   /// across the Staff and Parent tabs since both go through this one path.
-  Future<void> _startConversationWith(String code, String name) async {
+  Future<void> _startConversationWith(
+    String code,
+    String name, {
+    String classroomCode = '',
+  }) async {
     if (_currentUserCode != null && code == _currentUserCode) {
       CoreUtils.showTopSnackBar(
         context: context,
@@ -216,6 +220,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
           ? ConversationType.staffDirect
           : ConversationType.roomChat,
       studentCode: widget.isStaffMessaging ? '' : code,
+      classroomCode: widget.isStaffMessaging ? null : classroomCode,
       participantCodes: widget.isStaffMessaging ? [code] : const [],
       title: name,
     );
@@ -1191,6 +1196,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
             name: s.fullName,
             avatarUrl: s.profileImage,
             subtitle: s.primaryClassroomName ?? '',
+            classroomCode: s.classroomCode,
           ),
         )
         .toList();
@@ -1213,6 +1219,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       onTap: () => _startConversationWith(
         widget.isStaffMessaging ? contact.userCode : contact.code,
         contact.name,
+        classroomCode: contact.classroomCode,
       ),
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,
@@ -1280,6 +1287,7 @@ class _FilteredContact {
     required this.name,
     required this.avatarUrl,
     required this.subtitle,
+    this.classroomCode = '',
   });
 
   /// Profile / navigation code (STF_* for staff, student code for parents).
@@ -1292,6 +1300,10 @@ class _FilteredContact {
   final String name;
   final String? avatarUrl;
   final String subtitle;
+
+  /// Room Chat's optional classroom scope — only meaningful for student
+  /// contacts (empty for staff). Straight from [Student.classroomCode].
+  final String classroomCode;
 }
 
 class SliverSelectionShimmerWrapper extends StatelessWidget {

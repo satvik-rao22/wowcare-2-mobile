@@ -185,6 +185,7 @@ class _StaffOrStudentSelectionBulkMessagingState
             'isFavorite': false,
             'unreadCount': 0,
             'classroom': s.primaryClassroomName ?? '',
+            'classroomCode': s.classroomCode,
             'status': s.status,
             'tags': s.tags,
           },
@@ -378,7 +379,11 @@ class _StaffOrStudentSelectionBulkMessagingState
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
+      );
     });
   }
 
@@ -408,7 +413,6 @@ class _StaffOrStudentSelectionBulkMessagingState
         } else {
           unawaited(_loadTags());
         }
-
       }
     });
     _searchController.addListener(_applyFilters);

@@ -1721,6 +1721,8 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                             });
                           },
                           onMessageTap: () {
+                            final classroomCode =
+                                widget.selectedRoom?.code ?? '';
                             final selected = selectedStudents
                                 .map(
                                   (s) => SelectedRecipient(
@@ -1728,6 +1730,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                     name: s.fullName,
                                     isStaff: false,
                                     avatar: s.profilePictureUrl ?? '',
+                                    classroomCode: classroomCode,
                                   ),
                                 )
                                 .toList();
