@@ -88,7 +88,7 @@ class _StudentIncidentReportScreenState
 
     // final classroomCodes = resolveReportCodes(
     //   context: context,
-    //   names: _selectedClassrooms,
+    //   names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
     //   nameToCode: cubit.state.classroomNameToCode,
     //   labelPlural: 'classrooms',
     // );

@@ -44,7 +44,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
     final now = AppTime.now();
     _startDate = now;
     _endDate = now.add(const Duration(days: 6));
-    _selectedClassrooms = List<String>.from(widget.classrooms);
+    
     _availableClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -74,7 +74,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
           setState(() {
             _availableClassrooms = names;
             _classroomNameToCode = nameToCodeMap;
-            _selectedClassrooms = List<String>.from(names);
+            _selectedClassrooms = <String>[];
           });
         }
       }
@@ -104,7 +104,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
         : cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );

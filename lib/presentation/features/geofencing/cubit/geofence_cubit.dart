@@ -69,6 +69,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   StreamSubscription<dynamic>? _nativeSubscription;
   GeofenceStatus? _lastNotifiedStatus;
   GeofenceConfig? _config;
+  int _signInCheckGeneration = 0;
 
   // ── iOS native callbacks ───────────────────────────────────────────────────
 
@@ -251,6 +252,8 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           // here fed a stale value into the next resume's reconciliation
           // comparison, spuriously triggering an unnecessary re-init.
           permissionLevel: state.permissionLevel,
+          isStaffSignedIn: state.isStaffSignedIn,
+          allChildrenSignedIn: state.allChildrenSignedIn,
         ),
       );
     } else {
@@ -259,6 +262,8 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
           status: GeofenceCubitStatus.checkingPermission,
           schoolCode: schoolCode,
           permissionLevel: state.permissionLevel,
+          isStaffSignedIn: state.isStaffSignedIn,
+          allChildrenSignedIn: state.allChildrenSignedIn,
         ),
       );
     }
@@ -1071,27 +1076,47 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> handleProfileSwitch() async {
+    _signInCheckGeneration++;
+    emit(state.copyWith(
+      isStaffSignedIn: false,
+      allChildrenSignedIn: false,
+      isSignInStatusLoading: true,
+    ));
+  }
+
+  void setSignInStatusLoading(bool isLoading) {
+    emit(state.copyWith(isSignInStatusLoading: isLoading));
+  }
+
   Future<void> checkStaffSignInStatus() async {
+    final currentGen = ++_signInCheckGeneration;
+    emit(state.copyWith(isSignInStatusLoading: true));
     try {
       final storage = serviceLocator<StorageService>();
       final staffCode = await storage.getString(StorageKeys.staffCode);
       if (staffCode == null || staffCode.isEmpty) {
-        emit(state.copyWith(isStaffSignedIn: false));
+        if (currentGen == _signInCheckGeneration) {
+          emit(state.copyWith(isStaffSignedIn: false, isSignInStatusLoading: false));
+        }
         return;
       }
       final getStaffStatusUseCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
       final status = await getStaffStatusUseCase(staffCode: staffCode);
+      if (currentGen != _signInCheckGeneration) return;
       final isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
-      emit(state.copyWith(isStaffSignedIn: isSignedIn));
+      emit(state.copyWith(isStaffSignedIn: isSignedIn, isSignInStatusLoading: false));
       _reevaluateNotificationForCurrentStatus();
     } catch (_) {
-      emit(state.copyWith(isStaffSignedIn: false));
-      _reevaluateNotificationForCurrentStatus();
+      if (currentGen == _signInCheckGeneration) {
+        emit(state.copyWith(isStaffSignedIn: false, isSignInStatusLoading: false));
+        _reevaluateNotificationForCurrentStatus();
+      }
     }
   }
 
   Future<void> updateStaffSignInStatus(bool isSignedIn) async {
-    emit(state.copyWith(isStaffSignedIn: isSignedIn));
+    emit(state.copyWith(isStaffSignedIn: isSignedIn, isSignInStatusLoading: false));
     _reevaluateNotificationForCurrentStatus();
   }
 
@@ -1100,7 +1125,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   /// "you can now Sign In or Sign Out" notification can be suppressed once
   /// nothing is left to act on for this guardian.
   Future<void> updateChildrenSignInStatus(bool allSignedIn) async {
-    emit(state.copyWith(allChildrenSignedIn: allSignedIn));
+    emit(state.copyWith(allChildrenSignedIn: allSignedIn, isSignInStatusLoading: false));
     _reevaluateNotificationForCurrentStatus();
   }
 

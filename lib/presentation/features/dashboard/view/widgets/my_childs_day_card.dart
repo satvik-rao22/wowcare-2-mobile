@@ -1,4 +1,5 @@
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -266,6 +267,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   Future<void> _loadChildrenSignInStatus(List<String> childCodes) async {
     if (childCodes.isEmpty || _isSignInStatusLoading) return;
     _isSignInStatusLoading = true;
+    context.read<GeofenceCubit>().setSignInStatusLoading(true);
     try {
       final useCase = serviceLocator<GetStudentTodaySignInStatusMapUseCase>();
       final map = await useCase(studentCodes: childCodes);
@@ -283,6 +285,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     } catch (_) {
       // If status check fails, keep empty map
       if (mounted) setState(() => _signInStatusLoaded = true);
+      if (mounted) context.read<GeofenceCubit>().setSignInStatusLoading(false);
     } finally {
       _isSignInStatusLoading = false;
     }
@@ -299,12 +302,12 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   /// [_loadChildrenSignInStatus]'s async fetch resolves, so whichever of the
   /// two finishes last is the one that actually decides whether to show it.
   void _maybeShowChildSignInPopup() {
-    if (!mounted || !_signInStatusLoaded) return;
-    // TODO: Temporarily disabled Sign Out bottom sheet when child is signed in.
-    // Only show the sheet if the selected child is signed out (needs to sign in).
-    if (_isSelectedChildSignedIn) return;
+    if (!mounted) return;
     final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.isSignInStatusLoading) return;
     if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    if (geofenceState.allChildrenSignedIn) return;
+
     final selectedChild = Provider.of<ParentChildCubit>(
       context,
       listen: false,
@@ -317,7 +320,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
         GeofenceSignInSheet.show(
           context,
           role: 'parent',
-          isSignedIn: _isSelectedChildSignedIn,
+          isSignedIn: false, // allChildrenSignedIn is false since we didn't return
           studentName: selectedChild?.name,
         ),
       );
@@ -1006,10 +1009,30 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       ),
                       // ── Show popup the moment the user enters the zone ──
                       BlocListener<GeofenceCubit, GeofenceState>(
-                        listenWhen: (prev, curr) =>
-                            prev.status != GeofenceCubitStatus.withinRange &&
-                            curr.status == GeofenceCubitStatus.withinRange,
+                        listenWhen: (prev, curr) {
+                          if (curr.status == GeofenceCubitStatus.withinRange) {
+                            if (prev.status != GeofenceCubitStatus.withinRange) return true;
+                            if (prev.isSignInStatusLoading && !curr.isSignInStatusLoading) return true;
+                          }
+                          return false;
+                        },
                         listener: (context, _) => _maybeShowChildSignInPopup(),
+                      ),
+                      // ── Reset sign-in status on profile switch ──
+                      BlocListener<RoleCubit, RoleState>(
+                        listenWhen: (prev, curr) => prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
+                        listener: (context, state) {
+                          setState(() {
+                            _signInStatusLoaded = false;
+                            _childrenSignInStatusMap = {};
+                            _lastSignInStatusCodes = [];
+                          });
+                          final parentChildProvider = Provider.of<ParentChildCubit>(context, listen: false);
+                          final allChildCodes = parentChildProvider.children.map((c) => c.code).toList();
+                          if (allChildCodes.isNotEmpty) {
+                            unawaited(_loadChildrenSignInStatus(allChildCodes));
+                          }
+                        },
                       ),
                     ],
                     child: BlocBuilder<MyChildsDayCubit, MyChildsDayState>(

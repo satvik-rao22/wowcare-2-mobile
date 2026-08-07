@@ -11,6 +11,7 @@ import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dar
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/view/notification_center_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view_model/profile_menu_header_cubit.dart';
@@ -946,6 +947,10 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     await cubit.persistPersonaSwitch(nextRole);
     if (!context.mounted) return;
 
+    try {
+      context.read<GeofenceCubit>().handleProfileSwitch();
+    } catch (_) {}
+    
     context.read<ParentChildCubit>().invalidate();
 
     // Mirrors UserProfileScreen._applyPersonaSwitch so both Switch Profile entry

@@ -127,7 +127,7 @@ class _StudentsAndFamilyReportScreenState
   @override
   void initState() {
     super.initState();
-    _selectedClassrooms.value = List<String>.from(widget.classrooms);
+    
   }
 
   void _onGenerate() async {
@@ -143,12 +143,14 @@ class _StudentsAndFamilyReportScreenState
 
     final cubit = context.read<ReportsCubit>();
     final classroomNameToCode = cubit.state.classroomNameToCode;
-    final classroomCodes = resolveReportCodes(
-      context: context,
-      names: _selectedClassrooms.value,
-      nameToCode: classroomNameToCode,
-      labelPlural: 'classrooms',
-    );
+    final classroomCodes = _selectedClassrooms.value.isEmpty
+        ? <String>[]
+        : resolveReportCodes(
+            context: context,
+            names: _selectedClassrooms.value,
+            nameToCode: classroomNameToCode,
+            labelPlural: 'classrooms',
+          );
     if (classroomCodes == null) return;
 
     final selectedTagNames = _selectedTags.value;

@@ -65,7 +65,7 @@ class _StudentImmunizationReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
-    _selectedClassrooms = List<String>.from(widget.classrooms);
+    
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVaccines();
@@ -137,7 +137,7 @@ class _StudentImmunizationReportScreenState
     // ── Classroom codes ──────────────────────────────────────────────────────
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
       nameToCode: state.classroomNameToCode,
       labelPlural: 'classrooms',
     );
