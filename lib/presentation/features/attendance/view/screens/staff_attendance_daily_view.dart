@@ -84,6 +84,10 @@ class _StaffAttendanceDailyViewScreenState
   bool? _isExpectedNotMarkedFilter;
   FilterData? _staffFilters;
 
+  // Guards the filter icon against rapid double-taps pushing the filter
+  // screen more than once (stacking duplicate pages on the Navigator).
+  bool _isFilterScreenOpen = false;
+
   // Total staff summary: same API as StaffScreen "Total Staff" (headline = active + upcoming).
   int totalStaff = 0;
   int active = 0;
@@ -744,6 +748,63 @@ class _StaffAttendanceDailyViewScreenState
     );
   }
 
+  void _navigateToFilterScreen() async {
+    // Guard against rapid double-taps: without this, tapping the filter icon
+    // twice in quick succession (e.g. while the first push is still
+    // animating in) pushes the filter screen twice, stacking duplicate pages
+    // that then each need their own back button to dismiss.
+    if (_isFilterScreenOpen) return;
+    _isFilterScreenOpen = true;
+
+    try {
+      final result = await Navigator.push<Map<String, dynamic>?>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: _classroomCubit,
+            child: StaffFilterScreen(
+              initialFilters: _staffFilters,
+              selectedDate: _selectedDate,
+              sections: const [
+                StaffFilterSection.classroom,
+                StaffFilterSection.designation,
+              ],
+            ),
+          ),
+        ),
+      );
+
+      if (!mounted || result == null) return;
+
+      final String? status = (result['status'] as String?)?.trim();
+      final String? designation = (result['designation'] as String?)?.trim();
+      final List<String> classCodes =
+          (result['classCodes'] as List?)?.cast<String>() ?? const <String>[];
+      final String? sortBy = (result['sortBy'] as String?)?.trim();
+
+      setState(() {
+        _staffFilters = FilterData(
+          classroomIds: const <int>[],
+          classrooms: classCodes,
+          statuses: status == null || status.isEmpty
+              ? const <String>[]
+              : <String>[status],
+          // NOTE: StaffFilterScreen uses "designation" for this field.
+          // We keep it in `tags` because the existing daily view already
+          // treats `tags` as the second API filter list.
+          tags: designation == null || designation.isEmpty
+              ? const <String>[]
+              : <String>[designation],
+          sortBy: sortBy,
+        );
+      });
+
+      _loadAttendanceData(context, reset: true);
+    } finally {
+      _isFilterScreenOpen = false;
+    }
+  }
+
   Widget _buildFilterCard(
     ResponsiveHelper responsive, {
     required bool hasActiveFilters,
@@ -769,55 +830,7 @@ class _StaffAttendanceDailyViewScreenState
               Material(
                 color: Colors.transparent,
                 child: InkWell(
-                  onTap: () async {
-                    final result = await Navigator.push<Map<String, dynamic>?>(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => BlocProvider.value(
-                          value: _classroomCubit,
-                          child: StaffFilterScreen(
-                            initialFilters: _staffFilters,
-                            selectedDate: _selectedDate,
-                            sections: const [
-                              StaffFilterSection.classroom,
-                              StaffFilterSection.designation,
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-
-                    if (!mounted || result == null) return;
-
-                    final String? status = (result['status'] as String?)
-                        ?.trim();
-                    final String? designation =
-                        (result['designation'] as String?)?.trim();
-                    final List<String> classCodes =
-                        (result['classCodes'] as List?)?.cast<String>() ??
-                        const <String>[];
-                    final String? sortBy = (result['sortBy'] as String?)
-                        ?.trim();
-
-                    setState(() {
-                      _staffFilters = FilterData(
-                        classroomIds: const <int>[],
-                        classrooms: classCodes,
-                        statuses: status == null || status.isEmpty
-                            ? const <String>[]
-                            : <String>[status],
-                        // NOTE: StaffFilterScreen uses "designation" for this field.
-                        // We keep it in `tags` because the existing daily view already
-                        // treats `tags` as the second API filter list.
-                        tags: designation == null || designation.isEmpty
-                            ? const <String>[]
-                            : <String>[designation],
-                        sortBy: sortBy,
-                      );
-                    });
-
-                    _loadAttendanceData(context, reset: true);
-                  },
+                  onTap: _navigateToFilterScreen,
                   borderRadius: BorderRadius.circular(100),
                   child: Stack(
                     clipBehavior: Clip.none,

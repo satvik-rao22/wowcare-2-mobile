@@ -128,6 +128,10 @@ class _StudentAttendanceDailyViewScreenState
   bool _isLoadingTagMap = false;
   String? _loggedInUserName;
 
+  // Guards the filter icon against rapid double-taps pushing the filter
+  // screen more than once (stacking duplicate pages on the Navigator).
+  bool _isFilterScreenOpen = false;
+
   // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
   int enrolled = 0;
   int active = 0;
@@ -1613,53 +1617,64 @@ class _StudentAttendanceDailyViewScreenState
   }
 
   void _navigateToFilterScreen() async {
-    // Open the filter screen directly. StudentFilterScreen loads (and shows a
-    // shimmer for) its own classroom + tag data, so we must NOT block here with
-    // a manual loader dialog + `while (isLoading)` poll: if the classroom load
-    // ever stays in-flight (a hung/guarded request) that barrier-dismissible
-    // dialog gets stuck showing a spinner forever. The filter screen's own
-    // loading state is dismissible (back button) and self-recovers.
-    final result = await Navigator.push<Map<String, List<String>>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: _classroomCubit,
-          child: StudentFilterScreen(
-            initialFilters: {
-              'Classroom': List<String>.from(_selectedClassroomNames),
-              'Tags': List<String>.from(_selectedTagNames),
-            },
-            sections: const [
-              StudentFilterSection.classroom,
-              StudentFilterSection.tags,
-            ],
-            allowCrossClassAttendance: _allowCrossClass,
+    // Guard against rapid double-taps: without this, tapping the filter icon
+    // twice in quick succession (e.g. while the first push is still
+    // animating in) pushes the filter screen twice, stacking duplicate pages
+    // that then each need their own back button to dismiss.
+    if (_isFilterScreenOpen) return;
+    _isFilterScreenOpen = true;
+
+    try {
+      // Open the filter screen directly. StudentFilterScreen loads (and shows a
+      // shimmer for) its own classroom + tag data, so we must NOT block here with
+      // a manual loader dialog + `while (isLoading)` poll: if the classroom load
+      // ever stays in-flight (a hung/guarded request) that barrier-dismissible
+      // dialog gets stuck showing a spinner forever. The filter screen's own
+      // loading state is dismissible (back button) and self-recovers.
+      final result = await Navigator.push<Map<String, List<String>>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: _classroomCubit,
+            child: StudentFilterScreen(
+              initialFilters: {
+                'Classroom': List<String>.from(_selectedClassroomNames),
+                'Tags': List<String>.from(_selectedTagNames),
+              },
+              sections: const [
+                StudentFilterSection.classroom,
+                StudentFilterSection.tags,
+              ],
+              allowCrossClassAttendance: _allowCrossClass,
+            ),
           ),
         ),
-      ),
-    );
-
-    if (!mounted || result == null) return;
-
-    setState(() {
-      _selectedClassroomNames = List<String>.from(
-        result['Classroom'] ?? const [],
       );
-      _selectedTagNames = List<String>.from(result['Tags'] ?? const []);
-    });
 
-    // The tag name→code map is needed to translate the selected tag names into
-    // codes for the attendance query. Load it now (after selection) rather than
-    // blocking the filter from opening.
-    if (_selectedTagNames.isNotEmpty &&
-        _tagNameToCode.isEmpty &&
-        !_isLoadingTagMap) {
-      await _loadTagNameCodeMap();
-      if (!mounted) return;
+      if (!mounted || result == null) return;
+
+      setState(() {
+        _selectedClassroomNames = List<String>.from(
+          result['Classroom'] ?? const [],
+        );
+        _selectedTagNames = List<String>.from(result['Tags'] ?? const []);
+      });
+
+      // The tag name→code map is needed to translate the selected tag names into
+      // codes for the attendance query. Load it now (after selection) rather than
+      // blocking the filter from opening.
+      if (_selectedTagNames.isNotEmpty &&
+          _tagNameToCode.isEmpty &&
+          !_isLoadingTagMap) {
+        await _loadTagNameCodeMap();
+        if (!mounted) return;
+      }
+
+      // Reload attendance data with new filters
+      _loadAttendanceData(reset: true);
+    } finally {
+      _isFilterScreenOpen = false;
     }
-
-    // Reload attendance data with new filters
-    _loadAttendanceData(reset: true);
   }
 
   void _openStudentListWithIncomingFilter(String status) {

@@ -3,6 +3,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart';
@@ -72,6 +73,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadStaffSignInStatus();
     });
+    // This screen is kept alive in the bottom nav's IndexedStack, so initState
+    // only runs once. Re-check the sign-in status whenever ANY attendance
+    // mutation fires (sign in/out from this or any other screen) so the add
+    // button reflects the latest status without needing an app restart.
+    AttendanceEvents.tick.addListener(_loadStaffSignInStatus);
   }
 
   /// Staff must be signed in before they can record activities. Resolves the
@@ -160,6 +166,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
 
   @override
   void dispose() {
+    AttendanceEvents.tick.removeListener(_loadStaffSignInStatus);
     _tabController.dispose();
     _dailyScrollController.dispose();
     _customScrollController.dispose();
