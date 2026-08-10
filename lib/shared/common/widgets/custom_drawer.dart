@@ -1340,7 +1340,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       ),
                       const SizedBox(height: 15),
                       const Text(
-                        "Version : 1.3.9",
+                        "Version : 2.1.12", //auto selete the app version h
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.white),
                       ),

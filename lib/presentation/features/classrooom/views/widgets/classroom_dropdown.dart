@@ -34,14 +34,18 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
           decoration: const BoxDecoration(),
           child: Row(
             children: [
-              Text(
-                widget.value,
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  color: AppColors.primaryColor,
-                  fontSize: 18,
-                  letterSpacing: 18 * (-3 / 100),
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  widget.value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    color: AppColors.primaryColor,
+                    fontSize: 18,
+                    letterSpacing: 18 * (-3 / 100),
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               const SizedBox(width: 6),
