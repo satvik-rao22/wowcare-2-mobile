@@ -208,16 +208,33 @@ class RoleCubit extends Cubit<RoleState> {
 
   Future<String> _computeFallbackRole(StorageService storage) async {
     // The persona the user is ACTUALLY in wins. Only guess when no active
-    // persona has been resolved/persisted yet.
+    // persona has been resolved/persisted yet (e.g. right after a fresh
+    // login, since logout clears activeSchoolRole).
     final active =
         (await storage.getString(StorageKeys.activeSchoolRole) ?? '').trim();
     if (active.isNotEmpty) return _personaFamily(active);
 
-    // Fallback derives role from API-provided roles only. A dual-role account
-    // (e.g. SCHOOL_ADMIN + GUARDIAN) must default to the admin/staff persona
-    // rather than being silently downgraded to parent — see
-    // [derivePersonaFamilyFromRolesJson] for the priority order.
+    // A multi-persona account should reopen on the persona it was last
+    // active as (durable across logout), not always admin/staff. Falls
+    // through when there's no record for THIS account (fresh install, first
+    // login, or a different user on a shared device) or that persona no
+    // longer applies.
+    final lastUsedRaw =
+        await storage.getString(StorageKeys.lastUsedPersonaRole) ?? '';
+    final currentUserCode =
+        (await storage.getString(StorageKeys.userCode) ?? '').trim();
     final roleJson = await storage.getString(StorageKeys.roles) ?? '';
+    final lastUsed = lastUsedPersonaFamily(
+      lastUsedPersonaRoleJson: lastUsedRaw,
+      currentUserCode: currentUserCode,
+      currentRolesJson: roleJson,
+    );
+    if (lastUsed != null) return lastUsed;
+
+    // Edge-case fallback: derive from API-provided roles only. A dual-role
+    // account (e.g. SCHOOL_ADMIN + GUARDIAN) must default to the admin/staff
+    // persona rather than being silently downgraded to parent — see
+    // [derivePersonaFamilyFromRolesJson] for the priority order.
     return derivePersonaFamilyFromRolesJson(roleJson);
   }
 

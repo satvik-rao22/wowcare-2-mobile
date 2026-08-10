@@ -187,6 +187,12 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     // broke the whole feature after any logout / session-expiry.
     final installedMarker =
         await _storage.getBool(StorageKeys.appInstalledMarker) ?? false;
+    // Preserved so the NEXT fresh login (of the same account — validated by
+    // userCode at read time) can reopen the persona this user was last
+    // active as instead of always defaulting to admin/staff.
+    final lastUsedPersonaRole = await _storage.getString(
+      StorageKeys.lastUsedPersonaRole,
+    );
     await _storage.clear();
     if (seenOnboarding) {
       await _storage.saveBool(StorageKeys.onboardingSeen, true);
@@ -199,6 +205,12 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
       if (savedUsername != null && savedUsername.isNotEmpty) {
         await _storage.saveString(StorageKeys.username, savedUsername);
       }
+    }
+    if (lastUsedPersonaRole != null && lastUsedPersonaRole.isNotEmpty) {
+      await _storage.saveString(
+        StorageKeys.lastUsedPersonaRole,
+        lastUsedPersonaRole,
+      );
     }
     AppLogger.d(
       '[RememberMe] clearCache → preserved rememberMe=$rememberMe '
@@ -421,6 +433,18 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     if (normalizedRole.isEmpty || org.isEmpty || school.isEmpty) return;
 
     await _storage.saveString(StorageKeys.activeSchoolRole, normalizedRole);
+
+    // Durable across logout (unlike activeSchoolRole, which is cleared on
+    // logout and on every org/school change) so the next fresh login can
+    // reopen the persona this account was last active as.
+    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    if (userCode.isNotEmpty) {
+      await _storage.saveString(
+        StorageKeys.lastUsedPersonaRole,
+        jsonEncode({'userCode': userCode, 'role': normalizedRole}),
+      );
+    }
 
     final raw = await _storage.getString(StorageKeys.roles);
     List<dynamic> list;
