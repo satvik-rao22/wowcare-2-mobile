@@ -33,6 +33,9 @@ import 'package:wowcare/domain/features/student/entities/student_regular_schedul
 
 import 'dashboard_error_chip.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/src/app_router.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1379,6 +1382,7 @@ class _CommunicationRowWidget extends StatefulWidget {
 
 class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   String _displayName = '';
+  String _currentUserCode = '';
 
   @override
   void initState() {
@@ -1390,57 +1394,96 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     final storage = serviceLocator<StorageService>();
     final name = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     if (!mounted) return;
-    setState(() => _displayName = name);
+    setState(() {
+      _displayName = name;
+      _currentUserCode = userCode;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        color: Color.fromRGBO(44, 99, 226, 0.05),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          DocumentImageWidget(
-            fileUuid: '',
-            name: _displayName,
-            size: 50,
-            fontSize: 20,
-            disableProfileLookupFallback: true,
-            disableAttendanceStatusLookup: true,
+    return BlocBuilder<CommunicationCubit, CommunicationState>(
+      builder: (context, state) {
+        Conversation? latestConversation;
+
+        if (state is CommunicationConversationsLoaded) {
+          final allConversations = state.conversationsByType[null] ?? [];
+          if (allConversations.isNotEmpty) {
+            latestConversation = allConversations.first;
+          }
+        }
+
+        final displayTitle = latestConversation != null
+            ? (latestConversation.lastMessageSenderDisplayName ?? latestConversation.title)
+            : (_displayName.isNotEmpty ? _displayName : '—');
+
+        final isSentByMe = latestConversation != null && 
+                           latestConversation.lastMessageBy == _currentUserCode;
+        final senderPrefix = isSentByMe ? 'You: ' : '';
+
+        final preview = latestConversation?.lastMessagePreview;
+        final displayText = (preview != null && preview.isNotEmpty)
+            ? '$senderPrefix$preview'
+            : 'No recent conversations';
+
+        final avatarUrl = latestConversation?.avatarUrl ?? '';
+
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          decoration: const BoxDecoration(
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+            color: Color.fromRGBO(44, 99, 226, 0.05),
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _displayName.isNotEmpty ? _displayName : '—',
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: AppColors.primaryColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
-                  ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              DocumentImageWidget(
+                fileUuid: avatarUrl,
+                name: displayTitle,
+                size: 50,
+                fontSize: 20,
+                disableProfileLookupFallback: true,
+                disableAttendanceStatusLookup: true,
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      displayTitle.isNotEmpty ? displayTitle : '—',
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: AppColors.primaryColor,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    Text(
+                      displayText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.primaryColor.withValues(alpha: 0.5),
+                      ),
+                    ),
+                  ],
                 ),
-                Text(
-                  'Chat Not Found',
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: AppColors.primaryColor.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(width: 8),
+              _ChatActionButton(
+                onPressed: () {
+                  context.push(AppRoutes.messagingEntry);
+                },
+              ),
+            ],
           ),
-          const SizedBox(width: 8),
-          _ChatActionButton(onPressed: () {}),
-        ],
-      ),
+        );
+      },
     );
   }
 }

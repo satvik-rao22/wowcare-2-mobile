@@ -53,22 +53,20 @@ class MessagingEntryScreen extends StatelessWidget {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
-                            if (!isParent) ...[
-                              CommunicationLauncherButton(
-                                label: 'Staff',
-                                iconAsset: MediaRes.staffMessaging,
-                                unreadCount: unread.unreadFor(
-                                  ConversationType.staffDirect,
-                                ),
-                                iconSize: responsive.isTablet ? 30 : 26,
-                                fontSize: responsive.buttonFontSize,
-                                verticalPadding: responsive.isTablet ? 26 : 22,
-                                onTap: () => context.go(
-                                  MessagingScreen.staffMessagingRoute,
-                                ),
+                            CommunicationLauncherButton(
+                              label: 'Staff',
+                              iconAsset: MediaRes.staffMessaging,
+                              unreadCount: unread.unreadFor(
+                                ConversationType.staffDirect,
                               ),
-                              SizedBox(height: responsive.verticalSpacing),
-                            ],
+                              iconSize: responsive.isTablet ? 30 : 26,
+                              fontSize: responsive.buttonFontSize,
+                              verticalPadding: responsive.isTablet ? 26 : 22,
+                              onTap: () => context.go(
+                                MessagingScreen.staffMessagingRoute,
+                              ),
+                            ),
+                            SizedBox(height: responsive.verticalSpacing),
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -90,30 +88,32 @@ class MessagingEntryScreen extends StatelessWidget {
                                           context.push(AppRoutes.adminChat),
                                     ),
                                   ),
-                                  SizedBox(width: responsive.horizontalSpacing),
                                 ],
-                                Expanded(
-                                  child: CommunicationLauncherButton(
-                                    label: 'Student',
-                                    iconAsset: MediaRes.chatsIcon,
-                                    unreadCount: unread.unreadFor(
-                                      ConversationType.roomChat,
-                                    ),
-                                    iconSize: responsive.isTablet ? 30 : 26,
-                                    fontSize: responsive.labelFontSize + 2,
-                                    verticalPadding: responsive.isTablet
-                                        ? 26
-                                        : 22,
-                                    horizontalPadding: 12,
-                                    // Reuses the existing Parent Messaging
-                                    // sub-tab inside MessagingScreen — the
-                                    // same Room Chat surface the drawer's
-                                    // "Parent Messaging" item already opens.
-                                    onTap: () => context.go(
-                                      MessagingScreen.parentMessagingRoute,
+                                if (!isStaff && !isParent) SizedBox(width: responsive.horizontalSpacing),
+                                if (!isParent) ...[
+                                  Expanded(
+                                    child: CommunicationLauncherButton(
+                                      label: 'Student',
+                                      iconAsset: MediaRes.chatsIcon,
+                                      unreadCount: unread.unreadFor(
+                                        ConversationType.roomChat,
+                                      ),
+                                      iconSize: responsive.isTablet ? 30 : 26,
+                                      fontSize: responsive.labelFontSize + 2,
+                                      verticalPadding: responsive.isTablet
+                                          ? 26
+                                          : 22,
+                                      horizontalPadding: 12,
+                                      // Reuses the existing Parent Messaging
+                                      // sub-tab inside MessagingScreen — the
+                                      // same Room Chat surface the drawer's
+                                      // "Parent Messaging" item already opens.
+                                      onTap: () => context.go(
+                                        MessagingScreen.parentMessagingRoute,
+                                      ),
                                     ),
                                   ),
-                                ),
+                                ],
                               ],
                             ),
                             // Classroom Notes — staff-internal (each classroom's
