@@ -117,6 +117,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   void _onTextChanged() {
+    if (!mounted) return;
     final hasText = widget.controller.text.trim().isNotEmpty;
     if (hasText != _hasText) setState(() => _hasText = hasText);
 
@@ -141,6 +142,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   void _onFocusChanged() {
+    if (!mounted) return;
     final focused = _effectiveFocusNode.hasFocus;
     if (focused == _hasFocus) return;
     setState(() {
@@ -195,82 +197,87 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
     return SafeArea(
       top: false,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        alignment: Alignment.bottomCenter,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _QuotePreview(
-              message: widget.quotedMessage,
-              onCancel: widget.onCancelQuote,
-            ),
-            _EditPreview(
-              message: widget.editingMessage,
-              onCancel: widget.onCancelEdit,
-            ),
-            _AttachmentPreviewStrip(
-              attachments: widget.pendingAttachments,
-              onRemove: widget.onRemoveAttachment,
-            ),
-            // Composer preview strip — shown when a URL/email/phone is
-            // detected in the draft and the user has not dismissed it.
-            if (_detectedPreview != null && !_linkPreviewDismissed)
-              ComposerLinkPreview(
-                preview: _detectedPreview!,
-                onDismiss: () => setState(() => _linkPreviewDismissed = true),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _QuotePreview(
+            message: widget.quotedMessage,
+            onCancel: widget.onCancelQuote,
+          ),
+          _EditPreview(
+            message: widget.editingMessage,
+            onCancel: widget.onCancelEdit,
+          ),
+          _AttachmentPreviewStrip(
+            attachments: widget.pendingAttachments,
+            onRemove: widget.onRemoveAttachment,
+          ),
+          // Composer preview strip — shown when a URL/email/phone is
+          // detected in the draft and the user has not dismissed it.
+          if (_detectedPreview != null && !_linkPreviewDismissed)
+            ComposerLinkPreview(
+              preview: _detectedPreview!,
+              onDismiss: () => setState(() => _linkPreviewDismissed = true),
+            )
+          else
+            const SizedBox.shrink(),
+          
+          _InputRow(
+            key: const ValueKey('chat_input_row'),
+            controller: widget.controller,
+            focusNode: _effectiveFocusNode,
+            hintText: widget.hintText,
+            maxLength: widget.maxLength,
+            showCharCounter: widget.showCharCounter,
+            isSending: widget.isSending,
+            // An attachment-only message is valid too — the send button must
+            // not stay disabled just because the text field is empty.
+            hasText: _hasText || widget.pendingAttachments.isNotEmpty,
+            emojiVisible: _emojiPickerVisible,
+            onEmojiToggle: _toggleEmojiPicker,
+            onAttachmentTap: widget.onAttachmentTap,
+            onSend: _handleSend,
+          ),
+          
+          // Rich-text formatting toolbar — visible when field is focused or
+          // text already contains formatted content (indicated by _hasText).
+          if (widget.showRichTextToolbar && (_hasFocus || _hasText))
+            RichTextToolbar(controller: widget.controller)
+          else
+            const SizedBox.shrink(),
+            
+          if (_emojiPickerVisible)
+            SizedBox(
+              height: (MediaQuery.of(context).size.height * 0.35).clamp(
+                160.0,
+                280.0,
               ),
-            // Rich-text formatting toolbar — visible when field is focused or
-            // text already contains formatted content (indicated by _hasText).
-            if (widget.showRichTextToolbar && (_hasFocus || _hasText))
-              RichTextToolbar(controller: widget.controller),
-            _InputRow(
-              controller: widget.controller,
-              focusNode: _effectiveFocusNode,
-              hintText: widget.hintText,
-              maxLength: widget.maxLength,
-              showCharCounter: widget.showCharCounter,
-              isSending: widget.isSending,
-              // An attachment-only message is valid too — the send button must
-              // not stay disabled just because the text field is empty.
-              hasText: _hasText || widget.pendingAttachments.isNotEmpty,
-              emojiVisible: _emojiPickerVisible,
-              onEmojiToggle: _toggleEmojiPicker,
-              onAttachmentTap: widget.onAttachmentTap,
-              onSend: _handleSend,
-            ),
-            if (_emojiPickerVisible)
-              SizedBox(
-                height: (MediaQuery.of(context).size.height * 0.35).clamp(
-                  160.0,
-                  280.0,
-                ),
-                child: EmojiPicker(
-                  onEmojiSelected: _onEmojiSelected,
-                  config: Config(
-                    checkPlatformCompatibility: true,
-                    emojiViewConfig: EmojiViewConfig(
-                      backgroundColor: const Color(0xFFF4F6FB),
-                      emojiSizeMax: 28,
-                    ),
-                    categoryViewConfig: const CategoryViewConfig(
-                      backgroundColor: Colors.white,
-                      indicatorColor: AppColors.primaryColor,
-                      iconColorSelected: AppColors.primaryColor,
-                      recentTabBehavior: RecentTabBehavior.RECENT,
-                    ),
-                    bottomActionBarConfig: const BottomActionBarConfig(
-                      enabled: false,
-                    ),
-                    searchViewConfig: const SearchViewConfig(
-                      backgroundColor: Colors.white,
-                    ),
+              child: EmojiPicker(
+                onEmojiSelected: _onEmojiSelected,
+                config: Config(
+                  checkPlatformCompatibility: true,
+                  emojiViewConfig: EmojiViewConfig(
+                    backgroundColor: const Color(0xFFF4F6FB),
+                    emojiSizeMax: 28,
+                  ),
+                  categoryViewConfig: const CategoryViewConfig(
+                    backgroundColor: Colors.white,
+                    indicatorColor: AppColors.primaryColor,
+                    iconColorSelected: AppColors.primaryColor,
+                    recentTabBehavior: RecentTabBehavior.RECENT,
+                  ),
+                  bottomActionBarConfig: const BottomActionBarConfig(
+                    enabled: false,
+                  ),
+                  searchViewConfig: const SearchViewConfig(
+                    backgroundColor: Colors.white,
                   ),
                 ),
               ),
-          ],
-        ),
+            )
+          else
+            const SizedBox.shrink(),
+        ],
       ),
     );
   }
@@ -570,6 +577,7 @@ class _SelectAllIntent extends Intent {
 
 class _InputRow extends StatelessWidget {
   const _InputRow({
+    super.key,
     required this.controller,
     this.focusNode,
     required this.hintText,
