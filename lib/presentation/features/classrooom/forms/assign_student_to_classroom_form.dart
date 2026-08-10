@@ -1,6 +1,4 @@
 import 'dart:async';
-
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 // UI-only: use wowcare widgets and theme; backend/bloc imports removed
@@ -564,8 +562,8 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
   Future<void> _loadTargetClassroom() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (schoolCode.isEmpty) return;
       final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
         schoolCode: schoolCode,

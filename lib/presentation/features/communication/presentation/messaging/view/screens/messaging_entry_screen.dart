@@ -27,6 +27,7 @@ class MessagingEntryScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isParent = context.watch<RoleCubit>().isParent;
+    final isStaff = context.watch<RoleCubit>().isStaff;
     final responsive = ResponsiveHelper(context);
 
     return BlocProvider<UnreadBadgeCubit>.value(
@@ -71,24 +72,26 @@ class MessagingEntryScreen extends StatelessWidget {
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Expanded(
-                                  child: CommunicationLauncherButton(
-                                    label: 'Admin',
-                                    iconAsset: MediaRes.chatsIcon,
-                                    unreadCount: unread.unreadFor(
-                                      ConversationType.adminChat,
+                                if (!isStaff) ...[
+                                  Expanded(
+                                    child: CommunicationLauncherButton(
+                                      label: 'Admin',
+                                      iconAsset: MediaRes.chatsIcon,
+                                      unreadCount: unread.unreadFor(
+                                        ConversationType.adminChat,
+                                      ),
+                                      iconSize: responsive.isTablet ? 30 : 26,
+                                      fontSize: responsive.labelFontSize + 2,
+                                      verticalPadding: responsive.isTablet
+                                          ? 26
+                                          : 22,
+                                      horizontalPadding: 12,
+                                      onTap: () =>
+                                          context.push(AppRoutes.adminChat),
                                     ),
-                                    iconSize: responsive.isTablet ? 30 : 26,
-                                    fontSize: responsive.labelFontSize + 2,
-                                    verticalPadding: responsive.isTablet
-                                        ? 26
-                                        : 22,
-                                    horizontalPadding: 12,
-                                    onTap: () =>
-                                        context.push(AppRoutes.adminChat),
                                   ),
-                                ),
-                                SizedBox(width: responsive.horizontalSpacing),
+                                  SizedBox(width: responsive.horizontalSpacing),
+                                ],
                                 Expanded(
                                   child: CommunicationLauncherButton(
                                     label: 'Student',
