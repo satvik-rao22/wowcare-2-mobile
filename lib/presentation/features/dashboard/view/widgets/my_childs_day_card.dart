@@ -33,7 +33,7 @@ import 'package:wowcare/domain/features/student/entities/student_regular_schedul
 
 import 'dashboard_error_chip.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
-import 'package:wowcare/src/app_router.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
 
@@ -1104,7 +1104,8 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                             _geofencePopupShownThisEntry = false;
                           }
                           if (curr.status == GeofenceCubitStatus.withinRange) {
-                            if (prev.status != GeofenceCubitStatus.withinRange) {
+                            if (prev.status !=
+                                GeofenceCubitStatus.withinRange) {
                               return true;
                             }
                             if (prev.isSignInStatusLoading &&
@@ -1119,14 +1120,15 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                       // ── Reset sign-in status on profile switch ──
                       BlocListener<RoleCubit, RoleState>(
                         listenWhen: (prev, curr) =>
-                            prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
+                            prev.activeSchoolRoleRaw !=
+                            curr.activeSchoolRoleRaw,
                         listener: (context, state) {
                           _resetForProfileSwitch();
                           final parentChildProvider =
                               Provider.of<ParentChildCubit>(
-                            context,
-                            listen: false,
-                          );
+                                context,
+                                listen: false,
+                              );
                           final allChildCodes = parentChildProvider.children
                               .map((c) => c.code)
                               .toList();
@@ -1417,11 +1419,13 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
         }
 
         final displayTitle = latestConversation != null
-            ? (latestConversation.lastMessageSenderDisplayName ?? latestConversation.title)
+            ? (latestConversation.lastMessageSenderDisplayName ??
+                  latestConversation.title)
             : (_displayName.isNotEmpty ? _displayName : '—');
 
-        final isSentByMe = latestConversation != null && 
-                           latestConversation.lastMessageBy == _currentUserCode;
+        final isSentByMe =
+            latestConversation != null &&
+            latestConversation.lastMessageBy == _currentUserCode;
         final senderPrefix = isSentByMe ? 'You: ' : '';
 
         final preview = latestConversation?.lastMessagePreview;
@@ -1477,7 +1481,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
               const SizedBox(width: 8),
               _ChatActionButton(
                 onPressed: () {
-                  context.push(AppRoutes.messagingEntry);
+                  MessagingEntryScreen.show(context);
                 },
               ),
             ],
