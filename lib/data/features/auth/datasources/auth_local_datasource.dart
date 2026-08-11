@@ -288,6 +288,15 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     }
     if (schoolChanged || orgChanged) {
       await _storage.remove(StorageKeys.activeSchoolRole);
+      // See the matching comment in setSelectedOrgAndSchool — a stale
+      // staffCode/guardianCode from the PREVIOUS org/school must not
+      // survive into this one, or requests carry a code the backend never
+      // granted membership for at the new org/school and 403 with "No
+      // active '<ROLE>' membership ... in organization=X school=Y". This
+      // path runs at app-launch/session-restore time (login-context
+      // resolving a different last-login org/school than what was locally
+      // cached), so it needs the same guard as the manual-switch path.
+      await clearPersonaVolatileCaches();
     }
 
     // Save selected
@@ -390,6 +399,17 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     }
     if (prev != next || prevOrg != newOrg) {
       await _storage.remove(StorageKeys.activeSchoolRole);
+      // staffCode/guardianCode (and the cached role-snapshot they're
+      // resolved against) are scoped to a specific org+school — surviving
+      // an org/school change here left a PREVIOUS school's guardianCode
+      // attached to requests for the NEW one, which the backend rejects
+      // ("No active 'GUARDIAN' membership ... in organization=X
+      // school=Y") since that code was never valid there. Clearing
+      // activeSchoolRole alone wasn't enough: interceptor's fallback role
+      // resolution re-derives the role correctly, but a stale
+      // staffCode/guardianCode already answers "which code" before that
+      // matters.
+      await clearPersonaVolatileCaches();
     }
     await _storage.saveString(StorageKeys.organizationCode, organizationCode);
     await _storage.saveString(StorageKeys.schoolCode, next);

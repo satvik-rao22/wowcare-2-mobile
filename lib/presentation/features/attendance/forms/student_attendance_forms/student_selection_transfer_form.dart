@@ -88,8 +88,8 @@ class _StudentSelectionTransferFormState
     // the teacher's allowed classrooms.
     final crossClass =
         await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-    );
+          storage: serviceLocator<StorageService>(),
+        );
     _classroomCubit.loadActiveClassrooms(
       applyAttendanceStaffScope: !crossClass,
     );
@@ -366,10 +366,11 @@ class _StudentSelectionTransferFormState
                     final isLoading =
                         classroomState.isLoading || !_isClassroomDataReady;
 
-                    if (isLoading && items.isEmpty) {
-                      return const ShimmerLoaderCard(child: SizedBox());
-                    }
-
+                    // Render the field even with no items yet — a shimmer
+                    // here could get stuck showing forever if loading never
+                    // actually resolves. CustomDropdown's own "No matches
+                    // found" empty state covers the case where there's
+                    // genuinely nothing to pick.
                     return CustomDropdown(
                       selectedItem: _selectedClassroom,
                       onSelect: (value) {

@@ -1,17 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/activity_feed_invalidation.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
+import 'package:wowcare/core/util/context_switch_cache_cleaner.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
@@ -51,8 +47,8 @@ Future<bool> switchActiveSchoolIfNeeded({
   final storage = serviceLocator<StorageService>();
   final currentOrg =
       (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-  final currentSchool =
-      (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+  final currentSchool = (await storage.getString(StorageKeys.schoolCode) ?? '')
+      .trim();
 
   if (org == currentOrg && school == currentSchool) {
     // Already in the right school — nothing to do.
@@ -83,7 +79,7 @@ Future<bool> switchActiveSchoolIfNeeded({
     return false;
   }
 
-    final String? schoolName = (match['schoolName'] ?? '').trim().isNotEmpty
+  final String? schoolName = (match['schoolName'] ?? '').trim().isNotEmpty
       ? match['schoolName']!.trim()
       : null;
 
@@ -111,7 +107,7 @@ Future<bool> switchActiveSchoolIfNeeded({
 
   // 3. Wipe every cached artifact so the new school loads fresh, not from the
   //    previous school's cache.
-  await _clearAllCachesForSchoolSwitch(storage);
+  await clearAllCachesForContextSwitch(storage);
 
   // 4. Re-resolve persona-specific data (staffCode/PIN/profile) for the new school.
   try {
@@ -143,35 +139,4 @@ Future<bool> switchActiveSchoolIfNeeded({
 
   AppLogger.d('[FCM] Active-school switch complete → ready to redirect.');
   return true;
-}
-
-/// Mirrors `custom_drawer._clearAllCachesForSchoolSwitch`: clears persisted
-/// repository caches (keeping the non-school-scoped login cache), session/Isar
-/// caches, and in-memory invalidation gates. Each step is isolated so one
-/// failure never blocks the switch.
-Future<void> _clearAllCachesForSchoolSwitch(StorageService storage) async {
-  try {
-    await CacheManager(storage).clearAllStandardCaches(
-      protectedKeys: <String>{
-        StorageKeys.loginCacheKey,
-        StorageKeys.loginCacheTimestamp,
-      },
-    );
-  } catch (_) {}
-
-  try {
-    await serviceLocator<SessionLocalCacheWiper>().wipe();
-  } catch (_) {}
-
-  try {
-    clearClassroomStudentsAttendanceCache();
-  } catch (_) {}
-
-  try {
-    SchedulingCacheGate.invalidate();
-  } catch (_) {}
-
-  try {
-    await ActivityFeedInvalidation.invalidate(storage);
-  } catch (_) {}
 }

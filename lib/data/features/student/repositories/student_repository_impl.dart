@@ -1496,6 +1496,7 @@ class StudentRepositoryImpl
               profilePhotoAssetCode: m.profilePhotoAssetCode,
               classroom: m.classroom,
               classroomCode: m.classroomCode,
+              hasGuardian: m.hasGuardian,
               dob: m.dob,
               movementDate: m.movementDate,
               tags: m.tags,

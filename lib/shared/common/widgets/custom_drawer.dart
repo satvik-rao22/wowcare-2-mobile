@@ -36,12 +36,8 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/core/util/activity_feed_invalidation.dart';
-import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
-import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/core/util/context_switch_cache_cleaner.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -413,42 +409,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _navigate(DashboardScreen.routeName);
   }
 
-  /// Clears every cache layer so a school switch starts from a clean slate:
-  ///  1. Persisted `*_cache_*` SharedPreferences entries (repository caches),
-  ///     keeping the auth/session login cache which is not school-scoped.
-  ///  2. Non-prefs caches — image cache, Isar messaging/conversation
-  ///     collections, in-flight staff request caches (via the session wiper).
-  ///  3. Process-wide in-memory caches / invalidation gates that open screens
-  ///     listen to (students attendance status, scheduling, activity feed).
-  ///
-  /// Each step is isolated so one failure never blocks the rest of the switch.
+  /// Clears every cache layer so a school switch starts from a clean slate —
+  /// see [clearAllCachesForContextSwitch] for exactly what's covered. Shared
+  /// with the persona-switch path (user_profile_screen.dart) and the
+  /// FCM-driven school switch (active_school_switcher.dart) so a cache added
+  /// to one module is covered for every switch kind automatically.
   Future<void> _clearAllCachesForSchoolSwitch() async {
-    final storage = serviceLocator<StorageService>();
-
-    try {
-      await CacheManager(storage).clearAllStandardCaches(
-        protectedKeys: <String>{
-          StorageKeys.loginCacheKey,
-          StorageKeys.loginCacheTimestamp,
-        },
-      );
-    } catch (_) {}
-
-    try {
-      await serviceLocator<SessionLocalCacheWiper>().wipe();
-    } catch (_) {}
-
-    try {
-      clearClassroomStudentsAttendanceCache();
-    } catch (_) {}
-
-    try {
-      SchedulingCacheGate.invalidate();
-    } catch (_) {}
-
-    try {
-      await ActivityFeedInvalidation.invalidate(storage);
-    } catch (_) {}
+    await clearAllCachesForContextSwitch(serviceLocator<StorageService>());
   }
 
   void _showSnackOnRoot(String message, {bool isError = false}) {
@@ -1343,7 +1310,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                       FutureBuilder<PackageInfo>(
                         future: PackageInfo.fromPlatform(),
                         builder: (context, snapshot) {
-                          final version = snapshot.hasData ? snapshot.data!.version : '';
+                          final version = snapshot.hasData
+                              ? snapshot.data!.version
+                              : '';
                           return Text(
                             version.isNotEmpty ? "Version : $version" : "",
                             textAlign: TextAlign.center,

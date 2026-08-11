@@ -11,7 +11,10 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/context_switch_cache_cleaner.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/school_switch_events.dart';
 import '../../../../core/util/string_utils.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -176,6 +179,15 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // APIs are done. Only show the button loader.
       await _cubit.persistPersonaSwitch(backendRole);
       if (!mounted) return;
+      // Wipe every cache layer (repository caches, Isar messaging data,
+      // in-memory invalidation gates) BEFORE the refetches below, same as a
+      // school switch — otherwise Messaging/Activity/etc, kept alive in the
+      // shell's IndexedStack, kept showing the previous persona's cached
+      // data (e.g. a guardian's own messages after switching to Staff)
+      // until a manual pull-to-refresh.
+      try {
+        await clearAllCachesForContextSwitch(serviceLocator<StorageService>());
+      } catch (_) {}
       try {
         context.read<GeofenceCubit>().handleProfileSwitch();
       } catch (_) {}
@@ -204,6 +216,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       if (!mounted) return;
       // Now that prefetch is complete, apply the persona to UI.
       _cubit.applySwitchedPersona(backendRole);
+      // Tell every kept-alive branch screen (Dashboard, Classroom, Activity,
+      // Messaging, Billing) to reload fresh for the new persona — mirrors
+      // the school-switch signal below in custom_drawer.dart/
+      // active_school_switcher.dart.
+      SchoolSwitchEvents.notifySwitched();
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
         context: context,

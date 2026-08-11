@@ -11,6 +11,7 @@ class Student extends Equatable {
     this.primaryClassroomName,
     this.classroom = '',
     this.classroomCode = '',
+    this.hasGuardian = true,
     this.dob = '',
     this.movementDate = '',
     this.tags = const <String>[],
@@ -31,6 +32,12 @@ class Student extends Equatable {
   /// [StudentListItemModel.classroomCode] for why this is kept separate
   /// from [classroom] (the display name) instead of derived from it.
   final String classroomCode;
+
+  /// Whether this student has at least one guardian linked — see
+  /// [StudentListItemModel.hasGuardian]. A student without one can't be
+  /// messaged (no one to receive it), so Room Chat/Admin Chat "New Message"
+  /// pickers disable selecting them, matching web.
+  final bool hasGuardian;
   final String dob;
   final String movementDate;
   final List<String> tags;
@@ -51,6 +58,7 @@ class Student extends Equatable {
     status,
     classroom,
     classroomCode,
+    hasGuardian,
     dob,
     movementDate,
     tags,

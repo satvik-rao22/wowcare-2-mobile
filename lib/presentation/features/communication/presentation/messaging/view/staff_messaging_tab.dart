@@ -1197,6 +1197,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
             avatarUrl: s.profileImage,
             subtitle: s.primaryClassroomName ?? '',
             classroomCode: s.classroomCode,
+            hasGuardian: s.hasGuardian,
           ),
         )
         .toList();
@@ -1206,6 +1207,11 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   /// divider) matching the existing conversation tile's look, used for the
   /// "Start new chat" section under the filtered inbox.
   Widget _buildContactRow(_FilteredContact contact, {Key? key}) {
+    // A student with no guardian linked can't be messaged (no one to
+    // receive it) — disable the row, matching web. Never applies to staff
+    // contacts.
+    final bool isDisabled = !widget.isStaffMessaging && !contact.hasGuardian;
+
     return InkWell(
       key: key,
       // Staff contacts: userCode (USR_*) is the STAFF_DIRECT participant.
@@ -1216,64 +1222,82 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       // sent ROOM_CHAT with no studentCode, which the backend 500s on —
       // this is the same conversation-creation path the New Message screen
       // uses correctly, just reached by searching here instead.
-      onTap: () => _startConversationWith(
-        widget.isStaffMessaging ? contact.userCode : contact.code,
-        contact.name,
-        classroomCode: contact.classroomCode,
-      ),
+      onTap: isDisabled
+          ? null
+          : () => _startConversationWith(
+              widget.isStaffMessaging ? contact.userCode : contact.code,
+              contact.name,
+              classroomCode: contact.classroomCode,
+            ),
       splashColor: const Color(0x1A6C5CE7),
       highlightColor: Colors.transparent,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          border: Border(
-            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
-          ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-        child: Row(
-          children: [
-            DocumentImageWidget(
-              fileUuid: '',
-              // `avatarUrl` is either a resolved URL or a raw media-asset
-              // code depending on which list this contact came from.
-              imageUrl: (contact.avatarUrl ?? '').startsWith('http')
-                  ? contact.avatarUrl
-                  : null,
-              mediaAssetCode: (contact.avatarUrl ?? '').startsWith('http')
-                  ? null
-                  : contact.avatarUrl,
-              staffCode: widget.isStaffMessaging ? contact.code : null,
-              studentCode: widget.isStaffMessaging ? null : contact.code,
-              name: contact.name,
-              size: 44,
+      child: Opacity(
+        opacity: isDisabled ? 0.5 : 1,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(
+              bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    contact.name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xff573353),
-                    ),
-                  ),
-                  if (contact.subtitle.isNotEmpty)
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          child: Row(
+            children: [
+              DocumentImageWidget(
+                fileUuid: '',
+                // `avatarUrl` is either a resolved URL or a raw media-asset
+                // code depending on which list this contact came from.
+                imageUrl: (contact.avatarUrl ?? '').startsWith('http')
+                    ? contact.avatarUrl
+                    : null,
+                mediaAssetCode: (contact.avatarUrl ?? '').startsWith('http')
+                    ? null
+                    : contact.avatarUrl,
+                staffCode: widget.isStaffMessaging ? contact.code : null,
+                studentCode: widget.isStaffMessaging ? null : contact.code,
+                name: contact.name,
+                size: 44,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      contact.subtitle,
+                      contact.name,
                       style: const TextStyle(
-                        fontSize: 13,
-                        color: Color(0xFF636E72),
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                        color: Color(0xff573353),
                       ),
                     ),
-                ],
+                    if (isDisabled)
+                      const Text(
+                        'No parent linked',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Color(0xFF636E72),
+                        ),
+                      )
+                    else if (contact.subtitle.isNotEmpty)
+                      Text(
+                        contact.subtitle,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF636E72),
+                        ),
+                      ),
+                  ],
+                ),
               ),
-            ),
-            const Icon(Icons.edit_outlined, size: 18, color: Color(0xFF6C5CE7)),
-          ],
+              if (!isDisabled)
+                const Icon(
+                  Icons.edit_outlined,
+                  size: 18,
+                  color: Color(0xFF6C5CE7),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -1288,6 +1312,7 @@ class _FilteredContact {
     required this.avatarUrl,
     required this.subtitle,
     this.classroomCode = '',
+    this.hasGuardian = true,
   });
 
   /// Profile / navigation code (STF_* for staff, student code for parents).
@@ -1304,6 +1329,11 @@ class _FilteredContact {
   /// Room Chat's optional classroom scope — only meaningful for student
   /// contacts (empty for staff). Straight from [Student.classroomCode].
   final String classroomCode;
+
+  /// Only meaningful for student contacts — see [Student.hasGuardian]. A
+  /// student with no guardian linked can't be messaged, so this contact row
+  /// is shown disabled, matching web.
+  final bool hasGuardian;
 }
 
 class SliverSelectionShimmerWrapper extends StatelessWidget {

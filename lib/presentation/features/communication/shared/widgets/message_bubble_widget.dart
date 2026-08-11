@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -67,18 +68,21 @@ class MessageBubble extends StatefulWidget {
   /// Staff Direct (1:1), which intentionally keeps the legacy "my message
   /// vs. their message" two-tone look instead of the role-colored one (see
   /// docs/messaging/06-ui-standards.md §6.2). When non-null (Room Chat /
-  /// Admin Chat), it drives bubble *color* for messages that aren't mine —
-  /// it never drives alignment, which is always identity-based (see
-  /// [_alignRight]).
+  /// Admin Chat), it drives bubble *color* for messages that aren't mine,
+  /// AND (together with [viewerIsOrgSide]) which SIDE the bubble renders on
+  /// — see [_alignRight].
   final bool? senderIsOrgSide;
 
   /// Whether the CURRENT VIEWER (not the sender) is staff/admin/teacher/
   /// director (true) or guardian/parent (false). Null for Staff Direct
-  /// (matches [senderIsOrgSide]'s nullability). Colour-only, like
-  /// [senderIsOrgSide] — never drives alignment (see [_alignRight]). Used to
-  /// tell "a guardian's message, seen by the opposite role" (pink highlight)
-  /// apart from "a guardian's message, seen by a fellow guardian" (plain
-  /// white) — see the `isOppositeRoleGuardian` check in [_buildBubble].
+  /// (matches [senderIsOrgSide]'s nullability). Used to tell "a guardian's
+  /// message, seen by the opposite role" (pink highlight) apart from "a
+  /// guardian's message, seen by a fellow guardian" (plain white) — see the
+  /// `isOppositeRoleGuardian` check in [_buildBubble] — and, together with
+  /// [senderIsOrgSide], which side the bubble renders on (see
+  /// [_alignRight]): a message from the viewer's own "team" (same org-side-
+  /// ness as the viewer) renders right, the opposite team's renders left,
+  /// regardless of whether the viewer personally sent it.
   final bool? viewerIsOrgSide;
 
   const MessageBubble({
@@ -262,14 +266,27 @@ class _MessageBubbleState extends State<MessageBubble>
         widget.currentUserCode == widget.message.senderUserCode;
   }
 
-  /// Which side this bubble renders on. Always identity-based ([_isMe]) —
-  /// ONLY the viewer's own messages go right, in every context (Staff
-  /// Direct, Room Chat, Admin Chat alike). Everyone else's message — a
-  /// fellow staff member's included — renders on the left; [senderIsOrgSide]/
-  /// [viewerIsOrgSide] still drive bubble *colour* for those (see
-  /// [_buildBubble]), they just never move a message to the right on their
-  /// own.
-  bool get _alignRight => _isMe;
+  /// Which side this bubble renders on.
+  ///
+  /// Room Chat / Admin Chat (both [senderIsOrgSide] and [viewerIsOrgSide]
+  /// known): role-based, per the messaging PRD's AC11/AC12 — the message's
+  /// side depends on whether its SENDER is on the same "team" (guardian vs.
+  /// org-side) as the CURRENT VIEWER, not on whether the viewer personally
+  /// sent it. A guardian viewer sees every guardian's message (their own
+  /// included) on the right and every org-side message on the left; an
+  /// org-side viewer sees the mirror image. [_isMe] still gates identity-only
+  /// affordances (Edit/Delete/Info menu items, the "You" label) — those stay
+  /// tied to genuine authorship regardless of which side the bubble lands on.
+  ///
+  /// Staff Direct (both null): falls back to identity-based ([_isMe]) — this
+  /// 1:1 surface intentionally keeps the plain "my message vs. their
+  /// message" two-tone look instead of a team split.
+  bool get _alignRight {
+    final sender = widget.senderIsOrgSide;
+    final viewer = widget.viewerIsOrgSide;
+    if (sender != null && viewer != null) return sender == viewer;
+    return _isMe;
+  }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
     // Deleted messages: no Reply/Copy/Edit/Delete/Info and no reactions — there's no
@@ -1367,7 +1384,25 @@ class _MessageBubbleState extends State<MessageBubble>
     for (var i = 0; i < attempts; i++) {
       try {
         final r = await http.get(Uri.parse(url));
-        if (r.statusCode == 200) return r.bodyBytes;
+        // A 200 status isn't proof the body is actually a decodable image —
+        // a still-propagating CDN edge, an auth/redirect landing page, or a
+        // body cut short mid-transfer can all come back as 200 with
+        // non-image bytes. Handing those to the Thumbnail widget threw
+        // "Invalid image data" from MemoryImage's async decode (visible in
+        // the console as an "IMAGE RESOURCE SERVICE" exception even though
+        // the widget itself falls back to its errorBuilder). Verify the
+        // bytes actually decode before accepting this attempt as a success
+        // — anything that doesn't decode is treated like a network failure
+        // and retried, same as a non-200 status.
+        if (r.statusCode == 200 && r.bodyBytes.isNotEmpty) {
+          try {
+            final codec = await ui.instantiateImageCodec(r.bodyBytes);
+            codec.dispose();
+            return r.bodyBytes;
+          } catch (_) {
+            // Falls through to retry below.
+          }
+        }
       } catch (_) {}
       if (i < attempts - 1) {
         await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
@@ -1496,7 +1531,9 @@ class _MessageBubbleState extends State<MessageBubble>
                             context,
                             MaterialPageRoute(
                               builder: (_) => ShowFullScreenMediaView(
-                                imageUrl: att.remoteUrl,
+                                imageUrl: att.remoteUrl.isNotEmpty
+                                    ? att.remoteUrl
+                                    : null,
                                 imageFile: att.localPath != null
                                     ? File(att.localPath!)
                                     : null,
@@ -1618,7 +1655,9 @@ class _MessageBubbleState extends State<MessageBubble>
                               context,
                               MaterialPageRoute(
                                 builder: (_) => ShowFullScreenMediaView(
-                                  imageUrl: att.remoteUrl,
+                                  imageUrl: att.remoteUrl.isNotEmpty
+                                      ? att.remoteUrl
+                                      : null,
                                   imageFile: att.localPath != null
                                       ? File(att.localPath!)
                                       : null,

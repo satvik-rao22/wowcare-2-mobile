@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_tab.dart';
 import 'package:wowcare/presentation/features/newsletter/view/newsletter_tab.dart';
@@ -41,10 +42,25 @@ class MessagingScreen extends StatefulWidget {
 }
 
 class _MessagingScreenState extends State<MessagingScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
   late TabController _tabController;
   int? _lastAppliedInitialIndex;
   String? _lastRouteTabQuery;
+
+  // Bumped on a school OR persona switch to re-key (recreate) the
+  // CommunicationCubit provider and the Staff/Parent messaging sub-tabs —
+  // this branch screen is kept alive in the shell's IndexedStack across
+  // both switch kinds and never re-inits on its own, so without this the
+  // conversation list/thread state from the previous school/persona kept
+  // showing (now pointing at wiped/empty caches) until the user manually
+  // navigated away and back.
+  int _contextReloadEpoch = 0;
+
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    setState(() => _contextReloadEpoch++);
+  }
 
   @override
   void initState() {
@@ -118,6 +134,7 @@ class _MessagingScreenState extends State<MessagingScreen>
     final messagingSubTabIndex = msgTabQuery == 'staff' ? 0 : 1;
 
     return BlocProvider<CommunicationCubit>(
+      key: ValueKey('communication_cubit_$_contextReloadEpoch'),
       create: (context) => serviceLocator<CommunicationCubit>(),
       child: GlobalScaffold(
         hasBackButton: !isParentPersona,

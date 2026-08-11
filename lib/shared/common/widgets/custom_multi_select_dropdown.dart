@@ -473,8 +473,10 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     final fieldTopLeft = renderBox.localToGlobal(Offset.zero);
     final mq = MediaQuery.of(context);
     final itemCount = widget.items.length + (widget.showSelectAll ? 1 : 0);
-    final desiredHeight =
-        (itemCount * _dropdownRowHeight).clamp(0.0, widget.maxDropdownHeight);
+    final desiredHeight = (itemCount * _dropdownRowHeight).clamp(
+      0.0,
+      widget.maxDropdownHeight,
+    );
     final spaceBelow =
         mq.size.height - mq.viewInsets.bottom - (fieldTopLeft.dy + size.height);
     final spaceAbove = fieldTopLeft.dy;
@@ -503,12 +505,16 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
             child: CompositedTransformFollower(
               link: _layerLink,
               showWhenUnlinked: false,
-              targetAnchor:
-                  openUpward ? Alignment.topLeft : Alignment.bottomLeft,
-              followerAnchor:
-                  openUpward ? Alignment.bottomLeft : Alignment.topLeft,
-              offset:
-                  Offset(0.0, openUpward ? -widget.gapHeight : widget.gapHeight),
+              targetAnchor: openUpward
+                  ? Alignment.topLeft
+                  : Alignment.bottomLeft,
+              followerAnchor: openUpward
+                  ? Alignment.bottomLeft
+                  : Alignment.topLeft,
+              offset: Offset(
+                0.0,
+                openUpward ? -widget.gapHeight : widget.gapHeight,
+              ),
               child: Material(
                 elevation: 8.0,
                 borderRadius: BorderRadius.circular(8),
@@ -530,6 +536,25 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                       }
 
                       final visibleItems = filteredItems();
+                      // No underlying items to pick from (or, once search is
+                      // re-enabled, a query that matches nothing) — the
+                      // "Select All" row alone with an empty list below it
+                      // was confusing, so show a plain empty state instead.
+                      if (visibleItems.isEmpty) {
+                        return const SizedBox(
+                          height: _dropdownRowHeight,
+                          child: Center(
+                            child: Text(
+                              'No matches found',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 14,
+                                color: Color(0x99573353),
+                              ),
+                            ),
+                          ),
+                        );
+                      }
                       final itemCount =
                           visibleItems.length + (widget.showSelectAll ? 1 : 0);
                       // final searchBoxHeight = widget.enableSearch ? 52.0 : 0.0;
@@ -718,8 +743,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
     String displayText = _localSelectedItems.isEmpty
         ? widget.hintText
         : isClassroom
-            ? _localSelectedItems.join(', ')
-            : '${_localSelectedItems.length} $displaySuffix';
+        ? _localSelectedItems.join(', ')
+        : '${_localSelectedItems.length} $displaySuffix';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

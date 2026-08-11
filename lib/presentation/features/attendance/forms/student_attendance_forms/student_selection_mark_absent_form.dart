@@ -43,8 +43,7 @@ class _StudentSelectionMarkAbsentFormState
   bool _isLoading = true;
   String? _errorMessage;
 
-  late final GetStudentAbsentFormListUseCase
-      _getStudentAbsentFormListUseCase;
+  late final GetStudentAbsentFormListUseCase _getStudentAbsentFormListUseCase;
 
   // Backing list populated from the Absent form API.
   List<StudentEntity> _allStudents = [];
@@ -88,8 +87,8 @@ class _StudentSelectionMarkAbsentFormState
     // the teacher's allowed classrooms.
     final crossClass =
         await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-      storage: serviceLocator<StorageService>(),
-    );
+          storage: serviceLocator<StorageService>(),
+        );
     _classroomCubit.loadActiveClassrooms(
       applyAttendanceStaffScope: !crossClass,
     );
@@ -145,15 +144,16 @@ class _StudentSelectionMarkAbsentFormState
       final dateString = _formatDate(today);
 
       final selectedClassroomCode = _selectedClassroomCode?.trim();
-      final classroomCodes = (selectedClassroomCode != null &&
-              selectedClassroomCode.isNotEmpty)
+      final classroomCodes =
+          (selectedClassroomCode != null && selectedClassroomCode.isNotEmpty)
           ? <String>[selectedClassroomCode]
           : null;
 
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
-      final searchText =
-          _searchController.text.trim().isNotEmpty ? _searchController.text.trim() : null;
+      final searchText = _searchController.text.trim().isNotEmpty
+          ? _searchController.text.trim()
+          : null;
 
       final page = await _getStudentAbsentFormListUseCase(
         fromAbsenceDate: dateString,
@@ -203,9 +203,9 @@ class _StudentSelectionMarkAbsentFormState
         bool matchesTag = true;
 
         if (_searchController.text.isNotEmpty) {
-          matchesSearch = student.fullName
-              .toLowerCase()
-              .contains(_searchController.text.toLowerCase());
+          matchesSearch = student.fullName.toLowerCase().contains(
+            _searchController.text.toLowerCase(),
+          );
         }
 
         if (_selectedClassroom != null && _selectedClassroom != '') {
@@ -213,8 +213,9 @@ class _StudentSelectionMarkAbsentFormState
         }
 
         if (_selectedTag.isNotEmpty) {
-          matchesTag =
-              student.tags.any((tag) => _selectedTag.contains(tag.name));
+          matchesTag = student.tags.any(
+            (tag) => _selectedTag.contains(tag.name),
+          );
         }
 
         return matchesSearch && matchesRoom && matchesTag;
@@ -289,9 +290,8 @@ class _StudentSelectionMarkAbsentFormState
         mainAxisExtent: 69,
       ),
       itemCount: 8,
-      itemBuilder: (context, index) => const ShimmerLoaderCard(
-        child: SizedBox(),
-      ),
+      itemBuilder: (context, index) =>
+          const ShimmerLoaderCard(child: SizedBox()),
     );
   }
 
@@ -299,8 +299,7 @@ class _StudentSelectionMarkAbsentFormState
     if (selectedStudents.isEmpty) {
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
-        snackBar: 
-        const SnackBar(
+        snackBar: const SnackBar(
           content: Text('Please select at least one student'),
           backgroundColor: AppColors.warningColor,
         ),
@@ -363,9 +362,7 @@ class _StudentSelectionMarkAbsentFormState
               controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Search Students',
-                hintStyle: AppTextStyles.body.copyWith(
-                  color: Colors.grey[700],
-                ),
+                hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
                 border: InputBorder.none,
                 icon: const Icon(Icons.search, color: Colors.grey),
               ),
@@ -382,14 +379,16 @@ class _StudentSelectionMarkAbsentFormState
                     final items = _classroomList.isNotEmpty
                         ? _classroomList
                         : classroomState.classrooms
-                            .map((c) => c.name)
-                            .toList(growable: false);
+                              .map((c) => c.name)
+                              .toList(growable: false);
                     final isLoading =
                         classroomState.isLoading || !_isClassroomDataReady;
 
-                    if (isLoading && items.isEmpty) {
-                      return const ShimmerLoaderCard(child: SizedBox());
-                    }
+                    // Render the field even with no items yet — a shimmer
+                    // here could get stuck showing forever if loading never
+                    // actually resolves. CustomDropdown's own "No matches
+                    // found" empty state covers the case where there's
+                    // genuinely nothing to pick.
 
                     return CustomDropdown(
                       onSelect: (value) {
@@ -448,50 +447,49 @@ class _StudentSelectionMarkAbsentFormState
             child: _isLoading
                 ? _buildShimmerGrid()
                 : _errorMessage != null
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            AppText.body(
-                              _errorMessage ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 8),
-                            TextButton(
-                              onPressed: _loadStudents,
-                              child: const AppText.body('Retry'),
-                            ),
-                          ],
+                ? Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AppText.body(
+                          _errorMessage ?? 'Failed to load students',
+                          style: const TextStyle(color: Colors.red),
+                          textAlign: TextAlign.center,
                         ),
-                      )
-                    : _getVisibleStudents().isEmpty
-                        ? const Center(child: AppText.body('No students found'))
-                        : GridView.builder(
-                            shrinkWrap: false,
-                            physics: const AlwaysScrollableScrollPhysics(),
-                            gridDelegate:
-                                const SliverGridDelegateWithFixedCrossAxisCount(
-                              crossAxisCount: 2,
-                              crossAxisSpacing: 12,
-                              mainAxisSpacing: 12,
-                              mainAxisExtent: 72,
-                            ),
-                            itemCount: _getVisibleStudents().length,
-                            itemBuilder: (context, index) {
-                              final student = _getVisibleStudents()[index];
-                              final isSelected =
-                                  selectedStudents.contains(student);
+                        const SizedBox(height: 8),
+                        TextButton(
+                          onPressed: _loadStudents,
+                          child: const AppText.body('Retry'),
+                        ),
+                      ],
+                    ),
+                  )
+                : _getVisibleStudents().isEmpty
+                ? const Center(child: AppText.body('No students found'))
+                : GridView.builder(
+                    shrinkWrap: false,
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                          mainAxisExtent: 72,
+                        ),
+                    itemCount: _getVisibleStudents().length,
+                    itemBuilder: (context, index) {
+                      final student = _getVisibleStudents()[index];
+                      final isSelected = selectedStudents.contains(student);
 
-                              return StudentListItem(
-                                student: student,
-                                isSelected: isSelected,
-                                onSelectionChanged: (value) {
-                                  _toggleStudentSelection(student, value);
-                                },
-                              );
-                            },
-                          ),
+                      return StudentListItem(
+                        student: student,
+                        isSelected: isSelected,
+                        onSelectionChanged: (value) {
+                          _toggleStudentSelection(student, value);
+                        },
+                      );
+                    },
+                  ),
           ),
         ],
       ),
@@ -527,9 +525,7 @@ class StudentListItem extends StatelessWidget {
       },
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(
-            color: AppColors.themeColor,
-          ),
+          border: Border.all(color: AppColors.themeColor),
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
@@ -662,10 +658,7 @@ class _CustomMultiSelectDropdownAssignStudentState
         icon: const Icon(Icons.keyboard_arrow_down),
         iconSize: 24,
         elevation: 2,
-        style: const TextStyle(
-          color: Colors.black87,
-          fontSize: 16,
-        ),
+        style: const TextStyle(color: Colors.black87, fontSize: 16),
         dropdownColor: Colors.white,
         items: widget.items.map((String item) {
           return DropdownMenuItem<String>(
@@ -726,8 +719,9 @@ class _CustomMultiSelectDropdownAssignStudentState
         hint: Text(
           displayText,
           style: TextStyle(
-            color:
-                _localSelectedItems.isEmpty ? Colors.grey[600] : Colors.black87,
+            color: _localSelectedItems.isEmpty
+                ? Colors.grey[600]
+                : Colors.black87,
             fontSize: 15,
           ),
         ),
