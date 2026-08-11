@@ -27,14 +27,13 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/notification_badge_cubit.dart';
 
 import 'package:wowcare/presentation/features/user-profile/view_model/user_profile_cubit.dart';
 import 'package:wowcare/core/util/string_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/user_details_school_roles.dart';
-
-import '../../../src/app_router.dart';
 
 class TabBarStyle {
   final TabAlignment? tabAlignment;
@@ -214,7 +213,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
                 // role-gated, each with its unread badge) instead of jumping straight to
                 // one surface — so the user can pick which messaging area to open, as on web.
-                onPressed: () => context.push(AppRoutes.messagingEntry),
+                // Presented as a bottom sheet overlay (not a pushed page) — picking which
+                // messaging area to open is a quick dismissible choice, not a destination.
+                onPressed: () => MessagingEntryScreen.show(context),
               );
             },
           ),
@@ -966,7 +967,7 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     try {
       context.read<GeofenceCubit>().handleProfileSwitch();
     } catch (_) {}
-    
+
     context.read<ParentChildCubit>().invalidate();
 
     // Mirrors UserProfileScreen._applyPersonaSwitch so both Switch Profile entry

@@ -494,6 +494,7 @@ class _ParentDirectMessagingScreenState
         .call(
           type: widget.conversationType,
           studentCode: child.code,
+          classroomCode: child.classroomCode,
           participantCodes: const [],
           // Backend requires a non-empty title ("Title is required");
           // staff_messaging_tab.dart's equivalent call passes the

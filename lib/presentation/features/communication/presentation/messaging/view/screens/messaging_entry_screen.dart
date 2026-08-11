@@ -13,180 +13,214 @@ import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/src/app_router.dart';
 
-/// Communication Launcher — opens from the message icon in [CustomAppBar].
+/// Communication Launcher — opened from the message icon in [CustomAppBar].
 ///
-/// Presentation-only navigation screen: renders the communication options
-/// the current role may access, shows their realtime unread badges, and
-/// routes to the corresponding existing module. No messaging/business logic
-/// lives here.
-class MessagingEntryScreen extends StatelessWidget {
-  const MessagingEntryScreen({super.key});
+/// Presented as a bottom sheet (an overlay on top of whatever screen is
+/// currently showing) rather than a pushed page — picking which messaging
+/// area to open is a quick, dismissible choice, not a destination in its
+/// own right, so it shouldn't cost a full page transition/back-stack entry.
+/// Renders the communication options the current role may access with
+/// their realtime unread badges, and routes to the corresponding existing
+/// module. No messaging/business logic lives here.
+class MessagingEntryScreen {
+  const MessagingEntryScreen._();
 
-  static const String routeName = '/messaging-entry';
+  /// Shows the launcher as a modal bottom sheet anchored to the bottom of
+  /// [context]'s screen.
+  static Future<void> show(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) => BlocProvider<UnreadBadgeCubit>.value(
+        value: serviceLocator<UnreadBadgeCubit>()..startWatching(),
+        child: const _MessagingLauncherSheetContent(),
+      ),
+    );
+  }
+}
+
+class _MessagingLauncherSheetContent extends StatelessWidget {
+  const _MessagingLauncherSheetContent();
 
   @override
   Widget build(BuildContext context) {
     final isParent = context.watch<RoleCubit>().isParent;
     final responsive = ResponsiveHelper(context);
 
-    return BlocProvider<UnreadBadgeCubit>.value(
-      value: serviceLocator<UnreadBadgeCubit>()..startWatching(),
-      child: Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 520),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(context).viewInsets.bottom,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _SheetHandle(),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                responsive.horizontalSpacing,
+                4,
+                responsive.horizontalSpacing,
+                8,
+              ),
+              child: Row(
                 children: [
-                  _Header(onClose: () => context.pop(), responsive: responsive),
-                  Padding(
-                    padding: EdgeInsets.fromLTRB(
-                      responsive.horizontalSpacing,
-                      responsive.verticalSpacing,
-                      responsive.horizontalSpacing,
-                      responsive.horizontalSpacing,
+                  Expanded(
+                    child: Text(
+                      'Messaging',
+                      style: TextStyle(
+                        fontSize: responsive.isTablet ? 22 : 18,
+                        fontWeight: FontWeight.w800,
+                        fontFamily: 'Manrope',
+                        color: AppColors.primaryColor,
+                      ),
                     ),
-                    child: BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
-                      builder: (context, unread) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (!isParent) ...[
-                              CommunicationLauncherButton(
-                                label: 'Staff',
-                                iconAsset: MediaRes.staffMessaging,
-                                unreadCount: unread.unreadFor(
-                                  ConversationType.staffDirect,
-                                ),
-                                iconSize: responsive.isTablet ? 30 : 26,
-                                fontSize: responsive.buttonFontSize,
-                                verticalPadding: responsive.isTablet ? 26 : 22,
-                                onTap: () => context.go(
-                                  MessagingScreen.staffMessagingRoute,
-                                ),
-                              ),
-                              SizedBox(height: responsive.verticalSpacing),
-                            ],
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: CommunicationLauncherButton(
-                                    label: 'Admin',
-                                    iconAsset: MediaRes.chatsIcon,
-                                    unreadCount: unread.unreadFor(
-                                      ConversationType.adminChat,
-                                    ),
-                                    iconSize: responsive.isTablet ? 30 : 26,
-                                    fontSize: responsive.labelFontSize + 2,
-                                    verticalPadding: responsive.isTablet
-                                        ? 26
-                                        : 22,
-                                    horizontalPadding: 12,
-                                    onTap: () =>
-                                        context.push(AppRoutes.adminChat),
-                                  ),
-                                ),
-                                SizedBox(width: responsive.horizontalSpacing),
-                                Expanded(
-                                  child: CommunicationLauncherButton(
-                                    label: 'Student',
-                                    iconAsset: MediaRes.chatsIcon,
-                                    unreadCount: unread.unreadFor(
-                                      ConversationType.roomChat,
-                                    ),
-                                    iconSize: responsive.isTablet ? 30 : 26,
-                                    fontSize: responsive.labelFontSize + 2,
-                                    verticalPadding: responsive.isTablet
-                                        ? 26
-                                        : 22,
-                                    horizontalPadding: 12,
-                                    // Reuses the existing Parent Messaging
-                                    // sub-tab inside MessagingScreen — the
-                                    // same Room Chat surface the drawer's
-                                    // "Parent Messaging" item already opens.
-                                    onTap: () => context.go(
-                                      MessagingScreen.parentMessagingRoute,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            // Classroom Notes — staff-internal (each classroom's
-                            // Notes chat). Gated to non-parents so it is hidden
-                            // from the Guardian persona, mirroring the web.
-                            // Routes to the Classrooms list (itself staff/admin
-                            // only); each classroom's Notes tab is its chat.
-                            if (!isParent) ...[
-                              SizedBox(height: responsive.verticalSpacing),
-                              CommunicationLauncherButton(
-                                label: 'Classroom Notes',
-                                iconAsset: MediaRes.classroomIcon,
-                                unreadCount: unread.unreadFor(
-                                  ConversationType.classroomChat,
-                                ),
-                                iconSize: responsive.isTablet ? 30 : 26,
-                                fontSize: responsive.buttonFontSize,
-                                verticalPadding: responsive.isTablet ? 26 : 22,
-                                onTap: () => context.go(AppRoutes.classroom),
-                              ),
-                            ],
-                          ],
-                        );
-                      },
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(
+                      Icons.close,
+                      size: 20,
+                      color: AppColors.primaryColor,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                responsive.horizontalSpacing,
+                0,
+                responsive.horizontalSpacing,
+                responsive.horizontalSpacing,
+              ),
+              child: BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
+                builder: (context, unread) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (!isParent) ...[
+                        CommunicationLauncherButton(
+                          label: 'Staff',
+                          iconAsset: MediaRes.staffMessaging,
+                          unreadCount: unread.unreadFor(
+                            ConversationType.staffDirect,
+                          ),
+                          iconSize: responsive.isTablet ? 30 : 26,
+                          fontSize: responsive.buttonFontSize,
+                          verticalPadding: responsive.isTablet ? 26 : 22,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            context.go(MessagingScreen.staffMessagingRoute);
+                          },
+                        ),
+                        SizedBox(height: responsive.verticalSpacing),
+                      ],
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: CommunicationLauncherButton(
+                              label: 'Admin',
+                              iconAsset: MediaRes.chatsIcon,
+                              unreadCount: unread.unreadFor(
+                                ConversationType.adminChat,
+                              ),
+                              iconSize: responsive.isTablet ? 30 : 26,
+                              fontSize: responsive.labelFontSize + 2,
+                              verticalPadding: responsive.isTablet ? 26 : 22,
+                              horizontalPadding: 12,
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                context.push(AppRoutes.adminChat);
+                              },
+                            ),
+                          ),
+                          SizedBox(width: responsive.horizontalSpacing),
+                          Expanded(
+                            child: CommunicationLauncherButton(
+                              label: 'Student',
+                              iconAsset: MediaRes.chatsIcon,
+                              unreadCount: unread.unreadFor(
+                                ConversationType.roomChat,
+                              ),
+                              iconSize: responsive.isTablet ? 30 : 26,
+                              fontSize: responsive.labelFontSize + 2,
+                              verticalPadding: responsive.isTablet ? 26 : 22,
+                              horizontalPadding: 12,
+                              // Reuses the existing Parent Messaging sub-tab
+                              // inside MessagingScreen — the same Room Chat
+                              // surface the drawer's "Parent Messaging" item
+                              // already opens.
+                              onTap: () {
+                                Navigator.of(context).pop();
+                                context.go(
+                                  MessagingScreen.parentMessagingRoute,
+                                );
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      // Classroom Notes — staff-internal (each classroom's
+                      // Notes chat). Gated to non-parents so it is hidden
+                      // from the Guardian persona, mirroring the web.
+                      // Routes to the Classrooms list (itself staff/admin
+                      // only); each classroom's Notes tab is its chat.
+                      if (!isParent) ...[
+                        SizedBox(height: responsive.verticalSpacing),
+                        CommunicationLauncherButton(
+                          label: 'Classroom Notes',
+                          iconAsset: MediaRes.classroomIcon,
+                          unreadCount: unread.unreadFor(
+                            ConversationType.classroomChat,
+                          ),
+                          iconSize: responsive.isTablet ? 30 : 26,
+                          fontSize: responsive.buttonFontSize,
+                          verticalPadding: responsive.isTablet ? 26 : 22,
+                          onTap: () {
+                            Navigator.of(context).pop();
+                            context.go(AppRoutes.classroom);
+                          },
+                        ),
+                      ],
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _Header extends StatelessWidget {
-  const _Header({required this.onClose, required this.responsive});
-
-  final VoidCallback onClose;
-  final ResponsiveHelper responsive;
+/// Small centered drag-handle bar — the standard mobile affordance signaling
+/// "this is a dismissible sheet, swipe down to close" (matches the handle
+/// used by this app's other bottom sheets, e.g. PostAddStudentBottomSheet).
+class _SheetHandle extends StatelessWidget {
+  const _SheetHandle();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: responsive.horizontalSpacing,
-        vertical: responsive.isTablet ? 30 : 25,
-      ),
-      decoration: const BoxDecoration(color: Color(0xFFF1F1FB)),
-      child: Row(
-        // mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          GestureDetector(
-            onTap: () =>
-                Navigator.of(context).pop(), //  Back to the previous screen
-            child: Container(
-              padding: const EdgeInsets.all(10),
-
-              child: const Icon(
-                Icons.arrow_back,
-                size: 20,
-                color: AppColors.primaryColor,
-              ),
-            ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 10, bottom: 4),
+      child: Center(
+        child: Container(
+          width: 40,
+          height: 4,
+          decoration: BoxDecoration(
+            color: AppColors.primaryColor.withValues(alpha: 0.2),
+            borderRadius: BorderRadius.circular(2),
           ),
-          Text(
-            'Messaging',
-            style: TextStyle(
-              fontSize: responsive.isTablet ? 25 : 20,
-              fontWeight: FontWeight.w800,
-              fontFamily: 'Manrope',
-              color: AppColors.primaryColor,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
