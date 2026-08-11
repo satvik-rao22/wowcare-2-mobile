@@ -203,13 +203,13 @@ PrivateModeToggleCubit _cubit(
   _FakeRepo repo, {
   bool initialEnabled = false,
   RoomChatViewerRole viewerRole = RoomChatViewerRole.guardian,
-}) =>
-    PrivateModeToggleCubit(
-      togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
-      conversationCode: 'CONV-001',
-      viewerRole: () => viewerRole,
-      initialEnabled: initialEnabled,
-    );
+}) => PrivateModeToggleCubit(
+  togglePrivateModeUseCase: TogglePrivateModeUseCase(repo),
+  conversationCode: 'CONV-001',
+  viewerRole: () => viewerRole,
+  initialEnabled: initialEnabled,
+  currentUserCode: () => 'USER-001',
+);
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
 

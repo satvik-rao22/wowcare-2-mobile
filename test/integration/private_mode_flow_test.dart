@@ -180,6 +180,7 @@ PrivateModeToggleCubit _build(
   conversationCode: 'CONV-INT-001',
   viewerRole: () => viewerRole,
   initialEnabled: initialEnabled,
+  currentUserCode: () {},
 );
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -271,22 +272,16 @@ void main() {
       },
     );
 
-    test(
-      'staff/admin viewer cannot enable private mode end-to-end',
-      () async {
-        final repo = _ControllableRepo();
-        final cubit = _build(
-          repo,
-          viewerRole: RoomChatViewerRole.staffOrAdmin,
-        );
-        addTearDown(cubit.close);
+    test('staff/admin viewer cannot enable private mode end-to-end', () async {
+      final repo = _ControllableRepo();
+      final cubit = _build(repo, viewerRole: RoomChatViewerRole.staffOrAdmin);
+      addTearDown(cubit.close);
 
-        await cubit.toggle();
+      await cubit.toggle();
 
-        expect(repo.calls, isEmpty, reason: 'API must never be reached');
-        expect(cubit.state.isEnabled, isFalse);
-        expect(cubit.state.errorMessage, isNotNull);
-      },
-    );
+      expect(repo.calls, isEmpty, reason: 'API must never be reached');
+      expect(cubit.state.isEnabled, isFalse);
+      expect(cubit.state.errorMessage, isNotNull);
+    });
   });
 }

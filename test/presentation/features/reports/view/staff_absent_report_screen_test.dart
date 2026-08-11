@@ -176,12 +176,12 @@ void main() {
 
     reportsCubit = ReportsCubit(
       storageService: fakeStorageService,
-      getTagNamesForSchoolUseCase: GetTagNamesForSchoolUseCase(mockStudentRepo),
       generateReportUseCase: GenerateReportUseCase(fakeReportsRepo),
       getRecentReportsUseCase: GetRecentReportsUseCase(fakeReportsRepo),
       getStudentTagsUseCase: GetStudentTagsUseCase(fakeReportsRepo),
       downloadReportUseCase: DownloadReportUseCase(fakeReportsRepo),
       fileDownloadRepository: _FakeFileDownloadRepository(),
+      getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(),
     );
 
     reportsCubit.setClassroomNames(classrooms, nameToCodeMap: classroomLookup);
@@ -208,44 +208,34 @@ void main() {
         BlocProvider<AuthCubit>(create: (_) => _MockAuthCubit()),
         BlocProvider<ReportsCubit>.value(value: reportsCubit),
       ],
-      child: MaterialApp(
-        home: StaffAbsentReportScreen(classrooms: classrooms),
-      ),
+      child: MaterialApp(home: StaffAbsentReportScreen(classrooms: classrooms)),
     );
   }
 
-  testWidgets(
-    'Tapping Generate generates STAFF_ABSENT with roomCodes',
-    (tester) async {
-      await tester.binding.setSurfaceSize(const Size(800, 1200));
-      addTearDown(() => tester.binding.setSurfaceSize(null));
+  testWidgets('Tapping Generate generates STAFF_ABSENT with roomCodes', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(800, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pumpAndSettle();
+    await tester.pumpWidget(buildTestWidget());
+    await tester.pumpAndSettle();
 
-      final generateBtnFinder = find.text('Generate Report');
-      expect(generateBtnFinder, findsOneWidget);
-      await tester.tap(generateBtnFinder);
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 3));
+    final generateBtnFinder = find.text('Generate Report');
+    expect(generateBtnFinder, findsOneWidget);
+    await tester.tap(generateBtnFinder);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 3));
 
-      expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
-      final params =
-          fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
-      expect(params.reportType, ReportType.staffAbsent);
-      expect(params.roomCodes, [
-        'CLS_06C3AF97-6',
-        'CLS_BE1976C6-1',
-      ]);
+    expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
+    final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
+    expect(params.reportType, ReportType.staffAbsent);
+    expect(params.roomCodes, ['CLS_06C3AF97-6', 'CLS_BE1976C6-1']);
 
-      final requestBody = params.toRequestBody();
-      expect(requestBody['reportType'], 'STAFF_ABSENT');
-      expect(requestBody['roomCodes'], [
-        'CLS_06C3AF97-6',
-        'CLS_BE1976C6-1',
-      ]);
-      expect(requestBody.containsKey('startDate'), isTrue);
-      expect(requestBody.containsKey('endDate'), isTrue);
-    },
-  );
+    final requestBody = params.toRequestBody();
+    expect(requestBody['reportType'], 'STAFF_ABSENT');
+    expect(requestBody['roomCodes'], ['CLS_06C3AF97-6', 'CLS_BE1976C6-1']);
+    expect(requestBody.containsKey('startDate'), isTrue);
+    expect(requestBody.containsKey('endDate'), isTrue);
+  });
 }
