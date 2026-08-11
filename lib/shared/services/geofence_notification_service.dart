@@ -19,8 +19,6 @@ class GeofenceNotificationService {
   static const String pushChannelId = 'wowcare_alerts_v2';
   static const String pushChannelName = 'WowCare Notifications';
 
-  static const int _enteredId = 1001;
-  static const int _exitedId = 1002;
 
   // Push notifications must each get a UNIQUE id — a fixed id makes every new
   // push replace the previous one in the tray, so firing 5 in a row leaves only
@@ -85,32 +83,6 @@ class GeofenceNotificationService {
     }
   }
 
-  Future<void> showEnteredZoneNotification() => _show(
-    id: _enteredId,
-    title: 'Sign In/Out',
-    body: 'You can now Sign In or Sign Out.',
-    isCritical: true,
-  );
-
-  /// Cancels a previously-shown "entered zone" tray notification. Used when
-  /// the user is inside the geofence but has nothing actionable to do (e.g.
-  /// already signed in) — native Android/iOS geofencing has no awareness of
-  /// sign-in status and may have already posted this notification on the
-  /// raw boundary-cross event, so Dart clears it once it learns better.
-  /// Shares the same channel id + notification id as the native side, so
-  /// cancelling here also clears a notification the native layer posted.
-  Future<void> cancelEnteredZoneNotification() async {
-    try {
-      await _plugin.cancel(id: _enteredId);
-    } catch (_) {}
-  }
-
-  Future<void> showExitedZoneNotification() => _show(
-    id: _exitedId,
-    title: 'Outside School Premises',
-    body: 'Attendance actions are currently unavailable.',
-    isCritical: false,
-  );
 
   Future<void> showCustomNotification({
     required String title,

@@ -27,6 +27,7 @@ class GeofenceState extends Equatable {
     this.permissionLevel = LocationPermissionLevel.denied,
     this.allChildrenSignedIn = false,
     this.isSignInStatusLoading = false,
+    this.refreshNonce = 0,
   });
 
   const GeofenceState.initial()
@@ -40,7 +41,8 @@ class GeofenceState extends Equatable {
         isStaffSignedIn = false,
         permissionLevel = LocationPermissionLevel.denied,
         allChildrenSignedIn = false,
-        isSignInStatusLoading = false;
+        isSignInStatusLoading = false,
+        refreshNonce = 0;
 
   final GeofenceCubitStatus status;
   final String schoolCode;
@@ -76,6 +78,11 @@ class GeofenceState extends Equatable {
   /// True when the sign-in status is actively being fetched.
   final bool isSignInStatusLoading;
 
+  /// Explicit Flutter-side token that increments whenever a manual dashboard
+  /// refresh occurs, so the UI can clear its sign-in reminder dedup flag and
+  /// reliably re-evaluate showing the reminder if the user is inside + not signed in.
+  final int refreshNonce;
+
   /// True only when within range AND admin has GPS sign-in enabled.
   bool get isWithinGeofence =>
       status == GeofenceCubitStatus.withinRange && gpsSignInEnabled;
@@ -97,6 +104,7 @@ class GeofenceState extends Equatable {
     LocationPermissionLevel? permissionLevel,
     bool? allChildrenSignedIn,
     bool? isSignInStatusLoading,
+    int? refreshNonce,
   }) =>
       GeofenceState(
         status: status ?? this.status,
@@ -111,6 +119,7 @@ class GeofenceState extends Equatable {
         permissionLevel: permissionLevel ?? this.permissionLevel,
         allChildrenSignedIn: allChildrenSignedIn ?? this.allChildrenSignedIn,
         isSignInStatusLoading: isSignInStatusLoading ?? this.isSignInStatusLoading,
+        refreshNonce: refreshNonce ?? this.refreshNonce,
       );
 
   @override
@@ -126,5 +135,6 @@ class GeofenceState extends Equatable {
         permissionLevel,
         allChildrenSignedIn,
         isSignInStatusLoading,
+        refreshNonce,
       ];
 }

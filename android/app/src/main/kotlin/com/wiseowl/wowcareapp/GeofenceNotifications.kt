@@ -91,5 +91,10 @@ object GeofenceNotifications {
             } catch (_: Exception) { /* nothing more we can do */ }
         }
     }
+
+    fun cancel(context: Context) {
+        val nm = context.getSystemService(Context.NOTIFICATION_SERVICE) as? NotificationManager
+        nm?.cancel(1001)
+    }
 }
 

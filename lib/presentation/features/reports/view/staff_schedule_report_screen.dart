@@ -44,7 +44,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
     final now = AppTime.now();
     _startDate = now;
     _endDate = now.add(const Duration(days: 6));
-    
+
     _availableClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -57,8 +57,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
     try {
       final storageService = serviceLocator<StorageService>();
       final schoolCode =
-          (await storageService.getString(StorageKeys.schoolCode) ?? '')
-              .trim();
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isNotEmpty) {
         final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
           schoolCode: schoolCode,
@@ -104,7 +103,9 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
         : cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
@@ -199,6 +200,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
             const ReportFieldLabel(label: 'Start Date'),
             CustomDateTimeField(
               hasLabel: false,
+              dateFormat: 'MM/dd/yyyy',
               fetchInitialTime: false,
               initialDate: _startDate,
               onDateSelected: (d) => setState(() => _startDate = d),
@@ -207,6 +209,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
             const ReportFieldLabel(label: 'End Date'),
             CustomDateTimeField(
               hasLabel: false,
+              dateFormat: 'MM/dd/yyyy',
               fetchInitialTime: false,
               initialDate: _endDate,
               onDateSelected: (d) => setState(() => _endDate = d),
