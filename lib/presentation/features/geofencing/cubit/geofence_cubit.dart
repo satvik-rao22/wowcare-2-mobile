@@ -39,7 +39,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   static const _prefsSchoolLonKey = 'geofence_school_lon';
   static const _prefsSchoolRadiusKey = 'geofence_school_radius_m';
   static const _prefsGpsSignInEnabledKey = 'geofence_gps_sign_in_enabled';
-  static const _prefsLastNotifiedInsideKey = 'geofence_last_notified_inside';
   static const _prefsLastGeofenceStatusKey = 'geofence_last_status';
   // Hysteresis: exit threshold = radius + 50 m to prevent boundary flickering.
   static const double _hysteresisExitExtraMeters = 50.0;
@@ -68,7 +67,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
   StreamSubscription<GeofenceStatus>? _subscription;
   StreamSubscription<dynamic>? _nativeSubscription;
-  GeofenceStatus? _lastNotifiedStatus;
   GeofenceConfig? _config;
   int _signInCheckGeneration = 0;
 
@@ -86,7 +84,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         : GeofenceCubitStatus.outsideRange;
     if (state.status != newCubitStatus) {
       emit(state.copyWith(status: newCubitStatus));
-      _triggerNotificationIfNeeded(newStatus);
     }
   }
 
@@ -290,7 +287,10 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     if (schoolCode.isEmpty) return;
     AppLogger.d('[GeofenceCubit] refreshSettings called');
     stopMonitoring();
-    emit(state.copyWith(status: GeofenceCubitStatus.fetchingSchoolLocation));
+    emit(state.copyWith(
+      status: GeofenceCubitStatus.fetchingSchoolLocation,
+      refreshNonce: state.refreshNonce + 1,
+    ));
     await _checkAndStartMonitoring(schoolCode: schoolCode, isRefresh: true);
   }
 
@@ -555,12 +555,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         ),
       );
       unawaited(_syncBackgroundHealthCheck());
-      if (immediateGeofenceStatus != null) {
-        _triggerNotificationIfNeeded(
-          immediateGeofenceStatus,
-          fireFlutterNotification: isRefresh,
-        );
-      }
 
       _startNativeEvents();
       _startStream();
@@ -652,7 +646,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
         if (state.status != newCubitStatus) {
           emit(state.copyWith(status: newCubitStatus));
-          _triggerNotificationIfNeeded(geofenceStatus);
         }
       },
       onError: (Object e) {
@@ -689,10 +682,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
             : GeofenceCubitStatus.outsideRange;
         if (state.status != nextStatus) {
           emit(state.copyWith(status: nextStatus));
-          final newGeofenceStatus = isInside
-              ? GeofenceStatus.within
-              : GeofenceStatus.outside;
-          _triggerNotificationIfNeeded(newGeofenceStatus);
         }
       },
       onError: (Object e) {
@@ -701,66 +690,12 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
     );
   }
 
-  void _triggerNotificationIfNeeded(
-    GeofenceStatus newStatus, {
-    bool fireFlutterNotification = false,
-  }) {
-    // "You can now Sign In or Sign Out" is meaningless noise when there's
-    // nothing left to act on: a staff/admin/student user already signed in
-    // for the day, or a guardian whose children are all already signed in.
-    final nothingToDo = state.isStaffSignedIn || state.allChildrenSignedIn;
 
-    // On an actual zone crossing the native layer fires the notification
-    // (Android → GeofenceBroadcastReceiver, iOS → GeofencePlugin) with no
-    // awareness of sign-in status. On a dashboard refresh/resume/sign-in-status
-    // change there is no boundary crossing so native stays silent — Dart must
-    // independently decide to show/cancel every time, which is why this whole
-    // block runs ahead of (and independent from) the transition-dedup below:
-    // dashboard refreshes must be able to re-notify even when the geofence
-    // status itself hasn't changed since the last notification.
-    if (fireFlutterNotification) {
-      if (newStatus == GeofenceStatus.within) {
-        if (!nothingToDo) {
-          unawaited(_notifications.showEnteredZoneNotification());
-        } else {
-          unawaited(_notifications.cancelEnteredZoneNotification());
-        }
-      } else {
-        unawaited(_notifications.showExitedZoneNotification());
-      }
-    } else if (newStatus == GeofenceStatus.within && nothingToDo) {
-      // Real boundary-cross relayed from native: native may have already
-      // posted the "entered zone" notification since it can't see sign-in
-      // status — cancel it now that Dart knows there's nothing actionable.
-      unawaited(_notifications.cancelEnteredZoneNotification());
-    }
-
-    if (_lastNotifiedStatus == newStatus) return;
-    _lastNotifiedStatus = newStatus;
-
-    unawaited(
-      SharedPreferences.getInstance()
-          .then((prefs) async {
-            await prefs.setString(_prefsLastGeofenceStatusKey, newStatus.name);
-            await prefs.setBool(
-              _prefsLastNotifiedInsideKey,
-              newStatus == GeofenceStatus.within,
-            );
-          })
-          .catchError((_) {}),
-    );
-  }
-
-  /// Re-evaluates the "entered zone" notification against the current
-  /// geofence status whenever sign-in status changes (dashboard refresh,
-  /// sign-in/sign-out, resume) without a boundary crossing having occurred.
+  /// Synchronizes the current "nothing to do" flag (sign in status) to the
+  /// native layer whenever sign-in status changes (dashboard refresh,
+  /// sign-in/sign-out, resume).
   void _reevaluateNotificationForCurrentStatus() {
     unawaited(_syncSignInStatusToNative());
-    if (!state.isWithinGeofence) return;
-    _triggerNotificationIfNeeded(
-      GeofenceStatus.within,
-      fireFlutterNotification: true,
-    );
   }
 
   /// Pushes the current "nothing to do" (everyone already signed in) flag to
@@ -810,9 +745,6 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       );
       if (state.status == GeofenceCubitStatus.checking) {
         emit(state.copyWith(status: newStatus));
-        _triggerNotificationIfNeeded(
-          isInside ? GeofenceStatus.within : GeofenceStatus.outside,
-        );
       }
     } catch (e) {
       // High-accuracy fix failed (timeout or hardware error).

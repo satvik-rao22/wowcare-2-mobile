@@ -45,7 +45,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     final now = AppTime.now();
     _fromDate = ValueNotifier<DateTime>(DateTime(now.year, now.month, 1));
     _toDate = ValueNotifier<DateTime>(DateTime(now.year, now.month + 1, 0));
-    
+
     _availableClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -60,11 +60,10 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isNotEmpty) {
-        final classrooms =
-            await serviceLocator<GetActiveClassroomsUseCase>()(
-              schoolCode: schoolCode,
-              onlyTypeClassroom: false,
-            );
+        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: false,
+        );
         final nameToCodeMap = <String, String>{};
         final names = <String>[];
         for (final c in classrooms) {
@@ -114,7 +113,9 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
         : cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty ? widget.classrooms : _selectedClassrooms.value,
+      names: _selectedClassrooms.value.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms.value,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
@@ -123,9 +124,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
     AppLogger.d(
       '[STAFF-ABSENT-UI] Selected classrooms: ${_selectedClassrooms.value}',
     );
-    AppLogger.d(
-      '[STAFF-ABSENT-UI] Resolved roomCodes: $classroomCodes',
-    );
+    AppLogger.d('[STAFF-ABSENT-UI] Resolved roomCodes: $classroomCodes');
 
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
@@ -223,6 +222,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                   valueListenable: _fromDate,
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
+                    dateFormat: 'MM/dd/yyyy',
                     fetchInitialTime: false,
                     initialDate: date,
                     onDateSelected: (d) => _fromDate.value = d,
@@ -235,6 +235,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
                     fetchInitialTime: false,
+                    dateFormat: 'MM/dd/yyyy',
                     initialDate: date,
                     onDateSelected: (d) => _toDate.value = d,
                   ),
