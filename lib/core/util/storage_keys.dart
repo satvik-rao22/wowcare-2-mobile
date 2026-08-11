@@ -32,6 +32,15 @@ class StorageKeys {
 
   /// Backend role for the active org+school when the user has multiple (e.g. STAFF + GUARDIAN).
   static const String activeSchoolRole = 'activeSchoolRole';
+
+  /// The persona (backend role string) the user was last active as, keyed to
+  /// [userCode] and stored as `{"userCode": ..., "role": ...}`. Unlike
+  /// [activeSchoolRole] — which is cleared on logout and on every org/school
+  /// change — this survives logout so a multi-persona account's NEXT fresh
+  /// login can reopen the persona they last used instead of always
+  /// defaulting to admin/staff. See `AuthLocalDataSourceImpl.clearCache`
+  /// (explicitly preserved) and `RoleCubit._computeFallbackRole`.
+  static const String lastUsedPersonaRole = 'lastUsedPersonaRole';
   static const String rememberMe = 'rememberMe';
   static const String username = 'username';
 

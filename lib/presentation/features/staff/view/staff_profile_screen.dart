@@ -18,7 +18,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
@@ -758,15 +758,28 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           _buildActionIcon(
             MediaRes.calenderClockIcon,
             onTap: () {
+              final code = widget.staffCode.trim();
+              if (code.isEmpty) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Staff code is required for attendance.',
+                  isError: true,
+                );
+                return;
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => StudentAttendanceProfile(
-                    studentCode: '',
-                    studentId: 0, // Staff profile - using placeholder ID
-                    studentName: widget.name,
-                    studentPhotoUuid: null,
-                    roomName: widget.classroom,
+                  settings: const RouteSettings(
+                    name: StaffAttendanceProfile.routeName,
+                  ),
+                  builder: (_) => StaffAttendanceProfile(
+                    staffCode: code,
+                    staffId: 0,
+                    staffName: _displayName,
+                    staffPhotoUuid: null,
+                    designationName: widget.designation,
+                    roomName: _displayClassroom,
                     isSignedIn: false,
                     isAbsent: false,
                     isExpectedToday: true,
