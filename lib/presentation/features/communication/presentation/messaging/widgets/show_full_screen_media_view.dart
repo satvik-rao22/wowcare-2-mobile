@@ -1,6 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:chewie/chewie.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 
@@ -8,6 +11,7 @@ class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
   final File? imageFile;
   final String? videoUrl;
+
   /// A local video file (e.g. a pending composer attachment not yet uploaded),
   /// played in-app with a Chewie player. Prefer [videoUrl] for remote/HLS video.
   final File? videoFile;
@@ -23,12 +27,16 @@ class ShowFullScreenMediaView extends StatefulWidget {
     this.title,
     this.heroTag,
   }) : assert(
-    (imageUrl != null || imageFile != null || videoUrl != null || videoFile != null),
-    'Provide at least one media source',
-  );
+         (imageUrl != null ||
+             imageFile != null ||
+             videoUrl != null ||
+             videoFile != null),
+         'Provide at least one media source',
+       );
 
   @override
-  State<ShowFullScreenMediaView> createState() => _ShowFullScreenMediaViewState();
+  State<ShowFullScreenMediaView> createState() =>
+      _ShowFullScreenMediaViewState();
 }
 
 class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
@@ -36,8 +44,17 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
-  bool get hasImage => widget.imageUrl != null || widget.imageFile != null;
-  bool get hasVideo => widget.videoUrl != null || widget.videoFile != null;
+  // A caller can pass an empty string (not null) for imageUrl/videoUrl when
+  // its own remote-URL resolution hasn't completed yet but a local file is
+  // already available — treating `!= null` as "usable" then picks the
+  // Image.network('')/HLS-empty-url branch below and fails, even though the
+  // local file would have rendered fine. Require non-empty, not just non-null.
+  bool get _hasUsableImageUrl => (widget.imageUrl?.isNotEmpty ?? false);
+  bool get _hasUsableVideoUrl => (widget.videoUrl?.isNotEmpty ?? false);
+  bool get hasImage => _hasUsableImageUrl || widget.imageFile != null;
+  bool get hasVideo => _hasUsableVideoUrl || widget.videoFile != null;
+
+  Future<Uint8List>? _imageBytesFuture;
 
   @override
   void initState() {
@@ -50,6 +67,49 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
       CurvedAnimation(parent: _animationController, curve: Curves.easeOut),
     );
     _animationController.forward();
+    if (hasImage) {
+      _imageBytesFuture = _resolveImageBytes();
+    }
+  }
+
+  // The chat bubble thumbnail (`displaySource`) prefers the local file over
+  // the remote URL whenever both are set — e.g. right after sending, before
+  // the CDN has propagated or when the "remote" URL needs signed/auth access
+  // a bare http.get can't satisfy. This mirrors that preference so a message
+  // that renders fine as a thumbnail never fails full-screen for the exact
+  // same attachment: try the local file first, only fetch the network URL
+  // if there's no usable local file or reading it fails.
+  Future<Uint8List> _resolveImageBytes() async {
+    final file = widget.imageFile;
+    if (file != null) {
+      try {
+        if (await file.exists()) {
+          final bytes = await file.readAsBytes();
+          if (bytes.isNotEmpty) {
+            try {
+              final codec = await ui.instantiateImageCodec(bytes);
+              codec.dispose();
+              return bytes;
+            } catch (_) {
+              // Local file isn't a decodable image; fall through to the URL.
+            }
+          }
+        }
+      } catch (_) {
+        // Local file unreadable/missing; fall through to the URL.
+      }
+    }
+    // The message bubble's own thumbnail loads the same URL via a retrying
+    // byte-fetch (see MessageBubble._fetchImageBytesWithRetry) — a single
+    // transient hiccup (CDN not fully propagated yet, brief network blip)
+    // makes the thumbnail retry through it invisibly, while a bare
+    // Image.network here failed outright on the very first attempt. Mirror
+    // that resilience so "the preview loaded fine" never disagrees with
+    // "full screen failed to load" for the exact same URL.
+    if (_hasUsableImageUrl) {
+      return _fetchImageBytesWithRetry(widget.imageUrl!);
+    }
+    return Uint8List(0);
   }
 
   @override
@@ -58,88 +118,90 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
     super.dispose();
   }
 
+  Future<Uint8List> _fetchImageBytesWithRetry(String url) async {
+    const attempts = 5;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        final response = await http.get(Uri.parse(url));
+        // A 200 response isn't proof the body is actually a decodable image
+        // — a still-propagating CDN edge, an auth/redirect landing page, or
+        // a body cut short mid-transfer all come back as 200 with non-image
+        // bytes. Handing those straight to Image.memory is what threw
+        // "Invalid image data" here (and, since MemoryImage decodes async,
+        // past errorBuilder's ability to just quietly show the fallback —
+        // it's also reported to the image resource service's error stream).
+        // Verify the bytes actually decode before accepting this attempt as
+        // a success; anything that doesn't decode is treated exactly like a
+        // network failure and retried.
+        if (response.statusCode == 200 && response.bodyBytes.isNotEmpty) {
+          final bytes = response.bodyBytes;
+          try {
+            final codec = await ui.instantiateImageCodec(bytes);
+            codec.dispose();
+            return bytes;
+          } catch (_) {
+            // Falls through to retry below.
+          }
+        }
+      } catch (_) {}
+      if (i < attempts - 1) {
+        await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
+      }
+    }
+    return Uint8List(0);
+  }
+
+  Widget _brokenImagePlaceholder() {
+    return Container(
+      color: Colors.black,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.broken_image, color: Colors.white54, size: 80),
+            const SizedBox(height: 16),
+            Text(
+              'Failed to load image',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.white54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildMediaWidget() {
-    if (widget.imageUrl != null) {
-      return Image.network(
-        widget.imageUrl!,
-        fit: BoxFit.contain,
-        loadingBuilder: (context, child, loadingProgress) {
-          if (loadingProgress == null) return child;
+    if (!hasImage) {
+      return const Icon(Icons.broken_image, color: Colors.white54, size: 100);
+    }
+    return FutureBuilder<Uint8List>(
+      future: _imageBytesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
           return Container(
             color: Colors.black,
-            child: Center(
+            child: const Center(
               child: CircularProgressIndicator(
-                value: loadingProgress.expectedTotalBytes != null
-                    ? loadingProgress.cumulativeBytesLoaded /
-                        loadingProgress.expectedTotalBytes!
-                    : null,
-                valueColor: const AlwaysStoppedAnimation<Color>(Colors.white70),
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
                 strokeWidth: 2,
               ),
             ),
           );
-        },
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            color: Colors.black,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.broken_image,
-                    color: Colors.white54,
-                    size: 80,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Failed to load image',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white54,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    } else if (widget.imageFile != null) {
-      return Image.file(
-        widget.imageFile!,
-        fit: BoxFit.contain,
-        errorBuilder: (context, error, stackTrace) {
-          return Container(
-            color: Colors.black,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.broken_image,
-                    color: Colors.white54,
-                    size: 80,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Failed to load image',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.white54,
-                        ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      );
-    } else {
-      return const Icon(
-        Icons.broken_image,
-        color: Colors.white54,
-        size: 100,
-      );
-    }
+        }
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) {
+          return _brokenImagePlaceholder();
+        }
+        return Image.memory(
+          bytes,
+          fit: BoxFit.contain,
+          errorBuilder: (context, error, stackTrace) =>
+              _brokenImagePlaceholder(),
+        );
+      },
+    );
   }
 
   @override
@@ -179,9 +241,9 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
             : null,
       ),
       body: hasVideo
-          ? (widget.videoUrl != null
-              ? HlsWebPlayer(videoUrl: widget.videoUrl!)
-              : _LocalVideoPlayer(file: widget.videoFile!))
+          ? (_hasUsableVideoUrl
+                ? HlsWebPlayer(videoUrl: widget.videoUrl!)
+                : _LocalVideoPlayer(file: widget.videoFile!))
           : Center(
               child: hasImage
                   ? FadeTransition(

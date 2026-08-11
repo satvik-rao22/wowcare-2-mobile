@@ -8,7 +8,6 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -130,8 +129,8 @@ class _StudentSelectionSignOutFormState
     // the teacher's allowed classrooms.
     final crossClass =
         await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-      storage: _storageService,
-    );
+          storage: _storageService,
+        );
     _classroomCubit.loadActiveClassrooms(
       applyAttendanceStaffScope: !crossClass,
     );
@@ -441,10 +440,11 @@ class _StudentSelectionSignOutFormState
                         final isLoading =
                             classroomState.isLoading || !_isClassroomDataReady;
 
-                        if (isLoading && items.isEmpty) {
-                          return const ShimmerLoader(height: 40);
-                        }
-
+                        // Render the field even with no items yet — a
+                        // shimmer here could get stuck showing forever if
+                        // loading never actually resolves. CustomDropdown's
+                        // own "No matches found" empty state covers the
+                        // case where there's genuinely nothing to pick.
                         return CustomDropdown(
                           hintText: 'Classroom',
                           items: items,

@@ -588,12 +588,27 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               if (!state.isLoading &&
                                   !state.hasConversations &&
                                   state.errorMessage == null)
-                                SliverFillRemaining(
-                                  key: const ValueKey('empty_state'),
-                                  child: _EmptyState(
-                                    hasFilters: _hasActiveFilters,
-                                  ),
-                                ),
+                                // While actively searching, the "START NEW
+                                // CHAT" section (below) can still have
+                                // content even with zero conversation
+                                // matches — SliverFillRemaining would
+                                // stretch this empty state to fill the
+                                // whole viewport and shove that section
+                                // far off-screen. Only fill-remaining when
+                                // nothing else is going to follow.
+                                _searchController.text.trim().isNotEmpty
+                                    ? SliverToBoxAdapter(
+                                        key: const ValueKey('empty_state'),
+                                        child: _EmptyState(
+                                          hasFilters: _hasActiveFilters,
+                                        ),
+                                      )
+                                    : SliverFillRemaining(
+                                        key: const ValueKey('empty_state'),
+                                        child: _EmptyState(
+                                          hasFilters: _hasActiveFilters,
+                                        ),
+                                      ),
 
                               if (state.isLoading && state.hasConversations)
                                 const SliverToBoxAdapter(
@@ -666,56 +681,77 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
         delegate: SliverChildBuilderDelegate((context, index) {
           final student = contacts[index];
           final name = '${student.firstName} ${student.lastName}'.trim();
+          // A student with no guardian linked can't be messaged (no one to
+          // receive it) — disable the row, matching web.
+          final bool isDisabled = !student.hasGuardian;
           return InkWell(
             key: ValueKey('student_contact_${student.code}'),
-            onTap: () => _startConversationWithStudent(student),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(
-                children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    imageUrl: student.profileImage,
-                    studentCode: student.code,
-                    name: name,
-                    size: 44,
+            onTap: isDisabled
+                ? null
+                : () => _startConversationWithStudent(student),
+            child: Opacity(
+              opacity: isDisabled ? 0.5 : 1,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xff573353),
-                          ),
-                        ),
-                        if ((student.primaryClassroomName ?? '').isNotEmpty)
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    DocumentImageWidget(
+                      fileUuid: '',
+                      imageUrl: student.profileImage,
+                      studentCode: student.code,
+                      name: name,
+                      size: 44,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            student.primaryClassroomName!,
+                            name,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF636E72),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xff573353),
                             ),
                           ),
-                      ],
+                          if (isDisabled)
+                            const Text(
+                              'No parent linked',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF636E72),
+                              ),
+                            )
+                          else if ((student.primaryClassroomName ?? '')
+                              .isNotEmpty)
+                            Text(
+                              student.primaryClassroomName!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF636E72),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: Color(0xFF6C5CE7),
-                  ),
-                ],
+                    if (!isDisabled)
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Color(0xFF6C5CE7),
+                      ),
+                  ],
+                ),
               ),
             ),
           );

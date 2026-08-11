@@ -188,6 +188,7 @@ class _StaffOrStudentSelectionBulkMessagingState
             'classroomCode': s.classroomCode,
             'status': s.status,
             'tags': s.tags,
+            'hasGuardian': s.hasGuardian,
           },
         )
         .toList();
@@ -363,16 +364,23 @@ class _StaffOrStudentSelectionBulkMessagingState
   void _updateSelectAllState() {
     if (_filteredList.isEmpty) {
       _selectAll = false;
+    } else if (widget.isStaffSelection) {
+      _selectAll = _filteredList.every(
+        (entry) => _selectedStaffCodes.contains(entry.value['code']),
+      );
     } else {
-      if (widget.isStaffSelection) {
-        _selectAll = _filteredList.every(
-          (entry) => _selectedStaffCodes.contains(entry.value['code']),
-        );
-      } else {
-        _selectAll = _filteredList.every(
-          (entry) => _selectedStudentCodes.contains(entry.value['code']),
-        );
-      }
+      // Students with no guardian linked are disabled and can never be
+      // selected — "Select All" only needs every SELECTABLE student picked
+      // to count as fully checked, or it could never show as checked at
+      // all whenever such a student is present in the filtered list.
+      final selectable = _filteredList.where(
+        (entry) => entry.value['hasGuardian'] as bool? ?? true,
+      );
+      _selectAll = selectable.isNotEmpty
+          ? selectable.every(
+              (entry) => _selectedStudentCodes.contains(entry.value['code']),
+            )
+          : false;
     }
   }
 
@@ -723,12 +731,29 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                               ),
                                                             );
                                                           } else {
+                                                            // Skip students
+                                                            // with no
+                                                            // guardian linked
+                                                            // — they're
+                                                            // disabled/
+                                                            // unselectable
+                                                            // individually,
+                                                            // so "Select All"
+                                                            // must not select
+                                                            // them either.
                                                             _selectedStudentCodes.addAll(
-                                                              _filteredList.map(
-                                                                (e) =>
-                                                                    e.value['code']
-                                                                        as String,
-                                                              ),
+                                                              _filteredList
+                                                                  .where(
+                                                                    (e) =>
+                                                                        e.value['hasGuardian']
+                                                                            as bool? ??
+                                                                        true,
+                                                                  )
+                                                                  .map(
+                                                                    (e) =>
+                                                                        e.value['code']
+                                                                            as String,
+                                                                  ),
                                                             );
                                                           }
                                                         } else {
@@ -796,6 +821,19 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                               person['code'],
                                                             );
 
+                                                  // A student with no
+                                                  // guardian linked can't be
+                                                  // messaged (no one to
+                                                  // receive it) — disable
+                                                  // selecting them, matching
+                                                  // web. Staff rows have no
+                                                  // such concept.
+                                                  final bool isEnabled =
+                                                      widget.isStaffSelection ||
+                                                      (person['hasGuardian']
+                                                              as bool? ??
+                                                          true);
+
                                                   return CommonSelectionItem(
                                                     key: ValueKey(
                                                       person['code'],
@@ -804,6 +842,10 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                     avatarUuid:
                                                         person['avatar'] ?? '',
                                                     isSelected: isSelected,
+                                                    isEnabled: isEnabled,
+                                                    disabledReason: isEnabled
+                                                        ? null
+                                                        : 'No parent linked',
                                                     onSelectionChanged: (bool? selected) {
                                                       setState(() {
                                                         final code =

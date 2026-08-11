@@ -1,6 +1,9 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:http/http.dart' as http;
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -183,56 +186,15 @@ class FullAttachmentViewer extends StatelessWidget {
           );
         }
 
-        return resolved.remoteUrl.isNotEmpty
-            ? _buildNetworkImageWithLQIP(resolved.remoteUrl)
-            : Image.file(
-                File(source),
-                fit: BoxFit.cover,
-                errorBuilder: (context, error, stackTrace) => Container(
-                  color: Colors.grey[200],
-                  child: const Center(
-                    child: Icon(
-                      Icons.broken_image_outlined,
-                      size: 48,
-                      color: Colors.grey,
-                    ),
-                  ),
-                ),
-              );
+        // `source` already reflects `displaySource`'s local-preferred
+        // precedence — deciding the render path from `remoteUrl.isNotEmpty`
+        // instead (as this used to) picks the network branch even when a
+        // perfectly good local file is sitting right there (e.g. right
+        // after sending, before the remote URL is reliably fetchable), and
+        // a bare Image.network has no retry for transient CDN/auth hiccups.
+        // Resolve from `source` itself and retry+validate remote fetches.
+        return _ResilientImage(source: source, fit: BoxFit.cover);
       },
-    );
-  }
-
-  Widget _buildNetworkImageWithLQIP(String url) {
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      loadingBuilder: (context, child, loadingProgress) {
-        if (loadingProgress == null) return child;
-        return Container(
-          color: Colors.grey[200],
-          child: Center(
-            child: CircularProgressIndicator(
-              value: loadingProgress.expectedTotalBytes != null
-                  ? loadingProgress.cumulativeBytesLoaded /
-                      loadingProgress.expectedTotalBytes!
-                  : null,
-              valueColor:
-                  AlwaysStoppedAnimation<Color>(AppColors.primaryColor),
-            ),
-          ),
-        );
-      },
-      errorBuilder: (context, error, stackTrace) => Container(
-        color: Colors.grey[200],
-        child: const Center(
-          child: Icon(
-            Icons.broken_image_outlined,
-            size: 48,
-            color: Colors.grey,
-          ),
-        ),
-      ),
     );
   }
 
@@ -413,6 +375,96 @@ class FullAttachmentViewer extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Renders a local file or remote URL (whichever `source` is) as an image,
+/// retrying + decode-validating remote fetches so a transient CDN/auth
+/// hiccup doesn't show as a permanently broken thumbnail.
+class _ResilientImage extends StatefulWidget {
+  const _ResilientImage({required this.source, required this.fit});
+
+  final String source;
+  final BoxFit fit;
+
+  @override
+  State<_ResilientImage> createState() => _ResilientImageState();
+}
+
+class _ResilientImageState extends State<_ResilientImage> {
+  late Future<Uint8List> _bytesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _bytesFuture = _resolveBytes(widget.source);
+  }
+
+  static bool _isRemote(String src) =>
+      src.startsWith('http://') || src.startsWith('https://');
+
+  static Future<Uint8List> _resolveBytes(String src) async {
+    if (!_isRemote(src)) {
+      try {
+        return await File(src).readAsBytes();
+      } catch (_) {
+        return Uint8List(0);
+      }
+    }
+    const attempts = 5;
+    for (var i = 0; i < attempts; i++) {
+      try {
+        final r = await http.get(Uri.parse(src));
+        if (r.statusCode == 200 && r.bodyBytes.isNotEmpty) {
+          try {
+            final codec = await ui.instantiateImageCodec(r.bodyBytes);
+            codec.dispose();
+            return r.bodyBytes;
+          } catch (_) {
+            // Falls through to retry below.
+          }
+        }
+      } catch (_) {}
+      if (i < attempts - 1) {
+        await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
+      }
+    }
+    return Uint8List(0);
+  }
+
+  Widget _broken() => Container(
+        color: Colors.grey[200],
+        child: const Center(
+          child: Icon(
+            Icons.broken_image_outlined,
+            size: 48,
+            color: Colors.grey,
+          ),
+        ),
+      );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: _bytesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            color: Colors.grey[200],
+            child: const Center(
+              child: PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
+            ),
+          );
+        }
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) return _broken();
+        return Image.memory(
+          bytes,
+          fit: widget.fit,
+          errorBuilder: (context, error, stackTrace) => _broken(),
+        );
+      },
     );
   }
 }

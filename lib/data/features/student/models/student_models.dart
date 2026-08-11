@@ -10,6 +10,7 @@ class StudentListItemModel extends Equatable {
     this.profilePhotoAssetCode,
     this.classroom = '',
     this.classroomCode = '',
+    this.hasGuardian = true,
     this.dob = '',
     this.movementDate = '',
     this.tags = const <String>[],
@@ -32,6 +33,14 @@ class StudentListItemModel extends Equatable {
   /// creation) don't have to re-resolve it by matching the name against a
   /// separately-loaded classroom list.
   final String classroomCode;
+
+  /// Whether this student has at least one guardian linked, straight from
+  /// the list API's own `hasGuardian` field. Defaults to true (don't
+  /// disable) when the field is missing so an endpoint that doesn't send it
+  /// fails open rather than disabling every student. Web disables selecting
+  /// a student without a guardian when starting a new conversation — this
+  /// is what that check is based on.
+  final bool hasGuardian;
   final String dob;
   final String movementDate;
   final List<String> tags;
@@ -162,6 +171,7 @@ class StudentListItemModel extends Equatable {
       profilePhotoAssetCode: json['profilePhotoAssetCode'] as String?,
       classroom: classroomCodeOrName,
       classroomCode: classroomCode,
+      hasGuardian: json['hasGuardian'] as bool? ?? true,
       dob: json['dob'] as String? ?? '',
       movementDate: json['movementDate'] as String? ?? '',
       tags: tags,
@@ -181,6 +191,7 @@ class StudentListItemModel extends Equatable {
         'profilePhotoAssetCode': profilePhotoAssetCode,
       'classroom': classroom,
       'classroomCode': classroomCode,
+      'hasGuardian': hasGuardian,
       'dob': dob,
       'movementDate': movementDate,
       'tags': tags,
@@ -199,6 +210,7 @@ class StudentListItemModel extends Equatable {
     profilePhotoAssetCode,
     classroom,
     classroomCode,
+    hasGuardian,
     dob,
     movementDate,
     tags,
