@@ -12,11 +12,14 @@ import 'package:wowcare/domain/features/communication/entities/unread_entity.dar
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
@@ -61,6 +64,7 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
   Future<Either<Failure, MessageEntity>> sendMessage({
     required String conversationCode,
     required String text,
+
     List<int> attachmentIds = const [],
     bool isPrivate = false,
     String? privateParentUserCode,
@@ -164,6 +168,18 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
   void emit(List<MessageEntity> messages) => _messagesController.add(messages);
 
   Future<void> dispose() => _messagesController.close();
+
+  @override
+  Future<void> cacheDraftMessage(MessageEntity message) {
+    // TODO: implement cacheDraftMessage
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> markDraftMessageFailed(String localTempCode) {
+    // TODO: implement markDraftMessageFailed
+    throw UnimplementedError();
+  }
 }
 
 class _FakeConversationEntityRepository
@@ -423,7 +439,12 @@ void main() {
       ),
       attachmentUploader: attachmentUploader,
       // Short duration so the test doesn't wait 2 real seconds.
-      markReadDebounceDuration: const Duration(milliseconds: 20), cacheDraftMessageUseCase: , markDraftMessageFailedUseCase: , getCachedMessagesEntityUseCase: ,
+      markReadDebounceDuration: const Duration(milliseconds: 20),
+      cacheDraftMessageUseCase: CacheDraftMessageUseCase(messageRepo),
+      markDraftMessageFailedUseCase: MarkDraftMessageFailedUseCase(messageRepo),
+      getCachedMessagesEntityUseCase: GetCachedMessagesEntityUseCase(
+        messageRepo,
+      ),
     );
   });
 
