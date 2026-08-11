@@ -1031,6 +1031,12 @@ class ApiPaths {
   static const String notificationPreferences =
       '/api/v1/notification/preferences';
 
+  /// GET/PATCH user notification preferences grouped by notification group
+  /// (each group lists only the channels it supports; a channel missing from
+  /// a group's `channels` means it isn't offered for that group). Notification MS.
+  static const String notificationPreferenceGroups =
+      '/api/v1/notification/preferences/groups';
+
   // —— Billing MS ——
   /// POST /api/v1/reports/billing/generate — generate a billing report (xlsx/pdf); returns the
   /// stored asset metadata so it downloads via the document service like the other reports.

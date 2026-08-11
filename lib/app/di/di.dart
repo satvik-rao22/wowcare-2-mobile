@@ -10,20 +10,20 @@ import '../../data/features/notifications/datasources/fcm_remote_data_source.dar
 import '../../data/features/notifications/datasources/notification_center_data_source.dart';
 import '../../data/features/notifications/datasources/notification_center_remote_data_source.dart';
 import '../../data/features/notifications/datasources/notification_inbox_remote_data_source.dart';
-import '../../data/features/notifications/datasources/notification_preferences_remote_data_source.dart';
+import '../../data/features/notifications/datasources/notification_preference_groups_remote_data_source.dart';
 import '../../data/features/notifications/repositories/fcm_registration_repository_impl.dart';
-import '../../data/features/notifications/repositories/notification_preferences_repository_impl.dart';
+import '../../data/features/notifications/repositories/notification_preference_groups_repository_impl.dart';
 import '../../data/features/notifications/repositories/notification_center_repository_impl.dart';
 import '../../data/features/notifications/repositories/push_notification_repository_impl.dart';
 import '../../data/features/notifications/services/fcm_token_registration_service.dart';
 import '../../domain/features/notifications/repositories/fcm_registration_repository.dart';
 import '../../domain/features/notifications/repositories/notification_center_repository.dart';
-import '../../domain/features/notifications/repositories/notification_preferences_repository.dart';
+import '../../domain/features/notifications/repositories/notification_preference_groups_repository.dart';
 import '../../domain/features/notifications/repositories/push_notification_repository.dart';
-import '../../domain/features/notifications/usecases/get_notification_preferences_usecase.dart';
+import '../../domain/features/notifications/usecases/get_notification_preference_groups_usecase.dart';
 import '../../domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
 import '../../domain/features/notifications/usecases/get_notifications_usecase.dart';
-import '../../domain/features/notifications/usecases/update_notification_preferences_usecase.dart';
+import '../../domain/features/notifications/usecases/update_notification_preference_groups_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_all_notifications_read_usecase.dart';
 import '../../domain/features/notifications/usecases/mark_notification_read_usecase.dart';
 import '../../domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
@@ -32,7 +32,7 @@ import '../../data/features/notifications/realtime/notification_realtime_data_so
 import '../../presentation/features/notifications/cubit/notification_badge_cubit.dart';
 import '../../presentation/features/notifications/cubit/notification_center_cubit.dart';
 import '../../presentation/features/notifications/cubit/push_notification_cubit.dart';
-import '../../presentation/features/user-profile/view_model/notification_settings_cubit.dart';
+import '../../presentation/features/user-profile/view_model/notification_preference_groups_cubit.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/auth_interceptor.dart';
 import '../../core/network/network_info.dart';
@@ -1905,25 +1905,25 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
 
-  // Notification preferences (settings screen) — GET/PATCH /preferences.
-  serviceLocator.registerLazySingleton<NotificationPreferencesRemoteDataSource>(
-    () => NotificationPreferencesRemoteDataSourceImpl(
+  // Notification preferences (settings screen) — GET/PATCH /preferences/groups.
+  serviceLocator.registerLazySingleton<NotificationPreferenceGroupsRemoteDataSource>(
+    () => NotificationPreferenceGroupsRemoteDataSourceImpl(
       serviceLocator<ApiClient>().client,
     ),
   );
-  serviceLocator.registerLazySingleton<NotificationPreferencesRepository>(
-    () => NotificationPreferencesRepositoryImpl(serviceLocator()),
+  serviceLocator.registerLazySingleton<NotificationPreferenceGroupsRepository>(
+    () => NotificationPreferenceGroupsRepositoryImpl(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetNotificationPreferencesUseCase>(
-    () => GetNotificationPreferencesUseCase(serviceLocator()),
+  serviceLocator.registerFactory<GetNotificationPreferenceGroupsUseCase>(
+    () => GetNotificationPreferenceGroupsUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<UpdateNotificationPreferencesUseCase>(
-    () => UpdateNotificationPreferencesUseCase(serviceLocator()),
+  serviceLocator.registerFactory<UpdateNotificationPreferenceGroupsUseCase>(
+    () => UpdateNotificationPreferenceGroupsUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<NotificationSettingsCubit>(
-    () => NotificationSettingsCubit(
-      getPreferences: serviceLocator(),
-      updatePreferences: serviceLocator(),
+  serviceLocator.registerFactory<NotificationPreferenceGroupsCubit>(
+    () => NotificationPreferenceGroupsCubit(
+      getGroups: serviceLocator(),
+      updateGroups: serviceLocator(),
       storage: serviceLocator(),
     ),
   );
