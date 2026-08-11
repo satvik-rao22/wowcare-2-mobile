@@ -1,6 +1,4 @@
 import 'dart:async';
-
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 // UI-only: use wowcare widgets and theme; backend/bloc imports removed
@@ -25,6 +23,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
+import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
 
 // UI-only lightweight types
 class _TagEntity {
@@ -84,6 +83,7 @@ class _AssignStudentToClassroomFormState
   final List<StudentEntity> _allStudents = [];
   final List<String> _allRooms = [];
   final List<String> _allTags = [];
+  Set<String> _assignedStudentCodes = {};
   bool _isLoadingStudents = false;
   String? _studentsError;
   Set<StudentEntity> selectedStudents = {};
@@ -106,6 +106,13 @@ class _AssignStudentToClassroomFormState
   @override
   void initState() {
     super.initState();
+    try {
+      final cubit = serviceLocator<ClassroomStudentsCubit>();
+      _assignedStudentCodes = cubit.state.students
+          .map((s) => s.studentCode.trim().toUpperCase())
+          .where((code) => code.isNotEmpty)
+          .toSet();
+    } catch (_) {}
     _loadStudentsFromApi();
     _searchController.addListener(_onSearchChanged);
   }
@@ -241,8 +248,8 @@ class _AssignStudentToClassroomFormState
   void _filterStudents() {
     final allStudents = _allStudents;
     _filteredStudents = allStudents.where((student) {
-      // Exclude students already in the selected classroom from ClassroomScreen
-      if ((student.roomName ?? '').trim() == widget.selectedRoomName.trim()) {
+      // Exclude students already assigned to the selected classroom
+      if (_assignedStudentCodes.contains(student.code.trim().toUpperCase())) {
         return false;
       }
       bool matchesSearch = true;
@@ -332,16 +339,21 @@ class _AssignStudentToClassroomFormState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Assign to ${widget.selectedRoomName}',
-                style: const TextStyle(
-                  fontFamily: 'Manrope',
-                  fontSize: 20,
-                  fontWeight: FontWeight.w600,
+              Expanded(
+                child: Text(
+                  'Assign to ${widget.selectedRoomName}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontFamily: 'Manrope',
+                    fontSize: 20,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.close),
                 onPressed: () => Navigator.pop(context),
@@ -550,8 +562,8 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
   Future<void> _loadTargetClassroom() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (schoolCode.isEmpty) return;
       final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
         schoolCode: schoolCode,
@@ -640,6 +652,8 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
               Expanded(
                 child: Text(
                   'Assign to ${widget.selectedRoomName}',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 20,

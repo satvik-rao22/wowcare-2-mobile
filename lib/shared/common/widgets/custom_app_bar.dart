@@ -428,20 +428,47 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
         PopupMenuItem<int>(
           enabled: false,
           height: 64,
-          child: Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 240),
-              child: Padding(
-                padding: const EdgeInsets.only(
-                  left: 4,
-                  right: 10,
-                  top: 8,
-                  bottom: 8,
-                ),
-                child: BlocProvider.value(
-                  value: _profileHeaderCubit,
-                  child: ProfileMenuHeader(isParentPersona: isParentPersona),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () async {
+              Navigator.of(context).pop();
+
+              if (currentRoute == UserProfileScreen.routeName) return;
+              final storage = serviceLocator<StorageService>();
+              final name =
+                  (await storage.getString(StorageKeys.displayName) ?? '').trim();
+              final email = (await storage.getString(StorageKeys.email) ?? '')
+                  .trim();
+              final activeRole =
+                  (await storage.getString(StorageKeys.activeSchoolRole) ?? '')
+                      .trim();
+              if (!context.mounted) return;
+              context.go(
+                UserProfileScreen.routeName,
+                extra: <String, dynamic>{
+                  'userName': name,
+                  'userEmail': email,
+                  'userPersona': activeRole,
+                },
+              );
+            },
+            child: IgnorePointer(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 240),
+                  child: Padding(
+                    padding: const EdgeInsets.only(
+                      left: 4,
+                      right: 10,
+                      top: 8,
+                      bottom: 8,
+                    ),
+                    child: BlocProvider.value(
+                      value: _profileHeaderCubit,
+                      child: ProfileMenuHeader(isParentPersona: isParentPersona),
+                    ),
+                  ),
                 ),
               ),
             ),

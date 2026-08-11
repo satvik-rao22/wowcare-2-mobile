@@ -50,6 +50,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -1339,10 +1340,16 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         },
                       ),
                       const SizedBox(height: 15),
-                      const Text(
-                        "Version : 1.3.9",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white),
+                      FutureBuilder<PackageInfo>(
+                        future: PackageInfo.fromPlatform(),
+                        builder: (context, snapshot) {
+                          final version = snapshot.hasData ? snapshot.data!.version : '';
+                          return Text(
+                            version.isNotEmpty ? "Version : $version" : "",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white),
+                          );
+                        },
                       ),
                     ],
                   ),
