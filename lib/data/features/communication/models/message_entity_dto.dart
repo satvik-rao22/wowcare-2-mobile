@@ -125,9 +125,22 @@ class MessageEntityDto {
               ?.map((e) => ReactionDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
-      readReceipts: (json['readReceipts'] as List<dynamic>?)
-              ?.map((e) =>
-                  ReadReceiptEntityDto.fromJson(e as Map<String, dynamic>))
+      // The list endpoint's actual key is `receipts`, not `readReceipts` —
+      // confirmed against a live payload (GET .../messages/conversation/
+      // {code}). This was silently parsing to an empty list every time,
+      // regardless of what the backend sent, which is why ticks/message-
+      // info never reflected per-recipient delivered/read state — only
+      // whatever the message's own coarse top-level `status` happened to
+      // say. `readReceipts` is kept as a fallback in case some other
+      // response shape genuinely uses that key.
+      readReceipts: ((json['receipts'] ?? json['readReceipts'])
+                  as List<dynamic>?)
+              ?.map(
+                (e) => ReadReceiptEntityDto.fromJson(
+                  e as Map<String, dynamic>,
+                  fallbackMessageCode: json['code'] as String? ?? '',
+                ),
+              )
               .toList() ??
           [],
       // The REST DTO carries the quoted-message context under `parent*` keys
@@ -351,10 +364,22 @@ class ReadReceiptEntityDto {
   final DateTime? deliveredAt;
   final DateTime? readAt;
 
-  factory ReadReceiptEntityDto.fromJson(Map<String, dynamic> json) {
+  factory ReadReceiptEntityDto.fromJson(
+    Map<String, dynamic> json, {
+    String fallbackMessageCode = '',
+  }) {
     return ReadReceiptEntityDto(
-      messageCode: json['messageCode'] as String? ?? '',
+      // The per-receipt payload only carries the numeric `messageId`
+      // (matching its parent message's own `id`, not `code`) — there's no
+      // `messageCode` field on the receipt itself, so fall back to the
+      // parent message's code (already known at the call site).
+      messageCode: json['messageCode'] as String? ?? fallbackMessageCode,
       userCode: json['userCode'] as String? ?? '',
+      // Confirmed against a live payload: `userName` is always null on
+      // this endpoint — display name isn't available at this layer, same
+      // as the realtime path (see MessageFirestoreItem's doc comment on
+      // ReadReceiptEntity.userName). Callers must show a generic label
+      // instead of a blank/raw-code name.
       userName: json['userName'] as String? ?? '',
       deliveredAt: json['deliveredAt'] != null
           ? DateTime.parse(json['deliveredAt'] as String)

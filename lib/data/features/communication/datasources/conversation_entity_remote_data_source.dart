@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_paths.dart';
@@ -6,14 +7,24 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 
 abstract class ConversationEntityRemoteDataSource {
+  /// Mirrors the backend's `getConversationsByType` filter contract exactly
+  /// (`classroomCodes`, `tagCodes`, `designations`, `studentStatuses`,
+  /// `staffStatuses`, `search`, `unreadOnly`) — the same shape already used
+  /// by the student (`classroomCodes`/`tagCodes`) and staff list endpoints,
+  /// so the messaging conversation list can finally be filtered server-side
+  /// instead of client-side against a separately-filtered roster.
   Future<List<ConversationEntityDto>> getConversations({
     ConversationType? type,
     String status,
     int page,
     int size,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
   });
 
   /// Returns the existing STAFF_DIRECT conversation between the current user
@@ -122,29 +133,67 @@ class ConversationEntityRemoteDataSourceImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
   }) async {
     final path = type != null
         ? ApiPaths.messagingConversationsByType(type.toApiString())
         : ApiPaths.messagingConversations;
 
-    // Build query parameters
-    var queryParams = 'status=$status&page=$page&size=$size';
-    if (designation != null && designation.isNotEmpty) {
-      queryParams += '&designation=${Uri.encodeComponent(designation)}';
-    }
-    if (staffStatus != null && staffStatus.isNotEmpty) {
-      queryParams += '&staffStatus=${Uri.encodeComponent(staffStatus)}';
-    }
-    if (classroom != null && classroom.isNotEmpty) {
-      queryParams += '&classroom=${Uri.encodeComponent(classroom)}';
+    final queryParameters = <String, dynamic>{
+      'status': status,
+      'page': page,
+      'size': size,
+    };
+
+    List<String>? clean(List<String>? values) {
+      final result = values?.where((v) => v.trim().isNotEmpty).toList();
+      return (result != null && result.isNotEmpty) ? result : null;
     }
 
-    final endpoint = _url('$path?$queryParams');
+    final cleanClassrooms = clean(classroomCodes);
+    if (cleanClassrooms != null) {
+      queryParameters['classroomCodes'] = cleanClassrooms;
+    }
+    final cleanTags = clean(tagCodes);
+    if (cleanTags != null) {
+      queryParameters['tagCodes'] = cleanTags;
+    }
+    final cleanDesignations = clean(designations);
+    if (cleanDesignations != null) {
+      queryParameters['designations'] = cleanDesignations;
+    }
+    final cleanStudentStatuses = clean(studentStatuses);
+    if (cleanStudentStatuses != null) {
+      queryParameters['studentStatuses'] = cleanStudentStatuses;
+    }
+    final cleanStaffStatuses = clean(staffStatuses);
+    if (cleanStaffStatuses != null) {
+      queryParameters['staffStatuses'] = cleanStaffStatuses;
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      queryParameters['search'] = search.trim();
+    }
+    if (unreadOnly == true) {
+      queryParameters['unreadOnly'] = true;
+    }
 
-    final response = await apiClient.client.get(endpoint);
+    final endpoint = _url(path);
+
+    // Spring expects repeated query keys for collections, e.g.
+    // tagCodes=T1&tagCodes=T2 — not bracket or CSV serialization. Mirrors
+    // the student/staff list datasources' pattern (see
+    // StudentRemoteDataSourceImpl.getStudentPage).
+    final response = await apiClient.client.get(
+      endpoint,
+      queryParameters: queryParameters,
+      options: Options(listFormat: ListFormat.multi),
+    );
     _assertSuccess(response.data, 'Failed to load conversations');
 
     final content = response.data['data']['content'] as List<dynamic>? ?? [];

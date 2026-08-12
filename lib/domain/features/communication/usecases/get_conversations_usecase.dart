@@ -13,12 +13,24 @@ class GetConversationsUseCase {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) {
     return _repository.getConversations(
       type: type,
       status: status,
       page: page,
       size: size,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      designations: designations,
+      studentStatuses: studentStatuses,
+      staffStatuses: staffStatuses,
+      search: search,
     );
   }
 }

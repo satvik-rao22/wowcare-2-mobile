@@ -395,14 +395,36 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   }
 
   /// Clears the full Isar conversations cache then reloads from API.
+  ///
+  /// [classroomCodes]/[tagCodes]/[designations]/[studentStatuses]/
+  /// [staffStatuses]/[search] mirror the backend's getConversationsByType
+  /// query contract exactly — the caller (e.g. StaffMessagingTab, which owns
+  /// the filter selection state) passes through whatever's currently active.
   Future<void> refreshConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     await clearConversationsCacheUseCase();
-    await loadConversations(type: type, status: status, page: page, size: size);
+    await loadConversations(
+      type: type,
+      status: status,
+      page: page,
+      size: size,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      designations: designations,
+      studentStatuses: studentStatuses,
+      staffStatuses: staffStatuses,
+      search: search,
+    );
     // The top app bar's bell badge (UnreadBadgeCubit) is a separate app-wide
     // singleton with its own Firestore stream, not touched by the above — a
     // pull-to-refresh here could otherwise leave it visibly stale. Its own
@@ -416,6 +438,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     // 1. Try Loading from cache first for better UX
     if (page == 0) {
@@ -449,6 +477,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       status: status,
       page: page,
       size: size,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      designations: designations,
+      studentStatuses: studentStatuses,
+      staffStatuses: staffStatuses,
+      search: search,
     );
     if (isClosed) return;
 
@@ -503,6 +537,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     String? type,
     String status = 'ACTIVE',
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     final current = state;
     if (current is! CommunicationConversationsLoaded) return;
@@ -522,6 +562,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       status: status,
       page: nextPage,
       size: size,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      designations: designations,
+      studentStatuses: studentStatuses,
+      staffStatuses: staffStatuses,
+      search: search,
     );
     if (isClosed) return;
 
@@ -938,6 +984,30 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         errorMessage: failure.message ?? 'Unknown error',
       ),
       (sentMessage) async {
+        // The create-message REST response doesn't echo back the attachment
+        // objects (confirmed against a live payload — always comes back
+        // empty even when the message genuinely has attachments), so
+        // trusting `sentMessage.attachments` as-is replaces the optimistic
+        // bubble's correct, already-uploaded attachments with nothing the
+        // instant the send confirms — the image was there right up until
+        // the checkmark appeared, then vanished. Keep what we already know
+        // is right: the attachments we just finished uploading.
+        final confirmed = sentMessage.attachments.isEmpty &&
+                messageToSend.attachments.isNotEmpty
+            ? sentMessage.copyWith(attachments: messageToSend.attachments)
+            : sentMessage;
+
+        // Without this, the fix above only survives until the NEXT realtime/
+        // Isar-cache emission for this thread (near-instant — the send
+        // itself just caused one), which has no `_recentLocalMutations`
+        // protection here and so silently overwrites `confirmed` right back
+        // with the same attachment-less version — the image would flash
+        // correctly for a moment, then vanish again, same as before this
+        // guard was added. `startWatchingThread`'s merge already respects
+        // this map for reactions/edits/deletes; sending was the one mutation
+        // that never registered itself with it.
+        _markRecentlyMutated(confirmed.code);
+
         // Update state with confirmed message — merged onto whatever is
         // CURRENT right now (see _latestLoadedState), not a pre-upload
         // snapshot, so nothing Firestore delivered during the upload wait
@@ -951,9 +1021,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         );
         final idx = threadMessages.indexWhere((m) => m.id == tempMessage.id);
         if (idx != -1) {
-          threadMessages[idx] = sentMessage;
+          threadMessages[idx] = confirmed;
         } else {
-          threadMessages.add(sentMessage);
+          threadMessages.add(confirmed);
         }
         confirmedThreads[threadId] = _sortByTime(threadMessages);
 

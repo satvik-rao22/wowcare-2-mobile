@@ -66,6 +66,11 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   /// students, which was dropping most tags from the Admin filter.
   List<String> _schoolTagNames = [];
 
+  /// Tag display name -> tag code, from the same school-tags fetch as
+  /// [_schoolTagNames]. The filter sheet works in display names (what the
+  /// user picks), but the backend's `tagCodes` query param needs codes.
+  Map<String, String> _tagNameToCode = {};
+
   /// Backs the "Start new chat" section shown when searching matches a
   /// student who has no admin-chat conversation yet.
   late final StudentCubit _studentCubit;
@@ -162,7 +167,52 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       schoolCode: schoolCode,
     );
     if (!mounted) return;
-    setState(() => _schoolTagNames = map.keys.toList());
+    setState(() {
+      _schoolTagNames = map.keys.toList();
+      _tagNameToCode = map;
+    });
+  }
+
+  /// Classroom display label -> classroom code, built from the currently
+  /// loaded students (same source as [_classroomOptions]). The filter sheet
+  /// works in display labels; the backend's `classroomCodes` query param
+  /// needs codes.
+  Map<String, String> _classroomLabelToCode() {
+    final map = <String, String>{};
+    for (final s in _studentCubit.state.items) {
+      final label = _classroomLabel(s);
+      if (label.isNotEmpty && s.classroomCode.isNotEmpty) {
+        map[label] = s.classroomCode;
+      }
+    }
+    return map;
+  }
+
+  /// Pushes the current classroom/tag/status selection to the server via
+  /// [_cubit] — this is what actually narrows the conversation list now,
+  /// replacing the old approach of fetching everything and cross-matching
+  /// client-side against a separately-filtered student roster (which never
+  /// touched the conversations endpoint's own query params).
+  Future<void> _applyServerFilters() async {
+    if (!_hasStudentFilters) {
+      await _cubit.clearFilters();
+      return;
+    }
+    final classroomCodes = _classroomLabelToCode();
+    final tagCodes = _tagNameToCode;
+    await _cubit.applyFilters(
+      classroomCodes: _selectedClassrooms
+          .map((label) => classroomCodes[label])
+          .whereType<String>()
+          .toList(),
+      tagCodes: _selectedTags
+          .map((name) => tagCodes[name])
+          .whereType<String>()
+          .toList(),
+      studentStatuses: _selectedStatus != null
+          ? [_selectedStatus!.toUpperCase()]
+          : const [],
+    );
   }
 
   /// Tag names for the filter sheet — the full school tag list, unioned with any
@@ -176,41 +226,16 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     return list;
   }
 
-  bool _matchesStudentFilters(
-    ConversationEntity c,
-    Map<String, Student> byCode,
-  ) {
-    final code = c.studentCode;
-    // Filtering is active but this conversation's student isn't loaded/known —
-    // exclude it (we can't confirm a match).
-    final s = (code == null || code.isEmpty) ? null : byCode[code];
-    if (s == null) return false;
-    if (_selectedStatus != null &&
-        s.status.toUpperCase() != _selectedStatus!.toUpperCase()) {
-      return false;
-    }
-    if (_selectedClassrooms.isNotEmpty) {
-      final label = _classroomLabel(s).toLowerCase();
-      if (!_selectedClassrooms.any((sel) => sel.toLowerCase() == label)) {
-        return false;
-      }
-    }
-    if (_selectedTags.isNotEmpty) {
-      if (!s.tags.any((t) => _selectedTags.contains(t))) return false;
-    }
-    return true;
-  }
-
+  /// Classroom/tag/status narrowing now happens server-side (see
+  /// [_applyServerFilters] — the conversations the cubit holds are already
+  /// filtered by the time they get here). This only applies the two
+  /// filters that stay client-side by nature: the unread toggle (cheap to
+  /// check on the already-loaded page) and the live search-as-you-type text.
   List<ConversationEntity> _filtered(List<ConversationEntity> all) {
     final q = _searchController.text.trim().toLowerCase();
-    final hasStudentFilters = _hasStudentFilters;
-    final Map<String, Student> byCode = hasStudentFilters
-        ? {for (final s in _studentCubit.state.items) s.code: s}
-        : const {};
     return all.where((c) {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
-      if (hasStudentFilters && !_matchesStudentFilters(c, byCode)) return false;
       return true;
     }).toList();
   }
@@ -256,6 +281,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
               final status = filters['Status'] ?? const [];
               _selectedStatus = status.isEmpty ? null : status.first;
             });
+            unawaited(_applyServerFilters());
           },
         ),
       ),
@@ -526,13 +552,16 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                             const Spacer(),
                             CustomClearAllChip(
                               label: 'Clear All',
-                              onTap: () => setState(() {
-                                _showUnreadOnly = false;
-                                _searchController.clear();
-                                _selectedClassrooms = {};
-                                _selectedTags = {};
-                                _selectedStatus = null;
-                              }),
+                              onTap: () {
+                                setState(() {
+                                  _showUnreadOnly = false;
+                                  _searchController.clear();
+                                  _selectedClassrooms = {};
+                                  _selectedTags = {};
+                                  _selectedStatus = null;
+                                });
+                                unawaited(_cubit.clearFilters());
+                              },
                             ),
                           ],
                         ),

@@ -216,11 +216,10 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                                           !_isGuardian))
                                     FilterIndicator(
                                       hasActiveFilters: state.hasActiveFilters,
-                                      filterCount: [
-                                        state.activeDesignation,
-                                        state.activeStaffStatus,
-                                        state.activeClassroom,
-                                      ].where((f) => f != null).length,
+                                      filterCount:
+                                          state.activeDesignations.length +
+                                          state.activeStaffStatuses.length +
+                                          state.activeClassroomCodes.length,
                                       onTap: () => _showFilterSheet(context),
                                     ),
                                   _TypeChip(type: state.conversationType),
@@ -235,46 +234,57 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                               child: Wrap(
                                 spacing: 6,
                                 children: [
-                                  if (state.activeDesignation != null)
+                                  for (final d in state.activeDesignations)
                                     _FilterChip(
-                                      label: state.activeDesignation!,
+                                      label: d,
                                       onRemove: () {
                                         context
                                             .read<ConversationListCubit>()
                                             .applyFilters(
-                                              designation: null,
-                                              staffStatus:
-                                                  state.activeStaffStatus,
-                                              classroom: state.activeClassroom,
+                                              designations: state
+                                                  .activeDesignations
+                                                  .where((x) => x != d)
+                                                  .toList(),
+                                              staffStatuses:
+                                                  state.activeStaffStatuses,
+                                              classroomCodes:
+                                                  state.activeClassroomCodes,
                                             );
                                       },
                                     ),
-                                  if (state.activeStaffStatus != null)
+                                  for (final s in state.activeStaffStatuses)
                                     _FilterChip(
-                                      label: state.activeStaffStatus!,
+                                      label: s,
                                       onRemove: () {
                                         context
                                             .read<ConversationListCubit>()
                                             .applyFilters(
-                                              designation:
-                                                  state.activeDesignation,
-                                              staffStatus: null,
-                                              classroom: state.activeClassroom,
+                                              designations:
+                                                  state.activeDesignations,
+                                              staffStatuses: state
+                                                  .activeStaffStatuses
+                                                  .where((x) => x != s)
+                                                  .toList(),
+                                              classroomCodes:
+                                                  state.activeClassroomCodes,
                                             );
                                       },
                                     ),
-                                  if (state.activeClassroom != null)
+                                  for (final c in state.activeClassroomCodes)
                                     _FilterChip(
-                                      label: state.activeClassroom!,
+                                      label: c,
                                       onRemove: () {
                                         context
                                             .read<ConversationListCubit>()
                                             .applyFilters(
-                                              designation:
-                                                  state.activeDesignation,
-                                              staffStatus:
-                                                  state.activeStaffStatus,
-                                              classroom: null,
+                                              designations:
+                                                  state.activeDesignations,
+                                              staffStatuses:
+                                                  state.activeStaffStatuses,
+                                              classroomCodes: state
+                                                  .activeClassroomCodes
+                                                  .where((x) => x != c)
+                                                  .toList(),
                                             );
                                       },
                                     ),

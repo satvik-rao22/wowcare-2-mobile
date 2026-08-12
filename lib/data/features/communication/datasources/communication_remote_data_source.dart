@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/create_conversation_request.dart';
@@ -25,11 +26,21 @@ abstract class CommunicationRemoteDataSource {
   Future<ConversationModel> createConversation(
     CreateConversationRequest request,
   );
+  /// Mirrors the backend's `getConversationsByType` filter contract
+  /// (`classroomCodes`, `tagCodes`, `designations`, `studentStatuses`,
+  /// `staffStatuses`, `search`) — the same shape the student/staff list
+  /// endpoints already use.
   Future<GetConversationsResponse> getConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   });
   Future<GetConversationsResponse> searchConversations({
     required String query,
@@ -287,17 +298,65 @@ class CommunicationRemoteDataSourceImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     final path = type != null
         ? '${ApiPaths.messagingCreateMessage}/type/$type'
         : ApiPaths.messagingCreateMessage;
 
     final endpoint = ApiPaths.urlWithBase(
-      '$path?status=$status&page=$page&size=$size',
+      path,
       ApiConstants.communicationBaseUrl,
     );
 
-    final response = await apiClient.client.get(endpoint);
+    final queryParameters = <String, dynamic>{
+      'status': status,
+      'page': page,
+      'size': size,
+    };
+
+    List<String>? clean(List<String>? values) {
+      final result = values?.where((v) => v.trim().isNotEmpty).toList();
+      return (result != null && result.isNotEmpty) ? result : null;
+    }
+
+    final cleanClassrooms = clean(classroomCodes);
+    if (cleanClassrooms != null) {
+      queryParameters['classroomCodes'] = cleanClassrooms;
+    }
+    final cleanTags = clean(tagCodes);
+    if (cleanTags != null) {
+      queryParameters['tagCodes'] = cleanTags;
+    }
+    final cleanDesignations = clean(designations);
+    if (cleanDesignations != null) {
+      queryParameters['designations'] = cleanDesignations;
+    }
+    final cleanStudentStatuses = clean(studentStatuses);
+    if (cleanStudentStatuses != null) {
+      queryParameters['studentStatuses'] = cleanStudentStatuses;
+    }
+    final cleanStaffStatuses = clean(staffStatuses);
+    if (cleanStaffStatuses != null) {
+      queryParameters['staffStatuses'] = cleanStaffStatuses;
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      queryParameters['search'] = search.trim();
+    }
+
+    // Spring expects repeated query keys for collections, e.g.
+    // tagCodes=T1&tagCodes=T2 — not bracket or CSV serialization. Mirrors
+    // the student/staff list datasources' pattern.
+    final response = await apiClient.client.get(
+      endpoint,
+      queryParameters: queryParameters,
+      options: Options(listFormat: ListFormat.multi),
+    );
 
     return GetConversationsResponse.fromJson(response.data);
   }

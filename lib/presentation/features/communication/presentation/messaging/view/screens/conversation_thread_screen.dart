@@ -29,7 +29,7 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_t
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/message_status_dialog.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
@@ -633,6 +633,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       if (p.userName.isNotEmpty) p.userCode: p.userName,
   };
 
+  /// userCode → role, for the role label in the message info dialog.
+  Map<String, String> get _participantRoleByCode => {
+    for (final p in _conversation.participants)
+      p.userCode: p.role.toApiString(),
+  };
+
+  /// userCode → avatar (resolved URL or raw media-asset code), for the
+  /// avatar in the message info dialog.
+  Map<String, String> get _participantAvatarByCode => {
+    for (final p in _conversation.participants)
+      if ((p.avatarUrl ?? '').isNotEmpty) p.userCode: p.avatarUrl!,
+  };
+
   List<ParticipantDisplayData> get _participantData =>
       _conversation.participants.map((p) {
         final roleStr = p.role.toApiString().toUpperCase();
@@ -650,6 +663,41 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       context,
       participants: _participantData,
       studentName: _conversation.title,
+    );
+  }
+
+  void _showMessageInfoDialog(BuildContext context, MessageEntity msg) {
+    final readCodes = msg.readReceipts
+        .where((r) => r.isRead)
+        .map((r) => r.userCode)
+        .toSet();
+    MessageInfoRecipient toInfoRecipient(
+      ReadReceiptEntity r, {
+      DateTime? deliveredAt,
+      DateTime? readAt,
+    }) {
+      return MessageInfoRecipient(
+        name: r.userName.isNotEmpty
+            ? r.userName
+            : (_participantNameByCode[r.userCode] ?? 'Participant'),
+        role: _participantRoleByCode[r.userCode],
+        avatarSource: _participantAvatarByCode[r.userCode],
+        deliveredAt: deliveredAt,
+        readAt: readAt,
+      );
+    }
+
+    final recipients = <MessageInfoRecipient>[
+      for (final r in msg.readReceipts)
+        if (r.isRead) toInfoRecipient(r, readAt: r.readAt),
+      for (final r in msg.readReceipts)
+        if (!readCodes.contains(r.userCode) && r.deliveredAt != null)
+          toInfoRecipient(r, deliveredAt: r.deliveredAt),
+    ];
+    MessageInfoDialog.show(
+      context,
+      messageText: msg.text,
+      recipients: recipients,
     );
   }
 
@@ -1569,7 +1617,18 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     ? null
                     : () async {
                         await _cubit.deleteMessage(msg.code);
-                        if (context.mounted) {
+                        if (!context.mounted) return;
+                        // deleteMessage has no return value to check — the
+                        // BlocListener below already shows the real API
+                        // error (e.g. "delete window has passed") when
+                        // ConversationThreadState.errorMessage gets set on
+                        // failure. Showing a success toast unconditionally
+                        // here, regardless of outcome, meant a failed
+                        // delete showed BOTH a false green "deleted
+                        // successfully" toast AND the real error right
+                        // after it. Only confirm success when the state
+                        // agrees nothing went wrong.
+                        if (_cubit.state.errorMessage == null) {
                           CoreUtils.showTopSnackBar(
                             context: context,
                             message: 'Message deleted successfully',
@@ -1579,11 +1638,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                       },
                 onInfo: msg.isDeleted
                     ? null
-                    : () => MessageStatusDialog.show(
-                        context,
-                        message: msg,
-                        nameByCode: _participantNameByCode,
-                      ),
+                    : () => _showMessageInfoDialog(context, msg),
                 onDeleteAttachment: (attachment) {
                   if (attachment.attachmentId != null) {
                     _cubit.deleteAttachment(
@@ -1683,7 +1738,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.errorMessage!,
-            isSuccess: false,
+            isError: true,
           );
           Future.delayed(const Duration(milliseconds: 300), () {
             if (mounted) _cubit.clearError();

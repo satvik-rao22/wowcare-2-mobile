@@ -21,12 +21,12 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import '../widgets/thread_message_tile.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -389,6 +389,29 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           ),
         );
       },
+    );
+  }
+
+  /// Delete a message and acknowledge the real outcome: a success toast, or
+  /// the server's reason (e.g. the delete window has passed) — mirrors
+  /// ParentMessagingThread's `_deleteMessageWithFeedback`. The two inline
+  /// `onDelete` handlers this replaces called `deleteMessage` without
+  /// awaiting it and showed an unconditional green "deleted successfully"
+  /// toast regardless of the outcome — a 403 (delete window passed) showed
+  /// as a false success and the user was never told it actually failed.
+  Future<void> _deleteMessageWithFeedback(String messageCode) async {
+    final failure = await context.read<CommunicationCubit>().deleteMessage(
+      widget.staffInfo['code'] as String,
+      messageCode,
+    );
+    if (!mounted) return;
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: failure == null
+          ? 'Message deleted successfully'
+          : (failure.message ?? 'Failed to delete message.'),
+      isSuccess: failure == null,
+      isError: failure != null,
     );
   }
 
@@ -774,23 +797,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                       ),
                                                 onDelete: message.isDeleted
                                                     ? null
-                                                    : () {
-                                                        context
-                                                            .read<
-                                                              CommunicationCubit
-                                                            >()
-                                                            .deleteMessage(
-                                                              widget.staffInfo['code']
-                                                                  as String,
-                                                              message.code,
-                                                            );
-                                                        CoreUtils.showTopSnackBar(
-                                                          context: context,
-                                                          message:
-                                                              'Message deleted successfully',
-                                                          isSuccess: true,
-                                                        );
-                                                      },
+                                                    : () =>
+                                                          _deleteMessageWithFeedback(
+                                                            message.code,
+                                                          ),
                                                 onInfo: message.isDeleted
                                                     ? null
                                                     : () =>
@@ -1082,23 +1092,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                             context,
                                                             message,
                                                           ),
-                                                      onDelete: () {
-                                                        context
-                                                            .read<
-                                                              CommunicationCubit
-                                                            >()
-                                                            .deleteMessage(
-                                                              widget.staffInfo['code']
-                                                                  as String,
-                                                              message.code,
-                                                            );
-                                                        CoreUtils.showTopSnackBar(
-                                                          context: context,
-                                                          message:
-                                                              'Message deleted successfully',
-                                                          isSuccess: true,
-                                                        );
-                                                      },
+                                                      onDelete: () =>
+                                                          _deleteMessageWithFeedback(
+                                                            message.code,
+                                                          ),
                                                       onInfo: () =>
                                                           _showMessageStatusDialog(
                                                             context,
@@ -1645,148 +1642,6 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     );
   }
 
-  void _showMessageStatusDialog(BuildContext context, Message message) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-        title: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const CustomTextWidget(
-                text: 'Message Info',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.primaryColor),
-                onPressed: () => Navigator.pop(dialogContext),
-              ),
-            ],
-          ),
-        ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(dialogContext).size.height * 0.55,
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CustomTextWidget(
-                  text: 'Message Content',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    //color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primaryColor, width: 1),
-                  ),
-                  child: CustomTextWidget(
-                    text: MessageContentProcessor.stripHtmlTags(message.text),
-                    fontSize: 15,
-                    unlimitedLines: true,
-                    overflow: TextOverflow.visible,
-                    softWrap: true,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Delivery & Read info
-                _buildStatusSection(message),
-
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            width: double.infinity,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const CustomTextWidget(
-                text: 'Close',
-                fontColor: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusSection(Message message) {
-    // A message only reaches this dialog once it already exists in the
-    // thread — i.e. it has been sent. Empty delivered/read lists mean no one
-    // has seen it yet, NOT that it's still sending; show that distinction
-    // per-section (matching the web client) instead of a blanket
-    // "still sending" that was wrong for every already-sent message with no
-    // receipts yet.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const CustomTextWidget(
-          text: 'Status',
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
-        const SizedBox(height: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            _buildRecipientList(
-              title: 'Delivered To',
-              icon: Icons.check_circle_outline,
-              recipients: message.deliveredTo,
-              fallbackTime: message.deliveredAt,
-              color: Colors.blueGrey,
-              emptyText: 'Not yet delivered',
-            ),
-            const SizedBox(height: 8),
-            _buildRecipientList(
-              title: 'Read By',
-              icon: Icons.done_all,
-              recipients: message.readBy,
-              fallbackTime: message.readAt,
-              color: AppColors.primaryColor,
-              emptyText: 'No one has read this message yet',
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
   /// Resolves a receipt to a display name. Realtime receipts carry an empty
   /// [RecipientStatus.name], so fall back to the 1:1 counterpart's name from
   /// [staffInfo] ('You' for the current user) — never the raw user code.
@@ -1801,123 +1656,56 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     return 'Participant';
   }
 
-  Widget _buildRecipientList({
-    required String title,
-    required IconData icon,
-    required List<RecipientStatus> recipients,
-    DateTime? fallbackTime,
-    required Color color,
-    required String emptyText,
+  /// Resolves a receipt's role — 'You' for the current user, else the 1:1
+  /// counterpart's designation from [staffInfo].
+  String? _resolveRecipientRole(RecipientStatus r) {
+    final code = r.userId;
+    if (code != null && code.isNotEmpty && code == _currentUserCode) {
+      return null;
+    }
+    return (widget.staffInfo['designation'] as String?)?.trim();
+  }
+
+  /// Resolves a receipt's avatar — the 1:1 counterpart's photo from
+  /// [staffInfo] (null for the current user; the dialog shows "You").
+  String? _resolveRecipientAvatar(RecipientStatus r) {
+    final code = r.userId;
+    if (code != null && code.isNotEmpty && code == _currentUserCode) {
+      return null;
+    }
+    return (widget.staffInfo['avatar'] as String?)?.trim();
+  }
+
+  MessageInfoRecipient _toInfoRecipient(
+    RecipientStatus r, {
+    DateTime? deliveredAt,
+    DateTime? readAt,
   }) {
-    final count = recipients.length + (fallbackTime != null ? 1 : 0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 12),
-            CustomTextWidget(
-              text: '$title ($count)',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        if (recipients.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primaryColor, width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: recipients
-                  .map(
-                    (r) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: CustomTextWidget(
-                              text: _resolveRecipientName(r),
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (r.timestamp != null) ...[
-                            const SizedBox(width: 10),
-                            CustomTextWidget(
-                              text: _formatTimeShort(r.timestamp!),
-                              fontSize: 12,
-                              fontColor: Colors.grey.shade600,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          )
-        // if (recipients.isNotEmpty)
-        //   ...recipients.map((r) => Padding(
-        //     padding: const EdgeInsets.only(left: 32, bottom: 6),
-        //     child: Row(
-        //       mainAxisSize: MainAxisSize.min,
-        //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //       children: [
-        //         Flexible(
-        //           fit: FlexFit.loose,
-        //           child: CustomTextWidget(
-        //             text: r.name,
-        //             fontSize: 13,
-        //           ),
-        //         ),
-        //         if (r.timestamp != null) ...[
-        //           const SizedBox(width: 4,),
-        //           CustomTextWidget(
-        //             text: _formatTimeShort(r.timestamp!),
-        //             fontSize: 12,
-        //             fontColor: Colors.grey.shade600,
-        //           ),
-        //         ]
-        //
-        //       ],
-        //     ),
-        //   ))
-        else if (fallbackTime != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 32),
-            child: CustomTextWidget(
-              text: 'Recipient • ${_formatFullTime(fallbackTime)}',
-              fontSize: 13,
-              fontColor: Colors.grey.shade700,
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(left: 32),
-            child: CustomTextWidget(
-              text: emptyText,
-              fontSize: 13,
-              fontColor: Colors.grey.shade500,
-            ),
-          ),
-      ],
+    return MessageInfoRecipient(
+      name: _resolveRecipientName(r),
+      role: _resolveRecipientRole(r),
+      avatarSource: _resolveRecipientAvatar(r),
+      deliveredAt: deliveredAt,
+      readAt: readAt,
     );
   }
 
-  String _formatTimeShort(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
+  void _showMessageStatusDialog(BuildContext context, Message message) {
+    final readCodes = message.readBy
+        .map((r) => r.userId)
+        .whereType<String>()
+        .toSet();
+    final recipients = <MessageInfoRecipient>[
+      for (final r in message.readBy) _toInfoRecipient(r, readAt: r.timestamp),
+      for (final r in message.deliveredTo)
+        if (r.userId == null || !readCodes.contains(r.userId))
+          _toInfoRecipient(r, deliveredAt: r.timestamp),
+    ];
 
-  String _formatFullTime(DateTime dt) => MessagingTimeFormatter.infoTime(dt);
+    MessageInfoDialog.show(
+      context,
+      messageText: message.text,
+      recipients: recipients,
+    );
+  }
 }
