@@ -42,6 +42,11 @@ abstract class CommunicationRemoteDataSource {
   Future<void> deleteMessage(String messageCode);
   Future<void> removeReaction(String messageCode, String emoji);
   Future<void> deleteAttachment(int attachmentId);
+
+  /// Per-conversation unread counts, keyed by conversation code. Backed by
+  /// `/messages/unread-per-conversation` — confirmed reliable (unlike the
+  /// conversation-list endpoint's own `unreadCount` field).
+  Future<Map<String, int>> getUnreadCountsPerConversation();
 }
 
 class CommunicationRemoteDataSourceImpl
@@ -374,5 +379,42 @@ class CommunicationRemoteDataSourceImpl
     if (response.data != null && response.data['success'] != true) {
       throw Exception(response.data['message'] ?? 'Failed to delete attachment');
     }
+  }
+
+  @override
+  Future<Map<String, int>> getUnreadCountsPerConversation() async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagesUnreadPerConversation,
+      ApiConstants.communicationBaseUrl,
+    );
+    final response = await apiClient.client.get(endpoint);
+    if (response.data == null || response.data['success'] != true) {
+      throw Exception(
+        response.data?['message'] ?? 'Failed to load per-conversation unread counts',
+      );
+    }
+
+    final data = response.data['data'];
+    final result = <String, int>{};
+    // Shape hasn't been exercised in production yet (this endpoint was
+    // previously unused) — accept either a {conversationCode: count} map or
+    // a list of {conversationCode/code, unreadCount} objects.
+    if (data is Map) {
+      data.forEach((key, value) {
+        final count = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+        result[key as String] = count;
+      });
+    } else if (data is List) {
+      for (final item in data) {
+        if (item is! Map) continue;
+        final code = (item['conversationCode'] ?? item['code']) as String?;
+        if (code == null || code.isEmpty) continue;
+        final rawCount = item['unreadCount'];
+        result[code] = rawCount is num
+            ? rawCount.toInt()
+            : int.tryParse('$rawCount') ?? 0;
+      }
+    }
+    return result;
   }
 }

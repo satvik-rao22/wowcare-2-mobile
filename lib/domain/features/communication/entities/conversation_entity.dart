@@ -106,12 +106,14 @@ class ConversationEntity extends Equatable {
     return null;
   }
 
-  /// Only `lastMessageSenderName` is overridable — added specifically for
+  /// `lastMessageSenderName` and `unreadCount` are overridable — added for
   /// [ConversationListCubit]'s cross-source reconciliation (carrying a
   /// known-good sender name forward when a later, less-complete update
-  /// would otherwise blank it out for the same message). Extend with more
-  /// fields if another caller needs them.
-  ConversationEntity copyWith({String? lastMessageSenderName}) {
+  /// would otherwise blank it out for the same message) and for resolving
+  /// the real per-user unread count out of `participants[]` (see
+  /// [ConversationEntityRepositoryImpl._resolveUnreadCounts]). Extend with
+  /// more fields if another caller needs them.
+  ConversationEntity copyWith({String? lastMessageSenderName, int? unreadCount}) {
     return ConversationEntity(
       id: id,
       code: code,
@@ -127,7 +129,7 @@ class ConversationEntity extends Equatable {
       updatedAt: updatedAt,
       updatedBy: updatedBy,
       participantCount: participantCount,
-      unreadCount: unreadCount,
+      unreadCount: unreadCount ?? this.unreadCount,
       lastMessagePreview: lastMessagePreview,
       participants: participants,
       lastMessageAt: lastMessageAt,
@@ -205,6 +207,7 @@ class ParticipantEntity extends Equatable {
     this.adminCode,
     this.organizationCode,
     this.schoolCode,
+    this.unreadCount = 0,
   });
 
   final int id;
@@ -225,6 +228,12 @@ class ParticipantEntity extends Equatable {
   final String? adminCode;
   final String? organizationCode;
   final String? schoolCode;
+
+  /// This participant's own unread count for the conversation — the REST
+  /// `/conversations/type/{TYPE}` list nests the real per-user unread count
+  /// here rather than on the conversation itself. See
+  /// [ConversationEntityRepositoryImpl._resolveUnreadCounts].
+  final int unreadCount;
 
   /// `leftAt == null` is the canonical "still an active participant" check
   /// — set the instant the backend marks them as removed (classroom
@@ -253,6 +262,7 @@ class ParticipantEntity extends Equatable {
     adminCode,
     organizationCode,
     schoolCode,
+    unreadCount,
   ];
 }
 

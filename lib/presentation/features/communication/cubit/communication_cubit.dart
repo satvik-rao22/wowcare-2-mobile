@@ -25,13 +25,16 @@ import '../../../../domain/features/communication/usecases/mark_conversation_del
 import '../../../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
+import '../../../../domain/features/communication/usecases/get_legacy_unread_counts_per_conversation_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
+import 'unread_badge_cubit.dart';
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -55,6 +58,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final StorageService storageService;
   final CacheMessageUseCase cacheMessageUseCase;
   final DiscardCachedMessageUseCase discardCachedMessageUseCase;
+  final GetLegacyUnreadCountsPerConversationUseCase
+  getUnreadCountsPerConversationUseCase;
 
   CommunicationCubit({
     required this.getMessagesUseCase,
@@ -77,6 +82,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.storageService,
     required this.cacheMessageUseCase,
     required this.discardCachedMessageUseCase,
+    required this.getUnreadCountsPerConversationUseCase,
   }) : super(CommunicationInitial());
 
   /// Marks a conversation as read via the API so the unread badge and count
@@ -281,6 +287,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
               ),
             );
             unawaited(_markDeliveredForIncomingMessages(conversations));
+            // Firestore's own unreadCount has been observed to drop for
+            // conversations OTHER than the one just read — consistent with a
+            // backend aggregate bug on the mark-read path. Correct it from
+            // the confirmed-reliable per-conversation REST endpoint (the
+            // same one already trusted for REST-driven loads, see
+            // CommunicationRepositoryImpl._resolveUnreadCounts).
+            unawaited(_applyReliableUnreadCounts(type));
           },
           // Same rationale as startWatchingThread — never let a Firestore
           // failure crash the screen; it just keeps showing API/Isar data.
@@ -315,6 +328,33 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     }
   }
 
+  /// Fetches the confirmed-reliable per-conversation unread counts (see
+  /// [CommunicationRepositoryImpl._resolveUnreadCounts]'s doc comment for
+  /// how it was verified) and overrides them onto whatever's currently
+  /// shown for [type]. Called after every Firestore snapshot, since
+  /// Firestore's own embedded unreadCount has been observed to drop
+  /// incorrectly for conversations other than the one just read.
+  Future<void> _applyReliableUnreadCounts(String? type) async {
+    final result = await getUnreadCountsPerConversationUseCase();
+    if (isClosed) return;
+    result.fold((_) {}, (counts) {
+      if (counts.isEmpty) return;
+      final current = state;
+      if (current is! CommunicationConversationsLoaded) return;
+      final existing = current.conversationsByType[type];
+      if (existing == null || existing.isEmpty) return;
+      final updated = existing.map((c) {
+        final count = counts[c.code];
+        if (count == null || count == c.unreadCount) return c;
+        return c.copyWith(unreadCount: count);
+      }).toList();
+      final updatedMap = Map<String?, List<Conversation>>.from(
+        current.conversationsByType,
+      )..[type] = updated;
+      emit(current.copyWith(conversationsByType: updatedMap));
+    });
+  }
+
   @override
   Future<void> close() {
     _messagesSubscription?.cancel();
@@ -339,6 +379,12 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   }) async {
     await clearConversationsCacheUseCase();
     await loadConversations(type: type, status: status, page: page, size: size);
+    // The top app bar's bell badge (UnreadBadgeCubit) is a separate app-wide
+    // singleton with its own Firestore stream, not touched by the above — a
+    // pull-to-refresh here could otherwise leave it visibly stale. Its own
+    // REST-vs-Firestore guard already protects against this clobbering a
+    // live count, so this is safe to call unconditionally.
+    unawaited(serviceLocator<UnreadBadgeCubit>().loadUnreadCounts());
   }
 
   Future<void> loadConversations({

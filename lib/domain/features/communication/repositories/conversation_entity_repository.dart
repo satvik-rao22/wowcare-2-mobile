@@ -169,6 +169,15 @@ abstract class ConversationEntityRepository {
   /// Used to populate drawer badges.
   Future<Either<Failure, Map<String, int>>> getUnreadAggregates();
 
+  /// Per-conversation unread counts, keyed by conversation code.
+  ///
+  /// Backed by `/messages/unread-per-conversation` — confirmed reliable
+  /// (unlike the conversation-list endpoint's own `unreadCount` field, which
+  /// the backend never actually populates). Used to correct per-conversation
+  /// badges instead of trusting the list response or Firestore's
+  /// recompute-on-read, both of which have shown incorrect values.
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation();
+
   /// Mark all messages in a conversation as read for the current user.
   ///
   /// Offline behaviour: queued and retried on reconnect.

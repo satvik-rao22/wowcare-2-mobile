@@ -49,6 +49,44 @@ class ConversationEntityRepositoryImpl
   Future<String> get _schoolCode async =>
       (await _storage.getString(StorageKeys.schoolCode)) ?? '';
 
+  Future<String> get _userCode async =>
+      (await _storage.getString(StorageKeys.userCode))?.trim() ?? '';
+
+  /// The REST `/conversations/type/{TYPE}` list's own `unreadCount` field
+  /// (top-level, and on every `participants[]` entry) is confirmed always
+  /// empty — the backend doesn't compute it there. `/messages/unread-per-
+  /// conversation` is a separate, sibling endpoint to the aggregate-by-type
+  /// one (`/messages/unread-summary`, already relied on for the top app
+  /// bar's badge) that HAS been confirmed reliable against real traffic.
+  /// Prefer it; fall back to the participant field (in case the backend
+  /// starts populating it) only for a conversation the per-conversation
+  /// endpoint didn't mention.
+  Future<List<ConversationEntity>> _resolveUnreadCounts(
+    List<ConversationEntity> conversations,
+  ) async {
+    Map<String, int> perConversation = const {};
+    try {
+      perConversation = await _remote.getUnreadCountsPerConversation();
+    } catch (_) {
+      // Endpoint unreachable — fall through to the participant-field guess.
+    }
+    final userCode = await _userCode;
+    return conversations.map((c) {
+      final fromEndpoint = perConversation[c.code];
+      if (fromEndpoint != null) return c.copyWith(unreadCount: fromEndpoint);
+      if (userCode.isEmpty) return c;
+      ParticipantEntity? mine;
+      for (final p in c.participants) {
+        if (p.userCode == userCode) {
+          mine = p;
+          break;
+        }
+      }
+      if (mine == null) return c;
+      return c.copyWith(unreadCount: mine.unreadCount);
+    }).toList();
+  }
+
   // ─── Queries ────────────────────────────────────────────────────────────────
 
   @override
@@ -71,7 +109,9 @@ class ConversationEntityRepositoryImpl
         staffStatus: staffStatus,
         classroom: classroom,
       );
-      final entities = dtos.map((d) => d.toEntity()).toList();
+      final entities = await _resolveUnreadCounts(
+        dtos.map((d) => d.toEntity()).toList(),
+      );
 
       // Update Isar — replace page 0 entirely; append subsequent pages.
       // Note: When filters are applied, we always replace at page 0
@@ -116,7 +156,7 @@ class ConversationEntityRepositoryImpl
   ) async {
     try {
       final dto = await _remote.getConversation(conversationCode);
-      final entity = dto.toEntity();
+      final entity = (await _resolveUnreadCounts([dto.toEntity()])).first;
       await _local.saveConversation(entity);
       return Right(entity);
     } catch (e) {
@@ -393,6 +433,16 @@ class ConversationEntityRepositoryImpl
       } catch (_) {
         return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
       }
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() async {
+    try {
+      final map = await _remote.getUnreadCountsPerConversation();
+      return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bloc/bloc.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
@@ -91,8 +92,16 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
         // still applies.
         final alreadyLive = _firestoreDelivered.contains(key);
         if (count == 0 && !alreadyLive && (_counts[key] ?? 0) > 0) {
+          debugPrint(
+            '[UnreadDebug][badge:$key] ignoring spurious first-emit 0 '
+            '(current=${_counts[key]})',
+          );
           return;
         }
+        debugPrint(
+          '[UnreadDebug][badge:$key] Firestore aggregate emit: $count '
+          '(was ${_counts[key]}, alreadyLive=$alreadyLive)',
+        );
         _firestoreDelivered.add(key); // Firestore is now authoritative for this type
         _counts[key] = count;
         _emit();
@@ -124,13 +133,17 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
         return false;
       },
       (counts) {
+        debugPrint('[UnreadDebug][badge] REST aggregates: $counts');
         // Seed only real conversation-type keys that Firestore hasn't delivered
         // yet. Skipping Firestore-delivered types keeps the reaction-inclusive
         // live count; filtering to known types drops the REST "TOTAL" aggregate
         // so it can't double-count in totalUnread.
         for (final type in ConversationType.values) {
           final key = type.toApiString();
-          if (_firestoreDelivered.contains(key)) continue;
+          if (_firestoreDelivered.contains(key)) {
+            debugPrint('[UnreadDebug][badge:$key] REST value ignored (Firestore already live)');
+            continue;
+          }
           final value = counts[key];
           if (value != null) _counts[key] = value;
         }

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -10,6 +11,7 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
+import 'unread_badge_cubit.dart';
 import 'conversation_list_state.dart';
 
 /// Manages the conversation list for a single [ConversationType].
@@ -119,6 +121,10 @@ class ConversationListCubit extends Cubit<ConversationListState> {
             if (isClosed) return;
             _firestoreActive = true;
             final int debugPrevCount = state.conversations.length;
+            debugPrint(
+              '[UnreadDebug][${_conversationType.toApiString()}] Firestore snapshot: '
+              '${conversations.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',
+            );
             emit(
               ConversationListState.loaded(
                 conversationType: _conversationType,
@@ -129,6 +135,13 @@ class ConversationListCubit extends Cubit<ConversationListState> {
               ),
             );
             unawaited(_markDeliveredForIncomingMessages(conversations));
+            // Firestore's own unreadCount has been observed to drop for
+            // conversations OTHER than the one just read — consistent with a
+            // backend aggregate bug on the mark-read path. Correct it from
+            // the confirmed-reliable per-conversation REST endpoint (the
+            // same one already trusted for REST-driven loads, see
+            // ConversationEntityRepositoryImpl._resolveUnreadCounts).
+            unawaited(_applyReliableUnreadCounts());
           },
           onError: (error) {
             if (!_firestoreActive) unawaited(_fallbackToApi());
@@ -441,18 +454,33 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           errorMessage: failure.message ?? 'Failed to refresh conversations.',
         ),
       ),
-      (conversations) => emit(
-        ConversationListState.loaded(
-          conversationType: _conversationType,
-          conversations: _sortedByLatest(
-            _reconcileLastMessageSenderNames(conversations),
+      (conversations) {
+        debugPrint(
+          '[UnreadDebug][${_conversationType.toApiString()}] REST refresh() result: '
+          '${conversations.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',
+        );
+        emit(
+          ConversationListState.loaded(
+            conversationType: _conversationType,
+            conversations: _sortedByLatest(
+              _reconcileLastMessageSenderNames(conversations),
+            ),
+            isFromCache: false,
+            page: 0,
+            hasMore: conversations.length >= _pageSize,
           ),
-          isFromCache: false,
-          page: 0,
-          hasMore: conversations.length >= _pageSize,
-        ),
-      ),
+        );
+      },
     );
+
+    // The bell badge on the top app bar (UnreadBadgeCubit) is a separate,
+    // app-wide singleton with its own Firestore stream — a pull-to-refresh
+    // here doesn't touch it at all, so it can visibly lag behind what the
+    // user just saw refresh in the list. Nudge it to reconcile with the
+    // server on the same gesture; its own REST-vs-Firestore guard (see
+    // UnreadBadgeCubit._fetchFromApi) already protects against this from
+    // clobbering a live Firestore count, so this is safe to call unconditionally.
+    unawaited(serviceLocator<UnreadBadgeCubit>().loadUnreadCounts());
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────
@@ -543,6 +571,29 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         ),
       ),
     );
+  }
+
+  /// Fetches the confirmed-reliable per-conversation unread counts (see
+  /// [ConversationEntityRepositoryImpl._resolveUnreadCounts]'s doc comment
+  /// for how it was verified) and overrides them onto whatever's currently
+  /// shown. Called after every Firestore snapshot, since Firestore's own
+  /// embedded unreadCount has been observed to drop incorrectly for
+  /// conversations other than the one just read.
+  Future<void> _applyReliableUnreadCounts() async {
+    final result = await _conversationRepo.getUnreadCountsPerConversation();
+    if (isClosed) return;
+    result.fold((_) {}, (counts) {
+      if (counts.isEmpty || state.conversations.isEmpty) return;
+      debugPrint(
+        '[UnreadDebug][${_conversationType.toApiString()}] reliable per-conversation counts: $counts',
+      );
+      final updated = state.conversations.map((c) {
+        final count = counts[c.code];
+        if (count == null || count == c.unreadCount) return c;
+        return _withUnreadCount(c, count);
+      }).toList();
+      emit(state.copyWith(conversations: updated));
+    });
   }
 
   /// Once a conversation's true last-message sender name has been shown,
