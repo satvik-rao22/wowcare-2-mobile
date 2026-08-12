@@ -54,13 +54,13 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -101,8 +101,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   late final ActivityEditorCubit _editor;
   late final ImageUploadService _imageUploadService;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
@@ -112,9 +111,10 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     for (final p in rows) {
       final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (n != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -152,8 +152,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _detailAttachmentRows = (activity.snapshotAttachments ?? [])
           .map((e) => Map<String, dynamic>.from(e))
           .toList();
-      _remainingExistingPhotoUrls =
-          imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+      _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+        _detailAttachmentRows,
+      );
       if (_remainingExistingPhotoUrls.isEmpty &&
           activity.photoUrl != null &&
           activity.photoUrl!.trim().isNotEmpty) {
@@ -177,7 +178,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   Future<void> _syncSchoolAttendanceDateForCreate() async {
     if (!mounted || _layoutAsEdit) return;
     if (_selectedStudentsData.isEmpty) return;
-    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
+    await ensureAttendanceDateOnStudentMapsForSchoolToday(
+      _selectedStudentsData,
+    );
     if (!mounted) return;
     setState(() {
       _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
@@ -205,7 +208,11 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       if (!_lastUpdateSucceeded) return;
       final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -231,7 +238,11 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     try {
       final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -271,8 +282,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         _detailAttachmentRows = detail.attachments
             .map((e) => Map<String, dynamic>.from(e))
             .toList();
-        _remainingExistingPhotoUrls =
-            imageDeliveryUrlsFromAttachmentRows(_detailAttachmentRows);
+        _remainingExistingPhotoUrls = imageDeliveryUrlsFromAttachmentRows(
+          _detailAttachmentRows,
+        );
         if (_remainingExistingPhotoUrls.isEmpty &&
             item.photoUrl != null &&
             item.photoUrl!.trim().isNotEmpty) {
@@ -297,9 +309,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   void _removeStudent(String name) {
     setState(() {
       _selectedStudents.remove(name);
-      _selectedStudentsData.removeWhere(
-        (m) => (m['name'] as String?) == name,
-      );
+      _selectedStudentsData.removeWhere((m) => (m['name'] as String?) == name);
 
       if (_selectedStudents.isEmpty) {
         Navigator.of(context).pop();
@@ -309,10 +319,10 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -325,10 +335,11 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -339,13 +350,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _editor.getClassroomActivitySettings(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _editor
+          .getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? outdoorSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -376,14 +388,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -412,10 +424,12 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -505,8 +519,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         studentCodes: studentCodes,
       );
 
-      final details =
-          await _editor.getActivityTypeDetails(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -595,11 +610,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
-    final normalizedStudentCodes = studentCodes
-        .map((e) => e.trim())
-        .where((e) => e.isNotEmpty)
-        .toList()
-      ..sort();
+    final normalizedStudentCodes =
+        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
+          ..sort();
     final uploadContextKey = [
       organizationCode.trim(),
       schoolCode.trim(),
@@ -630,15 +643,15 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         _uploadTotalCount = missing.length;
       });
       try {
-        final uploadSession =
-            await _imageUploadService.createActivityUploadSession(
-          organizationCode: organizationCode,
-          schoolCode: schoolCode,
-          classroomCode: classroomCode,
-          activityTypeCode: activityTypeCode,
-          bindingMode: bindingMode,
-          studentCodes: studentCodes,
-        );
+        final uploadSession = await _imageUploadService
+            .createActivityUploadSession(
+              organizationCode: organizationCode,
+              schoolCode: schoolCode,
+              classroomCode: classroomCode,
+              activityTypeCode: activityTypeCode,
+              bindingMode: bindingMode,
+              studentCodes: studentCodes,
+            );
 
         final sessionAssetCodes = <String>[];
         for (var i = 0; i < missing.length; i++) {
@@ -649,8 +662,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               ? photo.uri.pathSegments.last
               : 'photo.jpg';
           final contentLengthBytes = await photo.length();
-          final checksumSha256 =
-              await _imageUploadService.computeFileChecksumSha256(photo);
+          final checksumSha256 = await _imageUploadService
+              .computeFileChecksumSha256(photo);
           final presign = await _imageUploadService.createAssetPresign(
             sessionCode: uploadSession.sessionCode,
             documentApiBasePath: uploadSession.documentApiBasePath,
@@ -671,8 +684,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
               if (!mounted) return;
               final overallFraction =
                   ((fileIndex - 1) + (percent / 100)) / totalFiles;
-              final overallPercent =
-                  (overallFraction * 100).clamp(0, 100).round();
+              final overallPercent = (overallFraction * 100)
+                  .clamp(0, 100)
+                  .round();
               setState(() => _uploadProgressPercent = overallPercent);
             },
           );
@@ -771,10 +785,12 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     final activityTypeCode = _activityTypeCode;
     final schoolCode = _schoolCode;
     final organizationCode = _organizationCode;
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     final studentCodes = _selectedStudentsData
         .map((s) => (s['studentCode'] as String?)?.trim())
         .whereType<String>()
@@ -911,14 +927,14 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final description = _descriptionController.text.trim();
     if (description.isEmpty) {
@@ -947,10 +963,12 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -1046,8 +1064,9 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         remainingNormalizedDeliveryUrls: remainingNorm,
       );
 
-      final details =
-          await _editor.getActivityTypeDetails(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -1085,8 +1104,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           {'parameterCode': descParamCode, 'value': description},
       ];
 
-      final patchAttachments =
-          attachmentsForActivityPatchRequest(mergedRows);
+      final patchAttachments = attachmentsForActivityPatchRequest(mergedRows);
 
       final targets = studentMapsForScopedActivityUpdate(
         allStudentMaps: _selectedStudentsData,
@@ -1094,8 +1112,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -1168,8 +1186,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
         try {
           final status =
               await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-            staffCode: pickedStaffCode,
-          );
+                staffCode: pickedStaffCode,
+              );
           if (status?.toUpperCase() != 'SIGNED_IN') {
             if (!mounted) return;
             CoreUtils.showTopSnackBar(
@@ -1209,214 +1227,223 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
       title: 'Outdoor',
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-            if (_layoutAsEdit &&
-                !(widget.isEdit &&
-                    !widget.readOnly &&
-                    _selectedStudents.length > 1))
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 64,
+        child: AbsorbPointer(
+          absorbing:
+              _isSubmitting ||
+              _isApprovingOrRejecting ||
+              _isUploadingMedia ||
+              _loadingActivityDetail,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+              if (_layoutAsEdit &&
+                  !(widget.isEdit &&
+                      !widget.readOnly &&
+                      _selectedStudents.length > 1))
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: responsive.isTablet ? 3 : 2,
+                    crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                    mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                    mainAxisExtent: 64,
+                  ),
+                  itemCount: _selectedStudents.length,
+                  itemBuilder: (context, index) {
+                    return ActivityStudentDisplayTile(
+                      name: _selectedStudents[index],
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode']
+                                as String?
+                          : null,
+                    );
+                  },
+                )
+              else if (!_layoutAsEdit)
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(10),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: responsive.isTablet ? 3 : 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 64,
+                  ),
+                  itemCount: _selectedStudents.length,
+                  itemBuilder: (context, index) {
+                    final String name = _selectedStudents[index];
+                    return ActivityStudentDisplayTile(
+                      name: name,
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode']
+                                as String?
+                          : null,
+                      onRemove: () => _removeStudent(name),
+                    );
+                  },
                 ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  return ActivityStudentDisplayTile(
-                    name: _selectedStudents[index],
-                    studentCode: index < _selectedStudentsData.length
-                        ? _selectedStudentsData[index]['studentCode'] as String?
-                        : null,
-                  );
-                },
-              )
-            else if (!_layoutAsEdit)
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 64,
-                ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  final String name = _selectedStudents[index];
-                  return ActivityStudentDisplayTile(
-                    name: name,
-                    studentCode: index < _selectedStudentsData.length
-                        ? _selectedStudentsData[index]['studentCode'] as String?
-                        : null,
-                    onRemove: () => _removeStudent(name),
-                  );
-                },
-              ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: ActivityEditStudentScopeCheckboxes(
-                  studentNames: _selectedStudents,
-                  checkedIndices: _scopedEditStudentIndices,
-                  onChanged: (next) => setState(() {
-                    _scopedEditStudentIndices
-                      ..clear()
-                      ..addAll(next);
-                  }),
-                ),
-              ),
-            ],
-            SizedBox(height: responsive.verticalSpacing),
-            Row(
-              children: [
-                Flexible(
-                  child: _layoutAsEdit
-                      ? DateWidget(
-                          isEditable: false,
-                          isRequired: true,
-                          initialDate: _effectiveActivity.date,
-                          onDateChanged: (d) {
-                            setState(() {
-                              _activityDate = d;
-                            });
-                          },
-                        )
-                      : DateWidget(
-                          key: ValueKey<String>(
-                            formatSelectedDateForDateWidget(_activityDate) ??
-                                'school_date',
-                          ),
-                          isEditable: false,
-                          isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
-                          onDateChanged: (d) {
-                            setState(() {
-                              _activityDate = d;
-                            });
-                          },
-                        ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: _layoutAsEdit
-                      ? TimeWidget(
-                          isEditable: _canInteract,
-                          isRequired: true,
-                          prefilledTime: _effectiveActivity.time,
-                          onTimeChanged: (t) {
-                            setState(() {
-                              _activityTime = t;
-                            });
-                          },
-                        )
-                      : TimeWidget(
-                          isRequired: true,
-                          isEditable: true,
-                          onTimeChanged: (t) {
-                            setState(() {
-                              _activityTime = t;
-                            });
-                          },
-                        ),
+              if (widget.isEdit &&
+                  !widget.readOnly &&
+                  _selectedStudents.length > 1) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: ActivityEditStudentScopeCheckboxes(
+                    studentNames: _selectedStudents,
+                    checkedIndices: _scopedEditStudentIndices,
+                    onChanged: (next) => setState(() {
+                      _scopedEditStudentIndices
+                        ..clear()
+                        ..addAll(next);
+                    }),
+                  ),
                 ),
               ],
-            ),
-            const ActivitySchoolTimeZoneHint(),
-            SizedBox(height: responsive.verticalSpacing),
-            Builder(
-              builder: (context) {
-                final isAdminPersona =
-                    _isAdminDesignation;
-                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
-                return StaffPresentWidget(
-                  staffName: staffPresentLabelForActivity(
-                    layoutAsEdit: _layoutAsEdit,
-                    activityCreatedBy: '',
-                    loggedInDisplayName: _staffName,
-                    staffLabelFromParameters: _layoutAsEdit
-                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
-                              ? _staffPresentCode
-                              : _effectiveActivity.staffPresent)
-                        : null,
+              SizedBox(height: responsive.verticalSpacing),
+              Row(
+                children: [
+                  Flexible(
+                    child: _layoutAsEdit
+                        ? DateWidget(
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: _effectiveActivity.date,
+                            onDateChanged: (d) {
+                              setState(() {
+                                _activityDate = d;
+                              });
+                            },
+                          )
+                        : DateWidget(
+                            key: ValueKey<String>(
+                              formatSelectedDateForDateWidget(_activityDate) ??
+                                  'school_date',
+                            ),
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: formatSelectedDateForDateWidget(
+                              _activityDate,
+                            ),
+                            onDateChanged: (d) {
+                              setState(() {
+                                _activityDate = d;
+                              });
+                            },
+                          ),
                   ),
-                  isEditable: lockToLoggedInStaff
-                      ? false
-                      : _canInteract,
-                  onStaffChanged: (_, selectedCode) {
-                    _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
-                        ? selectedCode!.trim()
-                        : (_staffPresentCode ?? _staffCode);
-                  },
-                );
-              },
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            InputWidget(
-              controller: _descriptionController,
-              height: 100,
-              hint: 'Enter Description',
-              isRequired: true,
-              readOnly: !_canInteract,
-              maxLength: ActivityDescriptionLimits.maxLength,
-            ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
-            if (_showRequireAdminApprovalToggle)
-              CustomToggle(
-                label: 'Requires Admin Approval',
-                isToggled: _requireAdminApproval,
-                labelOnLeftSide: true,
-                enabled: !_layoutAsEdit,
-                onToggle: (value) {
-                  setState(() {
-                    _requireAdminApproval = value;
-                  });
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: _layoutAsEdit
+                        ? TimeWidget(
+                            isEditable: _canInteract,
+                            isRequired: true,
+                            prefilledTime: _effectiveActivity.time,
+                            onTimeChanged: (t) {
+                              setState(() {
+                                _activityTime = t;
+                              });
+                            },
+                          )
+                        : TimeWidget(
+                            isRequired: true,
+                            isEditable: true,
+                            onTimeChanged: (t) {
+                              setState(() {
+                                _activityTime = t;
+                              });
+                            },
+                          ),
+                  ),
+                ],
+              ),
+              const ActivitySchoolTimeZoneHint(),
+              SizedBox(height: responsive.verticalSpacing),
+              Builder(
+                builder: (context) {
+                  final isAdminPersona = _isAdminDesignation;
+                  final lockToLoggedInStaff = _canInteract && !isAdminPersona;
+                  return StaffPresentWidget(
+                    staffName: staffPresentLabelForActivity(
+                      layoutAsEdit: _layoutAsEdit,
+                      activityCreatedBy: '',
+                      loggedInDisplayName: _staffName,
+                      staffLabelFromParameters: _layoutAsEdit
+                          ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                                ? _staffPresentCode
+                                : _effectiveActivity.staffPresent)
+                          : null,
+                    ),
+                    isEditable: lockToLoggedInStaff ? false : _canInteract,
+                    onStaffChanged: (_, selectedCode) {
+                      _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                          ? selectedCode!.trim()
+                          : (_staffPresentCode ?? _staffCode);
+                    },
+                  );
                 },
               ),
-            SizedBox(height: responsive.verticalSpacing),
-            if (_layoutAsEdit)
-              MediaUploader(
-                isRequired: false,
-                allowVideo: false,
-                allowPhoto: true,
-                readOnly: widget.readOnly,
-                isPictureBox: false,
-                limit: 2,
-                autoReplaceFirstPhotoWhenMaxReached: false,
-                label: 'Upload Photo',
-                initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
-                    ? List<String>.from(_remainingExistingPhotoUrls)
-                    : (_effectiveActivity.photoUrl != null &&
-                            _effectiveActivity.photoUrl!.trim().isNotEmpty
-                        ? [_effectiveActivity.photoUrl!.trim()]
-                        : const []),
-                onMediaChanged: _onMediaChanged,
-              )
-            else
-              MediaUploader(
-                isRequired: false,
-                allowVideo: false,
-                allowPhoto: true,
-                readOnly: widget.readOnly,
-                isPictureBox: false,
-                limit: 2,
-                label: 'Upload Photo',
-                onMediaChanged: _onMediaChanged,
+              SizedBox(height: responsive.verticalSpacing),
+              InputWidget(
+                controller: _descriptionController,
+                height: 100,
+                hint: 'Enter Description',
+                isRequired: true,
+                readOnly: !_canInteract,
+                maxLength: ActivityDescriptionLimits.maxLength,
               ),
-            if (_newPhotos.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _buildUploadStatus(),
+              if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
+              if (_showRequireAdminApprovalToggle)
+                CustomToggle(
+                  label: 'Requires Admin Approval',
+                  isToggled: _requireAdminApproval,
+                  labelOnLeftSide: true,
+                  enabled: !_layoutAsEdit,
+                  onToggle: (value) {
+                    setState(() {
+                      _requireAdminApproval = value;
+                    });
+                  },
+                ),
+              SizedBox(height: responsive.verticalSpacing),
+              if (_layoutAsEdit)
+                MediaUploader(
+                  isRequired: false,
+                  allowVideo: false,
+                  allowPhoto: true,
+                  readOnly: widget.readOnly,
+                  isPictureBox: false,
+                  limit: 2,
+                  autoReplaceFirstPhotoWhenMaxReached: false,
+                  label: 'Upload Photo',
+                  initialPhotoUrls: _remainingExistingPhotoUrls.isNotEmpty
+                      ? List<String>.from(_remainingExistingPhotoUrls)
+                      : (_effectiveActivity.photoUrl != null &&
+                                _effectiveActivity.photoUrl!.trim().isNotEmpty
+                            ? [_effectiveActivity.photoUrl!.trim()]
+                            : const []),
+                  onMediaChanged: _onMediaChanged,
+                )
+              else
+                MediaUploader(
+                  isRequired: false,
+                  allowVideo: false,
+                  allowPhoto: true,
+                  readOnly: widget.readOnly,
+                  isPictureBox: false,
+                  limit: 2,
+                  label: 'Upload Photo',
+                  onMediaChanged: _onMediaChanged,
+                ),
+              if (_newPhotos.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                _buildUploadStatus(),
+              ],
+              SizedBox(height: responsive.verticalSpacing),
             ],
-            SizedBox(height: responsive.verticalSpacing),
-          ],
+          ),
         ),
       ),
       bottomBar: widget.readOnly
@@ -1429,7 +1456,8 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _isUploadingMedia ||
                           _loadingActivityDetail,
@@ -1438,15 +1466,16 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onSaveOrAddPressed,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _isUploadingMedia ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onSaveOrAddPressed,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _isUploadingMedia ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -1454,6 +1483,3 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     );
   }
 }
-
-
-

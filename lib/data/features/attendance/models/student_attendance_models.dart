@@ -36,6 +36,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
     this.nextActionTime,
     this.transferredBy,
     this.transferReason,
+    this.notExpectedComment,
   });
 
   final String studentName;
@@ -70,6 +71,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
   final StudentAttendanceTimeModel? nextActionTime;
   final String? transferredBy;
   final String? transferReason;
+  final String? notExpectedComment;
 
   factory StudentAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StudentAttendanceDailyItemModel(
@@ -124,6 +126,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
           : null,
       transferredBy: json['transferredBy'] as String?,
       transferReason: json['transferReason'] as String?,
+      notExpectedComment: json['notExpectedComment'] as String?,
     );
   }
 
@@ -161,6 +164,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
       'nextActionTime': nextActionTime?.toJson(),
       'transferredBy': transferredBy,
       'transferReason': transferReason,
+      'notExpectedComment': notExpectedComment,
     };
   }
 
@@ -198,6 +202,7 @@ class StudentAttendanceDailyItemModel extends Equatable {
     nextActionTime,
     transferredBy,
     transferReason,
+    notExpectedComment,
   ];
 }
 
@@ -605,6 +610,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
     this.nextActionTime,
     this.transferredBy,
     this.transferReason,
+    this.notExpectedComment,
   });
 
   final String? attendanceRecordCode;
@@ -641,6 +647,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
   final StudentAttendanceTimeModel? nextActionTime;
   final String? transferredBy;
   final String? transferReason;
+  final String? notExpectedComment;
 
   factory StaffAttendanceDailyItemModel.fromJson(Map<String, dynamic> json) {
     return StaffAttendanceDailyItemModel(
@@ -686,6 +693,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
           : null,
       transferredBy: json['transferredBy'] as String?,
       transferReason: json['transferReason'] as String?,
+      notExpectedComment: json['notExpectedComment'] as String?,
     );
   }
 
@@ -721,6 +729,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
       'nextActionTime': nextActionTime?.toJson(),
       'transferredBy': transferredBy,
       'transferReason': transferReason,
+      'notExpectedComment': notExpectedComment,
     };
   }
 
@@ -756,6 +765,7 @@ class StaffAttendanceDailyItemModel extends Equatable {
     nextActionTime,
     transferredBy,
     transferReason,
+    notExpectedComment,
   ];
 }
 

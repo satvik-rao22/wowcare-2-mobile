@@ -334,6 +334,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                           highlightCode: widget.highlightCode,
                           highlightDate: widget.highlightDate,
                           highlightClassroomCode: widget.highlightClassroomCode,
+                          onRefreshStaffSignInStatus: _loadStaffSignInStatus,
                         ),
                         ActivityCustomTab(
                           fromStudentProfile: widget.fromStudentProfile,
@@ -343,6 +344,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                               : null,
                           isNotParent: true,
                           allowActivityWrite: allowWrite,
+                          onRefreshStaffSignInStatus: _loadStaffSignInStatus,
                         ),
                       ],
                     ),

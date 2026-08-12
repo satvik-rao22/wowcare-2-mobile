@@ -1045,6 +1045,7 @@ class _StaffAttendanceDailyViewScreenState
           isTransferSignIn: transferSignIn,
           isTransferSignOut: transferSignOut,
           attendedTimeDisplay: attendedTimeDisplay,
+          notExpectedComment: item.notExpectedComment,
         ),
       );
     }

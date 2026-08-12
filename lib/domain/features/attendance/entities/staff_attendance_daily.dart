@@ -32,6 +32,7 @@ class StaffAttendanceDailyItem extends Equatable {
     this.nextActionTime,
     this.transferredBy,
     this.transferReason,
+    this.notExpectedComment,
   });
 
   final String? attendanceRecordCode;
@@ -69,6 +70,7 @@ class StaffAttendanceDailyItem extends Equatable {
   final StaffAttendanceTime? nextActionTime;
   final String? transferredBy;
   final String? transferReason;
+  final String? notExpectedComment;
 
   bool get hasSignIn => signedInTime != null || (signedInBy != null && signedInBy!.isNotEmpty);
 
@@ -108,6 +110,7 @@ class StaffAttendanceDailyItem extends Equatable {
         nextActionTime,
         transferredBy,
         transferReason,
+        notExpectedComment,
       ];
 }
 

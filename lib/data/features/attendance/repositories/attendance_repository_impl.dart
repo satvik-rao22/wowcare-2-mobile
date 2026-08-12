@@ -330,6 +330,7 @@ class AttendanceRepositoryImpl
           : null,
       transferredBy: model.transferredBy,
       transferReason: model.transferReason,
+      notExpectedComment: model.notExpectedComment,
     );
   }
 
@@ -632,6 +633,7 @@ class AttendanceRepositoryImpl
           : null,
       transferredBy: model.transferredBy,
       transferReason: model.transferReason,
+      notExpectedComment: model.notExpectedComment,
     );
   }
 

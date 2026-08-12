@@ -112,6 +112,7 @@ class ActivityDailyTab extends StatefulWidget {
     this.highlightCode,
     this.highlightDate,
     this.highlightClassroomCode,
+    this.onRefreshStaffSignInStatus,
   });
 
   /// Activity code from a notification deep-link; the matching feed card is
@@ -138,6 +139,11 @@ class ActivityDailyTab extends StatefulWidget {
 
   /// Edit / delete / add; false when [DAILY_ACTIVITY] has `write: false`.
   final bool allowActivityWrite;
+
+  /// Re-checks the staff persona's today sign-in status (drives the parent
+  /// screen's Add-activity FAB gate). Invoked on manual pull-to-refresh so the
+  /// FAB reflects a sign-in/out done elsewhere without needing an app restart.
+  final Future<void> Function()? onRefreshStaffSignInStatus;
 
   static const String routeName = '/activityDailyTab';
 
@@ -377,6 +383,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     _lastFeedRequestKey = null;
     _lastFeedCompletedAt = null;
     _lastFeedCompletedWithError = true;
+
+    // Re-check the staff sign-in gate in parallel: pull-to-refresh should
+    // also flip the Add-activity FAB after a sign-in/out done on another
+    // screen, not just the feed contents.
+    final refreshStaffSignInStatus = widget.onRefreshStaffSignInStatus;
+    if (refreshStaffSignInStatus != null) {
+      unawaited(refreshStaffSignInStatus());
+    }
 
     // Force refresh of metadata + feed.
     // Also bust staff dropdown cache so edit screens refetch staff list.

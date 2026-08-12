@@ -792,6 +792,7 @@ class _StudentAttendanceDailyViewScreenState
       isTransferSignIn: transferSignIn,
       isTransferSignOut: transferSignOut,
       attendedTimeDisplay: attendedTimeDisplay,
+      notExpectedComment: item.notExpectedComment,
     );
   }
 

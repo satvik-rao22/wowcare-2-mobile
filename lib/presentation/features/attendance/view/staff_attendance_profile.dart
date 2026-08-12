@@ -280,6 +280,7 @@ class _AttendanceModel {
   final bool isTransferSignOut;
   final StaffProfileAbsentMarkMethod? signInMethod;
   final StaffProfileAbsentMarkMethod? signOutMethod;
+  final String notExpectedComment;
 
   _AttendanceModel({
     required this.date,
@@ -295,6 +296,7 @@ class _AttendanceModel {
     this.isTransferSignOut = false,
     this.signInMethod,
     this.signOutMethod,
+    this.notExpectedComment = '',
   });
 }
 
@@ -765,6 +767,8 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               m['signedInMethod'] as String?,
             ),
             signOutMethod: signOutMethodEnum,
+            notExpectedComment: ((m['notExpectedComment'] as String?) ?? '')
+                .trim(),
           );
         }).toList();
 
@@ -1634,6 +1638,13 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             _AttendanceField(
               label: 'Attended Time',
               text: _formatAttendedTimeForCard(attendance),
+            ),
+          ],
+          if (attendance.notExpectedComment.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _AttendanceField(
+              label: 'Comment',
+              text: attendance.notExpectedComment,
             ),
           ],
         ],

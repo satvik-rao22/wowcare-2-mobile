@@ -205,7 +205,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
         CoreUtils.showTopSnackBar(
           context: context,
           message:
-              'The following students must be signed in before creating the activity:\n${notSignedInNames.join(', ')}',
+              'Student(s) must be signed in at the time of posting the activity in this classroom:\n${notSignedInNames.join(', ')}',
           isWarning: true,
         );
         return false;
@@ -214,7 +214,7 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            'The following students must be signed in before creating the activity.',
+            'Student(s) must be signed in at the time of posting the activity in this classroom.',
         isWarning: true,
       );
       return false;

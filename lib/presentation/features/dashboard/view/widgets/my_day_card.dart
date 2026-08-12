@@ -549,7 +549,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   void _handleMarkAbsentDisabledTap() {
     final geofenceState = context.read<GeofenceCubit>().state;
     final message = _todayGate.isAbsentToday
-        ? 'Already marked absent for today.'
+        ? 'Absent can only be marked for Students/Staff not yet signed in'
         : (_disabledReasons(geofenceState)['Absent'] ??
               'Mark Absent is currently unavailable.');
     CoreUtils.showTopSnackBar(

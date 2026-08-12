@@ -131,6 +131,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
+  String _notExpectedComment = '';
   int _unexpectedGateToken = 0;
 
   @override
@@ -251,6 +252,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (result?.confirmed == true) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = result?.comment ?? '';
       });
     } else {
       Navigator.of(context).pop();
@@ -317,6 +319,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (!_hasUnexpectedAmongSelected()) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = '';
       });
     }
   }
@@ -606,6 +609,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     // Include QR token if this is a QR scan
     if (widget.isQrScan && widget.qrToken.isNotEmpty) {
       payload['qrToken'] = widget.qrToken;
+    }
+    if (_notExpectedComment.trim().isNotEmpty) {
+      payload['notExpectedComment'] = _notExpectedComment.trim();
     }
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();

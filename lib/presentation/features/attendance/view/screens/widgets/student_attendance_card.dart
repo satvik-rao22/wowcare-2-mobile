@@ -43,6 +43,8 @@ class StudentAttendanceCardData {
   final bool isTransferSignOut;
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
+  /// Comment captured from the "not expected today" warning at sign-in.
+  final String? notExpectedComment;
 
   StudentAttendanceCardData({
     required this.id,
@@ -69,6 +71,7 @@ class StudentAttendanceCardData {
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
     this.attendedTimeDisplay,
+    this.notExpectedComment,
   });
 }
 
@@ -244,6 +247,14 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                     if (duration.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       _buildDetailRow(context, 'Attended Time', duration),
+                    ],
+                    if ((student.notExpectedComment ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildDetailRow(
+                        context,
+                        'Comment',
+                        student.notExpectedComment!.trim(),
+                      ),
                     ],
                     const SizedBox(height: 12),
                     _buildActionButtons(context),
