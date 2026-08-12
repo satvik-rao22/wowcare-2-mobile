@@ -48,10 +48,8 @@ class GeofenceBroadcastReceiver : BroadcastReceiver() {
                 if (isInside && nothingToDo) {
                     Log.d("GeofenceBroadcastReceiver", "Skipping enter notification — nothing to sign in/out")
                 } else {
-                    // Native notification — the ONLY path that works when the app is
-                    // backgrounded or killed (Flutter EventChannel sink is null then).
-                    // When the app IS foreground, Flutter fires its own notification with
-                    // the same ID, which replaces this one silently — no visible duplicate.
+                    // Native notification — the SOLE notification authority.
+                    // This perfectly handles background, terminated, and foreground states.
                     GeofenceNotifications.ensureChannel(context)
                     GeofenceNotifications.show(context, isInside)
                 }

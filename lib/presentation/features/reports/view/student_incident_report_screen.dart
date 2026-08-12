@@ -184,6 +184,7 @@ class _StudentIncidentReportScreenState
                 const ReportFieldLabel(label: 'Start Date'),
                 CustomDateTimeField(
                   hasLabel: false,
+                  dateFormat: 'MM/dd/yyyy',
                   fetchInitialTime: false,
                   initialDate: _startDate,
                   onDateSelected: (d) => setState(() => _startDate = d),
@@ -192,6 +193,7 @@ class _StudentIncidentReportScreenState
                 const ReportFieldLabel(label: 'End Date'),
                 CustomDateTimeField(
                   hasLabel: false,
+                  dateFormat: 'MM/dd/yyyy',
                   fetchInitialTime: false,
                   initialDate: _endDate,
                   onDateSelected: (d) => setState(() => _endDate = d),

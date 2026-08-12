@@ -63,6 +63,7 @@ class _StudentAttendancePerStudentReportScreenState
     final now = AppTime.now();
     _periodDate = DateTime(now.year, now.month, 1);
     
+    _selectedClassrooms = <String>[];
     _availableStudents = List<String>.from(widget.students);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -152,10 +152,12 @@ class _StudentDailyAttendanceReportScreenState
                 ValueListenableBuilder<DateTime>(
                   valueListenable: _date,
                   builder: (_, date, __) => CustomDateTimeField(
+                    dateFormat: 'MM/dd/yyyy',
                     hasLabel: false,
                     fetchInitialTime: false,
                     initialDate: date,
                     onDateSelected: (d) => _date.value = d,
+                    lastDate: AppTime.now(),
                   ),
                 ),
                 SizedBox(height: responsive.verticalSpacing),
