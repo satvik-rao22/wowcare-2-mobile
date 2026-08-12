@@ -47,8 +47,23 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
             "updateSchoolLocation" -> handleUpdateSchoolLocation(call, result)
             "getGeofenceStatus" -> handleGetGeofenceStatus(result)
             "updateSignInStatus" -> handleUpdateSignInStatus(call, result)
+            "clearGeofenceState" -> handleClearGeofenceState(result)
+            "triggerNotification" -> handleTriggerNotification(call, result)
             else -> result.notImplemented()
         }
+    }
+
+    private fun handleClearGeofenceState(result: MethodChannel.Result) {
+        GeofencePrefs.clearLastInside(appContext)
+        result.success(true)
+    }
+
+    private fun handleTriggerNotification(call: MethodCall, result: MethodChannel.Result) {
+        val args = call.arguments as? Map<*, *>
+        val isInside = args?.get("isInside") as? Boolean ?: true
+        GeofenceNotifications.ensureChannel(appContext)
+        GeofenceNotifications.show(appContext, isInside)
+        result.success(true)
     }
 
     private fun handleGetGeofenceStatus(result: MethodChannel.Result) {

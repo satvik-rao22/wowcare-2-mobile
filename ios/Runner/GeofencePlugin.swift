@@ -56,10 +56,27 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
         self.handleGetGeofenceStatus(result: result)
       case "updateSignInStatus":
         self.handleUpdateSignInStatus(call: call, result: result)
+      case "clearGeofenceState":
+        self.handleClearGeofenceState(result: result)
+      case "triggerNotification":
+        self.handleTriggerNotification(call: call, result: result)
       default:
         result(FlutterMethodNotImplemented)
       }
     }
+  }
+
+  private func handleClearGeofenceState(result: FlutterResult) {
+    let defaults = UserDefaults.standard
+    defaults.removeObject(forKey: prefsLastInsideKey)
+    result(true)
+  }
+
+  private func handleTriggerNotification(call: FlutterMethodCall, result: FlutterResult) {
+    let args = call.arguments as? [String: Any]
+    let isInside = args?["isInside"] as? Bool ?? true
+    showLocalNotification(isInside: isInside)
+    result(true)
   }
 
   // MARK: - Permission helpers
