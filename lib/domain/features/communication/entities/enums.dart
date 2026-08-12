@@ -91,7 +91,8 @@ enum ParticipantRole {
     // Exact matches (preferred — sent by conversations API)
     if (v == 'PARENT' || v == 'GUARDIAN') return ParticipantRole.parent;
     if (v == 'TEACHER') return ParticipantRole.teacher;
-    if (v == 'DIRECTOR' || v == 'ASSISTANT_DIRECTOR') return ParticipantRole.director;
+    if (v == 'DIRECTOR' || v == 'ASSISTANT_DIRECTOR')
+      return ParticipantRole.director;
     // OWNER is the highest org-level role (above Admin) per the Staff
     // module's real designation list (staff_filter_screen.dart's
     // _designationCodes) — was previously falling through to the generic
@@ -111,7 +112,8 @@ enum ParticipantRole {
     if (v == 'admin'.toUpperCase()) return ParticipantRole.admin;
 
     // Substring fallbacks for multi-word roles (e.g. 'HEAD_TEACHER')
-    if (v.contains('GUARDIAN') || v.contains('PARENT')) return ParticipantRole.parent;
+    if (v.contains('GUARDIAN') || v.contains('PARENT'))
+      return ParticipantRole.parent;
     if (v.contains('DIRECTOR')) return ParticipantRole.director;
     if (v.contains('ADMIN')) return ParticipantRole.admin;
     if (v.contains('TEACHER')) return ParticipantRole.teacher;

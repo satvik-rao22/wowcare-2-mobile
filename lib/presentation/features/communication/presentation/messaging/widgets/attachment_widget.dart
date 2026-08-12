@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
@@ -9,7 +7,6 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:path/path.dart' as p;
-
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 
@@ -34,7 +31,11 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
+      );
     });
   }
 
@@ -238,11 +239,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                     color: AppColors.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    icon,
-                    color: AppColors.primaryColor,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: AppColors.primaryColor, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

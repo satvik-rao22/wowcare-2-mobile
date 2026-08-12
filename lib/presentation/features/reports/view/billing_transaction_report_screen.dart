@@ -15,6 +15,8 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../widgets/multi_select_filter_field.dart';
+
 class BillingTransactionReportScreen extends StatefulWidget {
   const BillingTransactionReportScreen({super.key});
 
@@ -45,7 +47,9 @@ class _BillingTransactionReportScreenState
   String _transactionType = 'All Transactions';
   List<String> _selectedTransactionTypes = <String>[];
   String _format = 'PDF';
-
+  List<String> _availableStudents = <String>[];
+  bool _isLoadingStudents = false;
+  List<String> _selectedStudents = <String>[];
   bool get _isCustom => _transactionType == 'Custom';
 
   @override
@@ -75,8 +79,8 @@ class _BillingTransactionReportScreenState
     }
 
     final storage = serviceLocator<StorageService>();
-    final schoolName =
-        (await storage.getString(StorageKeys.schoolName) ?? '').trim();
+    final schoolName = (await storage.getString(StorageKeys.schoolName) ?? '')
+        .trim();
 
     context.read<ReportsCubit>().generateReport(
       ReportRequestParams(
@@ -147,6 +151,7 @@ class _BillingTransactionReportScreenState
             const ReportFieldLabel(label: 'Start Date'),
             CustomDateTimeField(
               hasLabel: false,
+              dateFormat: "dd-MM-yyyy",
               fetchInitialTime: false,
               initialDate: _startDate,
               onDateSelected: (d) => setState(() => _startDate = d),
@@ -155,6 +160,7 @@ class _BillingTransactionReportScreenState
             const ReportFieldLabel(label: 'End Date'),
             CustomDateTimeField(
               hasLabel: false,
+              dateFormat: "dd-MM-yyyy",
               fetchInitialTime: false,
               initialDate: _endDate,
               onDateSelected: (d) => setState(() => _endDate = d),
@@ -206,6 +212,24 @@ class _BillingTransactionReportScreenState
                 onChanged: (s) => setState(() => _selectedTransactionTypes = s),
               ),
             ],
+            SizedBox(height: responsive.verticalSpacing),
+            // Student Dropdown
+            MultiSelectFilterField<String>(
+              label: 'Student',
+              hintText: _isLoadingStudents
+                  ? 'Loading Students...'
+                  : 'Select Students',
+              items: _availableStudents,
+              isRequired: true,
+              selectedItems: _selectedStudents,
+              onChanged: (s) => setState(() => _selectedStudents = s),
+              itemToString: (item) => item,
+              singularLabel: 'Student',
+              pluralLabel: 'Students',
+              showSelectAll: true,
+              enableSearch: true,
+              searchHintText: 'Search Students',
+            ),
             SizedBox(height: responsive.verticalSpacing),
             const ReportFieldLabel(label: 'Export Format'),
             ReportFormatSelector(

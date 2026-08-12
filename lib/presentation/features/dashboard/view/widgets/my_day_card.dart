@@ -22,6 +22,7 @@ import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
@@ -465,7 +466,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
         _isSignedIn = signedIn;
         _signInStatusLoaded = true;
       });
-      unawaited(context.read<GeofenceCubit>().updateStaffSignInStatus(signedIn));
+      unawaited(
+        context.read<GeofenceCubit>().updateStaffSignInStatus(signedIn),
+      );
     } catch (_) {
       // sign-in status check is best-effort
       if (mounted && generation == _profileGeneration) {
@@ -499,17 +502,13 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     if (geofenceState.isSignInStatusLoading) return;
     if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
     if (geofenceState.isStaffSignedIn) return;
-    
+
     _geofencePopupShownThisEntry = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!_signInStatusLoaded || !_staffIdentityLoaded || _isSignedIn) return;
       unawaited(
-        GeofenceSignInSheet.show(
-          context,
-          role: 'staff',
-          isSignedIn: false,
-        ),
+        GeofenceSignInSheet.show(context, role: 'staff', isSignedIn: false),
       );
     });
   }
@@ -1029,19 +1028,11 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                 curr.status != GeofenceCubitStatus.withinRange) {
               _geofencePopupShownThisEntry = false;
             }
-            // Reset guard explicitly on manual dashboard refresh.
-            if (prev.refreshNonce != curr.refreshNonce) {
-              _geofencePopupShownThisEntry = false;
-              // If already withinRange, returning true will immediately trigger
-              // a sign-in popup evaluation based on the authoritative sign-in state.
-              if (curr.status == GeofenceCubitStatus.withinRange) {
-                return true;
-              }
-            }
             // Fire when transitioning into withinRange OR when sign-in status finishes loading while withinRange
             if (curr.status == GeofenceCubitStatus.withinRange) {
               if (prev.status != GeofenceCubitStatus.withinRange) return true;
-              if (prev.isSignInStatusLoading && !curr.isSignInStatusLoading) return true;
+              if (prev.isSignInStatusLoading && !curr.isSignInStatusLoading)
+                return true;
             }
             return false;
           },
@@ -1708,6 +1699,23 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       if (mounted) setState(() => _loading = false);
     }
 
+    // Fallback to REST API concurrently in case Firestore fails or is empty.
+    unawaited(
+      serviceLocator<GetConversationsEntityUseCase>().call().then((result) {
+        if (!mounted) return;
+        result.fold((_) {}, (list) {
+          setState(() {
+            // If REST API found chats, merge them with current items to ensure
+            // we don't miss anything, and take the top 2 most recent.
+            if (list.isNotEmpty) {
+              _items = _top2([..._items, ...list]);
+              _loading = false;
+            }
+          });
+        });
+      }),
+    );
+
     try {
       final storage = serviceLocator<StorageService>();
       final schoolCode =
@@ -1734,7 +1742,11 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
         if (!mounted) return;
         _timeout?.cancel();
         setState(() {
-          _items = _top2(list);
+          // If Firestore returns items, use them (merged to preserve names if needed).
+          // If it returns empty, only overwrite if we didn't get any from REST/Cache.
+          if (list.isNotEmpty) {
+             _items = _top2([..._items, ...list]);
+          }
           _loading = false;
         });
       },

@@ -322,6 +322,12 @@ class _FakeConversationEntityRepository
     // TODO: implement reconcileClassroomChat
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
 }
 
 /// Overrides `upload()` entirely, so the real `ImageUploadService`/

@@ -1038,7 +1038,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
                 ?.trim()
                 .toUpperCase() ??
             '';
-        if (activeRole == 'ADMIN') {
+        if (activeRole == 'ADMIN' || activeRole == 'ORG_ADMIN') {
           staffCode =
               (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
         }
