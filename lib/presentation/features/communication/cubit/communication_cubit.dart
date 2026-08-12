@@ -113,6 +113,15 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   _conversationsSubscriptions = {};
   String? _watchedThreadId;
 
+  /// Debounces [_applyReliableUnreadCounts] per type — thread open/close
+  /// fires several Firestore snapshots in quick succession (read receipt,
+  /// delivery, message updates), and each one otherwise queued its own
+  /// immediate follow-up fetch + emit. Stacking several list rebuilds right
+  /// on top of the Navigator push/pop transition animation was tripping a
+  /// Flutter semantics-tree assertion ('!semantics.parentDataDirty').
+  /// Collapsing bursts into one fetch, after things settle, avoids it.
+  final Map<String?, Timer> _unreadCountsDebounce = {};
+
   /// Next page to request from [loadOlderMessages] per thread — page 0 is
   /// always the initial/latest window fetched by [loadMessages], so the
   /// first older-history page is 1.
@@ -293,7 +302,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             // the confirmed-reliable per-conversation REST endpoint (the
             // same one already trusted for REST-driven loads, see
             // CommunicationRepositoryImpl._resolveUnreadCounts).
-            unawaited(_applyReliableUnreadCounts(type));
+            // Debounced — see _unreadCountsDebounce.
+            _scheduleReliableUnreadCounts(type);
           },
           // Same rationale as startWatchingThread — never let a Firestore
           // failure crash the screen; it just keeps showing API/Isar data.
@@ -328,12 +338,22 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     }
   }
 
+  /// Debounce wrapper for [_applyReliableUnreadCounts] — see
+  /// [_unreadCountsDebounce]'s doc comment.
+  void _scheduleReliableUnreadCounts(String? type) {
+    _unreadCountsDebounce[type]?.cancel();
+    _unreadCountsDebounce[type] = Timer(const Duration(milliseconds: 700), () {
+      unawaited(_applyReliableUnreadCounts(type));
+    });
+  }
+
   /// Fetches the confirmed-reliable per-conversation unread counts (see
   /// [CommunicationRepositoryImpl._resolveUnreadCounts]'s doc comment for
   /// how it was verified) and overrides them onto whatever's currently
-  /// shown for [type]. Called after every Firestore snapshot, since
-  /// Firestore's own embedded unreadCount has been observed to drop
-  /// incorrectly for conversations other than the one just read.
+  /// shown for [type]. Scheduled (debounced) after every Firestore
+  /// snapshot, since Firestore's own embedded unreadCount has been
+  /// observed to drop incorrectly for conversations other than the one
+  /// just read.
   Future<void> _applyReliableUnreadCounts(String? type) async {
     final result = await getUnreadCountsPerConversationUseCase();
     if (isClosed) return;
@@ -362,6 +382,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       sub.cancel();
     }
     _conversationsSubscriptions.clear();
+    for (final timer in _unreadCountsDebounce.values) {
+      timer.cancel();
+    }
+    _unreadCountsDebounce.clear();
     return super.close();
   }
 

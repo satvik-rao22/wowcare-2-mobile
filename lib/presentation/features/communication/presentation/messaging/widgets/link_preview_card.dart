@@ -11,13 +11,18 @@ String? extractFirstUrl(String text) {
   return preview.value;
 }
 
-/// WhatsApp-style link preview card.
+/// Plain clickable link — shown for the first URL found in a message.
 ///
-/// Fetches Open Graph / Twitter Card metadata for [url] and renders a
-/// compact horizontal card with thumbnail, title, description, and domain.
-///
-/// Uses [AnyLinkPreview] which caches responses for [_cacheDuration] so
-/// subsequent renders within the same session are instant.
+/// No Open Graph/metadata fetch, no async-loaded thumbnail: just the raw
+/// URL as tappable, underlined text. A prior version fetched a rich
+/// WhatsApp-style preview card via [AnyLinkPreview], but that card resizes
+/// itself asynchronously once its fetch completes — the message bubble
+/// wraps its content in IntrinsicWidth/IntrinsicHeight to shrink-fit, and a
+/// descendant resizing itself after that ancestor's first layout pass
+/// repeatedly tripped Flutter's relayout-boundary/semantics assertions
+/// ('_debugRelayoutBoundaryAlreadyMarkedNeedsLayout',
+/// '!semantics.parentDataDirty'). A static, fixed-size widget has no such
+/// resize to trigger it.
 ///
 /// Pass [isMe] = true to use the sender (purple gradient) colour scheme;
 /// false for the receiver (light blue) scheme.
@@ -27,59 +32,21 @@ class LinkPreviewCard extends StatelessWidget {
   final String url;
   final bool isMe;
 
-  static const Duration _cacheDuration = Duration(days: 1);
-
   @override
   Widget build(BuildContext context) {
-    // Validate URL before attempting to fetch.
     if (!AnyLinkPreview.isValidLink(url)) return const SizedBox.shrink();
 
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.only(top: 4),
       child: GestureDetector(
         onTap: () => MessageContentProcessor.launchLink(url),
-        child: AnyLinkPreview(
-          link: url,
-          displayDirection: UIDirection.uiDirectionHorizontal,
-          showMultimedia: true,
-          bodyMaxLines: 2,
-          bodyTextOverflow: TextOverflow.ellipsis,
-          titleStyle: TextStyle(
-            color: isMe ? Colors.white : const Color(0xFF1E293B),
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
+        child: Text(
+          url,
+          style: TextStyle(
+            color: isMe ? Colors.white : AppColors.primaryColor,
+            fontSize: 13,
             fontFamily: 'Manrope',
-          ),
-          bodyStyle: TextStyle(
-            color: isMe
-                ? Colors.white.withValues(alpha: 0.75)
-                : const Color(0xFF64748B),
-            fontSize: 11,
-            fontFamily: 'Manrope',
-          ),
-          cache: _cacheDuration,
-          backgroundColor: isMe
-              ? Colors.white.withValues(alpha: 0.15)
-              : const Color(0xFFF0F4FF),
-          borderRadius: 10,
-          removeElevation: true,
-          // Error state: render nothing so the bubble is not broken.
-          errorWidget: const SizedBox.shrink(),
-          // Loading state: small spinner so the bubble height is stable.
-          placeholderWidget: SizedBox(
-            height: 54,
-            child: Center(
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 1.5,
-                  color: isMe
-                      ? Colors.white.withValues(alpha: 0.6)
-                      : AppColors.primaryColor.withValues(alpha: 0.5),
-                ),
-              ),
-            ),
+            decoration: TextDecoration.underline,
           ),
         ),
       ),
