@@ -47,6 +47,15 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   StreamSubscription<String>? _markedReadSubscription;
   bool _firestoreActive = false;
 
+  /// Debounces [_applyReliableUnreadCounts] — thread open/close fires
+  /// several Firestore snapshots in quick succession (read receipt,
+  /// delivery, message updates), and each one otherwise queued its own
+  /// immediate follow-up fetch + emit. Stacking several list rebuilds right
+  /// on top of the Navigator push/pop transition animation was tripping a
+  /// Flutter semantics-tree assertion ('!semantics.parentDataDirty').
+  /// Collapsing bursts into one fetch, after things settle, avoids it.
+  Timer? _unreadCountsDebounce;
+
   /// Dedup guard so a conversation's last message only triggers one
   /// markConversationDelivered call per change — keyed by conversation
   /// code, valued by the `lastMessageAt` we already processed.
@@ -60,6 +69,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> close() {
     _firestoreSubscription?.cancel();
     _markedReadSubscription?.cancel();
+    _unreadCountsDebounce?.cancel();
     return super.close();
   }
 
@@ -141,7 +151,8 @@ class ConversationListCubit extends Cubit<ConversationListState> {
             // the confirmed-reliable per-conversation REST endpoint (the
             // same one already trusted for REST-driven loads, see
             // ConversationEntityRepositoryImpl._resolveUnreadCounts).
-            unawaited(_applyReliableUnreadCounts());
+            // Debounced — see _unreadCountsDebounce.
+            _scheduleReliableUnreadCounts();
           },
           onError: (error) {
             if (!_firestoreActive) unawaited(_fallbackToApi());
@@ -573,12 +584,21 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     );
   }
 
+  /// Debounce wrapper for [_applyReliableUnreadCounts] — see
+  /// [_unreadCountsDebounce]'s doc comment.
+  void _scheduleReliableUnreadCounts() {
+    _unreadCountsDebounce?.cancel();
+    _unreadCountsDebounce = Timer(const Duration(milliseconds: 700), () {
+      unawaited(_applyReliableUnreadCounts());
+    });
+  }
+
   /// Fetches the confirmed-reliable per-conversation unread counts (see
   /// [ConversationEntityRepositoryImpl._resolveUnreadCounts]'s doc comment
   /// for how it was verified) and overrides them onto whatever's currently
-  /// shown. Called after every Firestore snapshot, since Firestore's own
-  /// embedded unreadCount has been observed to drop incorrectly for
-  /// conversations other than the one just read.
+  /// shown. Scheduled (debounced) after every Firestore snapshot, since
+  /// Firestore's own embedded unreadCount has been observed to drop
+  /// incorrectly for conversations other than the one just read.
   Future<void> _applyReliableUnreadCounts() async {
     final result = await _conversationRepo.getUnreadCountsPerConversation();
     if (isClosed) return;
