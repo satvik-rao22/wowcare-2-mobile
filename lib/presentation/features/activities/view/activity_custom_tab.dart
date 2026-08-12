@@ -78,6 +78,7 @@ class ActivityCustomTab extends StatefulWidget {
     this.studentProfile,
     this.isNotParent = true,
     this.allowActivityWrite = true,
+    this.onRefreshStaffSignInStatus,
   });
 
   final bool fromStudentProfile;
@@ -91,6 +92,11 @@ class ActivityCustomTab extends StatefulWidget {
 
   /// Edit / delete; false when [DAILY_ACTIVITY] has `write: false`.
   final bool allowActivityWrite;
+
+  /// Re-checks the staff persona's today sign-in status (drives the parent
+  /// screen's Add-activity FAB gate). Invoked on manual pull-to-refresh so the
+  /// FAB reflects a sign-in/out done elsewhere without needing an app restart.
+  final Future<void> Function()? onRefreshStaffSignInStatus;
 
   static const String routeName = '/activityCustomTab';
 
@@ -2696,6 +2702,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _lastFeedRequestKey = null;
     _lastFeedCompletedAt = null;
     _lastFeedCompletedWithError = true;
+
+    // Re-check the staff sign-in gate in parallel: pull-to-refresh should
+    // also flip the Add-activity FAB after a sign-in/out done on another
+    // screen, not just the feed contents.
+    final refreshStaffSignInStatus = widget.onRefreshStaffSignInStatus;
+    if (refreshStaffSignInStatus != null) {
+      unawaited(refreshStaffSignInStatus());
+    }
 
     // Force refresh of tag map + feed. Also bust staff dropdown cache.
     try {

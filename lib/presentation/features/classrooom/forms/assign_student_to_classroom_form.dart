@@ -599,11 +599,11 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
     final subject = names.isEmpty
         ? '${outside.length} selected student(s)'
         : (names.length == 1 ? names.first : names.join(', '));
-    final range = formatClassroomAgeRange(classroom);
+    // Same phrasing as the Edit Student flow's classroomAgeRangeWarning(),
+    // adapted for a possibly-multiple selection, for consistency.
     final message =
-        "$subject ${names.length == 1 ? 'is' : 'are'} outside "
-        "${classroom.name}'s age range${range.isEmpty ? '' : ' ($range)'}. "
-        'You can still assign them.';
+        "$subject ${names.length == 1 ? 'is' : 'are'} outside the "
+        "classroom's age range. Do you want to continue?";
 
     final result = await showModalBottomSheet<bool>(
       context: context,
@@ -612,7 +612,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
-        confirmText: 'Assign anyway',
+        confirmText: 'Continue anyway',
         cancelText: 'Cancel',
         onConfirm: () => Navigator.of(ctx).pop(true),
         onCancel: () => Navigator.of(ctx).pop(false),

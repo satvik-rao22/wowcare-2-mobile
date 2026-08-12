@@ -653,7 +653,7 @@ class _StudentSidePanel extends StatelessWidget {
       case 'Transfer':
         return 'Transfer can only be done for Students/Staff already signed in.';
       case 'Absent':
-        return 'Already marked absent for today.';
+        return 'Absent can only be marked for Students/Staff not yet signed in';
     }
     return '';
   }

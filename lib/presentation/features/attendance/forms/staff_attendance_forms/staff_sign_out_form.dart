@@ -329,13 +329,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
     late final DateTime occurredAt;
     late final String attendanceDate;
 
-    // An admin acting on their OWN record (My Attendance/My Day, or a bulk
-    // form where they only selected themselves) must not be able to pick a
-    // date/time either — only admin-managed OTHER-staff attendance allows it.
-    final bool isSelfTarget =
-        widget.isKiosk ||
-        widget.qrToken.isNotEmpty ||
-        (targetStaffCodes.length == 1 && targetStaffCodes.first == staffCode);
+    // Kiosk/QR is always "now" — physical proof of presence — regardless of
+    // persona or target.
+    final bool isKioskOrQr = widget.isKiosk || widget.qrToken.isNotEmpty;
 
     if (!isStaffAdmin) {
       if (targetStaffCodes.length != 1 || targetStaffCodes.first != staffCode) {
@@ -358,13 +354,16 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
         occurredAt,
         schoolTimeZone,
       );
-    } else if (isSelfTarget) {
+    } else if (isKioskOrQr) {
       occurredAt = SchoolZoneDateTime.utcNowInSchool(schoolTimeZone);
       attendanceDate = SchoolZoneDateTime.yyyyMmDdFromUtcInstant(
         occurredAt,
         schoolTimeZone,
       );
     } else {
+      // Admin persona: always honors the picker, including for their own
+      // record — already routed through the admin/bulk endpoint below (see
+      // isSelfSignOut), so the backend accepts the custom occurredAt.
       occurredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
         selectedDate: selectedDate,
@@ -436,7 +435,9 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
 
     // QR scan is always self sign-out — the person holding the phone is signing
     // themselves out. Kiosk is always self sign-out (staff member via PIN).
-    // Admin bulk sign-out only happens via GPS flow where the admin selects other staff.
+    // An admin persona (including signing out their own record from My Day)
+    // routes through the admin/bulk endpoint so their picked date/time is
+    // honored — only non-admins use the strictly-"now" self endpoint.
     final bool isSelfSignOut = !isStaffAdmin || isQrSignOut || widget.isKiosk;
 
     final payload = <String, dynamic>{
@@ -607,8 +608,7 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled:
-                            _isStaffAdminPersona != true || _isSelfTarget,
+                        isDisabled: _isStaffAdminPersona != true,
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -641,7 +641,10 @@ class _StaffSignOutFormState extends State<StaffSignOutForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        ignoring: _isStaffAdminPersona != true || _isSelfTarget,
+                        // Teachers cannot modify time; submission will also
+                        // force "now" for them. Admin personas can edit the
+                        // time even for their own record.
+                        ignoring: _isStaffAdminPersona != true,
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {

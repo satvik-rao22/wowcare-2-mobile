@@ -36,6 +36,8 @@ class StaffAttendanceCardData {
 
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
+  /// Comment captured from the "not expected today" warning at sign-in.
+  final String? notExpectedComment;
 
   StaffAttendanceCardData({
     this.attendanceRecordCode,
@@ -61,6 +63,7 @@ class StaffAttendanceCardData {
     this.isTransferSignIn = false,
     this.isTransferSignOut = false,
     this.attendedTimeDisplay,
+    this.notExpectedComment,
   });
 }
 
@@ -256,6 +259,14 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                     if (duration.isNotEmpty) ...[
                       const SizedBox(height: 10),
                       _buildDetailRow(context, 'Attended Time', duration),
+                    ],
+                    if ((staff.notExpectedComment ?? '').trim().isNotEmpty) ...[
+                      const SizedBox(height: 10),
+                      _buildDetailRow(
+                        context,
+                        'Comment',
+                        staff.notExpectedComment!.trim(),
+                      ),
                     ],
                     const SizedBox(height: 12),
                     _buildActionButtons(context),

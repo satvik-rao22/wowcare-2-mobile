@@ -86,23 +86,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
+  String _notExpectedComment = '';
   int _unexpectedGateToken = 0;
   String?
   _currentStaffCode; // Current user's staff code - for self-only validation
-
-  /// True when this form targets the logged-in user's own attendance record
-  /// (My Attendance) rather than another staff member's. Self attendance can
-  /// never have its date/time edited, even by an admin persona — only
-  /// admin-managed OTHER-staff attendance allows picking a date/time.
-  bool get _isSelfTarget {
-    if (widget.forceSelf || widget.isKiosk || widget.qrToken.isNotEmpty) {
-      return true;
-    }
-    final code = _currentStaffCode;
-    if (code == null || code.isEmpty) return false;
-    return _selectedStaff.length == 1 &&
-        (_selectedStaff.first.staffCode ?? '').trim() == code;
-  }
 
   @override
   void initState() {
@@ -342,6 +329,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     if (result?.confirmed == true) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = result?.comment ?? '';
       });
     } else {
       Navigator.of(context).pop();
@@ -512,17 +500,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     late final DateTime occurredAt;
     late final String attendanceDate;
 
-    // QR sign-in is always self (current moment); admin GPS sign-in can use the picker.
-    // Self sign-in (forceSelf) must also use "now" — the backend's /self endpoint
-    // always rejects backdated timestamps, so the stale picker value can't be sent.
+    // QR sign-in is always "now" — it's physical proof of presence at the
+    // scan moment, regardless of persona.
     final bool isQrForTime = widget.qrToken.isNotEmpty;
-    // An admin acting on their OWN record (e.g. via "My Attendance"/My Day,
-    // or a bulk form where they only selected themselves) must not be able
-    // to pick a date/time either — only admin-managed OTHER-staff attendance
-    // allows the picker.
-    final bool isSelfTarget =
-        targetStaffCodes.length == 1 && targetStaffCodes.first == staffCode;
-    if (!isStaffAdmin || isQrForTime || widget.forceSelf || isSelfTarget) {
+    if (!isStaffAdmin || isQrForTime) {
       if (!isStaffAdmin &&
           (targetStaffCodes.length != 1 ||
               targetStaffCodes.first != staffCode)) {
@@ -546,6 +527,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         schoolTimeZone,
       );
     } else {
+      // Admin persona: always honors the picker, including for their own
+      // record — that case is routed through the admin/bulk endpoint below
+      // so the backend accepts the custom occurredAt.
       occurredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
         selectedDate: selectedDate,
@@ -616,12 +600,17 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         ? 'QR'
         : (isStaffAdmin && !widget.forceSelf ? 'APP' : 'GPS');
 
-    // QR scan is always self sign-in — the person holding the phone is signing
-    // in themselves against the school kiosk QR. Admin bulk sign-in only happens
-    // via GPS flow where the admin selects other staff on the form.
+    // Whether this sign-in targets the current user's own record — drives
+    // post-submit UI (geofence status sync, navigating back vs to the daily
+    // view), independent of which endpoint actually handles the submission.
     final bool isSelfSignIn = !isStaffAdmin || isQrSignIn || widget.forceSelf;
+    // Which endpoint/payload shape to submit through. An admin persona acting
+    // on their own record (e.g. My Day's Sign-In) still routes through the
+    // admin/bulk endpoint so the picked date/time is honored — the /self
+    // endpoint always forces "now".
+    final bool useSelfEndpoint = !isStaffAdmin || isQrSignIn;
 
-    if (isSelfSignIn) {
+    if (useSelfEndpoint) {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
       payload = <String, dynamic>{
         'staffCode': staffCode,
@@ -640,6 +629,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         payload['pin'] = widget.pin;
       } else if (isQrSignIn) {
         payload['qrToken'] = widget.qrToken;
+      }
+      if (_notExpectedComment.trim().isNotEmpty) {
+        payload['notExpectedComment'] = _notExpectedComment.trim();
       }
     } else {
       // Admin bulk sign-in: supports signing in other staff.
@@ -671,11 +663,14 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'timeZone': schoolTimeZone,
         'occurredAt': occurredAt.toUtc().toIso8601String(),
       };
+      if (_notExpectedComment.trim().isNotEmpty) {
+        payload['notExpectedComment'] = _notExpectedComment.trim();
+      }
     }
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignIn(payload: payload, isSelf: isSelfSignIn);
+          .submitStaffSignIn(payload: payload, isSelf: useSelfEndpoint);
       final isAlreadySignedIn = !result.success &&
           result.message.toLowerCase().contains('already signed');
       final success = result.success || isAlreadySignedIn;
@@ -852,8 +847,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled:
-                            _isStaffAdminPersona != true || _isSelfTarget,
+                        isDisabled: _isStaffAdminPersona != true,
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -887,9 +881,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        // Teachers, and anyone acting on their own record,
-                        // cannot modify time; submission will also force "now".
-                        ignoring: _isStaffAdminPersona != true || _isSelfTarget,
+                        // Teachers cannot modify time; submission will also
+                        // force "now" for them. Admin personas can edit the
+                        // time even for their own record.
+                        ignoring: _isStaffAdminPersona != true,
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {

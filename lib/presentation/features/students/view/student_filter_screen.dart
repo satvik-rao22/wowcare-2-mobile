@@ -75,9 +75,9 @@ class _StudentFilterScreenState extends State<StudentFilterScreen> {
   List<String> _tagsList = const [];
   List<String> _parentsList = const [];
   final List<String> _attendanceList = const [
-    'Sign In',
-    'Sign Out',
-    'Not Marked',
+    'Signed-In',
+    'Signed-Out',
+    'Not-Marked',
     'Absent',
   ];
 

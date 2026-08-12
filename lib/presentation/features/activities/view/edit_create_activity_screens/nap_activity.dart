@@ -51,13 +51,13 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
-        'SCHOOL_ADMIN',
-        'ORGANIZATION_ADMIN',
-        'DIRECTOR',
-        'ADMIN',
-        'ASSISTANT_DIRECTOR',
-        'OWNER',
-      }.contains(_staffType.trim().toUpperCase());
+    'SCHOOL_ADMIN',
+    'ORGANIZATION_ADMIN',
+    'DIRECTOR',
+    'ADMIN',
+    'ASSISTANT_DIRECTOR',
+    'OWNER',
+  }.contains(_staffType.trim().toUpperCase());
   bool get _showRequireAdminApprovalToggle => !_isAdminDesignation;
 
   List<Map<String, dynamic>> _selectedStudentsData = [];
@@ -80,6 +80,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   bool _isSavingBeforeApprove = false;
   bool _lastUpdateSucceeded = false;
   bool _loadingActivityDetail = false;
+
   /// Nap start only — persisted when activity type defines a matching BOOLEAN param.
   bool _remindCheckNapEvery15Minutes = true;
   ActivityItem? _liveActivity;
@@ -88,8 +89,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   late final ActivityEditorCubit _editor;
   late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
 
-  ActivityItem get _effectiveActivity =>
-      _liveActivity ?? widget.activityData!;
+  ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
     final status = (activity.approvalStatus ?? '').trim().toUpperCase();
     return status.isNotEmpty && status != 'NOT_REQUIRED';
@@ -99,9 +99,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     for (final p in rows) {
       final n = (p['parameterName'] ?? '').toString().trim().toLowerCase();
       if (n != 'staff present') continue;
-      final v = (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
-          .toString()
-          .trim();
+      final v =
+          (p['selectedOptionCode'] ?? p['valueText'] ?? p['valueNumber'] ?? '')
+              .toString()
+              .trim();
       if (v.isNotEmpty) return v;
     }
     return null;
@@ -163,7 +164,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   Future<void> _syncSchoolAttendanceDateForCreate() async {
     if (!mounted || _layoutAsEdit) return;
     if (_selectedStudentsData.isEmpty) return;
-    await ensureAttendanceDateOnStudentMapsForSchoolToday(_selectedStudentsData);
+    await ensureAttendanceDateOnStudentMapsForSchoolToday(
+      _selectedStudentsData,
+    );
     if (!mounted) return;
     setState(() {
       _activityDate = resolveSelectedAttendanceDate(_selectedStudentsData);
@@ -191,7 +194,11 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       if (!_lastUpdateSucceeded) return;
       final msg = await _editor.approveActivity(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -217,7 +224,11 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     try {
       final msg = await _editor.rejectActivity(code: code);
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: msg, isSuccess: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: msg,
+        isSuccess: true,
+      );
       Navigator.of(context).pop(true);
     } catch (e) {
       if (!mounted) return;
@@ -243,8 +254,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       final tc = detail.activityTypeCode.trim();
       if (tc.isNotEmpty) {
         try {
-          typeDetailsForRemind =
-              await _editor.getActivityTypeDetails(code: tc);
+          typeDetailsForRemind = await _editor.getActivityTypeDetails(code: tc);
         } catch (_) {}
       }
       final item = activityItemFromActivityDetail(
@@ -300,10 +310,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
   Future<void> _loadStaffContext() async {
     final storage = serviceLocator<StorageService>();
-    final staffType =
-        (await storage.getString(StorageKeys.staffType) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     final organizationCode =
         (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
     final staffCode = await resolveLoggedInStaffCode();
@@ -316,10 +326,11 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       _staffName = apiDisplayName.isNotEmpty ? apiDisplayName : 'Staff';
       _staffType = staffType.toUpperCase();
       _staffCode = staffCode;
-      _staffPresentCode = (staffCode ?? '').trim().isEmpty ? null : staffCode!.trim();
+      _staffPresentCode = (staffCode ?? '').trim().isEmpty
+          ? null
+          : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
-      _organizationCode =
-          organizationCode.isNotEmpty ? organizationCode : null;
+      _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
     });
   }
 
@@ -330,13 +341,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     final first = widget.selectedStudents!.first;
     final dynamic classroomCodeDynamic =
         first['classroomCode'] ?? first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
     if (classroomCode.isEmpty) return;
 
     try {
-      final List<ActivitySetting> settings =
-          await _editor.getClassroomActivitySettings(classroomCode: classroomCode);
+      final List<ActivitySetting> settings = await _editor
+          .getClassroomActivitySettings(classroomCode: classroomCode);
       ActivitySetting? napSetting;
       for (final s in settings) {
         final name = s.activityTypeName.toLowerCase();
@@ -415,22 +427,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       (n) => n.contains('end') && n.contains('nap'),
     );
 
-    if (startCode != null &&
-        endCode != null &&
-        startCode == endCode) {
+    if (startCode != null && endCode != null && startCode == endCode) {
       return;
     }
     if (startCode != null && startCode.isNotEmpty) {
-      parameterValues.add({
-        'parameterCode': startCode,
-        'value': napStartFlag,
-      });
+      parameterValues.add({'parameterCode': startCode, 'value': napStartFlag});
     }
     if (endCode != null && endCode.isNotEmpty) {
-      parameterValues.add({
-        'parameterCode': endCode,
-        'value': napEndFlag,
-      });
+      parameterValues.add({'parameterCode': endCode, 'value': napEndFlag});
     }
   }
 
@@ -440,13 +444,16 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       final dt = (p.dataType ?? '').toUpperCase();
       if (dt != 'BOOLEAN' && dt != 'BOOL') continue;
       final n = p.parameterName.toLowerCase();
-      final matches = (n.contains('remind') &&
+      final matches =
+          (n.contains('remind') &&
               (n.contains('15') ||
                   n.contains('minute') ||
                   n.contains('min'))) ||
           (n.contains('check') &&
               n.contains('nap') &&
-              (n.contains('15') || n.contains('remind') || n.contains('minute')));
+              (n.contains('15') ||
+                  n.contains('remind') ||
+                  n.contains('minute')));
       if (matches) {
         final c = p.code.trim();
         if (c.isNotEmpty) return c;
@@ -478,8 +485,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     );
     final nappingSet = nappingCodes.map((e) => e.trim()).toSet();
     final selectedSet = studentCodes.map((e) => e.trim()).toSet();
-    final nappingSelectedCount =
-        selectedSet.where((code) => nappingSet.contains(code)).length;
+    final nappingSelectedCount = selectedSet
+        .where((code) => nappingSet.contains(code))
+        .length;
 
     if (nappingSelectedCount > 0 && nappingSelectedCount < selectedSet.length) {
       if (!mounted) return null;
@@ -570,14 +578,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final enteredDescription = _descriptionController.text.trim();
     var description = enteredDescription;
@@ -599,10 +607,12 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       return;
     }
 
-    final classroomCodeDynamic = _selectedStudentsData.first['classroomCode'] ??
+    final classroomCodeDynamic =
+        _selectedStudentsData.first['classroomCode'] ??
         _selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
+    final classroomCode = classroomCodeDynamic is String
+        ? classroomCodeDynamic.trim()
+        : '';
 
     if (classroomCode.isEmpty) {
       CoreUtils.showTopSnackBar(
@@ -663,8 +673,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     });
 
     try {
-      final details =
-          await _editor.getActivityTypeDetails(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -781,14 +792,14 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       );
       return;
     }
-    final isWithinAttendanceWindow = await validateStudentsWithinAttendanceWindow(
-      context: context,
-      students: _selectedStudentsData,
-      selectedDate: _activityDate,
-      selectedTime: _activityTime,
-    );
+    final isWithinAttendanceWindow =
+        await validateStudentsWithinAttendanceWindow(
+          context: context,
+          students: _selectedStudentsData,
+          selectedDate: _activityDate,
+          selectedTime: _activityTime,
+        );
     if (!isWithinAttendanceWindow) return;
-
 
     final description = _descriptionController.text.trim();
     if (description.length > ActivityDescriptionLimits.maxLength) {
@@ -813,8 +824,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     if (staffCode == null || staffCode.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message:
-            'Missing staff information. Please re-login and try again.',
+        message: 'Missing staff information. Please re-login and try again.',
         isError: true,
       );
       return;
@@ -839,8 +849,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
     setState(() => _isSubmitting = true);
     try {
-      final details =
-          await _editor.getActivityTypeDetails(code: activityTypeCode);
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
 
       String? findParamCode(String contains) {
         final target = contains.toLowerCase();
@@ -893,8 +904,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       );
       String? lastMessage;
       for (final m in targets) {
-        final code = (m['activityCode'] as String?)?.trim() ??
-            fallbackActivityCode;
+        final code =
+            (m['activityCode'] as String?)?.trim() ?? fallbackActivityCode;
         if (code == null || code.isEmpty) {
           if (!mounted) return;
           CoreUtils.showTopSnackBar(
@@ -964,8 +975,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         try {
           final status =
               await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-            staffCode: pickedStaffCode,
-          );
+                staffCode: pickedStaffCode,
+              );
           if (status?.toUpperCase() != 'SIGNED_IN') {
             if (!mounted) return;
             CoreUtils.showTopSnackBar(
@@ -1025,212 +1036,219 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return StaffFormLayout(
-      title: _layoutAsEdit
-          ? (_effectiveActivity.name)
-          : 'Nap',
+      title: _layoutAsEdit ? (_effectiveActivity.name) : 'Nap',
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 10),
-            if (_layoutAsEdit &&
-                !(widget.isEdit &&
-                    !widget.readOnly &&
-                    _selectedStudents.length > 1))
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisSpacing: responsive.isTablet ? 16 : 12,
-                  mainAxisExtent: 64,
+        child: AbsorbPointer(
+          absorbing:
+              _isSubmitting ||
+              _isApprovingOrRejecting ||
+              _loadingActivityDetail,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: 10),
+              if (_layoutAsEdit &&
+                  !(widget.isEdit &&
+                      !widget.readOnly &&
+                      _selectedStudents.length > 1))
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: responsive.isTablet ? 3 : 2,
+                    crossAxisSpacing: responsive.isTablet ? 16 : 12,
+                    mainAxisSpacing: responsive.isTablet ? 16 : 12,
+                    mainAxisExtent: 64,
+                  ),
+                  itemCount: _selectedStudents.length,
+                  itemBuilder: (context, index) {
+                    return ActivityStudentDisplayTile(
+                      name: _selectedStudents[index],
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode']
+                                as String?
+                          : null,
+                    );
+                  },
+                )
+              else if (!_layoutAsEdit)
+                GridView.builder(
+                  physics: const NeverScrollableScrollPhysics(),
+                  shrinkWrap: true,
+                  padding: const EdgeInsets.all(10),
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: responsive.isTablet ? 3 : 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    mainAxisExtent: 64,
+                  ),
+                  itemCount: _selectedStudents.length,
+                  itemBuilder: (context, index) {
+                    final String name = _selectedStudents[index];
+                    return ActivityStudentDisplayTile(
+                      name: name,
+                      studentCode: index < _selectedStudentsData.length
+                          ? _selectedStudentsData[index]['studentCode']
+                                as String?
+                          : null,
+                      onRemove: () => _removeStudent(name),
+                    );
+                  },
                 ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  return ActivityStudentDisplayTile(
-                    name: _selectedStudents[index],
-                    studentCode: index < _selectedStudentsData.length
-                        ? _selectedStudentsData[index]['studentCode'] as String?
-                        : null,
-                  );
-                },
-              )
-            else if (!_layoutAsEdit)
-              GridView.builder(
-                physics: const NeverScrollableScrollPhysics(),
-                shrinkWrap: true,
-                padding: const EdgeInsets.all(10),
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: responsive.isTablet ? 3 : 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 64,
-                ),
-                itemCount: _selectedStudents.length,
-                itemBuilder: (context, index) {
-                  final String name = _selectedStudents[index];
-                  return ActivityStudentDisplayTile(
-                    name: name,
-                    studentCode: index < _selectedStudentsData.length
-                        ? _selectedStudentsData[index]['studentCode'] as String?
-                        : null,
-                    onRemove: () => _removeStudent(name),
-                  );
-                },
-              ),
-            if (widget.isEdit && !widget.readOnly && _selectedStudents.length > 1) ...[
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: ActivityEditStudentScopeCheckboxes(
-                  studentNames: _selectedStudents,
-                  checkedIndices: _scopedEditStudentIndices,
-                  onChanged: (next) => setState(() {
-                    _scopedEditStudentIndices
-                      ..clear()
-                      ..addAll(next);
-                  }),
-                ),
-              ),
-            ],
-            SizedBox(height: responsive.verticalSpacing),
-            Row(
-              children: [
-                Flexible(
-                  child: _layoutAsEdit
-                      ? DateWidget(
-                          isEditable: false,
-                          isRequired: true,
-                          initialDate: _effectiveActivity.date,
-                          onDateChanged: (d) {
-                            setState(() {
-                              _activityDate = d;
-                            });
-                          },
-                        )
-                      : DateWidget(
-                          key: ValueKey<String>(
-                            formatSelectedDateForDateWidget(_activityDate) ?? 'school_date',
-                          ),
-                          isEditable: false,
-                          isRequired: true,
-                          initialDate: formatSelectedDateForDateWidget(_activityDate),
-                          onDateChanged: (d) {
-                            setState(() {
-                              _activityDate = d;
-                            });
-                          },
-                        ),
-                ),
-                const SizedBox(width: 10),
-                Flexible(
-                  child: _layoutAsEdit
-                      ? TimeWidget(
-                          label: _timeLabelForCurrentContext(),
-                          isEditable: _canInteract,
-                          isRequired: true,
-                          prefilledTime: _prefilledTimeForEdit(),
-                          onTimeChanged: (t) {
-                            setState(() {
-                              _activityTime = t;
-                            });
-                          },
-                        )
-                      : TimeWidget(
-                          label: _timeLabelForCurrentContext(),
-                          isRequired: true,
-                          isEditable: true,
-                          onTimeChanged: (t) {
-                            setState(() {
-                              _activityTime = t;
-                            });
-                          },
-                        ),
+              if (widget.isEdit &&
+                  !widget.readOnly &&
+                  _selectedStudents.length > 1) ...[
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: ActivityEditStudentScopeCheckboxes(
+                    studentNames: _selectedStudents,
+                    checkedIndices: _scopedEditStudentIndices,
+                    onChanged: (next) => setState(() {
+                      _scopedEditStudentIndices
+                        ..clear()
+                        ..addAll(next);
+                    }),
+                  ),
                 ),
               ],
-            ),
-            const ActivitySchoolTimeZoneHint(),
-            if (!_isNapEndContextForUi()) ...[
-              SizedBox(height: responsive.verticalSpacing * 0.6),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: CustomCheckbox(
-                    value: _remindCheckNapEvery15Minutes,
-                    onChanged: !_canInteract
-                        ? null
-                        : (v) {
-                            setState(() {
-                              _remindCheckNapEvery15Minutes = v ?? false;
-                            });
-                          },
-                    label: 'Remind to check nap every 15 minutes',
-                    labelStyle: TextStyle(
-                      color: Colors.grey.shade600,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w400,
+              SizedBox(height: responsive.verticalSpacing),
+              Row(
+                children: [
+                  Flexible(
+                    child: _layoutAsEdit
+                        ? DateWidget(
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: _effectiveActivity.date,
+                            onDateChanged: (d) {
+                              setState(() {
+                                _activityDate = d;
+                              });
+                            },
+                          )
+                        : DateWidget(
+                            key: ValueKey<String>(
+                              formatSelectedDateForDateWidget(_activityDate) ??
+                                  'school_date',
+                            ),
+                            isEditable: false,
+                            isRequired: true,
+                            initialDate: formatSelectedDateForDateWidget(
+                              _activityDate,
+                            ),
+                            onDateChanged: (d) {
+                              setState(() {
+                                _activityDate = d;
+                              });
+                            },
+                          ),
+                  ),
+                  const SizedBox(width: 10),
+                  Flexible(
+                    child: _layoutAsEdit
+                        ? TimeWidget(
+                            label: _timeLabelForCurrentContext(),
+                            isEditable: _canInteract,
+                            isRequired: true,
+                            prefilledTime: _prefilledTimeForEdit(),
+                            onTimeChanged: (t) {
+                              setState(() {
+                                _activityTime = t;
+                              });
+                            },
+                          )
+                        : TimeWidget(
+                            label: _timeLabelForCurrentContext(),
+                            isRequired: true,
+                            isEditable: true,
+                            onTimeChanged: (t) {
+                              setState(() {
+                                _activityTime = t;
+                              });
+                            },
+                          ),
+                  ),
+                ],
+              ),
+              const ActivitySchoolTimeZoneHint(),
+              if (!_isNapEndContextForUi()) ...[
+                SizedBox(height: responsive.verticalSpacing * 0.6),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: CustomCheckbox(
+                      value: _remindCheckNapEvery15Minutes,
+                      onChanged: !_canInteract
+                          ? null
+                          : (v) {
+                              setState(() {
+                                _remindCheckNapEvery15Minutes = v ?? false;
+                              });
+                            },
+                      label: 'Remind to check nap every 15 minutes',
+                      labelStyle: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w400,
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
-            SizedBox(height: responsive.verticalSpacing),
-            Builder(
-              builder: (context) {
-                final isAdminPersona =
-                    _isAdminDesignation;
-                final lockToLoggedInStaff = _canInteract && !isAdminPersona;
-                return StaffPresentWidget(
-                  staffName: staffPresentLabelForActivity(
-                    layoutAsEdit: _layoutAsEdit,
-                    activityCreatedBy: '',
-                    loggedInDisplayName: _staffName,
-                    staffLabelFromParameters: _layoutAsEdit
-                        ? (((_staffPresentCode ?? '').trim().isNotEmpty)
-                              ? _staffPresentCode
-                              : _effectiveActivity.staffPresent)
-                        : null,
-                  ),
-                  isEditable: lockToLoggedInStaff
-                      ? false
-                      : _canInteract,
-                  onStaffChanged: (_, selectedCode) {
-                    _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
-                        ? selectedCode!.trim()
-                        : (_staffPresentCode ?? _staffCode);
-                  },
-                );
-              },
-            ),
-            SizedBox(height: responsive.verticalSpacing),
-            InputWidget(
-              controller: _descriptionController,
-              height: 100,
-              label: _descriptionLabelForContext(),
-              hint: _descriptionHintForContext(),
-              isRequired: false,
-              readOnly: !_canInteract,
-              maxLength: ActivityDescriptionLimits.maxLength,
-            ),
-            if (_showRequireAdminApprovalToggle)
-              const SizedBox(height: 4),
-            if (_showRequireAdminApprovalToggle)
-              CustomToggle(
-                label: 'Requires Admin Approval',
-                isToggled: _requireAdminApproval,
-                labelOnLeftSide: true,
-                enabled: !_layoutAsEdit,
-                onToggle: (value) {
-                  setState(() {
-                    _requireAdminApproval = value;
-                  });
+              ],
+              SizedBox(height: responsive.verticalSpacing),
+              Builder(
+                builder: (context) {
+                  final isAdminPersona = _isAdminDesignation;
+                  final lockToLoggedInStaff = _canInteract && !isAdminPersona;
+                  return StaffPresentWidget(
+                    staffName: staffPresentLabelForActivity(
+                      layoutAsEdit: _layoutAsEdit,
+                      activityCreatedBy: '',
+                      loggedInDisplayName: _staffName,
+                      staffLabelFromParameters: _layoutAsEdit
+                          ? (((_staffPresentCode ?? '').trim().isNotEmpty)
+                                ? _staffPresentCode
+                                : _effectiveActivity.staffPresent)
+                          : null,
+                    ),
+                    isEditable: lockToLoggedInStaff ? false : _canInteract,
+                    onStaffChanged: (_, selectedCode) {
+                      _staffPresentCode = (selectedCode ?? '').trim().isNotEmpty
+                          ? selectedCode!.trim()
+                          : (_staffPresentCode ?? _staffCode);
+                    },
+                  );
                 },
               ),
-            SizedBox(height: responsive.verticalSpacing),
-          ],
+              SizedBox(height: responsive.verticalSpacing),
+              InputWidget(
+                controller: _descriptionController,
+                height: 100,
+                label: _descriptionLabelForContext(),
+                hint: _descriptionHintForContext(),
+                isRequired: false,
+                readOnly: !_canInteract,
+                maxLength: ActivityDescriptionLimits.maxLength,
+              ),
+              if (_showRequireAdminApprovalToggle) const SizedBox(height: 4),
+              if (_showRequireAdminApprovalToggle)
+                CustomToggle(
+                  label: 'Requires Admin Approval',
+                  isToggled: _requireAdminApproval,
+                  labelOnLeftSide: true,
+                  enabled: !_layoutAsEdit,
+                  onToggle: (value) {
+                    setState(() {
+                      _requireAdminApproval = value;
+                    });
+                  },
+                ),
+              SizedBox(height: responsive.verticalSpacing),
+            ],
+          ),
         ),
       ),
       bottomBar: widget.readOnly
@@ -1243,7 +1261,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                   children: [
                     ActivityAdminApproveRejectBar(
                       visible: _showAdminApproveRejectActions,
-                      isLoading: _isApprovingOrRejecting ||
+                      isLoading:
+                          _isApprovingOrRejecting ||
                           _isSubmitting ||
                           _loadingActivityDetail,
                       onApprove: _approvePendingActivity,
@@ -1251,14 +1270,15 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                     ),
                     if (!_showAdminApproveRejectActions)
                       CustomButtonLayout(
-                      confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
-                      onPressedConfirm: _onPressedBottom,
-                      showCancelButton: false,
-                      isForm: false,
-                      isLoading: _isSubmitting ||
-                          _isApprovingOrRejecting ||
-                          _loadingActivityDetail,
-                    ),
+                        confirmButtonLabel: widget.isEdit ? 'Save' : 'Add',
+                        onPressedConfirm: _onPressedBottom,
+                        showCancelButton: false,
+                        isForm: false,
+                        isLoading:
+                            _isSubmitting ||
+                            _isApprovingOrRejecting ||
+                            _loadingActivityDetail,
+                      ),
                   ],
                 ),
               ),
@@ -1266,6 +1286,3 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     );
   }
 }
-
-
-
