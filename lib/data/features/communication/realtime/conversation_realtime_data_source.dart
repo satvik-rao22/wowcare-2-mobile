@@ -261,30 +261,40 @@ class FirebaseConversationRealtimeDataSource
 
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
-      if (error is FirebaseException && error.code == 'permission-denied') {
+      final isPermissionDenied =
+          error is FirebaseException && error.code == 'permission-denied';
+      if (isPermissionDenied) {
         // Proactively (re)establish Firebase auth for the current user — the session
         // may be stale (account/persona switch) or expired. Deduped + no-ops when
         // already correct, so this is cheap and makes an authStateChanges event fire.
         unawaited(serviceLocator<FirebaseAuthService>().signIn());
-        if (attempt < _retryDelays.length) {
-          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
-            if (!controller.isClosed) attach(attempt + 1);
-          });
-        } else {
-          authWaitSub?.cancel();
-          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) {
-              authWaitSub?.cancel();
-              return;
-            }
-            if (user != null) {
-              authWaitSub?.cancel();
-              authWaitSub = null;
-              attach(0);
-            }
-          });
-        }
+      }
+      if (attempt < _retryDelays.length) {
+        // Retry on ANY error, not just permission-denied — a transient
+        // network blip ('unavailable'), a brief 'deadline-exceeded', or
+        // similar was previously treated as terminal (addError + close),
+        // permanently killing this list's live sync with no way back short
+        // of leaving and reopening the screen. Backoff applies uniformly;
+        // only permission-denied gets the extra re-auth nudge above.
+        Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+          if (!controller.isClosed) attach(attempt + 1);
+        });
+      } else if (isPermissionDenied) {
+        authWaitSub?.cancel();
+        authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+          if (controller.isClosed) {
+            authWaitSub?.cancel();
+            return;
+          }
+          if (user != null) {
+            authWaitSub?.cancel();
+            authWaitSub = null;
+            attach(0);
+          }
+        });
       } else {
+        // Non-auth error and backoff exhausted — genuinely give up; the
+        // cubit's REST fallback still works either way.
         controller.addError(error);
         controller.close();
       }
@@ -349,29 +359,33 @@ class FirebaseConversationRealtimeDataSource
 
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
-      if (error is FirebaseException && error.code == 'permission-denied') {
+      final isPermissionDenied =
+          error is FirebaseException && error.code == 'permission-denied';
+      if (isPermissionDenied) {
         // Proactively (re)establish Firebase auth for the current user — the session
         // may be stale (account/persona switch) or expired. Deduped + no-ops when
         // already correct, so this is cheap and makes an authStateChanges event fire.
         unawaited(serviceLocator<FirebaseAuthService>().signIn());
-        if (attempt < _retryDelays.length) {
-          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
-            if (!controller.isClosed) attach(attempt + 1);
-          });
-        } else {
-          authWaitSub?.cancel();
-          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) {
-              authWaitSub?.cancel();
-              return;
-            }
-            if (user != null) {
-              authWaitSub?.cancel();
-              authWaitSub = null;
-              attach(0);
-            }
-          });
-        }
+      }
+      if (attempt < _retryDelays.length) {
+        // Retry on ANY error, not just permission-denied — see the
+        // matching comment on watchInbox's retryOrForward.
+        Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+          if (!controller.isClosed) attach(attempt + 1);
+        });
+      } else if (isPermissionDenied) {
+        authWaitSub?.cancel();
+        authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+          if (controller.isClosed) {
+            authWaitSub?.cancel();
+            return;
+          }
+          if (user != null) {
+            authWaitSub?.cancel();
+            authWaitSub = null;
+            attach(0);
+          }
+        });
       } else {
         controller.addError(error);
         controller.close();
@@ -456,29 +470,33 @@ class FirebaseConversationRealtimeDataSource
 
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
-      if (error is FirebaseException && error.code == 'permission-denied') {
+      final isPermissionDenied =
+          error is FirebaseException && error.code == 'permission-denied';
+      if (isPermissionDenied) {
         // Proactively (re)establish Firebase auth for the current user — the session
         // may be stale (account/persona switch) or expired. Deduped + no-ops when
         // already correct, so this is cheap and makes an authStateChanges event fire.
         unawaited(serviceLocator<FirebaseAuthService>().signIn());
-        if (attempt < _retryDelays.length) {
-          Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
-            if (!controller.isClosed) attach(attempt + 1);
-          });
-        } else {
-          authWaitSub?.cancel();
-          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) {
-              authWaitSub?.cancel();
-              return;
-            }
-            if (user != null) {
-              authWaitSub?.cancel();
-              authWaitSub = null;
-              attach(0);
-            }
-          });
-        }
+      }
+      if (attempt < _retryDelays.length) {
+        // Retry on ANY error, not just permission-denied — see the
+        // matching comment on watchInbox's retryOrForward.
+        Future.delayed(Duration(seconds: _retryDelays[attempt]), () {
+          if (!controller.isClosed) attach(attempt + 1);
+        });
+      } else if (isPermissionDenied) {
+        authWaitSub?.cancel();
+        authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+          if (controller.isClosed) {
+            authWaitSub?.cancel();
+            return;
+          }
+          if (user != null) {
+            authWaitSub?.cancel();
+            authWaitSub = null;
+            attach(0);
+          }
+        });
       } else {
         controller.addError(error);
         controller.close();

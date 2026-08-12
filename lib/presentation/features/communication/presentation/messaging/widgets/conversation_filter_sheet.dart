@@ -51,9 +51,15 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
   void initState() {
     super.initState();
     final state = context.read<ConversationListCubit>().state;
-    selectedDesignation = state.activeDesignation;
-    selectedStaffStatus = state.activeStaffStatus;
-    selectedClassroom = state.activeClassroom;
+    selectedDesignation = state.activeDesignations.isNotEmpty
+        ? state.activeDesignations.first
+        : null;
+    selectedStaffStatus = state.activeStaffStatuses.isNotEmpty
+        ? state.activeStaffStatuses.first
+        : null;
+    selectedClassroom = state.activeClassroomCodes.isNotEmpty
+        ? state.activeClassroomCodes.first
+        : null;
   }
 
   @override
@@ -177,9 +183,15 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
                               context
                                   .read<ConversationListCubit>()
                                   .applyFilters(
-                                    designation: selectedDesignation,
-                                    staffStatus: selectedStaffStatus,
-                                    classroom: selectedClassroom,
+                                    designations: selectedDesignation != null
+                                        ? [selectedDesignation!]
+                                        : const [],
+                                    staffStatuses: selectedStaffStatus != null
+                                        ? [selectedStaffStatus!]
+                                        : const [],
+                                    classroomCodes: selectedClassroom != null
+                                        ? [selectedClassroom!]
+                                        : const [],
                                   );
                               Navigator.pop(context);
                             },

@@ -95,9 +95,13 @@ class ConversationEntityRepositoryImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
   }) async {
     try {
       final dtos = await _remote.getConversations(
@@ -105,9 +109,13 @@ class ConversationEntityRepositoryImpl
         status: status,
         page: page,
         size: size,
-        designation: designation,
-        staffStatus: staffStatus,
-        classroom: classroom,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        designations: designations,
+        studentStatuses: studentStatuses,
+        staffStatuses: staffStatuses,
+        search: search,
+        unreadOnly: unreadOnly,
       );
       final entities = await _resolveUnreadCounts(
         dtos.map((d) => d.toEntity()).toList(),

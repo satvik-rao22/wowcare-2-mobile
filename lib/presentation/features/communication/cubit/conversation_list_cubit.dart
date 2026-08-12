@@ -130,6 +130,13 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           (conversations) {
             if (isClosed) return;
             _firestoreActive = true;
+            // The Firestore inbox stream is always the FULL, unfiltered list
+            // for this type — it has no concept of the classroomCodes/
+            // tagCodes/designations filters applied via applyFilters(). While
+            // a filter is active, let the REST-driven filtered result stand
+            // rather than silently overwriting it with the unfiltered live
+            // snapshot; live updates resume once filters are cleared.
+            if (state.hasActiveFilters) return;
             final int debugPrevCount = state.conversations.length;
             debugPrint(
               '[UnreadDebug][${_conversationType.toApiString()}] Firestore snapshot: '
@@ -337,25 +344,37 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     }
   }
 
-  /// Apply filters to the STAFF_DIRECT conversation list.
-  /// Only available for [ConversationType.staffDirect].
+  /// Apply filters to the conversation list — available for any type.
+  /// [classroomCodes]/[tagCodes] apply to student-scoped types (ROOM_CHAT,
+  /// ADMIN_CHAT); [designations]/[staffStatuses] apply to STAFF_DIRECT.
+  /// Mirrors the backend's getConversationsByType query contract exactly
+  /// (see GetConversationsEntityUseCase), so unlike the old classroom-owner
+  /// client-side matching this actually narrows the server-side result set.
   Future<void> applyFilters({
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
-    if (_conversationType != ConversationType.staffDirect) return;
+    final resolvedClassrooms = classroomCodes ?? const [];
+    final resolvedTags = tagCodes ?? const [];
+    final resolvedDesignations = designations ?? const [];
+    final resolvedStudentStatuses = studentStatuses ?? const [];
+    final resolvedStaffStatuses = staffStatuses ?? const [];
 
     emit(
       state.copyWith(
         isLoading: true,
         clearError: true,
-        clearDesignation: designation == null,
-        clearStaffStatus: staffStatus == null,
-        clearClassroom: classroom == null,
-        activeDesignation: designation,
-        activeStaffStatus: staffStatus,
-        activeClassroom: classroom,
+        activeClassroomCodes: resolvedClassrooms,
+        activeTagCodes: resolvedTags,
+        activeDesignations: resolvedDesignations,
+        activeStudentStatuses: resolvedStudentStatuses,
+        activeStaffStatuses: resolvedStaffStatuses,
+        activeSearch: search,
+        clearActiveSearch: search == null,
         page: 0,
         conversations: const [],
       ),
@@ -366,9 +385,12 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       status: 'ACTIVE',
       page: 0,
       size: _pageSize,
-      designation: designation,
-      staffStatus: staffStatus,
-      classroom: classroom,
+      classroomCodes: resolvedClassrooms,
+      tagCodes: resolvedTags,
+      designations: resolvedDesignations,
+      studentStatuses: resolvedStudentStatuses,
+      staffStatuses: resolvedStaffStatuses,
+      search: search,
     );
 
     if (isClosed) return;
@@ -389,23 +411,29 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           isFromCache: false,
           page: 0,
           hasMore: conversations.length >= _pageSize,
+          activeClassroomCodes: resolvedClassrooms,
+          activeTagCodes: resolvedTags,
+          activeDesignations: resolvedDesignations,
+          activeStudentStatuses: resolvedStudentStatuses,
+          activeStaffStatuses: resolvedStaffStatuses,
+          activeSearch: search,
         ),
       ),
     );
   }
 
   /// Clear all active filters and reload conversations.
-  /// Only available for [ConversationType.staffDirect].
   Future<void> clearFilters() async {
-    if (_conversationType != ConversationType.staffDirect) return;
-
     emit(
       state.copyWith(
         isLoading: true,
         clearError: true,
-        clearDesignation: true,
-        clearStaffStatus: true,
-        clearClassroom: true,
+        activeClassroomCodes: const [],
+        activeTagCodes: const [],
+        activeDesignations: const [],
+        activeStudentStatuses: const [],
+        activeStaffStatuses: const [],
+        clearActiveSearch: true,
         page: 0,
         conversations: const [],
       ),
@@ -451,9 +479,12 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       status: 'ACTIVE',
       page: 0,
       size: _pageSize,
-      designation: state.activeDesignation,
-      staffStatus: state.activeStaffStatus,
-      classroom: state.activeClassroom,
+      classroomCodes: state.activeClassroomCodes,
+      tagCodes: state.activeTagCodes,
+      designations: state.activeDesignations,
+      studentStatuses: state.activeStudentStatuses,
+      staffStatuses: state.activeStaffStatuses,
+      search: state.activeSearch,
     );
 
     if (isClosed) return;
@@ -479,6 +510,12 @@ class ConversationListCubit extends Cubit<ConversationListState> {
             isFromCache: false,
             page: 0,
             hasMore: conversations.length >= _pageSize,
+            activeClassroomCodes: state.activeClassroomCodes,
+            activeTagCodes: state.activeTagCodes,
+            activeDesignations: state.activeDesignations,
+            activeStudentStatuses: state.activeStudentStatuses,
+            activeStaffStatuses: state.activeStaffStatuses,
+            activeSearch: state.activeSearch,
           ),
         );
       },
@@ -556,9 +593,12 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       status: 'ACTIVE',
       page: 0,
       size: _pageSize,
-      designation: state.activeDesignation,
-      staffStatus: state.activeStaffStatus,
-      classroom: state.activeClassroom,
+      classroomCodes: state.activeClassroomCodes,
+      tagCodes: state.activeTagCodes,
+      designations: state.activeDesignations,
+      studentStatuses: state.activeStudentStatuses,
+      staffStatuses: state.activeStaffStatuses,
+      search: state.activeSearch,
     );
 
     if (isClosed) return;
@@ -579,6 +619,12 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           isFromCache: false,
           page: 0,
           hasMore: conversations.length >= _pageSize,
+          activeClassroomCodes: state.activeClassroomCodes,
+          activeTagCodes: state.activeTagCodes,
+          activeDesignations: state.activeDesignations,
+          activeStudentStatuses: state.activeStudentStatuses,
+          activeStaffStatuses: state.activeStaffStatuses,
+          activeSearch: state.activeSearch,
         ),
       ),
     );

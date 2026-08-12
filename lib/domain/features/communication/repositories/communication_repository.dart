@@ -30,11 +30,20 @@ abstract class CommunicationRepository {
   Future<Either<Failure, Conversation>> createConversation(
     CreateConversationRequest request,
   );
+  /// [classroomCodes]/[tagCodes] — ROOM_CHAT student filters.
+  /// [designations]/[staffStatuses] — STAFF_DIRECT filters. Mirrors the
+  /// backend's getConversationsByType query contract exactly.
   Future<Either<Failure, ConversationsPage>> getConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   });
 
   /// Server-side search across ALL of the account's conversations of [type]

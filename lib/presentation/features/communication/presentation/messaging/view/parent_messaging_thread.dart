@@ -18,7 +18,6 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
@@ -35,6 +34,7 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import '../widgets/thread_message_tile.dart';
@@ -734,6 +734,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
           ? 'Message deleted successfully'
           : (failure.message ?? 'Failed to delete message.'),
       isSuccess: failure == null,
+      isError: failure != null,
     );
   }
 
@@ -3916,282 +3917,64 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  void _showMessageStatusDialog(BuildContext context, Message message) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        backgroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        titlePadding: EdgeInsets.zero,
-        contentPadding: const EdgeInsets.fromLTRB(20, 20, 20, 20),
-        title: Container(
-          width: double.infinity,
-          padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.centerLeft,
-              end: Alignment.centerRight,
-              colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
-              ],
-            ),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const CustomTextWidget(
-                text: 'Message Info',
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-              IconButton(
-                icon: const Icon(Icons.close, color: AppColors.primaryColor),
-                onPressed: () => Navigator.pop(dialogContext),
-              ),
-            ],
-          ),
-        ),
-        content: ConstrainedBox(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(dialogContext).size.height * 0.55,
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.vertical,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const CustomTextWidget(
-                  text: 'Message Content',
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    //color: Colors.grey.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.primaryColor, width: 1),
-                  ),
-                  child: CustomTextWidget(
-                    text: MessageContentProcessor.stripHtmlTags(message.text),
-                    fontSize: 15,
-                    unlimitedLines: true,
-                    overflow: TextOverflow.visible,
-                    softWrap: true,
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Delivery & Read info
-                _buildStatusSection(message),
-
-                const SizedBox(height: 16),
-              ],
-            ),
-          ),
-        ),
-        actions: [
-          Container(
-            width: double.infinity,
-            height: 60,
-            decoration: BoxDecoration(
-              gradient: AppColors.buildPrimaryGradient(),
-              borderRadius: BorderRadius.circular(16.0),
-            ),
-            child: TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const CustomTextWidget(
-                text: 'Close',
-                fontColor: Colors.white,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildStatusSection(Message message) {
-    // A message only reaches this dialog once it already exists in the
-    // thread — i.e. it has been sent. Empty delivered/read lists mean no one
-    // has seen it yet, NOT that it's still sending; show that distinction
-    // per-section (matching the web client) instead of a blanket
-    // "still sending" that was wrong for every already-sent message with no
-    // receipts yet.
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const CustomTextWidget(
-          text: 'Status',
-          fontSize: 18,
-          fontWeight: FontWeight.w600,
-        ),
-        const SizedBox(height: 12),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            _buildRecipientList(
-              title: 'Delivered To',
-              icon: Icons.check_circle_outline,
-              recipients: message.deliveredTo,
-              fallbackTime: message.deliveredAt,
-              color: Colors.blueGrey,
-              emptyText: 'Not yet delivered',
-            ),
-            const SizedBox(height: 8),
-            _buildRecipientList(
-              title: 'Read By',
-              icon: Icons.done_all,
-              recipients: message.readBy,
-              fallbackTime: message.readAt,
-              color: AppColors.primaryColor,
-              emptyText: 'No one has read this message yet',
-            ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  /// Resolves a receipt to a display name. Realtime receipts carry an empty
-  /// [RecipientStatus.name] (no display name at that layer), so fall back to
-  /// the conversation participant list keyed by user code, then a generic
-  /// label — never the raw user code.
-  String _resolveRecipientName(RecipientStatus r) {
-    if (r.name.trim().isNotEmpty) return r.name.trim();
+  /// Resolves a receipt to a display name + role + avatar. Realtime receipts
+  /// carry an empty [RecipientStatus.name] (no display name at that layer),
+  /// so fall back to the conversation participant list keyed by user code.
+  ({String name, String? role, String? avatarUrl}) _resolveRecipientInfo(
+    RecipientStatus r,
+  ) {
     final code = r.userId;
     if (code != null && code.isNotEmpty) {
-      final match = _participants
-          .where((p) => p.userCode == code && p.userName.trim().isNotEmpty)
-          .firstOrNull;
-      if (match != null) return match.userName.trim();
-      if (code == _currentUserCode) return 'You';
+      final match = _participants.where((p) => p.userCode == code).firstOrNull;
+      if (match != null) {
+        final name = match.userName.trim().isNotEmpty
+            ? match.userName.trim()
+            : (code == _currentUserCode ? 'You' : 'Participant');
+        return (name: name, role: match.role, avatarUrl: match.avatarUrl);
+      }
+      if (code == _currentUserCode) {
+        return (name: 'You', role: null, avatarUrl: null);
+      }
     }
-    return 'Participant';
-  }
-
-  Widget _buildRecipientList({
-    required String title,
-    required IconData icon,
-    required List<RecipientStatus> recipients,
-    DateTime? fallbackTime,
-    required Color color,
-    required String emptyText,
-  }) {
-    final count = recipients.length + (fallbackTime != null ? 1 : 0);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(width: 12),
-            CustomTextWidget(
-              text: '$title ($count)',
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-
-        if (recipients.isNotEmpty)
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            width: double.infinity,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: AppColors.primaryColor, width: 1),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: recipients
-                  .map(
-                    (r) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Flexible(
-                            fit: FlexFit.loose,
-                            child: CustomTextWidget(
-                              text: _resolveRecipientName(r),
-                              fontSize: 13,
-                            ),
-                          ),
-                          if (r.timestamp != null) ...[
-                            const SizedBox(width: 10),
-                            CustomTextWidget(
-                              text: _formatTimeShort(r.timestamp!),
-                              fontSize: 12,
-                              fontColor: Colors.grey.shade600,
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                  )
-                  .toList(),
-            ),
-          )
-        // if (recipients.isNotEmpty)
-        //   ...recipients.map((r) => Padding(
-        //     padding: const EdgeInsets.only(left: 32, bottom: 6),
-        //     child: Row(
-        //       mainAxisSize: MainAxisSize.min,
-        //       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        //       children: [
-        //         Flexible(
-        //           fit: FlexFit.loose,
-        //           child: CustomTextWidget(
-        //             text: r.name,
-        //             fontSize: 13,
-        //           ),
-        //         ),
-        //         if (r.timestamp != null) ...[
-        //           const SizedBox(width: 4,),
-        //           CustomTextWidget(
-        //             text: _formatTimeShort(r.timestamp!),
-        //             fontSize: 12,
-        //             fontColor: Colors.grey.shade600,
-        //           ),
-        //         ]
-        //
-        //       ],
-        //     ),
-        //   ))
-        else if (fallbackTime != null)
-          Padding(
-            padding: const EdgeInsets.only(left: 32),
-            child: CustomTextWidget(
-              text: 'Recipient • ${_formatFullTime(fallbackTime)}',
-              fontSize: 13,
-              fontColor: Colors.grey.shade700,
-            ),
-          )
-        else
-          Padding(
-            padding: const EdgeInsets.only(left: 32),
-            child: CustomTextWidget(
-              text: emptyText,
-              fontSize: 13,
-              fontColor: Colors.grey.shade500,
-            ),
-          ),
-      ],
+    return (
+      name: r.name.trim().isNotEmpty ? r.name.trim() : 'Participant',
+      role: null,
+      avatarUrl: null,
     );
   }
 
-  String _formatTimeShort(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
+  MessageInfoRecipient _toInfoRecipient(
+    RecipientStatus r, {
+    DateTime? deliveredAt,
+    DateTime? readAt,
+  }) {
+    final info = _resolveRecipientInfo(r);
+    return MessageInfoRecipient(
+      name: info.name,
+      role: info.role,
+      avatarSource: info.avatarUrl,
+      deliveredAt: deliveredAt,
+      readAt: readAt,
+    );
+  }
 
-  String _formatFullTime(DateTime dt) => MessagingTimeFormatter.infoTime(dt);
+  void _showMessageStatusDialog(BuildContext context, Message message) {
+    final readCodes = message.readBy
+        .map((r) => r.userId)
+        .whereType<String>()
+        .toSet();
+    final recipients = <MessageInfoRecipient>[
+      for (final r in message.readBy)
+        _toInfoRecipient(r, readAt: r.timestamp),
+      for (final r in message.deliveredTo)
+        if (r.userId == null || !readCodes.contains(r.userId))
+          _toInfoRecipient(r, deliveredAt: r.timestamp),
+    ];
+
+    MessageInfoDialog.show(
+      context,
+      messageText: message.text,
+      recipients: recipients,
+    );
+  }
 }

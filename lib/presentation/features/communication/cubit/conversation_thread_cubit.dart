@@ -882,6 +882,8 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    final originalMessages = state.messages;
+
     // Optimistic: mark deleted locally
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
@@ -893,13 +895,18 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     if (isClosed) return;
 
+    // On failure, restore the exact pre-optimistic snapshot synchronously —
+    // relying on refreshMessages()'s refetch would race with
+    // _mergePendingMessages' "preserve deleted state" guard, which cannot
+    // tell a still-propagating delete apart from a failed one and would
+    // re-stamp isDeleted onto the (correctly non-deleted) refetched message.
     result.fold((failure) {
       emit(
         state.copyWith(
+          messages: originalMessages,
           errorMessage: failure.message ?? 'Failed to delete message.',
         ),
       );
-      unawaited(refreshMessages());
     }, (_) {});
   }
 

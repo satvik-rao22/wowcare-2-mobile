@@ -270,6 +270,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     try {
       // 1. Try to load from cache first
@@ -288,6 +294,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         status: status,
         page: page,
         size: size,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        designations: designations,
+        studentStatuses: studentStatuses,
+        staffStatuses: staffStatuses,
+        search: search,
       );
 
       if (response.success && response.data != null) {
@@ -928,7 +940,36 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                 )
                 .toList()
           : existing?.readBy
-      ..attachments = existing?.attachments
+      // Prefer the realtime payload's own attachments over whatever's
+      // cached: for a message never cached under THIS code before (exactly
+      // true for a message this device just sent — it was only ever cached
+      // under its temp code), `existing` is null, so unconditionally
+      // trusting `existing?.attachments` silently wrote `null` into Isar
+      // here on the very first delta for that message — permanently, since
+      // every later delta just copied that same null forward. The bubble
+      // would flash the correct image once (the optimistic/REST-confirmed
+      // emit), then lose it the instant this merge ran, with no way back
+      // short of a REST refetch. `entity.attachments` is trustworthy now —
+      // see MessageFirestoreItem._parseAttachments, which used to drop a
+      // still-processing attachment outright and now keeps it (with an
+      // empty fileUrl) instead. Only fall back to the cached value when
+      // Firestore genuinely has nothing (an unrelated delta for a message
+      // whose attachments were already correctly cached before).
+      ..attachments = entity.attachments.isNotEmpty
+          ? entity.attachments
+                .map(
+                  (a) => ChatAttachmentCollection()
+                    ..name = a.fileName
+                    ..type = a.isImage ? 'image' : 'file'
+                    ..sizeBytes = a.fileSizeBytes
+                    ..mimeType = a.mimeType
+                    ..remoteUrl = a.fileUrl
+                    ..localPath = a.localFilePath
+                    ..code = a.code.isEmpty ? null : a.code
+                    ..attachmentId = a.attachmentId,
+                )
+                .toList()
+          : existing?.attachments
       // Firestore's reactions map can lag behind a just-added local reaction
       // (eventual consistency) — only overwrite the cache when the realtime
       // payload actually carries reactions, otherwise keep what's cached so

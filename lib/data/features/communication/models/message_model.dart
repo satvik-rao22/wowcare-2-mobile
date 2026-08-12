@@ -3,6 +3,48 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
+/// Parses the message list endpoint's `receipts` array (per-recipient
+/// `{userCode, userName, deliveredAt, readAt}`) into [RecipientStatus]
+/// entries. [onlyRead] selects [Message.readBy] (readAt present) vs
+/// [Message.deliveredTo] (any delivered/read receipt — a read implies
+/// delivered too, so a read receipt counts for both lists; otherwise
+/// [Message.deliveredCount] could undercount and a group message would
+/// never look fully delivered even once everyone had read it).
+/// `userName` is confirmed always null on this endpoint — left blank
+/// rather than defaulting to the raw code; callers must show a generic
+/// label instead.
+List<RecipientStatus> _parseRecipientStatuses(
+  dynamic receipts, {
+  required bool onlyRead,
+}) {
+  if (receipts is! List) return const [];
+  final result = <RecipientStatus>[];
+  for (final r in receipts) {
+    if (r is! Map) continue;
+    final userCode = (r['userCode'] ?? '').toString().trim();
+    if (userCode.isEmpty) continue;
+    final deliveredAt = r['deliveredAt'] != null
+        ? DateTime.tryParse(r['deliveredAt'].toString())
+        : null;
+    final readAt = r['readAt'] != null
+        ? DateTime.tryParse(r['readAt'].toString())
+        : null;
+    if (onlyRead) {
+      if (readAt == null) continue;
+      result.add(
+        RecipientStatusModel(name: '', userId: userCode, timestamp: readAt),
+      );
+    } else {
+      final timestamp = deliveredAt ?? readAt;
+      if (timestamp == null) continue;
+      result.add(
+        RecipientStatusModel(name: '', userId: userCode, timestamp: timestamp),
+      );
+    }
+  }
+  return result;
+}
+
 class MessageModel extends Message {
   final String? conversationCode;
   final String senderUserCode;
@@ -68,8 +110,20 @@ class MessageModel extends Message {
       deletedAt: json['deletedAt'] != null
           ? DateTime.parse(json['deletedAt'] as String)
           : null,
-      deliveredTo: const [],
-      readBy: const [],
+      // Real per-recipient delivered/read state — confirmed against a live
+      // payload at GET .../messages/conversation/{code}: `receipts`, an
+      // array of {userCode, deliveredAt, readAt}. This was previously
+      // ignored entirely (deliveredTo/readBy hardcoded to `const []`), so
+      // ticks/message-info for group chats (Room Chat, Staff Direct — the
+      // legacy stack this model backs) only ever reflected the message's
+      // own coarse top-level `status`, which the backend doesn't actually
+      // update per-recipient — group ticks stayed stuck on "sent" even once
+      // everyone had read it.
+      deliveredTo: _parseRecipientStatuses(
+        json['receipts'],
+        onlyRead: false,
+      ),
+      readBy: _parseRecipientStatuses(json['receipts'], onlyRead: true),
       reactions: [
         for (var r in (json['reactions'] as List<dynamic>?) ?? [])
           if (r is Map<String, dynamic> && r['userCode'] != null && r['emoji'] != null)

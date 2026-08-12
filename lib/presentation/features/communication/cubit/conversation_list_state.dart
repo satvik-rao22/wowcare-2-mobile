@@ -17,9 +17,12 @@ class ConversationListState extends Equatable {
     this.isSearchingStaff = false,
     this.lastStaffSearchQuery,
     this.staffSearchErrorMessage,
-    this.activeDesignation,
-    this.activeStaffStatus,
-    this.activeClassroom,
+    this.activeClassroomCodes = const [],
+    this.activeTagCodes = const [],
+    this.activeDesignations = const [],
+    this.activeStudentStatuses = const [],
+    this.activeStaffStatuses = const [],
+    this.activeSearch,
   });
 
   const ConversationListState.initial({required ConversationType conversationType})
@@ -35,9 +38,12 @@ class ConversationListState extends Equatable {
         isSearchingStaff = false,
         lastStaffSearchQuery = null,
         staffSearchErrorMessage = null,
-        activeDesignation = null,
-        activeStaffStatus = null,
-        activeClassroom = null;
+        activeClassroomCodes = const [],
+        activeTagCodes = const [],
+        activeDesignations = const [],
+        activeStudentStatuses = const [],
+        activeStaffStatuses = const [],
+        activeSearch = null;
 
   const ConversationListState.loaded({
     required ConversationType conversationType,
@@ -45,6 +51,12 @@ class ConversationListState extends Equatable {
     required bool isFromCache,
     int page = 0,
     bool hasMore = false,
+    this.activeClassroomCodes = const [],
+    this.activeTagCodes = const [],
+    this.activeDesignations = const [],
+    this.activeStudentStatuses = const [],
+    this.activeStaffStatuses = const [],
+    this.activeSearch,
   })  : conversationType = conversationType,
         conversations = conversations,
         isLoading = false,
@@ -56,10 +68,7 @@ class ConversationListState extends Equatable {
         staffSearchResults = const [],
         isSearchingStaff = false,
         lastStaffSearchQuery = null,
-        staffSearchErrorMessage = null,
-        activeDesignation = null,
-        activeStaffStatus = null,
-        activeClassroom = null;
+        staffSearchErrorMessage = null;
 
   final ConversationType conversationType;
   final List<ConversationEntity> conversations;
@@ -83,21 +92,26 @@ class ConversationListState extends Equatable {
   /// Error message from the last failed staff search. Null if search succeeded.
   final String? staffSearchErrorMessage;
 
-  /// Active filter: staff designation (STAFF_DIRECT only).
-  final String? activeDesignation;
-
-  /// Active filter: staff employment status (STAFF_DIRECT only).
-  final String? activeStaffStatus;
-
-  /// Active filter: classroom code (STAFF_DIRECT only).
-  final String? activeClassroom;
+  // Active filters — sent straight through to the backend's
+  // getConversationsByType query params (see GetConversationsEntityUseCase).
+  // classroomCodes/tagCodes apply to student-scoped types (ROOM_CHAT,
+  // ADMIN_CHAT); designations/staffStatuses apply to STAFF_DIRECT.
+  final List<String> activeClassroomCodes;
+  final List<String> activeTagCodes;
+  final List<String> activeDesignations;
+  final List<String> activeStudentStatuses;
+  final List<String> activeStaffStatuses;
+  final String? activeSearch;
 
   bool get hasConversations => conversations.isNotEmpty;
   bool get hasStaffSearchError => staffSearchErrorMessage != null;
   bool get hasActiveFilters =>
-      activeDesignation != null ||
-      activeStaffStatus != null ||
-      activeClassroom != null;
+      activeClassroomCodes.isNotEmpty ||
+      activeTagCodes.isNotEmpty ||
+      activeDesignations.isNotEmpty ||
+      activeStudentStatuses.isNotEmpty ||
+      activeStaffStatuses.isNotEmpty ||
+      (activeSearch?.isNotEmpty ?? false);
 
   ConversationListState copyWith({
     List<ConversationEntity>? conversations,
@@ -113,12 +127,13 @@ class ConversationListState extends Equatable {
     String? lastStaffSearchQuery,
     String? staffSearchErrorMessage,
     bool clearStaffSearchError = false,
-    String? activeDesignation,
-    bool clearDesignation = false,
-    String? activeStaffStatus,
-    bool clearStaffStatus = false,
-    String? activeClassroom,
-    bool clearClassroom = false,
+    List<String>? activeClassroomCodes,
+    List<String>? activeTagCodes,
+    List<String>? activeDesignations,
+    List<String>? activeStudentStatuses,
+    List<String>? activeStaffStatuses,
+    String? activeSearch,
+    bool clearActiveSearch = false,
   }) {
     return ConversationListState(
       conversationType: conversationType,
@@ -133,9 +148,12 @@ class ConversationListState extends Equatable {
       isSearchingStaff: isSearchingStaff ?? this.isSearchingStaff,
       lastStaffSearchQuery: lastStaffSearchQuery ?? this.lastStaffSearchQuery,
       staffSearchErrorMessage: clearStaffSearchError ? null : (staffSearchErrorMessage ?? this.staffSearchErrorMessage),
-      activeDesignation: clearDesignation ? null : (activeDesignation ?? this.activeDesignation),
-      activeStaffStatus: clearStaffStatus ? null : (activeStaffStatus ?? this.activeStaffStatus),
-      activeClassroom: clearClassroom ? null : (activeClassroom ?? this.activeClassroom),
+      activeClassroomCodes: activeClassroomCodes ?? this.activeClassroomCodes,
+      activeTagCodes: activeTagCodes ?? this.activeTagCodes,
+      activeDesignations: activeDesignations ?? this.activeDesignations,
+      activeStudentStatuses: activeStudentStatuses ?? this.activeStudentStatuses,
+      activeStaffStatuses: activeStaffStatuses ?? this.activeStaffStatuses,
+      activeSearch: clearActiveSearch ? null : (activeSearch ?? this.activeSearch),
     );
   }
 
@@ -153,8 +171,11 @@ class ConversationListState extends Equatable {
         isSearchingStaff,
         lastStaffSearchQuery,
         staffSearchErrorMessage,
-        activeDesignation,
-        activeStaffStatus,
-        activeClassroom,
+        activeClassroomCodes,
+        activeTagCodes,
+        activeDesignations,
+        activeStudentStatuses,
+        activeStaffStatuses,
+        activeSearch,
       ];
 }

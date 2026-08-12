@@ -1509,10 +1509,14 @@ class _MessageBubbleState extends State<MessageBubble>
                     ? displayImages.first.copyWith(remoteUrl: resolvedUrl)
                     : displayImages.first;
                 final hasSource = att.displaySource != null;
-                // Not yet registered against the conversation (code +
-                // attachmentId both present) — still picked/uploading, even
-                // though the local file already renders fine above this.
-                final stillUploading = !att.isUploaded;
+                // Drive this off the MESSAGE's own send state, not the
+                // attachment's code/attachmentId presence — those can lag
+                // behind a message that's already fully confirmed (e.g. a
+                // just-arrived realtime delta that hasn't filled in
+                // attachmentId on this exact snapshot yet), which kept the
+                // spinner showing over an image that was already loaded and
+                // sent (checkmark visible) correctly.
+                final stillUploading = widget.message.isSending;
                 AppLogger.i(
                   '[ATTACHMENT RENDER] msg=${widget.message.code} '
                   'name=${att.name} localPath=${att.localPath} '
@@ -1638,7 +1642,10 @@ class _MessageBubbleState extends State<MessageBubble>
                           ? rawAtt.copyWith(remoteUrl: resolvedUrl)
                           : rawAtt;
                       final hasSource = att.displaySource != null;
-                      final stillUploading = !att.isUploaded;
+                      // See the single-image branch's matching comment —
+                      // driven off the message's own send state now, not
+                      // the attachment's code/attachmentId presence.
+                      final stillUploading = widget.message.isSending;
                       return GestureDetector(
                         onTap: () {
                           if (hasMoreImages && isLast) {

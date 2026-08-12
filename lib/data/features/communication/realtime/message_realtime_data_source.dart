@@ -137,8 +137,27 @@ class MessageFirestoreItem {
     );
   }
 
-  /// Parse the backend's Firestore attachment array into [AttachmentEntity]s. Only fileUrl/mimeType
-  /// are needed to render; the rest is best-effort so a missing field never drops the image.
+  /// Parse the backend's Firestore attachment array into [AttachmentEntity]s.
+  ///
+  /// Two things this used to get wrong, both invisible until a message with
+  /// an attachment arrived over the LIVE stream while its file was still
+  /// backend-side processing (the common case — a message doc can be
+  /// written before the attachment finishes): it dropped the attachment
+  /// entirely whenever `fileUrl` was still empty (never mind that the
+  /// REST DTO's `AttachmentEntityDto.fromJson` never does this — it just
+  /// keeps `fileUrl: ''`), which zeroed out `MessageEntity.hasAttachments`
+  /// and skipped the whole image UI for that message — no placeholder, no
+  /// retry, nothing, unlike history loaded via REST where the same
+  /// still-processing attachment renders the "processing"/retry state via
+  /// `AttachmentUrlResolver`. It also never read the attachment's actual
+  /// `code` (the document-service asset code REST's `AttachmentEntityDto`
+  /// reads from the very same field) — it fabricated `code` from the
+  /// messaging-service's numeric `attachmentId` instead, which
+  /// `resolveAttachmentUrl`'s code-based polling can't do anything with.
+  /// Keep the attachment even with an empty `fileUrl`, and read the real
+  /// asset code, so a live-arriving still-processing image resolves via the
+  /// same retry path REST-loaded history already relies on — instead of
+  /// only ever recovering via a manual pull-to-refresh.
   static List<AttachmentEntity> _parseAttachments(
     dynamic raw,
     String messageCode,
@@ -151,13 +170,13 @@ class MessageFirestoreItem {
     for (final item in raw) {
       if (item is! Map) continue;
       final m = item.cast<String, dynamic>();
-      final fileUrl = m['fileUrl'] as String?;
-      if (fileUrl == null || fileUrl.isEmpty) continue;
+      final fileUrl = (m['fileUrl'] as String?) ?? '';
       final mimeType = m['mimeType'] as String? ?? 'application/octet-stream';
       final rawId = m['attachmentId'];
+      final assetCode = (m['code'] as String?)?.trim() ?? '';
       result.add(
         AttachmentEntity(
-          code: rawId?.toString() ?? '',
+          code: assetCode.isNotEmpty ? assetCode : (rawId?.toString() ?? ''),
           messageCode: messageCode,
           conversationCode: conversationCode,
           fileName: m['fileName'] as String? ?? '',
@@ -370,36 +389,47 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
 
     void retryOrForward(Object error, int attempt) {
       if (controller.isClosed) return;
-      if (error is FirebaseException && error.code == 'permission-denied') {
+      final isPermissionDenied =
+          error is FirebaseException && error.code == 'permission-denied';
+      if (isPermissionDenied) {
         // Proactively (re)establish Firebase auth for the CURRENT user — the session
         // may be stale (account/persona switch) or expired. signIn() is deduped and
         // no-ops when already correct, so calling it here is cheap and makes an
         // authStateChanges event fire so the retry below reconnects.
         unawaited(serviceLocator<FirebaseAuthService>().signIn());
-        if (attempt < retryDelays.length) {
-          // Standard exponential backoff while Firebase auth is in progress.
-          Future.delayed(Duration(seconds: retryDelays[attempt]), () {
-            if (!controller.isClosed) subscribe(attempt + 1);
-          });
-        } else {
-          // Backoff exhausted — Firebase auth hasn't completed yet. Wait for
-          // an authStateChanges event with a signed-in user, then restart.
-          // This covers the race where the app opens the Firestore listener
-          // before signInWithCustomToken finishes.
-          authWaitSub?.cancel();
-          authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
-            if (controller.isClosed) {
-              authWaitSub?.cancel();
-              return;
-            }
-            if (user != null) {
-              authWaitSub?.cancel();
-              authWaitSub = null;
-              subscribe(0);
-            }
-          });
-        }
+      }
+      if (attempt < retryDelays.length) {
+        // Retry on ANY error, not just permission-denied — a transient
+        // network blip ('unavailable'), a brief 'deadline-exceeded', or
+        // similar was previously treated as terminal (addError + close),
+        // permanently killing this thread's live sync with no way back
+        // short of leaving and reopening the screen (pull-to-refresh only
+        // masks it via the REST fallback, one time). Standard exponential
+        // backoff applies uniformly; only permission-denied gets the extra
+        // re-auth nudge above.
+        Future.delayed(Duration(seconds: retryDelays[attempt]), () {
+          if (!controller.isClosed) subscribe(attempt + 1);
+        });
+      } else if (isPermissionDenied) {
+        // Backoff exhausted — Firebase auth hasn't completed yet. Wait for
+        // an authStateChanges event with a signed-in user, then restart.
+        // This covers the race where the app opens the Firestore listener
+        // before signInWithCustomToken finishes.
+        authWaitSub?.cancel();
+        authWaitSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+          if (controller.isClosed) {
+            authWaitSub?.cancel();
+            return;
+          }
+          if (user != null) {
+            authWaitSub?.cancel();
+            authWaitSub = null;
+            subscribe(0);
+          }
+        });
       } else {
+        // Non-auth error and backoff exhausted — genuinely give up; the
+        // cubit's REST fallback still works either way.
         controller.addError(error);
         controller.close();
       }
