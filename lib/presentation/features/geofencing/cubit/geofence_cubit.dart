@@ -69,6 +69,7 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
   StreamSubscription<dynamic>? _nativeSubscription;
   GeofenceConfig? _config;
   int _signInCheckGeneration = 0;
+  String? _lastReconciliationContext;
 
   // ── iOS native callbacks ───────────────────────────────────────────────────
 
@@ -228,6 +229,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
       debugPrint('[GeofenceCubit] ⚠️ EARLY EXIT — already monitoring "$schoolCode" in state ${state.status} — skipping re-init');
       AppLogger.d('[GeofenceCubit] Already monitoring, skipping re-init');
       return;
+    }
+
+    if (state.schoolCode != schoolCode && state.schoolCode.isNotEmpty) {
+      if (Platform.isIOS || Platform.isAndroid) {
+        try {
+          await _nativeGeofenceChannel.invokeMethod('clearGeofenceState');
+          AppLogger.d('[GeofenceCubit] Cleared native geofence state on school switch (${state.schoolCode} -> $schoolCode)');
+        } catch (e) {
+          AppLogger.d('[GeofenceCubit] Failed to clear native geofence state on school switch: $e');
+        }
+      }
     }
 
     stopMonitoring();
@@ -493,6 +505,26 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
         if (isInside) {
           immediateStatus = GeofenceCubitStatus.withinRange;
           immediateGeofenceStatus = GeofenceStatus.within;
+          
+          if (isRefresh) {
+            final nothingToDo = state.isStaffSignedIn || state.allChildrenSignedIn;
+            final currentContext = '${_config!.schoolCode}_isInside_nothingToDo_$nothingToDo';
+            if (_lastReconciliationContext != currentContext) {
+              _lastReconciliationContext = currentContext;
+              if (!nothingToDo) {
+                AppLogger.d('[GeofenceCubit] Dashboard refresh reconciliation: User is inside and not signed in. Triggering notification.');
+                try {
+                  await _nativeGeofenceChannel.invokeMethod('triggerNotification', {'isInside': true});
+                } catch (e) {
+                  AppLogger.d('[GeofenceCubit] Failed to trigger manual refresh notification: $e');
+                }
+              } else {
+                AppLogger.d('[GeofenceCubit] Dashboard refresh reconciliation: User is inside but already signed in. Skipping notification.');
+              }
+            } else {
+              AppLogger.d('[GeofenceCubit] Dashboard refresh reconciliation: Already notified for current context. Skipping.');
+            }
+          }
         } else if (confidentlyOutside) {
           immediateStatus = GeofenceCubitStatus.outsideRange;
           immediateGeofenceStatus = GeofenceStatus.outside;
@@ -1011,6 +1043,17 @@ class GeofenceCubit extends Cubit<GeofenceState> with WidgetsBindingObserver {
 
   Future<void> handleProfileSwitch() async {
     _signInCheckGeneration++;
+    _lastReconciliationContext = null;
+    
+    if (Platform.isIOS || Platform.isAndroid) {
+      try {
+        await _nativeGeofenceChannel.invokeMethod('clearGeofenceState');
+        AppLogger.d('[GeofenceCubit] Cleared native geofence state on profile switch');
+      } catch (e) {
+        AppLogger.d('[GeofenceCubit] Failed to clear native geofence state on profile switch: $e');
+      }
+    }
+    
     emit(state.copyWith(
       isStaffSignedIn: false,
       allChildrenSignedIn: false,

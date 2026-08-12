@@ -73,6 +73,13 @@ object GeofencePrefs {
         return prefs.getBoolean(KEY_LAST_INSIDE, false)
     }
 
+    fun clearLastInside(context: Context) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .remove(KEY_LAST_INSIDE)
+            .remove(KEY_LAST_STATUS)
+            .apply()
+    }
+
     /// Set by Flutter (GeofenceCubit) whenever staff/admin/guardian sign-in
     /// status changes, so the background/killed-app notification path — which
     /// has no other visibility into sign-in state — can skip notifying when

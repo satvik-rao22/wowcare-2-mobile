@@ -1,7 +1,7 @@
 name: wowcare
 description: "WowCare 2.O"
 
-publish_to: 'none' 
+publish_to: 'none'
 
 version: 2.1.15
 
