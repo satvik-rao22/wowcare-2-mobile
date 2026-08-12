@@ -132,7 +132,13 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
       return
     }
     let nothingToDo = args["nothingToDo"] as? Bool ?? false
-    UserDefaults.standard.set(nothingToDo, forKey: prefsNothingToDoKey)
+    let defaults = UserDefaults.standard
+    defaults.set(nothingToDo, forKey: prefsNothingToDoKey)
+    defaults.set(Date().timeIntervalSince1970, forKey: "geofence_nothing_to_do_timestamp")
+    
+    if nothingToDo {
+      UNUserNotificationCenter.current().removeDeliveredNotifications(withIdentifiers: ["wowcare_geofence_enter"])
+    }
     result(true)
   }
 
@@ -344,9 +350,17 @@ final class GeofencePlugin: NSObject, CLLocationManagerDelegate {
 
     // "You can now Sign In or Sign Out" is meaningless when staff/admin is
     // already signed in or a guardian's children are all already signed in.
-    // Flutter pushes this flag whenever sign-in status changes, so it stays
-    // current even when this event fires in the background/killed app.
-    if isInside && defaults.bool(forKey: prefsNothingToDoKey) {
+    var nothingToDo = defaults.bool(forKey: prefsNothingToDoKey)
+    if nothingToDo {
+      let timestamp = defaults.double(forKey: "geofence_nothing_to_do_timestamp")
+      let setDate = Date(timeIntervalSince1970: timestamp)
+      let isSameDay = Calendar.current.isDateInToday(setDate)
+      if !isSameDay {
+        nothingToDo = false
+      }
+    }
+
+    if isInside && nothingToDo {
       print("[iOS GEOFENCE] Skipping enter notification — nothing to sign in/out")
       return
     }

@@ -71,6 +71,9 @@ class GeofencePlugin : FlutterPlugin, MethodChannel.MethodCallHandler {
         }
         val nothingToDo = (args["nothingToDo"] as? Boolean) ?: false
         GeofencePrefs.setNothingToDo(appContext, nothingToDo)
+        if (nothingToDo) {
+            GeofenceNotifications.cancel(appContext)
+        }
         result.success(true)
     }
 

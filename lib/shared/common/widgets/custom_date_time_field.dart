@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -32,6 +33,7 @@ class CustomDateTimeField extends StatefulWidget {
     this.isRequired = false, // ✅ ADD THIS
     this.firstDate,
     this.lastDate,
+    this.dateFormat, // Optional custom date format string
     super.key,
   });
 
@@ -57,6 +59,8 @@ class CustomDateTimeField extends StatefulWidget {
 
   // Add callback for date range selection
   final Function(DateTime, DateTime?)? onRangeSelected;
+  
+  final String? dateFormat;
 
   @override
   State<CustomDateTimeField> createState() => _CustomDateTimeFieldState();
@@ -189,10 +193,17 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
     if (widget.isRangePicker) {
       if (selectedDate != null) {
         if (rangeEndDate != null) {
-          selectedValue =
-              "${DateUtilsNew.formatToReadableDate(selectedDate!)} - ${DateUtilsNew.formatToReadableDate(rangeEndDate!)}";
+          final startStr = widget.dateFormat != null 
+              ? DateFormat(widget.dateFormat!).format(selectedDate!)
+              : DateUtilsNew.formatToReadableDate(selectedDate!);
+          final endStr = widget.dateFormat != null 
+              ? DateFormat(widget.dateFormat!).format(rangeEndDate!)
+              : DateUtilsNew.formatToReadableDate(rangeEndDate!);
+          selectedValue = "$startStr - $endStr";
         } else {
-          selectedValue = DateUtilsNew.formatToReadableDate(selectedDate!);
+          selectedValue = widget.dateFormat != null 
+              ? DateFormat(widget.dateFormat!).format(selectedDate!)
+              : DateUtilsNew.formatToReadableDate(selectedDate!);
         }
       }
     } else if (widget.isTime) {
@@ -205,7 +216,9 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
       }
     } else {
       if (selectedDate != null) {
-        selectedValue = DateUtilsNew.formatToReadableDate(selectedDate!);
+        selectedValue = widget.dateFormat != null 
+            ? DateFormat(widget.dateFormat!).format(selectedDate!)
+            : DateUtilsNew.formatToReadableDate(selectedDate!);
       }
     }
   }

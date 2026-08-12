@@ -11,7 +11,6 @@ import 'package:wowcare/presentation/features/reports/widgets/report_form_layout
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/school_context_helper.dart';
 
@@ -65,7 +64,9 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
     final classroomNameToCode = cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty ? widget.classrooms : _selectedClassrooms.value,
+      names: _selectedClassrooms.value.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -159,6 +160,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
                     fetchInitialTime: false,
+                    dateFormat: 'MM/dd/yyyy',
                     initialDate: date,
                     onDateSelected: (d) => _fromDate.value = d,
                   ),
@@ -169,6 +171,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                   valueListenable: _toDate,
                   builder: (_, date, __) => CustomDateTimeField(
                     hasLabel: false,
+                    dateFormat: 'MM/dd/yyyy',
                     fetchInitialTime: false,
                     initialDate: date,
                     onDateSelected: (d) => _toDate.value = d,
