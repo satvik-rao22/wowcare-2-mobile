@@ -83,6 +83,13 @@ abstract class CommunicationRepository {
   Future<Either<Failure, void>> clearMessagesCache(String threadId);
   Future<Either<Failure, void>> clearConversationsCache();
 
+  /// Per-conversation unread counts, keyed by conversation code.
+  ///
+  /// Backed by `/messages/unread-per-conversation` — confirmed reliable
+  /// (unlike the conversation-list endpoint's own `unreadCount` field, which
+  /// the backend never actually populates).
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation();
+
   /// Realtime delta stream for a conversation's messages, sourced from
   /// Firestore. Never replaces history — every emission is merged into the
   /// Isar cache (upsert by message code) and the merged, full cached list is

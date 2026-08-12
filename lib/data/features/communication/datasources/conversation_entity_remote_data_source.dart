@@ -101,6 +101,9 @@ abstract class ConversationEntityRemoteDataSource {
   Future<void> markConversationDelivered(String conversationCode);
 
   Future<Map<String, int>> getUnreadAggregates();
+
+  /// Per-conversation unread counts, keyed by conversation code.
+  Future<Map<String, int>> getUnreadCountsPerConversation();
 }
 
 class ConversationEntityRemoteDataSourceImpl
@@ -439,6 +442,37 @@ class ConversationEntityRemoteDataSourceImpl
 
     final data = response.data['data'] as Map<String, dynamic>? ?? {};
     return data.map((k, v) => MapEntry(k, (v as num).toInt()));
+  }
+
+  @override
+  Future<Map<String, int>> getUnreadCountsPerConversation() async {
+    final endpoint = _url(ApiPaths.messagesUnreadPerConversation);
+    final response = await apiClient.client.get(endpoint);
+    _assertSuccess(response.data, 'Failed to load per-conversation unread counts');
+
+    final data = response.data['data'];
+    final result = <String, int>{};
+    // Shape hasn't been exercised in production yet (this endpoint was
+    // previously unused) — accept either a {conversationCode: count} map or
+    // a list of {conversationCode/code, unreadCount} objects, whichever the
+    // backend actually returns.
+    if (data is Map) {
+      data.forEach((key, value) {
+        final count = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+        result[key as String] = count;
+      });
+    } else if (data is List) {
+      for (final item in data) {
+        if (item is! Map) continue;
+        final code = (item['conversationCode'] ?? item['code']) as String?;
+        if (code == null || code.isEmpty) continue;
+        final rawCount = item['unreadCount'];
+        result[code] = rawCount is num
+            ? rawCount.toInt()
+            : int.tryParse('$rawCount') ?? 0;
+      }
+    }
+    return result;
   }
 
   void _assertSuccess(dynamic data, String fallback) {

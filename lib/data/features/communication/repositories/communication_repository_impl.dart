@@ -45,6 +45,40 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   Future<String> get _userCode async =>
       (await storageService.getString(StorageKeys.userCode))?.trim() ?? '';
 
+  /// The REST `/conversations/type/{TYPE}` list's own `unreadCount` field is
+  /// confirmed always empty — the backend doesn't compute it there.
+  /// `/messages/unread-per-conversation` is a separate, sibling endpoint to
+  /// the aggregate-by-type one (`/messages/unread-summary`, already relied
+  /// on for the top app bar's badge) that HAS been confirmed reliable
+  /// against real traffic. Prefer it; fall back to the participant field
+  /// (in case the backend starts populating it) only for a conversation the
+  /// per-conversation endpoint didn't mention.
+  Future<List<Conversation>> _resolveUnreadCounts(
+    List<Conversation> conversations,
+  ) async {
+    Map<String, int> perConversation = const {};
+    try {
+      perConversation = await remoteDataSource.getUnreadCountsPerConversation();
+    } catch (_) {
+      // Endpoint unreachable — fall through to the participant-field guess.
+    }
+    final userCode = await _userCode;
+    return conversations.map((c) {
+      final fromEndpoint = perConversation[c.code];
+      if (fromEndpoint != null) return c.copyWith(unreadCount: fromEndpoint);
+      if (userCode.isEmpty) return c;
+      ConversationParticipant? mine;
+      for (final p in c.participants) {
+        if (p.userCode == userCode) {
+          mine = p;
+          break;
+        }
+      }
+      if (mine == null) return c;
+      return c.copyWith(unreadCount: mine.unreadCount);
+    }).toList();
+  }
+
   @override
   Future<Either<Failure, List<Message>>> getMessages(
     String threadId, {
@@ -257,21 +291,31 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       );
 
       if (response.success && response.data != null) {
-        final conversations = response.data!.content;
+        // The list response's `unreadCount` is confirmed always empty — null
+        // at the conversation level, 0 on every participant — the backend
+        // doesn't compute it here yet. `_resolveUnreadCounts` reads the
+        // per-user participant value on the chance the backend starts
+        // populating it, but until then this stays a no-op and Firestore
+        // (via the cubit's own reconciliation) remains the real source.
+        final conversations = await _resolveUnreadCounts(
+          response.data!.content,
+        );
 
         // 3. Update cache (for first page)
         if (page == 0) {
-          // Firestore is the source of truth for the live fields (unreadCount +
-          // lastMessagePreview). The REST list returns the conversation-level,
-          // shared-across-all-participants preview — which is the neutral
-          // "Private message" placeholder for private messages — whereas the
-          // per-user Firestore inbox carries the REAL last message for the
-          // parent/staff who may see it. So DON'T let this REST refresh clobber
-          // those fields on conversations we already have cached (that would make
+          // Firestore is the source of truth for the live fields (unreadCount
+          // + lastMessagePreview). The REST list returns the
+          // conversation-level, shared-across-all-participants preview —
+          // which is the neutral "Private message" placeholder for private
+          // messages, and an always-empty unreadCount — whereas the per-user
+          // Firestore inbox carries the REAL values for the parent/staff who
+          // may see them. So DON'T let this REST refresh clobber those
+          // fields on conversations we already have cached (that would make
           // a read private message revert from its real text to "Private
-          // message"). Preserve them from the existing row; refresh everything
-          // else from REST. New conversations take the REST value until the next
-          // Firestore snapshot fills in the real preview.
+          // message", or an accurate badge revert to 0). Preserve them from
+          // the existing row; refresh everything else from REST. New
+          // conversations take the REST value until the next Firestore
+          // snapshot fills in the real data.
           final existingByCode = {
             for (final c in await cacheService.getAll<ConversationCollection>())
               c.code: c,
@@ -575,6 +619,16 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       return const Right(null);
     } catch (e) {
       return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() async {
+    try {
+      final map = await remoteDataSource.getUnreadCountsPerConversation();
+      return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
   }
 

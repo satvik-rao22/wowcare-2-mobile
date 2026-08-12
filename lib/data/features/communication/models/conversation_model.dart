@@ -118,6 +118,7 @@ class ConversationParticipantModel extends ConversationParticipant {
     required super.createdAt,
     required super.updatedAt,
     super.privateModeEnabled = false,
+    super.unreadCount = 0,
   });
 
   factory ConversationParticipantModel.fromJson(Map<String, dynamic> json) {
@@ -152,6 +153,7 @@ class ConversationParticipantModel extends ConversationParticipant {
       updatedAt: json['updatedAt'] != null
           ? DateTime.parse(json['updatedAt'] as String)
           : AppTime.nowUtc(),
+      unreadCount: json['unreadCount'] as int? ?? 0,
     );
   }
 
@@ -170,6 +172,7 @@ class ConversationParticipantModel extends ConversationParticipant {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt.toIso8601String(),
       'privateModeEnabled': privateModeEnabled,
+      'unreadCount': unreadCount,
     };
   }
 }

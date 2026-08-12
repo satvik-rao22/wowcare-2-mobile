@@ -208,6 +208,7 @@ class ParticipantEntityDto {
     this.adminCode,
     this.organizationCode,
     this.schoolCode,
+    this.unreadCount = 0,
   });
 
   final int id;
@@ -231,6 +232,11 @@ class ParticipantEntityDto {
   final String? adminCode;
   final String? organizationCode;
   final String? schoolCode;
+
+  /// This participant's own unread count — the real, per-user signal on the
+  /// list response (the conversation-level `unreadCount` field is never
+  /// actually populated by the backend). See toEntity() usage note.
+  final int unreadCount;
 
   factory ParticipantEntityDto.fromJson(Map<String, dynamic> json) {
     return ParticipantEntityDto(
@@ -266,6 +272,7 @@ class ParticipantEntityDto {
       adminCode: json['adminCode'] as String?,
       organizationCode: json['organizationCode'] as String?,
       schoolCode: json['schoolCode'] as String?,
+      unreadCount: json['unreadCount'] as int? ?? 0,
     );
   }
 
@@ -288,6 +295,7 @@ class ParticipantEntityDto {
         if (adminCode != null) 'adminCode': adminCode,
         if (organizationCode != null) 'organizationCode': organizationCode,
         if (schoolCode != null) 'schoolCode': schoolCode,
+        'unreadCount': unreadCount,
       };
 
   ParticipantEntity toEntity() {
@@ -310,6 +318,7 @@ class ParticipantEntityDto {
       adminCode: adminCode,
       organizationCode: organizationCode,
       schoolCode: schoolCode,
+      unreadCount: unreadCount,
     );
   }
 }

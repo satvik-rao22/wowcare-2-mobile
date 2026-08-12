@@ -74,6 +74,36 @@ class Conversation extends Equatable {
     required this.participants,
   });
 
+  /// `unreadCount` is overridable — used to resolve the real per-user count
+  /// nested in `participants[]` (see CommunicationRepositoryImpl).
+  Conversation copyWith({int? unreadCount}) {
+    return Conversation(
+      id: id,
+      code: code,
+      title: title,
+      type: type,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      status: status,
+      description: description,
+      avatarUrl: avatarUrl,
+      createdAt: createdAt,
+      createdBy: createdBy,
+      updatedAt: updatedAt,
+      updatedBy: updatedBy,
+      lastMessageAt: lastMessageAt,
+      lastMessageBy: lastMessageBy,
+      lastMessageSenderName: lastMessageSenderName,
+      privateModeActive: privateModeActive,
+      privateModeActivatedBy: privateModeActivatedBy,
+      privateModeActivatedAt: privateModeActivatedAt,
+      participantCount: participantCount,
+      unreadCount: unreadCount ?? this.unreadCount,
+      lastMessagePreview: lastMessagePreview,
+      participants: participants,
+    );
+  }
+
   @override
   List<Object?> get props => [
     id,
@@ -129,6 +159,12 @@ class ConversationParticipant extends Equatable {
   /// photo via DocumentImageWidget. Null for non-staff participants.
   final String? staffCode;
 
+  /// This participant's own unread count for the conversation — the REST
+  /// `/conversations/type/{TYPE}` list nests the real per-user unread count
+  /// here rather than on the conversation itself. See
+  /// CommunicationRepositoryImpl's unread-count resolution.
+  final int unreadCount;
+
   const ConversationParticipant({
     required this.id,
     required this.conversationId,
@@ -145,6 +181,7 @@ class ConversationParticipant extends Equatable {
     this.privateModeEnabled = false,
     this.avatarUrl,
     this.staffCode,
+    this.unreadCount = 0,
   });
 
   /// Mirrors [ParticipantEntity.isActive] — `leftAt == null` means still an
@@ -169,6 +206,7 @@ class ConversationParticipant extends Equatable {
     privateModeEnabled,
     avatarUrl,
     staffCode,
+    unreadCount,
   ];
 }
 
