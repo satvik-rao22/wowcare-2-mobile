@@ -105,10 +105,12 @@ class AttentionGrid extends StatefulWidget {
     super.key,
     this.onRatioCardTap,
     this.onShiftsCardTap,
+    this.onIncidentCardTap,
   });
 
   final VoidCallback? onRatioCardTap;
   final VoidCallback? onShiftsCardTap;
+  final VoidCallback? onIncidentCardTap;
 
   @override
   State<AttentionGrid> createState() => _AttentionGridState();
@@ -182,7 +184,11 @@ class _AttentionGridState extends State<AttentionGrid> {
   void _handleCardTap(_AttentionCardRoute route) {
     switch (route) {
       case _AttentionCardRoute.incidentApproval:
-        context.go('/activityFeed');
+        if (widget.onIncidentCardTap != null) {
+          widget.onIncidentCardTap!();
+        } else {
+          context.go('/activityFeed');
+        }
 
       case _AttentionCardRoute.classroomRatio:
         if (widget.onRatioCardTap != null) {
