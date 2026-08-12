@@ -1103,15 +1103,6 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                               curr.status != GeofenceCubitStatus.withinRange) {
                             _geofencePopupShownThisEntry = false;
                           }
-                          // Reset guard explicitly on manual dashboard refresh.
-                          if (prev.refreshNonce != curr.refreshNonce) {
-                            _geofencePopupShownThisEntry = false;
-                            // If already withinRange, returning true will immediately trigger
-                            // a sign-in popup evaluation based on the authoritative sign-in state.
-                            if (curr.status == GeofenceCubitStatus.withinRange) {
-                              return true;
-                            }
-                          }
                           if (curr.status == GeofenceCubitStatus.withinRange) {
                             if (prev.status !=
                                 GeofenceCubitStatus.withinRange) {

@@ -155,20 +155,22 @@ class MessageFirestoreItem {
       if (fileUrl == null || fileUrl.isEmpty) continue;
       final mimeType = m['mimeType'] as String? ?? 'application/octet-stream';
       final rawId = m['attachmentId'];
-      result.add(AttachmentEntity(
-        code: rawId?.toString() ?? '',
-        messageCode: messageCode,
-        conversationCode: conversationCode,
-        fileName: m['fileName'] as String? ?? '',
-        fileUrl: fileUrl,
-        mimeType: mimeType,
-        fileSizeBytes: (m['fileSizeBytes'] as num?)?.toInt() ?? 0,
-        attachmentType: AttachmentType.fromMimeType(mimeType),
-        thumbnailUrl: m['thumbnailUrl'] as String?,
-        uploadedBy: senderCode,
-        uploadedAt: sentAt,
-        attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
-      ));
+      result.add(
+        AttachmentEntity(
+          code: rawId?.toString() ?? '',
+          messageCode: messageCode,
+          conversationCode: conversationCode,
+          fileName: m['fileName'] as String? ?? '',
+          fileUrl: fileUrl,
+          mimeType: mimeType,
+          fileSizeBytes: (m['fileSizeBytes'] as num?)?.toInt() ?? 0,
+          attachmentType: AttachmentType.fromMimeType(mimeType),
+          thumbnailUrl: m['thumbnailUrl'] as String?,
+          uploadedBy: senderCode,
+          uploadedAt: sentAt,
+          attachmentId: rawId is int ? rawId : int.tryParse('$rawId'),
+        ),
+      );
     }
     return result;
   }
@@ -254,8 +256,10 @@ class MessageFirestoreItem {
         if (r is Map) {
           final userCode = r['userCode']?.toString();
           final emoji = r['emoji']?.toString();
-          if (userCode != null && userCode.isNotEmpty &&
-              emoji != null && emoji.isNotEmpty) {
+          if (userCode != null &&
+              userCode.isNotEmpty &&
+              emoji != null &&
+              emoji.isNotEmpty) {
             result.add(ReactionEntry(userCode: userCode, emoji: emoji));
           }
         }
@@ -374,12 +378,9 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
         unawaited(serviceLocator<FirebaseAuthService>().signIn());
         if (attempt < retryDelays.length) {
           // Standard exponential backoff while Firebase auth is in progress.
-          Future.delayed(
-            Duration(seconds: retryDelays[attempt]),
-            () {
-              if (!controller.isClosed) subscribe(attempt + 1);
-            },
-          );
+          Future.delayed(Duration(seconds: retryDelays[attempt]), () {
+            if (!controller.isClosed) subscribe(attempt + 1);
+          });
         } else {
           // Backoff exhausted — Firebase auth hasn't completed yet. Wait for
           // an authStateChanges event with a signed-in user, then restart.
@@ -410,73 +411,71 @@ class FirebaseMessageRealtimeDataSource implements MessageRealtimeDataSource {
       // thrown into the Dart zone by FlutterFire's receiveGuardedBroadcastStream
       // are caught here instead of escaping to the root isolate zone and being
       // logged as "Unhandled Exception" at dart_vm_initializer.cc.
-      runZonedGuarded(
-        () {
-          inner = firestore
-              .collection('orgs')
-              .doc(organizationCode)
-              .collection('schools')
-              .doc(schoolCode)
-              .collection('conversations')
-              .doc(conversationCode)
-              .collection('messages')
-              // Deliberately no `where('isDeleted', ...)` here — combining it with
-              // orderBy('sentAt') requires a Firestore composite index, and the
-              // web app's equivalent query (firestore-messaging.service.ts) doesn't
-              // filter either. Deleted messages still flow through so the UI can
-              // render the deleted-placeholder treatment instead of the row simply
-              // never updating on other participants' devices.
-              .orderBy('sentAt', descending: false)
-              .limitToLast(limit)
-              .snapshots()
-              .listen(
-                (snapshot) {
-                  if (controller.isClosed) return;
-                  // Using `docs` (the full current window) rather than
-                  // `docChanges` (delta only). With `docChanges`, subsequent
-                  // Firestore events after the initial snapshot only carry the
-                  // 1–2 changed documents, so the cubit would replace its entire
-                  // message list with just the delta — losing all previous
-                  // messages. `docs` always delivers the complete set currently
-                  // matching the query, which is what the cubit expects.
-                  // Parse each message defensively: a single unparseable doc (e.g. an
-                  // unexpected attachment shape) must NOT throw out of the snapshot
-                  // handler — with cancelOnError the whole thread's live sync would die
-                  // and stay dead while that doc remains in the query window. Skip the
-                  // bad one and keep delivering the rest.
-                  final entities = <MessageEntity>[];
-                  for (final doc in snapshot.docs) {
-                    try {
-                      final entity =
-                          MessageFirestoreItem.fromFirestore(doc).toEntity();
-                      if (VisibilityHelper.canViewMessage(
-                        entity,
-                        currentUserCode,
-                        isStaff,
-                        isAdmin,
-                      )) {
-                        entities.add(entity);
-                      }
-                    } catch (e, st) {
-                      log(
-                        'Skipped unparseable message ${doc.id}: $e',
-                        name: 'MessageRealtime',
-                        error: e,
-                        stackTrace: st,
-                      );
+      runZonedGuarded(() {
+        inner = firestore
+            .collection('orgs')
+            .doc(organizationCode)
+            .collection('schools')
+            .doc(schoolCode)
+            .collection('conversations')
+            .doc(conversationCode)
+            .collection('messages')
+            // Deliberately no `where('isDeleted', ...)` here — combining it with
+            // orderBy('sentAt') requires a Firestore composite index, and the
+            // web app's equivalent query (firestore-messaging.service.ts) doesn't
+            // filter either. Deleted messages still flow through so the UI can
+            // render the deleted-placeholder treatment instead of the row simply
+            // never updating on other participants' devices.
+            .orderBy('sentAt', descending: false)
+            .limitToLast(limit)
+            .snapshots()
+            .listen(
+              (snapshot) {
+                if (controller.isClosed) return;
+                // Using `docs` (the full current window) rather than
+                // `docChanges` (delta only). With `docChanges`, subsequent
+                // Firestore events after the initial snapshot only carry the
+                // 1–2 changed documents, so the cubit would replace its entire
+                // message list with just the delta — losing all previous
+                // messages. `docs` always delivers the complete set currently
+                // matching the query, which is what the cubit expects.
+                // Parse each message defensively: a single unparseable doc (e.g. an
+                // unexpected attachment shape) must NOT throw out of the snapshot
+                // handler — with cancelOnError the whole thread's live sync would die
+                // and stay dead while that doc remains in the query window. Skip the
+                // bad one and keep delivering the rest.
+                final entities = <MessageEntity>[];
+                for (final doc in snapshot.docs) {
+                  try {
+                    final entity = MessageFirestoreItem.fromFirestore(
+                      doc,
+                    ).toEntity();
+                    if (VisibilityHelper.canViewMessage(
+                      entity,
+                      currentUserCode,
+                      isStaff,
+                      isAdmin,
+                    )) {
+                      entities.add(entity);
                     }
+                  } catch (e, st) {
+                    log(
+                      'Skipped unparseable message ${doc.id}: $e',
+                      name: 'MessageRealtime',
+                      error: e,
+                      stackTrace: st,
+                    );
                   }
-                  controller.add(entities);
-                },
-                onError: (Object error) => retryOrForward(error, attempt),
-                onDone: () {
-                  if (!controller.isClosed) controller.close();
-                },
-                cancelOnError: true,
-              );
-        },
-        (Object error, StackTrace _) => retryOrForward(error, attempt),
-      );
+                }
+                controller.add(entities);
+              },
+              onError: (Object error) => retryOrForward(error, attempt),
+              onDone: () {
+                if (!controller.isClosed) controller.close();
+              },
+              cancelOnError: true,
+            );
+      }, (Object error, StackTrace _) => retryOrForward(error, attempt));
     };
 
     controller.onListen = () => subscribe(0);

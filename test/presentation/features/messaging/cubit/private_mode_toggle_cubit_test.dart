@@ -164,6 +164,12 @@ class _FakeRepo implements ConversationEntityRepository {
     // TODO: implement reconcileClassroomChat
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────

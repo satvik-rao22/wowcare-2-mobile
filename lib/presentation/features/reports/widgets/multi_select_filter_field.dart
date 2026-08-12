@@ -55,6 +55,9 @@ class MultiSelectFilterField<T> extends StatefulWidget {
   /// Optional: Required asterisk
   final bool showAsterisk;
 
+  /// Optional: Alternative to showAsterisk
+  final bool isRequired;
+
   /// Note text displayed below field (e.g., "All items will be selected by default")
   final String? defaultNote;
 
@@ -73,6 +76,7 @@ class MultiSelectFilterField<T> extends StatefulWidget {
     this.enableSearch = true,
     this.searchHintText,
     this.showAsterisk = false,
+    this.isRequired = false,
     this.defaultNote,
   });
 
@@ -439,7 +443,7 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
             ),
             children: [
               TextSpan(text: widget.label),
-              if (widget.showAsterisk)
+              if (widget.showAsterisk || widget.isRequired)
                 const TextSpan(
                   text: ' *',
                   style: TextStyle(color: Colors.red),

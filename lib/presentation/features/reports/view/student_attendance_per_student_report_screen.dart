@@ -62,7 +62,7 @@ class _StudentAttendancePerStudentReportScreenState
     super.initState();
     final now = AppTime.now();
     _periodDate = DateTime(now.year, now.month, 1);
-    
+
     _selectedClassrooms = <String>[];
     _availableStudents = List<String>.from(widget.students);
 
@@ -85,10 +85,9 @@ class _StudentAttendancePerStudentReportScreenState
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isNotEmpty) {
-        final classrooms =
-            await serviceLocator<GetActiveClassroomsUseCase>()(
-              schoolCode: schoolCode,
-            );
+        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+          schoolCode: schoolCode,
+        );
         for (final c in classrooms) {
           _classroomCodeByName[c.name] = c.code;
         }
@@ -122,13 +121,15 @@ class _StudentAttendancePerStudentReportScreenState
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
 
       final classroomNameToCode = await _resolveClassroomNameToCodeMap();
-      final classroomCodes =
-          selectedClassroomNames
-              .map((name) => classroomNameToCode[name])
-              .whereType<String>()
-              .where((c) => c.trim().isNotEmpty)
-              .toSet()
-              .toList();
+      final targetClassroomNames = selectedClassroomNames.isEmpty
+          ? widget.classrooms
+          : selectedClassroomNames;
+      final classroomCodes = targetClassroomNames
+          .map((name) => classroomNameToCode[name])
+          .whereType<String>()
+          .where((c) => c.trim().isNotEmpty)
+          .toSet()
+          .toList();
 
       if (classroomCodes.isEmpty) {
         if (!mounted || currentFetchId != _fetchId) return;
@@ -166,17 +167,15 @@ class _StudentAttendancePerStudentReportScreenState
         }
       }
 
-      final sortedNames =
-          newStudentCodeByName.keys.toList()
-            ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+      final sortedNames = newStudentCodeByName.keys.toList()
+        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
       setState(() {
         _studentCodeByName = newStudentCodeByName;
         _availableStudents = sortedNames;
-        _selectedStudents =
-            _selectedStudents
-                .where((s) => newStudentCodeByName.containsKey(s))
-                .toList();
+        _selectedStudents = _selectedStudents
+            .where((s) => newStudentCodeByName.containsKey(s))
+            .toList();
         _isLoadingStudents = false;
       });
 
@@ -237,7 +236,9 @@ class _StudentAttendancePerStudentReportScreenState
 
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
       nameToCode: mergedClassroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -295,9 +296,8 @@ class _StudentAttendancePerStudentReportScreenState
     return MultiBlocListener(
       listeners: [
         BlocListener<ReportsCubit, ReportsState>(
-          listenWhen:
-              (previous, current) =>
-                  previous.generationError != current.generationError,
+          listenWhen: (previous, current) =>
+              previous.generationError != current.generationError,
           listener: (context, state) {
             if (state.generationError != null &&
                 state.generationError!.isNotEmpty) {
@@ -310,9 +310,8 @@ class _StudentAttendancePerStudentReportScreenState
           },
         ),
         BlocListener<ReportsCubit, ReportsState>(
-          listenWhen:
-              (previous, current) =>
-                  previous.generationSuccess != current.generationSuccess,
+          listenWhen: (previous, current) =>
+              previous.generationSuccess != current.generationSuccess,
           listener: (context, state) {
             if (state.generationSuccess != null &&
                 state.generationSuccess!.isNotEmpty) {
@@ -374,8 +373,8 @@ class _StudentAttendancePerStudentReportScreenState
                           const ReportFieldLabel(label: 'Period'),
                           ReportMonthYearField(
                             initialMonth: _periodDate,
-                            onMonthSelected:
-                                (d) => setState(() => _periodDate = d),
+                            onMonthSelected: (d) =>
+                                setState(() => _periodDate = d),
                           ),
                         ],
                       ),
@@ -387,6 +386,7 @@ class _StudentAttendancePerStudentReportScreenState
                   label: 'Classroom',
                   hintText: 'Select Classroom',
                   items: widget.classrooms,
+                  isRequired: true,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) {
                     setState(() => _selectedClassrooms = s);
@@ -400,13 +400,11 @@ class _StudentAttendancePerStudentReportScreenState
                 SizedBox(height: responsive.verticalSpacing),
                 MultiSelectFilterField<String>(
                   label: 'Student',
-                  hintText:
-                      _isLoadingStudents
-                          ? 'Loading Students...'
-                          : (_selectedClassrooms.isEmpty
-                              ? 'Select Classroom First'
-                              : 'Select Students'),
+                  hintText: _isLoadingStudents
+                      ? 'Loading Students...'
+                      : 'Select Students',
                   items: _availableStudents,
+                  isRequired: true,
                   selectedItems: _selectedStudents,
                   onChanged: (s) => setState(() => _selectedStudents = s),
                   itemToString: (item) => item,

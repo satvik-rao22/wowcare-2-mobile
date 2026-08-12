@@ -31,7 +31,10 @@ extension ConversationEntityDisplay on ConversationEntity {
   /// Title to show for a conversation row / thread header. For 1:1 chats this is
   /// the other participant's name; otherwise the stored title. Falls back to
   /// [fallback] so the UI never renders an empty label.
-  String displayTitle(String? currentUserCode, {String fallback = 'Conversation'}) {
+  String displayTitle(
+    String? currentUserCode, {
+    String fallback = 'Conversation',
+  }) {
     final other = otherParticipant(currentUserCode);
     if (other != null && other.userName.trim().isNotEmpty) {
       return other.userName.trim();
