@@ -11,12 +11,9 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_absent_form_list_usecase.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_selection_cubit.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'student_mark_absent_form.dart';
 
@@ -35,216 +32,102 @@ class _StudentSelectionMarkAbsentFormState
   bool isSelectAllChecked = false;
   List<String> _selectedClassrooms = [];
   List<String> _selectedTag = [];
-  List<StudentEntity> _filteredStudents = [];
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
-  bool _isLoading = true;
-  String? _errorMessage;
 
-  late final GetStudentAbsentFormListUseCase _getStudentAbsentFormListUseCase;
-
-  // Backing list populated from the Absent form API.
-  List<StudentEntity> _allStudents = [];
-
-  // Classroom filter options loaded from Classroom API.
-  List<String> _classroomList = [];
-  Map<String, String> _classroomNameToCode = {};
-  List<String> _tags = ['Tag 1', 'Tag 2', 'Tag 3', 'Tag 4'];
-
-  late final ClassroomCubit _classroomCubit;
-  bool _isClassroomDataReady = false;
+  late final StudentMarkAbsentSelectionCubit _cubit;
 
   @override
   void initState() {
     super.initState();
-    _getStudentAbsentFormListUseCase =
-        serviceLocator<GetStudentAbsentFormListUseCase>();
-    _classroomCubit = serviceLocator<ClassroomCubit>();
+    _cubit = serviceLocator<StudentMarkAbsentSelectionCubit>();
     _searchController.addListener(_onSearchChanged);
-    _loadClassrooms();
-    _loadStudents();
+    _bootstrap();
+  }
+
+  Future<void> _bootstrap() async {
+    await _cubit.initFilters();
+    await _loadStudents();
   }
 
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
   void _onSearchChanged() {
-    _filterStudents();
+    // Search is client-only against the already-fetched list — matches the
+    // original behavior (classroom/tag changes are what trigger a re-fetch).
+    setState(() {});
   }
 
   String _formatDate(DateTime date) {
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _loadClassrooms() async {
-    // Cross-class enabled → list ALL classrooms (like an admin); else scope to
-    // the teacher's allowed classrooms.
-    final crossClass =
-        await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-          storage: serviceLocator<StorageService>(),
-        );
-    _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: !crossClass,
-    );
-
-    if (!_classroomCubit.state.isLoading &&
-        _classroomCubit.state.classrooms.isNotEmpty) {
-      setState(() {
-        _classroomNameToCode = {
-          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-        };
-        _classroomList = _classroomNameToCode.keys.toList(growable: false);
-        _selectedClassrooms.removeWhere(
-          (c) => !_classroomNameToCode.containsKey(c),
-        );
-        _isClassroomDataReady = true;
-      });
-      return;
-    }
-
-    int attempts = 0;
-    while (_classroomCubit.state.isLoading && attempts < 100) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      attempts++;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _classroomNameToCode = {
-        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-      };
-      _classroomList = _classroomNameToCode.keys.toList(growable: false);
-      _selectedClassrooms.removeWhere(
-        (c) => !_classroomNameToCode.containsKey(c),
-      );
-      _isClassroomDataReady = _classroomList.isNotEmpty;
-    });
-  }
-
   Future<void> _loadStudents() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
+    await bootstrapAttendanceSchoolTimezone();
+    final dateString = _formatDate(attendanceSchoolToday());
+    await _cubit.loadStudents(
+      fromAbsenceDate: dateString,
+      toAbsenceDate: dateString,
+      selectedClassroomNames: _selectedClassrooms,
+      selectedTagNames: _selectedTag,
+    );
+  }
 
-    try {
-      await bootstrapAttendanceSchoolTimezone();
-      final today = attendanceSchoolToday();
-      final dateString = _formatDate(today);
-
-      // Resolve selected classroom NAMES -> classroomCodes via _classroomNameToCode map.
-      List<String>? classroomCodes;
-      if (_selectedClassrooms.isNotEmpty) {
-        final codes = _selectedClassrooms
-            .map((name) => _classroomNameToCode[name])
-            .whereType<String>()
-            .where((c) => c.trim().isNotEmpty)
-            .toList();
-        if (codes.isNotEmpty) {
-          classroomCodes = codes;
-        }
-      }
-
-      // The Absent form API doesn't return tag data on its items (unlike
-      // Sign-In/Sign-Out/Transfer), so there's no name->code map to resolve
-      // against — send the selected names through as-is, same as before.
-      final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
-
-      final searchText = _searchController.text.trim().isNotEmpty
-          ? _searchController.text.trim()
-          : null;
-
-      final page = await _getStudentAbsentFormListUseCase(
-        fromAbsenceDate: dateString,
-        toAbsenceDate: dateString,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: searchText,
-        page: 0,
-        size: 200,
+  List<StudentEntity> _mapStudents(
+    List<StudentAttendanceAbsentFormItem> items,
+  ) {
+    return items.asMap().entries.map((entry) {
+      final index = entry.key;
+      final item = entry.value;
+      return StudentEntity(
+        id: index + 1,
+        studentCode: item.studentCode,
+        fullName: item.studentName,
+        roomId: 0,
+        roomName: item.classroomName,
+        classroomCode: item.classroomCode,
+        photoUuid: '',
+        tags: const [], // Absent form API does not include tags
       );
+    }).toList();
+  }
 
-      if (!mounted) return;
+  /// Client-side re-filter on top of the fetched (already server-narrowed)
+  /// list: search text (never sent to the server here) plus a redundant
+  /// classroom re-check. Tags aren't in this endpoint's response, so
+  /// `student.tags` is always empty — never re-checked locally (that would
+  /// incorrectly hide every row whenever a tag is selected); the server-side
+  /// `tagCodes` param is the only tag filter available for this form.
+  List<StudentEntity> _filterStudents(List<StudentEntity> allStudents) {
+    return allStudents.where((student) {
+      bool matchesSearch = true;
+      bool matchesRoom = true;
 
-      var items = page.items;
-      // Safety net: enforce the classroom filter client-side too, in case
-      // the backend returns rows outside the requested scope. Tags aren't
-      // in this endpoint's response, so there's nothing to re-check there.
-      if (classroomCodes != null && classroomCodes.isNotEmpty) {
-        final allowedClassrooms = classroomCodes.toSet();
-        items = items
-            .where((i) => allowedClassrooms.contains(i.classroomCode))
-            .toList();
+      if (_searchController.text.isNotEmpty) {
+        matchesSearch = student.fullName.toLowerCase().contains(
+          _searchController.text.toLowerCase(),
+        );
       }
 
-      final students = items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        return StudentEntity(
-          id: index + 1,
-          studentCode: item.studentCode,
-          fullName: item.studentName,
-          roomId: 0,
-          roomName: item.classroomName,
-          classroomCode: item.classroomCode,
-          photoUuid: '',
-          tags: const [], // Absent form API does not include tags
-        );
-      }).toList();
+      if (_selectedClassrooms.isNotEmpty) {
+        matchesRoom = _selectedClassrooms.contains(student.roomName);
+      }
 
-      setState(() {
-        _allStudents = students;
-        _isLoading = false;
-        _filterStudents();
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
-      });
-    }
+      return matchesSearch && matchesRoom;
+    }).toList();
   }
 
-  void _filterStudents() {
-    setState(() {
-      _filteredStudents = _allStudents.where((student) {
-        bool matchesSearch = true;
-        bool matchesRoom = true;
-        bool matchesTag = true;
-
-        if (_searchController.text.isNotEmpty) {
-          matchesSearch = student.fullName.toLowerCase().contains(
-            _searchController.text.toLowerCase(),
-          );
-        }
-
-        if (_selectedClassrooms.isNotEmpty) {
-          matchesRoom = _selectedClassrooms.contains(student.roomName);
-        }
-
-        // The Absent form API doesn't return per-student tag data, so
-        // `student.tags` is always empty here — re-checking it locally
-        // would incorrectly hide every row whenever a tag is selected.
-        // The server-side `tagCodes` param (sent above) is the only tag
-        // filter available for this form.
-
-        return matchesSearch && matchesRoom && matchesTag;
-      }).toList();
-    });
-  }
-
-  void _toggleSelectAll(bool? value) {
+  void _toggleSelectAll(bool? value, List<StudentEntity> visibleStudents) {
     if (value == null) return;
 
     setState(() {
       isSelectAllChecked = value;
-
-      final List<StudentEntity> visibleStudents = _getVisibleStudents();
-
       if (value) {
         selectedStudents.addAll(visibleStudents);
       } else {
@@ -253,7 +136,11 @@ class _StudentSelectionMarkAbsentFormState
     });
   }
 
-  void _toggleStudentSelection(StudentEntity student, bool? value) {
+  void _toggleStudentSelection(
+    StudentEntity student,
+    bool? value,
+    List<StudentEntity> visibleStudents,
+  ) {
     if (value == null) return;
 
     setState(() {
@@ -263,7 +150,6 @@ class _StudentSelectionMarkAbsentFormState
         selectedStudents.remove(student);
       }
 
-      final visibleStudents = _getVisibleStudents();
       isSelectAllChecked = visibleStudents.every(
         (student) => selectedStudents.contains(student),
       );
@@ -273,26 +159,8 @@ class _StudentSelectionMarkAbsentFormState
   void refreshCallback() {
     setState(() {
       selectedStudents = {};
-      _isLoading = true;
     });
-    // Simulate refresh
-    Future.delayed(const Duration(seconds: 1), () {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-          _filteredStudents = List.from(_allStudents);
-        });
-      }
-    });
-  }
-
-  List<StudentEntity> _getVisibleStudents() {
-    return _filteredStudents.isEmpty &&
-            _searchController.text.isEmpty &&
-            _selectedClassrooms.isEmpty &&
-            _selectedTag.isEmpty
-        ? _allStudents
-        : _filteredStudents;
+    _loadStudents();
   }
 
   Widget _buildShimmerGrid() {
@@ -358,159 +226,159 @@ class _StudentSelectionMarkAbsentFormState
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return StaffFormLayout(
-      title: 'Mark Absent',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const AppText.subtitle('Select Students'),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: Colors.grey),
-            ),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Search Students',
-                hintStyle: AppTextStyles.body.copyWith(color: Colors.grey[700]),
-                border: InputBorder.none,
-                icon: const Icon(Icons.search, color: Colors.grey),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Row(
+    return BlocBuilder<
+      StudentMarkAbsentSelectionCubit,
+      StudentMarkAbsentSelectionState
+    >(
+      bloc: _cubit,
+      builder: (context, state) {
+        final allStudents = _mapStudents(state.students);
+        final visibleStudents = _filterStudents(allStudents);
+        selectedStudents.removeWhere(
+          (s) => !allStudents.any((e) => e.studentCode == s.studentCode),
+        );
+
+        return StaffFormLayout(
+          title: 'Mark Absent',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                flex: 4,
-                child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                  bloc: _classroomCubit,
-                  builder: (context, classroomState) {
-                    final items = _classroomList.isNotEmpty
-                        ? _classroomList
-                        : classroomState.classrooms
-                              .map((c) => c.name)
-                              .toList(growable: false);
-                    final isLoading =
-                        classroomState.isLoading || !_isClassroomDataReady;
-
-                    // Render the field even with no items yet — a shimmer
-                    // here could get stuck showing forever if loading never
-                    // actually resolves. The dropdown's own "No matches
-                    // found" empty state covers the case where there's
-                    // genuinely nothing to pick.
-
-                    return CustomMultiSelectDropdown(
+              const AppText.subtitle('Select Students'),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(color: Colors.grey),
+                ),
+                child: TextField(
+                  controller: _searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Search Students',
+                    hintStyle: AppTextStyles.body.copyWith(
+                      color: Colors.grey[700],
+                    ),
+                    border: InputBorder.none,
+                    icon: const Icon(Icons.search, color: Colors.grey),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 4,
+                    child: CustomMultiSelectDropdown(
                       hintText: 'Classroom',
-                      items: items,
+                      items: state.classroomOptions,
                       selectedItems: _selectedClassrooms,
                       onChanged: (selectedItems) {
-                        if (isLoading) return;
+                        if (state.isLoadingFilters) return;
                         setState(() {
                           _selectedClassrooms = selectedItems;
-                          _filterStudents();
                         });
                         _loadStudents();
                       },
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                flex: 4,
-                child: CustomMultiSelectDropdown(
-                  hintText: 'Tags',
-                  items: _tags,
-                  selectedItems: _selectedTag,
-                  onChanged: (selectedItems) {
-                    setState(() {
-                      _selectedTag = selectedItems;
-                      _filterStudents();
-                    });
-                    _loadStudents();
-                  },
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: CustomCheckbox(
-                  borderColor: AppColors.themeColor,
-                  value: isSelectAllChecked,
-                  onChanged: _toggleSelectAll,
-                ),
-              ),
-              const AppText.body('Select All'),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: _isLoading
-                ? _buildShimmerGrid()
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppText.body(
-                          _errorMessage ?? 'Failed to load students',
-                          style: const TextStyle(color: Colors.red),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: _loadStudents,
-                          child: const AppText.body('Retry'),
-                        ),
-                      ],
                     ),
-                  )
-                : _getVisibleStudents().isEmpty
-                ? const Center(child: AppText.body('No students found'))
-                : GridView.builder(
-                    shrinkWrap: false,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 2,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
-                          mainAxisExtent: 72,
-                        ),
-                    itemCount: _getVisibleStudents().length,
-                    itemBuilder: (context, index) {
-                      final student = _getVisibleStudents()[index];
-                      final isSelected = selectedStudents.contains(student);
-
-                      return StudentListItem(
-                        student: student,
-                        isSelected: isSelected,
-                        onSelectionChanged: (value) {
-                          _toggleStudentSelection(student, value);
-                        },
-                      );
-                    },
                   ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 4,
+                    child: CustomMultiSelectDropdown(
+                      hintText: 'Tags',
+                      items: state.tagOptions,
+                      selectedItems: _selectedTag,
+                      onChanged: (selectedItems) {
+                        setState(() {
+                          _selectedTag = selectedItems;
+                        });
+                        _loadStudents();
+                      },
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: CustomCheckbox(
+                      borderColor: AppColors.themeColor,
+                      value: isSelectAllChecked,
+                      onChanged: (value) =>
+                          _toggleSelectAll(value, visibleStudents),
+                    ),
+                  ),
+                  const AppText.body('Select All'),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: state.isLoadingStudents
+                    ? _buildShimmerGrid()
+                    : state.studentsError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppText.body(
+                              state.studentsError ?? 'Failed to load students',
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _loadStudents,
+                              child: const AppText.body('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : visibleStudents.isEmpty
+                    ? const Center(child: AppText.body('No students found'))
+                    : GridView.builder(
+                        shrinkWrap: false,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              crossAxisSpacing: 12,
+                              mainAxisSpacing: 12,
+                              mainAxisExtent: 72,
+                            ),
+                        itemCount: visibleStudents.length,
+                        itemBuilder: (context, index) {
+                          final student = visibleStudents[index];
+                          final isSelected = selectedStudents.contains(student);
+
+                          return StudentListItem(
+                            student: student,
+                            isSelected: isSelected,
+                            onSelectionChanged: (value) {
+                              _toggleStudentSelection(
+                                student,
+                                value,
+                                visibleStudents,
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
-      bottomBar: Padding(
-        padding: EdgeInsets.only(bottom: safeAreaBottom),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          onPressedConfirm: _handleNext,
-          showCancelButton: false,
-        ),
-      ),
+          bottomBar: Padding(
+            padding: EdgeInsets.only(bottom: safeAreaBottom),
+            child: CustomButtonLayout(
+              confirmButtonLabel: 'Next',
+              onPressedConfirm: _handleNext,
+              showCancelButton: false,
+            ),
+          ),
+        );
+      },
     );
   }
 }

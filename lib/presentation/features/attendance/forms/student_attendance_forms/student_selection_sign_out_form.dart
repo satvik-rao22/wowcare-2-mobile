@@ -12,14 +12,9 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/attendance_cross_class_resolver.dart';
-import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
-import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
+import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_selection_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'guardian_student_selection_scope.dart';
 import 'student_sign_out_form.dart';
@@ -70,51 +65,30 @@ class _StudentSelectionSignOutFormState
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
 
-  // Filter options loaded from APIs (similar to StudentFilterScreen).
-  List<String> _classroomList = [];
-  Map<String, String> _classroomNameToCode = {};
-  List<String> _tagsList = [];
-  Map<String, String> _tagNameToCode = {};
-
-  List<StudentEntity> _filteredStudents = [];
-
-  bool _isLoading = false;
-  String? _errorMessage;
-
-  bool _isClassroomDataReady = false;
-  bool _isTagMapLoading = false;
-
   late final bool _restrictToGuardianChildren;
-
-  late final GetStudentSignOutFormListUseCase _getStudentSignOutFormListUseCase;
-  late final ClassroomCubit _classroomCubit;
-  late final StorageService _storageService;
-  late final GetTagNameCodeMapForSchoolUseCase
-  _getTagNameCodeMapForSchoolUseCase;
+  late final StudentSignOutSelectionCubit _cubit;
+  Set<String>? _allowUpper;
 
   @override
   void initState() {
     super.initState();
     _restrictToGuardianChildren = context.read<RoleCubit>().isParent;
-    _getStudentSignOutFormListUseCase =
-        serviceLocator<GetStudentSignOutFormListUseCase>();
-    _classroomCubit = serviceLocator<ClassroomCubit>();
-    _storageService = serviceLocator<StorageService>();
-    _getTagNameCodeMapForSchoolUseCase =
-        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
+    _cubit = serviceLocator<StudentSignOutSelectionCubit>();
+    _bootstrap();
+  }
 
-    if (_restrictToGuardianChildren) {
-      _isClassroomDataReady = true;
-    } else {
-      _loadClassrooms();
-      _loadTags();
+  Future<void> _bootstrap() async {
+    _allowUpper = await loadGuardianStudentAllowlistForSelection(context);
+    if (!_restrictToGuardianChildren) {
+      await _cubit.initFilters();
     }
-    _loadStudents();
+    await _loadStudents();
   }
 
   @override
   void dispose() {
     _searchController.dispose();
+    _cubit.close();
     super.dispose();
   }
 
@@ -122,240 +96,94 @@ class _StudentSelectionSignOutFormState
     return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 
-  Future<void> _loadClassrooms() async {
-    // Cross-class enabled → list ALL classrooms (like an admin); else scope to
-    // the teacher's allowed classrooms.
-    final crossClass =
-        await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-          storage: _storageService,
-        );
-    _classroomCubit.loadActiveClassrooms(
-      applyAttendanceStaffScope: !crossClass,
+  Future<void> _loadStudents() async {
+    await bootstrapAttendanceSchoolTimezone();
+    final dateString = _formatDate(attendanceSchoolToday());
+    await _cubit.loadStudents(
+      fromAttendanceDate: dateString,
+      toAttendanceDate: dateString,
+      selectedClassroomNames: _selectedClassrooms,
+      selectedTagNames: _selectedTag,
+      search: _searchController.text,
+    );
+  }
+
+  List<StudentEntity> _mapStudents(List<StudentAttendanceCustomItem> items) {
+    var filtered = items;
+    if (_allowUpper != null) {
+      filtered = filtered
+          .where(
+            (i) => studentCodeAllowedForGuardianAllowlist(
+              i.studentCode,
+              _allowUpper!,
+            ),
+          )
+          .toList();
+    }
+    if (widget.allowedStudentCodes != null) {
+      final allowedUpper = widget.allowedStudentCodes!
+          .map((c) => c.trim().toUpperCase())
+          .toSet();
+      filtered = filtered
+          .where(
+            (i) =>
+                i.studentCode.trim().isNotEmpty &&
+                allowedUpper.contains(i.studentCode.trim().toUpperCase()),
+          )
+          .toList();
+    }
+    return filtered.asMap().entries.map((entry) {
+      final index = entry.key;
+      final item = entry.value;
+      return StudentEntity(
+        id: index + 1,
+        studentCode: item.studentCode,
+        fullName: item.studentName,
+        roomId: 0,
+        roomName: item.classroomName,
+        photoUuid: '', // API does not supply image here
+        classroomCode: item.classroomCode,
+      );
+    }).toList();
+  }
+
+  /// Every sign-out list load auto-selects everyone (matches the original
+  /// "signed-in students are auto-checked for bulk sign-out" behavior), with
+  /// the GPS pre-selection folded in on the very first load only.
+  void _onStudentsChanged(List<StudentEntity> students) {
+    selectedStudents.removeWhere(
+      (s) => !students.any((e) => e.studentCode == s.studentCode),
     );
 
-    if (!_classroomCubit.state.isLoading &&
-        _classroomCubit.state.classrooms.isNotEmpty) {
-      setState(() {
-        _classroomNameToCode = {
-          for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-        };
-        _classroomList = _classroomNameToCode.keys.toList(growable: false);
-        _selectedClassrooms.removeWhere(
-          (c) => !_classroomNameToCode.containsKey(c),
-        );
-        _isClassroomDataReady = true;
-      });
-      return;
+    if (!_preSelectionApplied && widget.preSelectedStudentCode != null) {
+      _preSelectionApplied = true;
+      final code = widget.preSelectedStudentCode!.trim();
+      final match = students.where((s) => s.studentCode == code).firstOrNull;
+      if (match != null) selectedStudents.add(match);
     }
 
-    int attempts = 0;
-    while (_classroomCubit.state.isLoading && attempts < 100) {
-      await Future.delayed(const Duration(milliseconds: 100));
-      attempts++;
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _classroomNameToCode = {
-        for (final c in _classroomCubit.state.classrooms) c.name: c.code,
-      };
-      _classroomList = _classroomNameToCode.keys.toList(growable: false);
-      _selectedClassrooms.removeWhere(
-        (c) => !_classroomNameToCode.containsKey(c),
-      );
-      _isClassroomDataReady = _classroomList.isNotEmpty;
-    });
+    selectedStudents.addAll(students);
+    isSelectAllChecked = students.isNotEmpty;
   }
 
-  Future<void> _loadTags() async {
-    if (_isTagMapLoading) return;
-    setState(() {
-      _isTagMapLoading = true;
-    });
-
-    try {
-      final schoolCode =
-          await _storageService.getString(StorageKeys.schoolCode) ?? '';
-      if (schoolCode.isEmpty) {
-        if (!mounted) return;
-        setState(() {
-          _isTagMapLoading = false;
-        });
-        return;
-      }
-
-      final map = await _getTagNameCodeMapForSchoolUseCase(
-        schoolCode: schoolCode,
-      );
-      if (!mounted) return;
-
-      final names = map.keys.toList()
-        ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-      setState(() {
-        _tagNameToCode = map;
-        _tagsList = names;
-        _selectedTag.removeWhere((t) => !_tagsList.contains(t));
-        _isTagMapLoading = false;
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isTagMapLoading = false;
-      });
-    }
-  }
-
-  Future<void> _loadStudents() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      await bootstrapAttendanceSchoolTimezone();
-      final today = attendanceSchoolToday();
-      final dateString = _formatDate(today);
-
-      // Resolve selected classroom NAMES -> classroomCodes via _classroomNameToCode map.
-      List<String>? classroomCodes;
-      if (_selectedClassrooms.isNotEmpty) {
-        final codes = _selectedClassrooms
-            .map((name) => _classroomNameToCode[name])
-            .whereType<String>()
-            .where((c) => c.trim().isNotEmpty)
-            .toList();
-        if (codes.isNotEmpty) {
-          classroomCodes = codes;
-        }
-      }
-
-      // Resolve selected tag NAMES -> tagCodes via _tagNameToCode map.
-      List<String>? tagCodes;
-      if (_selectedTag.isNotEmpty) {
-        final codes = _selectedTag
-            .map((name) => _tagNameToCode[name])
-            .whereType<String>()
-            .where((c) => c.trim().isNotEmpty)
-            .toList();
-        if (codes.isNotEmpty) {
-          tagCodes = codes;
-        }
-      }
-
-      final searchText = _searchController.text.trim().isNotEmpty
-          ? _searchController.text.trim()
-          : null;
-
-      final page = await _getStudentSignOutFormListUseCase(
-        fromAttendanceDate: dateString,
-        toAttendanceDate: dateString,
-        classroomCodes: classroomCodes,
-        tagCodes: tagCodes,
-        search: searchText,
-        page: 0,
-        size: 200,
-      );
-
-      if (!mounted) return;
-
-      final allowUpper = await loadGuardianStudentAllowlistForSelection(
-        context,
-      );
-
-      var items = page.items;
-      // Safety net: enforce the classroom/tag filters client-side too, in
-      // case the backend returns rows outside the requested scope.
-      if (classroomCodes != null && classroomCodes.isNotEmpty) {
-        final allowedClassrooms = classroomCodes.toSet();
-        items = items
-            .where((i) => allowedClassrooms.contains(i.classroomCode))
-            .toList();
-      }
-      if (tagCodes != null && tagCodes.isNotEmpty) {
-        final allowedTags = tagCodes.toSet();
-        items = items
-            .where((i) => i.tagCodes.any(allowedTags.contains))
-            .toList();
-      }
-      if (allowUpper != null) {
-        items = items
-            .where(
-              (i) => studentCodeAllowedForGuardianAllowlist(
-                i.studentCode,
-                allowUpper,
-              ),
-            )
-            .toList();
-      }
-
-      if (widget.allowedStudentCodes != null) {
-        final allowedUpper = widget.allowedStudentCodes!
-            .map((c) => c.trim().toUpperCase())
-            .toSet();
-        items = items
-            .where(
-              (i) =>
-                  i.studentCode.trim().isNotEmpty &&
-                  allowedUpper.contains(i.studentCode.trim().toUpperCase()),
-            )
-            .toList();
-      }
-
-      final students = items.asMap().entries.map((entry) {
-        final index = entry.key;
-        final item = entry.value;
-        return StudentEntity(
-          id: index + 1,
-          studentCode: item.studentCode,
-          fullName: item.studentName,
-          roomId: 0,
-          roomName: item.classroomName,
-          photoUuid: '', // API does not supply image here
-          classroomCode: item.classroomCode,
-        );
-      }).toList();
-
-      selectedStudents.removeWhere(
-        (s) => !students.any((e) => e.studentCode == s.studentCode),
-      );
-
-      if (!_preSelectionApplied && widget.preSelectedStudentCode != null) {
-        _preSelectionApplied = true;
-        final code = widget.preSelectedStudentCode!.trim();
-        final match = students.where((s) => s.studentCode == code).firstOrNull;
-        if (match != null) selectedStudents.add(match);
-      }
-
-      setState(() {
-        _filteredStudents = List.from(students);
-        _isLoading = false;
-        // Auto-select all signed-in students
-        selectedStudents.addAll(_filteredStudents);
-        isSelectAllChecked = _filteredStudents.isNotEmpty;
-      });
-    } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = ApiErrorHandler.extractErrorMessage(e);
-      });
-    }
-  }
-
-  void _toggleSelectAll(bool? value) {
+  void _toggleSelectAll(bool? value, List<StudentEntity> students) {
     if (value == null) return;
 
     setState(() {
       isSelectAllChecked = value;
       if (value) {
-        selectedStudents.addAll(_filteredStudents);
+        selectedStudents.addAll(students);
       } else {
-        selectedStudents.removeAll(_filteredStudents);
+        selectedStudents.removeAll(students);
       }
     });
   }
 
-  void _toggleStudentSelection(StudentEntity student, bool? value) {
+  void _toggleStudentSelection(
+    StudentEntity student,
+    bool? value,
+    List<StudentEntity> students,
+  ) {
     if (value == null) return;
 
     setState(() {
@@ -365,7 +193,7 @@ class _StudentSelectionSignOutFormState
         selectedStudents.remove(student);
       }
 
-      isSelectAllChecked = _filteredStudents.every(
+      isSelectAllChecked = students.every(
         (student) => selectedStudents.contains(student),
       );
     });
@@ -404,174 +232,175 @@ class _StudentSelectionSignOutFormState
     final mediaQuery = MediaQuery.of(context);
     final safeAreaBottom = mediaQuery.padding.bottom;
 
-    return StaffFormLayout(
-      isKiosk: widget.isKiosk,
-      title: 'Sign-Out',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!widget.isKiosk) ...[
-            AppText.subtitle(
-              _restrictToGuardianChildren
-                  ? 'Select your children'
-                  : 'Select Students',
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                border: Border.all(color: Colors.grey),
-              ),
-              child: TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: _restrictToGuardianChildren
-                      ? 'Search your children'
-                      : 'Search Students',
-                  hintStyle: AppTextStyles.body.copyWith(
-                    color: Colors.grey[700],
-                  ),
-                  border: InputBorder.none,
-                  icon: const Icon(Icons.search, color: Colors.grey),
-                ),
-                onChanged: (_) => _loadStudents(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (!_restrictToGuardianChildren) ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: BlocBuilder<ClassroomCubit, ClassroomState>(
-                      bloc: _classroomCubit,
-                      builder: (context, classroomState) {
-                        final items = _classroomList.isNotEmpty
-                            ? _classroomList
-                            : classroomState.classrooms
-                                  .map((c) => c.name)
-                                  .toList(growable: false);
-                        final isLoading =
-                            classroomState.isLoading || !_isClassroomDataReady;
+    return BlocConsumer<
+      StudentSignOutSelectionCubit,
+      StudentSignOutSelectionState
+    >(
+      bloc: _cubit,
+      listenWhen: (previous, current) => previous.students != current.students,
+      listener: (context, state) {
+        setState(() {
+          _onStudentsChanged(_mapStudents(state.students));
+        });
+      },
+      builder: (context, state) {
+        final students = _mapStudents(state.students);
 
-                        // Render the field even with no items yet — a
-                        // shimmer here could get stuck showing forever if
-                        // loading never actually resolves.
-                        // CustomMultiSelectDropdown's own "No matches found"
-                        // empty state covers the case where there's
-                        // genuinely nothing to pick.
-                        return CustomMultiSelectDropdown(
+        return StaffFormLayout(
+          isKiosk: widget.isKiosk,
+          title: 'Sign-Out',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!widget.isKiosk) ...[
+                AppText.subtitle(
+                  _restrictToGuardianChildren
+                      ? 'Select your children'
+                      : 'Select Students',
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(15),
+                    border: Border.all(color: Colors.grey),
+                  ),
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: _restrictToGuardianChildren
+                          ? 'Search your children'
+                          : 'Search Students',
+                      hintStyle: AppTextStyles.body.copyWith(
+                        color: Colors.grey[700],
+                      ),
+                      border: InputBorder.none,
+                      icon: const Icon(Icons.search, color: Colors.grey),
+                    ),
+                    onChanged: (_) => _loadStudents(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                if (!_restrictToGuardianChildren) ...[
+                  Row(
+                    children: [
+                      Expanded(
+                        child: CustomMultiSelectDropdown(
                           hintText: 'Classroom',
-                          items: items,
+                          items: state.classroomOptions,
                           selectedItems: _selectedClassrooms,
                           onChanged: (selectedItems) {
-                            if (isLoading) return;
+                            if (state.isLoadingFilters) return;
                             setState(() {
                               _selectedClassrooms = selectedItems;
                             });
                             _loadStudents();
                           },
-                        );
-                      },
-                    ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: CustomMultiSelectDropdown(
+                          hintText: 'Tags',
+                          items: state.tagOptions,
+                          selectedItems: _selectedTag,
+                          onChanged: (selectedItems) {
+                            setState(() {
+                              _selectedTag = selectedItems;
+                            });
+                            _loadStudents();
+                          },
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: CustomMultiSelectDropdown(
-                      hintText: 'Tags',
-                      items: _tagsList,
-                      selectedItems: _selectedTag,
-                      onChanged: (selectedItems) {
-                        setState(() {
-                          _selectedTag = selectedItems;
-                        });
-                        _loadStudents();
-                      },
-                    ),
-                  ),
+                  const SizedBox(height: 12),
                 ],
-              ),
-              const SizedBox(height: 12),
-            ],
-            Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: CustomCheckbox(
-                    value: isSelectAllChecked,
-                    onChanged: _toggleSelectAll,
-                    borderColor: AppColors.themeColor,
-                  ),
+                Row(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: CustomCheckbox(
+                        value: isSelectAllChecked,
+                        onChanged: (value) => _toggleSelectAll(value, students),
+                        borderColor: AppColors.themeColor,
+                      ),
+                    ),
+                    const AppText.body('Select All'),
+                  ],
                 ),
-                const AppText.body('Select All'),
+                const SizedBox(height: 12),
               ],
-            ),
-            const SizedBox(height: 12),
-          ],
-          Expanded(
-            child: _isLoading
-                ? const Center(child: PrimaryCircularLoader())
-                : _errorMessage != null
-                ? Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        AppText.body(
-                          _errorMessage ?? 'Failed to load students',
-                          style: const TextStyle(color: Colors.red),
+              Expanded(
+                child: state.isLoadingStudents
+                    ? const Center(child: PrimaryCircularLoader())
+                    : state.studentsError != null
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            AppText.body(
+                              state.studentsError ?? 'Failed to load students',
+                              style: const TextStyle(color: Colors.red),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 8),
+                            TextButton(
+                              onPressed: _loadStudents,
+                              child: const AppText.body('Retry'),
+                            ),
+                          ],
+                        ),
+                      )
+                    : students.isEmpty
+                    ? Center(
+                        child: AppText.body(
+                          _restrictToGuardianChildren
+                              ? 'No linked children appear in today\'s sign-out list. If this looks wrong, check the child selector at the top of the app.'
+                              : 'No students found',
                           textAlign: TextAlign.center,
                         ),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: _loadStudents,
-                          child: const AppText.body('Retry'),
+                      )
+                    : GridView.builder(
+                        shrinkWrap: false,
+                        physics: const AlwaysScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          crossAxisSpacing: isTablet ? 16 : 12,
+                          mainAxisSpacing: isTablet ? 16 : 12,
+                          mainAxisExtent: 72,
                         ),
-                      ],
-                    ),
-                  )
-                : _filteredStudents.isEmpty
-                ? Center(
-                    child: AppText.body(
-                      _restrictToGuardianChildren
-                          ? 'No linked children appear in today\'s sign-out list. If this looks wrong, check the child selector at the top of the app.'
-                          : 'No students found',
-                      textAlign: TextAlign.center,
-                    ),
-                  )
-                : GridView.builder(
-                    shrinkWrap: false,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2,
-                      crossAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisSpacing: isTablet ? 16 : 12,
-                      mainAxisExtent: 72,
-                    ),
-                    itemCount: _filteredStudents.length,
-                    itemBuilder: (context, index) {
-                      final student = _filteredStudents[index];
-                      final isSelected = selectedStudents.contains(student);
+                        itemCount: students.length,
+                        itemBuilder: (context, index) {
+                          final student = students[index];
+                          final isSelected = selectedStudents.contains(student);
 
-                      return StudentListItem(
-                        student: student,
-                        isSelected: isSelected,
-                        onSelectionChanged: (value) =>
-                            _toggleStudentSelection(student, value),
-                      );
-                    },
-                  ),
+                          return StudentListItem(
+                            student: student,
+                            isSelected: isSelected,
+                            onSelectionChanged: (value) =>
+                                _toggleStudentSelection(
+                                  student,
+                                  value,
+                                  students,
+                                ),
+                          );
+                        },
+                      ),
+              ),
+            ],
           ),
-        ],
-      ),
-      bottomBar: Padding(
-        padding: EdgeInsets.only(bottom: safeAreaBottom),
-        child: CustomButtonLayout(
-          confirmButtonLabel: 'Next',
-          onPressedConfirm: _handleNext,
-          showCancelButton: false,
-        ),
-      ),
+          bottomBar: Padding(
+            padding: EdgeInsets.only(bottom: safeAreaBottom),
+            child: CustomButtonLayout(
+              confirmButtonLabel: 'Next',
+              onPressedConfirm: _handleNext,
+              showCancelButton: false,
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -222,6 +222,10 @@ import '../../domain/features/activity/usecases/get_classroom_activity_settings_
 import '../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
 import '../../presentation/features/activities/cubit/activity_filter_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_student_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_in_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_sign_out_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_transfer_selection_cubit.dart';
+import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_selection_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_moderation_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_daily_feed_cubit.dart';
@@ -1115,6 +1119,50 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
       getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
       staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentSignInSelectionCubit>(
+    () => StudentSignInSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentSignInFormListUseCase:
+          serviceLocator<GetStudentSignInFormListUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentSignOutSelectionCubit>(
+    () => StudentSignOutSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentSignOutFormListUseCase:
+          serviceLocator<GetStudentSignOutFormListUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentTransferSelectionCubit>(
+    () => StudentTransferSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentTransferFormListUseCase:
+          serviceLocator<GetStudentTransferFormListUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<StudentMarkAbsentSelectionCubit>(
+    () => StudentMarkAbsentSelectionCubit(
+      storageService: serviceLocator<StorageService>(),
+      cacheManager: serviceLocator<CacheManager>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentAbsentFormListUseCase:
+          serviceLocator<GetStudentAbsentFormListUseCase>(),
     ),
   );
   serviceLocator.registerFactory<ActivityModerationCubit>(
