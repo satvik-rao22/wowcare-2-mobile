@@ -3,7 +3,6 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -37,7 +36,6 @@ import 'package:wowcare/domain/features/communication/entities/conversation_enti
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
-import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import '../../../../../core/util/core_utils.dart';
@@ -1652,7 +1650,6 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   List<ConversationEntity> _items = const [];
   bool _loading = true;
   String _currentUserCode = '';
-  final Map<String, String> _classroomNames = <String, String>{};
   Timer? _timeout;
 
   @override
@@ -1669,14 +1666,15 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   }
 
   /// Mirrors the messaging inbox: seed from the Isar cache for a fast first frame, then watch the
-  /// Firestore inbox in realtime. Uses type: null so ALL conversation types are included — the REST
-  /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
+  /// Firestore inbox in realtime. Uses type: null so all conversation types are fetched — the REST
+  /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not —
+  /// but [_top2] excludes ConversationType.classroomChat (Classroom Notes) so this row surfaces
+  /// student-scoped chat (ROOM_CHAT) instead; Notes already has its own surface on the Classroom
+  /// screen.
   Future<void> _init() async {
+    final storage = serviceLocator<StorageService>();
     _currentUserCode =
-        (await serviceLocator<StorageService>().getString(
-          StorageKeys.userCode,
-        ))?.trim() ??
-        '';
+        (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
 
     _timeout = Timer(const Duration(seconds: 8), () {
       if (mounted) {
@@ -1716,27 +1714,6 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       }),
     );
 
-    try {
-      final storage = serviceLocator<StorageService>();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode))?.trim() ?? '';
-      if (schoolCode.isNotEmpty && mounted) {
-        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
-          schoolCode: schoolCode,
-          onlyTypeClassroom: false,
-        );
-        if (mounted) {
-          setState(() {
-            _classroomNames.addAll({
-              for (final c in classrooms) c.code: c.name,
-            });
-          });
-        }
-      }
-    } catch (_) {
-      // classroom lookup is best-effort
-    }
-
     _sub = serviceLocator<WatchConversationsUseCase>().call().listen(
       (list) {
         if (!mounted) return;
@@ -1745,7 +1722,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
           // If Firestore returns items, use them (merged to preserve names if needed).
           // If it returns empty, only overwrite if we didn't get any from REST/Cache.
           if (list.isNotEmpty) {
-             _items = _top2([..._items, ...list]);
+            _items = _top2([..._items, ...list]);
           }
           _loading = false;
         });
@@ -1769,6 +1746,9 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     for (final item in list) {
       final code = item.code.trim();
       if (code.isEmpty || seen.contains(code)) continue;
+      // Classroom Notes has its own surface on the Classroom screen — this
+      // row shows student-scoped chat (ROOM_CHAT) instead.
+      if (item.type == ConversationType.classroomChat) continue;
       seen.add(code);
       unique.add(item);
     }
@@ -1780,40 +1760,11 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     return unique.take(2).toList(growable: false);
   }
 
-  // String _displayTitle(ConversationEntity conversation) {
-  //   if (conversation.type == ConversationType.classroomChat) {
-  //     final code = conversation.classroomCode?.trim() ?? '';
-  //     if (code.isNotEmpty && _classroomNames.containsKey(code)) {
-  //       return _classroomNames[code]!;
-  //     }
-  //   }
-  //   return conversation.displayTitle(_currentUserCode);
-  // }
   String _displayTitle(ConversationEntity conversation) {
-    if (conversation.type == ConversationType.classroomChat) {
-      final classroomCode = conversation.classroomCode?.trim() ?? '';
-      if (classroomCode.isNotEmpty) {
-        final classroomName = _classroomNames[classroomCode];
-        if (classroomName != null && classroomName.trim().isNotEmpty) {
-          return classroomName.trim();
-        }
-        // Never display classroomCode as the title.
-        return classroomName ?? 'Classroom';
-      }
-      return 'Classroom';
-    }
     return conversation.displayTitle(_currentUserCode);
   }
 
   void _openConversation(ConversationEntity conversation) {
-    if (conversation.type == ConversationType.classroomChat &&
-        conversation.classroomCode != null &&
-        conversation.classroomCode!.trim().isNotEmpty) {
-      context.go(
-        '/classroom-screen?classroomCode=${conversation.classroomCode!.trim()}&tab=2',
-      );
-      return;
-    }
     Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => ConversationThreadScreen(conversation: conversation),

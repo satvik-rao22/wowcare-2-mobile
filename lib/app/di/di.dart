@@ -302,6 +302,7 @@ import '../../domain/features/communication/usecases/create_conversation_entity_
 import '../../domain/features/communication/usecases/get_conversations_for_student_usecase.dart';
 import '../../domain/features/communication/usecases/get_conversations_for_classroom_usecase.dart';
 import '../../domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
+import '../../domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
 import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../domain/features/communication/usecases/get_unread_counts_per_conversation_usecase.dart';
@@ -1345,6 +1346,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<GetOrCreateClassroomChatUseCase>(
     () => GetOrCreateClassroomChatUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetClassroomRosterPresentUserCodesUseCase>(
+    () => GetClassroomRosterPresentUserCodesUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<TogglePrivateModeUseCase>(
     () => TogglePrivateModeUseCase(serviceLocator()),

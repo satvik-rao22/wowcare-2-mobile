@@ -22,6 +22,7 @@ import '../../../../../../shared/common/views/filter_screen.dart';
 import '../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../../core/util/safe_state_mixin.dart';
+import '../../../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../../../core/storage/storage_service.dart';
 import '../../../../../../core/util/storage_keys.dart';
 import '../../../../../../domain/features/communication/entities/enums.dart';
@@ -498,10 +499,42 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         // Non-admin staff only see the classrooms they're allowed to
-        // access; admins see every active classroom.
-        context.read<ClassroomCubit>().loadActiveClassrooms(
+        // access; admins see every active classroom. Awaited (unlike
+        // before) because Room Chat's primary-classroom default below
+        // needs the classroom list to resolve a name for the filter chip.
+        await context.read<ClassroomCubit>().loadActiveClassrooms(
           applyAttendanceStaffScope: true,
         );
+        if (!mounted) return;
+
+        // Room Chat: default the Classroom filter to the staff member's
+        // own primary classroom — same "pre-select the home classroom"
+        // pattern the attendance forms use (resolveStaffPrimaryClassroomCode),
+        // so "chats overview" and "Start new chat" both open already scoped
+        // instead of showing every classroom until the user filters
+        // manually. Resolves to null (no default applied) for admin/parent
+        // personas or a staff member with no primary classroom set.
+        if (!widget.isStaffMessaging) {
+          final primaryCode = await resolveStaffPrimaryClassroomCode(
+            storage: serviceLocator<StorageService>(),
+          );
+          if (mounted && (primaryCode ?? '').trim().isNotEmpty) {
+            final primaryName = context
+                .read<ClassroomCubit>()
+                .state
+                .classrooms
+                .where((c) => c.code.trim() == primaryCode!.trim())
+                .map((c) => c.name)
+                .firstOrNull;
+            if (primaryName != null && primaryName.trim().isNotEmpty) {
+              _currentFilters = {
+                ..._currentFilters,
+                'Classroom': [primaryName],
+              };
+            }
+          }
+        }
+
         // Seed the Active default (matches [_currentFilters]) BEFORE the
         // initial load, so "Start New Chat" doesn't briefly (or
         // permanently, since nothing else ever sets this) show
@@ -512,7 +545,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
             (_) => _drainStaffPages(),
           ),
         );
-        context.read<StudentCubit>().updateFilters(status: 'ACTIVE');
+        context.read<StudentCubit>().updateFilters(
+          status: 'ACTIVE',
+          classroomCodes: _mapClassroomNamesToCodes(
+            _currentFilters['Classroom'],
+          ),
+        );
         unawaited(
           context.read<StudentCubit>().loadInitial().then(
             (_) => _drainStudentPages(),
@@ -527,11 +565,16 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         // studentStatuses/staffStatuses) is what actually gates whether a
         // conversation is returned at all — confirmed via
         // GET .../conversations/type/STAFF_DIRECT?status=INACTIVE.
+        // classroomCodes is included too (was previously omitted here,
+        // silently unscoped until the user manually touched the filter
+        // sheet or pulled to refresh) so the primary-classroom default
+        // above actually takes effect on the very first load.
         final initialFilters = _resolvedFilterParams();
         await context.read<CommunicationCubit>().loadConversations(
           type: _conversationType,
           size: _conversationPageSize,
           status: initialFilters.conversationStatus,
+          classroomCodes: initialFilters.classroomCodes,
         );
         if (!mounted) return;
         // Realtime listener starts only after the API/Isar history has
@@ -1291,6 +1334,15 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   'organizationCode': organizationCode,
                   'schoolCode': schoolCode,
                   'staffStatus': counterpart?.staffStatus,
+                  // A staff member can be deactivated (participant-level
+                  // `active: false` / a set `deactivatedReason`) without
+                  // their employment `staffStatus` ever flipping to
+                  // INACTIVE — confirmed via a real conversation where the
+                  // counterpart had staffStatus=ACTIVE but active=false,
+                  // deactivatedReason="Staff deactivated", and the composer
+                  // still showed as sendable. See ConversationParticipant
+                  // .isActive's own doc comment for why both signals matter.
+                  'staffIsActiveParticipant': counterpart?.isActive,
                 },
               )
             : ParentMessagingThread(

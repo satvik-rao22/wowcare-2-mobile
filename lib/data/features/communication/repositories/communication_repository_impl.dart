@@ -360,7 +360,21 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
             }
             return col;
           }).toList();
-          await cacheService.clear<ConversationCollection>();
+          // Only wipe the rows for THIS type — a bare `clear()` nukes every
+          // cached conversation of every type/status combination (e.g.
+          // fetching Staff Direct/INACTIVE was silently wiping out the
+          // already-loaded Room Chat list too), which then fed into the
+          // Firestore merge below finding no cached row for those other
+          // conversations and dropping them from the UI entirely.
+          if (type != null) {
+            final staleForType = await cacheService
+                .getByField<ConversationCollection>('type', type);
+            for (final stale in staleForType) {
+              await cacheService.delete<ConversationCollection>(stale.isarId);
+            }
+          } else {
+            await cacheService.clear<ConversationCollection>();
+          }
           await cacheService.putAll(toStore);
         }
 

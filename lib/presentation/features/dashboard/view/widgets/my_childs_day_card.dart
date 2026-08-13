@@ -34,8 +34,14 @@ import 'package:wowcare/domain/features/student/entities/student_regular_schedul
 import 'dashboard_error_chip.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
-import 'package:wowcare/domain/features/communication/entities/conversation.dart';
-import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1383,111 +1389,193 @@ class _CommunicationRowWidget extends StatefulWidget {
 }
 
 class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
-  String _displayName = '';
   String _currentUserCode = '';
+  ConversationEntity? _conversation;
+  bool _loading = true;
+  StreamSubscription<List<ConversationEntity>>? _sub;
+  Timer? _timeout;
 
   @override
   void initState() {
     super.initState();
-    unawaited(_loadDisplayName());
+    unawaited(_init());
   }
 
-  Future<void> _loadDisplayName() async {
-    final storage = serviceLocator<StorageService>();
-    final name = (await storage.getString(StorageKeys.displayName) ?? '')
-        .trim();
-    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
-        .trim();
-    if (!mounted) return;
-    setState(() {
-      _displayName = name;
-      _currentUserCode = userCode;
+  @override
+  void dispose() {
+    _sub?.cancel();
+    _timeout?.cancel();
+    super.dispose();
+  }
+
+  /// Admin Chat is v2-only (ConversationEntity/ConversationType.adminChat) —
+  /// it was never part of the legacy CommunicationCubit/Conversation stack
+  /// this row used to read from, so `conversationsByType[null]` could never
+  /// contain it and the row always fell back to its "no chat" state even
+  /// when a real Admin Chat conversation existed. Mirrors the staff-persona
+  /// "My Day" card's equivalent row (my_day_card.dart), which already reads
+  /// from this same v2 source.
+  Future<void> _init() async {
+    _currentUserCode =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.userCode,
+        ))?.trim() ??
+        '';
+
+    _timeout = Timer(const Duration(seconds: 8), () {
+      if (mounted) setState(() => _loading = false);
     });
+
+    try {
+      final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
+          .call(type: ConversationType.adminChat);
+      cached.fold((_) {}, (list) {
+        if (mounted && list.isNotEmpty) {
+          setState(() {
+            _conversation = _latest(list);
+            _loading = false;
+          });
+        }
+      });
+    } catch (_) {
+      if (mounted) setState(() => _loading = false);
+    }
+
+    // Fallback to REST concurrently in case Firestore/cache is empty.
+    unawaited(
+      serviceLocator<GetConversationsEntityUseCase>()
+          .call(type: ConversationType.adminChat)
+          .then((result) {
+            if (!mounted) return;
+            result.fold((_) {}, (list) {
+              if (list.isNotEmpty) {
+                setState(() {
+                  _conversation = _latest(list);
+                  _loading = false;
+                });
+              }
+            });
+          }),
+    );
+
+    _sub = serviceLocator<WatchConversationsUseCase>()
+        .call(type: ConversationType.adminChat)
+        .listen(
+          (list) {
+            if (!mounted) return;
+            _timeout?.cancel();
+            setState(() {
+              if (list.isNotEmpty) _conversation = _latest(list);
+              _loading = false;
+            });
+          },
+          onError: (_) {
+            if (!mounted) return;
+            _timeout?.cancel();
+            setState(() => _loading = false);
+          },
+          onDone: () {
+            if (!mounted) return;
+            _timeout?.cancel();
+            setState(() => _loading = false);
+          },
+        );
+  }
+
+  ConversationEntity _latest(List<ConversationEntity> list) {
+    final sorted = List<ConversationEntity>.from(list)
+      ..sort((a, b) {
+        final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
+        final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
+        return bt.compareTo(at);
+      });
+    return sorted.first;
+  }
+
+  void _openConversation(ConversationEntity conversation) {
+    Navigator.of(context).push<void>(
+      MaterialPageRoute(
+        builder: (_) => ConversationThreadScreen(conversation: conversation),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<CommunicationCubit, CommunicationState>(
-      builder: (context, state) {
-        Conversation? latestConversation;
+    final conversation = _conversation;
 
-        if (state is CommunicationConversationsLoaded) {
-          final allConversations = state.conversationsByType[null] ?? [];
-          if (allConversations.isNotEmpty) {
-            latestConversation = allConversations.first;
-          }
-        }
+    final displayTitle = conversation != null
+        ? conversation.displayTitle(_currentUserCode)
+        : '—';
 
-        final displayTitle = latestConversation != null
-            ? (latestConversation.lastMessageSenderDisplayName ??
-                  latestConversation.title)
-            : (_displayName.isNotEmpty ? _displayName : '—');
+    final isSentByMe =
+        conversation != null && conversation.lastMessageBy == _currentUserCode;
+    final senderPrefix = isSentByMe ? 'You: ' : '';
 
-        final isSentByMe =
-            latestConversation != null &&
-            latestConversation.lastMessageBy == _currentUserCode;
-        final senderPrefix = isSentByMe ? 'You: ' : '';
+    final preview = conversation != null
+        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
+        : '';
+    final displayText = preview.isNotEmpty
+        ? '$senderPrefix$preview'
+        : (_loading ? 'Loading…' : 'No recent conversations');
 
-        final preview = latestConversation?.lastMessagePreview;
-        final displayText = (preview != null && preview.isNotEmpty)
-            ? '$senderPrefix$preview'
-            : 'No recent conversations';
+    final avatarUrl = conversation?.displayAvatar(_currentUserCode) ?? '';
 
-        final avatarUrl = latestConversation?.avatarUrl ?? '';
-
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-          decoration: const BoxDecoration(
-            borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-            color: Color.fromRGBO(44, 99, 226, 0.05),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+        color: Color.fromRGBO(44, 99, 226, 0.05),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          DocumentImageWidget(
+            fileUuid: avatarUrl,
+            name: displayTitle,
+            size: 50,
+            fontSize: 20,
+            disableProfileLookupFallback: true,
+            disableAttendanceStatusLookup: true,
           ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              DocumentImageWidget(
-                fileUuid: avatarUrl,
-                name: displayTitle,
-                size: 50,
-                fontSize: 20,
-                disableProfileLookupFallback: true,
-                disableAttendanceStatusLookup: true,
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      displayTitle.isNotEmpty ? displayTitle : '—',
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: AppColors.primaryColor,
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                    Text(
-                      displayText,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.primaryColor.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  displayTitle.isNotEmpty ? displayTitle : '—',
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: AppColors.primaryColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              _ChatActionButton(
-                onPressed: () {
-                  MessagingEntryScreen.show(context);
-                },
-              ),
-            ],
+                Text(
+                  displayText,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.primaryColor.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
+            ),
           ),
-        );
-      },
+          const SizedBox(width: 8),
+          _ChatActionButton(
+            onPressed: () {
+              if (conversation != null) {
+                _openConversation(conversation);
+              } else {
+                MessagingEntryScreen.show(context);
+              }
+            },
+          ),
+        ],
+      ),
     );
   }
 }

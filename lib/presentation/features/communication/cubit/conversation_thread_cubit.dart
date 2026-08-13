@@ -125,6 +125,26 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   int _refreshRequestId = 0;
   static const int _pageSize = 50;
 
+  /// Messages with a field-level optimistic edit (reaction add/remove,
+  /// attachment delete, message edit/delete) still settling against the
+  /// backend — keyed by message code, valued by when the edit was made.
+  /// Mirrors `CommunicationCubit._recentLocalMutations` (the legacy/Room
+  /// Chat stack's equivalent guard).
+  ///
+  /// The realtime stream only reflects a change once it's round-tripped
+  /// through the backend → Firestore → local merge — seconds behind the
+  /// optimistic UI update. Without this guard, the very next realtime
+  /// emission for the thread (for any reason — it carries the *whole* known
+  /// message list) would wholesale-replace the message with its pre-edit
+  /// version, making the reaction/attachment/edit appear to revert itself a
+  /// moment after the user's action.
+  final Map<String, DateTime> _recentLocalMutations = {};
+  static const Duration _localMutationGuardWindow = Duration(seconds: 8);
+
+  void _markRecentlyMutated(String messageCode) {
+    _recentLocalMutations[messageCode] = AppTime.nowUtc();
+  }
+
   /// Debounces [_markRead] so a burst of Firestore snapshot emissions (e.g.
   /// several participants editing/reacting in quick succession) collapses
   /// into a single `markConversationRead` call instead of one per emission.
@@ -207,7 +227,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             if (isClosed) return;
             _firestoreActive = true;
             final latest = fresh.isNotEmpty ? fresh.last : null;
-            final merged = _mergePendingMessages(_sortedOldestFirst(fresh));
+            final merged = _mergePendingMessages(
+              _sortedOldestFirst(fresh),
+              preserveMissingConfirmed: true,
+            );
             final int debugPrevCount = state.messages.length;
             emit(
               ConversationThreadState.loaded(
@@ -329,11 +352,24 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         ),
       ),
       (messages) {
-        final sorted = _sortedOldestFirst(messages);
+        // This REST call runs unawaited, in parallel with the Firestore
+        // subscription (see startWatchingMessages) — whichever resolves
+        // first is shown, the other reconciles on top. Without going
+        // through the same preserveMissingConfirmed merge the Firestore
+        // listener uses, a REST response that happened to land AFTER
+        // Firestore had already delivered a fuller/merged picture (e.g.
+        // this specific fetch racing behind a slower connection) would
+        // wholesale-replace that correct state with its own — a message
+        // would flash into view via Firestore's merge, then disappear the
+        // instant this late REST response landed and stomped it.
+        final merged = _mergePendingMessages(
+          _sortedOldestFirst(messages),
+          preserveMissingConfirmed: true,
+        );
         emit(
           ConversationThreadState.loaded(
             conversationCode: state.conversationCode,
-            messages: sorted,
+            messages: merged,
             isFromCache: false,
             hasOlderMessages: messages.length >= _pageSize,
             conversation: state.conversation,
@@ -369,7 +405,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         emit(
           ConversationThreadState.loaded(
             conversationCode: state.conversationCode,
-            messages: _mergePendingMessages(sorted),
+            // Pull-to-refresh must not make an already-visible message
+            // disappear just because this particular fetch's window didn't
+            // happen to include it — same reasoning as loadMessages above.
+            messages: _mergePendingMessages(
+              sorted,
+              preserveMissingConfirmed: true,
+            ),
             isFromCache: false,
             hasOlderMessages: messages.length >= _pageSize,
             conversation: state.conversation,
@@ -473,6 +515,28 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     /// since the sender in that case isn't the private party themselves.
     String? privateParentUserCode,
   }) async {
+    // Defense-in-depth: the composer UI already disables sending for an
+    // inactive staff member (see ConversationThreadScreen._currentUserInactive
+    // / StaffMessagingThread._staffInactive), but this guards the same rule
+    // here too — mirrors the ownership check in editMessage/deleteMessage.
+    ParticipantEntity? self;
+    for (final p in state.conversation?.participants ?? const []) {
+      if (p.userCode == _currentUserCode) {
+        self = p;
+        break;
+      }
+    }
+    if ((self?.staffStatus?.trim().toUpperCase()) == 'INACTIVE') {
+      emit(
+        state.copyWith(
+          errorMessage: const AuthorizationFailure(
+            'Your staff account is inactive. You can no longer send messages.',
+          ).message,
+        ),
+      );
+      return;
+    }
+
     // Draft thread: create the real conversation before sending (web parity).
     if (_isDraft) {
       final resolved = await _resolveDraftConversation();
@@ -837,12 +901,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    final originalMessages = state.messages;
+
     // Optimistic update
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
       return m.copyWithText(newText);
     }).toList();
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _editMessageUseCase(
       messageCode: messageCode,
@@ -853,13 +920,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     result.fold(
       (failure) {
-        // Roll back
+        // Roll back synchronously — matches deleteMessage/deleteAttachment
+        // below; a refetch would race with the mutation guard above.
         emit(
           state.copyWith(
+            messages: originalMessages,
             errorMessage: failure.message ?? 'Failed to edit message.',
           ),
         );
-        unawaited(refreshMessages());
       },
       (confirmed) {
         final updated = _replaceMessage(state.messages, messageCode, confirmed);
@@ -894,6 +962,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return m.copyWithDeleted();
     }).toList();
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _deleteMessageUseCase(messageCode);
 
@@ -936,6 +1005,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       );
     }).toList();
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _deleteAttachmentUseCase(
       messageCode: messageCode,
@@ -972,6 +1042,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String emoji,
     required String currentUserCode,
   }) async {
+    final originalMessages = state.messages;
     final optimistic = _applyReaction(
       state.messages,
       messageCode,
@@ -979,6 +1050,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       emoji,
     );
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _addReactionUseCase(
       messageCode: messageCode,
@@ -989,12 +1061,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     result.fold(
       (failure) {
+        // Roll back synchronously — matches deleteMessage/deleteAttachment;
+        // a refetch would race with the mutation guard above.
         emit(
           state.copyWith(
+            messages: originalMessages,
             errorMessage: failure.message ?? 'Failed to add reaction.',
           ),
         );
-        unawaited(refreshMessages());
       },
       (_) {
         emit(
@@ -1020,6 +1094,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    final originalMessages = state.messages;
     final optimistic = _removeReactionLocally(
       state.messages,
       messageCode,
@@ -1027,6 +1102,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       emoji,
     );
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _removeReactionUseCase(
       messageCode: messageCode,
@@ -1037,12 +1113,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     result.fold(
       (failure) {
+        // Roll back synchronously — matches deleteMessage/deleteAttachment;
+        // a refetch would race with the mutation guard above.
         emit(
           state.copyWith(
+            messages: originalMessages,
             errorMessage: failure.message ?? 'Failed to remove reaction.',
           ),
         );
-        unawaited(refreshMessages());
       },
       (_) {
         emit(
@@ -1116,7 +1194,27 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   }
 
   /// Retain any pending/failed optimistic messages not yet confirmed by the API.
-  List<MessageEntity> _mergePendingMessages(List<MessageEntity> fresh) {
+  List<MessageEntity> _mergePendingMessages(
+    List<MessageEntity> fresh, {
+    // True only for the Firestore realtime stream (see startWatchingMessages
+    // below): that per-conversation subcollection isn't guaranteed to be a
+    // complete mirror of every message the REST API/backend DB has — a
+    // message can be legitimately confirmed and already showing (loaded via
+    // REST, or an earlier Firestore batch) yet simply absent from THIS
+    // particular snapshot. Without this, every Firestore emission
+    // wholesale-replaced the list with only what that one snapshot
+    // happened to contain, silently dropping everything else — the same
+    // class of bug already fixed for the conversation list in
+    // CommunicationCubit.startWatchingConversations (merge by code, never
+    // replace). Plain REST loads (loadMessages/refreshMessages) must NOT
+    // set this: a REST page-0 fetch's window IS authoritative for that
+    // window, and preserving stale entries there would defeat normal
+    // "load older" pagination as history grows past the page size.
+    bool preserveMissingConfirmed = false,
+  }) {
+    final cutoff = AppTime.nowUtc().subtract(_localMutationGuardWindow);
+    _recentLocalMutations.removeWhere((_, t) => t.isBefore(cutoff));
+
     // Preserve `senderRole` if Firestore's realtime stream omitted it (forcing it to parent).
     // The local UI state knows the true role from the initial REST API load.
     final existingMessagesByCode = {
@@ -1135,6 +1233,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           existingMessagesByCode[m.id] ??
           existingMessagesById[m.code];
       if (old == null) return m;
+
+      // Mid-settling from a local reaction/attachment/edit/delete mutation —
+      // keep our in-memory version wholesale rather than reconciling
+      // field-by-field, matching CommunicationCubit's equivalent guard.
+      if (_recentLocalMutations.containsKey(old.code)) {
+        return old;
+      }
 
       MessageEntity result = m;
 
@@ -1168,35 +1273,58 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     final pending = state.messages
         .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
         .toList();
-    if (pending.isEmpty) return preservedFresh;
     final freshCodes = preservedFresh.map((m) => m.code).toSet();
-    final unconfirmed = pending.where((m) {
-      if (freshCodes.contains(m.code)) return false;
-      // A still-pending optimistic message never carries the server's real
-      // code — the backend isn't even told about localTempCode (see
-      // MessageEntityRepositoryImpl.sendMessage's `_remote.sendMessage`
-      // call) — so exact-code matching alone can't catch it when Firestore
-      // delivers the confirmed message BEFORE this cubit's own
-      // sendMessage() REST response returns to swap it in via
-      // _replaceMessage. Without this, the optimistic and the
-      // Firestore-confirmed entry show side by side, and _replaceMessage
-      // later finds nothing left to replace (it matches by the temp code,
-      // which is no longer present once dropped here) — leaving a
-      // permanent visual duplicate. Close the gap with a tight
-      // content-match instead: same sender, same text, sent within a few
-      // seconds of each other. Failed messages are excluded — a failed
-      // send must never be silently hidden just because its text happens
-      // to match something else.
-      if (!m.isPending) return true;
-      final matchesFresh = preservedFresh.any(
-        (f) =>
-            f.senderCode == m.senderCode &&
-            f.text == m.text &&
-            f.sentAt.difference(m.sentAt).abs() < const Duration(seconds: 30),
-      );
-      return !matchesFresh;
-    }).toList();
-    return [...preservedFresh, ...unconfirmed];
+    final unconfirmed = pending.isEmpty
+        ? const <MessageEntity>[]
+        : pending.where((m) {
+            if (freshCodes.contains(m.code)) return false;
+            // A still-pending optimistic message never carries the server's real
+            // code — the backend isn't even told about localTempCode (see
+            // MessageEntityRepositoryImpl.sendMessage's `_remote.sendMessage`
+            // call) — so exact-code matching alone can't catch it when Firestore
+            // delivers the confirmed message BEFORE this cubit's own
+            // sendMessage() REST response returns to swap it in via
+            // _replaceMessage. Without this, the optimistic and the
+            // Firestore-confirmed entry show side by side, and _replaceMessage
+            // later finds nothing left to replace (it matches by the temp code,
+            // which is no longer present once dropped here) — leaving a
+            // permanent visual duplicate. Close the gap with a tight
+            // content-match instead: same sender, same text, sent within a few
+            // seconds of each other. Failed messages are excluded — a failed
+            // send must never be silently hidden just because its text happens
+            // to match something else.
+            if (!m.isPending) return true;
+            final matchesFresh = preservedFresh.any(
+              (f) =>
+                  f.senderCode == m.senderCode &&
+                  f.text == m.text &&
+                  f.sentAt.difference(m.sentAt).abs() <
+                      const Duration(seconds: 30),
+            );
+            return !matchesFresh;
+          }).toList();
+
+    var result = [...preservedFresh, ...unconfirmed];
+
+    if (preserveMissingConfirmed) {
+      final resultCodes = result.map((m) => m.code).toSet();
+      final missingConfirmed = state.messages.where((m) {
+        if (m.code.isEmpty || resultCodes.contains(m.code)) return false;
+        // Already covered by `unconfirmed` above.
+        if (m.localTempCode != null && (m.isPending || m.isFailed)) {
+          return false;
+        }
+        return true;
+      });
+      result = [...result, ...missingConfirmed];
+      // missingConfirmed was appended at the end regardless of its actual
+      // timestamp — re-sort so a message Firestore didn't mirror doesn't
+      // render out of chronological order (e.g. yesterday's message
+      // appearing after today's).
+      result = _sortedOldestFirst(result);
+    }
+
+    return result;
   }
 
   List<MessageEntity> _replaceMessage(

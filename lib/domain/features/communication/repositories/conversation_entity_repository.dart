@@ -125,6 +125,12 @@ abstract class ConversationEntityRepository {
     String? classroomName,
   });
 
+  /// User codes currently present on [classroomCode]'s staff roster — see
+  /// [ConversationEntityRemoteDataSource.getClassroomRosterPresentUserCodes].
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  );
+
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
   /// Create a new conversation.

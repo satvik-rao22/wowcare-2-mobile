@@ -323,6 +323,20 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) async {
+    try {
+      final codes = await _remote.getClassroomRosterPresentUserCodes(
+        classroomCode,
+      );
+      return Right(codes);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
   // ─── Mutations ──────────────────────────────────────────────────────────────
 
   @override

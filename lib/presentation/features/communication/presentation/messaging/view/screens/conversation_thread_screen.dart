@@ -6,6 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -223,6 +224,23 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     return status == 'INACTIVE';
   }
 
+  /// True when the CURRENT USER's own participant record shows a staff
+  /// employment status of INACTIVE — unlike [_studentInactive]/
+  /// [_noActiveGuardian] (which gate the OTHER side of the conversation),
+  /// this blocks the sender themselves: a since-terminated/deactivated
+  /// staff member must not be able to send in ANY conversation type.
+  bool get _currentUserInactive {
+    ParticipantEntity? self;
+    for (final p in _conversation.participants) {
+      if (p.userCode == _senderCode) {
+        self = p;
+        break;
+      }
+    }
+    final status = self?.staffStatus?.trim().toUpperCase();
+    return status == 'INACTIVE';
+  }
+
   /// Only staff/admin/director/teacher viewers get tabs — a guardian's own
   /// thread is always just their single (group + own-private) merged view,
   /// same as the legacy screen. Tabs only make sense once private mode is
@@ -304,6 +322,26 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   GlobalKey _keyForMessage(String code) =>
       _messageKeys.putIfAbsent(code, GlobalKey.new);
 
+  // ── Classroom Notes roster ────────────────────────────────────────────────
+
+  /// Present-vs-missing staff for a Classroom Notes chat — see
+  /// [GetClassroomRosterPresentUserCodesUseCase]. Null until loaded (or for
+  /// any non-classroom-chat conversation, where it's simply never fetched),
+  /// in which case the participant header falls back to showing everyone —
+  /// same as before this existed.
+  Set<String>? _presentUserCodes;
+
+  Future<void> _loadClassroomRosterStatus() async {
+    final classroomCode = _conversation.classroomCode?.trim();
+    if (classroomCode == null || classroomCode.isEmpty) return;
+    final result =
+        await serviceLocator<GetClassroomRosterPresentUserCodesUseCase>()(
+          classroomCode,
+        );
+    if (!mounted) return;
+    result.fold((_) {}, (codes) => setState(() => _presentUserCodes = codes));
+  }
+
   // ── In-thread search ──────────────────────────────────────────────────────
 
   late final SearchMessagesUseCase _searchUseCase;
@@ -360,11 +398,24 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     _senderCode = userCodeFromAuth;
 
     _cubit.startWatchingMessages();
+    // Fire an immediate, undebounced mark-read on open — matches Room
+    // Chat/Staff Direct (staff_messaging_thread.dart, parent_messaging_thread.dart),
+    // which call markConversationRead unconditionally as soon as the thread
+    // opens. Without this, Admin Chat only had _scheduleMarkRead's 2s
+    // debounce (see ConversationThreadCubit._markReadDebounceDuration),
+    // which resets on every Firestore snapshot during that window — so
+    // continuous activity right after opening could keep deferring the
+    // badge zero well past when Room Chat would've already cleared it.
+    unawaited(_cubit.markConversationRead());
     unawaited(_loadSenderInfo());
     unawaited(_loadDraft());
 
     if (widget.conversation.participants.isEmpty && !widget.isDraft) {
       unawaited(_fetchConversationDetails());
+    }
+
+    if (_conversation.type == ConversationType.classroomChat) {
+      unawaited(_loadClassroomRosterStatus());
     }
 
     // Private mode applies to both Room Chat and Admin Chat per spec — this
@@ -844,7 +895,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     // — _onMessagesChanged() picks this flag up as soon as the cubit's
     // optimistic message lands in state (before the network call resolves).
     _ownSendPending = true;
-    final attachmentsBeingSent = _pendingAttachments;
+    // A COPY, not a reference — `_pendingAttachments` itself is cleared
+    // below (synchronously, right after this) so the composer stops showing
+    // the picked images immediately. Without `.from(...)` this was just an
+    // alias to the same list object, so that clear() also wiped the
+    // attachments out from under the send that was about to use them,
+    // producing a text-less, attachment-less POST the backend correctly
+    // rejected with "Message must contain text or at least one attachment".
+    final attachmentsBeingSent = List<ChatAttachment>.from(_pendingAttachments);
+    // Captured before the composer is cleared below — _quotedMessage is
+    // about to become null.
+    final quotedMessageCode = _quotedMessage?.code;
     // A guardian sends private via their own toggle; staff/admin has no such
     // toggle — instead, replying while a specific guardian's tab is active
     // (see [_showChatTabs]/[_buildChatTabChips]) scopes the reply as private
@@ -860,6 +921,21 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             _privateModeToggleCubit?.state.isEnabled == true) ||
         targetGuardianCode != null;
 
+    // Clear the composer's attachment preview + quote immediately — matches
+    // Room Chat (staff_messaging_thread.dart/parent_messaging_thread.dart),
+    // which clears synchronously the moment send is tapped rather than
+    // waiting for the upload/send to finish. Previously this only cleared
+    // AFTER awaiting the full send below, so the picked images stayed
+    // visible in the composer for the entire upload — surviving even a
+    // refresh/navigate-away-and-back in the meantime. A failed send is
+    // retried from the bubble itself (EntityMessageTile's onRetry →
+    // ConversationThreadCubit.retrySendMessage), which already carries its
+    // own attachments, so there's nothing to "preserve here for retry".
+    setState(() {
+      _quotedMessage = null;
+      _pendingAttachments.clear();
+    });
+
     await _cubit.sendMessage(
       text: text,
       senderCode: _senderCode,
@@ -869,24 +945,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       schoolCode: _schoolCode,
       attachments: attachmentsBeingSent,
       isPrivate: isPrivate,
-      threadParentCode: _quotedMessage?.code,
+      threadParentCode: quotedMessageCode,
       privateParentUserCode: targetGuardianCode,
     );
     if (!mounted) return;
     if (_cubit.state.sendError != null) {
-      // Upload or send failed — preserve the pending attachments (still the
-      // same local files) so the user can retry without re-picking them.
       CoreUtils.showTopSnackBar(
         context: context,
         message: _cubit.state.sendError!,
         isError: true,
       );
-      return;
     }
-    setState(() {
-      _quotedMessage = null;
-      _pendingAttachments.clear();
-    });
   }
 
   // ── Date chip ─────────────────────────────────────────────────────────────
@@ -1148,13 +1217,22 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     _conversation.type == ConversationType.adminChat;
                 final isRoomChat =
                     _conversation.type == ConversationType.roomChat;
+                final isClassroomChat =
+                    _conversation.type == ConversationType.classroomChat;
                 // Admin chat and Room chat → guardian/parent chips only.
+                // Classroom Notes → present-roster staff/admins only (the
+                // conversation can still list someone the classroom roster
+                // has since dropped — see [_presentUserCodes]/[GetClassroomRosterPresentUserCodesUseCase]).
                 // All other types → show everyone.
                 final visibleParticipants = (isAdminChat || isRoomChat)
                     ? participants.where((p) {
                         final role = p.role.toApiString().toUpperCase();
                         return role == 'PARENT' || role == 'GUARDIAN';
                       }).toList()
+                    : (isClassroomChat && _presentUserCodes != null)
+                    ? participants
+                          .where((p) => _presentUserCodes!.contains(p.userCode))
+                          .toList()
                     : participants;
                 if (visibleParticipants.isEmpty) return const SizedBox.shrink();
                 return SizedBox(
@@ -1782,6 +1860,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                 isParentMessaging: _senderRole == ParticipantRole.parent,
                 senderIsOrgSide: _isOrgSideSender(msg),
                 viewerIsOrgSide: _senderRole != ParticipantRole.parent,
+                participants: _conversation.participants,
               ),
             ],
           );
@@ -1910,8 +1989,14 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           controller: _inputController,
                           focusNode: _inputFocusNode,
                           isSending: state.isSending,
-                          enabled: !_studentInactive && !_noActiveGuardian,
-                          disabledMessage: _studentInactive
+                          enabled:
+                              !_studentInactive &&
+                              !_noActiveGuardian &&
+                              !_currentUserInactive,
+                          disabledMessage: _currentUserInactive
+                              ? 'Your staff account is inactive. You can no '
+                                    'longer send messages.'
+                              : _studentInactive
                               ? 'This student is inactive. You can no '
                                     'longer send messages.'
                               : 'No active parent or guardian is available in '

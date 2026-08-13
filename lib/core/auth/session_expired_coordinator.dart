@@ -33,8 +33,9 @@ class SessionExpiredCoordinator {
     final ctx = CoreUtils.rootNavigatorKey.currentContext;
     if (ctx == null || !ctx.mounted) return true;
     try {
-      final location =
-          GoRouter.of(ctx).routerDelegate.currentConfiguration.uri.path;
+      final location = GoRouter.of(
+        ctx,
+      ).routerDelegate.currentConfiguration.uri.path;
       return location == SignInScreen.routeName || location == '/';
     } catch (_) {
       // Router not ready — treat as "can't navigate" so we don't thrash.
@@ -114,11 +115,21 @@ class SessionExpiredCoordinator {
         try {
           ctx.read<AuthCubit>().logout();
         } catch (_) {}
-        CoreUtils.showTopSnackBar(
-          context: ctx,
-          message: userMessage,
-          isError: true,
-        );
+        // An entry-route caller (the splash's own silent "is my cached token
+        // still valid" probe) fires before the user has done anything in
+        // this session — showing "session expired" here reads as an error
+        // on a blank Login screen instead of what it actually is (a stale
+        // cached session quietly cleared). Only a genuine mid-session 401
+        // via SessionExpiredInterceptor (fromEntryRoute defaults to false)
+        // is worth surfacing — the user was actively using the app and got
+        // logged out, which IS actionable feedback.
+        if (!fromEntryRoute) {
+          CoreUtils.showTopSnackBar(
+            context: ctx,
+            message: userMessage,
+            isError: true,
+          );
+        }
         // Navigate via go_router (the app's router). An imperative
         // Navigator.pushAndRemoveUntil doesn't stick here because go_router
         // re-syncs to its configured location, leaving the user on the

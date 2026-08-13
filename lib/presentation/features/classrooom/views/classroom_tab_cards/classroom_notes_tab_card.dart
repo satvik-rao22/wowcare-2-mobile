@@ -6,6 +6,7 @@ import 'package:wowcare/domain/features/communication/entities/conversation_enti
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 
 /// Re-exported for backwards compatibility: reusable_modal_bottom_sheet.dart imports DataMap
 /// from this file.
@@ -134,7 +135,9 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      // Matches StaffMessagingThread/ParentMessagingThread/
+      // ConversationThreadScreen's own loading state.
+      return const ChatThreadShimmer();
     }
     if (_error != null || _conversation == null) {
       return Center(

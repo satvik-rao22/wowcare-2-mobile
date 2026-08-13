@@ -83,6 +83,12 @@ abstract class ConversationEntityRemoteDataSource {
     String? classroomName,
   });
 
+  /// User codes currently present on [classroomCode]'s staff roster —
+  /// excludes anyone the conversation still lists as a participant but who
+  /// has since left/been removed from the classroom. See
+  /// [ApiPaths.messagingClassroomRosterStatus].
+  Future<Set<String>> getClassroomRosterPresentUserCodes(String classroomCode);
+
   Future<ConversationEntityDto> createConversation({
     required String type,
     required String studentCode,
@@ -392,6 +398,24 @@ class ConversationEntityRemoteDataSourceImpl
       data: <String, dynamic>{},
     );
     _assertSuccess(response.data, 'Failed to provision classroom chat');
+  }
+
+  @override
+  Future<Set<String>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) async {
+    final endpoint = _url(
+      ApiPaths.messagingClassroomRosterStatus(classroomCode),
+    );
+    final response = await apiClient.client.get(endpoint);
+    _assertSuccess(response.data, 'Failed to load classroom roster status');
+
+    final present = response.data['data']['present'] as List<dynamic>? ?? [];
+    return present
+        .whereType<Map<String, dynamic>>()
+        .map((e) => (e['userCode'] as String? ?? '').trim())
+        .where((code) => code.isNotEmpty)
+        .toSet();
   }
 
   @override

@@ -78,6 +78,7 @@ class EntityMessageTile extends StatelessWidget {
     this.isParentMessaging = false,
     this.senderIsOrgSide,
     this.viewerIsOrgSide,
+    this.participants,
   });
 
   final String messageCode;
@@ -104,6 +105,12 @@ class EntityMessageTile extends StatelessWidget {
 
   /// See [MessageBubble.viewerIsOrgSide].
   final bool? viewerIsOrgSide;
+
+  /// Conversation participants, for [MessageBubble]'s sender-avatar lookup
+  /// (`_senderParticipant`) — mapped to the legacy [ConversationParticipant]
+  /// shape the shared widget expects. Null/empty just means no avatar
+  /// resolves, matching the widget's existing null-safe fallback.
+  final List<ParticipantEntity>? participants;
 
   @override
   Widget build(BuildContext context) {
@@ -191,6 +198,9 @@ class EntityMessageTile extends StatelessWidget {
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,
           viewerIsOrgSide: viewerIsOrgSide,
+          participants: participants
+              ?.map(mapParticipantEntityToConversationParticipant)
+              .toList(),
         );
       },
     );

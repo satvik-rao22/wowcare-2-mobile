@@ -280,7 +280,26 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             final updatedMap = Map<String?, List<Conversation>>.from(
               currentMap,
             );
-            final sorted = List<Conversation>.from(conversations)
+            // Merge by code — never wholesale-replace. This Firestore stream
+            // is scoped to the CURRENT USER's own per-user inbox
+            // (watchInbox(userCode: ...)), so for an admin/staff persona
+            // browsing conversations they aren't personally a participant
+            // of (e.g. Staff Direct between two OTHER staff members, or any
+            // conversation outside their own inbox), it only ever emits a
+            // partial — sometimes empty-for-this-code — set. Replacing the
+            // whole list with that partial set silently dropped REST-loaded
+            // conversations the viewer isn't personally in, even though the
+            // REST list (which IS school-wide, not per-user) correctly
+            // returned them. Preserve every existing entry; only update/add
+            // the ones this snapshot actually mentions.
+            final byCode = {
+              for (final c in currentMap[type] ?? const <Conversation>[])
+                c.code: c,
+            };
+            for (final c in conversations) {
+              byCode[c.code] = c;
+            }
+            final sorted = byCode.values.toList()
               ..sort((a, b) {
                 final aTime = a.lastMessageAt ?? a.updatedAt;
                 final bTime = b.lastMessageAt ?? b.updatedAt;

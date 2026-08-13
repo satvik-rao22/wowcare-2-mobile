@@ -1,6 +1,10 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart'
+    show ConversationParticipant;
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart'
+    show ParticipantEntity;
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 
@@ -134,5 +138,37 @@ AttachmentEntity mapChatAttachmentToAttachmentEntity(
     uploadedBy: uploadedBy,
     uploadedAt: AppTime.now(),
     attachmentId: attachment.attachmentId,
+  );
+}
+
+/// Converts a v2 [ParticipantEntity] into the legacy [ConversationParticipant]
+/// the shared [MessageBubble] widget expects for its `participants` list
+/// (sender avatar/staffCode lookup — see `MessageBubble._senderParticipant`).
+///
+/// `EntityMessageTile` previously never passed `participants` through at
+/// all, so `_senderParticipant()` always returned null and sender avatars
+/// never rendered in Admin Chat group threads even though the shared widget
+/// was already written to support it.
+ConversationParticipant mapParticipantEntityToConversationParticipant(
+  ParticipantEntity entity,
+) {
+  return ConversationParticipant(
+    id: entity.id,
+    conversationId: entity.conversationId,
+    userCode: entity.userCode,
+    userName: entity.userName,
+    role: entity.role.toApiString(),
+    joinedAt: entity.joinedAt,
+    leftAt: entity.leftAt,
+    lastReadAt: entity.lastReadAt,
+    muted: entity.muted,
+    notificationsEnabled: entity.notificationsEnabled,
+    createdAt: entity.createdAt,
+    updatedAt: entity.updatedAt,
+    avatarUrl: entity.avatarUrl,
+    staffCode: entity.staffCode,
+    unreadCount: entity.unreadCount,
+    active: entity.active,
+    staffStatus: entity.staffStatus,
   );
 }

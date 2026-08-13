@@ -956,6 +956,13 @@ class ApiPaths {
   /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
   static String messagingClassroomReconcile(String classroomCode) =>
       '$conversations/classroom/$classroomCode/reconcile';
+
+  /// Present-vs-missing staff roster for a classroom's Notes chat — `present`
+  /// are currently-assigned staff/admins who should show in the participant
+  /// chip row; `missing` are ones the conversation still lists but who are no
+  /// longer on the classroom (must NOT be shown).
+  static String messagingClassroomRosterStatus(String classroomCode) =>
+      '$conversations/classroom/$classroomCode/roster-status';
   static String messagingConversationParticipants(String code) =>
       '$conversations/$code/participants';
   // DELETE /api/v1/conversations/{code}/participants/{userCode}

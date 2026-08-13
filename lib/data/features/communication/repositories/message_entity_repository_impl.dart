@@ -70,7 +70,34 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         conversationCode: conversationCode,
       );
 
-      return Right(entities);
+      // The backend's list endpoint omits truly-deleted messages, so a
+      // plain replace would drop the "This message has been deleted."
+      // placeholder every time the thread is reopened or refreshed —
+      // mirrors CommunicationRepositoryImpl.getMessages' preservedDeleted
+      // merge for the legacy stack. Only applies to the latest-window fetch
+      // (no cursor); an older-history page must not re-inject rows outside
+      // that window.
+      if (beforeMessageCode != null) {
+        return Right(entities);
+      }
+      final org = await _orgCode;
+      final school = await _schoolCode;
+      final currentUser = await _currentUserCode;
+      final apiCodes = entities.map((e) => e.code).toSet();
+      final cachedRows = await _local.getMessages(
+        conversationCode: conversationCode,
+        organizationCode: org,
+        schoolCode: school,
+        // High enough to return the full local cache for this conversation.
+        limit: 100000,
+        currentUserCode: currentUser,
+      );
+      final preservedDeleted = cachedRows
+          .where((c) => c.isDeleted && !apiCodes.contains(c.code))
+          .map((c) => c.toEntity())
+          .toList();
+
+      return Right([...entities, ...preservedDeleted]);
     } catch (e) {
       // Network failed — return Isar cache
       final org = await _orgCode;
@@ -288,8 +315,16 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     final cached = await _local.getMessage(messageCode);
     final originalEntity = cached?.toEntity();
 
-    if (cached != null) {
-      await _local.deleteMessage(messageCode);
+    if (originalEntity != null) {
+      // Soft-delete locally (matches the legacy stack's deletedAt
+      // preservation — see getMessages()) instead of dropping the row: the
+      // backend's list endpoint omits truly-deleted messages, so a hard
+      // local delete meant the "This message has been deleted." placeholder
+      // vanished from the thread entirely on the next reopen/refresh
+      // instead of staying in place like Room Chat.
+      await _local.saveMessage(
+        originalEntity.copyWith(isDeleted: true, deletedAt: AppTime.nowUtc()),
+      );
     }
 
     try {

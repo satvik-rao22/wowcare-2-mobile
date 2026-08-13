@@ -541,6 +541,15 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       );
       return;
     }
+    if (_currentUserInactive) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Your staff account is inactive. You can no longer send messages.',
+        isError: true,
+      );
+      return;
+    }
     final text = _controller.text.trim();
     if (_editingMessage != null) {
       if (text.isNotEmpty && text != _editingMessage!.text) {
@@ -2105,8 +2114,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               onSend: _sendMessage,
                               onAttachmentTap: _showAttachmentSheet,
                               isSending: state is CommunicationSending,
-                              enabled: !_studentInactive && !_noActiveGuardian,
-                              disabledMessage: _studentInactive
+                              enabled:
+                                  !_studentInactive &&
+                                  !_noActiveGuardian &&
+                                  !_currentUserInactive,
+                              disabledMessage: _currentUserInactive
+                                  ? 'Your staff account is inactive. You can '
+                                        'no longer send messages.'
+                                  : _studentInactive
                                   ? 'This student is inactive. You can no '
                                         'longer send messages.'
                                   : 'No active parent or guardian is available '
@@ -3229,8 +3244,14 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             focusNode: _inputFocusNode,
                             onSend: _sendMessage,
                             onAttachmentTap: _showAttachmentSheet,
-                            enabled: !_studentInactive && !_noActiveGuardian,
-                            disabledMessage: _studentInactive
+                            enabled:
+                                !_studentInactive &&
+                                !_noActiveGuardian &&
+                                !_currentUserInactive,
+                            disabledMessage: _currentUserInactive
+                                ? 'Your staff account is inactive. You can '
+                                      'no longer send messages.'
+                                : _studentInactive
                                 ? 'This student is inactive. You can no '
                                       'longer send messages.'
                                 : 'No active parent or guardian is available '
@@ -3469,6 +3490,20 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     final status = (widget.parentInfo['studentStatus'] as String?)
         ?.trim()
         .toUpperCase();
+    return status == 'INACTIVE';
+  }
+
+  /// True when the CURRENT USER's own participant record shows a staff
+  /// employment status of INACTIVE. Distinct from [_amIActiveParticipant]
+  /// (which only covers being removed from THIS conversation) — a
+  /// since-terminated/deactivated staff member can still be `active: true`
+  /// with `leftAt: null` on the participant row while their `staffStatus`
+  /// says INACTIVE, so both checks are needed.
+  bool get _currentUserInactive {
+    if (_currentUserCode == null) return false;
+    final mine = _participants.where((p) => p.userCode == _currentUserCode);
+    if (mine.isEmpty) return false;
+    final status = mine.first.staffStatus?.trim().toUpperCase();
     return status == 'INACTIVE';
   }
 

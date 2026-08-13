@@ -31,6 +31,8 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/react
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import '../widgets/thread_message_tile.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
+import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
+import 'package:wowcare/presentation/features/activities/utils/resolve_logged_in_staff_code.dart';
 
 class StaffMessagingThread extends StatefulWidget {
   const StaffMessagingThread({super.key, required this.staffInfo});
@@ -97,7 +99,42 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     final status = (widget.staffInfo['staffStatus'] as String?)
         ?.trim()
         .toUpperCase();
-    return status == 'INACTIVE';
+    if (status == 'INACTIVE') return true;
+    // Backend-authoritative "still active" flag, independent of
+    // staffStatus — a participant can be deactivated (e.g. account
+    // disabled) for a reason other than an INACTIVE employment status. See
+    // ConversationParticipant.isActive's doc comment. `false` (not just
+    // absent/null) is required to flip this — a missing signal fails open.
+    final isActiveParticipant =
+        widget.staffInfo['staffIsActiveParticipant'] as bool?;
+    return isActiveParticipant == false;
+  }
+
+  /// True when the CURRENT (logged-in) staff member's own employment status
+  /// is INACTIVE — distinct from [_staffInactive], which only covers the
+  /// COUNTERPART (`widget.staffInfo`) of this 1:1 conversation. Resolved
+  /// once in [initState] via [_loadCurrentUserStaffStatus]; defaults to
+  /// false (fail-open) until that completes or if it fails, matching
+  /// [ParentMessagingThread._amIActiveParticipant]'s "backend is the real
+  /// authority" reasoning.
+  bool _currentUserInactive = false;
+
+  Future<void> _loadCurrentUserStaffStatus() async {
+    try {
+      final staffCode = await resolveLoggedInStaffCode();
+      if (staffCode == null || staffCode.isEmpty) return;
+      final profile = await serviceLocator<StaffRepository>().getStaffProfile(
+        staffCode: staffCode,
+      );
+      if (!mounted) return;
+      final inactive = profile.status.trim().toUpperCase() == 'INACTIVE';
+      if (inactive != _currentUserInactive) {
+        setState(() => _currentUserInactive = inactive);
+      }
+    } catch (_) {
+      // Best-effort: the composer stays enabled on failure — the backend
+      // is the actual authority and will reject the send if truly inactive.
+    }
   }
 
   String? _currentUserCode;
@@ -141,6 +178,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     _reactionsController = ReactionsController(
       currentUserId: _currentUserCode ?? 'me',
     );
+
+    unawaited(_loadCurrentUserStaffStatus());
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted) return;
@@ -308,6 +347,19 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     final hasAttachments = _pendingAttachments.isNotEmpty;
 
     if (!hasText && !hasAttachments) return;
+
+    // Defense-in-depth — the composer already disables sending for this
+    // (see _buildMessageInput's `enabled:`), but the backend is the real
+    // authority so this is a client-side speed bump only.
+    if (_currentUserInactive) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Your staff account is inactive. You can no longer send messages.',
+        isError: true,
+      );
+      return;
+    }
 
     final authState = context.read<AuthCubit>().state;
     final senderName = authState is AuthLoaded
@@ -1551,10 +1603,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         onSend: _sendMessage,
         onAttachmentTap: _showAttachmentPicker,
         isSending: state is CommunicationSending,
-        enabled: !_staffInactive,
-        disabledMessage:
-            'This staff member is inactive. You can no longer send '
-            'messages.',
+        enabled: !_staffInactive && !_currentUserInactive,
+        disabledMessage: _currentUserInactive
+            ? 'Your staff account is inactive. You can no longer send '
+                  'messages.'
+            : 'This staff member is inactive. You can no longer send '
+                  'messages.',
         pendingAttachments: _pendingAttachments,
         quotedMessage: _quotedMessage,
         showCharCounter: true,
