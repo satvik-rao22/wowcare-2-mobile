@@ -105,6 +105,7 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
     List<String>? staffStatuses,
     String? search,
     bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
   }) async {
     try {
       final dtos = await _remote.getConversations(
@@ -120,9 +121,9 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
         search: search,
         unreadOnly: unreadOnly,
       );
-      final entities = await _resolveUnreadCounts(
-        dtos.map((d) => d.toEntity()).toList(),
-      );
+      final entities = includeRestUnreadCounts
+          ? await _resolveUnreadCounts(dtos.map((d) => d.toEntity()).toList())
+          : dtos.map((d) => d.toEntity()).toList();
 
       // Update Isar — replace page 0 entirely; append subsequent pages.
       // Note: When filters are applied, we always replace at page 0

@@ -21,6 +21,7 @@ class GetConversationsEntityUseCase {
     List<String>? staffStatuses,
     String? search,
     bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
   }) {
     return _repository.getConversations(
       type: type,
@@ -34,6 +35,7 @@ class GetConversationsEntityUseCase {
       staffStatuses: staffStatuses,
       search: search,
       unreadOnly: unreadOnly,
+      includeRestUnreadCounts: includeRestUnreadCounts,
     );
   }
 }

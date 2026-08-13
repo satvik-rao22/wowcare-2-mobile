@@ -43,6 +43,7 @@ class StudentTransferSelectionCubit
 
   String _schoolCode = '';
   List<String> _allowedClassroomCodes = const [];
+  String? _primaryClassroomCode;
 
   void _safeEmit(StudentTransferSelectionState next) {
     if (!isClosed) emit(next);
@@ -70,6 +71,11 @@ class StudentTransferSelectionCubit
           await resolveStudentAttendanceAllowedClassroomCodes(
             storage: _storage,
           );
+      // Null for admin/parent personas; a scoped teacher's home classroom
+      // otherwise — used to pre-select the classroom filter below.
+      _primaryClassroomCode = await resolveStaffPrimaryClassroomCode(
+        storage: _storage,
+      );
 
       await Future.wait([_loadClassrooms(), _loadTags()]);
 
@@ -154,11 +160,19 @@ class StudentTransferSelectionCubit
               .where((c) => _allowedClassroomCodes.contains((c['code'] ?? '')))
               .toList();
     final names = scoped.map((c) => c['name']!).toList();
+    final primaryCode = (_primaryClassroomCode ?? '').trim();
+    final primaryName = primaryCode.isEmpty
+        ? null
+        : scoped
+              .where((c) => c['code'] == primaryCode)
+              .map((c) => c['name'])
+              .firstOrNull;
     _safeEmit(
       state.copyWith(
         classroomOptions: names,
         classroomCodeByName: {for (final c in scoped) c['name']!: c['code']!},
         classroomNameByCode: {for (final c in scoped) c['code']!: c['name']!},
+        defaultClassroomName: primaryName,
       ),
     );
   }

@@ -47,6 +47,11 @@ class _StudentSelectionMarkAbsentFormState
 
   Future<void> _bootstrap() async {
     await _cubit.initFilters();
+    // Staff persona: pre-select their primary classroom, if resolvable.
+    final defaultClassroom = _cubit.state.defaultClassroomName;
+    if (defaultClassroom != null) {
+      _selectedClassrooms = [defaultClassroom];
+    }
     await _loadStudents();
   }
 

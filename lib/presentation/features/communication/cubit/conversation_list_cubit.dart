@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -11,7 +10,6 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
-import 'unread_badge_cubit.dart';
 import 'conversation_list_state.dart';
 
 /// Manages the conversation list for a single [ConversationType].
@@ -483,8 +481,14 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     );
   }
 
-  /// Pull-to-refresh: forces a REST API fetch regardless of Firestore state.
-  /// Preserves active filters if any are set.
+  /// Pull-to-refresh: forces a REST API fetch for conversation content
+  /// (title/participants/last message/etc.) regardless of Firestore state,
+  /// but never for unread counts — Firestore is the sole source of truth
+  /// for those (see [includeRestUnreadCounts]: false below). Each returned
+  /// conversation's `unreadCount` is instead overlaid from the current
+  /// state, which is kept live by the primary Firestore stream
+  /// ([_watchConversationsUseCase]) that's already running for the
+  /// lifetime of this cubit. Preserves active filters if any are set.
   Future<void> refresh() async {
     emit(state.copyWith(isRefreshing: true, clearError: true));
 
@@ -499,6 +503,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       studentStatuses: state.activeStudentStatuses,
       staffStatuses: _networkStaffStatuses(state.activeStaffStatuses),
       search: state.activeSearch,
+      includeRestUnreadCounts: false,
     );
 
     if (isClosed) return;
@@ -511,15 +516,29 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         ),
       ),
       (conversations) {
+        // Match on code against the current (Firestore-sourced) state rather
+        // than trusting anything REST just returned. A conversation missing
+        // from state (e.g. brand new) defaults to 0 until the live Firestore
+        // stream, already running, delivers its real count moments later.
+        final firestoreUnreadByCode = {
+          for (final c in state.conversations) c.code: c.unreadCount,
+        };
+        final withFirestoreUnread = conversations
+            .map(
+              (c) =>
+                  c.copyWith(unreadCount: firestoreUnreadByCode[c.code] ?? 0),
+            )
+            .toList();
         debugPrint(
-          '[UnreadDebug][${_conversationType.toApiString()}] REST refresh() result: '
-          '${conversations.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',
+          '[UnreadDebug][${_conversationType.toApiString()}] refresh() result '
+          '(unread from Firestore-backed state, not REST): '
+          '${withFirestoreUnread.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',
         );
         emit(
           ConversationListState.loaded(
             conversationType: _conversationType,
             conversations: _sortedByLatest(
-              _reconcileLastMessageSenderNames(conversations),
+              _reconcileLastMessageSenderNames(withFirestoreUnread),
             ),
             isFromCache: false,
             page: 0,
@@ -536,13 +555,10 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     );
 
     // The bell badge on the top app bar (UnreadBadgeCubit) is a separate,
-    // app-wide singleton with its own Firestore stream — a pull-to-refresh
-    // here doesn't touch it at all, so it can visibly lag behind what the
-    // user just saw refresh in the list. Nudge it to reconcile with the
-    // server on the same gesture; its own REST-vs-Firestore guard (see
-    // UnreadBadgeCubit._fetchFromApi) already protects against this from
-    // clobbering a live Firestore count, so this is safe to call unconditionally.
-    unawaited(serviceLocator<UnreadBadgeCubit>().loadUnreadCounts());
+    // app-wide singleton with its own Firestore stream — Firestore is the
+    // sole source of truth for unread counts, so pull-to-refresh must not
+    // nudge a REST refetch into it (that REST value would apply to any
+    // conversation type Firestore hasn't delivered yet this session).
   }
 
   // ─── Private helpers ─────────────────────────────────────────────────────────

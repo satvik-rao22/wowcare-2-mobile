@@ -43,6 +43,7 @@ class StudentSignInSelectionCubit extends Cubit<StudentSignInSelectionState> {
 
   String _schoolCode = '';
   List<String> _allowedClassroomCodes = const [];
+  String? _primaryClassroomCode;
 
   /// Emits only while open, so navigating away mid-fetch never throws "emit
   /// after close".
@@ -76,6 +77,11 @@ class StudentSignInSelectionCubit extends Cubit<StudentSignInSelectionState> {
           await resolveStudentAttendanceAllowedClassroomCodes(
             storage: _storage,
           );
+      // Null for admin/parent personas; a scoped teacher's home classroom
+      // otherwise — used to pre-select the classroom filter below.
+      _primaryClassroomCode = await resolveStaffPrimaryClassroomCode(
+        storage: _storage,
+      );
 
       await Future.wait([_loadClassrooms(), _loadTags()]);
 
@@ -160,11 +166,19 @@ class StudentSignInSelectionCubit extends Cubit<StudentSignInSelectionState> {
               .where((c) => _allowedClassroomCodes.contains((c['code'] ?? '')))
               .toList();
     final names = scoped.map((c) => c['name']!).toList();
+    final primaryCode = (_primaryClassroomCode ?? '').trim();
+    final primaryName = primaryCode.isEmpty
+        ? null
+        : scoped
+              .where((c) => c['code'] == primaryCode)
+              .map((c) => c['name'])
+              .firstOrNull;
     _safeEmit(
       state.copyWith(
         classroomOptions: names,
         classroomCodeByName: {for (final c in scoped) c['name']!: c['code']!},
         classroomNameByCode: {for (final c in scoped) c['code']!: c['name']!},
+        defaultClassroomName: primaryName,
       ),
     );
   }

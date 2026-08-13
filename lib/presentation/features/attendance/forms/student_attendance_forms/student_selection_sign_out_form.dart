@@ -81,6 +81,11 @@ class _StudentSelectionSignOutFormState
     _allowUpper = await loadGuardianStudentAllowlistForSelection(context);
     if (!_restrictToGuardianChildren) {
       await _cubit.initFilters();
+      // Staff persona: pre-select their primary classroom, if resolvable.
+      final defaultClassroom = _cubit.state.defaultClassroomName;
+      if (defaultClassroom != null) {
+        _selectedClassrooms = [defaultClassroom];
+      }
     }
     await _loadStudents();
   }

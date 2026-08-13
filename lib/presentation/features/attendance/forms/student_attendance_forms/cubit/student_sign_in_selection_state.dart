@@ -13,6 +13,7 @@ class StudentSignInSelectionState extends Equatable {
     this.tagOptions = const <String>[],
     this.tagCodeByName = const <String, String>{},
     this.students = const <StudentAttendanceCustomItem>[],
+    this.defaultClassroomName,
   });
 
   final bool isLoadingFilters;
@@ -30,6 +31,12 @@ class StudentSignInSelectionState extends Equatable {
   final Map<String, String> tagCodeByName;
   final List<StudentAttendanceCustomItem> students;
 
+  /// Staff persona's primary classroom name, when it resolves and is one of
+  /// [classroomOptions] — null for admin/parent personas or when the staff
+  /// member has no resolvable primary classroom. The View pre-selects this
+  /// as the initial classroom filter.
+  final String? defaultClassroomName;
+
   StudentSignInSelectionState copyWith({
     bool? isLoadingFilters,
     bool? filtersReady,
@@ -44,6 +51,7 @@ class StudentSignInSelectionState extends Equatable {
     List<String>? tagOptions,
     Map<String, String>? tagCodeByName,
     List<StudentAttendanceCustomItem>? students,
+    String? defaultClassroomName,
   }) {
     return StudentSignInSelectionState(
       isLoadingFilters: isLoadingFilters ?? this.isLoadingFilters,
@@ -61,6 +69,7 @@ class StudentSignInSelectionState extends Equatable {
       tagOptions: tagOptions ?? this.tagOptions,
       tagCodeByName: tagCodeByName ?? this.tagCodeByName,
       students: students ?? this.students,
+      defaultClassroomName: defaultClassroomName ?? this.defaultClassroomName,
     );
   }
 
@@ -77,5 +86,6 @@ class StudentSignInSelectionState extends Equatable {
     tagOptions,
     tagCodeByName,
     students,
+    defaultClassroomName,
   ];
 }

@@ -29,6 +29,13 @@ abstract class ConversationEntityRepository {
   /// classroom + tags). [designations]/[staffStatuses] — STAFF_DIRECT
   /// filters. [studentStatuses] applies to student-scoped types. All mirror
   /// the backend's `getConversationsByType` contract exactly.
+  ///
+  /// [includeRestUnreadCounts] — when false, skips the REST per-conversation
+  /// unread-count stamp entirely (Firestore is the sole source of truth for
+  /// unread counts; callers that already have a live Firestore-backed
+  /// [unreadCount] for these conversations, e.g. from [watchConversations]'s
+  /// state, should set this false and overlay it themselves rather than
+  /// letting an API value flow into the UI even momentarily).
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
     String status = 'ACTIVE',
@@ -41,6 +48,7 @@ abstract class ConversationEntityRepository {
     List<String>? staffStatuses,
     String? search,
     bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
   });
 
   /// Return conversations directly from Isar (no network call).
