@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// WhatsApp-style composable chat input bar.
 ///
@@ -54,6 +55,12 @@ class ChatInputBar extends StatefulWidget {
     /// When true a formatting toolbar (B/I/U/S/Bullet/Numbered) is shown
     /// above the keyboard whenever the text field has focus.
     this.showRichTextToolbar = true,
+
+    /// When false, the text field/attachment/emoji controls are replaced by
+    /// [disabledMessage] and the Send button is permanently disabled — e.g.
+    /// no active parent/guardian left in the conversation to send to.
+    this.enabled = true,
+    this.disabledMessage,
   });
 
   final TextEditingController controller;
@@ -71,6 +78,8 @@ class ChatInputBar extends StatefulWidget {
   final Message? editingMessage;
   final VoidCallback? onCancelEdit;
   final bool showRichTextToolbar;
+  final bool enabled;
+  final String? disabledMessage;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -221,31 +230,41 @@ class _ChatInputBarState extends State<ChatInputBar> {
             )
           else
             const SizedBox.shrink(),
-          
-          _InputRow(
-            key: const ValueKey('chat_input_row'),
-            controller: widget.controller,
-            focusNode: _effectiveFocusNode,
-            hintText: widget.hintText,
-            maxLength: widget.maxLength,
-            showCharCounter: widget.showCharCounter,
-            isSending: widget.isSending,
-            // An attachment-only message is valid too — the send button must
-            // not stay disabled just because the text field is empty.
-            hasText: _hasText || widget.pendingAttachments.isNotEmpty,
-            emojiVisible: _emojiPickerVisible,
-            onEmojiToggle: _toggleEmojiPicker,
-            onAttachmentTap: widget.onAttachmentTap,
-            onSend: _handleSend,
-          ),
-          
+
+          widget.enabled
+              ? _InputRow(
+                  key: const ValueKey('chat_input_row'),
+                  controller: widget.controller,
+                  focusNode: _effectiveFocusNode,
+                  hintText: widget.hintText,
+                  maxLength: widget.maxLength,
+                  showCharCounter: widget.showCharCounter,
+                  isSending: widget.isSending,
+                  // An attachment-only message is valid too — the send
+                  // button must not stay disabled just because the text
+                  // field is empty.
+                  hasText: _hasText || widget.pendingAttachments.isNotEmpty,
+                  emojiVisible: _emojiPickerVisible,
+                  onEmojiToggle: _toggleEmojiPicker,
+                  onAttachmentTap: widget.onAttachmentTap,
+                  onSend: _handleSend,
+                )
+              : _DisabledInputRow(
+                  key: const ValueKey('chat_input_row_disabled'),
+                  message:
+                      widget.disabledMessage ??
+                      'You can no longer send messages in this conversation.',
+                ),
+
           // Rich-text formatting toolbar — visible when field is focused or
           // text already contains formatted content (indicated by _hasText).
-          if (widget.showRichTextToolbar && (_hasFocus || _hasText))
+          if (widget.enabled &&
+              widget.showRichTextToolbar &&
+              (_hasFocus || _hasText))
             RichTextToolbar(controller: widget.controller)
           else
             const SizedBox.shrink(),
-            
+
           if (_emojiPickerVisible)
             SizedBox(
               height: (MediaQuery.of(context).size.height * 0.35).clamp(
@@ -575,6 +594,64 @@ class _SelectAllIntent extends Intent {
   const _SelectAllIntent();
 }
 
+/// Replaces the text field + Send button when [ChatInputBar.enabled] is
+/// false — e.g. no active parent/guardian left in the conversation. Shows
+/// [message] where the text field pill normally sits, with a permanently
+/// disabled Send button beside it (no emoji/attachment controls — nothing
+/// left to act on).
+class _DisabledInputRow extends StatelessWidget {
+  const _DisabledInputRow({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                  color: AppColors.primaryColor.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  fontFamily: 'Manrope',
+                  color: AppColors.primaryColor.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.send_rounded,
+              color: AppColors.primaryColor.withValues(alpha: 0.35),
+              size: 22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InputRow extends StatelessWidget {
   const _InputRow({
     super.key,
@@ -861,7 +938,8 @@ class _InputRow extends StatelessWidget {
                 child: isSending
                     ? const Padding(
                         padding: EdgeInsets.all(13),
-                        child: CircularProgressIndicator(
+                        child: PrimaryCircularLoader(
+                          size: 22,
                           strokeWidth: 2,
                           color: Colors.white,
                         ),

@@ -123,6 +123,13 @@ abstract class MessageEntityRepository {
     required int attachmentId,
   });
 
+  /// Full per-recipient-per-persona receipts for one message, fetched
+  /// on-demand for the Message Info dialog — see
+  /// [ApiPaths.messagingMessageReceipts]'s doc comment.
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  );
+
   /// Retry sending a message that has [MessageStatus.failed].
   Future<Either<Failure, MessageEntity>> retryFailedMessage(
     String localTempCode,
@@ -170,9 +177,7 @@ abstract class MessageEntityRepository {
   Future<Either<Failure, List<SyncQueueEntity>>> getPendingSyncOperations();
 
   /// Remove completed / old sync operations from Isar.
-  Future<Either<Failure, int>> cleanupSyncQueue({
-    int olderThanDays = 7,
-  });
+  Future<Either<Failure, int>> cleanupSyncQueue({int olderThanDays = 7});
 
   // ─── Cache management ───────────────────────────────────────────────────────
 

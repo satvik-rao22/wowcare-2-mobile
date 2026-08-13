@@ -2,10 +2,18 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:chewie/chewie.dart';
+import 'package:dio/dio.dart';
+import 'package:ffmpeg_kit_flutter_new_https/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_https/return_code.dart';
 import 'package:flutter/material.dart';
+import 'package:gal/gal.dart';
 import 'package:http/http.dart' as http;
+import 'package:path/path.dart' as path;
+import 'package:path_provider/path_provider.dart';
 import 'package:video_player/video_player.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
@@ -53,6 +61,8 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   bool get _hasUsableVideoUrl => (widget.videoUrl?.isNotEmpty ?? false);
   bool get hasImage => _hasUsableImageUrl || widget.imageFile != null;
   bool get hasVideo => _hasUsableVideoUrl || widget.videoFile != null;
+
+  bool _isDownloading = false;
 
   Future<Uint8List>? _imageBytesFuture;
 
@@ -116,6 +126,161 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  // ── Download to gallery ─────────────────────────────────────────────────
+  // Same mechanism as the Activities feature's ShowFullScreenMedia: `gal`
+  // saves a local file to the device gallery; a remote URL is first
+  // materialized to a temp file via Dio (or, for HLS video, transcoded to
+  // mp4 via ffmpeg_kit). An already-local source (a pending composer
+  // attachment) is saved directly, no network/transcode step needed.
+
+  bool _isHlsUrl(String url) => url.trim().toLowerCase().contains('.m3u8');
+
+  Future<String> _materializeVideoToTempFile(
+    String url,
+    String fileName,
+  ) async {
+    final tempDir = await getTemporaryDirectory();
+    final outPath = path.join(tempDir.path, fileName);
+
+    if (_isHlsUrl(url)) {
+      Future<bool> runCopy(List<String> args) async {
+        final session = await FFmpegKit.executeWithArguments(args);
+        final code = await session.getReturnCode();
+        return ReturnCode.isSuccess(code);
+      }
+
+      final baseArgs = <String>[
+        '-y',
+        '-protocol_whitelist',
+        'file,http,https,tcp,tls,crypto',
+        '-i',
+        url,
+        '-c',
+        'copy',
+      ];
+
+      final withBsf = [...baseArgs, '-bsf:a', 'aac_adtstoasc', outPath];
+      if (await runCopy(withBsf)) return outPath;
+
+      final plainCopy = [...baseArgs, outPath];
+      if (await runCopy(plainCopy)) return outPath;
+
+      final session = await FFmpegKit.executeWithArguments(plainCopy);
+      final out = await session.getOutput();
+      throw Exception(out ?? 'Could not convert stream to a video file.');
+    }
+
+    await Dio().download(url, outPath);
+    return outPath;
+  }
+
+  Future<String> _materializePhotoToTempFile(
+    String url,
+    String fileName,
+  ) async {
+    final tempDir = await getTemporaryDirectory();
+    final outPath = path.join(tempDir.path, fileName);
+    await Dio().download(url, outPath);
+    return outPath;
+  }
+
+  Future<void> _downloadCurrentMedia() async {
+    if (_isDownloading) return;
+    if (!hasImage && !hasVideo) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Media is still processing. Please try again.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isDownloading = true);
+    try {
+      final hasAccess = await Gal.hasAccess(toAlbum: true);
+      if (!hasAccess) {
+        await Gal.requestAccess(toAlbum: true);
+      }
+      if (!await Gal.hasAccess(toAlbum: true)) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Photos permission is required to save media to your gallery.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      final stamp = AppTime.nowUtc().millisecondsSinceEpoch;
+      if (hasVideo) {
+        String filePath;
+        var isTemp = false;
+        if (_hasUsableVideoUrl) {
+          final videoUrl = widget.videoUrl!;
+          final tempName = _isHlsUrl(videoUrl)
+              ? 'wowcare_video_$stamp.mp4'
+              : 'wowcare_video_$stamp${path.extension(Uri.parse(videoUrl).path).isNotEmpty ? path.extension(Uri.parse(videoUrl).path) : '.mp4'}';
+          filePath = await _materializeVideoToTempFile(videoUrl, tempName);
+          isTemp = true;
+        } else {
+          filePath = widget.videoFile!.path;
+        }
+        await Gal.putVideo(filePath);
+        if (isTemp) {
+          try {
+            await File(filePath).delete();
+          } catch (_) {}
+        }
+      } else {
+        String filePath;
+        var isTemp = false;
+        if (_hasUsableImageUrl) {
+          final imageUrl = widget.imageUrl!;
+          final ext = path
+              .extension(Uri.parse(imageUrl).path)
+              .trim()
+              .toLowerCase();
+          final safeExt = ext.isNotEmpty ? ext : '.jpg';
+          filePath = await _materializePhotoToTempFile(
+            imageUrl,
+            'wowcare_photo_$stamp$safeExt',
+          );
+          isTemp = true;
+        } else {
+          filePath = widget.imageFile!.path;
+        }
+        await Gal.putImage(filePath);
+        if (isTemp) {
+          try {
+            await File(filePath).delete();
+          } catch (_) {}
+        }
+      }
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Saved to your photo gallery.')),
+      );
+    } on GalException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.type.message)));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to download media. Please try again.'),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _isDownloading = false);
+    }
   }
 
   Future<Uint8List> _fetchImageBytesWithRetry(String url) async {
@@ -183,9 +348,10 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
           return Container(
             color: Colors.black,
             child: const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+              child: PrimaryCircularLoader(
+                size: 28,
                 strokeWidth: 2,
+                color: Colors.white70,
               ),
             ),
           );
@@ -239,6 +405,24 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                 ),
               )
             : null,
+        actions: [
+          if (hasImage || hasVideo)
+            IconButton(
+              tooltip: 'Download',
+              icon: _isDownloading
+                  ? const PrimaryCircularLoader(
+                      size: 18,
+                      strokeWidth: 2,
+                      color: Colors.white,
+                    )
+                  : const Icon(
+                      Icons.download_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
+              onPressed: _downloadCurrentMedia,
+            ),
+        ],
       ),
       body: hasVideo
           ? (_hasUsableVideoUrl
@@ -343,9 +527,10 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
     }
     if (_chewieController == null) {
       return const Center(
-        child: CircularProgressIndicator(
-          valueColor: AlwaysStoppedAnimation<Color>(Colors.white70),
+        child: PrimaryCircularLoader(
+          size: 28,
           strokeWidth: 2,
+          color: Colors.white70,
         ),
       );
     }

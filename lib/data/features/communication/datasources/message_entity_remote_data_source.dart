@@ -45,6 +45,12 @@ abstract class MessageEntityRemoteDataSource {
   /// from its message without deleting the whole message. Same endpoint
   /// legacy's `CommunicationRemoteDataSource.deleteAttachment` calls.
   Future<void> deleteAttachment(int attachmentId);
+
+  /// Full per-recipient-per-persona receipts for one message — see
+  /// [ApiPaths.messagingMessageReceipts]'s doc comment for why this is
+  /// fetched separately from the message list's own lighter `receipts`
+  /// field.
+  Future<List<ReadReceiptEntityDto>> getMessageReceipts(String messageCode);
 }
 
 class MessageEntityRemoteDataSourceImpl
@@ -164,7 +170,9 @@ class MessageEntityRemoteDataSourceImpl
     required String messageCode,
     required String emoji,
   }) async {
-    final endpoint = _url(ApiPaths.messagingMessageReaction(messageCode, emoji));
+    final endpoint = _url(
+      ApiPaths.messagingMessageReaction(messageCode, emoji),
+    );
     await apiClient.client.delete(endpoint);
   }
 
@@ -178,6 +186,25 @@ class MessageEntityRemoteDataSourceImpl
   Future<void> deleteAttachment(int attachmentId) async {
     final endpoint = _url(ApiPaths.messagingAttachmentPath(attachmentId));
     await apiClient.client.delete(endpoint);
+  }
+
+  @override
+  Future<List<ReadReceiptEntityDto>> getMessageReceipts(
+    String messageCode,
+  ) async {
+    final endpoint = _url(ApiPaths.messagingMessageReceipts(messageCode));
+    final response = await apiClient.client.get(endpoint);
+    _assertSuccess(response.data, 'Failed to load message receipts');
+    final data = response.data['data'] as List<dynamic>? ?? [];
+    return data
+        .whereType<Map<String, dynamic>>()
+        .map(
+          (json) => ReadReceiptEntityDto.fromJson(
+            json,
+            fallbackMessageCode: messageCode,
+          ),
+        )
+        .toList();
   }
 
   void _assertSuccess(dynamic data, String fallback) {

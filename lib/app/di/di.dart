@@ -303,6 +303,7 @@ import '../../domain/features/communication/usecases/mark_conversation_read_usec
 import '../../domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
 import '../../domain/features/communication/usecases/get_unread_counts_per_conversation_usecase.dart';
 import '../../domain/features/communication/usecases/get_legacy_unread_counts_per_conversation_usecase.dart';
+import '../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import '../../domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
 import '../../domain/features/communication/usecases/send_message_entity_usecase.dart';
@@ -311,6 +312,7 @@ import '../../domain/features/communication/usecases/mark_draft_message_failed_u
 import '../../domain/features/communication/usecases/edit_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import '../../domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
+import '../../domain/features/communication/usecases/get_message_entity_receipts_usecase.dart';
 import '../../domain/features/communication/usecases/search_messages_usecase.dart';
 import '../../domain/features/communication/usecases/add_reaction_entity_usecase.dart';
 import '../../domain/features/communication/usecases/remove_reaction_usecase.dart';
@@ -1312,6 +1314,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetLegacyUnreadCountsPerConversationUseCase>(
     () => GetLegacyUnreadCountsPerConversationUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetMessageReceiptsUseCase>(
+    () => GetMessageReceiptsUseCase(serviceLocator()),
+  );
   // Single app-session instance — previously each consumer (GlobalScaffold,
   // StaffAttendanceTabbedView, StudentAttendanceTabbedView) constructed its
   // own UnreadBadgeCubit, opening up to 3x the Firestore listeners for the
@@ -1346,6 +1351,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
   serviceLocator.registerFactory<DeleteAttachmentEntityUseCase>(
     () => DeleteAttachmentEntityUseCase(serviceLocator()),
+  );
+  serviceLocator.registerFactory<GetMessageEntityReceiptsUseCase>(
+    () => GetMessageEntityReceiptsUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<SearchMessagesUseCase>(
     () => SearchMessagesUseCase(serviceLocator()),
@@ -1484,9 +1492,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
     ),
   );
   serviceLocator.registerFactory<WorkBreakReminderCubit>(
-    () => WorkBreakReminderCubit(
-      staffRepository: serviceLocator(),
-    ),
+    () => WorkBreakReminderCubit(staffRepository: serviceLocator()),
   );
   serviceLocator.registerFactory<DashboardAttentionCubit>(
     () => DashboardAttentionCubit(
@@ -1727,6 +1733,7 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<DiscardCachedMessageUseCase>(),
       getUnreadCountsPerConversationUseCase:
           serviceLocator<GetLegacyUnreadCountsPerConversationUseCase>(),
+      getMessageReceiptsUseCase: serviceLocator<GetMessageReceiptsUseCase>(),
     ),
   );
 
@@ -1916,11 +1923,12 @@ Future<void> configureDependencies({String? baseUrl}) async {
   );
 
   // Notification preferences (settings screen) — GET/PATCH /preferences/groups.
-  serviceLocator.registerLazySingleton<NotificationPreferenceGroupsRemoteDataSource>(
-    () => NotificationPreferenceGroupsRemoteDataSourceImpl(
-      serviceLocator<ApiClient>().client,
-    ),
-  );
+  serviceLocator
+      .registerLazySingleton<NotificationPreferenceGroupsRemoteDataSource>(
+        () => NotificationPreferenceGroupsRemoteDataSourceImpl(
+          serviceLocator<ApiClient>().client,
+        ),
+      );
   serviceLocator.registerLazySingleton<NotificationPreferenceGroupsRepository>(
     () => NotificationPreferenceGroupsRepositoryImpl(serviceLocator()),
   );

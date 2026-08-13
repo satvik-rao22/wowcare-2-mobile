@@ -139,7 +139,9 @@ class MessageEntityCollection {
           .map(
             (r) => MessageReactionEntityCollection()
               ..userCode = r.userCode
-              ..emoji = r.emoji,
+              ..emoji = r.emoji
+              ..role = r.role
+              ..userName = r.userName,
           )
           .toList()
       ..organizationCode = entity.organizationCode
@@ -174,7 +176,14 @@ class MessageEntityCollection {
       attachments: attachments?.map((e) => e.toEntity()).toList() ?? [],
       readReceipts: readReceipts?.map((e) => e.toEntity()).toList() ?? [],
       reactions: (reactions ?? [])
-          .map((r) => ReactionEntry(userCode: r.userCode, emoji: r.emoji))
+          .map(
+            (r) => ReactionEntry(
+              userCode: r.userCode,
+              emoji: r.emoji,
+              role: r.role,
+              userName: r.userName,
+            ),
+          )
           .toList(),
       organizationCode: organizationCode,
       schoolCode: schoolCode,
@@ -257,6 +266,10 @@ class ReadReceiptEntityCollection {
   DateTime? deliveredAt;
   DateTime? readAt;
 
+  /// Raw backend role string (e.g. "STAFF") the recipient was acting AS —
+  /// see [ReadReceiptEntity.role].
+  String? role;
+
   ReadReceiptEntityCollection();
 
   factory ReadReceiptEntityCollection.fromEntity(ReadReceiptEntity entity) {
@@ -265,7 +278,8 @@ class ReadReceiptEntityCollection {
       ..userCode = entity.userCode
       ..userName = entity.userName
       ..deliveredAt = entity.deliveredAt
-      ..readAt = entity.readAt;
+      ..readAt = entity.readAt
+      ..role = entity.role;
   }
 
   ReadReceiptEntity toEntity() {
@@ -275,6 +289,7 @@ class ReadReceiptEntityCollection {
       userName: userName,
       deliveredAt: deliveredAt,
       readAt: readAt,
+      role: role,
     );
   }
 }
@@ -283,4 +298,11 @@ class ReadReceiptEntityCollection {
 class MessageReactionEntityCollection {
   late String userCode;
   late String emoji;
+
+  /// Raw backend role string (e.g. "STAFF") the reactor was acting AS —
+  /// see [ReactionEntry.role].
+  String? role;
+
+  /// The reactor's display name — see [ReactionEntry.userName].
+  String? userName;
 }

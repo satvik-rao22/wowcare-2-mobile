@@ -74,6 +74,7 @@ class EntityMessageTile extends StatelessWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onReactionsInfoTap,
     this.isParentMessaging = false,
     this.senderIsOrgSide,
     this.viewerIsOrgSide,
@@ -95,6 +96,7 @@ class EntityMessageTile extends StatelessWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+  final VoidCallback? onReactionsInfoTap;
   final bool isParentMessaging;
 
   /// See [MessageBubble.senderIsOrgSide].
@@ -177,6 +179,7 @@ class EntityMessageTile extends StatelessWidget {
           onReactionAdded: onReactionAdded,
           onRemoveReaction: onRemoveReaction,
           onReactionTap: onReactionTap,
+          onReactionsInfoTap: onReactionsInfoTap,
           onRetry:
               (snapshot.message.isFailed ||
                   snapshot.message.hasProcessingAttachments)

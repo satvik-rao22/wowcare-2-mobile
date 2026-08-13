@@ -26,6 +26,7 @@ import '../../../../domain/features/communication/usecases/mark_conversation_rea
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_legacy_unread_counts_per_conversation_usecase.dart';
+import '../../../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
@@ -60,6 +61,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final DiscardCachedMessageUseCase discardCachedMessageUseCase;
   final GetLegacyUnreadCountsPerConversationUseCase
   getUnreadCountsPerConversationUseCase;
+  final GetMessageReceiptsUseCase getMessageReceiptsUseCase;
 
   CommunicationCubit({
     required this.getMessagesUseCase,
@@ -83,7 +85,21 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.cacheMessageUseCase,
     required this.discardCachedMessageUseCase,
     required this.getUnreadCountsPerConversationUseCase,
+    required this.getMessageReceiptsUseCase,
   }) : super(CommunicationInitial());
+
+  /// Fetches the full per-recipient-per-persona receipts for one message
+  /// on-demand — see [GetMessageReceiptsUseCase]. Returns empty lists on
+  /// failure rather than surfacing an error state, since this backs a
+  /// dialog the user can simply close and retry.
+  Future<({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})>
+  fetchMessageReceipts(String messageCode) async {
+    final result = await getMessageReceiptsUseCase(messageCode);
+    return result.fold(
+      (_) => (deliveredTo: <RecipientStatus>[], readBy: <RecipientStatus>[]),
+      (receipts) => receipts,
+    );
+  }
 
   /// Marks a conversation as read via the API so the unread badge and count
   /// clear immediately for the current user. Called by screens when they open
@@ -227,8 +243,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             ]);
             newThreads[threadId] = mergedMessages;
             final int debugPrevCount = currentMessages.length;
-            final draftsInMerged =
-                mergedMessages.where((m) => m.isSending || m.isFailed).toList();
+            final draftsInMerged = mergedMessages
+                .where((m) => m.isSending || m.isFailed)
+                .toList();
             AppLogger.i(
               '[DRAFT SEED] startWatchingThread threadId=$threadId — '
               'incomingFromStream=${messages.length}, stillPending=${stillPending.length}, '
@@ -684,8 +701,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     cacheResult.fold(
       (_) => null, // Ignore cache errors
       (cachedMessages) {
-        cachedDrafts =
-            cachedMessages.where((m) => m.isSending || m.isFailed).toList();
+        cachedDrafts = cachedMessages
+            .where((m) => m.isSending || m.isFailed)
+            .toList();
         AppLogger.i(
           '[DRAFT SEED] loadMessages threadId=$threadId — '
           'cachedTotal=${cachedMessages.length}, drafts=${cachedDrafts.length}, '
@@ -697,7 +715,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           // refresh may not have landed its draft write to Isar yet — the
           // in-memory version (see _preserveInFlightSend) is still the most
           // current one for that narrow window.
-          newThreads[threadId] = _preserveInFlightSend(threadId, cachedMessages);
+          newThreads[threadId] = _preserveInFlightSend(
+            threadId,
+            cachedMessages,
+          );
           emit(
             CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
           );
@@ -763,7 +784,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // remote fetch was in flight is the most up-to-date source, and
         // must win over this now-slightly-stale API response.
         final withCachedDrafts = [...messages, ...unconfirmedDrafts];
-        final sortedMessages = _preserveInFlightSend(threadId, withCachedDrafts);
+        final sortedMessages = _preserveInFlightSend(
+          threadId,
+          withCachedDrafts,
+        );
         newThreads[threadId] = sortedMessages;
         emit(
           CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
@@ -992,7 +1016,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // instant the send confirms — the image was there right up until
         // the checkmark appeared, then vanished. Keep what we already know
         // is right: the attachments we just finished uploading.
-        final confirmed = sentMessage.attachments.isEmpty &&
+        final confirmed =
+            sentMessage.attachments.isEmpty &&
                 messageToSend.attachments.isNotEmpty
             ? sentMessage.copyWith(attachments: messageToSend.attachments)
             : sentMessage;
@@ -1078,7 +1103,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     }
     failedThreads[threadId] = threadMessages;
     emit(CommunicationError(errorMessage));
-    emit(latestState.copyWith(threads: failedThreads, activeThreadId: threadId));
+    emit(
+      latestState.copyWith(threads: failedThreads, activeThreadId: threadId),
+    );
     // Persist the failed state too — otherwise a failed-but-not-retried
     // draft (attachments un-uploaded, message never confirmed) reverts to
     // whatever was cached by the last successful `sendMessage` write (i.e.
@@ -1101,9 +1128,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final retryingThreads = Map<String, List<Message>>.from(
       currentState.threads,
     );
-    final threadMessages = List<Message>.from(
-      retryingThreads[threadId] ?? [],
-    );
+    final threadMessages = List<Message>.from(retryingThreads[threadId] ?? []);
     final idx = threadMessages.indexWhere((m) => m.id == message.id);
     if (idx != -1) {
       threadMessages[idx] = retrying;
@@ -1113,10 +1138,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     retryingThreads[threadId] = threadMessages;
 
     emit(
-      CommunicationSending(
-        threads: retryingThreads,
-        activeThreadId: threadId,
-      ),
+      CommunicationSending(threads: retryingThreads, activeThreadId: threadId),
     );
     await cacheMessageUseCase(threadId, retrying);
 
@@ -1200,29 +1222,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
                 ...m.reactions,
                 ReactionEntry(userCode: reactionKey, emoji: emoji),
               ];
-        return Message(
-          id: m.id,
-          code: m.code,
-          text: m.text,
-          isSentByMe: m.isSentByMe,
-          time: m.time,
-          deliveredAt: m.deliveredAt,
-          readAt: m.readAt,
-          editedAt: m.editedAt,
-          deliveredTo: m.deliveredTo,
-          readBy: m.readBy,
-          reactions: newReactions,
-          quotedMessageId: m.quotedMessageId,
-          attachments: m.attachments,
-          senderName: m.senderName,
-          senderUserCode: m.senderUserCode,
-          receivers: m.receivers,
-          // Preserve private-mode metadata across optimistic rebuilds —
-          // dropping these made a private message lose isPrivate on
-          // react/edit and jump into the Group tab.
-          isPrivate: m.isPrivate,
-          privateParentUserCode: m.privateParentUserCode,
-        );
+        // copyWith preserves every other field (senderRole included) —
+        // the previous manual Message(...) reconstruction here listed
+        // fields individually and silently dropped senderRole, which
+        // _isOrgSideSender() relies on for alignment; losing it made the
+        // bubble fall back to an ambiguous participant-list guess for a
+        // dual-role sender and jump sides on every reaction.
+        return m.copyWith(reactions: newReactions);
       }
       return m;
     }).toList();
@@ -1256,30 +1262,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
 
     final updatedMessages = threadMessages.map((m) {
       if (m.code == messageCode) {
-        return Message(
-          id: m.id,
-          code: m.code,
+        // copyWith preserves every other field (senderRole included) — see
+        // the same note in addReaction above.
+        return m.copyWith(
           text: content,
-          isSentByMe: m.isSentByMe,
-          time: m.time,
-          deliveredAt: m.deliveredAt,
-          readAt: m.readAt,
           editedAt: SchoolZoneDateTime.utcNowInSchool(
             SchoolTimezoneResolver.lastKnownTimeZone,
           ),
-          deliveredTo: m.deliveredTo,
-          readBy: m.readBy,
-          reactions: m.reactions,
-          quotedMessageId: m.quotedMessageId,
-          attachments: m.attachments,
-          senderName: m.senderName,
-          senderUserCode: m.senderUserCode,
-          receivers: m.receivers,
-          // Preserve private-mode metadata across optimistic rebuilds —
-          // dropping these made a private message lose isPrivate on
-          // react/edit and jump into the Group tab.
-          isPrivate: m.isPrivate,
-          privateParentUserCode: m.privateParentUserCode,
         );
       }
       return m;
@@ -1402,29 +1391,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         final newReactions = m.reactions
             .where((r) => !(r.matchesUser(reactionKey) && r.emoji == emoji))
             .toList();
-        return Message(
-          id: m.id,
-          code: m.code,
-          text: m.text,
-          isSentByMe: m.isSentByMe,
-          time: m.time,
-          deliveredAt: m.deliveredAt,
-          readAt: m.readAt,
-          editedAt: m.editedAt,
-          deliveredTo: m.deliveredTo,
-          readBy: m.readBy,
-          reactions: newReactions,
-          quotedMessageId: m.quotedMessageId,
-          attachments: m.attachments,
-          senderName: m.senderName,
-          senderUserCode: m.senderUserCode,
-          receivers: m.receivers,
-          // Preserve private-mode metadata across optimistic rebuilds —
-          // dropping these made a private message lose isPrivate on
-          // react/edit and jump into the Group tab.
-          isPrivate: m.isPrivate,
-          privateParentUserCode: m.privateParentUserCode,
-        );
+        // copyWith preserves every other field (senderRole included) — see
+        // the same note in addReaction above.
+        return m.copyWith(reactions: newReactions);
       }
       return m;
     }).toList();

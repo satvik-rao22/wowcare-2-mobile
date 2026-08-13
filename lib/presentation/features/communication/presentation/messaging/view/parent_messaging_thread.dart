@@ -35,6 +35,7 @@ import 'package:wowcare/presentation/features/communication/shared/utils/chat_sc
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import '../widgets/thread_message_tile.dart';
@@ -946,6 +947,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         );
                       },
                       onReactionTap: () => _showEmojiPicker(context, message),
+                      onReactionsInfoTap: () =>
+                          _showReactionInfoDialog(context, message),
                       isGrouped: isGrouped,
                     ),
                   ],
@@ -1353,6 +1356,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 context,
                                                                 message,
                                                               ),
+                                                          onReactionsInfoTap: () =>
+                                                              _showReactionInfoDialog(
+                                                                context,
+                                                                message,
+                                                              ),
                                                           isGrouped: isGrouped,
                                                         ),
                                                       ],
@@ -1670,6 +1678,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                           },
                                                           onReactionTap: () =>
                                                               _showEmojiPicker(
+                                                                context,
+                                                                message,
+                                                              ),
+                                                          onReactionsInfoTap: () =>
+                                                              _showReactionInfoDialog(
                                                                 context,
                                                                 message,
                                                               ),
@@ -2002,6 +2015,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                 context,
                                                                 message,
                                                               ),
+                                                          onReactionsInfoTap: () =>
+                                                              _showReactionInfoDialog(
+                                                                context,
+                                                                message,
+                                                              ),
                                                           isGrouped: isGrouped,
                                                         ),
                                                       ],
@@ -2072,6 +2090,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               onSend: _sendMessage,
                               onAttachmentTap: _showAttachmentSheet,
                               isSending: state is CommunicationSending,
+                              enabled: !_noActiveGuardian,
+                              disabledMessage:
+                                  'No active parent or guardian is available '
+                                  'in this conversation. You can no longer '
+                                  'send messages.',
                               showCharCounter: true,
                               pendingAttachments: _pendingAttachments,
                               quotedMessage: _quotedMessage,
@@ -2436,6 +2459,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     context,
                                                                     message,
                                                                   ),
+                                                              onReactionsInfoTap:
+                                                                  () =>
+                                                                      _showReactionInfoDialog(
+                                                                        context,
+                                                                        message,
+                                                                      ),
                                                               isGrouped:
                                                                   isGrouped,
                                                             ),
@@ -2765,6 +2794,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     context,
                                                                     message,
                                                                   ),
+                                                              onReactionsInfoTap:
+                                                                  () =>
+                                                                      _showReactionInfoDialog(
+                                                                        context,
+                                                                        message,
+                                                                      ),
                                                               isGrouped:
                                                                   isGrouped,
                                                             ),
@@ -3104,6 +3139,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                                     context,
                                                                     message,
                                                                   ),
+                                                              onReactionsInfoTap:
+                                                                  () =>
+                                                                      _showReactionInfoDialog(
+                                                                        context,
+                                                                        message,
+                                                                      ),
                                                               isGrouped:
                                                                   isGrouped,
                                                             ),
@@ -3171,6 +3212,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             focusNode: _inputFocusNode,
                             onSend: _sendMessage,
                             onAttachmentTap: _showAttachmentSheet,
+                            enabled: !_noActiveGuardian,
+                            disabledMessage:
+                                'No active parent or guardian is available '
+                                'in this conversation. You can no longer '
+                                'send messages.',
                             showCharCounter: true,
                             pendingAttachments: _pendingAttachments,
                             quotedMessage: _quotedMessage,
@@ -3377,6 +3423,19 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     if (mine.isEmpty) return true;
     return mine.first.isActive;
   }
+
+  /// True when staff/admin is viewing this Room Chat but every guardian has
+  /// left/been removed — no one is left on the parent side to receive a new
+  /// message. A guardian's OWN view is unaffected (their own active status
+  /// is enforced by [_amIActiveParticipant] instead) — this only gates the
+  /// staff/admin side. Mirrors `ConversationThreadScreen._noActiveGuardian`.
+  bool get _noActiveGuardian =>
+      !widget.isGuardian &&
+      !_participants.any(
+        (p) =>
+            ParticipantRole.fromApiString(p.role) == ParticipantRole.parent &&
+            p.isActive,
+      );
 
   /// Fetches the current conversation fresh from the backend and replaces
   /// [_refreshedParticipants] with whatever it actually returns — the
@@ -3917,30 +3976,17 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
   }
 
-  /// Resolves a receipt to a display name + role + avatar. Realtime receipts
-  /// carry an empty [RecipientStatus.name] (no display name at that layer),
-  /// so fall back to the conversation participant list keyed by user code.
-  ({String name, String? role, String? avatarUrl}) _resolveRecipientInfo(
-    RecipientStatus r,
-  ) {
-    final code = r.userId;
-    if (code != null && code.isNotEmpty) {
-      final match = _participants.where((p) => p.userCode == code).firstOrNull;
-      if (match != null) {
-        final name = match.userName.trim().isNotEmpty
-            ? match.userName.trim()
-            : (code == _currentUserCode ? 'You' : 'Participant');
-        return (name: name, role: match.role, avatarUrl: match.avatarUrl);
-      }
-      if (code == _currentUserCode) {
-        return (name: 'You', role: null, avatarUrl: null);
-      }
-    }
-    return (
-      name: r.name.trim().isNotEmpty ? r.name.trim() : 'Participant',
-      role: null,
-      avatarUrl: null,
-    );
+  /// Avatar for [code] — the only thing the receipt/reaction row itself
+  /// doesn't carry. A dual-role account's two participant rows share the
+  /// same photo in practice, so an unqualified first match is fine here;
+  /// name and role come straight off the row (see [_toInfoRecipient] /
+  /// [_showReactionInfoDialog]) rather than being guessed from participants.
+  String? _avatarForCode(String? code) {
+    if (code == null || code.isEmpty) return null;
+    return _participants
+        .where((p) => p.userCode == code)
+        .firstOrNull
+        ?.avatarUrl;
   }
 
   MessageInfoRecipient _toInfoRecipient(
@@ -3948,33 +3994,94 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     DateTime? deliveredAt,
     DateTime? readAt,
   }) {
-    final info = _resolveRecipientInfo(r);
+    final code = r.userId;
+    final isMe = code != null && code.isNotEmpty && code == _currentUserCode;
+    final name = r.name.trim().isNotEmpty
+        ? r.name.trim()
+        : (isMe ? 'You' : 'Participant');
     return MessageInfoRecipient(
-      name: info.name,
-      role: info.role,
-      avatarSource: info.avatarUrl,
+      name: name,
+      role: r.role,
+      avatarSource: _avatarForCode(code),
       deliveredAt: deliveredAt,
       readAt: readAt,
     );
   }
 
+  void _showReactionInfoDialog(BuildContext context, Message message) {
+    final people = message.reactions.map((r) {
+      final code = r.userCode;
+      final isMe = code == _currentUserCode;
+      // "You" only when this reaction was placed under the SAME persona
+      // this screen is currently viewing as — a dual-role account (e.g.
+      // guardian + admin) reacting under its OTHER persona isn't "you" in
+      // the sense this dialog means, even though it's the same account.
+      final roleMatchesCurrentPersona = r.role == null || r.role!.trim().isEmpty
+          ? true
+          : (ParticipantRole.fromApiString(r.role!) ==
+                    ParticipantRole.parent) ==
+                widget.isGuardian;
+      final showAsYou = isMe && roleMatchesCurrentPersona;
+
+      String name;
+      if (showAsYou) {
+        name = 'You';
+      } else if (r.userName?.trim().isNotEmpty == true) {
+        name = r.userName!.trim();
+      } else {
+        // Same account, different persona than the one being viewed — we
+        // know the EXACT role from r.role (not a guess), so look up that
+        // specific persona's participant row instead of a generic label.
+        final roleMatch = _participants
+            .where(
+              (p) =>
+                  p.userCode == code &&
+                  r.role != null &&
+                  ParticipantRole.fromApiString(p.role) ==
+                      ParticipantRole.fromApiString(r.role!),
+            )
+            .firstOrNull;
+        name = roleMatch?.userName.trim().isNotEmpty == true
+            ? roleMatch!.userName.trim()
+            : 'Participant';
+      }
+
+      return ReactionPerson(
+        emoji: r.emoji,
+        name: name,
+        role: r.role,
+        avatarSource: _avatarForCode(code),
+      );
+    }).toList();
+
+    ReactionInfoDialog.show(context, reactions: people);
+  }
+
   void _showMessageStatusDialog(BuildContext context, Message message) {
-    final readCodes = message.readBy
-        .map((r) => r.userId)
-        .whereType<String>()
-        .toSet();
-    final recipients = <MessageInfoRecipient>[
-      for (final r in message.readBy)
-        _toInfoRecipient(r, readAt: r.timestamp),
-      for (final r in message.deliveredTo)
-        if (r.userId == null || !readCodes.contains(r.userId))
+    // Fetch fresh from the dedicated per-message receipts endpoint — the
+    // message's own embedded receipts field is a lighter shape that
+    // doesn't reliably carry userName/role. Capture the cubit before
+    // entering the dialog builder, same reasoning as _showEmojiPicker.
+    final cubit = context.read<CommunicationCubit>();
+    Future<List<MessageInfoRecipient>> fetchRecipients() async {
+      final receipts = await cubit.fetchMessageReceipts(message.code);
+      // Rows are already mutually exclusive per-row (see
+      // MessageModel._parseRecipientStatuses) — a dual-role account can
+      // legitimately appear in BOTH lists at once under its two different
+      // personas (e.g. delivered-only as Admin, separately read as
+      // Guardian), so no further cross-row dedup by userCode belongs here.
+      return [
+        for (final r in receipts.readBy)
+          _toInfoRecipient(r, readAt: r.timestamp),
+        for (final r in receipts.deliveredTo)
           _toInfoRecipient(r, deliveredAt: r.timestamp),
-    ];
+      ];
+    }
 
     MessageInfoDialog.show(
       context,
       messageText: message.text,
-      recipients: recipients,
+      recipientsFuture: fetchRecipients(),
     );
   }
 }

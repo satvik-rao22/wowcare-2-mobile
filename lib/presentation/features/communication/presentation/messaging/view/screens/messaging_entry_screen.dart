@@ -48,7 +48,15 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isParent = context.watch<RoleCubit>().isParent;
+    final roleCubit = context.watch<RoleCubit>();
+    final isParent = roleCubit.isParent;
+    // `RoleCubit.isAdmin` conflates staff into "admin" (role == 'admin' ||
+    // role == 'staff') — use `isStaff` directly to tell a true admin/
+    // director apart from staff for the Admin Chat button below, which
+    // staff must NOT see (Admin: Staff, Admin, Students, Classroom Notes.
+    // Staff: Staff, Students, Classroom Notes — no Admin. Parent: Admin,
+    // Staff).
+    final isStaff = roleCubit.isStaff;
     final responsive = ResponsiveHelper(context);
 
     return SafeArea(
@@ -108,7 +116,10 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                       if (!isParent) ...[
                         CommunicationLauncherButton(
                           label: 'Staff',
-                          iconAsset: MediaRes.staffMessaging,
+                          // Same chat-bubble icon as the Admin/Students
+                          // buttons below, not the people/avatars icon —
+                          // every launcher button uses one consistent icon.
+                          iconAsset: MediaRes.chatsIcon,
                           unreadCount: unread.unreadFor(
                             ConversationType.staffDirect,
                           ),
@@ -125,27 +136,37 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                       Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Expanded(
-                            child: CommunicationLauncherButton(
-                              label: 'Admin',
-                              iconAsset: MediaRes.chatsIcon,
-                              unreadCount: unread.unreadFor(
-                                ConversationType.adminChat,
+                          // Hidden for pure Staff — Admin Chat is
+                          // admin/director + parent only.
+                          if (!isStaff) ...[
+                            Expanded(
+                              child: CommunicationLauncherButton(
+                                label: 'Admin',
+                                iconAsset: MediaRes.chatsIcon,
+                                unreadCount: unread.unreadFor(
+                                  ConversationType.adminChat,
+                                ),
+                                iconSize: responsive.isTablet ? 30 : 26,
+                                fontSize: responsive.labelFontSize + 2,
+                                verticalPadding: responsive.isTablet ? 26 : 22,
+                                horizontalPadding: 12,
+                                onTap: () {
+                                  Navigator.of(context).pop();
+                                  context.push(AppRoutes.adminChat);
+                                },
                               ),
-                              iconSize: responsive.isTablet ? 30 : 26,
-                              fontSize: responsive.labelFontSize + 2,
-                              verticalPadding: responsive.isTablet ? 26 : 22,
-                              horizontalPadding: 12,
-                              onTap: () {
-                                Navigator.of(context).pop();
-                                context.push(AppRoutes.adminChat);
-                              },
                             ),
-                          ),
-                          SizedBox(width: responsive.horizontalSpacing),
+                            SizedBox(width: responsive.horizontalSpacing),
+                          ],
                           Expanded(
                             child: CommunicationLauncherButton(
-                              label: 'Student',
+                              // Same Room Chat surface either way — from
+                              // staff/admin's side it's a room full of
+                              // students (+their guardians); from a
+                              // guardian's side it's their channel to their
+                              // child's staff, so it reads as "Staff" there
+                              // instead of "Students".
+                              label: isParent ? 'Staff' : 'Students',
                               iconAsset: MediaRes.chatsIcon,
                               unreadCount: unread.unreadFor(
                                 ConversationType.roomChat,

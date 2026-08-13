@@ -344,6 +344,18 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
     }
   }
 
+  @override
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  ) async {
+    try {
+      final dtos = await _remote.getMessageReceipts(messageCode);
+      return Right(dtos.map((d) => d.toEntity()).toList());
+    } catch (e) {
+      return Left(NetworkFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
   // ─── Reactions ───────────────────────────────────────────────────────────────
   // Delegated to the single, shared ReactionRepository implementation so
   // every messaging surface goes through the same optimistic-update +
@@ -511,11 +523,22 @@ class MessageEntityRepositoryImpl implements MessageEntityRepository {
         : await _schoolCode;
     final user = await _currentUserCode;
 
-    final roleJson = (await _storage.getString(StorageKeys.roles) ?? '').toUpperCase();
-    final activeRole = (await _storage.getString(StorageKeys.activeSchoolRole) ?? '').toUpperCase();
-    
-    final isStaff = activeRole == 'STAFF' || activeRole == 'TEACHER' || (activeRole.isEmpty && (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
-    final isAdmin = activeRole.contains('ADMIN') || activeRole.contains('DIRECTOR') || (activeRole.isEmpty && (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
+    final roleJson = (await _storage.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
+    final activeRole =
+        (await _storage.getString(StorageKeys.activeSchoolRole) ?? '')
+            .toUpperCase();
+
+    final isStaff =
+        activeRole == 'STAFF' ||
+        activeRole == 'TEACHER' ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin =
+        activeRole.contains('ADMIN') ||
+        activeRole.contains('DIRECTOR') ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* _realtime.watchMessages(
       organizationCode: org,

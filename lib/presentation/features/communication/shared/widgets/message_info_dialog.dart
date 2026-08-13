@@ -33,26 +33,34 @@ class MessageInfoRecipient {
 /// Chat alike. A recipient who has read the message is shown only under
 /// "Read By" — never duplicated under "Delivered To" — since a read implies
 /// delivery.
+///
+/// [recipientsFuture] is fetched fresh on every open (the dedicated
+/// per-message receipts endpoint — see `ApiPaths.messagingMessageReceipts`)
+/// rather than reusing whatever the message's own embedded, lighter
+/// `receipts` field already had cached, so the dialog shows a brief loading
+/// state while that request is in flight.
 class MessageInfoDialog extends StatelessWidget {
   const MessageInfoDialog({
     super.key,
     required this.messageText,
-    required this.recipients,
+    required this.recipientsFuture,
   });
 
   final String messageText;
-  final List<MessageInfoRecipient> recipients;
+  final Future<List<MessageInfoRecipient>> recipientsFuture;
 
   static Future<void> show(
     BuildContext context, {
     required String messageText,
-    required List<MessageInfoRecipient> recipients,
+    required Future<List<MessageInfoRecipient>> recipientsFuture,
   }) {
     return showDialog(
       context: context,
       barrierColor: Colors.black45,
-      builder: (_) =>
-          MessageInfoDialog(messageText: messageText, recipients: recipients),
+      builder: (_) => MessageInfoDialog(
+        messageText: messageText,
+        recipientsFuture: recipientsFuture,
+      ),
     );
   }
 
@@ -72,11 +80,6 @@ class MessageInfoDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final readBy = recipients.where((r) => r.isRead).toList();
-    final deliveredOnly = recipients
-        .where((r) => !r.isRead && r.deliveredAt != null)
-        .toList();
-
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
@@ -161,39 +164,69 @@ class MessageInfoDialog extends StatelessWidget {
                     ),
                     const SizedBox(height: 20),
                   ],
-                  _SectionLabel(
-                    label: 'Read By (${readBy.length})',
+                  FutureBuilder<List<MessageInfoRecipient>>(
+                    future: recipientsFuture,
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState != ConnectionState.done) {
+                        return const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: SizedBox(
+                              width: 22,
+                              height: 22,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2.4,
+                                color: AppColors.primaryColor,
+                              ),
+                            ),
+                          ),
+                        );
+                      }
+                      final recipients = snapshot.data ?? const [];
+                      final readBy = recipients.where((r) => r.isRead).toList();
+                      final deliveredOnly = recipients
+                          .where((r) => !r.isRead && r.deliveredAt != null)
+                          .toList();
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _SectionLabel(label: 'Read By (${readBy.length})'),
+                          const SizedBox(height: 8),
+                          if (readBy.isEmpty)
+                            const _EmptyNote(
+                              text: 'No one has read this message yet.',
+                            )
+                          else
+                            ...readBy.map(
+                              (r) => _RecipientTile(
+                                recipient: r,
+                                timestamp: r.readAt,
+                                icon: Icons.done_all_rounded,
+                                iconColor: const Color(0xFF2ECC71),
+                              ),
+                            ),
+                          const SizedBox(height: 16),
+                          _SectionLabel(
+                            label: 'Delivered To (${deliveredOnly.length})',
+                          ),
+                          const SizedBox(height: 8),
+                          if (deliveredOnly.isEmpty)
+                            const _EmptyNote(text: 'Not yet delivered.')
+                          else
+                            ...deliveredOnly.map(
+                              (r) => _RecipientTile(
+                                recipient: r,
+                                timestamp: r.deliveredAt,
+                                icon: Icons.check_circle_outline_rounded,
+                                iconColor: AppColors.primaryColor.withValues(
+                                  alpha: 0.5,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(height: 8),
-                  if (readBy.isEmpty)
-                    const _EmptyNote(text: 'No one has read this message yet.')
-                  else
-                    ...readBy.map(
-                      (r) => _RecipientTile(
-                        recipient: r,
-                        timestamp: r.readAt,
-                        icon: Icons.done_all_rounded,
-                        iconColor: const Color(0xFF2ECC71),
-                      ),
-                    ),
-                  const SizedBox(height: 16),
-                  _SectionLabel(
-                    label: 'Delivered To (${deliveredOnly.length})',
-                  ),
-                  const SizedBox(height: 8),
-                  if (deliveredOnly.isEmpty)
-                    const _EmptyNote(text: 'Not yet delivered.')
-                  else
-                    ...deliveredOnly.map(
-                      (r) => _RecipientTile(
-                        recipient: r,
-                        timestamp: r.deliveredAt,
-                        icon: Icons.check_circle_outline_rounded,
-                        iconColor: AppColors.primaryColor.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
-                    ),
                 ],
               ),
             ),
@@ -285,9 +318,7 @@ class _RecipientTile extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryColor.withValues(
-                            alpha: 0.08,
-                          ),
+                          color: AppColors.primaryColor.withValues(alpha: 0.08),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text(

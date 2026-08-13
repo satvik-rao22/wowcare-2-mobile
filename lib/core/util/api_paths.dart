@@ -983,6 +983,15 @@ class ApiPaths {
   // Per new contract: POST /api/v1/messages/{code}/receipts/read
   static String messagingMessageRead(String code) =>
       '$messages/$code/receipts/read';
+  // GET /api/v1/messaging/messages/{code}/receipts — full per-recipient-
+  // per-persona receipt rows (userCode, userName, userRole/role,
+  // deliveredAt, readAt). A dual-role account (e.g. staff who's also a
+  // guardian) gets one row per persona here; the message list endpoint's
+  // own embedded `receipts` field is a lighter shape that doesn't reliably
+  // carry userName/role, so the Message Info dialog fetches this endpoint
+  // directly instead of trusting the embedded data.
+  static String messagingMessageReceipts(String code) =>
+      '$messages/$code/receipts';
   // GET messages for a conversation
   static String messagesForConversation(String conversationCode) =>
       '$messages/conversation/$conversationCode';

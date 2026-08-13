@@ -86,7 +86,9 @@ class MessageCollection {
           .map(
             (r) => MessageReactionCollection()
               ..userId = r.userCode
-              ..emoji = r.emoji,
+              ..emoji = r.emoji
+              ..role = r.role
+              ..userName = r.userName,
           )
           .toList();
   }
@@ -125,8 +127,8 @@ class MessageCollection {
       // private even if the cached isPrivate flag was never set (older rows /
       // any write path that stored the code but not the flag). Keeps private
       // messages out of the Group tab.
-      isPrivate: (isPrivate ?? false) ||
-          ((privateParentUserCode ?? '').isNotEmpty),
+      isPrivate:
+          (isPrivate ?? false) || ((privateParentUserCode ?? '').isNotEmpty),
       privateParentUserCode: privateParentUserCode,
       isSending: isSending ?? false,
       isFailed: isFailed ?? false,
@@ -135,7 +137,14 @@ class MessageCollection {
       readBy: readBy?.map((e) => e.toEntity()).toList() ?? [],
       attachments: attachments?.map((e) => e.toEntity()).toList() ?? [],
       reactions: (reactions ?? [])
-          .map((r) => ReactionEntry(userCode: r.userId, emoji: r.emoji))
+          .map(
+            (r) => ReactionEntry(
+              userCode: r.userId,
+              emoji: r.emoji,
+              role: r.role,
+              userName: r.userName,
+            ),
+          )
           .toList(),
     );
   }
@@ -145,6 +154,13 @@ class MessageCollection {
 class MessageReactionCollection {
   late String userId;
   late String emoji;
+
+  /// Raw backend role string (e.g. "STAFF") the reactor was acting AS —
+  /// see [ReactionEntry.role].
+  String? role;
+
+  /// The reactor's display name — see [ReactionEntry.userName].
+  String? userName;
 }
 
 @embedded
@@ -153,17 +169,27 @@ class RecipientStatusCollection {
   String? userId;
   DateTime? timestamp;
 
+  /// Raw backend role string (e.g. "STAFF") the recipient was acting AS —
+  /// see [RecipientStatus.role].
+  String? role;
+
   RecipientStatusCollection();
 
   factory RecipientStatusCollection.fromEntity(RecipientStatus status) {
     return RecipientStatusCollection()
       ..name = status.name
       ..userId = status.userId
-      ..timestamp = status.timestamp;
+      ..timestamp = status.timestamp
+      ..role = status.role;
   }
 
   RecipientStatus toEntity() {
-    return RecipientStatus(name: name, userId: userId, timestamp: timestamp);
+    return RecipientStatus(
+      name: name,
+      userId: userId,
+      timestamp: timestamp,
+      role: role,
+    );
   }
 }
 

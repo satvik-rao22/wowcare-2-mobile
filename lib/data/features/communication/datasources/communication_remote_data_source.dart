@@ -6,6 +6,7 @@ import '../models/conversation_model.dart';
 import '../models/create_conversation_response.dart';
 import '../models/get_conversations_response.dart';
 import '../models/message_model.dart';
+import '../../../../domain/features/communication/entities/message.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
@@ -26,6 +27,7 @@ abstract class CommunicationRemoteDataSource {
   Future<ConversationModel> createConversation(
     CreateConversationRequest request,
   );
+
   /// Mirrors the backend's `getConversationsByType` filter contract
   /// (`classroomCodes`, `tagCodes`, `designations`, `studentStatuses`,
   /// `staffStatuses`, `search`) — the same shape the student/staff list
@@ -58,6 +60,14 @@ abstract class CommunicationRemoteDataSource {
   /// `/messages/unread-per-conversation` — confirmed reliable (unlike the
   /// conversation-list endpoint's own `unreadCount` field).
   Future<Map<String, int>> getUnreadCountsPerConversation();
+
+  /// Full per-recipient-per-persona receipts for one message — see
+  /// [ApiPaths.messagingMessageReceipts]'s doc comment for why this is
+  /// fetched separately from the message list's own lighter `receipts`
+  /// field. One network call; [parseRecipientStatuses] splits the same raw
+  /// payload into delivered-only vs read.
+  Future<({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})>
+  getMessageReceipts(String messageCode);
 }
 
 class CommunicationRemoteDataSourceImpl
@@ -85,7 +95,9 @@ class CommunicationRemoteDataSourceImpl
       final List<dynamic> messagesJson =
           (dataMap?['messages'] as List<dynamic>?) ?? [];
       // ignore: avoid_print
-      print('[Messages] conversation=$threadId page=$page received=${messagesJson.length}');
+      print(
+        '[Messages] conversation=$threadId page=$page received=${messagesJson.length}',
+      );
       final messages = messagesJson
           .map(
             (json) => MessageModel.fromJson(
@@ -168,7 +180,9 @@ class CommunicationRemoteDataSourceImpl
     if (response.data != null && response.data['success'] == true) {
       final data = response.data['data'] as Map<String, dynamic>;
       final parsed = MessageModel.fromJson(data);
-      AppLogger.i('[CHAT ATTACHMENT] MESSAGE SENT — code=${parsed.code}, attachmentIds=$attachmentIds');
+      AppLogger.i(
+        '[CHAT ATTACHMENT] MESSAGE SENT — code=${parsed.code}, attachmentIds=$attachmentIds',
+      );
       // The create-message response doesn't echo back resolved attachment
       // objects (the document is still processing asynchronously at this
       // point), so trusting `parsed.attachments` here would make the
@@ -436,7 +450,9 @@ class CommunicationRemoteDataSourceImpl
     );
     final response = await apiClient.client.delete(endpoint);
     if (response.data != null && response.data['success'] != true) {
-      throw Exception(response.data['message'] ?? 'Failed to delete attachment');
+      throw Exception(
+        response.data['message'] ?? 'Failed to delete attachment',
+      );
     }
   }
 
@@ -449,7 +465,8 @@ class CommunicationRemoteDataSourceImpl
     final response = await apiClient.client.get(endpoint);
     if (response.data == null || response.data['success'] != true) {
       throw Exception(
-        response.data?['message'] ?? 'Failed to load per-conversation unread counts',
+        response.data?['message'] ??
+            'Failed to load per-conversation unread counts',
       );
     }
 
@@ -460,7 +477,9 @@ class CommunicationRemoteDataSourceImpl
     // a list of {conversationCode/code, unreadCount} objects.
     if (data is Map) {
       data.forEach((key, value) {
-        final count = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+        final count = value is num
+            ? value.toInt()
+            : int.tryParse('$value') ?? 0;
         result[key as String] = count;
       });
     } else if (data is List) {
@@ -475,5 +494,25 @@ class CommunicationRemoteDataSourceImpl
       }
     }
     return result;
+  }
+
+  @override
+  Future<({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})>
+  getMessageReceipts(String messageCode) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingMessageReceipts(messageCode),
+      ApiConstants.communicationBaseUrl,
+    );
+    final response = await apiClient.client.get(endpoint);
+    if (response.data == null || response.data['success'] != true) {
+      throw Exception(
+        response.data?['message'] ?? 'Failed to load message receipts',
+      );
+    }
+    final receipts = response.data['data'];
+    return (
+      deliveredTo: parseRecipientStatuses(receipts, onlyRead: false),
+      readBy: parseRecipientStatuses(receipts, onlyRead: true),
+    );
   }
 }

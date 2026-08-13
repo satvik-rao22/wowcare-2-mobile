@@ -30,6 +30,7 @@ abstract class CommunicationRepository {
   Future<Either<Failure, Conversation>> createConversation(
     CreateConversationRequest request,
   );
+
   /// [classroomCodes]/[tagCodes] — ROOM_CHAT student filters.
   /// [designations]/[staffStatuses] — STAFF_DIRECT filters. Mirrors the
   /// backend's getConversationsByType query contract exactly.
@@ -58,7 +59,10 @@ abstract class CommunicationRepository {
     int size = 50,
   });
   Future<Either<Failure, List<Conversation>>> loadCachedConversations();
-  Future<Either<Failure, List<Message>>> loadCachedMessages(String threadId, {String? currentUserId});
+  Future<Either<Failure, List<Message>>> loadCachedMessages(
+    String threadId, {
+    String? currentUserId,
+  });
 
   /// Persists [message] (typically a [Message.isSending] or
   /// [Message.isFailed] optimistic bubble) into the local cache immediately —
@@ -98,6 +102,17 @@ abstract class CommunicationRepository {
   /// (unlike the conversation-list endpoint's own `unreadCount` field, which
   /// the backend never actually populates).
   Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation();
+
+  /// Full per-recipient-per-persona receipts for one message, fetched
+  /// on-demand for the Message Info dialog — see
+  /// [ApiPaths.messagingMessageReceipts]'s doc comment.
+  Future<
+    Either<
+      Failure,
+      ({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})
+    >
+  >
+  getMessageReceipts(String messageCode);
 
   /// Realtime delta stream for a conversation's messages, sourced from
   /// Firestore. Never replaces history — every emission is merged into the

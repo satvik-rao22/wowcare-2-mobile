@@ -279,7 +279,14 @@ class MessageFirestoreItem {
               userCode.isNotEmpty &&
               emoji != null &&
               emoji.isNotEmpty) {
-            result.add(ReactionEntry(userCode: userCode, emoji: emoji));
+            result.add(
+              ReactionEntry(
+                userCode: userCode,
+                emoji: emoji,
+                role: (r['role'] ?? r['userRole'])?.toString(),
+                userName: (r['userName'] as String?)?.trim(),
+              ),
+            );
           }
         }
       }

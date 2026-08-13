@@ -635,10 +635,27 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
-  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() async {
+  Future<Either<Failure, Map<String, int>>>
+  getUnreadCountsPerConversation() async {
     try {
       final map = await remoteDataSource.getUnreadCountsPerConversation();
       return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<
+    Either<
+      Failure,
+      ({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})
+    >
+  >
+  getMessageReceipts(String messageCode) async {
+    try {
+      final receipts = await remoteDataSource.getMessageReceipts(messageCode);
+      return Right(receipts);
     } catch (e) {
       return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
     }
@@ -925,7 +942,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                   (r) => RecipientStatusCollection()
                     ..name = r.userName
                     ..userId = r.userCode
-                    ..timestamp = r.deliveredAt,
+                    ..timestamp = r.deliveredAt
+                    ..role = r.role,
                 )
                 .toList()
           : existing?.deliveredTo
@@ -936,7 +954,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                   (r) => RecipientStatusCollection()
                     ..name = r.userName
                     ..userId = r.userCode
-                    ..timestamp = r.readAt,
+                    ..timestamp = r.readAt
+                    ..role = r.role,
                 )
                 .toList()
           : existing?.readBy
@@ -980,7 +999,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                 .map(
                   (r) => MessageReactionCollection()
                     ..userId = r.userCode
-                    ..emoji = r.emoji,
+                    ..emoji = r.emoji
+                    ..role = r.role
+                    ..userName = r.userName,
                 )
                 .toList()
           : existing?.reactions;

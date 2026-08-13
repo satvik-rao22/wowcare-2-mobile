@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:http/http.dart' as http;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:thumbnailer/thumbnailer.dart';
+import 'package:thumbnailer/thumbnailer.dart' show Thumbnailer;
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_open_helper.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_url_resolver.dart';
@@ -49,6 +49,10 @@ class MessageBubble extends StatefulWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+
+  /// Long-press on the reaction badge — shows who reacted (grouped by
+  /// emoji), mirroring [onInfo]'s "Message Info" dialog.
+  final VoidCallback? onReactionsInfoTap;
 
   /// Retries a message that failed to send, or (when it sent fine but an
   /// attachment is still stuck on "Processing") re-polls for the resolved
@@ -102,6 +106,7 @@ class MessageBubble extends StatefulWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onReactionsInfoTap,
     this.onRetry,
     this.isParentMessaging = false,
     this.isInactive = false,
@@ -383,19 +388,6 @@ class _MessageBubbleState extends State<MessageBubble>
   bool _iHaveReaction(String emoji) =>
       widget.message.userHasReaction(widget.currentUserCode ?? '', emoji);
 
-  /// Tapping a specific reaction chip toggles just THAT emoji for the current
-  /// user: remove it if I already reacted with it, otherwise join with it.
-  /// This satisfies "click on an existing reaction should get it deleted"
-  /// without disturbing the user's other emojis.
-  void _handleEmojiChipTap(String emoji) {
-    if (_iHaveReaction(emoji)) {
-      widget.onRemoveReaction?.call(emoji);
-    } else {
-      widget.onReactionAdded?.call(emoji);
-    }
-    HapticFeedback.selectionClick();
-  }
-
   void _handleDoubleTapReaction() {
     if (widget.isDeleted) return;
 
@@ -412,8 +404,8 @@ class _MessageBubbleState extends State<MessageBubble>
     HapticFeedback.mediumImpact();
   }
 
-  /// Tapping the existing reaction badge removes YOUR reaction (toggle off). If
-  /// you haven't reacted, fall back to the old behaviour (focus the input).
+  /// Long-pressing the reaction badge removes YOUR reaction (toggle off). If
+  /// you haven't reacted, opens the reaction line (see [onReactionTap]).
   void _handleExistingReactionTap() {
     final mine = _myReactionEmoji();
     if (mine != null) {
@@ -867,11 +859,11 @@ class _MessageBubbleState extends State<MessageBubble>
                               offset: const Offset(0, -6),
                               child: _AnimatedReactionBadge(
                                 counts: counts,
-                                // Per-chip toggle: tapping a specific emoji
-                                // adds/removes just that emoji for the current
-                                // user. Whole-badge onTap kept as a fallback.
-                                onEmojiTap: _handleEmojiChipTap,
-                                onTap: _handleExistingReactionTap,
+                                // WhatsApp-style: a single tap shows who
+                                // reacted; a long-press opens the reaction
+                                // line to add/change/remove your own.
+                                onTap: widget.onReactionsInfoTap,
+                                onLongPress: _handleExistingReactionTap,
                               ),
                             );
                           },
@@ -1411,6 +1403,33 @@ class _MessageBubbleState extends State<MessageBubble>
     return Uint8List(0);
   }
 
+  /// Reads and validates a LOCAL attachment file's bytes — the remote path
+  /// (above) already guards against undecodable bytes, but the local-file
+  /// path previously had no such guard at all (`File(src).readAsBytes()`
+  /// with no existence check, no empty check, no decode check), so a
+  /// truncated/corrupt/deleted local file threw uncaught or handed garbage
+  /// bytes straight to the renderer.
+  Future<Uint8List> _readLocalImageBytes(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return Uint8List(0);
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return Uint8List(0);
+      final codec = await ui.instantiateImageCodec(bytes);
+      codec.dispose();
+      return bytes;
+    } catch (_) {
+      return Uint8List(0);
+    }
+  }
+
+  Future<Uint8List> _resolveBubbleImageBytes(String src) {
+    final isRemote = src.startsWith('http://') || src.startsWith('https://');
+    return isRemote
+        ? _fetchImageBytesWithRetry(src)
+        : _readLocalImageBytes(src);
+  }
+
   Widget _buildAttachmentsPreview() {
     final attachments = widget.message.attachments;
     if (attachments.isEmpty) return const SizedBox.shrink();
@@ -1550,39 +1569,13 @@ class _MessageBubbleState extends State<MessageBubble>
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: hasSource
-                            ? Thumbnail(
-                                mimeType: att.mimeType.isNotEmpty
-                                    ? att.mimeType
-                                    : 'image/jpeg',
-                                dataResolver: () async {
-                                  final src = att.displaySource!;
-                                  // `displaySource` prefers `localPath` over
-                                  // `remoteUrl` — checking `remoteUrl.isNotEmpty`
-                                  // here was wrong whenever both were set
-                                  // (e.g. right after upload), since it would
-                                  // then try to HTTP-fetch what is actually a
-                                  // local file path. Decide from `src` itself.
-                                  final isRemote =
-                                      src.startsWith('http://') ||
-                                      src.startsWith('https://');
-                                  if (isRemote) {
-                                    return _fetchImageBytesWithRetry(src);
-                                  }
-                                  return await File(src).readAsBytes();
-                                },
-                                widgetSize: singleImageWidth,
-                                decoration: WidgetDecoration(
-                                  backgroundColor: Colors.white,
-                                  iconColor: Colors.green,
+                            ? _BubbleImageThumbnail(
+                                key: ValueKey(att.displaySource),
+                                bytesResolver: () => _resolveBubbleImageBytes(
+                                  att.displaySource!,
                                 ),
-                                errorBuilder: (context, error) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(
-                                    Icons.image,
-                                    size: 80,
-                                    color: Colors.grey,
-                                  ),
-                                ),
+                                size: singleImageWidth,
+                                errorIconSize: 80,
                               )
                             : Container(
                                 height: singleImageWidth * 0.6,
@@ -1680,39 +1673,14 @@ class _MessageBubbleState extends State<MessageBubble>
                             ClipRRect(
                               borderRadius: BorderRadius.circular(12),
                               child: hasSource
-                                  ? Thumbnail(
-                                      mimeType: att.mimeType.isNotEmpty
-                                          ? att.mimeType
-                                          : 'image/jpeg',
-                                      dataResolver: () async {
-                                        final src = att.displaySource!;
-                                        // See single-image branch above: decide
-                                        // remote-vs-local from `src` itself, not
-                                        // `remoteUrl.isNotEmpty` (wrong whenever
-                                        // localPath is also set, which is what
-                                        // `displaySource` actually returns).
-                                        final isRemote =
-                                            src.startsWith('http://') ||
-                                            src.startsWith('https://');
-                                        if (isRemote) {
-                                          return _fetchImageBytesWithRetry(src);
-                                        }
-                                        return await File(src).readAsBytes();
-                                      },
-                                      widgetSize: multiImageWidth,
-                                      decoration: WidgetDecoration(
-                                        backgroundColor: Colors.white,
-                                        iconColor: Colors.green,
-                                      ),
-                                      errorBuilder: (context, error) =>
-                                          Container(
-                                            color: Colors.grey[300],
-                                            child: const Icon(
-                                              Icons.image,
-                                              size: 50,
-                                              color: Colors.grey,
-                                            ),
+                                  ? _BubbleImageThumbnail(
+                                      key: ValueKey(att.displaySource),
+                                      bytesResolver: () =>
+                                          _resolveBubbleImageBytes(
+                                            att.displaySource!,
                                           ),
+                                      size: multiImageWidth,
+                                      errorIconSize: 50,
                                     )
                                   : Container(
                                       color: Colors.grey[300],
@@ -1769,6 +1737,70 @@ class _MessageBubbleState extends State<MessageBubble>
   String _formatTime(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
 }
 
+/// Renders a chat-bubble image thumbnail directly (bypassing the
+/// `thumbnailer` package's `Thumbnail` widget, which has no error handling
+/// of its own): a resolver failure returned empty bytes as a "successful"
+/// result, which `Thumbnail` then handed to an internal `Image.memory` with
+/// no `errorBuilder`, throwing an uncaught "Invalid image data" exception
+/// and leaving the tile blank. Explicitly guards on empty bytes before ever
+/// calling [Image.memory], and gives that call its own `errorBuilder` too —
+/// mirrors [FullAttachmentViewer]'s `_ResilientImage`. Uses the app's
+/// standard [PrimaryCircularLoader] instead of `Thumbnail`'s raw
+/// `CircularProgressIndicator` while [bytesResolver] is in flight.
+class _BubbleImageThumbnail extends StatefulWidget {
+  const _BubbleImageThumbnail({
+    super.key,
+    required this.bytesResolver,
+    required this.size,
+    required this.errorIconSize,
+  });
+
+  final Future<Uint8List> Function() bytesResolver;
+  final double size;
+  final double errorIconSize;
+
+  @override
+  State<_BubbleImageThumbnail> createState() => _BubbleImageThumbnailState();
+}
+
+class _BubbleImageThumbnailState extends State<_BubbleImageThumbnail> {
+  late final Future<Uint8List> _bytesFuture = widget.bytesResolver();
+
+  Widget _broken() => Container(
+    color: Colors.grey[300],
+    child: Icon(Icons.image, size: widget.errorIconSize, color: Colors.grey),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: _bytesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            color: Colors.white,
+            child: Center(
+              child: PrimaryCircularLoader(
+                size: widget.size < 60 ? 22 : 28,
+                strokeWidth: widget.size < 60 ? 2 : 2.5,
+              ),
+            ),
+          );
+        }
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) return _broken();
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: widget.size,
+          height: widget.size,
+          errorBuilder: (context, error, stackTrace) => _broken(),
+        );
+      },
+    );
+  }
+}
+
 /// Shown instead of the broken-image icon when the backend has reported the
 /// attachment's asset as still `PROCESSING` (no delivery URL yet) rather
 /// than an outright failure — tells the user it's still on its way instead
@@ -1793,13 +1825,10 @@ class _UploadingOverlay extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
-        child: SizedBox(
-          width: compact ? 20 : 26,
-          height: compact ? 20 : 26,
-          child: const CircularProgressIndicator(
-            strokeWidth: 2.5,
-            valueColor: AlwaysStoppedAnimation(Colors.white),
-          ),
+        child: PrimaryCircularLoader(
+          size: compact ? 20 : 26,
+          strokeWidth: 2.5,
+          color: Colors.white,
         ),
       ),
     );
@@ -2025,17 +2054,17 @@ class _AnimatedReactionBadge extends StatefulWidget {
   const _AnimatedReactionBadge({
     required this.counts,
     this.onTap,
-    this.onEmojiTap,
+    this.onLongPress,
   });
 
   final Map<String, int> counts;
 
-  /// Fallback tap on the whole badge (used only when [onEmojiTap] is null).
+  /// Tap anywhere on the badge — shows who reacted (WhatsApp-style).
   final VoidCallback? onTap;
 
-  /// Per-chip tap — called with the specific emoji whose chip was tapped so the
-  /// bubble can toggle just that emoji for the current user.
-  final ValueChanged<String>? onEmojiTap;
+  /// Long-press anywhere on the badge — opens the reaction line to
+  /// add/change/remove your own reaction.
+  final VoidCallback? onLongPress;
 
   @override
   State<_AnimatedReactionBadge> createState() => _AnimatedReactionBadgeState();
@@ -2126,10 +2155,6 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
   Widget build(BuildContext context) {
     if (_displayed.isEmpty) return const SizedBox.shrink();
 
-    // Prefer per-chip taps; fall back to the whole-badge tap only when no
-    // per-emoji handler is wired.
-    final perChip = widget.onEmojiTap != null;
-
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
@@ -2147,22 +2172,19 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final entry in _displayed.entries.take(3)) ...[
-            perChip
-                ? GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => widget.onEmojiTap!(entry.key),
-                    child: _buildAnimatedEmoji(entry.key, entry.value),
-                  )
-                : _buildAnimatedEmoji(entry.key, entry.value),
+            _buildAnimatedEmoji(entry.key, entry.value),
             const SizedBox(width: 3),
           ],
         ],
       ),
     );
 
-    if (perChip) return badge;
-
-    return GestureDetector(onTap: widget.onTap, child: badge);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      child: badge,
+    );
   }
 
   Widget _buildAnimatedEmoji(String emoji, int count) {

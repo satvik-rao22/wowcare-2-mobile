@@ -27,6 +27,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/chat_
 import 'package:wowcare/presentation/features/communication/shared/widgets/loading_older_indicator.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import '../widgets/thread_message_tile.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -587,9 +588,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               child: Column(
                 children: [
                   _buildThreadHeader(context),
-                  Expanded(
-                    child: _buildEmptyConversationState(context, state),
-                  ),
+                  Expanded(child: _buildEmptyConversationState(context, state)),
                 ],
               ),
             ),
@@ -832,6 +831,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                       context,
                                                       message,
                                                     ),
+                                                onReactionsInfoTap: () =>
+                                                    _showReactionInfoDialog(
+                                                      context,
+                                                      message,
+                                                    ),
                                                 isGrouped: isGrouped,
                                               ),
                                             ],
@@ -1038,8 +1042,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                             CommunicationCubit
                                                           >()
                                                           .retrySendMessage(
-                                                            widget
-                                                                    .staffInfo['code']
+                                                            widget.staffInfo['code']
                                                                 as String,
                                                             msg,
                                                           ),
@@ -1123,6 +1126,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                       },
                                                       onReactionTap: () =>
                                                           _showEmojiPicker(
+                                                            context,
+                                                            message,
+                                                          ),
+                                                      onReactionsInfoTap: () =>
+                                                          _showReactionInfoDialog(
                                                             context,
                                                             message,
                                                           ),
@@ -1541,7 +1549,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
           // videos together (or picking again before sending) must
           // accumulate, not discard everything but the newest single file.
           setState(
-            () => _pendingAttachments = [..._pendingAttachments, ...attachments],
+            () =>
+                _pendingAttachments = [..._pendingAttachments, ...attachments],
           );
         },
         onEmojiSelected: (emoji) {
@@ -1683,7 +1692,9 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   }) {
     return MessageInfoRecipient(
       name: _resolveRecipientName(r),
-      role: _resolveRecipientRole(r),
+      // The receipt row carries the recipient's own role directly —
+      // prefer it over the static staffInfo designation.
+      role: r.role ?? _resolveRecipientRole(r),
       avatarSource: _resolveRecipientAvatar(r),
       deliveredAt: deliveredAt,
       readAt: readAt,
@@ -1691,21 +1702,54 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   }
 
   void _showMessageStatusDialog(BuildContext context, Message message) {
-    final readCodes = message.readBy
-        .map((r) => r.userId)
-        .whereType<String>()
-        .toSet();
-    final recipients = <MessageInfoRecipient>[
-      for (final r in message.readBy) _toInfoRecipient(r, readAt: r.timestamp),
-      for (final r in message.deliveredTo)
-        if (r.userId == null || !readCodes.contains(r.userId))
+    // Fetch fresh from the dedicated per-message receipts endpoint — the
+    // message's own embedded receipts field is a lighter shape that
+    // doesn't reliably carry userName/role.
+    final cubit = context.read<CommunicationCubit>();
+    Future<List<MessageInfoRecipient>> fetchRecipients() async {
+      final receipts = await cubit.fetchMessageReceipts(message.code);
+      // Rows are already mutually exclusive per-row (see
+      // MessageModel._parseRecipientStatuses) — no cross-row dedup by
+      // userCode belongs here.
+      return [
+        for (final r in receipts.readBy)
+          _toInfoRecipient(r, readAt: r.timestamp),
+        for (final r in receipts.deliveredTo)
           _toInfoRecipient(r, deliveredAt: r.timestamp),
-    ];
+      ];
+    }
 
     MessageInfoDialog.show(
       context,
       messageText: message.text,
-      recipients: recipients,
+      recipientsFuture: fetchRecipients(),
     );
+  }
+
+  void _showReactionInfoDialog(BuildContext context, Message message) {
+    final people = message.reactions.map((r) {
+      final isMe = r.userCode == _currentUserCode;
+      final name = isMe
+          ? 'You'
+          : ((widget.staffInfo['name'] as String?)?.trim().isNotEmpty == true
+                ? (widget.staffInfo['name'] as String).trim()
+                : 'Participant');
+      return ReactionPerson(
+        emoji: r.emoji,
+        name: name,
+        // The reaction row carries the reactor's own role directly —
+        // prefer it over the static staffInfo designation.
+        role:
+            r.role ??
+            (isMe
+                ? null
+                : (widget.staffInfo['designation'] as String?)?.trim()),
+        avatarSource: isMe
+            ? null
+            : (widget.staffInfo['avatar'] as String?)?.trim(),
+      );
+    }).toList();
+
+    ReactionInfoDialog.show(context, reactions: people);
   }
 }

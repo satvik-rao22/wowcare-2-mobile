@@ -39,6 +39,7 @@ class ThreadMessageTile extends StatelessWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onReactionsInfoTap,
     this.onRetry,
     this.isParentMessaging = false,
     this.isInactive = false,
@@ -73,6 +74,7 @@ class ThreadMessageTile extends StatelessWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+  final VoidCallback? onReactionsInfoTap;
 
   /// See [MessageBubble.onRetry]. Called with the failed/still-uploading
   /// [Message] itself so the caller can invoke
@@ -161,6 +163,7 @@ class ThreadMessageTile extends StatelessWidget {
           onReactionAdded: onReactionAdded,
           onRemoveReaction: onRemoveReaction,
           onReactionTap: onReactionTap,
+          onReactionsInfoTap: onReactionsInfoTap,
           onRetry:
               (snapshot.message.isFailed ||
                   snapshot.message.hasProcessingAttachments)

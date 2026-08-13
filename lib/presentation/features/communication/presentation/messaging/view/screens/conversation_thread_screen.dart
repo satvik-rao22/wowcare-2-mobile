@@ -30,6 +30,7 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_t
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/participant_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_attachment_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_info_dialog.dart';
+import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/cubit/private_mode_toggle_cubit.dart';
@@ -191,6 +192,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       .where((p) => p.role == ParticipantRole.parent && p.isActive)
       .toList();
 
+  /// True when staff/admin is viewing a Room Chat/Admin Chat conversation
+  /// but every guardian has left/been removed — no one is left on the
+  /// parent side to receive a new message. A guardian's OWN thread is
+  /// unaffected (their own active status is enforced elsewhere) — this
+  /// only gates the staff/admin side. Staff Direct/Classroom Notes never
+  /// have guardian participants at all, so they're excluded rather than
+  /// always reading as disabled.
+  bool get _noActiveGuardian =>
+      _senderRole != ParticipantRole.parent &&
+      (_conversation.type == ConversationType.adminChat ||
+          _conversation.type == ConversationType.roomChat) &&
+      _tabGuardians.isEmpty;
+
   /// Only staff/admin/director/teacher viewers get tabs — a guardian's own
   /// thread is always just their single (group + own-private) merged view,
   /// same as the legacy screen. Tabs only make sense once private mode is
@@ -309,6 +323,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       editMessageUseCase: serviceLocator(),
       deleteMessageUseCase: serviceLocator(),
       deleteAttachmentUseCase: serviceLocator(),
+      getMessageReceiptsUseCase: serviceLocator(),
       addReactionUseCase: serviceLocator(),
       removeReactionUseCase: serviceLocator(),
       markConversationReadUseCase: serviceLocator(),
@@ -626,25 +641,17 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   // ── Participants ──────────────────────────────────────────────────────────
 
-  /// userCode → display name, for resolving receipt names in the status dialog
-  /// (realtime receipts carry no display name).
-  Map<String, String> get _participantNameByCode => {
-    for (final p in _conversation.participants)
-      if (p.userName.isNotEmpty) p.userCode: p.userName,
-  };
-
-  /// userCode → role, for the role label in the message info dialog.
-  Map<String, String> get _participantRoleByCode => {
-    for (final p in _conversation.participants)
-      p.userCode: p.role.toApiString(),
-  };
-
-  /// userCode → avatar (resolved URL or raw media-asset code), for the
-  /// avatar in the message info dialog.
-  Map<String, String> get _participantAvatarByCode => {
-    for (final p in _conversation.participants)
-      if ((p.avatarUrl ?? '').isNotEmpty) p.userCode: p.avatarUrl!,
-  };
+  /// Avatar for [code] — the only thing the receipt/reaction row itself
+  /// doesn't carry. A dual-role account's two participant rows share the
+  /// same photo in practice, so an unqualified first match is fine here;
+  /// name and role come straight off the row (see [_showMessageInfoDialog] /
+  /// [_showReactionInfoDialog]) rather than being guessed from participants.
+  String? _avatarForCode(String code) {
+    return _conversation.participants
+        .where((p) => p.userCode == code)
+        .firstOrNull
+        ?.avatarUrl;
+  }
 
   List<ParticipantDisplayData> get _participantData =>
       _conversation.participants.map((p) {
@@ -667,38 +674,91 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   }
 
   void _showMessageInfoDialog(BuildContext context, MessageEntity msg) {
-    final readCodes = msg.readReceipts
-        .where((r) => r.isRead)
-        .map((r) => r.userCode)
-        .toSet();
     MessageInfoRecipient toInfoRecipient(
       ReadReceiptEntity r, {
       DateTime? deliveredAt,
       DateTime? readAt,
     }) {
       return MessageInfoRecipient(
-        name: r.userName.isNotEmpty
-            ? r.userName
-            : (_participantNameByCode[r.userCode] ?? 'Participant'),
-        role: _participantRoleByCode[r.userCode],
-        avatarSource: _participantAvatarByCode[r.userCode],
+        name: r.userName.isNotEmpty ? r.userName : 'Participant',
+        role: r.role,
+        avatarSource: _avatarForCode(r.userCode),
         deliveredAt: deliveredAt,
         readAt: readAt,
       );
     }
 
-    final recipients = <MessageInfoRecipient>[
-      for (final r in msg.readReceipts)
-        if (r.isRead) toInfoRecipient(r, readAt: r.readAt),
-      for (final r in msg.readReceipts)
-        if (!readCodes.contains(r.userCode) && r.deliveredAt != null)
-          toInfoRecipient(r, deliveredAt: r.deliveredAt),
-    ];
+    // Fetch fresh from the dedicated per-message receipts endpoint — the
+    // message's own embedded receipts field is a lighter shape that
+    // doesn't reliably carry userName/role.
+    Future<List<MessageInfoRecipient>> fetchRecipients() async {
+      final receipts = await _cubit.fetchMessageReceipts(msg.code);
+      // receipts carries one row per RECIPIENT-PERSONA (a dual-role account
+      // — e.g. staff who's also a guardian — gets one row per role, sharing
+      // one userCode, each independently delivered/read). Classify each row
+      // purely by its OWN isRead — never cross-referenced against other
+      // rows for the same userCode, which previously suppressed one
+      // persona's receipt whenever the other persona's had already been
+      // read.
+      return [
+        for (final r in receipts)
+          if (r.isRead) toInfoRecipient(r, readAt: r.readAt),
+        for (final r in receipts)
+          if (!r.isRead && r.deliveredAt != null)
+            toInfoRecipient(r, deliveredAt: r.deliveredAt),
+      ];
+    }
+
     MessageInfoDialog.show(
       context,
       messageText: msg.text,
-      recipients: recipients,
+      recipientsFuture: fetchRecipients(),
     );
+  }
+
+  void _showReactionInfoDialog(BuildContext context, MessageEntity msg) {
+    final people = msg.reactions.map((r) {
+      final code = r.userCode;
+      final isMe = code == _senderCode;
+      // "You" only when this reaction was placed under the SAME persona
+      // this screen is currently viewing as — a dual-role account (e.g.
+      // guardian + admin) reacting under its OTHER persona isn't "you" in
+      // the sense this dialog means, even though it's the same account.
+      final roleMatchesCurrentPersona = r.role == null || r.role!.trim().isEmpty
+          ? true
+          : ParticipantRole.fromApiString(r.role!) == _senderRole;
+      final showAsYou = isMe && roleMatchesCurrentPersona;
+
+      String name;
+      if (showAsYou) {
+        name = 'You';
+      } else if (r.userName?.trim().isNotEmpty == true) {
+        name = r.userName!.trim();
+      } else {
+        // Same account, different persona than the one being viewed — we
+        // know the EXACT role from r.role (not a guess), so look up that
+        // specific persona's participant row instead of a generic label.
+        final roleMatch = _conversation.participants
+            .where(
+              (p) =>
+                  p.userCode == code &&
+                  r.role != null &&
+                  p.role == ParticipantRole.fromApiString(r.role!),
+            )
+            .firstOrNull;
+        name = roleMatch?.userName.trim().isNotEmpty == true
+            ? roleMatch!.userName.trim()
+            : 'Participant';
+      }
+
+      return ReactionPerson(
+        emoji: r.emoji,
+        name: name,
+        role: r.role,
+        avatarSource: _avatarForCode(code),
+      );
+    }).toList();
+    ReactionInfoDialog.show(context, reactions: people);
   }
 
   // ── Attachment sheet ──────────────────────────────────────────────────────
@@ -1692,6 +1752,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     if (mounted) _inputFocusNode.requestFocus();
                   });
                 },
+                onReactionsInfoTap: () => _showReactionInfoDialog(context, msg),
                 isParentMessaging: _senderRole == ParticipantRole.parent,
                 senderIsOrgSide: _isOrgSideSender(msg),
                 viewerIsOrgSide: _senderRole != ParticipantRole.parent,
@@ -1823,6 +1884,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           controller: _inputController,
                           focusNode: _inputFocusNode,
                           isSending: state.isSending,
+                          enabled: !_noActiveGuardian,
+                          disabledMessage:
+                              'No active parent or guardian is available in '
+                              'this conversation. You can no longer send '
+                              'messages.',
                           onSend: () => unawaited(_sendMessage()),
                           onAttachmentTap: _showAttachmentSheet,
                           pendingAttachments: _pendingAttachments,

@@ -70,58 +70,67 @@ class MessageEntityDto {
     // Backend uses 'content' for message text, 'createdAt' for sent time,
     // 'replyToMessageId' for thread parent, and accepts both 'senderCode'
     // and 'senderUserCode' — confirmed from existing MessageModel.fromJson.
-    final senderCode = (json['senderUserCode'] as String? ??
-            json['senderCode'] as String? ??
-            '')
-        .trim();
+    final senderCode =
+        (json['senderUserCode'] as String? ??
+                json['senderCode'] as String? ??
+                '')
+            .trim();
 
     return MessageEntityDto(
       id: json['id']?.toString() ?? '',
       code: json['code'] as String? ?? '',
-      conversationCode: json['conversationCode'] as String? ??
+      conversationCode:
+          json['conversationCode'] as String? ??
           json['conversation_code'] as String? ??
           '',
       senderCode: senderCode,
       // Backend sends 'senderDisplayName' on the messages endpoint; 'senderName'
       // is kept as a fallback for any older/alternate response shapes.
-      senderName: (json['senderDisplayName'] as String? ??
-              json['senderName'] as String? ??
-              '')
-          .trim(),
+      senderName:
+          (json['senderDisplayName'] as String? ??
+                  json['senderName'] as String? ??
+                  '')
+              .trim(),
       senderRole: json['senderRole'] as String? ?? 'PARENT',
       senderAvatarUrl: json['senderAvatarUrl'] as String?,
       // Backend field is 'content', not 'text'
       text: json['content'] as String? ?? json['text'] as String? ?? '',
-      messageType: json['messageType'] as String? ?? json['type'] as String? ?? 'TEXT',
+      messageType:
+          json['messageType'] as String? ?? json['type'] as String? ?? 'TEXT',
       status: json['status'] as String? ?? 'SENT',
       // ppc-presence is authoritative (backend invariant isPrivate = ppc != null)
       // and takes precedence over the API's `isPrivate`/`private` booleans, which
       // come back false even when ppc is set — see message_model.dart.
-      isPrivate: ((json['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
+      isPrivate:
+          ((json['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
               false) ||
           (json['isPrivate'] as bool? ?? false) ||
           (json['private'] as bool? ?? false),
       isEdited: json['isEdited'] as bool? ?? json['edited'] as bool? ?? false,
-      isDeleted: json['isDeleted'] as bool? ?? json['deleted'] as bool? ?? false,
+      isDeleted:
+          json['isDeleted'] as bool? ?? json['deleted'] as bool? ?? false,
       deletedPlaceholder: json['deletedPlaceholder'] as String?,
       // Backend field is 'createdAt', not 'sentAt'
       sentAt: json['createdAt'] != null
           ? DateTime.parse(json['createdAt'] as String)
           : json['sentAt'] != null
-              ? DateTime.parse(json['sentAt'] as String)
-              : AppTime.nowUtc(),
+          ? DateTime.parse(json['sentAt'] as String)
+          : AppTime.nowUtc(),
       editedAt: json['editedAt'] != null
           ? DateTime.parse(json['editedAt'] as String)
           : null,
       deletedAt: json['deletedAt'] != null
           ? DateTime.parse(json['deletedAt'] as String)
           : null,
-      attachments: (json['attachments'] as List<dynamic>?)
+      attachments:
+          (json['attachments'] as List<dynamic>?)
               ?.map(
-                  (e) => AttachmentEntityDto.fromJson(e as Map<String, dynamic>))
+                (e) => AttachmentEntityDto.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
-      reactions: (json['reactions'] as List<dynamic>?)
+      reactions:
+          (json['reactions'] as List<dynamic>?)
               ?.map((e) => ReactionDto.fromJson(e as Map<String, dynamic>))
               .toList() ??
           [],
@@ -133,8 +142,8 @@ class MessageEntityDto {
       // whatever the message's own coarse top-level `status` happened to
       // say. `readReceipts` is kept as a fallback in case some other
       // response shape genuinely uses that key.
-      readReceipts: ((json['receipts'] ?? json['readReceipts'])
-                  as List<dynamic>?)
+      readReceipts:
+          ((json['receipts'] ?? json['readReceipts']) as List<dynamic>?)
               ?.map(
                 (e) => ReadReceiptEntityDto.fromJson(
                   e as Map<String, dynamic>,
@@ -147,7 +156,8 @@ class MessageEntityDto {
       // (parentMessageCode is the quoted message's CODE, which matches how the
       // Firestore doc and the loaded message list identify it). Fall back to the
       // numeric `replyToMessageId` / legacy `threadParent*` for older payloads.
-      threadParentCode: (json['parentMessageCode'] as String?) ??
+      threadParentCode:
+          (json['parentMessageCode'] as String?) ??
           (json['replyToMessageId']?.toString().isNotEmpty == true
               ? json['replyToMessageId'].toString()
               : json['threadParentCode'] as String?),
@@ -166,34 +176,36 @@ class MessageEntityDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'code': code,
-        'conversationCode': conversationCode,
-        'senderCode': senderCode,
-        'senderName': senderName,
-        'senderRole': senderRole,
-        if (senderAvatarUrl != null) 'senderAvatarUrl': senderAvatarUrl,
-        'content': text,           // Backend uses 'content', not 'text'
-        'type': messageType,       // Backend uses 'type' for send, not 'messageType'
-        'status': status,
-        'isPrivate': isPrivate,
-        'isEdited': isEdited,
-        'isDeleted': isDeleted,
-        if (deletedPlaceholder != null) 'deletedPlaceholder': deletedPlaceholder,
-        'createdAt': sentAt.toIso8601String(),   // Backend uses 'createdAt'
-        if (editedAt != null) 'editedAt': editedAt!.toIso8601String(),
-        if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
-        'attachments': attachments.map((e) => e.toJson()).toList(),
-        'reactions': reactions.map((e) => e.toJson()).toList(),
-        'readReceipts': readReceipts.map((e) => e.toJson()).toList(),
-        // Backend uses 'replyToMessageId', not 'threadParentCode'
-        if (threadParentCode != null) 'replyToMessageId': threadParentCode,
-        if (threadParentSenderCode != null) 'threadParentSenderCode': threadParentSenderCode,
-        if (threadParentSenderName != null) 'threadParentSenderName': threadParentSenderName,
-        if (threadParentText != null) 'threadParentText': threadParentText,
-        if (privateParentUserCode != null)
-          'privateParentUserCode': privateParentUserCode,
-      };
+    'id': id,
+    'code': code,
+    'conversationCode': conversationCode,
+    'senderCode': senderCode,
+    'senderName': senderName,
+    'senderRole': senderRole,
+    if (senderAvatarUrl != null) 'senderAvatarUrl': senderAvatarUrl,
+    'content': text, // Backend uses 'content', not 'text'
+    'type': messageType, // Backend uses 'type' for send, not 'messageType'
+    'status': status,
+    'isPrivate': isPrivate,
+    'isEdited': isEdited,
+    'isDeleted': isDeleted,
+    if (deletedPlaceholder != null) 'deletedPlaceholder': deletedPlaceholder,
+    'createdAt': sentAt.toIso8601String(), // Backend uses 'createdAt'
+    if (editedAt != null) 'editedAt': editedAt!.toIso8601String(),
+    if (deletedAt != null) 'deletedAt': deletedAt!.toIso8601String(),
+    'attachments': attachments.map((e) => e.toJson()).toList(),
+    'reactions': reactions.map((e) => e.toJson()).toList(),
+    'readReceipts': readReceipts.map((e) => e.toJson()).toList(),
+    // Backend uses 'replyToMessageId', not 'threadParentCode'
+    if (threadParentCode != null) 'replyToMessageId': threadParentCode,
+    if (threadParentSenderCode != null)
+      'threadParentSenderCode': threadParentSenderCode,
+    if (threadParentSenderName != null)
+      'threadParentSenderName': threadParentSenderName,
+    if (threadParentText != null) 'threadParentText': threadParentText,
+    if (privateParentUserCode != null)
+      'privateParentUserCode': privateParentUserCode,
+  };
 
   MessageEntity toEntity() {
     return MessageEntity(
@@ -216,7 +228,14 @@ class MessageEntityDto {
       deletedAt: deletedAt,
       attachments: attachments.map((e) => e.toEntity()).toList(),
       reactions: reactions
-          .map((r) => ReactionEntry(userCode: r.userCode, emoji: r.emoji))
+          .map(
+            (r) => ReactionEntry(
+              userCode: r.userCode,
+              emoji: r.emoji,
+              role: r.role,
+              userName: r.userName.isNotEmpty ? r.userName : null,
+            ),
+          )
           .toList(),
       readReceipts: readReceipts.map((e) => e.toEntity()).toList(),
       threadParentCode: threadParentCode,
@@ -282,18 +301,18 @@ class AttachmentEntityDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'code': code,
-        'messageCode': messageCode,
-        'conversationCode': conversationCode,
-        'fileName': fileName,
-        'fileUrl': fileUrl,
-        'mimeType': mimeType,
-        'fileSizeBytes': fileSizeBytes,
-        if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
-        'uploadedBy': uploadedBy,
-        'uploadedAt': uploadedAt.toIso8601String(),
-        if (attachmentId != null) 'attachmentId': attachmentId,
-      };
+    'code': code,
+    'messageCode': messageCode,
+    'conversationCode': conversationCode,
+    'fileName': fileName,
+    'fileUrl': fileUrl,
+    'mimeType': mimeType,
+    'fileSizeBytes': fileSizeBytes,
+    if (thumbnailUrl != null) 'thumbnailUrl': thumbnailUrl,
+    'uploadedBy': uploadedBy,
+    'uploadedAt': uploadedAt.toIso8601String(),
+    if (attachmentId != null) 'attachmentId': attachmentId,
+  };
 
   AttachmentEntity toEntity() {
     return AttachmentEntity(
@@ -320,6 +339,7 @@ class ReactionDto {
     required this.userName,
     required this.emoji,
     required this.createdAt,
+    this.role,
   });
 
   final String messageCode;
@@ -327,6 +347,10 @@ class ReactionDto {
   final String userName;
   final String emoji;
   final DateTime createdAt;
+
+  /// Raw backend role string (e.g. "STAFF") the reactor was acting AS —
+  /// confirmed present on the reaction row as `role`/`userRole`.
+  final String? role;
 
   factory ReactionDto.fromJson(Map<String, dynamic> json) {
     return ReactionDto(
@@ -337,16 +361,18 @@ class ReactionDto {
       createdAt: DateTime.parse(
         json['createdAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
       ),
+      role: (json['role'] ?? json['userRole'])?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'messageCode': messageCode,
-        'userCode': userCode,
-        'userName': userName,
-        'emoji': emoji,
-        'createdAt': createdAt.toIso8601String(),
-      };
+    'messageCode': messageCode,
+    'userCode': userCode,
+    'userName': userName,
+    'emoji': emoji,
+    'createdAt': createdAt.toIso8601String(),
+    'role': role,
+  };
 }
 
 class ReadReceiptEntityDto {
@@ -356,6 +382,7 @@ class ReadReceiptEntityDto {
     required this.userName,
     this.deliveredAt,
     this.readAt,
+    this.role,
   });
 
   final String messageCode;
@@ -363,6 +390,10 @@ class ReadReceiptEntityDto {
   final String userName;
   final DateTime? deliveredAt;
   final DateTime? readAt;
+
+  /// Raw backend role string (e.g. "STAFF") the recipient was acting AS —
+  /// confirmed present on the receipt row as `role`/`userRole`.
+  final String? role;
 
   factory ReadReceiptEntityDto.fromJson(
     Map<String, dynamic> json, {
@@ -384,17 +415,21 @@ class ReadReceiptEntityDto {
       deliveredAt: json['deliveredAt'] != null
           ? DateTime.parse(json['deliveredAt'] as String)
           : null,
-      readAt: json['readAt'] != null ? DateTime.parse(json['readAt'] as String) : null,
+      readAt: json['readAt'] != null
+          ? DateTime.parse(json['readAt'] as String)
+          : null,
+      role: (json['role'] ?? json['userRole'])?.toString(),
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'messageCode': messageCode,
-        'userCode': userCode,
-        'userName': userName,
-        if (deliveredAt != null) 'deliveredAt': deliveredAt!.toIso8601String(),
-        if (readAt != null) 'readAt': readAt!.toIso8601String(),
-      };
+    'messageCode': messageCode,
+    'userCode': userCode,
+    'userName': userName,
+    if (deliveredAt != null) 'deliveredAt': deliveredAt!.toIso8601String(),
+    if (readAt != null) 'readAt': readAt!.toIso8601String(),
+    if (role != null) 'role': role,
+  };
 
   ReadReceiptEntity toEntity() {
     return ReadReceiptEntity(
@@ -403,6 +438,7 @@ class ReadReceiptEntityDto {
       userName: userName,
       deliveredAt: deliveredAt,
       readAt: readAt,
+      role: role,
     );
   }
 }

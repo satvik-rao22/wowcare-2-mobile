@@ -80,11 +80,17 @@ class Message extends Equatable {
     this.isSending = false,
   });
 
-  bool get isDelivered => deliveredAt != null || deliveredTo.isNotEmpty;
+  // [deliveredTo] only holds delivered-but-not-yet-read rows (a row that
+  // progressed to read moves to [readBy] instead — see
+  // MessageModel._parseRecipientStatuses) — a read implies delivered too,
+  // so [readBy] must count toward "delivered" here as well.
+  bool get isDelivered =>
+      deliveredAt != null || deliveredTo.isNotEmpty || readBy.isNotEmpty;
   bool get isRead => readAt != null || readBy.isNotEmpty;
   bool get isDeleted => deletedAt != null;
   int get readCount => readBy.length + (readAt != null ? 1 : 0);
-  int get deliveredCount => deliveredTo.length + (deliveredAt != null ? 1 : 0);
+  int get deliveredCount =>
+      deliveredTo.length + readBy.length + (deliveredAt != null ? 1 : 0);
   bool get hasAttachments => attachments.isNotEmpty;
   bool get hasMultiplePhotos => attachments.where((a) => a.isImage).length > 1;
 
@@ -119,6 +125,8 @@ class Message extends Equatable {
   }
 
   Message copyWith({
+    String? text,
+    DateTime? editedAt,
     DateTime? deletedAt,
     List<ChatAttachment>? attachments,
     String? privateParentUserCode,
@@ -131,12 +139,12 @@ class Message extends Equatable {
     return Message(
       id: id,
       code: code,
-      text: text,
+      text: text ?? this.text,
       isSentByMe: isSentByMe ?? this.isSentByMe,
       time: time,
       deliveredAt: deliveredAt,
       readAt: readAt,
-      editedAt: editedAt,
+      editedAt: editedAt ?? this.editedAt,
       deletedAt: deletedAt ?? this.deletedAt,
       deliveredTo: deliveredTo,
       readBy: readBy,
@@ -148,7 +156,8 @@ class Message extends Equatable {
       senderUserCode: senderUserCode,
       senderRole: senderRole,
       isPrivate: isPrivate,
-      privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
+      privateParentUserCode:
+          privateParentUserCode ?? this.privateParentUserCode,
       isFailed: isFailed ?? this.isFailed,
       hasProcessingAttachments:
           hasProcessingAttachments ?? this.hasProcessingAttachments,
@@ -158,30 +167,30 @@ class Message extends Equatable {
 
   @override
   List<Object?> get props => [
-        id,
-        code,
-        text,
-        isSentByMe,
-        time,
-        deliveredAt,
-        readAt,
-        editedAt,
-        deletedAt,
-        deliveredTo,
-        readBy,
-        reactions,
-        quotedMessageId,
-        attachments,
-        senderName,
-        receivers,
-        senderUserCode,
-        senderRole,
-        isPrivate,
-        privateParentUserCode,
-        isFailed,
-        hasProcessingAttachments,
-        isSending,
-      ];
+    id,
+    code,
+    text,
+    isSentByMe,
+    time,
+    deliveredAt,
+    readAt,
+    editedAt,
+    deletedAt,
+    deliveredTo,
+    readBy,
+    reactions,
+    quotedMessageId,
+    attachments,
+    senderName,
+    receivers,
+    senderUserCode,
+    senderRole,
+    isPrivate,
+    privateParentUserCode,
+    isFailed,
+    hasProcessingAttachments,
+    isSending,
+  ];
 }
 
 class RecipientStatus extends Equatable {
@@ -189,14 +198,20 @@ class RecipientStatus extends Equatable {
   final String? userId;
   final DateTime? timestamp;
 
+  /// Raw backend role string (e.g. "STAFF", "GUARDIAN") the recipient was
+  /// acting AS for this delivery/read — see [ReactionEntry.role]'s doc for
+  /// why this beats a participant-list guess for a dual-role account.
+  final String? role;
+
   const RecipientStatus({
     required this.name,
     this.userId,
     this.timestamp,
+    this.role,
   });
 
   @override
-  List<Object?> get props => [name, userId, timestamp];
+  List<Object?> get props => [name, userId, timestamp, role];
 }
 
 class ChatAttachment extends Equatable {
@@ -233,7 +248,8 @@ class ChatAttachment extends Equatable {
 
   bool get isVideo => type == 'video' || mimeType.startsWith('video/');
 
-  String? get displaySource => localPath ?? (remoteUrl.isNotEmpty ? remoteUrl : null);
+  String? get displaySource =>
+      localPath ?? (remoteUrl.isNotEmpty ? remoteUrl : null);
 
   bool get isUploaded => (code ?? '').isNotEmpty && attachmentId != null;
 
@@ -256,6 +272,14 @@ class ChatAttachment extends Equatable {
   }
 
   @override
-  List<Object?> get props =>
-      [name, type, sizeBytes, mimeType, remoteUrl, localPath, code, attachmentId];
+  List<Object?> get props => [
+    name,
+    type,
+    sizeBytes,
+    mimeType,
+    remoteUrl,
+    localPath,
+    code,
+    attachmentId,
+  ];
 }

@@ -3,17 +3,24 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 
-/// Parses the message list endpoint's `receipts` array (per-recipient
-/// `{userCode, userName, deliveredAt, readAt}`) into [RecipientStatus]
-/// entries. [onlyRead] selects [Message.readBy] (readAt present) vs
-/// [Message.deliveredTo] (any delivered/read receipt — a read implies
-/// delivered too, so a read receipt counts for both lists; otherwise
-/// [Message.deliveredCount] could undercount and a group message would
-/// never look fully delivered even once everyone had read it).
-/// `userName` is confirmed always null on this endpoint — left blank
-/// rather than defaulting to the raw code; callers must show a generic
-/// label instead.
-List<RecipientStatus> _parseRecipientStatuses(
+/// Parses the message list / receipts endpoint's `receipts` array
+/// (per-recipient-per-persona `{userCode, userName, userRole, deliveredAt,
+/// readAt}`, confirmed against a live payload from
+/// `GET .../messages/{code}/receipts`) into [RecipientStatus] entries.
+///
+/// A dual-role account (e.g. staff who is also a guardian) gets ONE ROW PER
+/// PERSONA here, sharing one `userCode` but with different `role`/`userName`
+/// and independent delivered/read state — e.g. delivered-only as ADMIN and
+/// separately read as GUARDIAN. Each row is therefore classified purely by
+/// its OWN `readAt`/`deliveredAt`, never cross-referenced against other rows
+/// for the same `userCode` — doing so previously suppressed one persona's
+/// receipt whenever the other persona's had already been read.
+///
+/// [onlyRead] selects [Message.readBy] (readAt present) vs
+/// [Message.deliveredTo] (delivered but NOT YET read by THIS row — a row
+/// that progressed to read surfaces only via the onlyRead:true call, so the
+/// two lists never overlap).
+List<RecipientStatus> parseRecipientStatuses(
   dynamic receipts, {
   required bool onlyRead,
 }) {
@@ -29,16 +36,31 @@ List<RecipientStatus> _parseRecipientStatuses(
     final readAt = r['readAt'] != null
         ? DateTime.tryParse(r['readAt'].toString())
         : null;
+    // The receipt row carries the recipient's role and display name
+    // directly — the authoritative persona they were acting as, no
+    // participant-list guessing needed.
+    final role = (r['role'] ?? r['userRole'])?.toString();
+    final name = (r['userName'] ?? '').toString().trim();
     if (onlyRead) {
       if (readAt == null) continue;
       result.add(
-        RecipientStatusModel(name: '', userId: userCode, timestamp: readAt),
+        RecipientStatusModel(
+          name: name,
+          userId: userCode,
+          timestamp: readAt,
+          role: role,
+        ),
       );
     } else {
-      final timestamp = deliveredAt ?? readAt;
-      if (timestamp == null) continue;
+      if (readAt != null) continue;
+      if (deliveredAt == null) continue;
       result.add(
-        RecipientStatusModel(name: '', userId: userCode, timestamp: timestamp),
+        RecipientStatusModel(
+          name: name,
+          userId: userCode,
+          timestamp: deliveredAt,
+          role: role,
+        ),
       );
     }
   }
@@ -73,10 +95,18 @@ class MessageModel extends Message {
     super.privateParentUserCode,
   }) : super(senderUserCode: senderUserCode);
 
-  factory MessageModel.fromJson(Map<String, dynamic> json, {String? currentUserId}) {
-    final senderCode = (json['senderUserCode'] as String? ?? json['senderCode'] as String? ?? '').trim();
+  factory MessageModel.fromJson(
+    Map<String, dynamic> json, {
+    String? currentUserId,
+  }) {
+    final senderCode =
+        (json['senderUserCode'] as String? ??
+                json['senderCode'] as String? ??
+                '')
+            .trim();
     final normalizedUserId = currentUserId?.trim();
-    final isMine = normalizedUserId != null &&
+    final isMine =
+        normalizedUserId != null &&
         normalizedUserId.isNotEmpty &&
         senderCode.isNotEmpty &&
         senderCode == normalizedUserId;
@@ -93,7 +123,9 @@ class MessageModel extends Message {
     return MessageModel(
       id: (json['id'] ?? '').toString(),
       code: json['code'] as String? ?? '',
-      conversationCode: json['conversationCode'] as String? ?? json['conversation_code'] as String?,
+      conversationCode:
+          json['conversationCode'] as String? ??
+          json['conversation_code'] as String?,
       senderUserCode: senderCode,
       text: json['content'] as String? ?? '',
       isSentByMe: isMine,
@@ -119,24 +151,31 @@ class MessageModel extends Message {
       // own coarse top-level `status`, which the backend doesn't actually
       // update per-recipient — group ticks stayed stuck on "sent" even once
       // everyone had read it.
-      deliveredTo: _parseRecipientStatuses(
-        json['receipts'],
-        onlyRead: false,
-      ),
-      readBy: _parseRecipientStatuses(json['receipts'], onlyRead: true),
+      deliveredTo: parseRecipientStatuses(json['receipts'], onlyRead: false),
+      readBy: parseRecipientStatuses(json['receipts'], onlyRead: true),
       reactions: [
         for (var r in (json['reactions'] as List<dynamic>?) ?? [])
-          if (r is Map<String, dynamic> && r['userCode'] != null && r['emoji'] != null)
+          if (r is Map<String, dynamic> &&
+              r['userCode'] != null &&
+              r['emoji'] != null)
             ReactionEntry(
               userCode: r['userCode'].toString(),
               emoji: r['emoji'].toString(),
+              // The reaction row carries the reactor's role and display
+              // name directly — the authoritative persona they reacted as,
+              // no participant-list guessing needed.
+              role: (r['role'] ?? r['userRole'])?.toString(),
+              userName: (r['userName'] as String?)?.trim(),
             ),
       ],
       quotedMessageId: (json['replyToMessageId'] ?? '').toString().isEmpty
           ? null
           : json['replyToMessageId'].toString(),
-      attachments: (json['attachments'] as List<dynamic>?)
-              ?.map((e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>))
+      attachments:
+          (json['attachments'] as List<dynamic>?)
+              ?.map(
+                (e) => ChatAttachmentModel.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           const [],
       senderName: (json['senderDisplayName'] as String?)?.isNotEmpty == true
@@ -156,7 +195,8 @@ class MessageModel extends Message {
       // returns isPrivate=false even when ppc is set (mapper bug) — trusting the
       // boolean first lets web-sent private messages leak into the staff Group
       // tab instead of the owning parent's private tab.
-      isPrivate: ((json['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
+      isPrivate:
+          ((json['privateParentUserCode'] as String?)?.trim().isNotEmpty ??
               false) ||
           (json['isPrivate'] as bool? ?? false) ||
           (json['private'] as bool? ?? false),
@@ -173,9 +213,12 @@ class MessageModel extends Message {
       'content': text,
       'time': time.toIso8601String(),
       'replyToMessageId': quotedMessageId,
-      'attachments': attachments.map((e) => (e as ChatAttachmentModel).toJson()).toList(),
+      'attachments': attachments
+          .map((e) => (e as ChatAttachmentModel).toJson())
+          .toList(),
       'senderName': senderName,
-      if (privateParentUserCode != null) 'privateParentUserCode': privateParentUserCode,
+      if (privateParentUserCode != null)
+        'privateParentUserCode': privateParentUserCode,
     };
   }
 }
@@ -185,13 +228,17 @@ class RecipientStatusModel extends RecipientStatus {
     required super.name,
     super.userId,
     super.timestamp,
+    super.role,
   });
 
   factory RecipientStatusModel.fromJson(Map<String, dynamic> json) {
     return RecipientStatusModel(
       name: json['name'] as String? ?? '',
       userId: json['user_id'] as String? ?? json['userId'] as String?,
-      timestamp: json['timestamp'] != null ? DateTime.parse(json['timestamp'] as String) : null,
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'] as String)
+          : null,
+      role: (json['role'] ?? json['userRole'])?.toString(),
     );
   }
 
@@ -228,12 +275,16 @@ class ChatAttachmentModel extends ChatAttachment {
       name: (json['name'] ?? json['originalFilename']) as String? ?? '',
       type: (json['type'] ?? json['attachmentType']) as String? ?? '',
       sizeBytes:
-          (json['size_bytes'] ?? json['sizeBytes'] ?? json['fileSize']) as int? ?? 0,
+          (json['size_bytes'] ?? json['sizeBytes'] ?? json['fileSize'])
+              as int? ??
+          0,
       mimeType: (json['mime_type'] ?? json['mimeType']) as String? ?? '',
-      remoteUrl: (json['remote_url'] ??
-              json['remoteUrl'] ??
-              json['fileUrl'] ??
-              json['thumbnailUrl']) as String? ??
+      remoteUrl:
+          (json['remote_url'] ??
+                  json['remoteUrl'] ??
+                  json['fileUrl'] ??
+                  json['thumbnailUrl'])
+              as String? ??
           '',
       localPath: (json['local_path'] ?? json['localPath']) as String?,
       code: (json['code'] ?? json['assetCode']) as String?,

@@ -190,45 +190,48 @@ class MessageEntity extends Equatable {
       reactions: reactions ?? this.reactions,
       readReceipts: readReceipts ?? this.readReceipts,
       threadParentCode: threadParentCode ?? this.threadParentCode,
-      threadParentSenderCode: threadParentSenderCode ?? this.threadParentSenderCode,
-      threadParentSenderName: threadParentSenderName ?? this.threadParentSenderName,
+      threadParentSenderCode:
+          threadParentSenderCode ?? this.threadParentSenderCode,
+      threadParentSenderName:
+          threadParentSenderName ?? this.threadParentSenderName,
       threadParentText: threadParentText ?? this.threadParentText,
       localTempCode: localTempCode ?? this.localTempCode,
-      privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
+      privateParentUserCode:
+          privateParentUserCode ?? this.privateParentUserCode,
     );
   }
 
   @override
   List<Object?> get props => [
-        id,
-        code,
-        conversationCode,
-        senderCode,
-        senderName,
-        senderRole,
-        senderAvatarUrl,
-        text,
-        messageType,
-        status,
-        isPrivate,
-        isEdited,
-        isDeleted,
-        deletedPlaceholder,
-        attachments,
-        reactions,
-        readReceipts,
-        sentAt,
-        editedAt,
-        deletedAt,
-        threadParentCode,
-        threadParentSenderCode,
-        threadParentSenderName,
-        threadParentText,
-        organizationCode,
-        schoolCode,
-        localTempCode,
-        privateParentUserCode,
-      ];
+    id,
+    code,
+    conversationCode,
+    senderCode,
+    senderName,
+    senderRole,
+    senderAvatarUrl,
+    text,
+    messageType,
+    status,
+    isPrivate,
+    isEdited,
+    isDeleted,
+    deletedPlaceholder,
+    attachments,
+    reactions,
+    readReceipts,
+    sentAt,
+    editedAt,
+    deletedAt,
+    threadParentCode,
+    threadParentSenderCode,
+    threadParentSenderName,
+    threadParentText,
+    organizationCode,
+    schoolCode,
+    localTempCode,
+    privateParentUserCode,
+  ];
 }
 
 /// A file or media attachment on a message.
@@ -305,20 +308,20 @@ class AttachmentEntity extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        messageCode,
-        conversationCode,
-        fileName,
-        fileUrl,
-        mimeType,
-        fileSizeBytes,
-        attachmentType,
-        thumbnailUrl,
-        localFilePath,
-        uploadedBy,
-        uploadedAt,
-        attachmentId,
-      ];
+    code,
+    messageCode,
+    conversationCode,
+    fileName,
+    fileUrl,
+    mimeType,
+    fileSizeBytes,
+    attachmentType,
+    thumbnailUrl,
+    localFilePath,
+    uploadedBy,
+    uploadedAt,
+    attachmentId,
+  ];
 }
 
 /// A read receipt for a single message from a single user.
@@ -329,6 +332,7 @@ class ReadReceiptEntity extends Equatable {
     required this.userName,
     this.deliveredAt,
     this.readAt,
+    this.role,
   });
 
   final String messageCode;
@@ -337,8 +341,21 @@ class ReadReceiptEntity extends Equatable {
   final DateTime? deliveredAt;
   final DateTime? readAt;
 
+  /// Raw backend role string (e.g. "STAFF", "GUARDIAN") the recipient was
+  /// acting AS for this delivery/read — the REST payload carries this per
+  /// receipt (`role`/`userRole`), so a dual-role account's receipt doesn't
+  /// need to be guessed from the participant list.
+  final String? role;
+
   bool get isRead => readAt != null;
 
   @override
-  List<Object?> get props => [messageCode, userCode, userName, deliveredAt, readAt];
+  List<Object?> get props => [
+    messageCode,
+    userCode,
+    userName,
+    deliveredAt,
+    readAt,
+    role,
+  ];
 }

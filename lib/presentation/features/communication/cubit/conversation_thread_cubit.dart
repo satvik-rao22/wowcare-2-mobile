@@ -18,6 +18,7 @@ import 'package:wowcare/domain/features/communication/usecases/add_reaction_enti
 import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_message_entity_receipts_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
@@ -49,6 +50,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required EditMessageEntityUseCase editMessageUseCase,
     required DeleteMessageEntityUseCase deleteMessageUseCase,
     required DeleteAttachmentEntityUseCase deleteAttachmentUseCase,
+    required GetMessageEntityReceiptsUseCase getMessageReceiptsUseCase,
     required AddReactionEntityUseCase addReactionUseCase,
     required RemoveReactionUseCase removeReactionUseCase,
     required MarkConversationReadUseCase markConversationReadUseCase,
@@ -68,6 +70,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        _editMessageUseCase = editMessageUseCase,
        _deleteMessageUseCase = deleteMessageUseCase,
        _deleteAttachmentUseCase = deleteAttachmentUseCase,
+       _getMessageReceiptsUseCase = getMessageReceiptsUseCase,
        _addReactionUseCase = addReactionUseCase,
        _removeReactionUseCase = removeReactionUseCase,
        _markConversationReadUseCase = markConversationReadUseCase,
@@ -107,6 +110,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   final EditMessageEntityUseCase _editMessageUseCase;
   final DeleteMessageEntityUseCase _deleteMessageUseCase;
   final DeleteAttachmentEntityUseCase _deleteAttachmentUseCase;
+  final GetMessageEntityReceiptsUseCase _getMessageReceiptsUseCase;
   final ChatAttachmentUploader _attachmentUploader;
   final AddReactionEntityUseCase _addReactionUseCase;
   final RemoveReactionUseCase _removeReactionUseCase;
@@ -948,6 +952,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         ),
       );
     }, (_) {});
+  }
+
+  /// Fetches the full per-recipient-per-persona receipts for one message
+  /// on-demand — see [GetMessageEntityReceiptsUseCase]. Returns an empty
+  /// list on failure rather than surfacing an error state, since this
+  /// backs a dialog the user can simply close and retry.
+  Future<List<ReadReceiptEntity>> fetchMessageReceipts(
+    String messageCode,
+  ) async {
+    final result = await _getMessageReceiptsUseCase(messageCode);
+    return result.fold((_) => const [], (receipts) => receipts);
   }
 
   // ─── Reactions ───────────────────────────────────────────────────────────────
