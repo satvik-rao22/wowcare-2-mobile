@@ -6,7 +6,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
-enum SignMethod { gps, qr, pin, kiosk, direct, web }
+enum SignMethod { gps, qr, pin, kiosk, direct, web, system }
 
 class StaffAttendanceCardData {
   final String? attendanceRecordCode;
@@ -36,6 +36,7 @@ class StaffAttendanceCardData {
 
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
+
   /// Comment captured from the "not expected today" warning at sign-in.
   final String? notExpectedComment;
 
@@ -95,7 +96,6 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
   // Shared text tokens mirrored from StaffCard so attendance cards read with
   // the same Manrope/plum visual identity.
   static const Color _plum = Color(0xff573353);
-
 
   @override
   Widget build(BuildContext context) {
@@ -467,6 +467,21 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             ),
           ),
         );
+      case SignMethod.system:
+        // Auto sign-out performed by the system (no person). Matches web's
+        // gear/"System" indicator.
+        return Tooltip(
+          message: 'System',
+          child: SvgPicture.asset(
+            MediaRes.systemMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
     }
   }
 
@@ -609,7 +624,10 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
       if (period == 'PM' && hour != 12) hour += 12;
       if (period == 'AM' && hour == 12) hour = 0;
 
-      return ServerTimeService.instance.now().copyWith(hour: hour, minute: minute);
+      return ServerTimeService.instance.now().copyWith(
+        hour: hour,
+        minute: minute,
+      );
     } catch (e) {
       return ServerTimeService.instance.now();
     }

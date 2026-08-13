@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -7,7 +6,7 @@ import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
+import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
@@ -34,8 +33,7 @@ class StudentSelectionMarkAbsentForm extends StatefulWidget {
 class _StudentSelectionMarkAbsentFormState
     extends State<StudentSelectionMarkAbsentForm> {
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = null;
-  String? _selectedClassroomCode;
+  List<String> _selectedClassrooms = [];
   List<String> _selectedTag = [];
   List<StudentEntity> _filteredStudents = [];
   Set<StudentEntity> selectedStudents = {};
@@ -100,11 +98,9 @@ class _StudentSelectionMarkAbsentFormState
           for (final c in _classroomCubit.state.classrooms) c.name: c.code,
         };
         _classroomList = _classroomNameToCode.keys.toList(growable: false);
-        if (_selectedClassroomCode != null &&
-            !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-          _selectedClassroom = '';
-          _selectedClassroomCode = null;
-        }
+        _selectedClassrooms.removeWhere(
+          (c) => !_classroomNameToCode.containsKey(c),
+        );
         _isClassroomDataReady = true;
       });
       return;
@@ -122,12 +118,9 @@ class _StudentSelectionMarkAbsentFormState
         for (final c in _classroomCubit.state.classrooms) c.name: c.code,
       };
       _classroomList = _classroomNameToCode.keys.toList(growable: false);
-      if (_selectedClassroomCode != null &&
-          !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-        _selectedClassroom = null;
-        _selectedClassroom = null;
-        _selectedClassroomCode = null;
-      }
+      _selectedClassrooms.removeWhere(
+        (c) => !_classroomNameToCode.containsKey(c),
+      );
       _isClassroomDataReady = _classroomList.isNotEmpty;
     });
   }
@@ -143,12 +136,22 @@ class _StudentSelectionMarkAbsentFormState
       final today = attendanceSchoolToday();
       final dateString = _formatDate(today);
 
-      final selectedClassroomCode = _selectedClassroomCode?.trim();
-      final classroomCodes =
-          (selectedClassroomCode != null && selectedClassroomCode.isNotEmpty)
-          ? <String>[selectedClassroomCode]
-          : null;
+      // Resolve selected classroom NAMES -> classroomCodes via _classroomNameToCode map.
+      List<String>? classroomCodes;
+      if (_selectedClassrooms.isNotEmpty) {
+        final codes = _selectedClassrooms
+            .map((name) => _classroomNameToCode[name])
+            .whereType<String>()
+            .where((c) => c.trim().isNotEmpty)
+            .toList();
+        if (codes.isNotEmpty) {
+          classroomCodes = codes;
+        }
+      }
 
+      // The Absent form API doesn't return tag data on its items (unlike
+      // Sign-In/Sign-Out/Transfer), so there's no name->code map to resolve
+      // against — send the selected names through as-is, same as before.
       final tagCodes = _selectedTag.isNotEmpty ? _selectedTag : null;
 
       final searchText = _searchController.text.trim().isNotEmpty
@@ -167,7 +170,18 @@ class _StudentSelectionMarkAbsentFormState
 
       if (!mounted) return;
 
-      final students = page.items.asMap().entries.map((entry) {
+      var items = page.items;
+      // Safety net: enforce the classroom filter client-side too, in case
+      // the backend returns rows outside the requested scope. Tags aren't
+      // in this endpoint's response, so there's nothing to re-check there.
+      if (classroomCodes != null && classroomCodes.isNotEmpty) {
+        final allowedClassrooms = classroomCodes.toSet();
+        items = items
+            .where((i) => allowedClassrooms.contains(i.classroomCode))
+            .toList();
+      }
+
+      final students = items.asMap().entries.map((entry) {
         final index = entry.key;
         final item = entry.value;
         return StudentEntity(
@@ -208,15 +222,15 @@ class _StudentSelectionMarkAbsentFormState
           );
         }
 
-        if (_selectedClassroom != null && _selectedClassroom != '') {
-          matchesRoom = _selectedClassroom!.contains(student.roomName);
+        if (_selectedClassrooms.isNotEmpty) {
+          matchesRoom = _selectedClassrooms.contains(student.roomName);
         }
 
-        if (_selectedTag.isNotEmpty) {
-          matchesTag = student.tags.any(
-            (tag) => _selectedTag.contains(tag.name),
-          );
-        }
+        // The Absent form API doesn't return per-student tag data, so
+        // `student.tags` is always empty here — re-checking it locally
+        // would incorrectly hide every row whenever a tag is selected.
+        // The server-side `tagCodes` param (sent above) is the only tag
+        // filter available for this form.
 
         return matchesSearch && matchesRoom && matchesTag;
       }).toList();
@@ -275,7 +289,7 @@ class _StudentSelectionMarkAbsentFormState
   List<StudentEntity> _getVisibleStudents() {
     return _filteredStudents.isEmpty &&
             _searchController.text.isEmpty &&
-            (_selectedClassroom == null || _selectedClassroom!.isEmpty) &&
+            _selectedClassrooms.isEmpty &&
             _selectedTag.isEmpty
         ? _allStudents
         : _filteredStudents;
@@ -386,26 +400,22 @@ class _StudentSelectionMarkAbsentFormState
 
                     // Render the field even with no items yet — a shimmer
                     // here could get stuck showing forever if loading never
-                    // actually resolves. CustomDropdown's own "No matches
+                    // actually resolves. The dropdown's own "No matches
                     // found" empty state covers the case where there's
                     // genuinely nothing to pick.
 
-                    return CustomDropdown(
-                      onSelect: (value) {
+                    return CustomMultiSelectDropdown(
+                      hintText: 'Classroom',
+                      items: items,
+                      selectedItems: _selectedClassrooms,
+                      onChanged: (selectedItems) {
                         if (isLoading) return;
                         setState(() {
-                          _selectedClassroom = value;
-                          _selectedClassroomCode = value == null
-                              ? null
-                              : _classroomNameToCode[value];
+                          _selectedClassrooms = selectedItems;
                           _filterStudents();
                         });
                         _loadStudents();
                       },
-                      hintText: 'Classroom',
-                      items: items,
-                      isField: true,
-                      isEnabled: true,
                     );
                   },
                 ),
@@ -413,7 +423,7 @@ class _StudentSelectionMarkAbsentFormState
               const SizedBox(width: 12),
               Expanded(
                 flex: 4,
-                child: CustomMultiSelectDropdownAssignStudent(
+                child: CustomMultiSelectDropdown(
                   hintText: 'Tags',
                   items: _tags,
                   selectedItems: _selectedTag,
@@ -564,165 +574,6 @@ class StudentListItem extends StatelessWidget {
                 ),
               ),
             ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class CustomMultiSelectDropdownAssignStudent extends StatefulWidget {
-  final String hintText;
-  final List<String> items;
-  final List<String> selectedItems;
-  final ValueChanged<List<String>> onChanged;
-  final bool isField;
-  final double? width;
-
-  const CustomMultiSelectDropdownAssignStudent({
-    Key? key,
-    required this.hintText,
-    required this.items,
-    required this.selectedItems,
-    required this.onChanged,
-    this.isField = false,
-    this.width,
-  }) : super(key: key);
-
-  @override
-  State<CustomMultiSelectDropdownAssignStudent> createState() =>
-      _CustomMultiSelectDropdownAssignStudentState();
-}
-
-class _CustomMultiSelectDropdownAssignStudentState
-    extends State<CustomMultiSelectDropdownAssignStudent> {
-  late List<String> _localSelectedItems;
-  bool isDropdownOpen = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _localSelectedItems = List.from(widget.selectedItems);
-    _localSelectedItems.removeWhere((item) => !widget.items.contains(item));
-  }
-
-  @override
-  void didUpdateWidget(CustomMultiSelectDropdownAssignStudent oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (!listEquals(oldWidget.items, widget.items) ||
-        !listEquals(oldWidget.selectedItems, widget.selectedItems)) {
-      setState(() {
-        _localSelectedItems = List.from(widget.selectedItems);
-        _localSelectedItems.removeWhere((item) => !widget.items.contains(item));
-      });
-    }
-  }
-
-  String get displaySuffix {
-    if (widget.hintText.toLowerCase() == 'status') {
-      return 'status';
-    } else if (widget.hintText.toLowerCase() == 'tags') {
-      return 'tag${_localSelectedItems.length > 1 ? 's' : ''}';
-    }
-    return 'items';
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String displayText = _localSelectedItems.isEmpty
-        ? widget.hintText
-        : '${_localSelectedItems.length} $displaySuffix';
-
-    return Container(
-      height: 40,
-      width: widget.width,
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          filled: true,
-          fillColor: const Color(0xFFF8F7FA),
-          hintText: widget.hintText,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: const BorderSide(color: Colors.transparent),
-          ),
-        ),
-        icon: const Icon(Icons.keyboard_arrow_down),
-        iconSize: 24,
-        elevation: 2,
-        style: const TextStyle(color: Colors.black87, fontSize: 16),
-        dropdownColor: Colors.white,
-        items: widget.items.map((String item) {
-          return DropdownMenuItem<String>(
-            value: item,
-            enabled: false,
-            child: StatefulBuilder(
-              builder: (BuildContext context, StateSetter setMenuItemState) {
-                final isSelected = _localSelectedItems.contains(item);
-                return InkWell(
-                  onTap: () {
-                    setMenuItemState(() {
-                      if (isSelected) {
-                        _localSelectedItems.remove(item);
-                      } else {
-                        _localSelectedItems.add(item);
-                      }
-                    });
-                    setState(() {});
-                    widget.onChanged(_localSelectedItems);
-                  },
-                  child: Row(
-                    children: [
-                      CustomCheckbox(
-                        value: isSelected,
-                        borderColor: AppColors.themeColor,
-                        onChanged: (bool? checked) {
-                          setMenuItemState(() {
-                            if (checked == true) {
-                              _localSelectedItems.add(item);
-                            } else {
-                              _localSelectedItems.remove(item);
-                            }
-                          });
-                          setState(() {});
-                          widget.onChanged(_localSelectedItems);
-                        },
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          item,
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.black87,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          );
-        }).toList(),
-        onChanged: (_) {},
-        isExpanded: true,
-        hint: Text(
-          displayText,
-          style: TextStyle(
-            color: _localSelectedItems.isEmpty
-                ? Colors.grey[600]
-                : Colors.black87,
-            fontSize: 15,
           ),
         ),
       ),

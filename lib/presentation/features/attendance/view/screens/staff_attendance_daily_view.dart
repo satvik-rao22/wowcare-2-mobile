@@ -1019,7 +1019,12 @@ class _StaffAttendanceDailyViewScreenState
           signOutBy:
               _normalizeByName(item.signedOutBy) ??
               (transferSignOut ? _loggedInUserName : null) ??
-              (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null),
+              (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null) ??
+              // Auto sign-out has no person: the API sends
+              // signedOutMethod=SYSTEM with an empty signedOutBy. Show
+              // "System" (web parity) instead of falling through to the
+              // card's own "Unknown" placeholder.
+              (_isSystemMethod(item.signedOutMethod) ? 'System' : null),
           // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
           signInMethod: _resolveSignMethodForDisplay(
             method: item.signedInMethod,
@@ -1077,9 +1082,9 @@ class _StaffAttendanceDailyViewScreenState
     // restricted server-side to SCHOOL_ADMIN/ORGANIZATION_ADMIN personas, so
     // hide the Edit action unless both checks pass (the card omits a null
     // callback); Delete keeps the original module-only gate.
-    final canWriteStaffAttendance = context
-        .read<RoleCubit>()
-        .canWriteModule(AppAccessModules.staffAttendance);
+    final canWriteStaffAttendance = context.read<RoleCubit>().canWriteModule(
+      AppAccessModules.staffAttendance,
+    );
     final canEditAttendance = canWriteStaffAttendance && _isStaffAdminPersona;
     return Column(
       children: filtered.asMap().entries.map((entry) {
@@ -1097,121 +1102,125 @@ class _StaffAttendanceDailyViewScreenState
           onEdit: !canEditAttendance
               ? null
               : () async {
-            await Navigator.push<bool>(
-              context,
-              MaterialPageRoute(
-                builder: (_) => StaffEditAttendanceForm(
-                  staffAttendance: staff,
-                  attendanceDate: _selectedDate,
-                ),
-              ),
-            );
-            if (mounted) {
-              refreshAfterReturningFromAttendanceFlow();
-            }
-          },
+                  await Navigator.push<bool>(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => StaffEditAttendanceForm(
+                        staffAttendance: staff,
+                        attendanceDate: _selectedDate,
+                      ),
+                    ),
+                  );
+                  if (mounted) {
+                    refreshAfterReturningFromAttendanceFlow();
+                  }
+                },
           onDelete: !canWriteStaffAttendance
               ? null
               : () {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              builder: (ctx) {
-                return DeleteConfirmationBottomSheet(
-                  name: staff.staffName,
-                  type: 'attendance',
-                  onDelete: () async {
-                    Navigator.of(ctx).pop();
-                    if (staff.attendanceRecordCode == null ||
-                        staff.attendanceRecordCode!.isEmpty) {
-                      CoreUtils.showTopSnackBarFromSnackBar(
-                        context: context,
-                        snackBar: const SnackBar(
-                          content: Text(
-                            'Unable to delete: missing attendance record code.',
-                          ),
-                          backgroundColor: AppColors.errorColor,
-                        ),
+                  showModalBottomSheet(
+                    context: context,
+                    isScrollControlled: true,
+                    backgroundColor: Colors.transparent,
+                    builder: (ctx) {
+                      return DeleteConfirmationBottomSheet(
+                        name: staff.staffName,
+                        type: 'attendance',
+                        onDelete: () async {
+                          Navigator.of(ctx).pop();
+                          if (staff.attendanceRecordCode == null ||
+                              staff.attendanceRecordCode!.isEmpty) {
+                            CoreUtils.showTopSnackBarFromSnackBar(
+                              context: context,
+                              snackBar: const SnackBar(
+                                content: Text(
+                                  'Unable to delete: missing attendance record code.',
+                                ),
+                                backgroundColor: AppColors.errorColor,
+                              ),
+                            );
+                            return;
+                          }
+
+                          try {
+                            final normalizedAttendanceCode =
+                                _resolveStaffDeleteAttendanceRecordCode(
+                                  card: staff,
+                                  allItems: state.items,
+                                );
+                            if (normalizedAttendanceCode == null ||
+                                normalizedAttendanceCode.isEmpty) {
+                              CoreUtils.showTopSnackBarFromSnackBar(
+                                context: context,
+                                snackBar: const SnackBar(
+                                  content: Text(
+                                    'Unable to delete: invalid attendance record code.',
+                                  ),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                              return;
+                            }
+
+                            final storageService =
+                                serviceLocator<StorageService>();
+                            final staffCode =
+                                (await storageService.getString(
+                                          StorageKeys.staffCode,
+                                        ) ??
+                                        '')
+                                    .trim();
+                            if (staffCode.isEmpty) {
+                              if (!context.mounted) return;
+                              CoreUtils.showTopSnackBarFromSnackBar(
+                                context: context,
+                                snackBar: const SnackBar(
+                                  content: Text(
+                                    'Unable to resolve staffCode. Please re-login.',
+                                  ),
+                                  backgroundColor: AppColors.errorColor,
+                                ),
+                              );
+                              return;
+                            }
+
+                            await serviceLocator<AttendanceRepository>()
+                                .deleteStaffAttendanceRecord(
+                                  attendanceRecordCode:
+                                      normalizedAttendanceCode,
+                                  staffCode: staffCode,
+                                );
+
+                            if (!context.mounted) return;
+                            CoreUtils.showTopSnackBarFromSnackBar(
+                              context: context,
+                              snackBar: const SnackBar(
+                                content: Text('Attendance deleted'),
+                                backgroundColor: AppColors.successColor,
+                              ),
+                            );
+                            _loadAttendanceData(context, reset: true);
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            final message = ApiErrorHandler.extractErrorMessage(
+                              e,
+                            );
+                            CoreUtils.showTopSnackBarFromSnackBar(
+                              context: context,
+                              snackBar: SnackBar(
+                                content: Text(message),
+                                backgroundColor: AppColors.errorColor,
+                              ),
+                            );
+                          }
+                        },
+                        onCancel: () {
+                          Navigator.of(ctx).pop();
+                        },
                       );
-                      return;
-                    }
-
-                    try {
-                      final normalizedAttendanceCode =
-                          _resolveStaffDeleteAttendanceRecordCode(
-                            card: staff,
-                            allItems: state.items,
-                          );
-                      if (normalizedAttendanceCode == null ||
-                          normalizedAttendanceCode.isEmpty) {
-                        CoreUtils.showTopSnackBarFromSnackBar(
-                          context: context,
-                          snackBar: const SnackBar(
-                            content: Text(
-                              'Unable to delete: invalid attendance record code.',
-                            ),
-                            backgroundColor: AppColors.errorColor,
-                          ),
-                        );
-                        return;
-                      }
-
-                      final storageService = serviceLocator<StorageService>();
-                      final staffCode =
-                          (await storageService.getString(
-                                    StorageKeys.staffCode,
-                                  ) ??
-                                  '')
-                              .trim();
-                      if (staffCode.isEmpty) {
-                        if (!context.mounted) return;
-                        CoreUtils.showTopSnackBarFromSnackBar(
-                          context: context,
-                          snackBar: const SnackBar(
-                            content: Text(
-                              'Unable to resolve staffCode. Please re-login.',
-                            ),
-                            backgroundColor: AppColors.errorColor,
-                          ),
-                        );
-                        return;
-                      }
-
-                      await serviceLocator<AttendanceRepository>()
-                          .deleteStaffAttendanceRecord(
-                            attendanceRecordCode: normalizedAttendanceCode,
-                            staffCode: staffCode,
-                          );
-
-                      if (!context.mounted) return;
-                      CoreUtils.showTopSnackBarFromSnackBar(
-                        context: context,
-                        snackBar: const SnackBar(
-                          content: Text('Attendance deleted'),
-                          backgroundColor: AppColors.successColor,
-                        ),
-                      );
-                      _loadAttendanceData(context, reset: true);
-                    } catch (e) {
-                      if (!context.mounted) return;
-                      final message = ApiErrorHandler.extractErrorMessage(e);
-                      CoreUtils.showTopSnackBarFromSnackBar(
-                        context: context,
-                        snackBar: SnackBar(
-                          content: Text(message),
-                          backgroundColor: AppColors.errorColor,
-                        ),
-                      );
-                    }
-                  },
-                  onCancel: () {
-                    Navigator.of(ctx).pop();
-                  },
-                );
-              },
-            );
-          },
+                    },
+                  );
+                },
           onView: () {
             Navigator.push<void>(
               context,
@@ -1255,6 +1264,11 @@ class _StaffAttendanceDailyViewScreenState
     return normalized == 'PIN' || normalized == 'KIOSK';
   }
 
+  bool _isSystemMethod(String? method) {
+    if (method == null) return false;
+    return method.trim().toUpperCase() == 'SYSTEM';
+  }
+
   SignMethod? _mapMethodStringToEnum(String? method) {
     if (method == null) return null;
     final normalized = method.trim().toUpperCase();
@@ -1274,6 +1288,8 @@ class _StaffAttendanceDailyViewScreenState
         return SignMethod.direct;
       case 'WEB':
         return SignMethod.web;
+      case 'SYSTEM':
+        return SignMethod.system;
       default:
         return null;
     }

@@ -6,14 +6,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
-enum SignMethod {
-  gps,
-  qr,
-  pin,
-  kiosk,
-  direct,
-  web,
-}
+enum SignMethod { gps, qr, pin, kiosk, direct, web, system }
 
 class StudentAttendanceCardData {
   final String id;
@@ -41,8 +34,10 @@ class StudentAttendanceCardData {
   // Flags to indicate the displayed times are transfer-derived
   final bool isTransferSignIn;
   final bool isTransferSignOut;
+
   /// When set, shown as "Attended Time" (computed on the client from sign-in/out).
   final String? attendedTimeDisplay;
+
   /// Comment captured from the "not expected today" warning at sign-in.
   final String? notExpectedComment;
 
@@ -103,7 +98,6 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
   // Shared text tokens mirrored from StaffCard so attendance cards read with
   // the same Manrope/plum visual identity.
   static const Color _plum = Color(0xff573353);
-
 
   @override
   Widget build(BuildContext context) {
@@ -224,8 +218,11 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    _buildDetailRow(context, 'Expected Today?',
-                        student.expectedToday ? 'Yes' : 'No'),
+                    _buildDetailRow(
+                      context,
+                      'Expected Today?',
+                      student.expectedToday ? 'Yes' : 'No',
+                    ),
                     const SizedBox(height: 10),
                     _buildDetailRow(context, 'Classroom', student.roomName),
                     const SizedBox(height: 10),
@@ -248,7 +245,9 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                       const SizedBox(height: 10),
                       _buildDetailRow(context, 'Attended Time', duration),
                     ],
-                    if ((student.notExpectedComment ?? '').trim().isNotEmpty) ...[
+                    if ((student.notExpectedComment ?? '')
+                        .trim()
+                        .isNotEmpty) ...[
                       const SizedBox(height: 10),
                       _buildDetailRow(
                         context,
@@ -455,6 +454,21 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             ),
           ),
         );
+      case SignMethod.system:
+        // Auto sign-out performed by the system (no person). Matches web's
+        // gear/"System" indicator.
+        return Tooltip(
+          message: 'System',
+          child: SvgPicture.asset(
+            MediaRes.systemMethodIcon,
+            width: size,
+            height: size,
+            colorFilter: const ColorFilter.mode(
+              AppColors.themeColor,
+              BlendMode.srcIn,
+            ),
+          ),
+        );
     }
   }
 
@@ -533,9 +547,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
       ),
@@ -599,7 +611,10 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
       if (period == 'PM' && hour != 12) hour += 12;
       if (period == 'AM' && hour == 12) hour = 0;
 
-      return ServerTimeService.instance.now().copyWith(hour: hour, minute: minute);
+      return ServerTimeService.instance.now().copyWith(
+        hour: hour,
+        minute: minute,
+      );
     } catch (e) {
       return ServerTimeService.instance.now();
     }

@@ -910,6 +910,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           isRangePicker: false,
           isTimePicker: false,
           initialDate: _selectedBirthDate,
+          firstDate: DateTime(1900),
+          lastDate: AppTime.now(),
         ),
       );
 

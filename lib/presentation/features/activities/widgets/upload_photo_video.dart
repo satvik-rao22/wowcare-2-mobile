@@ -1658,9 +1658,7 @@ class _MediaUploaderState extends State<MediaUploader> {
       // download button. (Local, not-yet-uploaded files keep the lightweight
       // dialog since there is nothing to download.)
       onTap: () => Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => ShowFullScreenMedia(photoUrl: url),
-        ),
+        MaterialPageRoute(builder: (_) => ShowFullScreenMedia(photoUrl: url)),
       ),
       canRemove: !widget.readOnly,
     );
@@ -1686,7 +1684,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   void _showImageFullscreen(Widget imageWidget) {
     showDialog(
       context: context,
-      builder: (_) => Dialog(
+      builder: (dialogContext) => Dialog(
         backgroundColor: Colors.black,
         insetPadding: const EdgeInsets.all(0),
         child: Stack(
@@ -1702,7 +1700,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               top: 8,
               right: 8,
               child: IconButton(
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () => Navigator.of(dialogContext).pop(),
                 icon: const Icon(Icons.close, color: Colors.white),
               ),
             ),

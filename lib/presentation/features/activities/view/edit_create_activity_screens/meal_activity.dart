@@ -444,151 +444,149 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
+    setState(() {
+      _isSubmitting = true;
+    });
+    try {
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
           context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
+          message: 'Please select at least one student',
+          isWarning: true,
         );
-    if (!isWithinAttendanceWindow) return;
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
 
-    if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select a meal type',
-        isWarning: true,
-      );
-      return;
-    }
+      if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a meal type',
+          isWarning: true,
+        );
+        return;
+      }
 
-    if (_selectedQuantity == null || _selectedQuantity!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select quantity',
-        isWarning: true,
-      );
-      return;
-    }
+      if (_selectedQuantity == null || _selectedQuantity!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select quantity',
+          isWarning: true,
+        );
+        return;
+      }
 
-    final description = _descriptionController.text.trim();
-    if (description.isNotEmpty &&
-        description.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
+      final description = _descriptionController.text.trim();
+      if (description.isNotEmpty &&
+          description.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
 
-    if (_activityDate == null || _activityTime == null) {
-      // When coming from student-selection, DateWidget can be non-editable; ensure we still use
-      // the attendance date carried forward in selectedStudents payload.
+      if (_activityDate == null || _activityTime == null) {
+        // When coming from student-selection, DateWidget can be non-editable; ensure we still use
+        // the attendance date carried forward in selectedStudents payload.
+        final prefilled = widget.selectedStudents != null
+            ? resolveSelectedAttendanceDate(_selectedStudentsData)
+            : null;
+        if (prefilled != null) {
+          _activityDate = prefilled;
+        }
+        if (_activityDate == null || _activityTime == null) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Please select date and time',
+            isWarning: true,
+          );
+          return;
+        }
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final studentCodes = _selectedStudentsData
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Meal. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      // Force activity payload date to match student-selection attendance date.
       final prefilled = widget.selectedStudents != null
           ? resolveSelectedAttendanceDate(_selectedStudentsData)
           : null;
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      if (_activityDate == null || _activityTime == null) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please select date and time',
-          isWarning: true,
-        );
-        return;
-      }
-    }
 
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
       );
-      return;
-    }
 
-    final studentCodes = _selectedStudentsData
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Meal. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    // Force activity payload date to match student-selection attendance date.
-    final prefilled = widget.selectedStudents != null
-        ? resolveSelectedAttendanceDate(_selectedStudentsData)
-        : null;
-    if (prefilled != null) {
-      _activityDate = prefilled;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    try {
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
@@ -706,92 +704,91 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
     _lastUpdateSucceeded = false;
-
-    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
-          context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
-        );
-    if (!isWithinAttendanceWindow) return;
-
-    if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select a meal type',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_selectedQuantity == null || _selectedQuantity!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select quantity',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final description = _descriptionController.text.trim();
-    if (description.isNotEmpty &&
-        description.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    if (staffCode == null || staffCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing staff information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Meal. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() => _isSubmitting = true);
     try {
+      final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
+
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      if (_selectedMealType == null || _selectedMealType!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a meal type',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_selectedQuantity == null || _selectedQuantity!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select quantity',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final description = _descriptionController.text.trim();
+      if (description.isNotEmpty &&
+          description.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      if (staffCode == null || staffCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing staff information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Meal. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );

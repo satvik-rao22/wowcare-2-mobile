@@ -736,139 +736,137 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
-          context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
-        );
-    if (!isWithinAttendanceWindow) return;
-
-    if (_selectedActivityType == null ||
-        _selectedActivityType!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select an Activity Name',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_selectedCategory == null || _selectedCategory!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select a category',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final description = _descriptionController.text.trim();
-    if (description.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final studentCodes = _selectedStudentsData
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Learning. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    // Ensure the API payload uses the attendance date chosen on student selection.
-    final prefilled = widget.selectedStudents != null
-        ? resolveSelectedAttendanceDate(_selectedStudentsData)
-        : null;
-    if (prefilled != null) {
-      _activityDate = prefilled;
-    }
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() {
       _isSubmitting = true;
     });
-
     try {
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      if (_selectedActivityType == null ||
+          _selectedActivityType!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select an Activity Name',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_selectedCategory == null || _selectedCategory!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a category',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final description = _descriptionController.text.trim();
+      if (description.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final studentCodes = _selectedStudentsData
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Learning. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      // Ensure the API payload uses the attendance date chosen on student selection.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
       final attachments = await _ensurePhotoAssetsUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
@@ -993,144 +991,143 @@ class _LearningActivityScreenState extends State<LearningActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
     _lastUpdateSucceeded = false;
-
-    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
-          context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
-        );
-    if (!isWithinAttendanceWindow) return;
-
-    if (_selectedActivityType == null ||
-        _selectedActivityType!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select an Activity Name',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_selectedCategory == null || _selectedCategory!.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select a category',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final description = _descriptionController.text.trim();
-    if (description.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
-      allStudentMaps: _selectedStudentsData,
-      checkedIndices: _scopedEditStudentIndices,
-    );
-    final studentCodes = scopeMapsForUpload
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Learning. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
-    if (_isUploadingMedia) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for the photo upload to finish',
-        isWarning: true,
-      );
-      return;
-    }
-
     setState(() => _isSubmitting = true);
     try {
+      final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
+
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      if (_selectedActivityType == null ||
+          _selectedActivityType!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select an Activity Name',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_selectedCategory == null || _selectedCategory!.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select a category',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final description = _descriptionController.text.trim();
+      if (description.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
+      );
+      final studentCodes = scopeMapsForUpload
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Learning. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
+      if (_isUploadingMedia) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please wait for the photo upload to finish',
+          isWarning: true,
+        );
+        return;
+      }
+
       final newAttachments = await _ensurePhotoAssetsUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,

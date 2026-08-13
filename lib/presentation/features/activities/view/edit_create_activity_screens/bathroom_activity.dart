@@ -844,156 +844,154 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (_layoutAsEdit) {
       return;
     }
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
-          context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
-        );
-    if (!isWithinAttendanceWindow) return;
-
-    final description = _descriptionController.text.trim();
-    if (_descriptionRequiredForPotty && description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_selectedBathroomType == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select Bathroom Type',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_selectedSubType == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select Sub Type',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final extraErr = _validateVisibleExtraParameters();
-    if (extraErr != null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: extraErr,
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final studentCodes = _selectedStudentsData
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Bathroom. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    // Ensure the API payload uses the attendance date chosen on student selection.
-    final prefilled = widget.selectedStudents != null
-        ? resolveSelectedAttendanceDate(_selectedStudentsData)
-        : null;
-    if (prefilled != null) {
-      _activityDate = prefilled;
-    }
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() {
       _isSubmitting = true;
     });
-
     try {
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      final description = _descriptionController.text.trim();
+      if (_descriptionRequiredForPotty && description.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter description',
+          isWarning: true,
+        );
+        return;
+      }
+      if (description.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_selectedBathroomType == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select Bathroom Type',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_selectedSubType == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select Sub Type',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final extraErr = _validateVisibleExtraParameters();
+      if (extraErr != null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: extraErr,
+          isWarning: true,
+        );
+        return;
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final studentCodes = _selectedStudentsData
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Bathroom. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      // Ensure the API payload uses the attendance date chosen on student selection.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
       // POST /api/v1/activities — same payload as MedicationActivityScreen (multi-student fan-out via studentCodes).
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
@@ -1123,106 +1121,105 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
     _lastUpdateSucceeded = false;
-
-    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
-          context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
-        );
-    if (!isWithinAttendanceWindow) return;
-
-    if (_selectedBathroomType == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select Bathroom Type',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_selectedSubType == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select Sub Type',
-        isWarning: true,
-      );
-      return;
-    }
-    final description = _descriptionController.text.trim();
-    if (_descriptionRequiredForPotty && description.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter description',
-        isWarning: true,
-      );
-      return;
-    }
-    if (description.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final extraErr = _validateVisibleExtraParameters();
-    if (extraErr != null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: extraErr,
-        isWarning: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    if (staffCode == null || staffCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing staff information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Bathroom. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() => _isSubmitting = true);
     try {
+      final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
+
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      if (_selectedBathroomType == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select Bathroom Type',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_selectedSubType == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select Sub Type',
+          isWarning: true,
+        );
+        return;
+      }
+      final description = _descriptionController.text.trim();
+      if (_descriptionRequiredForPotty && description.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter description',
+          isWarning: true,
+        );
+        return;
+      }
+      if (description.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final extraErr = _validateVisibleExtraParameters();
+      if (extraErr != null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: extraErr,
+          isWarning: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      if (staffCode == null || staffCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing staff information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Bathroom. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );

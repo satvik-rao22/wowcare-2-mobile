@@ -276,80 +276,87 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
     if (_layoutAsEdit) return const ActivityFormOutcome.noop();
 
-    if (state.selectedStudents.isEmpty) {
-      return const ActivityFormOutcome.warning(
-        'Please select at least one student',
-      );
-    }
-    if (!await onValidateAttendanceWindow()) {
-      return const ActivityFormOutcome.noop();
-    }
-
-    final desc = description.trim();
-    final descError = _validateDescription(desc);
-    if (descError != null) return ActivityFormOutcome.warning(descError);
-
-    if (_activityDate == null || _activityTime == null) {
-      return const ActivityFormOutcome.warning('Please select date and time');
-    }
-
-    final classroomCodeDynamic = state.selectedStudentsData.first['classroomCode'] ??
-        state.selectedStudentsData.first['classroomcode'];
-    final classroomCode =
-        classroomCodeDynamic is String ? classroomCodeDynamic.trim() : '';
-    if (classroomCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing classroom information for activity',
-      );
-    }
-
-    final studentCodes = state.selectedStudentsData
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-    if (studentCodes.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Unable to resolve student codes for activity',
-      );
-    }
-
-    final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = state.schoolCode;
-    final organizationCode = state.organizationCode;
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing staff or school information. Please re-login and try again.',
-      );
-    }
-
-    final activityTypeCode = state.activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Unable to determine activity type for Medication. Please check activity settings.',
-      );
-    }
-
-    // Ensure the API payload uses the attendance date chosen on student selection.
-    if (_createdFromSelection) {
-      final prefilled = resolveSelectedAttendanceDate(state.selectedStudentsData);
-      if (prefilled != null) _activityDate = prefilled;
-    }
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     emit(state.copyWith(isSubmitting: true));
     try {
-      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
-      final parameterValues =
-          _buildParameterValues(details, desc, staffCode);
+      if (state.selectedStudents.isEmpty) {
+        return const ActivityFormOutcome.warning(
+          'Please select at least one student',
+        );
+      }
+      if (!await onValidateAttendanceWindow()) {
+        return const ActivityFormOutcome.noop();
+      }
+
+      final desc = description.trim();
+      final descError = _validateDescription(desc);
+      if (descError != null) return ActivityFormOutcome.warning(descError);
+
+      if (_activityDate == null || _activityTime == null) {
+        return const ActivityFormOutcome.warning(
+          'Please select date and time',
+        );
+      }
+
+      final classroomCodeDynamic =
+          state.selectedStudentsData.first['classroomCode'] ??
+          state.selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+      if (classroomCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing classroom information for activity',
+        );
+      }
+
+      final studentCodes = state.selectedStudentsData
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+      if (studentCodes.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Unable to resolve student codes for activity',
+        );
+      }
+
+      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = state.schoolCode;
+      final organizationCode = state.organizationCode;
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing staff or school information. Please re-login and try again.',
+        );
+      }
+
+      final activityTypeCode = state.activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Unable to determine activity type for Medication. Please check activity settings.',
+        );
+      }
+
+      // Ensure the API payload uses the attendance date chosen on student selection.
+      if (_createdFromSelection) {
+        final prefilled = resolveSelectedAttendanceDate(
+          state.selectedStudentsData,
+        );
+        if (prefilled != null) _activityDate = prefilled;
+      }
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
+      final parameterValues = _buildParameterValues(details, desc, staffCode);
 
       final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
@@ -391,48 +398,51 @@ class MedicationActivityCubit extends Cubit<MedicationActivityState> {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
     if (_readOnly) return const ActivityFormOutcome.noop();
 
-    final fallbackActivityCode = effectiveActivity.activityCode?.trim();
-    if (state.selectedStudents.isEmpty) {
-      return const ActivityFormOutcome.warning(
-        'Please select at least one student',
-      );
-    }
-    if (!await onValidateAttendanceWindow()) {
-      return const ActivityFormOutcome.noop();
-    }
-
-    final desc = description.trim();
-    final descError = _validateDescription(desc);
-    if (descError != null) return ActivityFormOutcome.warning(descError);
-
-    if (_activityDate == null || _activityTime == null) {
-      return const ActivityFormOutcome.warning('Please select date and time');
-    }
-
-    final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
-    if (staffCode == null || staffCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing staff information. Please re-login and try again.',
-      );
-    }
-
-    final activityTypeCode = state.activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Unable to determine activity type for Medication. Please check activity settings.',
-      );
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     emit(state.copyWith(isSubmitting: true));
     try {
-      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
-      final parameterValues =
-          _buildParameterValues(details, desc, staffCode);
+      final fallbackActivityCode = effectiveActivity.activityCode?.trim();
+      if (state.selectedStudents.isEmpty) {
+        return const ActivityFormOutcome.warning(
+          'Please select at least one student',
+        );
+      }
+      if (!await onValidateAttendanceWindow()) {
+        return const ActivityFormOutcome.noop();
+      }
+
+      final desc = description.trim();
+      final descError = _validateDescription(desc);
+      if (descError != null) return ActivityFormOutcome.warning(descError);
+
+      if (_activityDate == null || _activityTime == null) {
+        return const ActivityFormOutcome.warning(
+          'Please select date and time',
+        );
+      }
+
+      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      if (staffCode == null || staffCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing staff information. Please re-login and try again.',
+        );
+      }
+
+      final activityTypeCode = state.activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Unable to determine activity type for Medication. Please check activity settings.',
+        );
+      }
+
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
+      final parameterValues = _buildParameterValues(details, desc, staffCode);
 
       final targets = studentMapsForScopedActivityUpdate(
         allStudentMaps: state.selectedStudentsData,

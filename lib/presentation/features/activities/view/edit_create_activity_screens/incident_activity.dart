@@ -1500,168 +1500,166 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<void> _submitCreateActivity() async {
     if (_isSubmitting) return;
     if (_layoutAsEdit) return;
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
-          context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
-        );
-    if (!isWithinAttendanceWindow) return;
-
-    final whatHappened = _descriptionController.text.trim();
-    if (whatHappened.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_isAdminDesignation) {
-      if (!_isAdminSigned) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please sign in Admin Present.',
-          isWarning: true,
-        );
-        return;
-      }
-    } else {
-      if (!_isSigned) {
-        CoreUtils.showTopSnackBar(
-          context: context,
-          message: 'Please click to sign',
-          isWarning: true,
-        );
-        return;
-      }
-    }
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for all photos to finish uploading',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final scopedStudents = _scopedStudentsForCreate();
-    final studentCodes = scopedStudents
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Incident. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final additionalNotes = _addNotesController.text.trim();
-    if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    // Ensure the API payload uses the attendance date chosen on student selection.
-    final prefilled = widget.selectedStudents != null
-        ? resolveSelectedAttendanceDate(_selectedStudentsData)
-        : null;
-    if (prefilled != null) {
-      _activityDate = prefilled;
-    }
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() {
       _isSubmitting = true;
     });
-
     try {
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      final whatHappened = _descriptionController.text.trim();
+      if (whatHappened.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter what happened',
+          isWarning: true,
+        );
+        return;
+      }
+      if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_isAdminDesignation) {
+        if (!_isAdminSigned) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Please sign in Admin Present.',
+            isWarning: true,
+          );
+          return;
+        }
+      } else {
+        if (!_isSigned) {
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: 'Please click to sign',
+            isWarning: true,
+          );
+          return;
+        }
+      }
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_uploadedPhotoCount != _newPhotos.length || _isUploadingMedia) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please wait for all photos to finish uploading',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final scopedStudents = _scopedStudentsForCreate();
+      final studentCodes = scopedStudents
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Incident. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      final additionalNotes = _addNotesController.text.trim();
+      if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      // Ensure the API payload uses the attendance date chosen on student selection.
+      final prefilled = widget.selectedStudents != null
+          ? resolveSelectedAttendanceDate(_selectedStudentsData)
+          : null;
+      if (prefilled != null) {
+        _activityDate = prefilled;
+      }
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
       final attachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,
@@ -1831,177 +1829,176 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     if (_isSubmitting) return;
     if (widget.readOnly) return;
     _lastUpdateSucceeded = false;
-
-    final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
-
-    if (_selectedStudents.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select at least one student',
-        isWarning: true,
-      );
-      return;
-    }
-    final isWithinAttendanceWindow =
-        await validateStudentsWithinAttendanceWindow(
-          context: context,
-          students: _selectedStudentsData,
-          selectedDate: _activityDate,
-          selectedTime: _activityTime,
-        );
-    if (!isWithinAttendanceWindow) return;
-
-    final whatHappened = _descriptionController.text.trim();
-    if (whatHappened.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter what happened',
-        isWarning: true,
-      );
-      return;
-    }
-    if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (!_isSigned) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please click to sign',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_isAdminDesignation && !_isAdminSigned) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please sign in Admin Present before saving.',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_isAdminDesignation && !_adminSignedThisSession) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please sign in Admin Present before saving.',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_activityDate == null || _activityTime == null) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please select date and time',
-        isWarning: true,
-      );
-      return;
-    }
-
-    if (_newPhotos.isNotEmpty && _uploadedPhotoCount != _newPhotos.length) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for all photos to finish uploading',
-        isWarning: true,
-      );
-      return;
-    }
-    if (_isUploadingMedia) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please wait for media uploads to finish',
-        isWarning: true,
-      );
-      return;
-    }
-
-    final classroomCodeDynamic =
-        _selectedStudentsData.first['classroomCode'] ??
-        _selectedStudentsData.first['classroomcode'];
-    final classroomCode = classroomCodeDynamic is String
-        ? classroomCodeDynamic.trim()
-        : '';
-
-    if (classroomCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Missing classroom information for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
-      allStudentMaps: _selectedStudentsData,
-      checkedIndices: _scopedEditStudentIndices,
-    );
-    final studentCodes = scopeMapsForUpload
-        .map((s) => (s['studentCode'] as String?)?.trim())
-        .whereType<String>()
-        .where((c) => c.isNotEmpty)
-        .toList();
-
-    if (studentCodes.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Unable to resolve student codes for activity',
-        isError: true,
-      );
-      return;
-    }
-
-    var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = _schoolCode;
-    final organizationCode = _organizationCode;
-
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Missing staff or school information. Please re-login and try again.',
-        isError: true,
-      );
-      return;
-    }
-
-    final activityTypeCode = _activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message:
-            'Unable to determine activity type for Incident. Please check activity settings.',
-        isError: true,
-      );
-      return;
-    }
-
-    final additionalNotes = _addNotesController.text.trim();
-    if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: ActivityDescriptionLimits.maxLengthMessage,
-        isWarning: true,
-      );
-      return;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     setState(() => _isSubmitting = true);
     try {
+      final fallbackActivityCode = _effectiveActivity.activityCode?.trim();
+
+      if (_selectedStudents.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select at least one student',
+          isWarning: true,
+        );
+        return;
+      }
+      final isWithinAttendanceWindow =
+          await validateStudentsWithinAttendanceWindow(
+            context: context,
+            students: _selectedStudentsData,
+            selectedDate: _activityDate,
+            selectedTime: _activityTime,
+          );
+      if (!isWithinAttendanceWindow) return;
+
+      final whatHappened = _descriptionController.text.trim();
+      if (whatHappened.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please enter what happened',
+          isWarning: true,
+        );
+        return;
+      }
+      if (whatHappened.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (!_isSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please click to sign',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_isAdminDesignation && !_isAdminSigned) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please sign in Admin Present before saving.',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_isAdminDesignation && !_adminSignedThisSession) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please sign in Admin Present before saving.',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_activityDate == null || _activityTime == null) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please select date and time',
+          isWarning: true,
+        );
+        return;
+      }
+
+      if (_newPhotos.isNotEmpty && _uploadedPhotoCount != _newPhotos.length) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please wait for all photos to finish uploading',
+          isWarning: true,
+        );
+        return;
+      }
+      if (_isUploadingMedia) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Please wait for media uploads to finish',
+          isWarning: true,
+        );
+        return;
+      }
+
+      final classroomCodeDynamic =
+          _selectedStudentsData.first['classroomCode'] ??
+          _selectedStudentsData.first['classroomcode'];
+      final classroomCode = classroomCodeDynamic is String
+          ? classroomCodeDynamic.trim()
+          : '';
+
+      if (classroomCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Missing classroom information for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      final scopeMapsForUpload = studentMapsForScopedActivityUpdate(
+        allStudentMaps: _selectedStudentsData,
+        checkedIndices: _scopedEditStudentIndices,
+      );
+      final studentCodes = scopeMapsForUpload
+          .map((s) => (s['studentCode'] as String?)?.trim())
+          .whereType<String>()
+          .where((c) => c.isNotEmpty)
+          .toList();
+
+      if (studentCodes.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: 'Unable to resolve student codes for activity',
+          isError: true,
+        );
+        return;
+      }
+
+      var staffCode = _staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = _schoolCode;
+      final organizationCode = _organizationCode;
+
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Missing staff or school information. Please re-login and try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      final activityTypeCode = _activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              'Unable to determine activity type for Incident. Please check activity settings.',
+          isError: true,
+        );
+        return;
+      }
+
+      final additionalNotes = _addNotesController.text.trim();
+      if (additionalNotes.length > ActivityDescriptionLimits.maxLength) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: ActivityDescriptionLimits.maxLengthMessage,
+          isWarning: true,
+        );
+        return;
+      }
+
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
       final newAttachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
         activityTypeCode: activityTypeCode,

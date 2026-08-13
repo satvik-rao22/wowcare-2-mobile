@@ -299,58 +299,62 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
     if (_layoutAsEdit) return const ActivityFormOutcome.noop();
 
-    final preflight = await _preflight(
-      amountOz: amountOz,
-      description: description,
-      onValidateAttendanceWindow: onValidateAttendanceWindow,
-    );
-    if (preflight != null) return preflight;
-
-    final desc = description.trim();
-    final classroomCode = _classroomCodeFromSelection();
-    if (classroomCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing classroom information for activity',
-      );
-    }
-    final studentCodes = _studentCodesFromSelection();
-    if (studentCodes.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Unable to resolve student codes for activity',
-      );
-    }
-
-    final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = state.schoolCode;
-    final organizationCode = state.organizationCode;
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing staff or school information. Please re-login and try again.',
-      );
-    }
-
-    final activityTypeCode = state.activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      return _typeError;
-    }
-
-    if (_createdFromSelection) {
-      final prefilled = resolveSelectedAttendanceDate(state.selectedStudentsData);
-      if (prefilled != null) _activityDate = prefilled;
-    }
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     emit(state.copyWith(isSubmitting: true));
     try {
-      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
+      final preflight = await _preflight(
+        amountOz: amountOz,
+        description: description,
+        onValidateAttendanceWindow: onValidateAttendanceWindow,
+      );
+      if (preflight != null) return preflight;
+
+      final desc = description.trim();
+      final classroomCode = _classroomCodeFromSelection();
+      if (classroomCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing classroom information for activity',
+        );
+      }
+      final studentCodes = _studentCodesFromSelection();
+      if (studentCodes.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Unable to resolve student codes for activity',
+        );
+      }
+
+      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = state.schoolCode;
+      final organizationCode = state.organizationCode;
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing staff or school information. Please re-login and try again.',
+        );
+      }
+
+      final activityTypeCode = state.activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        return _typeError;
+      }
+
+      if (_createdFromSelection) {
+        final prefilled = resolveSelectedAttendanceDate(
+          state.selectedStudentsData,
+        );
+        if (prefilled != null) _activityDate = prefilled;
+      }
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
       final parameterValues =
           _buildParameterValues(details, desc, staffCode, amountOz!);
 
@@ -397,56 +401,58 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     if (state.isSubmitting) return const ActivityFormOutcome.noop();
     if (_readOnly) return const ActivityFormOutcome.noop();
 
-    final fallbackActivityCode = effectiveActivity.activityCode?.trim();
-
-    final preflight = await _preflight(
-      amountOz: amountOz,
-      description: description,
-      onValidateAttendanceWindow: onValidateAttendanceWindow,
-    );
-    if (preflight != null) return preflight;
-
-    final desc = description.trim();
-    final classroomCode = _classroomCodeFromSelection();
-    if (classroomCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing classroom information for activity',
-      );
-    }
-    final studentCodes = _studentCodesFromSelection();
-    if (studentCodes.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Unable to resolve student codes for activity',
-      );
-    }
-
-    final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
-    final schoolCode = state.schoolCode;
-    final organizationCode = state.organizationCode;
-    if (staffCode == null ||
-        schoolCode == null ||
-        organizationCode == null ||
-        staffCode.isEmpty ||
-        schoolCode.isEmpty ||
-        organizationCode.isEmpty) {
-      return const ActivityFormOutcome.error(
-        'Missing staff or school information. Please re-login and try again.',
-      );
-    }
-
-    final activityTypeCode = state.activityTypeCode;
-    if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
-      return _typeError;
-    }
-
-    final activityDateIso = await activityUtcIsoFromSchoolWallClock(
-      date: _activityDate!,
-      time: _activityTime!,
-    );
-
     emit(state.copyWith(isSubmitting: true));
     try {
-      final details = await _editor.getActivityTypeDetails(code: activityTypeCode);
+      final fallbackActivityCode = effectiveActivity.activityCode?.trim();
+
+      final preflight = await _preflight(
+        amountOz: amountOz,
+        description: description,
+        onValidateAttendanceWindow: onValidateAttendanceWindow,
+      );
+      if (preflight != null) return preflight;
+
+      final desc = description.trim();
+      final classroomCode = _classroomCodeFromSelection();
+      if (classroomCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing classroom information for activity',
+        );
+      }
+      final studentCodes = _studentCodesFromSelection();
+      if (studentCodes.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Unable to resolve student codes for activity',
+        );
+      }
+
+      final staffCode = state.staffCode ?? await resolveLoggedInStaffCode();
+      final schoolCode = state.schoolCode;
+      final organizationCode = state.organizationCode;
+      if (staffCode == null ||
+          schoolCode == null ||
+          organizationCode == null ||
+          staffCode.isEmpty ||
+          schoolCode.isEmpty ||
+          organizationCode.isEmpty) {
+        return const ActivityFormOutcome.error(
+          'Missing staff or school information. Please re-login and try again.',
+        );
+      }
+
+      final activityTypeCode = state.activityTypeCode;
+      if (activityTypeCode == null || activityTypeCode.trim().isEmpty) {
+        return _typeError;
+      }
+
+      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+        date: _activityDate!,
+        time: _activityTime!,
+      );
+
+      final details = await _editor.getActivityTypeDetails(
+        code: activityTypeCode,
+      );
       final parameterValues =
           _buildParameterValues(details, desc, staffCode, amountOz!);
 

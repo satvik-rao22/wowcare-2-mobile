@@ -7,7 +7,6 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/ellipsis_tooltip_text.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -72,8 +71,7 @@ class _StudentSelectionSignInFormState
     extends State<StudentSelectionSignInForm> {
   bool _preSelectionApplied = false;
   bool isSelectAllChecked = false;
-  String? _selectedClassroom = null;
-  String? _selectedClassroomCode;
+  List<String> _selectedClassrooms = [];
   List<String> _selectedTag = [];
   Set<StudentEntity> selectedStudents = {};
   final TextEditingController _searchController = TextEditingController();
@@ -156,11 +154,9 @@ class _StudentSelectionSignInFormState
           for (final c in _classroomCubit.state.classrooms) c.name: c.code,
         };
         _classroomList = _classroomNameToCode.keys.toList(growable: false);
-        if (_selectedClassroomCode != null &&
-            !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-          _selectedClassroom = null;
-          _selectedClassroomCode = null;
-        }
+        _selectedClassrooms.removeWhere(
+          (c) => !_classroomNameToCode.containsKey(c),
+        );
         _isClassroomDataReady = true;
       });
       return;
@@ -178,11 +174,9 @@ class _StudentSelectionSignInFormState
         for (final c in _classroomCubit.state.classrooms) c.name: c.code,
       };
       _classroomList = _classroomNameToCode.keys.toList(growable: false);
-      if (_selectedClassroomCode != null &&
-          !_classroomNameToCode.containsValue(_selectedClassroomCode)) {
-        _selectedClassroom = null;
-        _selectedClassroomCode = null;
-      }
+      _selectedClassrooms.removeWhere(
+        (c) => !_classroomNameToCode.containsKey(c),
+      );
       _isClassroomDataReady = _classroomList.isNotEmpty;
     });
   }
@@ -239,11 +233,18 @@ class _StudentSelectionSignInFormState
       final today = attendanceSchoolToday();
       final dateString = _formatDate(today);
 
-      final selectedClassroomCode = _selectedClassroomCode?.trim();
-      final classroomCodes =
-          (selectedClassroomCode != null && selectedClassroomCode.isNotEmpty)
-          ? <String>[selectedClassroomCode]
-          : null;
+      // Resolve selected classroom NAMES -> classroomCodes via _classroomNameToCode map.
+      List<String>? classroomCodes;
+      if (_selectedClassrooms.isNotEmpty) {
+        final codes = _selectedClassrooms
+            .map((name) => _classroomNameToCode[name])
+            .whereType<String>()
+            .where((c) => c.trim().isNotEmpty)
+            .toList();
+        if (codes.isNotEmpty) {
+          classroomCodes = codes;
+        }
+      }
 
       // Resolve selected tag NAMES -> tagCodes via _tagNameToCode map.
       List<String>? tagCodes;
@@ -279,6 +280,20 @@ class _StudentSelectionSignInFormState
       );
 
       var items = page.items;
+      // Safety net: enforce the classroom/tag filters client-side too, in
+      // case the backend returns rows outside the requested scope.
+      if (classroomCodes != null && classroomCodes.isNotEmpty) {
+        final allowedClassrooms = classroomCodes.toSet();
+        items = items
+            .where((i) => allowedClassrooms.contains(i.classroomCode))
+            .toList();
+      }
+      if (tagCodes != null && tagCodes.isNotEmpty) {
+        final allowedTags = tagCodes.toSet();
+        items = items
+            .where((i) => i.tagCodes.any(allowedTags.contains))
+            .toList();
+      }
       if (allowUpper != null) {
         items = items
             .where(
@@ -388,8 +403,7 @@ class _StudentSelectionSignInFormState
     setState(() {
       isSelectAllChecked = false;
       selectedStudents.clear();
-      _selectedClassroom = null;
-      _selectedClassroomCode = null;
+      _selectedClassrooms.clear();
       _selectedTag.clear();
       _filteredStudents = List.from(_allStudents);
     });
@@ -482,20 +496,18 @@ class _StudentSelectionSignInFormState
 
                         // Render the field even with no items yet — a
                         // shimmer here could get stuck showing forever if
-                        // loading never actually resolves. CustomDropdown's
-                        // own "No matches found" empty state covers the
-                        // case where there's genuinely nothing to pick.
-                        return CustomDropdown(
+                        // loading never actually resolves.
+                        // CustomMultiSelectDropdown's own "No matches found"
+                        // empty state covers the case where there's
+                        // genuinely nothing to pick.
+                        return CustomMultiSelectDropdown(
                           hintText: 'Classroom',
                           items: items,
-                          selectedItem: _selectedClassroom,
-                          onSelect: (value) {
+                          selectedItems: _selectedClassrooms,
+                          onChanged: (selectedItems) {
                             if (isLoading) return;
                             setState(() {
-                              _selectedClassroom = value;
-                              _selectedClassroomCode = value == null
-                                  ? null
-                                  : _classroomNameToCode[value];
+                              _selectedClassrooms = selectedItems;
                             });
                             _loadStudents();
                           },

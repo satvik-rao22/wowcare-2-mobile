@@ -322,8 +322,8 @@ class _StudentAttendanceDailyViewScreenState
     try {
       final enabled =
           await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+            storage: serviceLocator<StorageService>(),
+          );
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       // Re-load the dropdown without staff scope now that we know it's allowed.
@@ -396,7 +396,6 @@ class _StudentAttendanceDailyViewScreenState
       });
     } catch (_) {}
   }
-
 
   @override
   void dispose() {
@@ -767,7 +766,12 @@ class _StudentAttendanceDailyViewScreenState
       signOutBy:
           _normalizeByName(item.signedOutBy) ??
           (transferSignOut ? _loggedInUserName : null) ??
-          (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null),
+          (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null) ??
+          // Auto sign-out has no person: the API sends
+          // signedOutMethod=SYSTEM with an empty signedOutBy. Show
+          // "System" (web parity) instead of falling through to the
+          // card's own "Unknown" placeholder.
+          (_isSystemMethod(item.signedOutMethod) ? 'System' : null),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
       signInMethod: _resolveSignMethodForDisplay(
         method: item.signedInMethod,
@@ -824,6 +828,11 @@ class _StudentAttendanceDailyViewScreenState
     return normalized == 'PIN' || normalized == 'KIOSK';
   }
 
+  bool _isSystemMethod(String? method) {
+    if (method == null) return false;
+    return method.trim().toUpperCase() == 'SYSTEM';
+  }
+
   SignMethod? _mapMethodStringToEnum(String? method) {
     if (method == null) return null;
     final normalized = method.trim().toUpperCase();
@@ -843,6 +852,8 @@ class _StudentAttendanceDailyViewScreenState
         return SignMethod.direct;
       case 'WEB':
         return SignMethod.web;
+      case 'SYSTEM':
+        return SignMethod.system;
       default:
         return null;
     }
@@ -919,7 +930,7 @@ class _StudentAttendanceDailyViewScreenState
   Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
-    
+
     // Staff never see the summary count cards — even when the school enables
     // cross-class attendance (that flag only relaxes classroom scope, not
     // exposure of school-wide enrollment/expected counts).

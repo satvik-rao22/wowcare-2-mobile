@@ -26,7 +26,8 @@ Future<String> _resolveActivePersonaRole(StorageService storage) async {
   if (activeRole.isNotEmpty) return activeRole;
 
   // Fallback for older sessions: infer from available role payload.
-  final roleJson = (await storage.getString(StorageKeys.roles) ?? '').toUpperCase();
+  final roleJson = (await storage.getString(StorageKeys.roles) ?? '')
+      .toUpperCase();
   if (roleJson.contains('STAFF') || roleJson.contains('TEACHER')) {
     return 'STAFF';
   }
@@ -36,10 +37,10 @@ Future<String> _resolveActivePersonaRole(StorageService storage) async {
   return '';
 }
 
-/// Encode list query params (e.g. `allowedClassroomCodes`) like the attendance datasource.
-final Options attendanceListQueryOptions = Options(
-  listFormat: ListFormat.multiCompatible,
-);
+/// Encode list query params (e.g. `allowedClassroomCodes`) like the attendance
+/// datasource — the backend expects a single comma-joined value per param
+/// (e.g. `classroomCodes=A,B,C`), not repeated `key[]=value` pairs.
+final Options attendanceListQueryOptions = Options(listFormat: ListFormat.csv);
 
 /// Resolves the `classroomCodes` query param for attendance list APIs.
 ///
@@ -53,7 +54,8 @@ List<String>? resolveAttendanceFilterClassroomCodes({
   List<String>? selectedClassroomCodes,
   required List<String> allowedClassroomCodes,
 }) {
-  final selected = selectedClassroomCodes
+  final selected =
+      selectedClassroomCodes
           ?.map((e) => e.trim())
           .where((e) => e.isNotEmpty)
           .toList() ??
@@ -72,8 +74,9 @@ List<String>? resolveAttendanceFilterClassroomCodes({
     return null;
   }
 
-  final narrowed =
-      selected.where((c) => allowedSet.contains(c)).toList(growable: false);
+  final narrowed = selected
+      .where((c) => allowedSet.contains(c))
+      .toList(growable: false);
   return narrowed.isEmpty ? null : narrowed;
 }
 
@@ -105,8 +108,7 @@ List<String>? resolveClassroomNamesToCodes({
   for (final selected in selectedNamesOrCodes) {
     final trimmed = selected.trim();
     if (trimmed.isEmpty) continue;
-    final fromName =
-        nameToCode[trimmed] ?? nameToCode[trimmed.toLowerCase()];
+    final fromName = nameToCode[trimmed] ?? nameToCode[trimmed.toLowerCase()];
     if (fromName != null && fromName.isNotEmpty) {
       codes.add(fromName);
     } else if (knownCodes.contains(trimmed)) {
@@ -135,8 +137,9 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
     return <String>[];
   }
 
-  final staffType =
-      (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+  final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
+      .trim()
+      .toUpperCase();
   if (staffType == 'SCHOOL_ADMIN' || staffType == 'ORGANIZATION_ADMIN') {
     return <String>[];
   }
@@ -273,8 +276,9 @@ Future<bool> isAttendanceScopedStaffPersona({
     return false;
   }
 
-  final cachedStaffType =
-      (await storage.getString(StorageKeys.staffType) ?? '').trim().toUpperCase();
+  final cachedStaffType = (await storage.getString(StorageKeys.staffType) ?? '')
+      .trim()
+      .toUpperCase();
   if (cachedStaffType == 'SCHOOL_ADMIN' ||
       cachedStaffType == 'ORGANIZATION_ADMIN') {
     return false;
@@ -337,9 +341,10 @@ Future<List<String>> resolveStudentAttendanceAllowedClassroomCodes({
   final base = await resolveAttendanceAllowedClassroomCodes(storage: storage);
   // Admin/parent personas are already unscoped — nothing to relax.
   if (base.isEmpty) return base;
-  final crossClass = await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-    storage: storage,
-  );
+  final crossClass =
+      await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: storage,
+      );
   return crossClass ? <String>[] : base;
 }
 
@@ -350,9 +355,10 @@ Future<bool> isStudentAttendanceScopedStaffPersona({
 }) async {
   final scoped = await isAttendanceScopedStaffPersona(storage: storage);
   if (!scoped) return false;
-  final crossClass = await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-    storage: storage,
-  );
+  final crossClass =
+      await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
+        storage: storage,
+      );
   return !crossClass;
 }
 
