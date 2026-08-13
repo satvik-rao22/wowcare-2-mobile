@@ -30,6 +30,10 @@ class ActivityFeedScreen extends StatefulWidget {
     this.highlightCode,
     this.highlightDate,
     this.highlightClassroomCode,
+    this.initialTab,
+    this.initialActivityTypes,
+    this.initialClassrooms,
+    this.resetKey,
   });
 
   final bool fromStudentProfile;
@@ -47,6 +51,18 @@ class ActivityFeedScreen extends StatefulWidget {
 
   /// When false, hide add / edit / delete (from [DAILY_ACTIVITY] `write` permission).
   final bool allowActivityWrite;
+
+  /// The initial tab to show (0 for Daily, 1 for Custom).
+  final int? initialTab;
+
+  /// Pre-selected activity types to pass to the Custom tab.
+  final List<String>? initialActivityTypes;
+
+  /// Pre-selected classrooms to pass to the Custom tab (e.g., ['all']).
+  final List<String>? initialClassrooms;
+
+  /// Used to force state reset in didUpdateWidget when navigating repeatedly.
+  final String? resetKey;
 
   static const String routeName = '/activityFeed';
 
@@ -80,9 +96,22 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   bool _staffSignedInToday = true;
 
   @override
+  void didUpdateWidget(covariant ActivityFeedScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+    if (forceReset || (widget.initialTab != oldWidget.initialTab && widget.initialTab != null)) {
+      final int initialIndex = widget.initialTab == 1 ? 1 : 0;
+      if (_tabController.index != initialIndex) {
+        _tabController.animateTo(initialIndex);
+      }
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    final int initialIndex = widget.initialTab == 1 ? 1 : 0;
+    _tabController = TabController(initialIndex: initialIndex, length: 2, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -344,6 +373,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                               : null,
                           isNotParent: true,
                           allowActivityWrite: allowWrite,
+                          initialActivityTypes: widget.initialActivityTypes,
+                          initialClassrooms: widget.initialClassrooms,
+                          resetKey: widget.resetKey,
                           onRefreshStaffSignInStatus: _loadStaffSignInStatus,
                         ),
                       ],
@@ -383,6 +415,9 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
                         ActivityCustomTab(
                           isNotParent: false,
                           allowActivityWrite: allowWrite,
+                          initialActivityTypes: widget.initialActivityTypes,
+                          initialClassrooms: widget.initialClassrooms,
+                          resetKey: widget.resetKey,
                         ),
                       ],
                     ),

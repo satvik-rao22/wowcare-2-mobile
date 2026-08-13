@@ -122,7 +122,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               // Navigate to the Custom Activities view with the Incident Type filter.
               // Note: ActivityFeedScreen currently does not support these query
               // parameters natively, so this sets the convention.
-              context.go('/activityFeed?tab=custom&activityType=Incident');
+              context.go(
+                '/activityFeed?tab=custom&activityType=Incident&classroom=All',
+                extra: {'timestamp': DateTime.now().millisecondsSinceEpoch},
+              );
             },
           ),
           const SizedBox(height: 16),
