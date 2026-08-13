@@ -18,8 +18,7 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 ///   2. Fetch from API in background and update cache.
 ///
 /// Mirrors the pattern used in the existing [CommunicationRepositoryImpl].
-class ConversationEntityRepositoryImpl
-    implements ConversationEntityRepository {
+class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   final ConversationEntityRemoteDataSource _remote;
   final ConversationEntityLocalDataSource _local;
   final ConversationRealtimeDataSource _realtime;
@@ -36,10 +35,10 @@ class ConversationEntityRepositoryImpl
     required ConversationEntityLocalDataSource localDataSource,
     required ConversationRealtimeDataSource realtimeDataSource,
     required StorageService storageService,
-  })  : _remote = remoteDataSource,
-        _local = localDataSource,
-        _realtime = realtimeDataSource,
-        _storage = storageService;
+  }) : _remote = remoteDataSource,
+       _local = localDataSource,
+       _realtime = realtimeDataSource,
+       _storage = storageService;
 
   // ─── Tenancy helpers ────────────────────────────────────────────────────────
 
@@ -57,14 +56,17 @@ class ConversationEntityRepositoryImpl
   /// empty — the backend doesn't compute it there. `/messages/unread-per-
   /// conversation` is a separate, sibling endpoint to the aggregate-by-type
   /// one (`/messages/unread-summary`, already relied on for the top app
-  /// bar's badge) that HAS been confirmed reliable against real traffic.
-  /// Prefer it; fall back to the participant field (in case the backend
-  /// starts populating it) only for a conversation the per-conversation
-  /// endpoint didn't mention.
+  /// bar's badge) that HAS been confirmed reliable against real traffic,
+  /// but it only ever returns conversations with a NON-ZERO unread count.
+  /// So a successful response that doesn't mention a conversation means
+  /// that conversation has genuinely been read (0 unread) — not "unknown,
+  /// guess from the participant field". The participant-field fallback is
+  /// only appropriate when the endpoint call fails outright and there's no
+  /// authoritative data at all.
   Future<List<ConversationEntity>> _resolveUnreadCounts(
     List<ConversationEntity> conversations,
   ) async {
-    Map<String, int> perConversation = const {};
+    Map<String, int>? perConversation;
     try {
       perConversation = await _remote.getUnreadCountsPerConversation();
     } catch (_) {
@@ -72,8 +74,9 @@ class ConversationEntityRepositoryImpl
     }
     final userCode = await _userCode;
     return conversations.map((c) {
-      final fromEndpoint = perConversation[c.code];
-      if (fromEndpoint != null) return c.copyWith(unreadCount: fromEndpoint);
+      if (perConversation != null) {
+        return c.copyWith(unreadCount: perConversation[c.code] ?? 0);
+      }
       if (userCode.isEmpty) return c;
       ParticipantEntity? mine;
       for (final p in c.participants) {
@@ -282,10 +285,9 @@ class ConversationEntityRepositoryImpl
 
   @override
   Future<Either<Failure, List<ConversationEntity>>>
-      getConversationsForClassroom(String classroomCode) async {
+  getConversationsForClassroom(String classroomCode) async {
     try {
-      final dtos =
-          await _remote.getConversationsForClassroom(classroomCode);
+      final dtos = await _remote.getConversationsForClassroom(classroomCode);
       final entities = dtos.map((d) => d.toEntity()).toList();
       await _local.saveConversations(entities);
       return Right(entities);
@@ -445,9 +447,20 @@ class ConversationEntityRepositoryImpl
   }
 
   @override
-  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() async {
+  Future<Either<Failure, Map<String, int>>>
+  getUnreadCountsPerConversation() async {
     try {
       final map = await _remote.getUnreadCountsPerConversation();
+      return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() async {
+    try {
+      final map = await _remote.getUnreadCountsByType();
       return Right(map);
     } catch (e) {
       return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
@@ -561,62 +574,65 @@ class ConversationEntityRepositoryImpl
           filterType: type?.toApiString(),
         )
         .asyncMap((inboxItems) async {
-      // For each Firestore inbox item, merge with the Isar-cached entity so
-      // metadata fields (title, avatarUrl, participants) are preserved.
-      var cached = await _local.getConversations(
-        organizationCode: org,
-        schoolCode: school,
-        type: type,
-      );
-      var cacheMap = {for (final c in cached) c.code: c.toEntity()};
+          // For each Firestore inbox item, merge with the Isar-cached entity so
+          // metadata fields (title, avatarUrl, participants) are preserved.
+          var cached = await _local.getConversations(
+            organizationCode: org,
+            schoolCode: school,
+            type: type,
+          );
+          var cacheMap = {for (final c in cached) c.code: c.toEntity()};
 
-      // Lazy-hydrate metadata for inbox items not yet in Isar. The Firestore
-      // inbox doc carries no title/participants, so an un-cached item would
-      // fall to toMinimalEntity (empty title -> "Conversation" placeholder)
-      // until the user opens it (which fetches + persists it). Fetch each
-      // missing conversation once (guarded), persist to Isar, then reload the
-      // cache so the merge below resolves the real title/roster on first load.
-      final missing = <String>[];
-      for (final item in inboxItems) {
-        final code = item.conversationCode;
-        if (!cacheMap.containsKey(code) && !_hydrationAttempted.contains(code)) {
-          _hydrationAttempted.add(code);
-          missing.add(code);
-        }
-      }
-      if (missing.isNotEmpty) {
-        await Future.wait(missing.map((code) async {
-          try {
-            final dto = await _remote.getConversation(code);
-            await _local.saveConversation(dto.toEntity());
-          } catch (_) {
-            // Best-effort: leave the minimal entity if the fetch fails.
+          // Lazy-hydrate metadata for inbox items not yet in Isar. The Firestore
+          // inbox doc carries no title/participants, so an un-cached item would
+          // fall to toMinimalEntity (empty title -> "Conversation" placeholder)
+          // until the user opens it (which fetches + persists it). Fetch each
+          // missing conversation once (guarded), persist to Isar, then reload the
+          // cache so the merge below resolves the real title/roster on first load.
+          final missing = <String>[];
+          for (final item in inboxItems) {
+            final code = item.conversationCode;
+            if (!cacheMap.containsKey(code) &&
+                !_hydrationAttempted.contains(code)) {
+              _hydrationAttempted.add(code);
+              missing.add(code);
+            }
           }
-        }));
-        cached = await _local.getConversations(
-          organizationCode: org,
-          schoolCode: school,
-          type: type,
-        );
-        cacheMap = {for (final c in cached) c.code: c.toEntity()};
-      }
+          if (missing.isNotEmpty) {
+            await Future.wait(
+              missing.map((code) async {
+                try {
+                  final dto = await _remote.getConversation(code);
+                  await _local.saveConversation(dto.toEntity());
+                } catch (_) {
+                  // Best-effort: leave the minimal entity if the fetch fails.
+                }
+              }),
+            );
+            cached = await _local.getConversations(
+              organizationCode: org,
+              schoolCode: school,
+              type: type,
+            );
+            cacheMap = {for (final c in cached) c.code: c.toEntity()};
+          }
 
-      final merged = inboxItems.map((item) {
-        final existing = cacheMap[item.conversationCode];
-        // Firestore wins for unreadCount / lastMessage* fields.
-        // Isar provides metadata (title, avatarUrl, participants).
-        // Do NOT write back to Isar here — that caused a race condition when
-        // both ConversationListCubit and UnreadBadgeCubit ran asyncMap
-        // concurrently on the same records.
-        if (existing != null) return item.mergeWith(existing);
-        return item.toMinimalEntity(
-          organizationCode: org,
-          schoolCode: school,
-        );
-      }).toList();
+          final merged = inboxItems.map((item) {
+            final existing = cacheMap[item.conversationCode];
+            // Firestore wins for unreadCount / lastMessage* fields.
+            // Isar provides metadata (title, avatarUrl, participants).
+            // Do NOT write back to Isar here — that caused a race condition when
+            // both ConversationListCubit and UnreadBadgeCubit ran asyncMap
+            // concurrently on the same records.
+            if (existing != null) return item.mergeWith(existing);
+            return item.toMinimalEntity(
+              organizationCode: org,
+              schoolCode: school,
+            );
+          }).toList();
 
-      return merged;
-    });
+          return merged;
+        });
   }
 
   @override

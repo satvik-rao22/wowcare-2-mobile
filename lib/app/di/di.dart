@@ -300,9 +300,8 @@ import '../../domain/features/communication/usecases/get_conversations_for_class
 import '../../domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
 import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
-import '../../domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
 import '../../domain/features/communication/usecases/get_unread_counts_per_conversation_usecase.dart';
-import '../../domain/features/communication/usecases/get_legacy_unread_counts_per_conversation_usecase.dart';
+import '../../domain/features/communication/usecases/get_unread_counts_by_type_usecase.dart';
 import '../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import '../../domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
@@ -1305,14 +1304,11 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<MarkConversationReadUseCase>(
     () => MarkConversationReadUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetUnreadAggregatesUseCase>(
-    () => GetUnreadAggregatesUseCase(serviceLocator()),
-  );
   serviceLocator.registerFactory<GetUnreadCountsPerConversationUseCase>(
     () => GetUnreadCountsPerConversationUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetLegacyUnreadCountsPerConversationUseCase>(
-    () => GetLegacyUnreadCountsPerConversationUseCase(serviceLocator()),
+  serviceLocator.registerFactory<GetUnreadCountsByTypeUseCase>(
+    () => GetUnreadCountsByTypeUseCase(serviceLocator()),
   );
   serviceLocator.registerFactory<GetMessageReceiptsUseCase>(
     () => GetMessageReceiptsUseCase(serviceLocator()),
@@ -1324,7 +1320,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<UnreadBadgeCubit>(
     () => UnreadBadgeCubit(
       watchUnreadCountForTypeUseCase: serviceLocator(),
-      getUnreadAggregatesUseCase: serviceLocator(),
+      getUnreadCountsByTypeUseCase: serviceLocator(),
+      watchTotalUnreadCountUseCase: serviceLocator(),
     ),
   );
   // MessageEntityRepository use cases
@@ -1731,8 +1728,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       cacheMessageUseCase: serviceLocator<CacheMessageUseCase>(),
       discardCachedMessageUseCase:
           serviceLocator<DiscardCachedMessageUseCase>(),
-      getUnreadCountsPerConversationUseCase:
-          serviceLocator<GetLegacyUnreadCountsPerConversationUseCase>(),
       getMessageReceiptsUseCase: serviceLocator<GetMessageReceiptsUseCase>(),
     ),
   );

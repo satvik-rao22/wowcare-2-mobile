@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
+import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/domain/features/communication/usecases/get_unread_aggregates_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_unread_counts_by_type_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/watch_total_unread_count_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import 'unread_badge_state.dart';
 
@@ -27,20 +29,40 @@ import 'unread_badge_state.dart';
 class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   UnreadBadgeCubit({
     required WatchUnreadCountForTypeUseCase watchUnreadCountForTypeUseCase,
-    required GetUnreadAggregatesUseCase getUnreadAggregatesUseCase,
+    required GetUnreadCountsByTypeUseCase getUnreadCountsByTypeUseCase,
+    required WatchTotalUnreadCountUseCase watchTotalUnreadCountUseCase,
   }) : _watchUnreadCountForTypeUseCase = watchUnreadCountForTypeUseCase,
-       _getUnreadAggregatesUseCase = getUnreadAggregatesUseCase,
+       _getUnreadCountsByTypeUseCase = getUnreadCountsByTypeUseCase,
+       _watchTotalUnreadCountUseCase = watchTotalUnreadCountUseCase,
        super(const UnreadBadgeState.initial()) {
     SchoolSwitchEvents.epoch.addListener(_handleSchoolSwitch);
+    // A thread marks itself read (POST .../receipts/read-all) the instant
+    // it's opened — but that alone doesn't touch this cubit, so the top
+    // bar badge just sat waiting for Firestore's own aggregate stream to
+    // eventually catch up (seconds later, and only once Firestore is
+    // live). Reacting here forces an immediate, authoritative refresh
+    // straight off the REST per-conversation endpoint instead.
+    _markedReadSub = MessagingEventService.instance.onConversationMarkedRead
+        .listen((_) => unawaited(_refreshAfterMarkedRead()));
   }
 
   final WatchUnreadCountForTypeUseCase _watchUnreadCountForTypeUseCase;
-  final GetUnreadAggregatesUseCase _getUnreadAggregatesUseCase;
+  final GetUnreadCountsByTypeUseCase _getUnreadCountsByTypeUseCase;
+  final WatchTotalUnreadCountUseCase _watchTotalUnreadCountUseCase;
+  StreamSubscription<String>? _markedReadSub;
 
   int _lastHandledEpoch = SchoolSwitchEvents.epoch.value;
 
   final Map<String, StreamSubscription<int>> _subscriptions = {};
   final Map<String, int> _counts = {};
+
+  /// One listener over the WHOLE `user_inbox/{userCode}/conversations`
+  /// collection — no per-type filter — summed client-side by Firestore
+  /// itself's own doc count, matching the web's `FirestoreInboxService
+  /// .listenToUserInbox` pattern. Drives the top app bar badge (see
+  /// [CustomAppBar]) directly, independent of the per-type breakdown below.
+  StreamSubscription<int>? _totalSubscription;
+  int? _firestoreTotal;
 
   /// Conversation-type keys whose live Firestore stream has delivered at least
   /// once. Firestore's per-user inbox `unreadCount` is the source of truth (it
@@ -55,6 +77,8 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   @override
   Future<void> close() {
     SchoolSwitchEvents.epoch.removeListener(_handleSchoolSwitch);
+    unawaited(_markedReadSub?.cancel());
+    unawaited(_totalSubscription?.cancel());
     for (final sub in _subscriptions.values) {
       sub.cancel();
     }
@@ -72,6 +96,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     for (final type in ConversationType.values) {
       _subscribeToType(type);
     }
+    _subscribeToTotal();
   }
 
   /// Re-subscribes everything under the new org/school/persona scope after a
@@ -91,6 +116,7 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     // suppress the NEW school's REST-seeded count for it.
     _counts.clear();
     _firestoreDelivered.clear();
+    _firestoreTotal = null;
     emit(const UnreadBadgeState.initial());
     startWatching();
   }
@@ -147,6 +173,20 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     }, onError: (_) => unawaited(_bootstrapRest()));
   }
 
+  /// One unfiltered listener over the whole `user_inbox` collection,
+  /// summed by Firestore-doc count rather than combined from the per-type
+  /// streams above — see [_firestoreTotal]'s own doc for why this is
+  /// separate.
+  void _subscribeToTotal() {
+    _totalSubscription?.cancel();
+    _totalSubscription = _watchTotalUnreadCountUseCase().listen((total) {
+      if (isClosed) return;
+      debugPrint('[UnreadDebug][badge:TOTAL] Firestore inbox sum: $total');
+      _firestoreTotal = total;
+      _emit();
+    });
+  }
+
   void _emit() {
     if (!isClosed) {
       emit(
@@ -154,13 +194,42 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
           countsByType: Map.unmodifiable(_counts),
           isLoading: false,
           isRefreshing: false,
+          firestoreTotal: _firestoreTotal,
         ),
       );
     }
   }
 
+  /// Fired on every [MessagingEventService.onConversationMarkedRead] — a
+  /// conversation was just marked read (thread opened), so re-fetch
+  /// `/messages/unread-per-conversation` (grouped by type) and apply it to
+  /// every type it mentions immediately, rather than waiting for this
+  /// type's Firestore stream to independently notice the read receipt.
+  /// Types the response doesn't mention are left untouched.
+  Future<void> _refreshAfterMarkedRead() async {
+    final result = await _getUnreadCountsByTypeUseCase();
+    if (isClosed) return;
+    result.fold(
+      (failure) => debugPrint(
+        '[UnreadDebug][badge] post-mark-read refresh failed: '
+        '${failure.message}',
+      ),
+      (counts) {
+        debugPrint('[UnreadDebug][badge] post-mark-read REST refresh: $counts');
+        counts.forEach((type, count) {
+          _counts[type] = count;
+        });
+        _emit();
+      },
+    );
+  }
+
+  /// Top-bar badge total is `/messages/unread-per-conversation` summed
+  /// across every conversation (see [GetUnreadCountsByTypeUseCase] and
+  /// [UnreadBadgeState.totalUnread]) — confirmed reliable against real
+  /// traffic, unlike `/messages/unread-summary` which this used to call.
   Future<bool> _fetchFromApi() async {
-    final result = await _getUnreadAggregatesUseCase();
+    final result = await _getUnreadCountsByTypeUseCase();
     if (isClosed) return false;
     return result.fold(
       (failure) {
@@ -174,7 +243,9 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
         return false;
       },
       (counts) {
-        debugPrint('[UnreadDebug][badge] REST aggregates: $counts');
+        debugPrint(
+          '[UnreadDebug][badge] REST per-conversation-by-type: $counts',
+        );
         // Seed only real conversation-type keys that Firestore hasn't delivered
         // yet. Skipping Firestore-delivered types keeps the reaction-inclusive
         // live count; filtering to known types drops the REST "TOTAL" aggregate

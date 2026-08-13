@@ -160,17 +160,28 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
       if (mounted) {
         final threadId = widget.staffInfo['code'] as String;
-        await context.read<CommunicationCubit>().loadMessages(
+        // Captured while context is known-valid — used below AFTER the
+        // `mounted` check for markConversationRead, deliberately NOT
+        // gated on it (see that call's own comment).
+        final communicationCubit = context.read<CommunicationCubit>();
+        await communicationCubit.loadMessages(
           threadId,
           currentUserId: _currentUserCode,
         );
+        // Clear unread count for this conversation now that the user has
+        // viewed it — fired regardless of whether the widget is STILL
+        // mounted (deliberately NOT behind the `if (!mounted) return`
+        // below, which used to gate this too: a quick open-then-back tap
+        // unmounts this screen while `loadMessages()` is still in flight,
+        // and the server-side read receipt must still be recorded even
+        // though there's no UI left to update — otherwise the
+        // conversation's unread count is stuck forever, exactly as if it
+        // was never opened).
+        unawaited(communicationCubit.markConversationRead(threadId));
         if (!mounted) return;
-        unawaited(
-          context.read<CommunicationCubit>().markConversationRead(threadId),
-        );
         // Realtime listener starts only after the API/Isar history has
         // loaded — Firestore only ever applies deltas on top of it.
-        context.read<CommunicationCubit>().startWatchingThread(
+        communicationCubit.startWatchingThread(
           threadId,
           organizationCode: widget.staffInfo['organizationCode'] as String?,
           schoolCode: widget.staffInfo['schoolCode'] as String?,

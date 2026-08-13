@@ -56,7 +56,10 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   Future<List<Conversation>> _resolveUnreadCounts(
     List<Conversation> conversations,
   ) async {
-    Map<String, int> perConversation = const {};
+    // Null (not just empty) distinguishes "endpoint call failed" from
+    // "endpoint succeeded and mentioned nothing" — the two need different
+    // fallbacks below.
+    Map<String, int>? perConversation;
     try {
       perConversation = await remoteDataSource.getUnreadCountsPerConversation();
     } catch (_) {
@@ -64,8 +67,21 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     }
     final userCode = await _userCode;
     return conversations.map((c) {
-      final fromEndpoint = perConversation[c.code];
-      if (fromEndpoint != null) return c.copyWith(unreadCount: fromEndpoint);
+      if (perConversation != null) {
+        // The endpoint only ever returns conversations with a NON-ZERO
+        // unread count — confirmed against a real payload that omitted
+        // every already-read conversation entirely. A conversation absent
+        // from a SUCCESSFUL response has genuinely been read (0 unread),
+        // not "unknown, guess from the participant field" — that
+        // participant field is confirmed always-empty from this endpoint
+        // anyway (see the comment further down), so falling back to it
+        // here just left a just-read conversation's badge stuck at
+        // whatever stale value it last held (e.g. across pull-to-refresh).
+        return c.copyWith(unreadCount: perConversation[c.code] ?? 0);
+      }
+      // Endpoint call itself failed — no authoritative data at all, so
+      // fall back to whatever signal is available rather than guessing 0
+      // for everything.
       if (userCode.isEmpty) return c;
       ConversationParticipant? mine;
       for (final p in c.participants) {

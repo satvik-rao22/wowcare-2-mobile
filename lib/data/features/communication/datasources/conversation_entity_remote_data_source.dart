@@ -118,6 +118,15 @@ abstract class ConversationEntityRemoteDataSource {
 
   /// Per-conversation unread counts, keyed by conversation code.
   Future<Map<String, int>> getUnreadCountsPerConversation();
+
+  /// Per-conversation unread counts summed by conversation type (e.g.
+  /// `{'STAFF_DIRECT': 1, 'ROOM_CHAT': 3, 'ADMIN_CHAT': 11}`), from the
+  /// same `/messages/unread-per-conversation` endpoint as
+  /// [getUnreadCountsPerConversation] — used to force an immediate,
+  /// authoritative top-bar badge refresh right after a conversation is
+  /// marked read, instead of waiting for Firestore's own aggregate stream
+  /// to eventually catch up.
+  Future<Map<String, int>> getUnreadCountsByType();
 }
 
 class ConversationEntityRemoteDataSourceImpl
@@ -536,6 +545,36 @@ class ConversationEntityRemoteDataSourceImpl
         result[code] = rawCount is num
             ? rawCount.toInt()
             : int.tryParse('$rawCount') ?? 0;
+      }
+    }
+    return result;
+  }
+
+  @override
+  Future<Map<String, int>> getUnreadCountsByType() async {
+    final endpoint = _url(ApiPaths.messagesUnreadPerConversation);
+    final response = await apiClient.client.get(endpoint);
+    _assertSuccess(
+      response.data,
+      'Failed to load per-conversation unread counts',
+    );
+
+    final data = response.data['data'];
+    final result = <String, int>{};
+    // Confirmed shape: a list of {conversationCode, unreadCount,
+    // conversationType} objects (see getUnreadCountsPerConversation's own
+    // doc — the flat-map shape it also tolerates carries no type, so it
+    // can't contribute here).
+    if (data is List) {
+      for (final item in data) {
+        if (item is! Map) continue;
+        final type = item['conversationType'] as String?;
+        if (type == null || type.isEmpty) continue;
+        final rawCount = item['unreadCount'];
+        final count = rawCount is num
+            ? rawCount.toInt()
+            : int.tryParse('$rawCount') ?? 0;
+        result[type] = (result[type] ?? 0) + count;
       }
     }
     return result;

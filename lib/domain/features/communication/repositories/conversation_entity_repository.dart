@@ -108,9 +108,8 @@ abstract class ConversationEntityRepository {
 
   /// All ROOM_CHAT conversations for a specific classroom.
   /// Used in teacher and staff views.
-  Future<Either<Failure, List<ConversationEntity>>> getConversationsForClassroom(
-    String classroomCode,
-  );
+  Future<Either<Failure, List<ConversationEntity>>>
+  getConversationsForClassroom(String classroomCode);
 
   /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
   Future<Either<Failure, Unit>> reconcileClassroomChat(
@@ -185,6 +184,13 @@ abstract class ConversationEntityRepository {
   /// recompute-on-read, both of which have shown incorrect values.
   Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation();
 
+  /// Same `/messages/unread-per-conversation` data as
+  /// [getUnreadCountsPerConversation], summed by [ConversationType.toApiString()]
+  /// instead of by conversation code. Used to force an immediate,
+  /// authoritative top-bar badge refresh right after a conversation is
+  /// marked read, instead of waiting for Firestore's own aggregate stream.
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType();
+
   /// Mark all messages in a conversation as read for the current user.
   ///
   /// Offline behaviour: queued and retried on reconnect.
@@ -212,9 +218,7 @@ abstract class ConversationEntityRepository {
   /// Firestore is the source of truth for [unreadCount], [lastMessagePreview],
   /// and [lastMessageAt]. Isar provides metadata (title, avatarUrl).
   /// [type] — when non-null, filters to a specific [ConversationType].
-  Stream<List<ConversationEntity>> watchConversations({
-    ConversationType? type,
-  });
+  Stream<List<ConversationEntity>> watchConversations({ConversationType? type});
 
   /// Lightweight per-type unread sum — reads Firestore only, no Isar merge.
   /// Use this in badge cubits to avoid duplicating the full stream pipeline.

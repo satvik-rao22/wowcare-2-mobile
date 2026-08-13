@@ -162,11 +162,18 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
             builder: (context, badgeState) {
               final role = context.read<RoleCubit>();
-              final int unreadCount = role.isParent
-                  ? badgeState.parentTotal
-                  : role.isAdmin
-                  ? badgeState.adminTotal
-                  : badgeState.staffTotal;
+              // Sum of every doc in the Firestore user_inbox collection —
+              // one listener over the whole list, matching the web's
+              // FirestoreInboxService.listenToUserInbox pattern. Falls
+              // back to the persona-scoped REST-seeded total only until
+              // that listener's first emission.
+              final int unreadCount =
+                  badgeState.firestoreTotal ??
+                  (role.isParent
+                      ? badgeState.parentTotal
+                      : role.isAdmin
+                      ? badgeState.adminTotal
+                      : badgeState.staffTotal);
               // Icon + badge share ONE tap target (InkResponse via IconButton
               // below) instead of the badge being a bare, non-interactive
               // Positioned Container layered on top of it — tapping directly
@@ -436,7 +443,8 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
               if (currentRoute == UserProfileScreen.routeName) return;
               final storage = serviceLocator<StorageService>();
               final name =
-                  (await storage.getString(StorageKeys.displayName) ?? '').trim();
+                  (await storage.getString(StorageKeys.displayName) ?? '')
+                      .trim();
               final email = (await storage.getString(StorageKeys.email) ?? '')
                   .trim();
               final activeRole =
@@ -466,7 +474,9 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
                     ),
                     child: BlocProvider.value(
                       value: _profileHeaderCubit,
-                      child: ProfileMenuHeader(isParentPersona: isParentPersona),
+                      child: ProfileMenuHeader(
+                        isParentPersona: isParentPersona,
+                      ),
                     ),
                   ),
                 ),

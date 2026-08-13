@@ -25,7 +25,6 @@ import '../../../../domain/features/communication/usecases/mark_conversation_del
 import '../../../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_messages_legacy_usecase.dart';
 import '../../../../domain/features/communication/usecases/watch_conversations_legacy_usecase.dart';
-import '../../../../domain/features/communication/usecases/get_legacy_unread_counts_per_conversation_usecase.dart';
 import '../../../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
@@ -59,8 +58,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final StorageService storageService;
   final CacheMessageUseCase cacheMessageUseCase;
   final DiscardCachedMessageUseCase discardCachedMessageUseCase;
-  final GetLegacyUnreadCountsPerConversationUseCase
-  getUnreadCountsPerConversationUseCase;
   final GetMessageReceiptsUseCase getMessageReceiptsUseCase;
 
   CommunicationCubit({
@@ -84,7 +81,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     required this.storageService,
     required this.cacheMessageUseCase,
     required this.discardCachedMessageUseCase,
-    required this.getUnreadCountsPerConversationUseCase,
     required this.getMessageReceiptsUseCase,
   }) : super(CommunicationInitial());
 
@@ -128,15 +124,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   final Map<String?, StreamSubscription<List<Conversation>>>
   _conversationsSubscriptions = {};
   String? _watchedThreadId;
-
-  /// Debounces [_applyReliableUnreadCounts] per type — thread open/close
-  /// fires several Firestore snapshots in quick succession (read receipt,
-  /// delivery, message updates), and each one otherwise queued its own
-  /// immediate follow-up fetch + emit. Stacking several list rebuilds right
-  /// on top of the Navigator push/pop transition animation was tripping a
-  /// Flutter semantics-tree assertion ('!semantics.parentDataDirty').
-  /// Collapsing bursts into one fetch, after things settle, avoids it.
-  final Map<String?, Timer> _unreadCountsDebounce = {};
 
   /// Next page to request from [loadOlderMessages] per thread — page 0 is
   /// always the initial/latest window fetched by [loadMessages], so the
@@ -313,14 +300,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
               ),
             );
             unawaited(_markDeliveredForIncomingMessages(conversations));
-            // Firestore's own unreadCount has been observed to drop for
-            // conversations OTHER than the one just read — consistent with a
-            // backend aggregate bug on the mark-read path. Correct it from
-            // the confirmed-reliable per-conversation REST endpoint (the
-            // same one already trusted for REST-driven loads, see
-            // CommunicationRepositoryImpl._resolveUnreadCounts).
-            // Debounced — see _unreadCountsDebounce.
-            _scheduleReliableUnreadCounts(type);
           },
           // Same rationale as startWatchingThread — never let a Firestore
           // failure crash the screen; it just keeps showing API/Isar data.
@@ -355,43 +334,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     }
   }
 
-  /// Debounce wrapper for [_applyReliableUnreadCounts] — see
-  /// [_unreadCountsDebounce]'s doc comment.
-  void _scheduleReliableUnreadCounts(String? type) {
-    _unreadCountsDebounce[type]?.cancel();
-    _unreadCountsDebounce[type] = Timer(const Duration(milliseconds: 700), () {
-      unawaited(_applyReliableUnreadCounts(type));
-    });
-  }
-
-  /// Fetches the confirmed-reliable per-conversation unread counts (see
-  /// [CommunicationRepositoryImpl._resolveUnreadCounts]'s doc comment for
-  /// how it was verified) and overrides them onto whatever's currently
-  /// shown for [type]. Scheduled (debounced) after every Firestore
-  /// snapshot, since Firestore's own embedded unreadCount has been
-  /// observed to drop incorrectly for conversations other than the one
-  /// just read.
-  Future<void> _applyReliableUnreadCounts(String? type) async {
-    final result = await getUnreadCountsPerConversationUseCase();
-    if (isClosed) return;
-    result.fold((_) {}, (counts) {
-      if (counts.isEmpty) return;
-      final current = state;
-      if (current is! CommunicationConversationsLoaded) return;
-      final existing = current.conversationsByType[type];
-      if (existing == null || existing.isEmpty) return;
-      final updated = existing.map((c) {
-        final count = counts[c.code];
-        if (count == null || count == c.unreadCount) return c;
-        return c.copyWith(unreadCount: count);
-      }).toList();
-      final updatedMap = Map<String?, List<Conversation>>.from(
-        current.conversationsByType,
-      )..[type] = updated;
-      emit(current.copyWith(conversationsByType: updatedMap));
-    });
-  }
-
   @override
   Future<void> close() {
     _messagesSubscription?.cancel();
@@ -399,10 +341,6 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       sub.cancel();
     }
     _conversationsSubscriptions.clear();
-    for (final timer in _unreadCountsDebounce.values) {
-      timer.cancel();
-    }
-    _unreadCountsDebounce.clear();
     return super.close();
   }
 
@@ -893,6 +831,16 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     List<String> receivers = const [],
     bool isPrivate = false,
     String? privateParentUserCode,
+    // Which persona the CURRENT viewer is sending as (e.g. 'GUARDIAN' or
+    // 'STAFF') — stamped onto the optimistic bubble immediately so
+    // _isOrgSideSender/withRoleAwareOwnership never fall back to their
+    // ambiguous userCode→participant-list lookup for it. Without this, a
+    // dual-role account (staff who's also the enrolled child's guardian)
+    // could have its own just-sent message briefly render on the WRONG
+    // side until the REST response comes back with the real senderRole
+    // and the bubble visibly snaps over — see ParentMessagingThread's
+    // callers for how this is resolved from the viewing persona.
+    String? senderRole,
   }) async {
     // Previously this guarded with `if (state is! CommunicationLoaded) return`
     // and silently dropped the send — no API call, no error, nothing — any
@@ -929,6 +877,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       text: text,
       isSentByMe: true,
       senderUserCode: senderUserCode,
+      senderRole: senderRole,
       time: SchoolZoneDateTime.utcNowInSchool(
         SchoolTimezoneResolver.lastKnownTimeZone,
       ),

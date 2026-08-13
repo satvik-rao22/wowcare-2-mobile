@@ -266,18 +266,27 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         }
       });
       final convCode = widget.parentInfo['code'] as String;
-      await context.read<CommunicationCubit>().loadMessages(
+      // Captured while context is known-valid — used below AFTER the
+      // `mounted` check for markConversationRead, deliberately NOT gated
+      // on it (see that call's own comment).
+      final communicationCubit = context.read<CommunicationCubit>();
+      await communicationCubit.loadMessages(
         convCode,
         currentUserId: currentUserId,
       );
+      // Clear unread count for this conversation now that the user has
+      // viewed it — fired regardless of whether the widget is STILL
+      // mounted (deliberately NOT behind the `if (!mounted) return` below,
+      // which used to gate this too: a quick open-then-back tap unmounts
+      // this screen while `loadMessages()` is still in flight, and the
+      // server-side read receipt must still be recorded even though
+      // there's no UI left to update — otherwise the conversation's
+      // unread count is stuck forever, exactly as if it was never opened).
+      unawaited(communicationCubit.markConversationRead(convCode));
       if (!mounted) return;
-      // Clear unread count for this conversation now that the user is viewing it.
-      unawaited(
-        context.read<CommunicationCubit>().markConversationRead(convCode),
-      );
       // Realtime listener starts only after the API/Isar history has
       // loaded — Firestore only ever applies deltas on top of it.
-      context.read<CommunicationCubit>().startWatchingThread(
+      communicationCubit.startWatchingThread(
         convCode,
         organizationCode: widget.parentInfo['organizationCode'] as String?,
         schoolCode: widget.parentInfo['schoolCode'] as String?,
@@ -605,6 +614,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       quotedMessageId: _quotedMessageId,
       senderName: senderName,
       senderUserCode: _currentUserCode,
+      // The role THIS screen instance is sending as — stamped onto the
+      // optimistic bubble so it never briefly renders on the wrong side
+      // for a dual-role account (see CommunicationCubit.sendMessage's own
+      // doc). Only "parent or not" matters for alignment, so any
+      // non-parent role string is fine for the staff/admin case.
+      senderRole: widget.isGuardian ? 'GUARDIAN' : 'STAFF',
       receivers: receivers,
       isPrivate: privateParentUserCode != null,
       privateParentUserCode: privateParentUserCode,
