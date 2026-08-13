@@ -95,6 +95,7 @@ class MessagingListTile extends StatelessWidget {
               ],
             ),
             child: DocumentImageWidget(
+              disableAttendanceStatusLookup: true,
               fileUuid: '',
               // `avatarUrl` is either a resolved URL or a raw media-asset
               // code depending on which screen started the conversation.

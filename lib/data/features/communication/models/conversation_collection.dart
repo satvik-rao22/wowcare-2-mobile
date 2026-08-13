@@ -30,6 +30,7 @@ class ConversationCollection {
   late int unreadCount;
   late String lastMessagePreview;
   List<ConversationParticipantCollection>? participants;
+  String? studentStatus;
 
   ConversationCollection();
 
@@ -59,7 +60,8 @@ class ConversationCollection {
       ..lastMessagePreview = entity.lastMessagePreview
       ..participants = entity.participants
           .map((e) => ConversationParticipantCollection.fromEntity(e))
-          .toList();
+          .toList()
+      ..studentStatus = entity.studentStatus;
   }
 
   Conversation toEntity() {
@@ -87,6 +89,7 @@ class ConversationCollection {
       unreadCount: unreadCount,
       lastMessagePreview: lastMessagePreview,
       participants: participants?.map((e) => e.toEntity()).toList() ?? [],
+      studentStatus: studentStatus,
     );
   }
 }
@@ -105,6 +108,7 @@ class ConversationParticipantCollection {
   bool? notificationsEnabled;
   late DateTime createdAt;
   late DateTime updatedAt;
+  bool? active;
 
   ConversationParticipantCollection();
 
@@ -123,7 +127,8 @@ class ConversationParticipantCollection {
       ..muted = entity.muted
       ..notificationsEnabled = entity.notificationsEnabled
       ..createdAt = entity.createdAt
-      ..updatedAt = entity.updatedAt;
+      ..updatedAt = entity.updatedAt
+      ..active = entity.active;
   }
 
   ConversationParticipant toEntity() {
@@ -140,6 +145,7 @@ class ConversationParticipantCollection {
       notificationsEnabled: notificationsEnabled ?? true,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      active: active ?? true,
     );
   }
 }

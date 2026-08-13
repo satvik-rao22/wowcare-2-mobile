@@ -26,13 +26,24 @@ class ConversationModel extends Conversation {
     required super.unreadCount,
     required super.lastMessagePreview,
     required super.participants,
+    super.studentStatus,
   });
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
+    // For ROOM_CHAT, the backend separately sends `studentName` — the
+    // resolved student display name — alongside `title`, which is USUALLY
+    // the same value but has been observed to fall back to the raw
+    // `studentCode` (e.g. "STD_AC88244D") instead, at least for
+    // UPCOMING-status students. `studentName` is confirmed reliable even
+    // when `title` isn't, so prefer it whenever present.
+    final studentName = (json['studentName'] as String?)?.trim();
+    final rawTitle = (json['title'] as String?)?.trim() ?? '';
     return ConversationModel(
       id: json['id'] as int? ?? 0,
       code: json['code'] as String? ?? '',
-      title: json['title'] as String? ?? '',
+      title: (studentName != null && studentName.isNotEmpty)
+          ? studentName
+          : rawTitle,
       type: json['type'] as String? ?? 'DIRECT',
       organizationCode: json['organizationCode'] as String? ?? '',
       schoolCode: json['schoolCode'] as String? ?? '',
@@ -69,6 +80,7 @@ class ConversationModel extends Conversation {
               )
               .toList() ??
           [],
+      studentStatus: json['studentStatus'] as String?,
     );
   }
 
@@ -99,6 +111,7 @@ class ConversationModel extends Conversation {
       'participants': participants
           .map((e) => (e as ConversationParticipantModel).toJson())
           .toList(),
+      if (studentStatus != null) 'studentStatus': studentStatus,
     };
   }
 }
@@ -119,6 +132,7 @@ class ConversationParticipantModel extends ConversationParticipant {
     required super.updatedAt,
     super.privateModeEnabled = false,
     super.unreadCount = 0,
+    super.active = true,
   });
 
   factory ConversationParticipantModel.fromJson(Map<String, dynamic> json) {
@@ -154,6 +168,7 @@ class ConversationParticipantModel extends ConversationParticipant {
           ? DateTime.parse(json['updatedAt'] as String)
           : AppTime.nowUtc(),
       unreadCount: json['unreadCount'] as int? ?? 0,
+      active: json['active'] as bool? ?? true,
     );
   }
 
@@ -173,6 +188,7 @@ class ConversationParticipantModel extends ConversationParticipant {
       'updatedAt': updatedAt.toIso8601String(),
       'privateModeEnabled': privateModeEnabled,
       'unreadCount': unreadCount,
+      'active': active,
     };
   }
 }

@@ -2090,11 +2090,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                               onSend: _sendMessage,
                               onAttachmentTap: _showAttachmentSheet,
                               isSending: state is CommunicationSending,
-                              enabled: !_noActiveGuardian,
-                              disabledMessage:
-                                  'No active parent or guardian is available '
-                                  'in this conversation. You can no longer '
-                                  'send messages.',
+                              enabled: !_studentInactive && !_noActiveGuardian,
+                              disabledMessage: _studentInactive
+                                  ? 'This student is inactive. You can no '
+                                        'longer send messages.'
+                                  : 'No active parent or guardian is available '
+                                        'in this conversation. You can no longer '
+                                        'send messages.',
                               showCharCounter: true,
                               pendingAttachments: _pendingAttachments,
                               quotedMessage: _quotedMessage,
@@ -3212,11 +3214,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             focusNode: _inputFocusNode,
                             onSend: _sendMessage,
                             onAttachmentTap: _showAttachmentSheet,
-                            enabled: !_noActiveGuardian,
-                            disabledMessage:
-                                'No active parent or guardian is available '
-                                'in this conversation. You can no longer '
-                                'send messages.',
+                            enabled: !_studentInactive && !_noActiveGuardian,
+                            disabledMessage: _studentInactive
+                                ? 'This student is inactive. You can no '
+                                      'longer send messages.'
+                                : 'No active parent or guardian is available '
+                                      'in this conversation. You can no longer '
+                                      'send messages.',
                             showCharCounter: true,
                             pendingAttachments: _pendingAttachments,
                             quotedMessage: _quotedMessage,
@@ -3437,6 +3441,19 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
             p.isActive,
       );
 
+  /// True when this Room Chat conversation's student is no longer active
+  /// (withdrawn/inactive) — every side (staff, admin, and the guardian)
+  /// loses the ability to send once the student itself is gone, unlike
+  /// [_noActiveGuardian] which only blocks the staff/admin side. Takes
+  /// priority over [_noActiveGuardian] when composing the composer's
+  /// disabled message. Mirrors `ConversationThreadScreen._studentInactive`.
+  bool get _studentInactive {
+    final status = (widget.parentInfo['studentStatus'] as String?)
+        ?.trim()
+        .toUpperCase();
+    return status != null && status.isNotEmpty && status != 'ACTIVE';
+  }
+
   /// Fetches the current conversation fresh from the backend and replaces
   /// [_refreshedParticipants] with whatever it actually returns — the
   /// `participants` the screen was opened with came from the inbox list,
@@ -3486,7 +3503,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   List<ParticipantDisplayData> get _participantDisplayData =>
-      _participants.map((p) {
+      _participants.where((p) => p.isActive).map((p) {
         final roleStr = p.role.toUpperCase();
         final normalised = roleStr == 'PARENT' ? 'GUARDIAN' : roleStr;
         // Never fall back to p.userCode — that would expose internal codes
@@ -3575,7 +3592,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   }
 
   Widget _buildParticipantHeader() {
-    final participants = _participants;
+    // Only currently-active participants count toward the header's
+    // count/chip display — a Past Participant (left or deactivated) is
+    // still kept in message-attribution logic elsewhere, but shouldn't
+    // clutter this "who's in the conversation right now" summary.
+    final participants = _participants.where((p) => p.isActive).toList();
     final title = widget.parentInfo['name'] as String? ?? '';
     final count = participants.isNotEmpty ? participants.length : null;
 
@@ -3611,6 +3632,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   ),
                 if (!widget.isGuardian) const SizedBox(width: 10),
                 DocumentImageWidget(
+                  disableAttendanceStatusLookup: true,
                   fileUuid: '',
                   imageUrl:
                       (widget.parentInfo['avatar'] as String? ?? '').startsWith(

@@ -30,6 +30,12 @@ class Conversation extends Equatable {
   final String lastMessagePreview;
   final List<ConversationParticipant> participants;
 
+  /// Enrollment status of the student this ROOM_CHAT conversation is scoped
+  /// to (e.g. `ACTIVE`, `UPCOMING`, `INACTIVE`) — sent as a top-level field
+  /// alongside `studentCode`/`studentName`. Null for conversation types that
+  /// aren't student-scoped (e.g. STAFF_DIRECT).
+  final String? studentStatus;
+
   /// The last message's sender, resolved to a display name. Prefers
   /// [lastMessageSenderName] (in case the backend ever starts sending it),
   /// but that field is NOT actually present in the real conversation-list
@@ -72,6 +78,7 @@ class Conversation extends Equatable {
     required this.unreadCount,
     required this.lastMessagePreview,
     required this.participants,
+    this.studentStatus,
   });
 
   /// `unreadCount` is overridable — used to resolve the real per-user count
@@ -101,6 +108,7 @@ class Conversation extends Equatable {
       unreadCount: unreadCount ?? this.unreadCount,
       lastMessagePreview: lastMessagePreview,
       participants: participants,
+      studentStatus: studentStatus,
     );
   }
 
@@ -129,6 +137,7 @@ class Conversation extends Equatable {
     unreadCount,
     lastMessagePreview,
     participants,
+    studentStatus,
   ];
 }
 
@@ -182,12 +191,21 @@ class ConversationParticipant extends Equatable {
     this.avatarUrl,
     this.staffCode,
     this.unreadCount = 0,
+    this.active = true,
   });
+
+  /// Backend-authoritative "still active" flag, sent alongside (and
+  /// independent of) [leftAt] — a participant can be deactivated for a
+  /// reason other than leaving (e.g. `deactivatedReason`) while [leftAt]
+  /// stays null, so this must be checked too, not just [leftAt].
+  final bool active;
 
   /// Mirrors [ParticipantEntity.isActive] — `leftAt == null` means still an
   /// active participant; non-null means a Past Participant (read-only
-  /// history, cannot send/receive new messages).
-  bool get isActive => leftAt == null;
+  /// history, cannot send/receive new messages). Combined with [active]
+  /// since the backend can also deactivate a participant without setting
+  /// [leftAt].
+  bool get isActive => leftAt == null && active;
 
   @override
   List<Object?> get props => [
@@ -207,6 +225,7 @@ class ConversationParticipant extends Equatable {
     avatarUrl,
     staffCode,
     unreadCount,
+    active,
   ];
 }
 

@@ -201,6 +201,12 @@ class _ParentDirectMessagingScreenState
         userName: p.userName,
         role: roleStr,
         joinedAt: AppTime.now(),
+        // Was missing entirely — every participant defaulted to
+        // leftAt: null / active: true regardless of the real backend
+        // values, silently defeating every `isActive`-based filter/count
+        // downstream (chip bars, "N participants" header, tab chips).
+        leftAt: p.leftAt,
+        active: p.active,
         muted: false,
         notificationsEnabled: true,
         createdAt: AppTime.now(),
@@ -258,6 +264,7 @@ class _ParentDirectMessagingScreenState
       'privateModeActive': conv.privateModeActive,
       'privateModeActivatedBy': conv.privateModeActivatedBy,
       'privateModeActivatedAt': conv.privateModeActivatedAt,
+      'studentStatus': conv.studentStatus,
     };
   }
 
@@ -602,6 +609,7 @@ class _ParentDirectMessagingScreenState
                   child: Row(
                     children: [
                       DocumentImageWidget(
+                        disableAttendanceStatusLookup: true,
                         fileUuid: '',
                         studentCode: (childCode ?? '').trim().isNotEmpty
                             ? childCode

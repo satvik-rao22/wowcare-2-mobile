@@ -33,8 +33,11 @@ abstract class ConversationEntityRemoteDataSource {
     String recipientUserCode,
   );
 
-  /// Returns the existing active ROOM_CHAT conversation for [studentCode],
+  /// Returns the existing ROOM_CHAT conversation for [studentCode],
   /// optionally narrowed to [classroomCode], or null if none exists.
+  /// Matched by type only — NOT filtered by conversation status, so a
+  /// conversation for a now-inactive student is still returned (and shown
+  /// with the composer disabled) rather than treated as "doesn't exist".
   ///
   /// Use this before [createConversation] to avoid duplicate per-student
   /// (or per-classroom, when known) rooms.
@@ -43,8 +46,8 @@ abstract class ConversationEntityRemoteDataSource {
     String? classroomCode,
   });
 
-  /// Returns the existing active ADMIN_CHAT conversation for [studentCode],
-  /// or null if none exists.
+  /// Returns the existing ADMIN_CHAT conversation for [studentCode], or null
+  /// if none exists. Matched by type only — see [findRoomChatConversation].
   ///
   /// Use this before [createConversation] to avoid duplicate admin threads
   /// for the same student.
@@ -288,13 +291,20 @@ class ConversationEntityRemoteDataSourceImpl
     // client-side, rather than guessing at an unverified
     // `type/{type}?studentCode=...&classroomCode=...` query combination on
     // the backend.
+    //
+    // Deliberately does NOT require `c.status == 'ACTIVE'` — a conversation
+    // whose student has become inactive still needs to be found and shown
+    // (with the composer disabled via studentStatus, see
+    // ConversationThreadScreen/ParentMessagingThread's `_studentInactive`),
+    // not treated as "doesn't exist" and silently replaced by the
+    // start-a-new-chat draft view.
     final conversations = await getConversationsForStudent(studentCode);
     for (final c in conversations) {
       final matchesClassroom =
           classroomCode == null ||
           classroomCode.isEmpty ||
           c.classroomCode == classroomCode;
-      if (c.type == 'ROOM_CHAT' && matchesClassroom && c.status == 'ACTIVE') {
+      if (c.type == 'ROOM_CHAT' && matchesClassroom) {
         return c;
       }
     }
@@ -305,9 +315,11 @@ class ConversationEntityRemoteDataSourceImpl
   Future<ConversationEntityDto?> findAdminChatConversation({
     required String studentCode,
   }) async {
+    // See findRoomChatConversation above — no `status == 'ACTIVE'` filter,
+    // for the same reason.
     final conversations = await getConversationsForStudent(studentCode);
     for (final c in conversations) {
-      if (c.type == 'ADMIN_CHAT' && c.status == 'ACTIVE') {
+      if (c.type == 'ADMIN_CHAT') {
         return c;
       }
     }
@@ -497,7 +509,10 @@ class ConversationEntityRemoteDataSourceImpl
   Future<Map<String, int>> getUnreadCountsPerConversation() async {
     final endpoint = _url(ApiPaths.messagesUnreadPerConversation);
     final response = await apiClient.client.get(endpoint);
-    _assertSuccess(response.data, 'Failed to load per-conversation unread counts');
+    _assertSuccess(
+      response.data,
+      'Failed to load per-conversation unread counts',
+    );
 
     final data = response.data['data'];
     final result = <String, int>{};
@@ -507,7 +522,9 @@ class ConversationEntityRemoteDataSourceImpl
     // backend actually returns.
     if (data is Map) {
       data.forEach((key, value) {
-        final count = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+        final count = value is num
+            ? value.toInt()
+            : int.tryParse('$value') ?? 0;
         result[key as String] = count;
       });
     } else if (data is List) {

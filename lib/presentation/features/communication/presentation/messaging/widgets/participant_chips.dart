@@ -45,7 +45,9 @@ class ParticipantChips extends StatelessWidget {
         itemBuilder: (context, index) {
           final p = visibleParticipants[index];
           final roleStr = _roleToDisplay(p.role);
-          final name = p.userName.isNotEmpty ? p.userName : _roleFallbackName(roleStr);
+          final name = p.userName.isNotEmpty
+              ? p.userName
+              : _roleFallbackName(roleStr);
           final color = _roleColor(roleStr);
 
           return Container(
@@ -59,6 +61,7 @@ class ParticipantChips extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DocumentImageWidget(
+                  disableAttendanceStatusLookup: true,
                   fileUuid: '',
                   imageUrl: (p.avatarUrl ?? '').startsWith('http')
                       ? p.avatarUrl
@@ -86,7 +89,10 @@ class ParticipantChips extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
@@ -108,24 +114,30 @@ class ParticipantChips extends StatelessWidget {
     );
   }
 
-  /// Filters participants based on role (admin-only) or conversation type.
+  /// Filters participants to active only, then by role (admin-only) or
+  /// conversation type. Past Participants (left/deactivated) are never
+  /// shown here — this is a "who's in the conversation right now" chip
+  /// bar, not a history view.
   List<ParticipantEntity> _filterParticipants() {
+    final active = participants.where((p) => p.isActive);
     if (filterByRole != null) {
-      return participants
+      return active
           .where(
-            (p) => p.role.toApiString().toUpperCase() == filterByRole!.toUpperCase(),
+            (p) =>
+                p.role.toApiString().toUpperCase() ==
+                filterByRole!.toUpperCase(),
           )
           .toList();
     }
 
     // For admin chat, show only admins by default
     if (conversationType == ConversationType.adminChat) {
-      return participants
+      return active
           .where((p) => p.role.toApiString().toUpperCase() == 'ADMIN')
           .toList();
     }
 
-    return participants;
+    return active.toList();
   }
 
   /// Converts participant role enum to display string.

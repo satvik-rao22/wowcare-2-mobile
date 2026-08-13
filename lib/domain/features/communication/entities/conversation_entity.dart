@@ -28,6 +28,7 @@ class ConversationEntity extends Equatable {
     required this.participants,
     // New fields
     this.studentCode,
+    this.studentStatus,
     this.classroomCode,
     this.lastMessageAt,
     this.lastMessageBy,
@@ -62,6 +63,11 @@ class ConversationEntity extends Equatable {
   // New fields for communication v2.1
   /// FK to StudentEntity. Null for STAFF_DIRECT conversations.
   final String? studentCode;
+
+  /// Enrollment status of [studentCode] (e.g. `ACTIVE`, `UPCOMING`,
+  /// `INACTIVE`) — sent as a top-level field alongside `studentCode`/
+  /// `studentName`. Null for conversation types that aren't student-scoped.
+  final String? studentStatus;
 
   /// FK to ClassroomEntity. Set only for ROOM_CHAT conversations.
   final String? classroomCode;
@@ -113,7 +119,10 @@ class ConversationEntity extends Equatable {
   /// the real per-user unread count out of `participants[]` (see
   /// [ConversationEntityRepositoryImpl._resolveUnreadCounts]). Extend with
   /// more fields if another caller needs them.
-  ConversationEntity copyWith({String? lastMessageSenderName, int? unreadCount}) {
+  ConversationEntity copyWith({
+    String? lastMessageSenderName,
+    int? unreadCount,
+  }) {
     return ConversationEntity(
       id: id,
       code: code,
@@ -135,6 +144,7 @@ class ConversationEntity extends Equatable {
       lastMessageAt: lastMessageAt,
       lastMessageBy: lastMessageBy,
       studentCode: studentCode,
+      studentStatus: studentStatus,
       classroomCode: classroomCode,
       lastMessageSenderName:
           lastMessageSenderName ?? this.lastMessageSenderName,
@@ -171,6 +181,7 @@ class ConversationEntity extends Equatable {
     privateModeActivatedBy,
     privateModeActivatedAt,
     studentCode,
+    studentStatus,
     classroomCode,
     privateModeStates,
   ];
@@ -208,6 +219,7 @@ class ParticipantEntity extends Equatable {
     this.organizationCode,
     this.schoolCode,
     this.unreadCount = 0,
+    this.active = true,
   });
 
   final int id;
@@ -235,12 +247,20 @@ class ParticipantEntity extends Equatable {
   /// [ConversationEntityRepositoryImpl._resolveUnreadCounts].
   final int unreadCount;
 
+  /// Backend-authoritative "still active" flag, sent alongside (and
+  /// independent of) [leftAt] — a participant can be deactivated for a
+  /// reason other than leaving (e.g. `deactivatedReason`) while [leftAt]
+  /// stays null, so this must be checked too, not just [leftAt].
+  final bool active;
+
   /// `leftAt == null` is the canonical "still an active participant" check
   /// — set the instant the backend marks them as removed (classroom
   /// unassigned, guardian removed, admin/director role revoked, etc.). A
   /// non-null [leftAt] means this is a **Past Participant**: visible in
   /// history with original attribution, but excluded from send/receive.
-  bool get isActive => leftAt == null;
+  /// Combined with [active] since the backend can also deactivate a
+  /// participant without setting [leftAt].
+  bool get isActive => leftAt == null && active;
 
   @override
   List<Object?> get props => [
@@ -257,6 +277,7 @@ class ParticipantEntity extends Equatable {
     createdAt,
     updatedAt,
     avatarUrl,
+    active,
     staffCode,
     guardianCode,
     adminCode,

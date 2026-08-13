@@ -236,6 +236,19 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     return all.where((c) {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
+      // Default to hiding conversations for no-longer-active students —
+      // only when the user hasn't explicitly picked a Status filter
+      // themselves (that server-side filter, applied via
+      // [_applyServerFilters], is authoritative once set — e.g. picking
+      // "Inactive" must actually show inactive students).
+      if (_selectedStatus == null) {
+        final studentStatus = c.studentStatus?.trim().toUpperCase();
+        if (studentStatus != null &&
+            studentStatus.isNotEmpty &&
+            studentStatus != 'ACTIVE') {
+          return false;
+        }
+      }
       return true;
     }).toList();
   }
@@ -734,6 +747,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                 child: Row(
                   children: [
                     DocumentImageWidget(
+                      disableAttendanceStatusLookup: true,
                       fileUuid: '',
                       imageUrl: student.profileImage,
                       studentCode: student.code,
@@ -949,6 +963,7 @@ class _ConversationTileContent extends StatelessWidget {
           // built-in attendance dot (real "signed in today" vs "absent"
           // vs nothing) is wired up properly instead.
           leading: DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             imageUrl: conversation.avatarUrl.startsWith('http')
                 ? conversation.avatarUrl
@@ -1032,7 +1047,7 @@ class _ConversationTileContent extends StatelessWidget {
                           // it embeds the full participants array correctly —
                           // count active participants directly instead of
                           // trusting that separate, unpopulated field.
-                          '${conversation.participants.where((p) => p.leftAt == null).length} participants',
+                          '${conversation.participants.where((p) => p.isActive).length} participants',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFB2BEC3),

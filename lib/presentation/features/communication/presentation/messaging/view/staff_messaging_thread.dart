@@ -1308,6 +1308,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             Stack(
               children: [
                 DocumentImageWidget(
+                  disableAttendanceStatusLookup: true,
                   fileUuid: '',
                   imageUrl: _staffAvatarAsImageUrl,
                   mediaAssetCode: _staffAvatarAsMediaAssetCode,

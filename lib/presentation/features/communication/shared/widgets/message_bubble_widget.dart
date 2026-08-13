@@ -754,6 +754,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                     final avatarUrl =
                                         sender?.avatarUrl?.trim() ?? '';
                                     return DocumentImageWidget(
+                                      disableAttendanceStatusLookup: true,
                                       // Scoped to this specific message so a
                                       // list rebuild (pagination merge,
                                       // pull-to-refresh) can never let this

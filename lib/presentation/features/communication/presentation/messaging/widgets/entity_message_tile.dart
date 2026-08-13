@@ -30,7 +30,7 @@ Message? _denormalizedQuote(MessageEntity reply, String currentUserCode) {
   );
 }
 
-/// Active recipients = participants still in the conversation (leftAt == null), excluding the
+/// Active recipients = participants still active in the conversation, excluding the
 /// sender/current user. Drives the group read/delivered tick: a group message is delivered/read
 /// only once ALL of these have delivered/read it.
 int _activeRecipientCount(
@@ -39,7 +39,7 @@ int _activeRecipientCount(
 ) {
   if (conversation == null) return 0;
   return conversation.participants
-      .where((p) => p.leftAt == null && p.userCode != currentUserCode)
+      .where((p) => p.isActive && p.userCode != currentUserCode)
       .length;
 }
 

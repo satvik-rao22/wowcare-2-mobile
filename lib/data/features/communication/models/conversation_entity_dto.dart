@@ -33,6 +33,7 @@ class ConversationEntityDto {
     required this.lastMessagePreview,
     required this.participants,
     this.studentCode,
+    this.studentStatus,
     this.classroomCode,
     this.lastMessageAt,
     this.lastMessageBy,
@@ -61,6 +62,7 @@ class ConversationEntityDto {
   final String lastMessagePreview;
   final List<ParticipantEntityDto> participants;
   final String? studentCode;
+  final String? studentStatus;
   final String? classroomCode;
   final DateTime? lastMessageAt;
   final String? lastMessageBy;
@@ -71,10 +73,21 @@ class ConversationEntityDto {
   final List<PrivateModeStateDto> privateModeStates;
 
   factory ConversationEntityDto.fromJson(Map<String, dynamic> json) {
+    // The backend separately sends `studentName` — the resolved student
+    // display name — alongside `title`, which is USUALLY the same value
+    // but has been observed to fall back to the raw `studentCode` instead
+    // (at least for UPCOMING-status students) — see the matching fix in
+    // ConversationModel.fromJson (legacy stack). `studentName` is
+    // confirmed reliable even when `title` isn't, so prefer it whenever
+    // present.
+    final studentName = (json['studentName'] as String?)?.trim();
+    final rawTitle = (json['title'] as String?)?.trim() ?? '';
     return ConversationEntityDto(
       id: json['id'] as int? ?? 0,
       code: json['code'] as String? ?? '',
-      title: json['title'] as String? ?? '',
+      title: (studentName != null && studentName.isNotEmpty)
+          ? studentName
+          : rawTitle,
       type: json['type'] as String? ?? 'ROOM_CHAT',
       organizationCode: json['organizationCode'] as String? ?? '',
       schoolCode: json['schoolCode'] as String? ?? '',
@@ -87,7 +100,8 @@ class ConversationEntityDto {
         json['avatarUrl'] as String?,
         (json['student'] as Map<String, dynamic>?)?['photoUrl'] as String?,
         (json['student'] as Map<String, dynamic>?)?['avatarUrl'] as String?,
-        (json['student'] as Map<String, dynamic>?)?['profileAssetCode'] as String?,
+        (json['student'] as Map<String, dynamic>?)?['profileAssetCode']
+            as String?,
       ]),
       createdAt: _parseDate(json['createdAt']),
       createdBy: json['createdBy'] as String? ?? '',
@@ -96,11 +110,15 @@ class ConversationEntityDto {
       participantCount: json['participantCount'] as int? ?? 0,
       unreadCount: json['unreadCount'] as int? ?? 0,
       lastMessagePreview: json['lastMessagePreview'] as String? ?? '',
-      participants: (json['participants'] as List<dynamic>?)
-              ?.map((e) => ParticipantEntityDto.fromJson(e as Map<String, dynamic>))
+      participants:
+          (json['participants'] as List<dynamic>?)
+              ?.map(
+                (e) => ParticipantEntityDto.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
       studentCode: json['studentCode'] as String?,
+      studentStatus: json['studentStatus'] as String?,
       classroomCode: json['classroomCode'] as String?,
       lastMessageAt: json['lastMessageAt'] != null
           ? DateTime.tryParse(json['lastMessageAt'] as String)
@@ -112,43 +130,49 @@ class ConversationEntityDto {
       privateModeActivatedAt: json['privateModeActivatedAt'] != null
           ? DateTime.tryParse(json['privateModeActivatedAt'] as String)
           : null,
-      privateModeStates: (json['privateModeStates'] as List<dynamic>?)
-              ?.map((e) => PrivateModeStateDto.fromJson(e as Map<String, dynamic>))
+      privateModeStates:
+          (json['privateModeStates'] as List<dynamic>?)
+              ?.map(
+                (e) => PrivateModeStateDto.fromJson(e as Map<String, dynamic>),
+              )
               .toList() ??
           [],
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'code': code,
-        'title': title,
-        'type': type,
-        'organizationCode': organizationCode,
-        'schoolCode': schoolCode,
-        'status': status,
-        'description': description,
-        'avatarUrl': avatarUrl,
-        'createdAt': createdAt.toIso8601String(),
-        'createdBy': createdBy,
-        'updatedAt': updatedAt.toIso8601String(),
-        'updatedBy': updatedBy,
-        'participantCount': participantCount,
-        'unreadCount': unreadCount,
-        'lastMessagePreview': lastMessagePreview,
-        'participants': participants.map((e) => e.toJson()).toList(),
-        if (studentCode != null) 'studentCode': studentCode,
-        if (classroomCode != null) 'classroomCode': classroomCode,
-        if (lastMessageAt != null) 'lastMessageAt': lastMessageAt!.toIso8601String(),
-        if (lastMessageBy != null) 'lastMessageBy': lastMessageBy,
-        if (lastMessageSenderName != null) 'lastMessageSenderName': lastMessageSenderName,
-        'privateModeActive': privateModeActive,
-        if (privateModeActivatedBy != null)
-          'privateModeActivatedBy': privateModeActivatedBy,
-        if (privateModeActivatedAt != null)
-          'privateModeActivatedAt': privateModeActivatedAt!.toIso8601String(),
-        'privateModeStates': privateModeStates.map((e) => e.toJson()).toList(),
-      };
+    'id': id,
+    'code': code,
+    'title': title,
+    'type': type,
+    'organizationCode': organizationCode,
+    'schoolCode': schoolCode,
+    'status': status,
+    'description': description,
+    'avatarUrl': avatarUrl,
+    'createdAt': createdAt.toIso8601String(),
+    'createdBy': createdBy,
+    'updatedAt': updatedAt.toIso8601String(),
+    'updatedBy': updatedBy,
+    'participantCount': participantCount,
+    'unreadCount': unreadCount,
+    'lastMessagePreview': lastMessagePreview,
+    'participants': participants.map((e) => e.toJson()).toList(),
+    if (studentCode != null) 'studentCode': studentCode,
+    if (studentStatus != null) 'studentStatus': studentStatus,
+    if (classroomCode != null) 'classroomCode': classroomCode,
+    if (lastMessageAt != null)
+      'lastMessageAt': lastMessageAt!.toIso8601String(),
+    if (lastMessageBy != null) 'lastMessageBy': lastMessageBy,
+    if (lastMessageSenderName != null)
+      'lastMessageSenderName': lastMessageSenderName,
+    'privateModeActive': privateModeActive,
+    if (privateModeActivatedBy != null)
+      'privateModeActivatedBy': privateModeActivatedBy,
+    if (privateModeActivatedAt != null)
+      'privateModeActivatedAt': privateModeActivatedAt!.toIso8601String(),
+    'privateModeStates': privateModeStates.map((e) => e.toJson()).toList(),
+  };
 
   /// Maps this DTO to the domain [ConversationEntity].
   ConversationEntity toEntity() {
@@ -171,6 +195,7 @@ class ConversationEntityDto {
       lastMessagePreview: lastMessagePreview,
       participants: participants.map((e) => e.toEntity()).toList(),
       studentCode: studentCode,
+      studentStatus: studentStatus,
       classroomCode: classroomCode,
       lastMessageAt: lastMessageAt,
       lastMessageBy: lastMessageBy,
@@ -179,7 +204,7 @@ class ConversationEntityDto {
       privateModeActivatedBy: privateModeActivatedBy,
       privateModeActivatedAt: privateModeActivatedAt,
       privateModeStates: {
-        for (final s in privateModeStates) s.parentCode: s.toEntity()
+        for (final s in privateModeStates) s.parentCode: s.toEntity(),
       },
     );
   }
@@ -209,6 +234,7 @@ class ParticipantEntityDto {
     this.organizationCode,
     this.schoolCode,
     this.unreadCount = 0,
+    this.active = true,
   });
 
   final int id;
@@ -238,6 +264,11 @@ class ParticipantEntityDto {
   /// actually populated by the backend). See toEntity() usage note.
   final int unreadCount;
 
+  /// Backend-authoritative "still active" flag — sent alongside (and
+  /// independent of) `leftAt`; a participant can be deactivated without
+  /// `leftAt` being set (e.g. `deactivatedReason`).
+  final bool active;
+
   factory ParticipantEntityDto.fromJson(Map<String, dynamic> json) {
     return ParticipantEntityDto(
       id: json['id'] as int? ?? 0,
@@ -260,43 +291,55 @@ class ParticipantEntityDto {
         json['profileAssetCode'] as String?,
         json['profilePhotoAssetCode'] as String?,
       ]),
-      joinedAt: DateTime.parse(json['joinedAt'] as String? ?? AppTime.nowUtc().toIso8601String()),
-      leftAt: json['leftAt'] != null ? DateTime.parse(json['leftAt'] as String) : null,
-      lastReadAt: json['lastReadAt'] != null ? DateTime.parse(json['lastReadAt'] as String) : null,
+      joinedAt: DateTime.parse(
+        json['joinedAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
+      ),
+      leftAt: json['leftAt'] != null
+          ? DateTime.parse(json['leftAt'] as String)
+          : null,
+      lastReadAt: json['lastReadAt'] != null
+          ? DateTime.parse(json['lastReadAt'] as String)
+          : null,
       muted: json['muted'] as bool? ?? false,
       notificationsEnabled: json['notificationsEnabled'] as bool? ?? true,
-      createdAt: DateTime.parse(json['createdAt'] as String? ?? AppTime.nowUtc().toIso8601String()),
-      updatedAt: DateTime.parse(json['updatedAt'] as String? ?? AppTime.nowUtc().toIso8601String()),
+      createdAt: DateTime.parse(
+        json['createdAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
+      ),
+      updatedAt: DateTime.parse(
+        json['updatedAt'] as String? ?? AppTime.nowUtc().toIso8601String(),
+      ),
       staffCode: json['staffCode'] as String?,
       guardianCode: json['guardianCode'] as String?,
       adminCode: json['adminCode'] as String?,
       organizationCode: json['organizationCode'] as String?,
       schoolCode: json['schoolCode'] as String?,
       unreadCount: json['unreadCount'] as int? ?? 0,
+      active: json['active'] as bool? ?? true,
     );
   }
 
   Map<String, dynamic> toJson() => {
-        'id': id,
-        'conversationId': conversationId,
-        'userCode': userCode,
-        'userName': userName,
-        'role': role,
-        if (avatarUrl != null) 'avatarUrl': avatarUrl,
-        'joinedAt': joinedAt.toIso8601String(),
-        if (leftAt != null) 'leftAt': leftAt!.toIso8601String(),
-        if (lastReadAt != null) 'lastReadAt': lastReadAt!.toIso8601String(),
-        'muted': muted,
-        'notificationsEnabled': notificationsEnabled,
-        'createdAt': createdAt.toIso8601String(),
-        'updatedAt': updatedAt.toIso8601String(),
-        if (staffCode != null) 'staffCode': staffCode,
-        if (guardianCode != null) 'guardianCode': guardianCode,
-        if (adminCode != null) 'adminCode': adminCode,
-        if (organizationCode != null) 'organizationCode': organizationCode,
-        if (schoolCode != null) 'schoolCode': schoolCode,
-        'unreadCount': unreadCount,
-      };
+    'id': id,
+    'conversationId': conversationId,
+    'userCode': userCode,
+    'userName': userName,
+    'role': role,
+    if (avatarUrl != null) 'avatarUrl': avatarUrl,
+    'joinedAt': joinedAt.toIso8601String(),
+    if (leftAt != null) 'leftAt': leftAt!.toIso8601String(),
+    if (lastReadAt != null) 'lastReadAt': lastReadAt!.toIso8601String(),
+    'muted': muted,
+    'notificationsEnabled': notificationsEnabled,
+    'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    if (staffCode != null) 'staffCode': staffCode,
+    if (guardianCode != null) 'guardianCode': guardianCode,
+    if (adminCode != null) 'adminCode': adminCode,
+    if (organizationCode != null) 'organizationCode': organizationCode,
+    if (schoolCode != null) 'schoolCode': schoolCode,
+    'unreadCount': unreadCount,
+    'active': active,
+  };
 
   ParticipantEntity toEntity() {
     return ParticipantEntity(
@@ -319,6 +362,7 @@ class ParticipantEntityDto {
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       unreadCount: unreadCount,
+      active: active,
     );
   }
 }
@@ -348,11 +392,11 @@ class PrivateModeStateDto {
   }
 
   Map<String, dynamic> toJson() => {
-        'parentCode': parentCode,
-        'enabled': enabled,
-        'owner': owner,
-        'enabledAt': enabledAt.toIso8601String(),
-      };
+    'parentCode': parentCode,
+    'enabled': enabled,
+    'owner': owner,
+    'enabledAt': enabledAt.toIso8601String(),
+  };
 
   PrivateModeState toEntity() {
     return PrivateModeState(

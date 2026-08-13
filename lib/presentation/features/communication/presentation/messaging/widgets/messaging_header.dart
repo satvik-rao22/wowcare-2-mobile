@@ -22,13 +22,17 @@ class MessagingHeader extends StatelessWidget {
             Stack(
               children: [
                 DocumentImageWidget(
+                  disableAttendanceStatusLookup: true,
                   fileUuid: '',
-                  imageUrl: (staffInfo['avatar'] as String? ?? '').startsWith('http')
+                  imageUrl:
+                      (staffInfo['avatar'] as String? ?? '').startsWith('http')
                       ? staffInfo['avatar'] as String?
                       : null,
                   mediaAssetCode:
                       (staffInfo['avatar'] as String? ?? '').isNotEmpty &&
-                          !(staffInfo['avatar'] as String? ?? '').startsWith('http')
+                          !(staffInfo['avatar'] as String? ?? '').startsWith(
+                            'http',
+                          )
                       ? staffInfo['avatar'] as String?
                       : null,
                   name: staffInfo['name'],

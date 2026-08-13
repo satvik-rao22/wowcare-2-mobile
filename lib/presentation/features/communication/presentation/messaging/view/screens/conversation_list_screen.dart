@@ -85,8 +85,8 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   Future<void> _initRole() async {
     final storage = serviceLocator<StorageService>();
     final role = await storage.getString(StorageKeys.activeSchoolRole);
-    final userCode =
-        (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     if (mounted) {
       setState(() {
         _isGuardian =
@@ -143,6 +143,16 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     return all.where((c) {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
+      // Room Chat/Admin Chat are student-scoped — by default, hide
+      // conversations for students who are no longer active
+      // (withdrawn/inactive). STAFF_DIRECT conversations have no
+      // studentStatus at all, so this is a no-op for them.
+      final studentStatus = c.studentStatus?.trim().toUpperCase();
+      if (studentStatus != null &&
+          studentStatus.isNotEmpty &&
+          studentStatus != 'ACTIVE') {
+        return false;
+      }
       return true;
     }).toList();
   }
@@ -339,7 +349,10 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 16),
                         child: Center(
-                          child: PrimaryCircularLoader(size: 24, strokeWidth: 2),
+                          child: PrimaryCircularLoader(
+                            size: 24,
+                            strokeWidth: 2,
+                          ),
                         ),
                       ),
                     ),
@@ -458,9 +471,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
       return const SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
-          child: Center(
-            child: PrimaryCircularLoader(size: 20, strokeWidth: 2),
-          ),
+          child: Center(child: PrimaryCircularLoader(size: 20, strokeWidth: 2)),
         ),
       );
     }
@@ -559,6 +570,7 @@ class _StaffDirectoryTile extends StatelessWidget {
             vertical: 10,
           ),
           leading: DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             mediaAssetCode: staff.avatarAssetCode,
             name: staff.name,
@@ -638,6 +650,7 @@ class _ConversationTileContent extends StatelessWidget {
           leading: Stack(
             children: [
               DocumentImageWidget(
+                disableAttendanceStatusLookup: true,
                 fileUuid: '',
                 // `avatar` is either a resolved URL or a raw media-asset code depending on which
                 // screen created the conversation — route to whichever matches the value's shape.
@@ -727,7 +740,7 @@ class _ConversationTileContent extends StatelessWidget {
                           // participantCount comes back null/0 from the list
                           // endpoint even when participants is fully
                           // populated — count active participants directly.
-                          '${conversation.participants.where((p) => p.leftAt == null).length}',
+                          '${conversation.participants.where((p) => p.isActive).length}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFB2BEC3),

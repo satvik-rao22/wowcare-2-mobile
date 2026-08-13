@@ -109,28 +109,33 @@ const ConversationCollectionSchema = CollectionSchema(
       name: r'status',
       type: IsarType.string,
     ),
-    r'title': PropertySchema(
+    r'studentStatus': PropertySchema(
       id: 18,
+      name: r'studentStatus',
+      type: IsarType.string,
+    ),
+    r'title': PropertySchema(
+      id: 19,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'type',
       type: IsarType.string,
     ),
     r'unreadCount': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'unreadCount',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedBy': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'updatedBy',
       type: IsarType.string,
     )
@@ -198,6 +203,12 @@ int _conversationCollectionEstimateSize(
   }
   bytesCount += 3 + object.schoolCode.length * 3;
   bytesCount += 3 + object.status.length * 3;
+  {
+    final value = object.studentStatus;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.title.length * 3;
   bytesCount += 3 + object.type.length * 3;
   bytesCount += 3 + object.updatedBy.length * 3;
@@ -233,11 +244,12 @@ void _conversationCollectionSerialize(
   writer.writeBool(offsets[15], object.privateModeActive);
   writer.writeString(offsets[16], object.schoolCode);
   writer.writeString(offsets[17], object.status);
-  writer.writeString(offsets[18], object.title);
-  writer.writeString(offsets[19], object.type);
-  writer.writeLong(offsets[20], object.unreadCount);
-  writer.writeDateTime(offsets[21], object.updatedAt);
-  writer.writeString(offsets[22], object.updatedBy);
+  writer.writeString(offsets[18], object.studentStatus);
+  writer.writeString(offsets[19], object.title);
+  writer.writeString(offsets[20], object.type);
+  writer.writeLong(offsets[21], object.unreadCount);
+  writer.writeDateTime(offsets[22], object.updatedAt);
+  writer.writeString(offsets[23], object.updatedBy);
 }
 
 ConversationCollection _conversationCollectionDeserialize(
@@ -271,11 +283,12 @@ ConversationCollection _conversationCollectionDeserialize(
   object.privateModeActive = reader.readBool(offsets[15]);
   object.schoolCode = reader.readString(offsets[16]);
   object.status = reader.readString(offsets[17]);
-  object.title = reader.readString(offsets[18]);
-  object.type = reader.readString(offsets[19]);
-  object.unreadCount = reader.readLong(offsets[20]);
-  object.updatedAt = reader.readDateTime(offsets[21]);
-  object.updatedBy = reader.readString(offsets[22]);
+  object.studentStatus = reader.readStringOrNull(offsets[18]);
+  object.title = reader.readString(offsets[19]);
+  object.type = reader.readString(offsets[20]);
+  object.unreadCount = reader.readLong(offsets[21]);
+  object.updatedAt = reader.readDateTime(offsets[22]);
+  object.updatedBy = reader.readString(offsets[23]);
   return object;
 }
 
@@ -328,14 +341,16 @@ P _conversationCollectionDeserializeProp<P>(
     case 17:
       return (reader.readString(offset)) as P;
     case 18:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 19:
       return (reader.readString(offset)) as P;
     case 20:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 21:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 22:
+      return (reader.readDateTime(offset)) as P;
+    case 23:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -2502,6 +2517,162 @@ extension ConversationCollectionQueryFilter on QueryBuilder<
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'studentStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'studentStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'studentStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      studentStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'studentStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      studentStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'studentStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'studentStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> studentStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'studentStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
       QAfterFilterCondition> titleEqualTo(
     String value, {
     bool caseSensitive = true,
@@ -3283,6 +3454,20 @@ extension ConversationCollectionQuerySortBy
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByStudentStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByStudentStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
       sortByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
@@ -3608,6 +3793,20 @@ extension ConversationCollectionQuerySortThenBy on QueryBuilder<
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByStudentStatus() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByStudentStatusDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'studentStatus', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
       thenByTitle() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'title', Sort.asc);
@@ -3805,6 +4004,14 @@ extension ConversationCollectionQueryWhereDistinct
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
+      distinctByStudentStatus({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'studentStatus',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
       distinctByTitle({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'title', caseSensitive: caseSensitive);
@@ -3973,6 +4180,13 @@ extension ConversationCollectionQueryProperty on QueryBuilder<
     });
   }
 
+  QueryBuilder<ConversationCollection, String?, QQueryOperations>
+      studentStatusProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'studentStatus');
+    });
+  }
+
   QueryBuilder<ConversationCollection, String, QQueryOperations>
       titleProperty() {
     return QueryBuilder.apply(this, (query) {
@@ -4020,63 +4234,68 @@ const ConversationParticipantCollectionSchema = Schema(
   name: r'ConversationParticipantCollection',
   id: 4457480724760800877,
   properties: {
-    r'conversationId': PropertySchema(
+    r'active': PropertySchema(
       id: 0,
+      name: r'active',
+      type: IsarType.bool,
+    ),
+    r'conversationId': PropertySchema(
+      id: 1,
       name: r'conversationId',
       type: IsarType.long,
     ),
     r'createdAt': PropertySchema(
-      id: 1,
+      id: 2,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'id': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'id',
       type: IsarType.long,
     ),
     r'joinedAt': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'joinedAt',
       type: IsarType.dateTime,
     ),
     r'lastReadAt': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'lastReadAt',
       type: IsarType.dateTime,
     ),
     r'leftAt': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'leftAt',
       type: IsarType.dateTime,
     ),
     r'muted': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'muted',
       type: IsarType.bool,
     ),
     r'notificationsEnabled': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'notificationsEnabled',
       type: IsarType.bool,
     ),
     r'role': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'role',
       type: IsarType.string,
     ),
     r'updatedAt': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'userCode': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'userCode',
       type: IsarType.string,
     ),
     r'userName': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'userName',
       type: IsarType.string,
     )
@@ -4105,18 +4324,19 @@ void _conversationParticipantCollectionSerialize(
   List<int> offsets,
   Map<Type, List<int>> allOffsets,
 ) {
-  writer.writeLong(offsets[0], object.conversationId);
-  writer.writeDateTime(offsets[1], object.createdAt);
-  writer.writeLong(offsets[2], object.id);
-  writer.writeDateTime(offsets[3], object.joinedAt);
-  writer.writeDateTime(offsets[4], object.lastReadAt);
-  writer.writeDateTime(offsets[5], object.leftAt);
-  writer.writeBool(offsets[6], object.muted);
-  writer.writeBool(offsets[7], object.notificationsEnabled);
-  writer.writeString(offsets[8], object.role);
-  writer.writeDateTime(offsets[9], object.updatedAt);
-  writer.writeString(offsets[10], object.userCode);
-  writer.writeString(offsets[11], object.userName);
+  writer.writeBool(offsets[0], object.active);
+  writer.writeLong(offsets[1], object.conversationId);
+  writer.writeDateTime(offsets[2], object.createdAt);
+  writer.writeLong(offsets[3], object.id);
+  writer.writeDateTime(offsets[4], object.joinedAt);
+  writer.writeDateTime(offsets[5], object.lastReadAt);
+  writer.writeDateTime(offsets[6], object.leftAt);
+  writer.writeBool(offsets[7], object.muted);
+  writer.writeBool(offsets[8], object.notificationsEnabled);
+  writer.writeString(offsets[9], object.role);
+  writer.writeDateTime(offsets[10], object.updatedAt);
+  writer.writeString(offsets[11], object.userCode);
+  writer.writeString(offsets[12], object.userName);
 }
 
 ConversationParticipantCollection _conversationParticipantCollectionDeserialize(
@@ -4126,18 +4346,19 @@ ConversationParticipantCollection _conversationParticipantCollectionDeserialize(
   Map<Type, List<int>> allOffsets,
 ) {
   final object = ConversationParticipantCollection();
-  object.conversationId = reader.readLong(offsets[0]);
-  object.createdAt = reader.readDateTime(offsets[1]);
-  object.id = reader.readLong(offsets[2]);
-  object.joinedAt = reader.readDateTime(offsets[3]);
-  object.lastReadAt = reader.readDateTimeOrNull(offsets[4]);
-  object.leftAt = reader.readDateTimeOrNull(offsets[5]);
-  object.muted = reader.readBoolOrNull(offsets[6]);
-  object.notificationsEnabled = reader.readBoolOrNull(offsets[7]);
-  object.role = reader.readString(offsets[8]);
-  object.updatedAt = reader.readDateTime(offsets[9]);
-  object.userCode = reader.readString(offsets[10]);
-  object.userName = reader.readString(offsets[11]);
+  object.active = reader.readBoolOrNull(offsets[0]);
+  object.conversationId = reader.readLong(offsets[1]);
+  object.createdAt = reader.readDateTime(offsets[2]);
+  object.id = reader.readLong(offsets[3]);
+  object.joinedAt = reader.readDateTime(offsets[4]);
+  object.lastReadAt = reader.readDateTimeOrNull(offsets[5]);
+  object.leftAt = reader.readDateTimeOrNull(offsets[6]);
+  object.muted = reader.readBoolOrNull(offsets[7]);
+  object.notificationsEnabled = reader.readBoolOrNull(offsets[8]);
+  object.role = reader.readString(offsets[9]);
+  object.updatedAt = reader.readDateTime(offsets[10]);
+  object.userCode = reader.readString(offsets[11]);
+  object.userName = reader.readString(offsets[12]);
   return object;
 }
 
@@ -4149,28 +4370,30 @@ P _conversationParticipantCollectionDeserializeProp<P>(
 ) {
   switch (propertyId) {
     case 0:
-      return (reader.readLong(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 1:
-      return (reader.readDateTime(offset)) as P;
-    case 2:
       return (reader.readLong(offset)) as P;
-    case 3:
+    case 2:
       return (reader.readDateTime(offset)) as P;
+    case 3:
+      return (reader.readLong(offset)) as P;
     case 4:
-      return (reader.readDateTimeOrNull(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 5:
       return (reader.readDateTimeOrNull(offset)) as P;
     case 6:
-      return (reader.readBoolOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 7:
       return (reader.readBoolOrNull(offset)) as P;
     case 8:
-      return (reader.readString(offset)) as P;
+      return (reader.readBoolOrNull(offset)) as P;
     case 9:
-      return (reader.readDateTime(offset)) as P;
-    case 10:
       return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readDateTime(offset)) as P;
     case 11:
+      return (reader.readString(offset)) as P;
+    case 12:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -4181,6 +4404,38 @@ extension ConversationParticipantCollectionQueryFilter on QueryBuilder<
     ConversationParticipantCollection,
     ConversationParticipantCollection,
     QFilterCondition> {
+  QueryBuilder<ConversationParticipantCollection,
+      ConversationParticipantCollection, QAfterFilterCondition> activeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'active',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> activeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'active',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> activeEqualTo(bool? value) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'active',
+        value: value,
+      ));
+    });
+  }
+
   QueryBuilder<
       ConversationParticipantCollection,
       ConversationParticipantCollection,

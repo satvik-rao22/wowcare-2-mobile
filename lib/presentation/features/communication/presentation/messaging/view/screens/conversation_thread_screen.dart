@@ -205,6 +205,21 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           _conversation.type == ConversationType.roomChat) &&
       _tabGuardians.isEmpty;
 
+  /// True when this Room Chat/Admin Chat conversation's student is no
+  /// longer active (withdrawn/inactive) — every side (staff, admin, and
+  /// the guardian) loses the ability to send once the student itself is
+  /// gone, unlike [_noActiveGuardian] which only blocks the staff/admin
+  /// side. Takes priority over [_noActiveGuardian] when composing the
+  /// composer's disabled message.
+  bool get _studentInactive {
+    if (_conversation.type != ConversationType.adminChat &&
+        _conversation.type != ConversationType.roomChat) {
+      return false;
+    }
+    final status = _conversation.studentStatus?.trim().toUpperCase();
+    return status != null && status.isNotEmpty && status != 'ACTIVE';
+  }
+
   /// Only staff/admin/director/teacher viewers get tabs — a guardian's own
   /// thread is always just their single (group + own-private) merged view,
   /// same as the legacy screen. Tabs only make sense once private mode is
@@ -654,7 +669,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   }
 
   List<ParticipantDisplayData> get _participantData =>
-      _conversation.participants.map((p) {
+      _conversation.participants.where((p) => p.isActive).map((p) {
         final roleStr = p.role.toApiString().toUpperCase();
         final normalised = roleStr == 'PARENT' ? 'GUARDIAN' : roleStr;
         return ParticipantDisplayData(
@@ -942,7 +957,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   // ── Participant header ────────────────────────────────────────────────────
 
   Widget _buildParticipantHeader() {
-    final participants = _conversation.participants;
+    // Only currently-active participants count toward the header's
+    // count/chip display — a Past Participant (left or deactivated) is
+    // still kept in message-attribution logic elsewhere, but shouldn't
+    // clutter this "who's in the conversation right now" summary.
+    final participants = _conversation.participants
+        .where((p) => p.isActive)
+        .toList();
     final title = _conversation.title.isNotEmpty
         ? _conversation.title
         : 'Conversation';
@@ -964,6 +985,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           Row(
             children: [
               DocumentImageWidget(
+                disableAttendanceStatusLookup: true,
                 // Stable across every BlocConsumer rebuild (pull-to-refresh,
                 // new messages, …) so its element — and therefore its
                 // internally-resolved photo/initials state — is never torn
@@ -1166,6 +1188,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             DocumentImageWidget(
+                              disableAttendanceStatusLookup: true,
                               fileUuid: '',
                               imageUrl: (p.avatarUrl ?? '').startsWith('http')
                                   ? p.avatarUrl
@@ -1884,11 +1907,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                           controller: _inputController,
                           focusNode: _inputFocusNode,
                           isSending: state.isSending,
-                          enabled: !_noActiveGuardian,
-                          disabledMessage:
-                              'No active parent or guardian is available in '
-                              'this conversation. You can no longer send '
-                              'messages.',
+                          enabled: !_studentInactive && !_noActiveGuardian,
+                          disabledMessage: _studentInactive
+                              ? 'This student is inactive. You can no '
+                                    'longer send messages.'
+                              : 'No active parent or guardian is available in '
+                                    'this conversation. You can no longer send '
+                                    'messages.',
                           onSend: () => unawaited(_sendMessage()),
                           onAttachmentTap: _showAttachmentSheet,
                           pendingAttachments: _pendingAttachments,
@@ -2086,6 +2111,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   return ListTile(
                     dense: true,
                     leading: DocumentImageWidget(
+                      disableAttendanceStatusLookup: true,
                       fileUuid: '',
                       name: hit.senderName,
                       size: 32,

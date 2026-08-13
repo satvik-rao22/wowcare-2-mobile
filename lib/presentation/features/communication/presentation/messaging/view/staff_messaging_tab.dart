@@ -308,6 +308,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       schoolCode: conversation.schoolCode,
       privateModeActive: conversation.privateModeActive,
       privateModeActivatedBy: conversation.privateModeActivatedBy,
+      studentStatus: conversation.studentStatus,
     );
   }
 
@@ -390,10 +391,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         tagCodes: const [],
       );
       unawaited(
-        context
-            .read<StudentCubit>()
-            .refreshWithCacheReset()
-            .then((_) => _drainStudentPages()),
+        context.read<StudentCubit>().refreshWithCacheReset().then(
+          (_) => _drainStudentPages(),
+        ),
       );
     }
     unawaited(
@@ -740,7 +740,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                           context
                                               .read<StudentCubit>()
                                               .refreshWithCacheReset()
-                                              .then((_) => _drainStudentPages()),
+                                              .then(
+                                                (_) => _drainStudentPages(),
+                                              ),
                                         );
                                         // Narrow the conversation list itself
                                         // server-side, not just the "Start new
@@ -937,6 +939,26 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                           }
                           if (_showUnread && conv.unreadCount == 0)
                             return false;
+                          // Room Chat is student-scoped — by default, hide
+                          // conversations for students who are no longer
+                          // active (withdrawn/inactive). Only when the user
+                          // hasn't explicitly picked a Status filter
+                          // themselves (that filter is a server-side query
+                          // param via _resolvedFilterParams — authoritative
+                          // once set, e.g. picking "Inactive" must actually
+                          // show inactive students). STAFF_DIRECT
+                          // conversations have no studentStatus at all, so
+                          // this is a no-op for them either way.
+                          if (_currentFilters['Status'] == null) {
+                            final studentStatus = conv.studentStatus
+                                ?.trim()
+                                .toUpperCase();
+                            if (studentStatus != null &&
+                                studentStatus.isNotEmpty &&
+                                studentStatus != 'ACTIVE') {
+                              return false;
+                            }
+                          }
                           // Hide a conversation a user somehow has with only
                           // themselves (no other participant). Participants
                           // are keyed by userCode, so this MUST compare
@@ -1023,6 +1045,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         conversation.privateModeActive,
                                     privateModeActivatedBy:
                                         conversation.privateModeActivatedBy,
+                                    studentStatus: conversation.studentStatus,
                                   ),
                                 );
                               }, childCount: conversationsToDisplay.length),
@@ -1119,6 +1142,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     // ParentMessagingThread branch below; StaffMessagingThread ignores it.
     bool privateModeActive = false,
     String? privateModeActivatedBy,
+    String? studentStatus,
   }) {
     final route = MaterialPageRoute(
       builder: (_) => BlocProvider<CommunicationCubit>(
@@ -1188,6 +1212,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   'privateModeActive': privateModeActive,
                   'privateModeActivatedBy': privateModeActivatedBy,
                   'privateModeActivatedAt': null,
+                  'studentStatus': studentStatus,
                 },
                 isGuardian: false,
                 // This branch is always Room Chat — Admin Chat's staff/admin
@@ -1359,6 +1384,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
           child: Row(
             children: [
               DocumentImageWidget(
+                disableAttendanceStatusLookup: true,
                 fileUuid: '',
                 // `avatarUrl` is either a resolved URL or a raw media-asset
                 // code depending on which list this contact came from.
