@@ -144,13 +144,12 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
       // Room Chat/Admin Chat are student-scoped — by default, hide
-      // conversations for students who are no longer active
-      // (withdrawn/inactive). STAFF_DIRECT conversations have no
-      // studentStatus at all, so this is a no-op for them.
+      // conversations for withdrawn (INACTIVE) students. UPCOMING is a
+      // normal, not-yet-started enrollment state and stays visible.
+      // STAFF_DIRECT conversations have no studentStatus at all, so this
+      // is a no-op for them.
       final studentStatus = c.studentStatus?.trim().toUpperCase();
-      if (studentStatus != null &&
-          studentStatus.isNotEmpty &&
-          studentStatus != 'ACTIVE') {
+      if (studentStatus == 'INACTIVE') {
         return false;
       }
       return true;

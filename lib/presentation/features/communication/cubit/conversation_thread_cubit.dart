@@ -1170,9 +1170,32 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         .toList();
     if (pending.isEmpty) return preservedFresh;
     final freshCodes = preservedFresh.map((m) => m.code).toSet();
-    final unconfirmed = pending
-        .where((m) => !freshCodes.contains(m.code))
-        .toList();
+    final unconfirmed = pending.where((m) {
+      if (freshCodes.contains(m.code)) return false;
+      // A still-pending optimistic message never carries the server's real
+      // code — the backend isn't even told about localTempCode (see
+      // MessageEntityRepositoryImpl.sendMessage's `_remote.sendMessage`
+      // call) — so exact-code matching alone can't catch it when Firestore
+      // delivers the confirmed message BEFORE this cubit's own
+      // sendMessage() REST response returns to swap it in via
+      // _replaceMessage. Without this, the optimistic and the
+      // Firestore-confirmed entry show side by side, and _replaceMessage
+      // later finds nothing left to replace (it matches by the temp code,
+      // which is no longer present once dropped here) — leaving a
+      // permanent visual duplicate. Close the gap with a tight
+      // content-match instead: same sender, same text, sent within a few
+      // seconds of each other. Failed messages are excluded — a failed
+      // send must never be silently hidden just because its text happens
+      // to match something else.
+      if (!m.isPending) return true;
+      final matchesFresh = preservedFresh.any(
+        (f) =>
+            f.senderCode == m.senderCode &&
+            f.text == m.text &&
+            f.sentAt.difference(m.sentAt).abs() < const Duration(seconds: 30),
+      );
+      return !matchesFresh;
+    }).toList();
     return [...preservedFresh, ...unconfirmed];
   }
 

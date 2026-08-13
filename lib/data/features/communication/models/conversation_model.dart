@@ -133,6 +133,7 @@ class ConversationParticipantModel extends ConversationParticipant {
     super.privateModeEnabled = false,
     super.unreadCount = 0,
     super.active = true,
+    super.staffStatus,
   });
 
   factory ConversationParticipantModel.fromJson(Map<String, dynamic> json) {
@@ -169,6 +170,7 @@ class ConversationParticipantModel extends ConversationParticipant {
           : AppTime.nowUtc(),
       unreadCount: json['unreadCount'] as int? ?? 0,
       active: json['active'] as bool? ?? true,
+      staffStatus: json['staffStatus'] as String?,
     );
   }
 
@@ -189,6 +191,7 @@ class ConversationParticipantModel extends ConversationParticipant {
       'privateModeEnabled': privateModeEnabled,
       'unreadCount': unreadCount,
       'active': active,
+      if (staffStatus != null) 'staffStatus': staffStatus,
     };
   }
 }

@@ -235,6 +235,7 @@ class ParticipantEntityDto {
     this.schoolCode,
     this.unreadCount = 0,
     this.active = true,
+    this.staffStatus,
   });
 
   final int id;
@@ -268,6 +269,11 @@ class ParticipantEntityDto {
   /// independent of) `leftAt`; a participant can be deactivated without
   /// `leftAt` being set (e.g. `deactivatedReason`).
   final bool active;
+
+  /// This participant's own employment status (`ACTIVE`/`UPCOMING`/
+  /// `INACTIVE`) when they're a staff member — the STAFF_DIRECT
+  /// equivalent of the conversation-level `studentStatus`.
+  final String? staffStatus;
 
   factory ParticipantEntityDto.fromJson(Map<String, dynamic> json) {
     return ParticipantEntityDto(
@@ -315,6 +321,7 @@ class ParticipantEntityDto {
       schoolCode: json['schoolCode'] as String?,
       unreadCount: json['unreadCount'] as int? ?? 0,
       active: json['active'] as bool? ?? true,
+      staffStatus: json['staffStatus'] as String?,
     );
   }
 
@@ -339,6 +346,7 @@ class ParticipantEntityDto {
     if (schoolCode != null) 'schoolCode': schoolCode,
     'unreadCount': unreadCount,
     'active': active,
+    if (staffStatus != null) 'staffStatus': staffStatus,
   };
 
   ParticipantEntity toEntity() {
@@ -363,6 +371,7 @@ class ParticipantEntityDto {
       schoolCode: schoolCode,
       unreadCount: unreadCount,
       active: active,
+      staffStatus: staffStatus,
     );
   }
 }

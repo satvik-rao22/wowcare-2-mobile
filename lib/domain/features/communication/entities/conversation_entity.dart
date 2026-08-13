@@ -220,6 +220,7 @@ class ParticipantEntity extends Equatable {
     this.schoolCode,
     this.unreadCount = 0,
     this.active = true,
+    this.staffStatus,
   });
 
   final int id;
@@ -240,6 +241,14 @@ class ParticipantEntity extends Equatable {
   final String? adminCode;
   final String? organizationCode;
   final String? schoolCode;
+
+  /// This participant's own employment status (e.g. `ACTIVE`, `UPCOMING`,
+  /// `INACTIVE`) when they're a staff member — the STAFF_DIRECT equivalent
+  /// of [ConversationEntity.studentStatus], but per-participant rather
+  /// than conversation-level since a STAFF_DIRECT chat's "subject" is one
+  /// of the two participants, not the conversation itself. Null for
+  /// non-staff participants (e.g. guardians) or when not sent.
+  final String? staffStatus;
 
   /// This participant's own unread count for the conversation — the REST
   /// `/conversations/type/{TYPE}` list nests the real per-user unread count
@@ -284,6 +293,7 @@ class ParticipantEntity extends Equatable {
     organizationCode,
     schoolCode,
     unreadCount,
+    staffStatus,
   ];
 }
 

@@ -4284,18 +4284,23 @@ const ConversationParticipantCollectionSchema = Schema(
       name: r'role',
       type: IsarType.string,
     ),
-    r'updatedAt': PropertySchema(
+    r'staffStatus': PropertySchema(
       id: 10,
+      name: r'staffStatus',
+      type: IsarType.string,
+    ),
+    r'updatedAt': PropertySchema(
+      id: 11,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'userCode': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'userCode',
       type: IsarType.string,
     ),
     r'userName': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'userName',
       type: IsarType.string,
     )
@@ -4313,6 +4318,12 @@ int _conversationParticipantCollectionEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.role.length * 3;
+  {
+    final value = object.staffStatus;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.userCode.length * 3;
   bytesCount += 3 + object.userName.length * 3;
   return bytesCount;
@@ -4334,9 +4345,10 @@ void _conversationParticipantCollectionSerialize(
   writer.writeBool(offsets[7], object.muted);
   writer.writeBool(offsets[8], object.notificationsEnabled);
   writer.writeString(offsets[9], object.role);
-  writer.writeDateTime(offsets[10], object.updatedAt);
-  writer.writeString(offsets[11], object.userCode);
-  writer.writeString(offsets[12], object.userName);
+  writer.writeString(offsets[10], object.staffStatus);
+  writer.writeDateTime(offsets[11], object.updatedAt);
+  writer.writeString(offsets[12], object.userCode);
+  writer.writeString(offsets[13], object.userName);
 }
 
 ConversationParticipantCollection _conversationParticipantCollectionDeserialize(
@@ -4356,9 +4368,10 @@ ConversationParticipantCollection _conversationParticipantCollectionDeserialize(
   object.muted = reader.readBoolOrNull(offsets[7]);
   object.notificationsEnabled = reader.readBoolOrNull(offsets[8]);
   object.role = reader.readString(offsets[9]);
-  object.updatedAt = reader.readDateTime(offsets[10]);
-  object.userCode = reader.readString(offsets[11]);
-  object.userName = reader.readString(offsets[12]);
+  object.staffStatus = reader.readStringOrNull(offsets[10]);
+  object.updatedAt = reader.readDateTime(offsets[11]);
+  object.userCode = reader.readString(offsets[12]);
+  object.userName = reader.readString(offsets[13]);
   return object;
 }
 
@@ -4390,10 +4403,12 @@ P _conversationParticipantCollectionDeserializeProp<P>(
     case 9:
       return (reader.readString(offset)) as P;
     case 10:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 11:
-      return (reader.readString(offset)) as P;
+      return (reader.readDateTime(offset)) as P;
     case 12:
+      return (reader.readString(offset)) as P;
+    case 13:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -5051,6 +5066,182 @@ extension ConversationParticipantCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'role',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'staffStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'staffStatus',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'staffStatus',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationParticipantCollection,
+          ConversationParticipantCollection, QAfterFilterCondition>
+      staffStatusContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'staffStatus',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationParticipantCollection,
+          ConversationParticipantCollection, QAfterFilterCondition>
+      staffStatusMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'staffStatus',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'staffStatus',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<
+      ConversationParticipantCollection,
+      ConversationParticipantCollection,
+      QAfterFilterCondition> staffStatusIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'staffStatus',
         value: '',
       ));
     });

@@ -125,46 +125,45 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     // 3. Subscribe to Firestore.
     _firestoreSubscription?.cancel();
-    _firestoreSubscription = _watchConversationsUseCase(type: _conversationType)
-        .listen(
-          (conversations) {
-            if (isClosed) return;
-            _firestoreActive = true;
-            // The Firestore inbox stream is always the FULL, unfiltered list
-            // for this type — it has no concept of the classroomCodes/
-            // tagCodes/designations filters applied via applyFilters(). While
-            // a filter is active, let the REST-driven filtered result stand
-            // rather than silently overwriting it with the unfiltered live
-            // snapshot; live updates resume once filters are cleared.
-            if (state.hasActiveFilters) return;
-            final int debugPrevCount = state.conversations.length;
-            debugPrint(
-              '[UnreadDebug][${_conversationType.toApiString()}] Firestore snapshot: '
-              '${conversations.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',
-            );
-            emit(
-              ConversationListState.loaded(
-                conversationType: _conversationType,
-                conversations: _sortedByLatest(
-                  _reconcileLastMessageSenderNames(conversations),
-                ),
-                isFromCache: false,
-              ),
-            );
-            unawaited(_markDeliveredForIncomingMessages(conversations));
-            // Firestore's own unreadCount has been observed to drop for
-            // conversations OTHER than the one just read — consistent with a
-            // backend aggregate bug on the mark-read path. Correct it from
-            // the confirmed-reliable per-conversation REST endpoint (the
-            // same one already trusted for REST-driven loads, see
-            // ConversationEntityRepositoryImpl._resolveUnreadCounts).
-            // Debounced — see _unreadCountsDebounce.
-            _scheduleReliableUnreadCounts();
-          },
-          onError: (error) {
-            if (!_firestoreActive) unawaited(_fallbackToApi());
-          },
+    _firestoreSubscription = _watchConversationsUseCase(type: _conversationType).listen(
+      (conversations) {
+        if (isClosed) return;
+        _firestoreActive = true;
+        // The Firestore inbox stream is always the FULL, unfiltered list
+        // for this type — it has no concept of the classroomCodes/
+        // tagCodes/designations filters applied via applyFilters(). While
+        // a filter is active, let the REST-driven filtered result stand
+        // rather than silently overwriting it with the unfiltered live
+        // snapshot; live updates resume once filters are cleared.
+        if (state.hasActiveFilters) return;
+        final int debugPrevCount = state.conversations.length;
+        debugPrint(
+          '[UnreadDebug][${_conversationType.toApiString()}] Firestore snapshot: '
+          '${conversations.map((c) => '${c.code}=${c.unreadCount}').join(', ')}',
         );
+        emit(
+          ConversationListState.loaded(
+            conversationType: _conversationType,
+            conversations: _sortedByLatest(
+              _reconcileLastMessageSenderNames(conversations),
+            ),
+            isFromCache: false,
+          ),
+        );
+        unawaited(_markDeliveredForIncomingMessages(conversations));
+        // Firestore's own unreadCount has been observed to drop for
+        // conversations OTHER than the one just read — consistent with a
+        // backend aggregate bug on the mark-read path. Correct it from
+        // the confirmed-reliable per-conversation REST endpoint (the
+        // same one already trusted for REST-driven loads, see
+        // ConversationEntityRepositoryImpl._resolveUnreadCounts).
+        // Debounced — see _unreadCountsDebounce.
+        _scheduleReliableUnreadCounts();
+      },
+      onError: (error) {
+        if (!_firestoreActive) unawaited(_fallbackToApi());
+      },
+    );
 
     // 4. Subscribe to mark-read events so the badge zeroes instantly.
     _markedReadSubscription?.cancel();
@@ -344,6 +343,39 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     }
   }
 
+  /// Resolves the conversation-level `status` query param from whichever
+  /// STAFF status filter is active (STAFF_DIRECT only — student-scoped
+  /// types keep the original hardcoded 'ACTIVE'). The backend flips a
+  /// conversation's own top-level `status` (ACTIVE/INACTIVE) alongside the
+  /// staff counterpart's own status, and `status` is what actually gates
+  /// whether the conversation is returned at all — confirmed via
+  /// `GET .../conversations/type/STAFF_DIRECT?status=INACTIVE` returning
+  /// conversations the previously-hardcoded `status: 'ACTIVE'` was
+  /// silently excluding regardless of what staffStatuses was sent
+  /// alongside it. 'UPCOMING' has no conversation-level equivalent, so it
+  /// falls back to 'ACTIVE' — the staffStatuses param still narrows by it
+  /// separately.
+  String _resolveConversationStatus(List<String> staffStatuses) {
+    final requested = staffStatuses.isNotEmpty ? staffStatuses.first : null;
+    return (requested == 'ACTIVE' || requested == 'INACTIVE')
+        ? requested!
+        : 'ACTIVE';
+  }
+
+  /// Values from a staffStatuses list that still need to be sent as their
+  /// own query param. ACTIVE/INACTIVE are excluded — those are already
+  /// carried by the `status` param (resolved via
+  /// [_resolveConversationStatus]), and the backend returns EMPTY results
+  /// when both are sent together (confirmed:
+  /// `status=INACTIVE&staffStatuses=INACTIVE` → nothing;
+  /// `status=INACTIVE` alone → 200 with the expected conversations).
+  /// 'UPCOMING' has no conversation-level equivalent, so it still needs
+  /// this separate param. studentStatuses is deliberately NOT run through
+  /// this — student-scoped types (ROOM_CHAT/ADMIN_CHAT) keep sending it
+  /// as-is.
+  List<String> _networkStaffStatuses(List<String> staffStatuses) =>
+      staffStatuses.where((s) => s != 'ACTIVE' && s != 'INACTIVE').toList();
+
   /// Apply filters to the conversation list — available for any type.
   /// [classroomCodes]/[tagCodes] apply to student-scoped types (ROOM_CHAT,
   /// ADMIN_CHAT); [designations]/[staffStatuses] apply to STAFF_DIRECT.
@@ -382,14 +414,14 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
-      status: 'ACTIVE',
+      status: _resolveConversationStatus(resolvedStaffStatuses),
       page: 0,
       size: _pageSize,
       classroomCodes: resolvedClassrooms,
       tagCodes: resolvedTags,
       designations: resolvedDesignations,
       studentStatuses: resolvedStudentStatuses,
-      staffStatuses: resolvedStaffStatuses,
+      staffStatuses: _networkStaffStatuses(resolvedStaffStatuses),
       search: search,
     );
 
@@ -476,14 +508,14 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
-      status: 'ACTIVE',
+      status: _resolveConversationStatus(state.activeStaffStatuses),
       page: 0,
       size: _pageSize,
       classroomCodes: state.activeClassroomCodes,
       tagCodes: state.activeTagCodes,
       designations: state.activeDesignations,
       studentStatuses: state.activeStudentStatuses,
-      staffStatuses: state.activeStaffStatuses,
+      staffStatuses: _networkStaffStatuses(state.activeStaffStatuses),
       search: state.activeSearch,
     );
 
@@ -590,14 +622,14 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
-      status: 'ACTIVE',
+      status: _resolveConversationStatus(state.activeStaffStatuses),
       page: 0,
       size: _pageSize,
       classroomCodes: state.activeClassroomCodes,
       tagCodes: state.activeTagCodes,
       designations: state.activeDesignations,
       studentStatuses: state.activeStudentStatuses,
-      staffStatuses: state.activeStaffStatuses,
+      staffStatuses: _networkStaffStatuses(state.activeStaffStatuses),
       search: state.activeSearch,
     );
 

@@ -216,8 +216,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         _conversation.type != ConversationType.roomChat) {
       return false;
     }
+    // Only INACTIVE (withdrawn) actually blocks sending — UPCOMING is a
+    // normal, not-yet-started enrollment state and must behave like ACTIVE
+    // here.
     final status = _conversation.studentStatus?.trim().toUpperCase();
-    return status != null && status.isNotEmpty && status != 'ACTIVE';
+    return status == 'INACTIVE';
   }
 
   /// Only staff/admin/director/teacher viewers get tabs — a guardian's own

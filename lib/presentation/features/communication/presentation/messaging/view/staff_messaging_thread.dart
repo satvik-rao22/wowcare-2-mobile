@@ -87,6 +87,19 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   String? get _staffAvatarAsMediaAssetCode =>
       _rawStaffAvatar.startsWith('http') ? null : _rawStaffAvatar;
 
+  /// True when the staff counterpart of this 1:1 STAFF_DIRECT conversation
+  /// is no longer active (withdrawn/terminated) — the STAFF_DIRECT
+  /// equivalent of `ConversationThreadScreen`/`ParentMessagingThread`'s
+  /// `_studentInactive`. Only INACTIVE actually blocks sending — UPCOMING
+  /// is a normal, not-yet-started employment state and must behave like
+  /// ACTIVE here.
+  bool get _staffInactive {
+    final status = (widget.staffInfo['staffStatus'] as String?)
+        ?.trim()
+        .toUpperCase();
+    return status == 'INACTIVE';
+  }
+
   String? _currentUserCode;
 
   /// Guards against firing more than one `loadOlderMessages` request while
@@ -1527,6 +1540,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         onSend: _sendMessage,
         onAttachmentTap: _showAttachmentPicker,
         isSending: state is CommunicationSending,
+        enabled: !_staffInactive,
+        disabledMessage:
+            'This staff member is inactive. You can no longer send '
+            'messages.',
         pendingAttachments: _pendingAttachments,
         quotedMessage: _quotedMessage,
         showCharCounter: true,

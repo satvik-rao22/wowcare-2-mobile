@@ -127,7 +127,13 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   void _onTextChanged() {
     if (!mounted) return;
-    final hasText = widget.controller.text.trim().isNotEmpty;
+    // Raw text alone isn't enough — a formatting tag pair with nothing
+    // typed inside it (e.g. `<b></b>` left over from toggling Bold on then
+    // off without typing) is non-empty text but has no actual visible
+    // content, and must not enable Send.
+    final hasText = MessageContentProcessor.stripHtmlTags(
+      widget.controller.text,
+    ).trim().isNotEmpty;
     if (hasText != _hasText) setState(() => _hasText = hasText);
 
     // Debounce preview detection to avoid spamming on every keystroke.

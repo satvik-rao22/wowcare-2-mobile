@@ -59,7 +59,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   // against each conversation's student (admin chats are student-scoped).
   Set<String> _selectedClassrooms = {};
   Set<String> _selectedTags = {};
-  String? _selectedStatus;
+  // Defaults to Active — the list only shows active students unless the
+  // user explicitly picks a different status via the filter sheet. Stored
+  // in the same Title Case as the filter sheet's own item strings (see
+  // _showFilterSheet's `items: const ['Active', 'Upcoming', 'Inactive']`)
+  // so this value round-trips correctly as the sheet's initialSelected.
+  String? _selectedStatus = 'Active';
 
   /// All tag names for the school (full list from the tags API) so the filter
   /// shows EVERY tag — not only those on the currently-loaded (paginated)
@@ -136,6 +141,17 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       _searchController.text.trim().isNotEmpty ||
       _hasStudentFilters;
 
+  /// Whether the user has manually diverged from the silent default
+  /// (Active status only) — used to decide whether to show the "a filter
+  /// is applied" indicator dot on the funnel icon. The default Active
+  /// status by itself doesn't count as a user-applied filter; only an
+  /// explicit classroom/tag pick, or picking a status OTHER than Active,
+  /// does.
+  bool get _hasVisibleFilters =>
+      _selectedClassrooms.isNotEmpty ||
+      _selectedTags.isNotEmpty ||
+      (_selectedStatus != null && _selectedStatus != 'Active');
+
   /// The display classroom label a student is filtered by (name preferred).
   String _classroomLabel(Student s) =>
       (s.primaryClassroomName != null &&
@@ -200,6 +216,10 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     }
     final classroomCodes = _classroomLabelToCode();
     final tagCodes = _tagNameToCode;
+    // Passed through as studentStatuses so ConversationListCubit.applyFilters
+    // can resolve the conversation-level `status` param from it — that
+    // method is also responsible for NOT forwarding ACTIVE/INACTIVE values
+    // as a separate studentStatuses query param (see its own doc for why).
     await _cubit.applyFilters(
       classroomCodes: _selectedClassrooms
           .map((label) => classroomCodes[label])
@@ -233,21 +253,25 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   /// check on the already-loaded page) and the live search-as-you-type text.
   List<ConversationEntity> _filtered(List<ConversationEntity> all) {
     final q = _searchController.text.trim().toLowerCase();
+    final status = _selectedStatus?.trim().toUpperCase();
     return all.where((c) {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
-      // Default to hiding conversations for no-longer-active students —
-      // only when the user hasn't explicitly picked a Status filter
-      // themselves (that server-side filter, applied via
-      // [_applyServerFilters], is authoritative once set — e.g. picking
-      // "Inactive" must actually show inactive students).
-      if (_selectedStatus == null) {
-        final studentStatus = c.studentStatus?.trim().toUpperCase();
-        if (studentStatus != null &&
-            studentStatus.isNotEmpty &&
-            studentStatus != 'ACTIVE') {
-          return false;
-        }
+      // Enforced client-side rather than relying solely on the one-off
+      // server-side studentStatuses query in [_applyServerFilters] — this
+      // screen's Firestore subscription keeps pushing unfiltered updates
+      // on top of state.conversations, so without this the very next
+      // realtime snapshot would silently undo whichever status was
+      // picked. [_selectedStatus] defaults to 'ACTIVE'. Fails OPEN when
+      // studentStatus itself is missing — a conversation must never be
+      // hidden just because this field wasn't sent. (Admin Chat is
+      // student-scoped — the STAFF_DIRECT `status`-param fix doesn't
+      // apply here.)
+      final conversationStatus = c.studentStatus?.trim().toUpperCase();
+      if (status != null &&
+          conversationStatus != null &&
+          conversationStatus != status) {
+        return false;
       }
       return true;
     }).toList();
@@ -528,7 +552,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                                         MediaRes.filterIcon,
                                         height: 20,
                                       ),
-                                      if (_hasStudentFilters)
+                                      if (_hasVisibleFilters)
                                         Positioned(
                                           top: -2,
                                           right: -2,
@@ -571,9 +595,11 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                                   _searchController.clear();
                                   _selectedClassrooms = {};
                                   _selectedTags = {};
-                                  _selectedStatus = null;
+                                  // Resets to Active rather than no filter
+                                  // at all — matches this screen's default.
+                                  _selectedStatus = 'Active';
                                 });
-                                unawaited(_cubit.clearFilters());
+                                unawaited(_applyServerFilters());
                               },
                             ),
                           ],

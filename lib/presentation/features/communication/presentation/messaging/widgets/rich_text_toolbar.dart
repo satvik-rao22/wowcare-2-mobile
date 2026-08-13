@@ -13,10 +13,7 @@ import 'package:wowcare/app/theme/colors.dart';
 /// The controller is expected to own a [TextEditingController] already
 /// attached to the active [TextField]. This widget does NOT manage focus.
 class RichTextToolbar extends StatefulWidget {
-  const RichTextToolbar({
-    super.key,
-    required this.controller,
-  });
+  const RichTextToolbar({super.key, required this.controller});
 
   final TextEditingController controller;
 
@@ -60,7 +57,7 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
     if (!sel.isValid) return;
 
     final cursor = sel.baseOffset;
-    
+
     bool isInside(String openTag, String closeTag) {
       if (cursor <= 0 || cursor > text.length) return false;
       int lastOpen = text.lastIndexOf(openTag, cursor - 1);
@@ -73,7 +70,10 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
     final newUnderline = isInside('<u>', '</u>');
     final newStrike = isInside('<s>', '</s>');
 
-    if (newBold != _isBold || newItalic != _isItalic || newUnderline != _isUnderline || newStrike != _isStrikethrough) {
+    if (newBold != _isBold ||
+        newItalic != _isItalic ||
+        newUnderline != _isUnderline ||
+        newStrike != _isStrikethrough) {
       setState(() {
         _isBold = newBold;
         _isItalic = newItalic;
@@ -85,26 +85,59 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
 
   // ── Tag wrapping ─────────────────────────────────────────────────────────
 
+  /// Finds the tag pair enclosing [pos], if any: the start index of the
+  /// nearest preceding unclosed [openTag], and the index of the [closeTag]
+  /// that closes it (searched forward from [pos]). Mirrors the "is inside"
+  /// check in [_updateFormatState] but also returns the boundary offsets so
+  /// callers can unwrap/split, not just detect.
+  ({int openStart, int closeStart})? _findEnclosing(
+    String text,
+    int pos,
+    String openTag,
+    String closeTag,
+  ) {
+    if (pos <= 0 || pos > text.length) return null;
+    final lastOpen = text.lastIndexOf(openTag, pos - 1);
+    final lastClose = text.lastIndexOf(closeTag, pos - 1);
+    if (lastOpen == -1 || lastOpen <= lastClose) return null;
+    final closeStart = text.indexOf(closeTag, pos);
+    if (closeStart == -1) return null;
+    return (openStart: lastOpen, closeStart: closeStart);
+  }
+
   void _wrapWith(String openTag, String closeTag) {
     final sel = widget.controller.selection;
     if (!sel.isValid) return;
     final text = widget.controller.text;
 
-    if (sel.isCollapsed) {
-      // No selection: insert both tags and place cursor between them.
-      final pos = sel.baseOffset;
-      widget.controller.value = widget.controller.value.copyWith(
-        text:
-            text.substring(0, pos) + openTag + closeTag + text.substring(pos),
-        selection: TextSelection.collapsed(offset: pos + openTag.length),
-      );
-    } else {
-      // Selection: wrap the selected text.
+    if (!sel.isCollapsed) {
       final start = sel.start;
       final end = sel.end;
+
+      // Toggle off: the selection is already exactly wrapped by this tag
+      // pair — remove both tags instead of nesting a new pair around it.
+      if (start >= openTag.length &&
+          text.startsWith(openTag, start - openTag.length) &&
+          text.startsWith(closeTag, end)) {
+        final newText =
+            text.substring(0, start - openTag.length) +
+            text.substring(start, end) +
+            text.substring(end + closeTag.length);
+        widget.controller.value = widget.controller.value.copyWith(
+          text: newText,
+          selection: TextSelection(
+            baseOffset: start - openTag.length,
+            extentOffset: end - openTag.length,
+          ),
+        );
+        return;
+      }
+
+      // Otherwise wrap the selected text.
       final selected = text.substring(start, end);
       widget.controller.value = widget.controller.value.copyWith(
-        text: text.substring(0, start) +
+        text:
+            text.substring(0, start) +
             openTag +
             selected +
             closeTag +
@@ -113,7 +146,54 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
           offset: start + openTag.length + selected.length + closeTag.length,
         ),
       );
+      return;
     }
+
+    // Collapsed cursor.
+    final pos = sel.baseOffset;
+    final enclosing = _findEnclosing(text, pos, openTag, closeTag);
+    if (enclosing != null) {
+      final openStart = enclosing.openStart;
+      final closeStart = enclosing.closeStart;
+
+      // Nothing was typed inside this pair yet (cursor sits right after the
+      // opening tag, and the closing tag immediately follows) — remove the
+      // whole empty pair rather than leaving it behind or splitting it.
+      if (pos == openStart + openTag.length && closeStart == pos) {
+        final newText =
+            text.substring(0, openStart) +
+            text.substring(closeStart + closeTag.length);
+        widget.controller.value = widget.controller.value.copyWith(
+          text: newText,
+          selection: TextSelection.collapsed(offset: openStart),
+        );
+        return;
+      }
+
+      // Toggling off mid-run: close the tag right at the cursor (move the
+      // existing closing tag from [closeStart] to [pos]) so text typed
+      // from here on is no longer formatted, while text before the cursor
+      // stays formatted.
+      final withoutOldClose =
+          text.substring(0, closeStart) +
+          text.substring(closeStart + closeTag.length);
+      final newText =
+          withoutOldClose.substring(0, pos) +
+          closeTag +
+          withoutOldClose.substring(pos);
+      widget.controller.value = widget.controller.value.copyWith(
+        text: newText,
+        selection: TextSelection.collapsed(offset: pos + closeTag.length),
+      );
+      return;
+    }
+
+    // Not inside an existing pair: insert a fresh empty pair with the
+    // cursor placed between them so typing starts formatted immediately.
+    widget.controller.value = widget.controller.value.copyWith(
+      text: text.substring(0, pos) + openTag + closeTag + text.substring(pos),
+      selection: TextSelection.collapsed(offset: pos + openTag.length),
+    );
   }
 
   // ── List prefixes ─────────────────────────────────────────────────────────
@@ -129,7 +209,8 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
     // If the line already starts with this prefix, remove it (toggle).
     if (text.substring(lineStart).startsWith(prefix)) {
       final newText =
-          text.substring(0, lineStart) + text.substring(lineStart + prefix.length);
+          text.substring(0, lineStart) +
+          text.substring(lineStart + prefix.length);
       widget.controller.value = widget.controller.value.copyWith(
         text: newText,
         selection: TextSelection.collapsed(
@@ -152,9 +233,7 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
       height: 48, // Slightly taller for larger touch targets
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(
-          top: BorderSide(color: Color(0xFFE2E8F0), width: 1),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
       ),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -222,20 +301,33 @@ class _ToolbarBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: label,
-      child: GestureDetector(
-        onTapDown: (_) => onTap(),
-        behavior: HitTestBehavior.opaque,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8), // Increased touch target
-          margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
-          decoration: BoxDecoration(
-            color: isActive ? AppColors.primaryColor.withValues(alpha: 0.15) : Colors.transparent,
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 2, vertical: 4),
+        decoration: BoxDecoration(
+          color: isActive
+              ? AppColors.primaryColor.withValues(alpha: 0.15)
+              : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          type: MaterialType.transparency,
+          child: InkWell(
+            onTap: onTap,
             borderRadius: BorderRadius.circular(6),
-          ),
-          child: Icon(
-            icon,
-            size: 20,
-            color: isActive ? AppColors.primaryColor : AppColors.primaryColor.withValues(alpha: 0.7),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 8,
+              ), // Increased touch target
+              child: Icon(
+                icon,
+                size: 20,
+                color: isActive
+                    ? AppColors.primaryColor
+                    : AppColors.primaryColor.withValues(alpha: 0.7),
+              ),
+            ),
           ),
         ),
       ),

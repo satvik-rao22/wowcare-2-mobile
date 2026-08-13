@@ -28,6 +28,7 @@ ConversationParticipant legacyParticipantFromEntity(ParticipantEntity p) {
     avatarUrl: p.avatarUrl,
     staffCode: p.staffCode,
     active: p.active,
+    staffStatus: p.staffStatus,
   );
 }
 

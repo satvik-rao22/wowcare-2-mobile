@@ -3448,10 +3448,13 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
   /// priority over [_noActiveGuardian] when composing the composer's
   /// disabled message. Mirrors `ConversationThreadScreen._studentInactive`.
   bool get _studentInactive {
+    // Only INACTIVE (withdrawn) actually blocks sending — UPCOMING is a
+    // normal, not-yet-started enrollment state and must behave like ACTIVE
+    // here.
     final status = (widget.parentInfo['studentStatus'] as String?)
         ?.trim()
         .toUpperCase();
-    return status != null && status.isNotEmpty && status != 'ACTIVE';
+    return status == 'INACTIVE';
   }
 
   /// Fetches the current conversation fresh from the backend and replaces

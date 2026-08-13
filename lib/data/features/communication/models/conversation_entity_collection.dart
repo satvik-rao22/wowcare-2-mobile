@@ -195,6 +195,7 @@ class ParticipantEntityCollection {
   late DateTime createdAt;
   late DateTime updatedAt;
   bool? active;
+  String? staffStatus;
 
   ParticipantEntityCollection();
 
@@ -214,7 +215,8 @@ class ParticipantEntityCollection {
       ..notificationsEnabled = entity.notificationsEnabled
       ..createdAt = entity.createdAt
       ..updatedAt = entity.updatedAt
-      ..active = entity.active;
+      ..active = entity.active
+      ..staffStatus = entity.staffStatus;
   }
 
   ParticipantEntity toEntity() {
@@ -234,6 +236,7 @@ class ParticipantEntityCollection {
       createdAt: createdAt,
       updatedAt: updatedAt,
       active: active ?? true,
+      staffStatus: staffStatus,
     );
   }
 }

@@ -192,6 +192,7 @@ class ConversationParticipant extends Equatable {
     this.staffCode,
     this.unreadCount = 0,
     this.active = true,
+    this.staffStatus,
   });
 
   /// Backend-authoritative "still active" flag, sent alongside (and
@@ -199,6 +200,14 @@ class ConversationParticipant extends Equatable {
   /// reason other than leaving (e.g. `deactivatedReason`) while [leftAt]
   /// stays null, so this must be checked too, not just [leftAt].
   final bool active;
+
+  /// This participant's own employment status (e.g. `ACTIVE`, `UPCOMING`,
+  /// `INACTIVE`) when they're a staff member — the STAFF_DIRECT equivalent
+  /// of [Conversation.studentStatus], but per-participant rather than
+  /// conversation-level since a STAFF_DIRECT chat's "subject" is one of
+  /// the two participants, not the conversation itself. Null for
+  /// non-staff participants (e.g. guardians) or when not sent.
+  final String? staffStatus;
 
   /// Mirrors [ParticipantEntity.isActive] — `leftAt == null` means still an
   /// active participant; non-null means a Past Participant (read-only
@@ -226,6 +235,7 @@ class ConversationParticipant extends Equatable {
     staffCode,
     unreadCount,
     active,
+    staffStatus,
   ];
 }
 
