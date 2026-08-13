@@ -79,6 +79,9 @@ class ActivityCustomTab extends StatefulWidget {
     this.isNotParent = true,
     this.allowActivityWrite = true,
     this.onRefreshStaffSignInStatus,
+    this.initialActivityTypes,
+    this.initialClassrooms,
+    this.resetKey,
   });
 
   final bool fromStudentProfile;
@@ -97,6 +100,15 @@ class ActivityCustomTab extends StatefulWidget {
   /// screen's Add-activity FAB gate). Invoked on manual pull-to-refresh so the
   /// FAB reflects a sign-in/out done elsewhere without needing an app restart.
   final Future<void> Function()? onRefreshStaffSignInStatus;
+
+  /// Pre-selected activity types.
+  final List<String>? initialActivityTypes;
+
+  /// Pre-selected classrooms.
+  final List<String>? initialClassrooms;
+
+  /// Used to force state reset in didUpdateWidget when navigating repeatedly.
+  final String? resetKey;
 
   static const String routeName = '/activityCustomTab';
 
@@ -148,6 +160,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   final Map<String, String> _parentStudentClassroomByCode = {};
   bool _loadingParentContext = false;
   bool _isFeedRequestInFlight = false;
+  bool _forceAllClassroomsOnLoad = false;
   String? _lastFeedRequestKey;
   String? _lastGlobalSelectedStudentCode;
   DateTime? _lastFeedCompletedAt;
@@ -328,6 +341,49 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   };
 
   @override
+  void didUpdateWidget(covariant ActivityCustomTab oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    bool changed = false;
+
+    // If resetKey changes, we force apply the initial filters again
+    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+
+    if (forceReset || widget.initialActivityTypes != oldWidget.initialActivityTypes) {
+      if (widget.initialActivityTypes != null && widget.initialActivityTypes!.isNotEmpty) {
+        _filterActivityTypes = List.from(widget.initialActivityTypes!);
+        changed = true;
+      }
+    }
+
+    if (forceReset || widget.initialClassrooms != oldWidget.initialClassrooms) {
+      if (widget.initialClassrooms != null && widget.initialClassrooms!.isNotEmpty) {
+        _selectedClassrooms = List.from(widget.initialClassrooms!);
+        if (_selectedClassrooms.length == 1 && _selectedClassrooms.first.toLowerCase() == 'all') {
+          _forceAllClassroomsOnLoad = true;
+          _selectdClassroom = null;
+          if (_classroomOptions.isNotEmpty) {
+            _selectedClassrooms = List.from(_classroomOptions);
+          } else {
+            _selectedClassrooms = [];
+          }
+        } else {
+          _selectdClassroom = _selectedClassrooms.first;
+        }
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      // Re-run filter logic and fetch feed
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _loadRangeFeed(refresh: true);
+        }
+      });
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
@@ -360,6 +416,25 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     _seedProfileContext();
     _updateAvailableStudents();
     //_selectedStudent = _allStudents[0];
+
+    // Apply initial filters passed from the route
+    if (widget.initialActivityTypes != null && widget.initialActivityTypes!.isNotEmpty) {
+      _filterActivityTypes = List.from(widget.initialActivityTypes!);
+    }
+    if (widget.initialClassrooms != null && widget.initialClassrooms!.isNotEmpty) {
+      _selectedClassrooms = List.from(widget.initialClassrooms!);
+      if (_selectedClassrooms.length == 1 && _selectedClassrooms.first.toLowerCase() == 'all') {
+         _forceAllClassroomsOnLoad = true;
+         _selectdClassroom = null;
+         if (_classroomOptions.isNotEmpty) {
+           _selectedClassrooms = List.from(_classroomOptions);
+         } else {
+           _selectedClassrooms = [];
+         }
+      } else {
+         _selectdClassroom = _selectedClassrooms.first;
+      }
+    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await _bootstrapSchoolZone();
@@ -2062,7 +2137,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _classroomOptions
         ..clear()
         ..addAll(scoped.map((c) => c.name));
-      if (_classroomOptions.isNotEmpty &&
+      
+      if (_forceAllClassroomsOnLoad) {
+        _selectedClassrooms = List.from(_classroomOptions);
+        _selectdClassroom = null;
+      } else if (_classroomOptions.isNotEmpty &&
           (_selectdClassroom == null ||
               !_classroomOptions.contains(_selectdClassroom))) {
         final primaryCode = (_primaryClassroomCode ?? '').trim();
@@ -2076,10 +2155,12 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             ? primaryName
             : _classroomOptions.first;
       }
+      
       // Keep multi-select UI in sync with default classroom.
-      if (_selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
+      if (!_forceAllClassroomsOnLoad && _selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
         _selectedClassrooms = <String>[_selectdClassroom!];
       }
+      _forceAllClassroomsOnLoad = false;
       await _cacheManager.saveCache(classroomCacheKey, {
         // Persist full school classrooms; apply staff scope only at runtime.
         'classrooms': classrooms

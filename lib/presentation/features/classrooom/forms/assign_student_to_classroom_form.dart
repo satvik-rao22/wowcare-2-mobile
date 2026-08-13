@@ -38,6 +38,7 @@ class StudentEntity {
   final String? profileImageUrl;
   final String? profilePhotoAssetCode;
   final String? roomName;
+  final String? roomCode;
   final List<_TagEntity> tags;
 
   /// Raw DOB string from the student list (may be empty / unparseable). Kept so
@@ -50,6 +51,7 @@ class StudentEntity {
     this.profileImageUrl,
     this.profilePhotoAssetCode,
     this.roomName,
+    this.roomCode,
     this.tags = const [],
     this.dob = '',
   });
@@ -139,6 +141,23 @@ class _AssignStudentToClassroomFormState
       }
 
       final getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
+
+      // Fetch all active classrooms to get the "rest" of the classrooms
+      final activeClassrooms =
+          await serviceLocator<GetActiveClassroomsUseCase>()(
+            schoolCode: schoolCode,
+            onlyTypeClassroom: true,
+          );
+
+      // Filter out the target classroom to get available classrooms
+      final availableClassrooms = activeClassrooms
+          .where((classroom) => classroom.code != widget.classroomCode)
+          .toList();
+
+      final classroomCodes = availableClassrooms
+          .map((classroom) => classroom.code)
+          .toList();
+
       final fetchedStudents = <StudentEntity>[];
       final uniqueRooms = <String>{};
       final uniqueTags = <String>{};
@@ -151,6 +170,7 @@ class _AssignStudentToClassroomFormState
           page: page,
           size: _pageSize,
           status: 'ACTIVE',
+          classroomCodes: classroomCodes,
         );
 
         for (final s in studentPage.items) {
@@ -171,6 +191,7 @@ class _AssignStudentToClassroomFormState
                   ? null
                   : s.profilePhotoAssetCode!.trim(),
               roomName: s.classroom,
+              roomCode: s.classroomCode,
               tags: tagEntities,
               dob: s.dob,
             ),
@@ -193,9 +214,15 @@ class _AssignStudentToClassroomFormState
         _allStudents
           ..clear()
           ..addAll(fetchedStudents);
+        final availableRoomNames = availableClassrooms
+            .map((c) => c.name.trim())
+            .where((name) => name.isNotEmpty)
+            .toSet()
+            .toList();
+
         _allRooms
           ..clear()
-          ..addAll(uniqueRooms.toList()..sort());
+          ..addAll(availableRoomNames..sort());
         _allTags
           ..clear()
           ..addAll(uniqueTags.toList()..sort());
@@ -248,7 +275,13 @@ class _AssignStudentToClassroomFormState
   void _filterStudents() {
     final allStudents = _allStudents;
     _filteredStudents = allStudents.where((student) {
-      // Exclude students already assigned to the selected classroom
+      // Exclude students whose current classroom matches the target classroom
+      if (student.roomCode != null &&
+          student.roomCode!.trim().toUpperCase() ==
+              widget.classroomCode.trim().toUpperCase()) {
+        return false;
+      }
+      // Fallback: exclude students already assigned to the selected classroom based on the Cubit
       if (_assignedStudentCodes.contains(student.code.trim().toUpperCase())) {
         return false;
       }

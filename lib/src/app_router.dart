@@ -1121,6 +1121,7 @@ final GoRouter appRouter = GoRouter(
                 final highlight = (q['highlightCode'] ?? '').trim();
                 final date = q['date'] ?? '';
                 final room = q['classroomCode'] ?? '';
+                final extra = state.extra as Map<String, dynamic>?;
                 return ActivityFeedScreen(
                   // The Activities tab lives in an indexed-stack branch and its
                   // Daily tab is keep-alive, so a notification tap into an
@@ -1130,14 +1131,18 @@ final GoRouter appRouter = GoRouter(
                   // applies the notification's date, classroom and highlight.
                   // Normal tab navigation carries no highlightCode and keeps a
                   // null key, so ordinary browsing state is preserved.
-                  key: highlight.isEmpty
-                      ? null
-                      : ValueKey('activityFeed-$highlight-$date-$room'),
+                  key: highlight.isNotEmpty
+                      ? ValueKey('activityFeed-$highlight-$date-$room')
+                      : null,
                   highlightCode: q['highlightCode'],
                   highlightDate: DateTime.tryParse(date),
                   // The deep-linked activity's classroom, so the feed opens on
                   // the room that actually contains the card to highlight.
                   highlightClassroomCode: q['classroomCode'],
+                  initialTab: q['tab'] == 'custom' ? 1 : 0,
+                  initialActivityTypes: q['activityType'] != null ? [q['activityType']!] : null,
+                  initialClassrooms: q['classroom'] != null ? [q['classroom']!] : null,
+                  resetKey: extra?['timestamp']?.toString(),
                 );
               },
             ),
