@@ -156,7 +156,7 @@ class ParticipantInfoDialog extends StatelessWidget {
 
                   // Staff
                   if (staff.isNotEmpty) ...[
-                    _SectionHeader(label: 'STAFFS', count: staff.length),
+                    _SectionHeader(label: 'STAFF', count: staff.length),
                     const Divider(height: 8, color: Color(0xFFE2E8F0)),
                     const SizedBox(height: 4),
                     ...staff.map((p) => _ParticipantTile(data: p)),
