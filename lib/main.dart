@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:wowcare/app/app.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/bootstrap/app_bootstrap.dart';
@@ -11,6 +13,12 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await AppBootstrap.initialize();
+
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
   WidgetsBinding.instance.addObserver(_TokenLifecycleObserver()..start());
 

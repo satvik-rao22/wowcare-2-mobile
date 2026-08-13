@@ -78,5 +78,21 @@ post_install do |installer|
       runner_project.save
       puts "✅ [Firebase] Added '#{phase_name}' build phase to Runner"
     end
+
+    phase_name_crashlytics = 'Firebase Crashlytics dSYM Upload'
+    already_added_crashlytics = runner_target.build_phases.any? do |p|
+      p.respond_to?(:name) && p.name == phase_name_crashlytics
+    end
+
+    unless already_added_crashlytics
+      phase_crash = runner_target.new_shell_script_build_phase(phase_name_crashlytics)
+      phase_crash.shell_script = '"${PODS_ROOT}/FirebaseCrashlytics/run"'
+      phase_crash.input_paths  = [
+        '${DWARF_DSYM_FOLDER_PATH}/${DWARF_DSYM_FILE_NAME}/Contents/Resources/DWARF/${TARGET_NAME}',
+        '$(SRCROOT)/$(BUILT_PRODUCTS_DIR)/$(INFOPLIST_PATH)'
+      ]
+      runner_project.save
+      puts "✅ [Firebase] Added '#{phase_name_crashlytics}' build phase to Runner"
+    end
   end
 end
