@@ -1792,9 +1792,6 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_loading && _items.isEmpty) {
-      return const SizedBox.shrink();
-    }
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
@@ -1815,6 +1812,28 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             height: 20,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
+        ),
+      );
+    }
+    if (_items.isEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+        child: Row(
+          children: [
+            Icon(
+              Icons.forum_outlined,
+              size: 20,
+              color: AppColors.primaryColor.withValues(alpha: 0.4),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              'No recent chat',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.primaryColor.withValues(alpha: 0.5),
+              ),
+            ),
+          ],
         ),
       );
     }

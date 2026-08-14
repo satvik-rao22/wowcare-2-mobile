@@ -29,8 +29,8 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 /// One value at a time: which classroom + tab an ALREADY-alive
 /// [ClassroomScreen] should jump to right now.
 class ClassroomTabCommand {
-  const ClassroomTabCommand({this.classroomCode, required this.tabIndex});
-  final String? classroomCode;
+  const ClassroomTabCommand({required this.classroomCode, required this.tabIndex});
+  final String classroomCode;
   final int tabIndex;
 }
 
@@ -52,7 +52,10 @@ class ClassroomScreenNav {
     null,
   );
 
-  static void openClassroomTab({String? classroomCode, required int tabIndex}) {
+  static void openClassroomTab({
+    required String classroomCode,
+    required int tabIndex,
+  }) {
     command.value = ClassroomTabCommand(
       classroomCode: classroomCode,
       tabIndex: tabIndex,
@@ -135,15 +138,11 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     final cmd = ClassroomScreenNav.command.value;
     if (cmd == null || !mounted) return;
     ClassroomScreenNav.command.value = null; // consume once
-
-    if (cmd.classroomCode != null) {
-      setState(() {
-        _pendingClassroomCode = cmd.classroomCode;
-        _appliedInitialClassroom = false;
-        _defaultClassroomApplied = false;
-      });
-    }
-
+    setState(() {
+      _pendingClassroomCode = cmd.classroomCode;
+      _appliedInitialClassroom = false;
+      _defaultClassroomApplied = false;
+    });
     if (_tabController.index != cmd.tabIndex) {
       _tabController.animateTo(cmd.tabIndex);
     }
@@ -184,8 +183,8 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   Classroom? _pickDefaultClassroom(List<Classroom> classrooms) {
     if (classrooms.isEmpty) return null;
 
-    final targetCode = (_pendingClassroomCode ?? widget.initialClassroomCode)
-        ?.trim();
+    final targetCode =
+        (_pendingClassroomCode ?? widget.initialClassroomCode)?.trim();
     if (!_appliedInitialClassroom &&
         targetCode != null &&
         targetCode.isNotEmpty) {
@@ -230,9 +229,8 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   Future<void> _resolveStaffPersonaRestrictions() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final shouldScope = await isAttendanceScopedStaffPersona(
-        storage: storage,
-      );
+      final shouldScope =
+          await isAttendanceScopedStaffPersona(storage: storage);
       if (!mounted) return;
       setState(() => _hideAssignFabForStaffPersona = shouldScope);
     } catch (_) {
@@ -308,20 +306,32 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     });
   }
 
-  Tab _buildTab({required String label, required Color color}) {
+  Tab _buildTab({
+    required String label,
+    required Color color,
+  }) {
     return Tab(
       child: Container(
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(12),
+          ),
         ),
-        child: Center(child: Text(label)),
+        child: Center(
+          child: Text(
+            label,
+          ),
+        ),
       ),
     );
   }
 
-  Tab _builtNotesTab({required String label, required Color color}) {
+  Tab _builtNotesTab({
+    required String label,
+    required Color color,
+  }) {
     return Tab(
       child: StreamBuilder<int>(
         stream: getClassroomNotesUnreadCountStream(),
@@ -340,7 +350,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(label),
+                    Text(
+                      label,
+                    ),
                     const SizedBox(width: 4),
                     if (unreadCount > 0)
                       CircleAvatar(
@@ -369,7 +381,11 @@ class _ClassroomScreenState extends State<ClassroomScreen>
                 top: Radius.circular(12),
               ),
             ),
-            child: Center(child: Text(label)),
+            child: Center(
+              child: Text(
+                label,
+              ),
+            ),
           );
         },
       ),
@@ -381,192 +397,184 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     return KeyedSubtree(
       key: ValueKey<int>(_schoolReloadEpoch),
       child: BlocProvider<ClassroomCubit>(
-        create: (_) =>
-            serviceLocator<ClassroomCubit>()
-              ..loadActiveClassrooms(applyAttendanceStaffScope: true),
-        child: BlocBuilder<ClassroomCubit, ClassroomState>(
-          builder: (context, state) {
-            final classrooms = state.classrooms;
-            if (classrooms.isNotEmpty) {
-              _applyDefaultClassroomSelection(classrooms);
-            }
+      create: (_) => serviceLocator<ClassroomCubit>()
+        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
+      child: BlocBuilder<ClassroomCubit, ClassroomState>(
+        builder: (context, state) {
+          final classrooms = state.classrooms;
+          if (classrooms.isNotEmpty) {
+            _applyDefaultClassroomSelection(classrooms);
+          }
 
-            final isInitialLoading = state.isLoading && classrooms.isEmpty;
-            final dropdownItems = classrooms.map((c) => c.name).toList();
+          final isInitialLoading = state.isLoading && classrooms.isEmpty;
+          final dropdownItems = classrooms.map((c) => c.name).toList();
 
-            // Keep the Notes-tab unread badge bound to the current classroom.
-            _maybeSyncNotesUnread(selectedRoom?.code ?? '');
+          // Keep the Notes-tab unread badge bound to the current classroom.
+          _maybeSyncNotesUnread(selectedRoom?.code ?? '');
 
-            return GlobalScaffold(
-              bodyPadding: EdgeInsets.zero,
-              floatingActionButton: _buildTabFab(context),
-              body: Container(
-                color: Colors.white,
-                // Extra bottom padding clears the (extend-body) bottom nav so the
-                // tab box's bottom border is visible instead of sitting behind it.
-                padding: EdgeInsets.fromLTRB(
-                  8,
-                  8,
-                  8,
-                  8 + CustomNavigationBar.navBarHeight,
-                ),
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: isInitialLoading
-                              ? const Padding(
-                                  padding: EdgeInsets.symmetric(vertical: 4),
-                                  child: ShimmerLoader(
-                                    height: 24,
-                                    width: 160,
-                                    borderRadius: BorderRadius.all(
-                                      Radius.circular(6),
-                                    ),
-                                  ),
-                                )
-                              : HighlightableCard(
-                                  // Flashes the dropdown when the screen was
-                                  // opened from a classroom notification whose
-                                  // code matches the (pre-selected) room.
-                                  code: selectedRoom?.code,
-                                  highlightCode: widget.initialClassroomCode,
-                                  borderRadius: 8,
-                                  child: ClassroomDropdown(
-                                    // Not loading here (isInitialLoading handles
-                                    // that above), so an empty list means the
-                                    // load finished with no classrooms.
-                                    items: dropdownItems.isEmpty
-                                        ? const ['No classrooms available']
-                                        : dropdownItems,
-                                    value: dropdownItems.isEmpty
-                                        ? 'No classrooms available'
-                                        : (selectedRoom?.name ??
-                                              dropdownItems.first),
-                                    onChanged: (value) {
-                                      if (dropdownItems.isEmpty) return;
-                                      setState(() {
-                                        selectedRoom = classrooms.firstWhere(
-                                          (c) => c.name == value,
-                                        );
-                                      });
-                                    },
+          return GlobalScaffold(
+            bodyPadding: EdgeInsets.zero,
+            floatingActionButton: _buildTabFab(context),
+            body: Container(
+              color: Colors.white,
+              // Extra bottom padding clears the (extend-body) bottom nav so the
+              // tab box's bottom border is visible instead of sitting behind it.
+              padding: EdgeInsets.fromLTRB(8, 8, 8, 8 + CustomNavigationBar.navBarHeight),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: isInitialLoading
+                            ? const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 4),
+                                child: ShimmerLoader(
+                                  height: 24,
+                                  width: 160,
+                                  borderRadius: BorderRadius.all(
+                                    Radius.circular(6),
                                   ),
                                 ),
+                              )
+                            : HighlightableCard(
+                                // Flashes the dropdown when the screen was
+                                // opened from a classroom notification whose
+                                // code matches the (pre-selected) room.
+                                code: selectedRoom?.code,
+                                highlightCode: widget.initialClassroomCode,
+                                borderRadius: 8,
+                                child: ClassroomDropdown(
+                                  // Not loading here (isInitialLoading handles
+                                  // that above), so an empty list means the
+                                  // load finished with no classrooms.
+                                  items: dropdownItems.isEmpty
+                                      ? const ['No classrooms available']
+                                      : dropdownItems,
+                                  value: dropdownItems.isEmpty
+                                      ? 'No classrooms available'
+                                      : (selectedRoom?.name ??
+                                          dropdownItems.first),
+                                  onChanged: (value) {
+                                    if (dropdownItems.isEmpty) return;
+                                    setState(() {
+                                      selectedRoom = classrooms
+                                          .firstWhere((c) => c.name == value);
+                                    });
+                                  },
+                                ),
+                              ),
+                      ),
+                      IconButton(
+                        tooltip: 'Class profile',
+                        onPressed: classrooms.isEmpty
+                            ? null
+                            : () {
+                                final room = selectedRoom ?? classrooms.first;
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const ClassroomInfoScreen(),
+                                    settings: RouteSettings(arguments: room),
+                                  ),
+                                );
+                              },
+                        icon: SvgPicture.asset(
+                          MediaRes.infoButtonIcon,
+                          height: 32,
                         ),
-                        IconButton(
-                          tooltip: 'Class profile',
-                          onPressed: classrooms.isEmpty
-                              ? null
-                              : () {
-                                  final room = selectedRoom ?? classrooms.first;
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          const ClassroomInfoScreen(),
-                                      settings: RouteSettings(arguments: room),
-                                    ),
-                                  );
-                                },
-                          icon: SvgPicture.asset(
-                            MediaRes.infoButtonIcon,
-                            height: 32,
+                      ),
+                    ],
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, 4),
+                    child: TabBar(
+                      controller: _tabController,
+                      dividerHeight: 0,
+                      indicator: BoxDecoration(
+                        borderRadius: const BorderRadius.vertical(
+                          top: Radius.circular(12),
+                        ),
+                        border: Border.all(
+                          color: AppColors.classroomStudentTabColor
+                              .withValues(alpha: 1),
+                        ),
+                      ),
+                      labelStyle: TextTheme.of(context).titleSmall!.copyWith(
+                            color: AppColors.primaryColor,
+                            fontSize: 15,
+                          ),
+                      unselectedLabelStyle: TextTheme.of(context)
+                          .titleSmall!
+                          .copyWith(
+                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                            fontSize: 15,
+                          ),
+                      labelPadding: const EdgeInsets.all(0),
+                      indicatorPadding: _tabController.index == 0
+                          ? const EdgeInsets.only(right: 4)
+                          : _tabController.index == 1
+                              ? const EdgeInsets.symmetric(horizontal: 2)
+                              : const EdgeInsets.only(left: 4),
+                      splashFactory: NoSplash.splashFactory,
+                      tabs: [
+                        Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: _buildTab(
+                            label: 'Students',
+                            color: AppColors.classroomStudentTabColor,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 2),
+                          child: _buildTab(
+                            label: 'Staff',
+                            color: AppColors.classroomStaffTabColor,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 4),
+                          child: _builtNotesTab(
+                            label: 'Notes',
+                            color: AppColors.classroomNotesTabColor,
                           ),
                         ),
                       ],
                     ),
-                    Transform.translate(
-                      offset: const Offset(0, 4),
-                      child: TabBar(
-                        controller: _tabController,
-                        dividerHeight: 0,
-                        indicator: BoxDecoration(
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(12),
-                          ),
-                          border: Border.all(
-                            color: AppColors.classroomStudentTabColor
-                                .withValues(alpha: 1),
-                          ),
-                        ),
-                        labelStyle: TextTheme.of(context).titleSmall!.copyWith(
-                          color: AppColors.primaryColor,
-                          fontSize: 15,
-                        ),
-                        unselectedLabelStyle: TextTheme.of(context).titleSmall!
-                            .copyWith(
-                              color: AppColors.primaryColor.withValues(
-                                alpha: 0.5,
+                  ),
+                  Expanded(
+                    child: isInitialLoading
+                        ? const Padding(
+                            padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
+                            child: ClassroomStudentsTabShimmer(),
+                          )
+                        : TabBarView(
+                            controller: _tabController,
+                            children: [
+                              ClassroomStudentsTabCard(
+                                scrollController: _studentsScrollController,
+                                selectedRoom: selectedRoom,
+                                highlightCode: widget.initialHighlightCode,
                               ),
-                              fontSize: 15,
-                            ),
-                        labelPadding: const EdgeInsets.all(0),
-                        indicatorPadding: _tabController.index == 0
-                            ? const EdgeInsets.only(right: 4)
-                            : _tabController.index == 1
-                            ? const EdgeInsets.symmetric(horizontal: 2)
-                            : const EdgeInsets.only(left: 4),
-                        splashFactory: NoSplash.splashFactory,
-                        tabs: [
-                          Padding(
-                            padding: const EdgeInsets.only(right: 4),
-                            child: _buildTab(
-                              label: 'Students',
-                              color: AppColors.classroomStudentTabColor,
-                            ),
+                              ClassroomStaffTabCard(
+                                scrollController: _staffScrollController,
+                                selectedRoom: selectedRoom,
+                                highlightCode: widget.initialHighlightCode,
+                              ),
+                              ClassroomNotesTabCard(
+                                scrollController: _notesScrollController,
+                                selectedRoom: selectedRoom,
+                              ),
+                            ],
                           ),
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 2),
-                            child: _buildTab(
-                              label: 'Staff',
-                              color: AppColors.classroomStaffTabColor,
-                            ),
-                          ),
-                          Padding(
-                            padding: const EdgeInsets.only(left: 4),
-                            child: _builtNotesTab(
-                              label: 'Notes',
-                              color: AppColors.classroomNotesTabColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: isInitialLoading
-                          ? const Padding(
-                              padding: EdgeInsets.fromLTRB(16, 16, 16, 0),
-                              child: ClassroomStudentsTabShimmer(),
-                            )
-                          : TabBarView(
-                              controller: _tabController,
-                              children: [
-                                ClassroomStudentsTabCard(
-                                  scrollController: _studentsScrollController,
-                                  selectedRoom: selectedRoom,
-                                  highlightCode: widget.initialHighlightCode,
-                                ),
-                                ClassroomStaffTabCard(
-                                  scrollController: _staffScrollController,
-                                  selectedRoom: selectedRoom,
-                                  highlightCode: widget.initialHighlightCode,
-                                ),
-                                ClassroomNotesTabCard(
-                                  scrollController: _notesScrollController,
-                                  selectedRoom: selectedRoom,
-                                ),
-                              ],
-                            ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
+      ),
       ),
     );
   }
@@ -583,7 +591,7 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     final screenWidth = MediaQuery.of(context).size.width;
     final isTablet = screenWidth >= 600;
     final isLargeTablet = screenWidth >= 900;
-
+    
     if (_tabController.index == 0) {
       return GradientAddButton(
         onTap: () {
