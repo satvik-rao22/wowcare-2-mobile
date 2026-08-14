@@ -423,8 +423,16 @@ class _ParentDirectMessagingScreenState
 
     // Provide a dedicated CommunicationCubit for the thread so its state
     // (messages) is isolated from any outer cubit used for the list.
+    // Total active participants minus the viewer themselves — seeded so
+    // this fresh cubit's read/delivered-by-all tick aggregation has a
+    // recipient count to work with. See
+    // CommunicationCubit.seedRecipientCount's own doc for why this is
+    // required, not just an optimization.
+    final recipientCount =
+        selected.participants.where((p) => p.isActive).length - 1;
     return BlocProvider<CommunicationCubit>(
-      create: (_) => serviceLocator<CommunicationCubit>(),
+      create: (_) => serviceLocator<CommunicationCubit>()
+        ..seedRecipientCount(selected.code, recipientCount),
       child: ParentMessagingThread(
         key: ValueKey(selected.code),
         parentInfo: _buildParentInfo(selected),

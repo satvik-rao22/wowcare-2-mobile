@@ -58,6 +58,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   Map<String, List<String>> _currentFilters = {
     'Status': ['Active'],
   };
+
+  /// True once the user has explicitly touched the Classroom filter
+  /// themselves (via the filter sheet's Apply, or Clear All) — at that
+  /// point [_applyDefaultClassroomFilter] must never silently overwrite
+  /// their choice on a routine refresh.
+  bool _classroomFilterUserSet = false;
   bool _showUnread = false;
   static const int _conversationPageSize = 50;
 
@@ -451,6 +457,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
       _currentFilters = {
         'Status': ['Active'],
       };
+      // Explicit user action — must never be silently re-defaulted back to
+      // the primary classroom by a later refresh (see
+      // [_applyDefaultClassroomFilter]).
+      _classroomFilterUserSet = true;
       _showUnread = false;
       _currentFilters['Unread'] = [];
       _searchController.clear();
@@ -493,6 +503,104 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     );
   }
 
+  /// Room Chat only: default the Classroom filter to the staff member's own
+  /// primary classroom — same "pre-select the home classroom" pattern the
+  /// attendance forms use ([resolveStaffPrimaryClassroomCode]), so "chats
+  /// overview" and "Start new chat" both open already scoped instead of
+  /// showing every classroom until the user filters manually. Resolves to
+  /// no default for admin/parent personas or a staff member with no
+  /// primary classroom set.
+  ///
+  /// [forceRefresh] bypasses the cached classroom list and cached staff
+  /// profile — pass true from an explicit refresh (pull-to-refresh, the
+  /// refresh icon). Without this, a staff member an admin just moved to a
+  /// different classroom kept seeing their OLD classroom here no matter how
+  /// many times they refreshed: neither [ClassroomCubit]'s classroom list
+  /// nor the staff profile backing this resolution ever refetch on their
+  /// own — only a full app kill (which drops [ClassroomCubit]'s in-memory
+  /// "already loaded" state) had any chance of picking up the change, and
+  /// even then only once the staff-profile disk cache's own TTL had lapsed.
+  ///
+  /// No-ops once [_classroomFilterUserSet] is true — an explicit filter
+  /// pick (or Clear All) is the user taking manual control, and a routine
+  /// refresh must never silently overwrite that.
+  Future<void> _applyDefaultClassroomFilter({bool forceRefresh = false}) async {
+    if (widget.isStaffMessaging || _classroomFilterUserSet) return;
+
+    await context.read<ClassroomCubit>().loadActiveClassrooms(
+      applyAttendanceStaffScope: true,
+      force: forceRefresh,
+    );
+    if (!mounted || _classroomFilterUserSet) return;
+
+    final primaryCode = await resolveStaffPrimaryClassroomCode(
+      storage: serviceLocator<StorageService>(),
+      forceRefresh: forceRefresh,
+    );
+    if (!mounted ||
+        _classroomFilterUserSet ||
+        (primaryCode ?? '').trim().isEmpty) {
+      return;
+    }
+
+    final primaryName = context
+        .read<ClassroomCubit>()
+        .state
+        .classrooms
+        .where((c) => c.code.trim() == primaryCode!.trim())
+        .map((c) => c.name)
+        .firstOrNull;
+    if (primaryName == null || primaryName.trim().isEmpty) return;
+
+    final current = _currentFilters['Classroom'];
+    if (current != null &&
+        current.length == 1 &&
+        current.first == primaryName) {
+      return;
+    }
+
+    setState(() {
+      _currentFilters = {
+        ..._currentFilters,
+        'Classroom': [primaryName],
+      };
+    });
+  }
+
+  /// Explicit refresh (pull-to-refresh, the refresh icon): re-syncs the
+  /// Room Chat default classroom against the server (see
+  /// [_applyDefaultClassroomFilter]'s doc for why this needs to force-bypass
+  /// caches, unlike a routine rebuild), re-scopes the "Start New Chat"
+  /// student roster to match, then reloads the conversation list — all
+  /// three previously only ever reflected whatever classroom was resolved
+  /// once at mount.
+  Future<void> _refreshConversationsAndClassroomDefault() async {
+    if (!mounted) return;
+    await _applyDefaultClassroomFilter(forceRefresh: true);
+    if (!mounted) return;
+    if (!widget.isStaffMessaging) {
+      context.read<StudentCubit>().updateFilters(
+        classroomCodes: _mapClassroomNamesToCodes(_currentFilters['Classroom']),
+      );
+      unawaited(
+        context.read<StudentCubit>().refreshWithCacheReset().then(
+          (_) => _drainStudentPages(),
+        ),
+      );
+    }
+    final f = _resolvedFilterParams();
+    await context.read<CommunicationCubit>().loadConversations(
+      type: _conversationType,
+      size: _conversationPageSize,
+      status: f.conversationStatus,
+      classroomCodes: f.classroomCodes,
+      tagCodes: f.tagCodes,
+      designations: f.designations,
+      studentStatuses: f.studentStatuses,
+      staffStatuses: f.staffStatuses,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -507,33 +615,10 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
         );
         if (!mounted) return;
 
-        // Room Chat: default the Classroom filter to the staff member's
-        // own primary classroom — same "pre-select the home classroom"
-        // pattern the attendance forms use (resolveStaffPrimaryClassroomCode),
-        // so "chats overview" and "Start new chat" both open already scoped
-        // instead of showing every classroom until the user filters
-        // manually. Resolves to null (no default applied) for admin/parent
-        // personas or a staff member with no primary classroom set.
-        if (!widget.isStaffMessaging) {
-          final primaryCode = await resolveStaffPrimaryClassroomCode(
-            storage: serviceLocator<StorageService>(),
-          );
-          if (mounted && (primaryCode ?? '').trim().isNotEmpty) {
-            final primaryName = context
-                .read<ClassroomCubit>()
-                .state
-                .classrooms
-                .where((c) => c.code.trim() == primaryCode!.trim())
-                .map((c) => c.name)
-                .firstOrNull;
-            if (primaryName != null && primaryName.trim().isNotEmpty) {
-              _currentFilters = {
-                ..._currentFilters,
-                'Classroom': [primaryName],
-              };
-            }
-          }
-        }
+        // Room Chat: default the Classroom filter to the staff member's own
+        // primary classroom. See [_applyDefaultClassroomFilter]'s own doc.
+        await _applyDefaultClassroomFilter();
+        if (!mounted) return;
 
         // Seed the Active default (matches [_currentFilters]) BEFORE the
         // initial load, so "Start New Chat" doesn't briefly (or
@@ -644,20 +729,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
   Widget build(BuildContext context) {
     super.build(context);
     return CustomRefreshIndicator(
-      onRefresh: () async {
-        if (!mounted) return;
-        final f = _resolvedFilterParams();
-        await context.read<CommunicationCubit>().loadConversations(
-          type: _conversationType,
-          size: _conversationPageSize,
-          status: f.conversationStatus,
-          classroomCodes: f.classroomCodes,
-          tagCodes: f.tagCodes,
-          designations: f.designations,
-          studentStatuses: f.studentStatuses,
-          staffStatuses: f.staffStatuses,
-        );
-      },
+      onRefresh: _refreshConversationsAndClassroomDefault,
       child: CustomScrollView(
         controller: _conversationScrollController,
         // Short/empty lists don't fill the viewport, and without this a
@@ -701,17 +773,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {
-                          final f = _resolvedFilterParams();
-                          context.read<CommunicationCubit>().loadConversations(
-                            type: _conversationType,
-                            size: _conversationPageSize,
-                            status: f.conversationStatus,
-                            classroomCodes: f.classroomCodes,
-                            tagCodes: f.tagCodes,
-                            designations: f.designations,
-                            studentStatuses: f.studentStatuses,
-                            staffStatuses: f.staffStatuses,
-                          );
+                          unawaited(_refreshConversationsAndClassroomDefault());
                           CoreUtils.showTopSnackBar(
                             context: context,
                             message: 'Refreshing conversations…',
@@ -788,6 +850,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         if (!mounted) return;
                                         setState(() {
                                           _currentFilters = filters;
+                                          // Explicit user action — see
+                                          // [_applyDefaultClassroomFilter].
+                                          _classroomFilterUserSet = true;
                                         });
                                         _applyFilters();
                                         context
@@ -868,6 +933,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                         if (!mounted) return;
                                         setState(() {
                                           _currentFilters = filters;
+                                          // Explicit user action — see
+                                          // [_applyDefaultClassroomFilter].
+                                          _classroomFilterUserSet = true;
                                         });
                                         _applyFilters();
                                         context
@@ -1072,6 +1140,27 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                         final statusFilter =
                             _mapStatusToApi(_currentFilters['Status']) ??
                             'ACTIVE';
+                        // Room Chat only — STAFF_DIRECT conversations never
+                        // carry a classroomCode (that tab's Classroom filter
+                        // narrows by the counterpart staff's own classroom
+                        // assignment instead, purely server-side via
+                        // StaffCubit/loadConversations), so re-checking it
+                        // here would wrongly hide every Staff Direct
+                        // conversation once that filter is active. Same
+                        // "re-check client-side" reasoning as statusFilter
+                        // above: the classroomCodes query param only narrows
+                        // the initial REST fetch — startWatchingConversations'
+                        // Firestore merge keeps adding/updating every ROOM_CHAT
+                        // conversation in the user's own inbox regardless of
+                        // classroom, so without this the list silently
+                        // reverted to unfiltered moments after the classroom
+                        // filter (including the default primary-classroom
+                        // one) was applied.
+                        final classroomFilterCodes = !widget.isStaffMessaging
+                            ? _mapClassroomNamesToCodes(
+                                _currentFilters['Classroom'],
+                              )
+                            : const <String>[];
                         conversationsToDisplay = conversationsBaseList.where((
                           conv,
                         ) {
@@ -1081,6 +1170,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                           }
                           if (_showUnread && conv.unreadCount == 0)
                             return false;
+                          if (classroomFilterCodes.isNotEmpty &&
+                              !classroomFilterCodes.contains(
+                                conv.classroomCode?.trim(),
+                              )) {
+                            return false;
+                          }
                           if (widget.isStaffMessaging) {
                             if (statusFilter == 'ACTIVE' ||
                                 statusFilter == 'INACTIVE') {
@@ -1319,9 +1414,20 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
     final counterpart = participants
         .where((p) => p.userCode != _currentAccountCode)
         .firstOrNull;
+    // How many OTHER active participants this conversation has — seeded
+    // into the fresh per-thread CommunicationCubit instance below so its
+    // read/delivered-by-all tick aggregation has something to work with
+    // (that cubit never loads the full conversation list itself). See
+    // CommunicationCubit.seedRecipientCount's own doc for why this is
+    // required, not just an optimization.
+    final recipientCount = participants
+        .where((p) => p.isActive && p.userCode != _currentAccountCode)
+        .length;
     final route = MaterialPageRoute(
       builder: (_) => BlocProvider<CommunicationCubit>(
-        create: (context) => serviceLocator<CommunicationCubit>(),
+        create: (context) =>
+            serviceLocator<CommunicationCubit>()
+              ..seedRecipientCount(code, recipientCount),
         child: widget.isStaffMessaging
             ? StaffMessagingThread(
                 staffInfo: {

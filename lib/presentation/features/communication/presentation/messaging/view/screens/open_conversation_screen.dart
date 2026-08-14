@@ -103,8 +103,16 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
           if (conversation.type == ConversationType.staffDirect) {
             // STAFF_DIRECT renders through the dedicated staff thread screen,
             // exactly like staff_messaging_tab / the messaging shortcut do.
+            // Total active participants minus the viewer themselves — seeded
+            // so the fresh per-thread CommunicationCubit's read/delivered-
+            // by-all tick aggregation has a recipient count to work with.
+            // See CommunicationCubit.seedRecipientCount's own doc for why
+            // this is required, not just an optimization.
+            final recipientCount =
+                conversation.participants.where((p) => p.isActive).length - 1;
             return BlocProvider<CommunicationCubit>(
-              create: (_) => serviceLocator<CommunicationCubit>(),
+              create: (_) => serviceLocator<CommunicationCubit>()
+                ..seedRecipientCount(conversation.code, recipientCount),
               child: StaffMessagingThread(
                 staffInfo: {
                   'name': conversation.title,

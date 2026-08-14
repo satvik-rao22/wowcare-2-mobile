@@ -14,6 +14,7 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/storage/storage_service.dart';
+import '../../../../../core/util/attendance_classroom_scope.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/safe_state_mixin.dart';
 import '../../../../../core/util/storage_keys.dart';
@@ -398,12 +399,21 @@ class _StaffOrStudentSelectionBulkMessagingState
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         final classroomCubit = context.read<ClassroomCubit>();
         // Non-admin staff only see the classrooms they're allowed to
         // access when starting a new conversation; admins see all of them.
-        classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
+        // Awaited (unlike before) so the primary-classroom default below can
+        // rely on the classroom list actually being loaded — [ClassroomCubit]
+        // is shared app-wide, so if another screen already populated it this
+        // call returns without emitting a new state, and the BlocListener
+        // above would otherwise never fire to apply the default.
+        await classroomCubit.loadActiveClassrooms(
+          applyAttendanceStaffScope: true,
+        );
+        if (!mounted) return;
+        unawaited(_applyDefaultClassroomSelectionIfNeeded());
         context.read<StudentCubit>().loadInitial();
         if (widget.isStaffSelection) {
           unawaited(
@@ -426,11 +436,46 @@ class _StaffOrStudentSelectionBulkMessagingState
     _searchController.addListener(_applyFilters);
   }
 
-  /// No default classroom filter on the New Message screen: the picker opens with NO classroom
-  /// selected (all recipients) for every persona — staff, admin, and director alike. Only the
-  /// Status filter defaults ("Active"). Kept as a no-op so the classroom-list [BlocListener] below
-  /// has a stable call site.
-  void _applyDefaultClassroomSelectionIfNeeded() {}
+  /// Resolves at most once per screen instance — set before the actual
+  /// resolve call (not after it completes) so a second, near-simultaneous
+  /// [ClassroomCubit] emission can't race in and kick off a duplicate
+  /// resolve/apply while the first is still in flight.
+  bool _defaultClassroomResolveStarted = false;
+
+  /// Defaults the Classroom filter to the staff member's own primary
+  /// classroom — same "pre-select the home classroom" pattern the
+  /// attendance forms use (resolveStaffPrimaryClassroomCode), so this
+  /// picker opens already scoped to the classroom the staff member is
+  /// actually responsible for instead of the full school roster. Resolves
+  /// to null (no default applied) for admin/parent personas or a staff
+  /// member with no primary classroom set — same fail-open contract as
+  /// attendance. [widget.hideFilters] hides the Classroom UI entirely
+  /// (Parent/Guardian Admin Chat compose), so there's nothing to default
+  /// there.
+  Future<void> _applyDefaultClassroomSelectionIfNeeded() async {
+    if (_defaultClassroomResolveStarted || widget.hideFilters) return;
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    // Classroom list hasn't loaded yet — wait for a later emission so the
+    // code→name lookup below has something to match against.
+    if (classrooms.isEmpty) return;
+    _defaultClassroomResolveStarted = true;
+
+    final primaryCode = await resolveStaffPrimaryClassroomCode(
+      storage: serviceLocator<StorageService>(),
+    );
+    if (!mounted || (primaryCode ?? '').trim().isEmpty) return;
+    final primaryName = classrooms
+        .where((c) => c.code.trim() == primaryCode!.trim())
+        .map((c) => c.name)
+        .firstOrNull;
+    if (primaryName == null || primaryName.trim().isEmpty) return;
+
+    setState(() {
+      _selectedClassrooms = [primaryName];
+      _updateSelectAllState();
+    });
+    unawaited(_applyContactFiltersToCubit());
+  }
 
   void _applyFilters() {
     setState(() {});
@@ -455,7 +500,7 @@ class _StaffOrStudentSelectionBulkMessagingState
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: BlocListener<ClassroomCubit, ClassroomState>(
           listener: (context, state) {
-            _applyDefaultClassroomSelectionIfNeeded();
+            unawaited(_applyDefaultClassroomSelectionIfNeeded());
           },
           child: BlocBuilder<ClassroomCubit, ClassroomState>(
             builder: (context, classroomState) {

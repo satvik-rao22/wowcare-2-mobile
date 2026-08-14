@@ -135,6 +135,47 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   /// valued by the `lastMessageAt` we already processed.
   final Map<String, DateTime> _deliveredMarkedAt = {};
 
+  /// Side-channel cache of every [Conversation] this cubit has seen,
+  /// keyed by code — NOT read off `state`, because `state` holds either
+  /// [CommunicationConversationsLoaded] (conversation list) OR
+  /// [CommunicationLoaded]/[CommunicationSending] (a thread's messages) at
+  /// any one time, never both, so `conversationsByType` isn't reachable
+  /// while a thread is open. Populated wherever conversations are
+  /// (re)fetched (see [_cacheConversations]); read by
+  /// [_conversationForThread] for read/delivered-by-all tick aggregation.
+  final Map<String, Conversation> _knownConversations = {};
+
+  void _cacheConversations(Map<String?, List<Conversation>> byType) {
+    for (final list in byType.values) {
+      for (final c in list) {
+        _knownConversations[c.code] = c;
+      }
+    }
+  }
+
+  /// Recipient counts seeded directly by a thread screen (see
+  /// [seedRecipientCount]) — takes priority over [_knownConversations] for
+  /// read/delivered-by-all aggregation. `CommunicationCubit` is registered
+  /// as a DI **factory** (`di.dart`): every thread screen creates a brand
+  /// new instance via its own `BlocProvider`, so `_knownConversations` is
+  /// empty for it unless THIS exact instance also happens to load the full
+  /// conversation list — which thread screens (as opposed to the list/tab
+  /// screens) never do. Without this seed, tick aggregation silently never
+  /// activates for any freshly-opened thread.
+  final Map<String, int> _seededRecipientCounts = {};
+
+  /// Tells this cubit how many OTHER active participants [threadId]'s
+  /// conversation has (i.e. total active participants minus the viewer
+  /// themselves) — called by thread screens right after creating this
+  /// cubit, using participant data they already have from navigation.
+  /// Required for read/delivered-by-all tick aggregation to activate at
+  /// all on a freshly-opened thread; see [_seededRecipientCounts]'s doc.
+  void seedRecipientCount(String threadId, int recipientCount) {
+    if (recipientCount > 0) {
+      _seededRecipientCounts[threadId] = recipientCount;
+    }
+  }
+
   /// Messages with a field-level optimistic edit (reaction add/remove,
   /// attachment delete, message edit/delete) still settling against the
   /// backend — keyed by message code, valued by when the edit was made.
@@ -224,10 +265,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
               }
               return incoming;
             });
-            final mergedMessages = _sortByTime([
-              ...reconciled,
-              ...stillPending,
-            ]);
+            final mergedMessages = _aggregateReadStatus(
+              threadId,
+              _sortByTime([...reconciled, ...stillPending]),
+            );
             newThreads[threadId] = mergedMessages;
             final int debugPrevCount = currentMessages.length;
             final draftsInMerged = mergedMessages
@@ -310,6 +351,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             // fresh paged fetch, so it must not reset `hasMore`/`currentPage`
             // and silently cut off "load more" for the rest of the session.
             final int debugPrevCount = currentMap[type]?.length ?? 0;
+            _cacheConversations(updatedMap);
             emit(
               CommunicationConversationsLoaded(
                 updatedMap,
@@ -434,6 +476,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
             final mergedMap = Map<String?, List<Conversation>>.from(currentMap);
             mergedMap[null] = conversations;
             if (type != null) mergedMap[type] = conversations;
+            _cacheConversations(mergedMap);
             emit(CommunicationConversationsLoaded(mergedMap));
           }
         },
@@ -491,6 +534,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           prior?.hasMoreByType ?? {},
         )..[type] = conversationsPage.hasMore;
 
+        _cacheConversations(updatedMap);
         emit(
           CommunicationConversationsLoaded(
             updatedMap,
@@ -591,6 +635,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           s.isLoadingMoreByType,
         )..[type] = false;
 
+        _cacheConversations(updatedMap);
         emit(
           CommunicationConversationsLoaded(
             updatedMap,
@@ -609,6 +654,92 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final sorted = List<Message>.from(messages);
     sorted.sort((a, b) => a.time.compareTo(b.time));
     return sorted;
+  }
+
+  /// Finds [threadId]'s [Conversation] in [_knownConversations]. Null when
+  /// this cubit hasn't loaded/watched the conversation list itself — true
+  /// for essentially every thread screen (see [_seededRecipientCounts]'s
+  /// doc), which is why [_recipientCountForThread] checks the seeded value
+  /// first and only falls back to this.
+  Conversation? _conversationForThread(String threadId) =>
+      _knownConversations[threadId];
+
+  /// How many OTHER active participants [threadId]'s conversation has,
+  /// excluding [senderUserCode] — prefers a screen-seeded value (see
+  /// [seedRecipientCount]), falling back to deriving it from
+  /// [_conversationForThread] for a cubit instance that DID load the full
+  /// conversation list itself. Null when neither source has data yet —
+  /// callers must treat that as "can't aggregate yet", not "zero
+  /// recipients", so an in-flight/not-yet-seeded thread doesn't get
+  /// mis-aggregated.
+  int? _recipientCountForThread(String threadId, String? senderUserCode) {
+    final seeded = _seededRecipientCounts[threadId];
+    if (seeded != null) return seeded;
+    final conversation = _conversationForThread(threadId);
+    if (conversation == null) return null;
+    return conversation.participants
+        .where((p) => p.isActive && p.userCode != senderUserCode)
+        .length;
+  }
+
+  /// Recomputes each of MY OWN messages' delivered/read tick so it only
+  /// advances once EVERY active recipient (not just one) has delivered/read
+  /// it — mirrors the v2 stack's `mapMessageEntityToMessage` aggregation
+  /// (see its own doc comment), applied here for the legacy Room Chat /
+  /// Staff Direct stack this cubit powers. A message whose recipient count
+  /// isn't resolvable yet (or that isn't mine) passes through unchanged.
+  /// Applied at every point this cubit sets a thread's message list into
+  /// state, so a group message never shows "read" off a single recipient's
+  /// receipt.
+  List<Message> _aggregateReadStatus(String threadId, List<Message> messages) {
+    return messages.map((m) {
+      if (!m.isSentByMe) return m;
+      final recipientCount = _recipientCountForThread(
+        threadId,
+        m.senderUserCode,
+      );
+      if (recipientCount == null || recipientCount <= 0) return m;
+
+      DateTime? aggregatedReadAt;
+      DateTime? aggregatedDeliveredAt;
+      if (m.readBy.length >= recipientCount) {
+        aggregatedReadAt = m.time;
+        aggregatedDeliveredAt = m.time;
+      } else if (m.deliveredTo.length + m.readBy.length >= recipientCount) {
+        // A read implies delivered too — see Message.isDelivered's own
+        // doc comment on why readBy also counts toward the delivered tally.
+        aggregatedDeliveredAt = m.time;
+      }
+
+      if (aggregatedReadAt == m.readAt && aggregatedDeliveredAt == m.deliveredAt) {
+        return m;
+      }
+      return Message(
+        id: m.id,
+        code: m.code,
+        text: m.text,
+        isSentByMe: m.isSentByMe,
+        time: m.time,
+        deliveredAt: aggregatedDeliveredAt,
+        readAt: aggregatedReadAt,
+        editedAt: m.editedAt,
+        deletedAt: m.deletedAt,
+        deliveredTo: m.deliveredTo,
+        readBy: m.readBy,
+        reactions: m.reactions,
+        quotedMessageId: m.quotedMessageId,
+        attachments: m.attachments,
+        senderName: m.senderName,
+        receivers: m.receivers,
+        senderUserCode: m.senderUserCode,
+        senderRole: m.senderRole,
+        isPrivate: m.isPrivate,
+        privateParentUserCode: m.privateParentUserCode,
+        isFailed: m.isFailed,
+        hasProcessingAttachments: m.hasProcessingAttachments,
+        isSending: m.isSending,
+      );
+    }).toList();
   }
 
   /// A refresh (pull-to-refresh, lifecycle resume, this thread's own
@@ -672,9 +803,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
           // refresh may not have landed its draft write to Isar yet — the
           // in-memory version (see _preserveInFlightSend) is still the most
           // current one for that narrow window.
-          newThreads[threadId] = _preserveInFlightSend(
+          newThreads[threadId] = _aggregateReadStatus(
             threadId,
-            cachedMessages,
+            _preserveInFlightSend(threadId, cachedMessages),
           );
           emit(
             CommunicationLoaded(threads: newThreads, activeThreadId: threadId),
@@ -741,9 +872,9 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         // remote fetch was in flight is the most up-to-date source, and
         // must win over this now-slightly-stale API response.
         final withCachedDrafts = [...messages, ...unconfirmedDrafts];
-        final sortedMessages = _preserveInFlightSend(
+        final sortedMessages = _aggregateReadStatus(
           threadId,
-          withCachedDrafts,
+          _preserveInFlightSend(threadId, withCachedDrafts),
         );
         newThreads[threadId] = sortedMessages;
         emit(
@@ -820,7 +951,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         final mergedThreads = Map<String, List<Message>>.from(
           latestState.threads,
         );
-        mergedThreads[threadId] = _sortByTime([...existing, ...newOnes]);
+        mergedThreads[threadId] = _aggregateReadStatus(
+          threadId,
+          _sortByTime([...existing, ...newOnes]),
+        );
 
         final loadingOlder = {...latestState.threadsLoadingOlder}
           ..remove(threadId);
@@ -913,8 +1047,11 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     final updatedThreads = Map<String, List<Message>>.from(
       currentState.threads,
     );
-    updatedThreads[threadId] = _sortByTime(
-      List<Message>.from(updatedThreads[threadId] ?? [])..add(tempMessage),
+    updatedThreads[threadId] = _aggregateReadStatus(
+      threadId,
+      _sortByTime(
+        List<Message>.from(updatedThreads[threadId] ?? [])..add(tempMessage),
+      ),
     );
 
     emit(
@@ -1018,7 +1155,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         } else {
           threadMessages.add(confirmed);
         }
-        confirmedThreads[threadId] = _sortByTime(threadMessages);
+        confirmedThreads[threadId] = _aggregateReadStatus(
+          threadId,
+          _sortByTime(threadMessages),
+        );
 
         emit(
           latestState.copyWith(
@@ -1069,7 +1209,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     } else {
       threadMessages.add(failed);
     }
-    failedThreads[threadId] = threadMessages;
+    failedThreads[threadId] = _aggregateReadStatus(threadId, threadMessages);
     emit(CommunicationError(errorMessage));
     emit(
       latestState.copyWith(threads: failedThreads, activeThreadId: threadId),
@@ -1103,7 +1243,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
     } else {
       threadMessages.add(retrying);
     }
-    retryingThreads[threadId] = threadMessages;
+    retryingThreads[threadId] = _aggregateReadStatus(threadId, threadMessages);
 
     emit(
       CommunicationSending(threads: retryingThreads, activeThreadId: threadId),
@@ -1152,7 +1292,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         } else {
           msgs.add(sentMessage);
         }
-        confirmedThreads[threadId] = _sortByTime(msgs);
+        confirmedThreads[threadId] = _aggregateReadStatus(
+          threadId,
+          _sortByTime(msgs),
+        );
         emit(
           latestState.copyWith(
             threads: confirmedThreads,
@@ -1201,7 +1344,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       return m;
     }).toList();
 
-    updatedThreads[threadId] = updatedMessages;
+    updatedThreads[threadId] = _aggregateReadStatus(threadId, updatedMessages);
     emit(currentState.copyWith(threads: updatedThreads));
     _markRecentlyMutated(messageCode);
 
@@ -1242,7 +1385,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       return m;
     }).toList();
 
-    updatedThreads[threadId] = updatedMessages;
+    updatedThreads[threadId] = _aggregateReadStatus(threadId, updatedMessages);
     emit(currentState.copyWith(threads: updatedThreads));
     _markRecentlyMutated(messageCode);
 
@@ -1283,7 +1426,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       return m;
     }).toList();
 
-    updatedThreads[threadId] = updatedMessages;
+    updatedThreads[threadId] = _aggregateReadStatus(threadId, updatedMessages);
     emit(currentState.copyWith(threads: updatedThreads));
     _markRecentlyMutated(messageCode);
 
@@ -1323,7 +1466,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       );
     }).toList();
 
-    updatedThreads[threadId] = updatedMessages;
+    updatedThreads[threadId] = _aggregateReadStatus(threadId, updatedMessages);
     emit(currentState.copyWith(threads: updatedThreads));
     if (owningMessageCode != null) _markRecentlyMutated(owningMessageCode!);
 
@@ -1366,7 +1509,7 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       return m;
     }).toList();
 
-    updatedThreads[threadId] = updatedMessages;
+    updatedThreads[threadId] = _aggregateReadStatus(threadId, updatedMessages);
     emit(currentState.copyWith(threads: updatedThreads));
     _markRecentlyMutated(messageCode);
 

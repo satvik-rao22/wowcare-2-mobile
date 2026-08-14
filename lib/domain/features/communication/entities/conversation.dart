@@ -36,6 +36,14 @@ class Conversation extends Equatable {
   /// aren't student-scoped (e.g. STAFF_DIRECT).
   final String? studentStatus;
 
+  /// The classroom this ROOM_CHAT conversation is scoped to. Null for
+  /// conversation types that aren't classroom-scoped (e.g. STAFF_DIRECT).
+  /// Preserved across the Firestore realtime merge (see
+  /// [ConversationCollection]) so a classroom filter still applies to
+  /// conversations the realtime inbox stream adds/updates, not just the
+  /// initial REST fetch.
+  final String? classroomCode;
+
   /// The last message's sender, resolved to a display name. Prefers
   /// [lastMessageSenderName] (in case the backend ever starts sending it),
   /// but that field is NOT actually present in the real conversation-list
@@ -79,6 +87,7 @@ class Conversation extends Equatable {
     required this.lastMessagePreview,
     required this.participants,
     this.studentStatus,
+    this.classroomCode,
   });
 
   /// `unreadCount` is overridable — used to resolve the real per-user count
@@ -109,6 +118,7 @@ class Conversation extends Equatable {
       lastMessagePreview: lastMessagePreview,
       participants: participants,
       studentStatus: studentStatus,
+      classroomCode: classroomCode,
     );
   }
 
@@ -138,6 +148,7 @@ class Conversation extends Equatable {
     lastMessagePreview,
     participants,
     studentStatus,
+    classroomCode,
   ];
 }
 

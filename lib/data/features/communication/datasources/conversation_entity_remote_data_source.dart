@@ -15,7 +15,7 @@ abstract class ConversationEntityRemoteDataSource {
   /// instead of client-side against a separately-filtered roster.
   Future<List<ConversationEntityDto>> getConversations({
     ConversationType? type,
-    String status,
+    String? status,
     int page,
     int size,
     List<String>? classroomCodes,
@@ -148,7 +148,7 @@ class ConversationEntityRemoteDataSourceImpl
   @override
   Future<List<ConversationEntityDto>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
     List<String>? classroomCodes,
@@ -163,11 +163,15 @@ class ConversationEntityRemoteDataSourceImpl
         ? ApiPaths.messagingConversationsByType(type.toApiString())
         : ApiPaths.messagingConversations;
 
-    final queryParameters = <String, dynamic>{
-      'status': status,
-      'page': page,
-      'size': size,
-    };
+    final queryParameters = <String, dynamic>{'page': page, 'size': size};
+    // Omitted entirely (not just left null) when the caller doesn't want the
+    // conversation-level `status` filter applied — e.g. STAFF_DIRECT, which
+    // now relies solely on `staffStatuses` to select which staff-counterpart
+    // statuses come back (confirmed against the backend: sending `status`
+    // together with an overlapping `staffStatuses` value returns EMPTY).
+    if (status != null && status.trim().isNotEmpty) {
+      queryParameters['status'] = status;
+    }
 
     List<String>? clean(List<String>? values) {
       final result = values?.where((v) => v.trim().isNotEmpty).toList();

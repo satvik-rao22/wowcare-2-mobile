@@ -107,6 +107,13 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String _profileUserCode = '';
   String _profileOrganizationCode = '';
   String _profileSchoolCode = '';
+  String _profileStaffType = '';
+
+  /// Raw API status (`ACTIVE`/`INACTIVE`/`UPCOMING`) as loaded, before any
+  /// edits — compared against the newly-selected status at save time so the
+  /// activate/deactivate side-effect API only fires on a real Active<->
+  /// Inactive transition, not on every save. See _saveProfileDetails.
+  String _originalStatusApi = '';
 
   static const List<String> _staffStatusOptions = [
     'Active',
@@ -312,6 +319,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _profileUserCode = profile.userCode.trim();
         _profileOrganizationCode = profile.organizationCode.trim();
         _profileSchoolCode = profile.schoolCode.trim();
+        _profileStaffType = profile.staffType.trim();
+        _originalStatusApi = profile.status.trim().toUpperCase();
         _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
         _selectedDesignation = _mapDesignationFromApiOrLabel(
           profile.designation,
@@ -746,6 +755,61 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         staffCode: widget.staffCode,
         fields: profilePayload,
       );
+
+      // Activate/deactivate is a SEPARATE backend action from the /profile
+      // PATCH above (it toggles system login access, not just the status
+      // field) — fire it only on an actual Active<->Inactive transition, not
+      // on every save (e.g. Upcoming->Active, or an unrelated field edit
+      // with status left unchanged must NOT call this). Mirrors
+      // StaffCubit.activateStaff/deactivateStaff's own org-admin-vs-school-
+      // user + role resolution exactly, since those hit the same endpoints.
+      final becameActive =
+          _originalStatusApi == 'INACTIVE' && statusApi == 'ACTIVE';
+      final becameInactive =
+          _originalStatusApi == 'ACTIVE' && statusApi == 'INACTIVE';
+      if ((becameActive || becameInactive) &&
+          _profileUserCode.isNotEmpty &&
+          _profileOrganizationCode.isNotEmpty) {
+        final staffTypeUpper = _profileStaffType.toUpperCase().trim();
+        final bool isOrganizationAdmin =
+            staffTypeUpper.contains('ORGANIZATION') &&
+            staffTypeUpper.contains('ADMIN');
+        final bool schoolCodeMissing =
+            _profileSchoolCode.isEmpty || _profileSchoolCode == '-';
+        if (isOrganizationAdmin || schoolCodeMissing) {
+          if (becameActive) {
+            await repository.activateOrganizationAdmin(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+            );
+          } else {
+            await repository.deactivateOrganizationAdmin(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+            );
+          }
+        } else {
+          final role =
+              (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+              ? 'SCHOOL_ADMIN'
+              : 'STAFF';
+          if (becameActive) {
+            await repository.activateSchoolUser(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+              schoolCode: _profileSchoolCode,
+              role: role,
+            );
+          } else {
+            await repository.deactivateSchoolUser(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+              schoolCode: _profileSchoolCode,
+              role: role,
+            );
+          }
+        }
+      }
 
       // Classrooms have dedicated endpoints (the /profile PATCH ignores them).
       // Update allowed classrooms first so the primary is valid within the set,

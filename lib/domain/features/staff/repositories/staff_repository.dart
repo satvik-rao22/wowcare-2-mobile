@@ -5,6 +5,7 @@ import '../entities/staff_profile.dart';
 import '../entities/create_school_user_result.dart';
 import '../entities/staff_count.dart';
 import '../entities/school_regular_schedule_day.dart';
+
 abstract class StaffRepository {
   Future<StaffCount> getStaffCount({
     required String organizationCode,
@@ -63,9 +64,15 @@ abstract class StaffRepository {
 
   /// Fetches profile. When [forEditStaff] is false uses my-profile endpoint (logged-in
   /// user); when true uses `staff/{staffCode}/profile` (edit staff details).
+  ///
+  /// [forceRefresh] bypasses the cached copy and re-fetches from the server —
+  /// use when the caller needs to observe a server-side change (e.g. an
+  /// admin just reassigned this staff member's classroom) rather than
+  /// whatever was cached up to [StorageKeys.cacheValidDuration] ago.
   Future<StaffProfile> getStaffProfile({
     required String staffCode,
     bool forEditStaff = false,
+    bool forceRefresh = false,
   });
 
   /// Resolves staffCode for a given userCode + organizationCode + schoolCode
@@ -138,9 +145,7 @@ abstract class StaffRepository {
   });
 
   /// Fetches the staff sign-in PIN via my-profile pin API.
-  Future<String> getStaffSignInPin({
-    required String staffCode,
-  });
+  Future<String> getStaffSignInPin({required String staffCode});
 
   /// Fetches staff important dates via `/api/v1/staff-dates/{staffCode}`.
   ///
@@ -161,8 +166,13 @@ abstract class StaffRepository {
 
   /// Fetches the staff member's work and break schedules from the dedicated
   /// schedule API: `GET /api/v1/staff-schedules/{staffCode}`.
-  Future<({List<StaffProfileWorkSchedule> workSchedules, List<StaffProfileBreakSchedule> breakSchedules})>
-      getStaffSchedules({required String staffCode});
+  Future<
+    ({
+      List<StaffProfileWorkSchedule> workSchedules,
+      List<StaffProfileBreakSchedule> breakSchedules,
+    })
+  >
+  getStaffSchedules({required String staffCode});
 
   /// Updates staff work & break schedules via `/api/v1/staff-schedules/{staffCode}`.
   ///
@@ -249,10 +259,15 @@ abstract class StaffRepository {
   void clearSessionVolatileCaches();
 
   Future<({int expiredDocumentCount, int expiringWithinWeekCount})>
-      getStaffDocumentExpirySummary({required String schoolCode});
+  getStaffDocumentExpirySummary({required String schoolCode});
 
-  Future<({int overduePhysicalCheckupCount, int staffWithoutActivePhysicalCheckupCount})>
-      getPhysicalCheckupSummary({required String schoolCode});
+  Future<
+    ({
+      int overduePhysicalCheckupCount,
+      int staffWithoutActivePhysicalCheckupCount,
+    })
+  >
+  getPhysicalCheckupSummary({required String schoolCode});
 
   /// Updates work break reminder preference via PATCH API.
   ///
@@ -296,6 +311,3 @@ abstract class StaffRepositoryWithCache {
     required String schoolCode,
   });
 }
-
-
-

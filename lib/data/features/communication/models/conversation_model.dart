@@ -27,6 +27,7 @@ class ConversationModel extends Conversation {
     required super.lastMessagePreview,
     required super.participants,
     super.studentStatus,
+    super.classroomCode,
   });
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
@@ -81,6 +82,7 @@ class ConversationModel extends Conversation {
               .toList() ??
           [],
       studentStatus: json['studentStatus'] as String?,
+      classroomCode: json['classroomCode'] as String?,
     );
   }
 
@@ -112,6 +114,7 @@ class ConversationModel extends Conversation {
           .map((e) => (e as ConversationParticipantModel).toJson())
           .toList(),
       if (studentStatus != null) 'studentStatus': studentStatus,
+      if (classroomCode != null) 'classroomCode': classroomCode,
     };
   }
 }

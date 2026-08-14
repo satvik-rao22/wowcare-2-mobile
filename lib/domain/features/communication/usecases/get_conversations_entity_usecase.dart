@@ -11,7 +11,7 @@ class GetConversationsEntityUseCase {
 
   Future<Either<Failure, List<ConversationEntity>>> call({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
     List<String>? classroomCodes,

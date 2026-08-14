@@ -323,38 +323,39 @@ class ConversationListCubit extends Cubit<ConversationListState> {
     }
   }
 
-  /// Resolves the conversation-level `status` query param from whichever
-  /// STAFF status filter is active (STAFF_DIRECT only — student-scoped
-  /// types keep the original hardcoded 'ACTIVE'). The backend flips a
-  /// conversation's own top-level `status` (ACTIVE/INACTIVE) alongside the
-  /// staff counterpart's own status, and `status` is what actually gates
-  /// whether the conversation is returned at all — confirmed via
-  /// `GET .../conversations/type/STAFF_DIRECT?status=INACTIVE` returning
-  /// conversations the previously-hardcoded `status: 'ACTIVE'` was
-  /// silently excluding regardless of what staffStatuses was sent
-  /// alongside it. 'UPCOMING' has no conversation-level equivalent, so it
-  /// falls back to 'ACTIVE' — the staffStatuses param still narrows by it
-  /// separately.
-  String _resolveConversationStatus(List<String> staffStatuses) {
-    final requested = staffStatuses.isNotEmpty ? staffStatuses.first : null;
-    return (requested == 'ACTIVE' || requested == 'INACTIVE')
-        ? requested!
-        : 'ACTIVE';
+  /// Every staff employment status the backend recognizes. Used as the
+  /// STAFF_DIRECT default so the list shows staff of every status instead
+  /// of implicitly excluding upcoming/inactive ones.
+  static const List<String> _allStaffStatuses = [
+    'UPCOMING',
+    'ACTIVE',
+    'INACTIVE',
+  ];
+
+  /// Resolves the conversation-level `status` query param. STAFF_DIRECT no
+  /// longer sends it at all — `staffStatuses` (see [_networkStaffStatuses])
+  /// now fully controls which staff-counterpart statuses come back,
+  /// confirmed against the backend to return the correct combined result
+  /// set for all three statuses at once (sending `status` alongside an
+  /// overlapping `staffStatuses` value was separately confirmed to return
+  /// EMPTY, which is why this used to pick a single value out of
+  /// staffStatuses instead). Other conversation types keep the original
+  /// hardcoded 'ACTIVE'.
+  String? _resolveConversationStatus() {
+    if (_conversationType == ConversationType.staffDirect) return null;
+    return 'ACTIVE';
   }
 
-  /// Values from a staffStatuses list that still need to be sent as their
-  /// own query param. ACTIVE/INACTIVE are excluded — those are already
-  /// carried by the `status` param (resolved via
-  /// [_resolveConversationStatus]), and the backend returns EMPTY results
-  /// when both are sent together (confirmed:
-  /// `status=INACTIVE&staffStatuses=INACTIVE` → nothing;
-  /// `status=INACTIVE` alone → 200 with the expected conversations).
-  /// 'UPCOMING' has no conversation-level equivalent, so it still needs
-  /// this separate param. studentStatuses is deliberately NOT run through
-  /// this — student-scoped types (ROOM_CHAT/ADMIN_CHAT) keep sending it
-  /// as-is.
-  List<String> _networkStaffStatuses(List<String> staffStatuses) =>
-      staffStatuses.where((s) => s != 'ACTIVE' && s != 'INACTIVE').toList();
+  /// STAFF_DIRECT only: defaults to [_allStaffStatuses] whenever no explicit
+  /// staff-status filter is active, so the list shows staff of every
+  /// employment status by default. An explicit filter selection (via
+  /// [applyFilters]) is sent through as-is, narrowing to just that subset.
+  /// Other conversation types have no staff-status concept and always get
+  /// an empty (omitted) param — studentStatuses is what they use instead.
+  List<String> _networkStaffStatuses(List<String> staffStatuses) {
+    if (_conversationType != ConversationType.staffDirect) return const [];
+    return staffStatuses.isEmpty ? _allStaffStatuses : staffStatuses;
+  }
 
   /// Apply filters to the conversation list — available for any type.
   /// [classroomCodes]/[tagCodes] apply to student-scoped types (ROOM_CHAT,
@@ -394,7 +395,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
-      status: _resolveConversationStatus(resolvedStaffStatuses),
+      status: _resolveConversationStatus(),
       page: 0,
       size: _pageSize,
       classroomCodes: resolvedClassrooms,
@@ -453,9 +454,10 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
-      status: 'ACTIVE',
+      status: _resolveConversationStatus(),
       page: 0,
       size: _pageSize,
+      staffStatuses: _networkStaffStatuses(const []),
     );
 
     if (isClosed) return;
@@ -494,7 +496,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
-      status: _resolveConversationStatus(state.activeStaffStatuses),
+      status: _resolveConversationStatus(),
       page: 0,
       size: _pageSize,
       classroomCodes: state.activeClassroomCodes,
@@ -620,7 +622,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
 
     final result = await _getConversationsUseCase(
       type: _conversationType,
-      status: _resolveConversationStatus(state.activeStaffStatuses),
+      status: _resolveConversationStatus(),
       page: 0,
       size: _pageSize,
       classroomCodes: state.activeClassroomCodes,

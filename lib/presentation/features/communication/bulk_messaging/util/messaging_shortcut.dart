@@ -151,10 +151,19 @@ Future<void> _openSingleRecipientConversation(
     final name = conversation.title.isNotEmpty
         ? conversation.title
         : recipient.name;
+    // Total active participants minus the viewer themselves (always one of
+    // them, having just created/opened this conversation) — seeded so the
+    // fresh per-thread CommunicationCubit's read/delivered-by-all tick
+    // aggregation has a recipient count to work with. See
+    // CommunicationCubit.seedRecipientCount's own doc for why this is
+    // required, not just an optimization.
+    final recipientCount =
+        conversation.participants.where((p) => p.isActive).length - 1;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BlocProvider<CommunicationCubit>(
-          create: (context) => serviceLocator<CommunicationCubit>(),
+          create: (context) => serviceLocator<CommunicationCubit>()
+            ..seedRecipientCount(conversation.code, recipientCount),
           child: StaffMessagingThread(
             staffInfo: {
               'name': name,

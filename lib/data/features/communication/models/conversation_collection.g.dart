@@ -23,119 +23,124 @@ const ConversationCollectionSchema = CollectionSchema(
       name: r'avatarUrl',
       type: IsarType.string,
     ),
-    r'code': PropertySchema(
+    r'classroomCode': PropertySchema(
       id: 1,
+      name: r'classroomCode',
+      type: IsarType.string,
+    ),
+    r'code': PropertySchema(
+      id: 2,
       name: r'code',
       type: IsarType.string,
     ),
     r'createdAt': PropertySchema(
-      id: 2,
+      id: 3,
       name: r'createdAt',
       type: IsarType.dateTime,
     ),
     r'createdBy': PropertySchema(
-      id: 3,
+      id: 4,
       name: r'createdBy',
       type: IsarType.string,
     ),
     r'description': PropertySchema(
-      id: 4,
+      id: 5,
       name: r'description',
       type: IsarType.string,
     ),
     r'id': PropertySchema(
-      id: 5,
+      id: 6,
       name: r'id',
       type: IsarType.long,
     ),
     r'lastMessageAt': PropertySchema(
-      id: 6,
+      id: 7,
       name: r'lastMessageAt',
       type: IsarType.dateTime,
     ),
     r'lastMessageBy': PropertySchema(
-      id: 7,
+      id: 8,
       name: r'lastMessageBy',
       type: IsarType.string,
     ),
     r'lastMessagePreview': PropertySchema(
-      id: 8,
+      id: 9,
       name: r'lastMessagePreview',
       type: IsarType.string,
     ),
     r'lastMessageSenderName': PropertySchema(
-      id: 9,
+      id: 10,
       name: r'lastMessageSenderName',
       type: IsarType.string,
     ),
     r'organizationCode': PropertySchema(
-      id: 10,
+      id: 11,
       name: r'organizationCode',
       type: IsarType.string,
     ),
     r'participantCount': PropertySchema(
-      id: 11,
+      id: 12,
       name: r'participantCount',
       type: IsarType.long,
     ),
     r'participants': PropertySchema(
-      id: 12,
+      id: 13,
       name: r'participants',
       type: IsarType.objectList,
       target: r'ConversationParticipantCollection',
     ),
     r'privateModeActivatedAt': PropertySchema(
-      id: 13,
+      id: 14,
       name: r'privateModeActivatedAt',
       type: IsarType.dateTime,
     ),
     r'privateModeActivatedBy': PropertySchema(
-      id: 14,
+      id: 15,
       name: r'privateModeActivatedBy',
       type: IsarType.string,
     ),
     r'privateModeActive': PropertySchema(
-      id: 15,
+      id: 16,
       name: r'privateModeActive',
       type: IsarType.bool,
     ),
     r'schoolCode': PropertySchema(
-      id: 16,
+      id: 17,
       name: r'schoolCode',
       type: IsarType.string,
     ),
     r'status': PropertySchema(
-      id: 17,
+      id: 18,
       name: r'status',
       type: IsarType.string,
     ),
     r'studentStatus': PropertySchema(
-      id: 18,
+      id: 19,
       name: r'studentStatus',
       type: IsarType.string,
     ),
     r'title': PropertySchema(
-      id: 19,
+      id: 20,
       name: r'title',
       type: IsarType.string,
     ),
     r'type': PropertySchema(
-      id: 20,
+      id: 21,
       name: r'type',
       type: IsarType.string,
     ),
     r'unreadCount': PropertySchema(
-      id: 21,
+      id: 22,
       name: r'unreadCount',
       type: IsarType.long,
     ),
     r'updatedAt': PropertySchema(
-      id: 22,
+      id: 23,
       name: r'updatedAt',
       type: IsarType.dateTime,
     ),
     r'updatedBy': PropertySchema(
-      id: 23,
+      id: 24,
       name: r'updatedBy',
       type: IsarType.string,
     )
@@ -164,6 +169,12 @@ int _conversationCollectionEstimateSize(
 ) {
   var bytesCount = offsets.last;
   bytesCount += 3 + object.avatarUrl.length * 3;
+  {
+    final value = object.classroomCode;
+    if (value != null) {
+      bytesCount += 3 + value.length * 3;
+    }
+  }
   bytesCount += 3 + object.code.length * 3;
   bytesCount += 3 + object.createdBy.length * 3;
   bytesCount += 3 + object.description.length * 3;
@@ -222,34 +233,35 @@ void _conversationCollectionSerialize(
   Map<Type, List<int>> allOffsets,
 ) {
   writer.writeString(offsets[0], object.avatarUrl);
-  writer.writeString(offsets[1], object.code);
-  writer.writeDateTime(offsets[2], object.createdAt);
-  writer.writeString(offsets[3], object.createdBy);
-  writer.writeString(offsets[4], object.description);
-  writer.writeLong(offsets[5], object.id);
-  writer.writeDateTime(offsets[6], object.lastMessageAt);
-  writer.writeString(offsets[7], object.lastMessageBy);
-  writer.writeString(offsets[8], object.lastMessagePreview);
-  writer.writeString(offsets[9], object.lastMessageSenderName);
-  writer.writeString(offsets[10], object.organizationCode);
-  writer.writeLong(offsets[11], object.participantCount);
+  writer.writeString(offsets[1], object.classroomCode);
+  writer.writeString(offsets[2], object.code);
+  writer.writeDateTime(offsets[3], object.createdAt);
+  writer.writeString(offsets[4], object.createdBy);
+  writer.writeString(offsets[5], object.description);
+  writer.writeLong(offsets[6], object.id);
+  writer.writeDateTime(offsets[7], object.lastMessageAt);
+  writer.writeString(offsets[8], object.lastMessageBy);
+  writer.writeString(offsets[9], object.lastMessagePreview);
+  writer.writeString(offsets[10], object.lastMessageSenderName);
+  writer.writeString(offsets[11], object.organizationCode);
+  writer.writeLong(offsets[12], object.participantCount);
   writer.writeObjectList<ConversationParticipantCollection>(
-    offsets[12],
+    offsets[13],
     allOffsets,
     ConversationParticipantCollectionSchema.serialize,
     object.participants,
   );
-  writer.writeDateTime(offsets[13], object.privateModeActivatedAt);
-  writer.writeString(offsets[14], object.privateModeActivatedBy);
-  writer.writeBool(offsets[15], object.privateModeActive);
-  writer.writeString(offsets[16], object.schoolCode);
-  writer.writeString(offsets[17], object.status);
-  writer.writeString(offsets[18], object.studentStatus);
-  writer.writeString(offsets[19], object.title);
-  writer.writeString(offsets[20], object.type);
-  writer.writeLong(offsets[21], object.unreadCount);
-  writer.writeDateTime(offsets[22], object.updatedAt);
-  writer.writeString(offsets[23], object.updatedBy);
+  writer.writeDateTime(offsets[14], object.privateModeActivatedAt);
+  writer.writeString(offsets[15], object.privateModeActivatedBy);
+  writer.writeBool(offsets[16], object.privateModeActive);
+  writer.writeString(offsets[17], object.schoolCode);
+  writer.writeString(offsets[18], object.status);
+  writer.writeString(offsets[19], object.studentStatus);
+  writer.writeString(offsets[20], object.title);
+  writer.writeString(offsets[21], object.type);
+  writer.writeLong(offsets[22], object.unreadCount);
+  writer.writeDateTime(offsets[23], object.updatedAt);
+  writer.writeString(offsets[24], object.updatedBy);
 }
 
 ConversationCollection _conversationCollectionDeserialize(
@@ -260,35 +272,36 @@ ConversationCollection _conversationCollectionDeserialize(
 ) {
   final object = ConversationCollection();
   object.avatarUrl = reader.readString(offsets[0]);
-  object.code = reader.readString(offsets[1]);
-  object.createdAt = reader.readDateTime(offsets[2]);
-  object.createdBy = reader.readString(offsets[3]);
-  object.description = reader.readString(offsets[4]);
-  object.id = reader.readLong(offsets[5]);
-  object.lastMessageAt = reader.readDateTimeOrNull(offsets[6]);
-  object.lastMessageBy = reader.readStringOrNull(offsets[7]);
-  object.lastMessagePreview = reader.readString(offsets[8]);
-  object.lastMessageSenderName = reader.readStringOrNull(offsets[9]);
-  object.organizationCode = reader.readString(offsets[10]);
-  object.participantCount = reader.readLong(offsets[11]);
+  object.classroomCode = reader.readStringOrNull(offsets[1]);
+  object.code = reader.readString(offsets[2]);
+  object.createdAt = reader.readDateTime(offsets[3]);
+  object.createdBy = reader.readString(offsets[4]);
+  object.description = reader.readString(offsets[5]);
+  object.id = reader.readLong(offsets[6]);
+  object.lastMessageAt = reader.readDateTimeOrNull(offsets[7]);
+  object.lastMessageBy = reader.readStringOrNull(offsets[8]);
+  object.lastMessagePreview = reader.readString(offsets[9]);
+  object.lastMessageSenderName = reader.readStringOrNull(offsets[10]);
+  object.organizationCode = reader.readString(offsets[11]);
+  object.participantCount = reader.readLong(offsets[12]);
   object.participants =
       reader.readObjectList<ConversationParticipantCollection>(
-    offsets[12],
+    offsets[13],
     ConversationParticipantCollectionSchema.deserialize,
     allOffsets,
     ConversationParticipantCollection(),
   );
-  object.privateModeActivatedAt = reader.readDateTimeOrNull(offsets[13]);
-  object.privateModeActivatedBy = reader.readStringOrNull(offsets[14]);
-  object.privateModeActive = reader.readBool(offsets[15]);
-  object.schoolCode = reader.readString(offsets[16]);
-  object.status = reader.readString(offsets[17]);
-  object.studentStatus = reader.readStringOrNull(offsets[18]);
-  object.title = reader.readString(offsets[19]);
-  object.type = reader.readString(offsets[20]);
-  object.unreadCount = reader.readLong(offsets[21]);
-  object.updatedAt = reader.readDateTime(offsets[22]);
-  object.updatedBy = reader.readString(offsets[23]);
+  object.privateModeActivatedAt = reader.readDateTimeOrNull(offsets[14]);
+  object.privateModeActivatedBy = reader.readStringOrNull(offsets[15]);
+  object.privateModeActive = reader.readBool(offsets[16]);
+  object.schoolCode = reader.readString(offsets[17]);
+  object.status = reader.readString(offsets[18]);
+  object.studentStatus = reader.readStringOrNull(offsets[19]);
+  object.title = reader.readString(offsets[20]);
+  object.type = reader.readString(offsets[21]);
+  object.unreadCount = reader.readLong(offsets[22]);
+  object.updatedAt = reader.readDateTime(offsets[23]);
+  object.updatedBy = reader.readString(offsets[24]);
   return object;
 }
 
@@ -302,55 +315,57 @@ P _conversationCollectionDeserializeProp<P>(
     case 0:
       return (reader.readString(offset)) as P;
     case 1:
-      return (reader.readString(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 2:
-      return (reader.readDateTime(offset)) as P;
-    case 3:
       return (reader.readString(offset)) as P;
+    case 3:
+      return (reader.readDateTime(offset)) as P;
     case 4:
       return (reader.readString(offset)) as P;
     case 5:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 6:
-      return (reader.readDateTimeOrNull(offset)) as P;
-    case 7:
-      return (reader.readStringOrNull(offset)) as P;
-    case 8:
-      return (reader.readString(offset)) as P;
-    case 9:
-      return (reader.readStringOrNull(offset)) as P;
-    case 10:
-      return (reader.readString(offset)) as P;
-    case 11:
       return (reader.readLong(offset)) as P;
+    case 7:
+      return (reader.readDateTimeOrNull(offset)) as P;
+    case 8:
+      return (reader.readStringOrNull(offset)) as P;
+    case 9:
+      return (reader.readString(offset)) as P;
+    case 10:
+      return (reader.readStringOrNull(offset)) as P;
+    case 11:
+      return (reader.readString(offset)) as P;
     case 12:
+      return (reader.readLong(offset)) as P;
+    case 13:
       return (reader.readObjectList<ConversationParticipantCollection>(
         offset,
         ConversationParticipantCollectionSchema.deserialize,
         allOffsets,
         ConversationParticipantCollection(),
       )) as P;
-    case 13:
-      return (reader.readDateTimeOrNull(offset)) as P;
     case 14:
-      return (reader.readStringOrNull(offset)) as P;
+      return (reader.readDateTimeOrNull(offset)) as P;
     case 15:
-      return (reader.readBool(offset)) as P;
+      return (reader.readStringOrNull(offset)) as P;
     case 16:
-      return (reader.readString(offset)) as P;
+      return (reader.readBool(offset)) as P;
     case 17:
       return (reader.readString(offset)) as P;
     case 18:
-      return (reader.readStringOrNull(offset)) as P;
-    case 19:
       return (reader.readString(offset)) as P;
+    case 19:
+      return (reader.readStringOrNull(offset)) as P;
     case 20:
       return (reader.readString(offset)) as P;
     case 21:
-      return (reader.readLong(offset)) as P;
+      return (reader.readString(offset)) as P;
     case 22:
-      return (reader.readDateTime(offset)) as P;
+      return (reader.readLong(offset)) as P;
     case 23:
+      return (reader.readDateTime(offset)) as P;
+    case 24:
       return (reader.readString(offset)) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -585,6 +600,162 @@ extension ConversationCollectionQueryFilter on QueryBuilder<
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         property: r'avatarUrl',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeIsNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNull(
+        property: r'classroomCode',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeIsNotNull() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(const FilterCondition.isNotNull(
+        property: r'classroomCode',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeEqualTo(
+    String? value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'classroomCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeGreaterThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        include: include,
+        property: r'classroomCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeLessThan(
+    String? value, {
+    bool include = false,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.lessThan(
+        include: include,
+        property: r'classroomCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeBetween(
+    String? lower,
+    String? upper, {
+    bool includeLower = true,
+    bool includeUpper = true,
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.between(
+        property: r'classroomCode',
+        lower: lower,
+        includeLower: includeLower,
+        upper: upper,
+        includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'classroomCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'classroomCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      classroomCodeContains(String value, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'classroomCode',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+          QAfterFilterCondition>
+      classroomCodeMatches(String pattern, {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'classroomCode',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'classroomCode',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection,
+      QAfterFilterCondition> classroomCodeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'classroomCode',
         value: '',
       ));
     });
@@ -3230,6 +3401,20 @@ extension ConversationCollectionQuerySortBy
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByClassroomCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'classroomCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      sortByClassroomCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'classroomCode', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
       sortByCode() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'code', Sort.asc);
@@ -3551,6 +3736,20 @@ extension ConversationCollectionQuerySortThenBy on QueryBuilder<
       thenByAvatarUrlDesc() {
     return QueryBuilder.apply(this, (query) {
       return query.addSortBy(r'avatarUrl', Sort.desc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByClassroomCode() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'classroomCode', Sort.asc);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QAfterSortBy>
+      thenByClassroomCodeDesc() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addSortBy(r'classroomCode', Sort.desc);
     });
   }
 
@@ -3887,6 +4086,14 @@ extension ConversationCollectionQueryWhereDistinct
   }
 
   QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
+      distinctByClassroomCode({bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addDistinctBy(r'classroomCode',
+          caseSensitive: caseSensitive);
+    });
+  }
+
+  QueryBuilder<ConversationCollection, ConversationCollection, QDistinct>
       distinctByCode({bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
       return query.addDistinctBy(r'code', caseSensitive: caseSensitive);
@@ -4059,6 +4266,13 @@ extension ConversationCollectionQueryProperty on QueryBuilder<
       avatarUrlProperty() {
     return QueryBuilder.apply(this, (query) {
       return query.addPropertyName(r'avatarUrl');
+    });
+  }
+
+  QueryBuilder<ConversationCollection, String?, QQueryOperations>
+      classroomCodeProperty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addPropertyName(r'classroomCode');
     });
   }
 

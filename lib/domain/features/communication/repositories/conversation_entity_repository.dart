@@ -36,9 +36,14 @@ abstract class ConversationEntityRepository {
   /// [unreadCount] for these conversations, e.g. from [watchConversations]'s
   /// state, should set this false and overlay it themselves rather than
   /// letting an API value flow into the UI even momentarily).
+  ///
+  /// [status] — the conversation-level status filter. Pass null to omit it
+  /// entirely (e.g. STAFF_DIRECT, which now relies solely on [staffStatuses]
+  /// — sending `status` alongside an overlapping `staffStatuses` value has
+  /// been confirmed to return an EMPTY result from the backend).
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
     List<String>? classroomCodes,

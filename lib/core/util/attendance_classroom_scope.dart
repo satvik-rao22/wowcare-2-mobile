@@ -212,8 +212,15 @@ Future<List<String>> resolveAttendanceAllowedClassroomCodes({
 
 /// Primary classroom code for scoped staff personas (teacher/staff), or null
 /// for admin/parent personas.
+///
+/// [forceRefresh] bypasses the cached staff profile — pass true for an
+/// explicit user-triggered refresh (pull-to-refresh, a refresh button) where
+/// a merely-cached "primary classroom" would defeat the whole point of
+/// refreshing (e.g. an admin just moved this staff member to a different
+/// classroom and they're checking whether it took effect).
 Future<String?> resolveStaffPrimaryClassroomCode({
   required StorageService storage,
+  bool forceRefresh = false,
 }) async {
   final shouldScope = await isAttendanceScopedStaffPersona(storage: storage);
   if (!shouldScope) return null;
@@ -226,6 +233,7 @@ Future<String?> resolveStaffPrimaryClassroomCode({
     final profile = await repo.getStaffProfile(
       staffCode: staffCode,
       forEditStaff: true,
+      forceRefresh: forceRefresh,
     );
     final primary = profile.primaryClassroomCode.trim();
     if (primary.isNotEmpty) return primary;

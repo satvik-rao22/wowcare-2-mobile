@@ -31,6 +31,7 @@ class ConversationCollection {
   late String lastMessagePreview;
   List<ConversationParticipantCollection>? participants;
   String? studentStatus;
+  String? classroomCode;
 
   ConversationCollection();
 
@@ -61,7 +62,8 @@ class ConversationCollection {
       ..participants = entity.participants
           .map((e) => ConversationParticipantCollection.fromEntity(e))
           .toList()
-      ..studentStatus = entity.studentStatus;
+      ..studentStatus = entity.studentStatus
+      ..classroomCode = entity.classroomCode;
   }
 
   Conversation toEntity() {
@@ -90,6 +92,7 @@ class ConversationCollection {
       lastMessagePreview: lastMessagePreview,
       participants: participants?.map((e) => e.toEntity()).toList() ?? [],
       studentStatus: studentStatus,
+      classroomCode: classroomCode,
     );
   }
 }

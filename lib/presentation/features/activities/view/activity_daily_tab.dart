@@ -540,6 +540,28 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return list;
   }
 
+  /// Tag-only subset of [_withClientFilters], for attendance-derived items
+  /// (Sign-in/Sign-out/Marked Absent). Those rows carry no
+  /// activityTypeCode/approvalStatus, so the other two filters in
+  /// [_withClientFilters] don't apply to them — Activity Type filtering for
+  /// them is already handled upstream at fetch time (see
+  /// [_shouldIncludeAttendanceEntries]/[_selectedAttendanceEventFilter]),
+  /// and approval status doesn't apply to attendance rows at all (see
+  /// [_selectedAttendanceEventFilter]'s own doc). Without this, picking a
+  /// Tag filter narrowed the regular activity feed to the tagged students
+  /// but left every student's Sign-in/Sign-out/Marked Absent cards showing
+  /// regardless of the tag.
+  List<ActivityItem> _withTagFilterOnly(List<ActivityItem> items) {
+    if (_filterTags.isEmpty) return items;
+    return items
+        .where(
+          (a) =>
+              a.studentCode != null &&
+              _studentCodesForTagFilter.contains(a.studentCode),
+        )
+        .toList();
+  }
+
   Future<void> _rebuildStudentCodesForTagFilter() async {
     _studentCodesForTagFilter.clear();
     if (_filterTags.isEmpty || !mounted) return;
@@ -1900,8 +1922,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -1991,7 +2014,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
         _scheduleHighlightScroll();
         return;
       }
@@ -2086,8 +2110,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -2236,8 +2261,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       await primeActivityFeedOptionLabelsFromRows(merged.content);
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(merged),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -2338,7 +2364,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
         // Throttle repeated failed requests for same filters.
         _scheduleHighlightScroll();
         return;
@@ -2430,8 +2457,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
 
       final items = <ActivityItem>[
         if (attendancePage != null)
-          ..._mapAttendanceDailyPageToItems(attendancePage),
-        if (absentPage != null) ..._mapAbsentRecordsPageToItems(absentPage),
+          ..._withTagFilterOnly(_mapAttendanceDailyPageToItems(attendancePage)),
+        if (absentPage != null)
+          ..._withTagFilterOnly(_mapAbsentRecordsPageToItems(absentPage)),
         ..._mapDailyFeedPageToItems(activityFeedPage),
       ]..sort(_compareActivityItemsByTimeDesc);
 
@@ -2548,7 +2576,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   @override
   void didUpdateWidget(covariant ActivityDailyTab oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final changed = widget.highlightCode != oldWidget.highlightCode ||
+    final changed =
+        widget.highlightCode != oldWidget.highlightCode ||
         widget.highlightDate != oldWidget.highlightDate ||
         widget.highlightClassroomCode != oldWidget.highlightClassroomCode;
     if (!changed) return;
@@ -2693,8 +2722,9 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   void _scheduleHighlightScroll() {
     if (_highlightApplied || _highlightScrollScheduled) return;
     if ((widget.highlightCode ?? '').trim().isEmpty) return;
-    final index =
-        _activities.indexWhere((a) => _isHighlightTarget(a.activityCode));
+    final index = _activities.indexWhere(
+      (a) => _isHighlightTarget(a.activityCode),
+    );
     if (index < 0) return; // not in this page yet — retried on the next load
     _highlightScrollScheduled = true;
 
@@ -2743,9 +2773,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           ? 0.0
           : pos.maxScrollExtent * (index / (total - 1)).clamp(0.0, 1.0);
       if ((target - pos.pixels).abs() > 1) {
-        _feedScrollController.jumpTo(
-          target.clamp(0.0, pos.maxScrollExtent),
-        );
+        _feedScrollController.jumpTo(target.clamp(0.0, pos.maxScrollExtent));
       }
       WidgetsBinding.instance.addPostFrameCallback((_) => step());
     }
@@ -6928,6 +6956,15 @@ ActivityItem activityItemFromFeedRow(
   final sc = (row.studentCode ?? '').trim();
   final ac = (row.activityCode ?? '').trim();
 
+  /// Incident's "Additional Notes" (CUSTOM parameter, distinct from "What
+  /// happened?" which the API already surfaces via [row.description]) has
+  /// no flat field on [ActivityFeedRow] — it must be read out of
+  /// [row.parameterValues] like every other custom parameter (bathroomType,
+  /// mealType, …) below.
+  final additionalNotesFromParams = name == 'Incident'
+      ? pickParam((n) => n.contains('additional') && n.contains('note'))
+      : null;
+
   return ActivityItem(
     time: time,
     date: date,
@@ -6954,6 +6991,7 @@ ActivityItem activityItemFromFeedRow(
             effectiveDescription.isNotEmpty
         ? effectiveDescription
         : null,
+    additionalNotes: additionalNotesFromParams,
     staffPresent: by,
     staffPresentCode: (staffFromParams ?? '').trim().isEmpty
         ? null

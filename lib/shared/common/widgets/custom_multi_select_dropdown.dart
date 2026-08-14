@@ -229,164 +229,134 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                           visibleItems.length + (widget.showSelectAll ? 1 : 0);
                       // final searchBoxHeight = widget.enableSearch ? 52.0 : 0.0;
                       const searchBoxHeight = 0.0;
+                      // `_dropdownRowHeight` is only an ESTIMATE (one line of
+                      // text) — a long label (e.g. a two-word student name in
+                      // a narrow side-by-side dropdown) wraps to a second
+                      // line, which the estimate doesn't account for. Capping
+                      // the container to that estimate then clipped the
+                      // wrapped second line with no way to reach it — most
+                      // visible with a single item, where the whole overlay
+                      // was barely one row tall. Below the max height, let
+                      // the list size itself to its REAL (possibly wrapped)
+                      // content instead of the flat estimate; only once the
+                      // estimate crosses the cap does a fixed, scrollable
+                      // height take over.
                       final targetHeight =
                           (itemCount * _dropdownRowHeight) + searchBoxHeight;
-                      final dropdownHeight =
-                          targetHeight > widget.maxDropdownHeight
-                          ? widget.maxDropdownHeight
-                          : targetHeight;
-                      return SizedBox(
-                        height: dropdownHeight,
-                        child: Column(
-                          children: [
-                            // if (widget.enableSearch)
-                            //   Padding(
-                            //     padding: const EdgeInsets.fromLTRB(10, 8, 10, 6),
-                            //     child: SizedBox(
-                            //       height: 38,
-                            //       child: TextField(
-                            //         controller: _searchController,
-                            //         onChanged: (value) {
-                            //           setOverlayState(() {
-                            //             _searchQuery = value;
-                            //           });
-                            //         },
-                            //         decoration: InputDecoration(
-                            //           isDense: true,
-                            //           prefixIcon: const Icon(Icons.search, size: 18),
-                            //           hintText: widget.searchHintText ?? 'Search',
-                            //           contentPadding: const EdgeInsets.symmetric(
-                            //             horizontal: 10,
-                            //             vertical: 10,
-                            //           ),
-                            //           border: OutlineInputBorder(
-                            //             borderRadius: BorderRadius.circular(8),
-                            //             borderSide: BorderSide(color: Colors.grey.shade300),
-                            //           ),
-                            //           enabledBorder: OutlineInputBorder(
-                            //             borderRadius: BorderRadius.circular(8),
-                            //             borderSide: BorderSide(color: Colors.grey.shade300),
-                            //           ),
-                            //         ),
-                            //       ),
-                            //     ),
-                            //   ),
-                            Expanded(
-                              child: ListView.builder(
-                                padding: EdgeInsets.zero,
-                                shrinkWrap: true,
-                                // Always allow scrolling: rows can wrap to two
-                                // lines (long student names / designations), so
-                                // the fixed `_dropdownRowHeight` estimate can
-                                // undercount the real content height. Gating
-                                // scroll on that estimate left overflowing rows
-                                // clipped and unreachable. ClampingScrollPhysics
-                                // scrolls only when content exceeds the box and
-                                // stays put when it fits.
-                                physics: const ClampingScrollPhysics(),
-                                // No fixed itemExtent: let rows size to content
-                                // so long labels (e.g. "Assistant Teacher") can
-                                // wrap to a second line instead of clipping.
-                                itemCount: itemCount,
-                                itemBuilder: (context, index) {
-                                  if (widget.showSelectAll && index == 0) {
-                                    final isAllSelected =
-                                        _localSelectedItems.length ==
-                                        widget.items.length;
-                                    return InkWell(
-                                      onTap: () {
-                                        setOverlayState(() {
-                                          if (isAllSelected) {
-                                            _localSelectedItems.clear();
-                                          } else {
-                                            _localSelectedItems = List.from(
-                                              widget.items,
-                                            );
-                                          }
-                                        });
-                                        setState(() {});
-                                        widget.onChanged(
-                                          List<String>.from(
-                                            _localSelectedItems,
-                                          ),
-                                        );
-                                      },
-                                      child: Container(
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 12,
-                                        ),
-                                        child: Row(
-                                          children: [
-                                            _buildCheckbox(isAllSelected),
-                                            const SizedBox(width: 12),
-                                            const Text(
-                                              'Select All',
-                                              style: TextStyle(
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              softWrap: false,
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    );
-                                  }
+                      final needsScrollCap =
+                          targetHeight > widget.maxDropdownHeight;
 
-                                  final actualIndex = widget.showSelectAll
-                                      ? index - 1
-                                      : index;
-                                  final item = visibleItems[actualIndex];
-                                  final isSelected = _localSelectedItems
-                                      .contains(item);
-
-                                  return InkWell(
-                                    onTap: () {
-                                      setOverlayState(() {
-                                        if (isSelected) {
-                                          _localSelectedItems.remove(item);
-                                        } else {
-                                          _localSelectedItems.add(item);
-                                        }
-                                      });
-                                      setState(() {});
-                                      widget.onChanged(
-                                        List<String>.from(_localSelectedItems),
-                                      );
-                                    },
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 12,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          _buildCheckbox(isSelected),
-                                          const SizedBox(width: 12),
-                                          Expanded(
-                                            child: Text(
-                                              item,
-                                              style: const TextStyle(
-                                                fontSize: 14,
-                                              ),
-                                              // Allow long designations (e.g.
-                                              // "Assistant Teacher") to wrap to a
-                                              // second line instead of clipping.
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                              softWrap: true,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                      Widget buildRow(int index) {
+                        if (widget.showSelectAll && index == 0) {
+                          final isAllSelected =
+                              _localSelectedItems.length == widget.items.length;
+                          return InkWell(
+                            onTap: () {
+                              setOverlayState(() {
+                                if (isAllSelected) {
+                                  _localSelectedItems.clear();
+                                } else {
+                                  _localSelectedItems = List.from(widget.items);
+                                }
+                              });
+                              setState(() {});
+                              widget.onChanged(
+                                List<String>.from(_localSelectedItems),
+                              );
+                            },
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 12,
+                              ),
+                              child: Row(
+                                children: [
+                                  _buildCheckbox(isAllSelected),
+                                  const SizedBox(width: 12),
+                                  const Text(
+                                    'Select All',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
                                     ),
-                                  );
-                                },
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: false,
+                                  ),
+                                ],
                               ),
                             ),
+                          );
+                        }
+
+                        final actualIndex = widget.showSelectAll
+                            ? index - 1
+                            : index;
+                        final item = visibleItems[actualIndex];
+                        final isSelected = _localSelectedItems.contains(item);
+
+                        return InkWell(
+                          onTap: () {
+                            setOverlayState(() {
+                              if (isSelected) {
+                                _localSelectedItems.remove(item);
+                              } else {
+                                _localSelectedItems.add(item);
+                              }
+                            });
+                            setState(() {});
+                            widget.onChanged(
+                              List<String>.from(_localSelectedItems),
+                            );
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
+                            child: Row(
+                              children: [
+                                _buildCheckbox(isSelected),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    item,
+                                    style: const TextStyle(fontSize: 14),
+                                    // Allow long labels (e.g. a two-word
+                                    // student name, "Assistant Teacher") to
+                                    // wrap to a second line instead of
+                                    // clipping.
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    softWrap: true,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }
+
+                      if (!needsScrollCap) {
+                        // Few enough rows to stay under the cap — size the
+                        // list to its ACTUAL content (including any row that
+                        // wraps to 2 lines) instead of the flat per-row
+                        // estimate.
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            for (var i = 0; i < itemCount; i++) buildRow(i),
                           ],
+                        );
+                      }
+
+                      return SizedBox(
+                        height: widget.maxDropdownHeight,
+                        child: ListView.builder(
+                          padding: EdgeInsets.zero,
+                          shrinkWrap: true,
+                          physics: const ClampingScrollPhysics(),
+                          itemCount: itemCount,
+                          itemBuilder: (context, index) => buildRow(index),
                         ),
                       );
                     },

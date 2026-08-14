@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/auth/session_expired_coordinator.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -95,7 +96,10 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       if (decoded is List) {
         for (final role in decoded) {
           if (role is Map) {
-            final roleStr = (role['role'] ?? '').toString().toUpperCase().trim();
+            final roleStr = (role['role'] ?? '')
+                .toString()
+                .toUpperCase()
+                .trim();
             if (roleStr == 'KIOSK') {
               return true;
             }
@@ -133,9 +137,29 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       final cachedLogin = await authLocal.getCachedLoginResponse();
       if (cachedLogin != null) {
         hasCachedLogin = true;
+
+        // Proactively refresh a stale access token BEFORE the first
+        // authenticated call of a cold start. `/auth/login-context` is
+        // deliberately exempted from SessionExpiredInterceptor's reactive
+        // refresh-then-retry (see its `_shouldIgnorePath` doc — "handled by
+        // splash screen"), and TokenLifecycleObserver's own proactive
+        // refresh only fires on a lifecycle `resumed` transition / idle
+        // timer, neither of which has necessarily run yet this early in a
+        // fresh launch. Without this, a merely-STALE (not actually invalid)
+        // token here fell straight through to a full logout instead of a
+        // silent refresh — the exact scenario a phone left backgrounded for
+        // hours hits on relaunch, and why this rarely surfaced on web (a
+        // browser tab's token usually doesn't go stale within the tab's
+        // lifetime).
+        await TokenRefreshService.instance.ensureFreshToken();
+        final freshAccessToken =
+            (await storage.getString(StorageKeys.accessToken) ?? '').trim();
+
         final authRemote = serviceLocator<AuthRemoteDataSource>();
         final contextData = await authRemote.getLoginContext(
-          accessToken: cachedLogin.accessToken,
+          accessToken: freshAccessToken.isNotEmpty
+              ? freshAccessToken
+              : cachedLogin.accessToken,
         );
         await authLocal.saveLoginContext(contextData);
         await authLocal.saveOrgAndSchoolFromContext(contextData);
@@ -151,8 +175,9 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         if (orgCode.isNotEmpty) {
           final existingSchoolCode =
               (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-          final effectiveSchoolCode =
-              schoolCode.isNotEmpty ? schoolCode : existingSchoolCode;
+          final effectiveSchoolCode = schoolCode.isNotEmpty
+              ? schoolCode
+              : existingSchoolCode;
 
           if (effectiveSchoolCode.isNotEmpty) {
             await authLocal.setSelectedOrgAndSchool(
@@ -186,8 +211,9 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       // (profile name, roles, tokens), reset auth cubits, show the "session
       // expired" snackbar, and navigate to sign-in. Return so we never fall
       // through to the dashboard with a dead session.
-      await SessionExpiredCoordinator.instance
-          .performLogoutDueToExpiredSession(fromEntryRoute: true);
+      await SessionExpiredCoordinator.instance.performLogoutDueToExpiredSession(
+        fromEntryRoute: true,
+      );
       return;
     }
 
@@ -227,14 +253,14 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
       final orgCode =
           (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final schoolCode =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
         if (!mounted) return;
         await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
-              organizationCode: orgCode,
-              schoolCode: schoolCode,
-            );
+          organizationCode: orgCode,
+          schoolCode: schoolCode,
+        );
         // PushNotificationCubit.init() runs before splash restores org/school.
         try {
           await serviceLocator<RegisterDeviceFcmTokenUseCase>()();
