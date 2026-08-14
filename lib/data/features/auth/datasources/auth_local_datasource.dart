@@ -79,6 +79,20 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     // Save individual fields for quick access
     await _storage.saveString(StorageKeys.accessToken, response.accessToken);
     await _storage.saveString(StorageKeys.refreshToken, response.refreshToken);
+    if (response.refreshToken.trim().isEmpty) {
+      // Silent time bomb otherwise: the access token keeps working until its
+      // own TTL elapses, then TokenRefreshService has nothing to refresh
+      // with and forces a full logout that looks random and unrelated to
+      // login, minutes or hours later. Logging it HERE, at the point the
+      // login response is known to be missing it, is the only way to tell
+      // "backend didn't send one" apart from "something later cleared it".
+      AppLogger.d(
+        '[TokenRefresh] login response carried NO refreshToken for '
+        'user="${response.userCode}" — session will force-logout instead of '
+        'silently refreshing once the access token (expiresIn='
+        '${response.expiresIn}s) expires',
+      );
+    }
     await _storage.saveInt(StorageKeys.tokenExpiresIn, response.expiresIn);
     // Mirror the refresh token into the Keychain / EncryptedSharedPreferences
     // (SharedPreferences is plaintext) and record an ABSOLUTE deadline —

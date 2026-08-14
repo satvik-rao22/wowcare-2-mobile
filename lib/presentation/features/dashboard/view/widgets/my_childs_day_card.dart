@@ -1368,7 +1368,17 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ),
 
             // if (!_isMinimized) _buildCommunicationSection(),
-            if (!_isMinimized) const _CommunicationRowWidget(),
+            if (!_isMinimized)
+              _CommunicationRowWidget(
+                // Re-key on child switch: a plain rebuild wouldn't otherwise
+                // reset this widget's own internal state/subscription at all
+                // (it previously took no input from the selected child, so
+                // Flutter had no reason to treat a sibling switch as
+                // anything but the exact same widget instance) — see the
+                // widget's own doc for the resulting bug this caused.
+                key: ValueKey('comm_row_$_selectedChildCode'),
+                studentCode: _selectedChildCode,
+              ),
           ],
         ),
       ),
@@ -1381,7 +1391,18 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 // ---------------------------------------------------------------------------
 
 class _CommunicationRowWidget extends StatefulWidget {
-  const _CommunicationRowWidget();
+  const _CommunicationRowWidget({super.key, required this.studentCode});
+
+  /// The child THIS card is currently showing. Admin Chat conversations are
+  /// per-student — a parent with more than one child can have one Admin
+  /// Chat conversation per sibling, so this row must only ever consider the
+  /// one belonging to this specific child. Previously unfiltered: it picked
+  /// the single most-recently-active Admin Chat conversation across ALL of
+  /// the parent's children, so a sibling's more recent message could show
+  /// up on THIS child's day card instead of this child's own conversation
+  /// (or "No recent conversations" when this child had one but a sibling's
+  /// was more recent).
+  final String studentCode;
 
   @override
   State<_CommunicationRowWidget> createState() =>
@@ -1430,9 +1451,10 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
           .call(type: ConversationType.adminChat);
       cached.fold((_) {}, (list) {
-        if (mounted && list.isNotEmpty) {
+        final mine = _latest(list);
+        if (mounted && mine != null) {
           setState(() {
-            _conversation = _latest(list);
+            _conversation = mine;
             _loading = false;
           });
         }
@@ -1448,9 +1470,10 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
           .then((result) {
             if (!mounted) return;
             result.fold((_) {}, (list) {
-              if (list.isNotEmpty) {
+              final mine = _latest(list);
+              if (mine != null) {
                 setState(() {
-                  _conversation = _latest(list);
+                  _conversation = mine;
                   _loading = false;
                 });
               }
@@ -1465,7 +1488,8 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             if (!mounted) return;
             _timeout?.cancel();
             setState(() {
-              if (list.isNotEmpty) _conversation = _latest(list);
+              final mine = _latest(list);
+              if (mine != null) _conversation = mine;
               _loading = false;
             });
           },
@@ -1482,14 +1506,21 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
         );
   }
 
-  ConversationEntity _latest(List<ConversationEntity> list) {
-    final sorted = List<ConversationEntity>.from(list)
-      ..sort((a, b) {
-        final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
-        final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
-        return bt.compareTo(at);
-      });
-    return sorted.first;
+  /// Most recent conversation belonging to [widget.studentCode] only — see
+  /// the widget's own doc for why every other student's must be excluded
+  /// before picking "most recent". Null when this child has none (even if
+  /// [list] itself is non-empty for a sibling).
+  ConversationEntity? _latest(List<ConversationEntity> list) {
+    final mine = list
+        .where((c) => c.studentCode == widget.studentCode)
+        .toList();
+    if (mine.isEmpty) return null;
+    mine.sort((a, b) {
+      final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
+      final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
+      return bt.compareTo(at);
+    });
+    return mine.first;
   }
 
   void _openConversation(ConversationEntity conversation) {

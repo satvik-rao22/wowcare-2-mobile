@@ -251,9 +251,15 @@ class TokenRefreshService {
     return (await refreshSession()) != null;
   }
 
-  /// Extracts a rotated `refreshToken` from the response's `Set-Cookie`
-  /// headers, or '' when absent. Values are URL-decoded to mirror how they were
-  /// sent. A browser would absorb this automatically; on mobile we have to.
+  /// Extracts a `refreshToken` from a response's `Set-Cookie` headers, or ''
+  /// when absent. Values are URL-decoded to mirror how they were sent. A
+  /// browser would absorb this automatically; on mobile we have to. Public
+  /// because [AuthRemoteDataSourceImpl.login] needs the identical fallback:
+  /// the backend may deliver the refresh token via `Set-Cookie` there too,
+  /// the same as it does on `/auth/refresh`.
+  static String refreshTokenFromSetCookie(Headers headers) =>
+      _refreshTokenFromSetCookie(headers);
+
   static String _refreshTokenFromSetCookie(Headers headers) {
     final cookies = headers.map['set-cookie'] ?? const <String>[];
     for (final raw in cookies) {

@@ -80,13 +80,18 @@ class Message extends Equatable {
     this.isSending = false,
   });
 
-  // [deliveredTo] only holds delivered-but-not-yet-read rows (a row that
-  // progressed to read moves to [readBy] instead — see
-  // MessageModel._parseRecipientStatuses) — a read implies delivered too,
-  // so [readBy] must count toward "delivered" here as well.
-  bool get isDelivered =>
-      deliveredAt != null || deliveredTo.isNotEmpty || readBy.isNotEmpty;
-  bool get isRead => readAt != null || readBy.isNotEmpty;
+  // The tick icon (see MessageBubble) must reflect ALL-recipients
+  // delivered/read, matching web — never "at least one recipient". So
+  // these booleans are driven ONLY by [deliveredAt]/[readAt], the
+  // aggregated fields the sending cubit/mapper sets once every active
+  // recipient has crossed the threshold (see CommunicationCubit
+  // ._aggregateReadStatus / mapMessageEntityToMessage). [deliveredTo] and
+  // [readBy] are per-recipient breakdowns for the "Message Info" dialog —
+  // checking `.isNotEmpty` here used to flip the tick to "delivered/read"
+  // the moment a SINGLE recipient (out of a whole group) had delivered/read
+  // it, well before [deliveredAt]/[readAt] themselves got set.
+  bool get isDelivered => deliveredAt != null;
+  bool get isRead => readAt != null;
   bool get isDeleted => deletedAt != null;
   int get readCount => readBy.length + (readAt != null ? 1 : 0);
   int get deliveredCount =>

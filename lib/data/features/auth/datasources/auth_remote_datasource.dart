@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:wowcare/core/auth/token_refresh_service.dart';
 import 'package:wowcare/core/network/api_headers.dart';
 import 'package:wowcare/core/network/api_logger.dart';
 import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/api_paths.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/network/api_response.dart';
 import 'package:wowcare/data/features/auth/models/login_request_model.dart';
 import 'package:wowcare/data/features/auth/models/login_response_model.dart';
@@ -89,7 +91,28 @@ class AuthRemoteDataSourceImpl implements AuthRemoteDataSource {
             error: 'Login failed: Missing data in response',
           );
         }
-        final loginModel = LoginResponseModel.fromJson(dataMap);
+        var loginModel = LoginResponseModel.fromJson(dataMap);
+        if (loginModel.refreshToken.trim().isEmpty) {
+          // Mirrors TokenRefreshService._doRefresh's own fallback: this
+          // backend delivers the refresh token via `Set-Cookie` at least
+          // some of the time (see that method's doc comment — the web
+          // client relies on the browser echoing a JS-set, non-httpOnly
+          // cookie rather than reading it out of the JSON body). If login
+          // ever does the same and this JSON body simply never carries the
+          // field, missing this fallback here means the session NEVER gets
+          // a refresh token and force-logs-out the instant the access token
+          // expires — silently, with no error, hours or minutes later.
+          final cookieToken = TokenRefreshService.refreshTokenFromSetCookie(
+            response.headers,
+          );
+          if (cookieToken.isNotEmpty) {
+            AppLogger.d(
+              '[TokenRefresh] login body carried no refreshToken — recovered '
+              'one from Set-Cookie',
+            );
+            loginModel = loginModel.copyWith(refreshToken: cookieToken);
+          }
+        }
         if (loginModel.accessToken.isEmpty) {
           throw DioException(
             requestOptions: response.requestOptions,

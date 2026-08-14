@@ -456,6 +456,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     result.fold((_) {}, (conversation) {
       if (conversation.participants.isNotEmpty) {
         setState(() => _resolvedConversation = conversation);
+        // Also feed the cubit — read/delivered-by-all tick aggregation reads
+        // participants off cubit state, not this screen-local field (see
+        // ConversationThreadCubit.updateConversation's own doc).
+        _cubit.updateConversation(conversation);
       }
       // Independent of the participants check above — privateModeActive/
       // privateModeActivatedBy are meaningful even when this particular

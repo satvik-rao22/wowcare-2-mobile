@@ -2,10 +2,8 @@ import 'dart:async';
 
 import 'package:bloc/bloc.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
-import 'package:wowcare/domain/features/communication/usecases/get_unread_counts_by_type_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_total_unread_count_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import 'unread_badge_state.dart';
@@ -29,27 +27,15 @@ import 'unread_badge_state.dart';
 class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   UnreadBadgeCubit({
     required WatchUnreadCountForTypeUseCase watchUnreadCountForTypeUseCase,
-    required GetUnreadCountsByTypeUseCase getUnreadCountsByTypeUseCase,
     required WatchTotalUnreadCountUseCase watchTotalUnreadCountUseCase,
   }) : _watchUnreadCountForTypeUseCase = watchUnreadCountForTypeUseCase,
-       _getUnreadCountsByTypeUseCase = getUnreadCountsByTypeUseCase,
        _watchTotalUnreadCountUseCase = watchTotalUnreadCountUseCase,
        super(const UnreadBadgeState.initial()) {
     SchoolSwitchEvents.epoch.addListener(_handleSchoolSwitch);
-    // A thread marks itself read (POST .../receipts/read-all) the instant
-    // it's opened — but that alone doesn't touch this cubit, so the top
-    // bar badge just sat waiting for Firestore's own aggregate stream to
-    // eventually catch up (seconds later, and only once Firestore is
-    // live). Reacting here forces an immediate, authoritative refresh
-    // straight off the REST per-conversation endpoint instead.
-    _markedReadSub = MessagingEventService.instance.onConversationMarkedRead
-        .listen((_) => unawaited(_refreshAfterMarkedRead()));
   }
 
   final WatchUnreadCountForTypeUseCase _watchUnreadCountForTypeUseCase;
-  final GetUnreadCountsByTypeUseCase _getUnreadCountsByTypeUseCase;
   final WatchTotalUnreadCountUseCase _watchTotalUnreadCountUseCase;
-  StreamSubscription<String>? _markedReadSub;
 
   int _lastHandledEpoch = SchoolSwitchEvents.epoch.value;
 
@@ -64,12 +50,11 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   StreamSubscription<int>? _totalSubscription;
   int? _firestoreTotal;
 
-  /// Conversation-type keys whose live Firestore stream has delivered at least
-  /// once. Firestore's per-user inbox `unreadCount` is the source of truth (it
-  /// reflects reactions too), whereas the REST unread-summary counts only unread
-  /// MESSAGES. Once Firestore is live for a type we must not let a REST refetch
-  /// clobber that type's count back down — otherwise reaction-driven unread
-  /// disappears. This matches the web AppTopbar, which is Firestore-authoritative.
+  /// Conversation-type keys whose live Firestore stream has delivered at
+  /// least once. Distinguishes a genuine "just read" 0 from a spurious
+  /// first-emit 0 (custom-token sign-in still propagating, or an
+  /// empty/mismatched inbox path on initial connect) — see
+  /// [_subscribeToType]'s use of this.
   final Set<String> _firestoreDelivered = {};
 
   // ─── Lifecycle ───────────────────────────────────────────────────────────────
@@ -77,7 +62,6 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
   @override
   Future<void> close() {
     SchoolSwitchEvents.epoch.removeListener(_handleSchoolSwitch);
-    unawaited(_markedReadSub?.cancel());
     unawaited(_totalSubscription?.cancel());
     for (final sub in _subscriptions.values) {
       sub.cancel();
@@ -89,10 +73,11 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
 
   /// Start one lightweight Firestore stream per conversation type.
   ///
-  /// Also fetches counts from REST immediately so badges are visible before
-  /// the Firestore connection is established — matching the web bootstrap.
+  /// Firestore is the ONLY source for these counts — no REST fallback/
+  /// bootstrap. The badge shows nothing for the brief moment before the
+  /// first snapshot arrives, rather than risk ever showing a value that
+  /// didn't come from Firestore.
   void startWatching() {
-    unawaited(_bootstrapRest());
     for (final type in ConversationType.values) {
       _subscribeToType(type);
     }
@@ -112,32 +97,13 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
 
     // Stale counts/guards from the previous scope must not survive into the
     // new one — in particular, `_firestoreDelivered` would otherwise keep
-    // treating a type as "already live" from the OLD school and permanently
-    // suppress the NEW school's REST-seeded count for it.
+    // treating a type as "already live" from the OLD school and suppress a
+    // fresh first-emit-0 guard for the NEW school's stream.
     _counts.clear();
     _firestoreDelivered.clear();
     _firestoreTotal = null;
     emit(const UnreadBadgeState.initial());
     startWatching();
-  }
-
-  /// REST bootstrap with a few retries. The one-shot fetch can run before the session token /
-  /// org-school context is ready (returning nothing), leaving the badge blank until Firestore —
-  /// which is itself racing custom-token sign-in. Retrying a couple of times makes counts appear.
-  Future<void> _bootstrapRest() async {
-    const delaysSeconds = [0, 2, 5];
-    for (final d in delaysSeconds) {
-      if (d > 0) await Future.delayed(Duration(seconds: d));
-      if (isClosed) return;
-      if (await _fetchFromApi()) return;
-    }
-  }
-
-  /// Fallback: load counts once from REST API.
-  Future<void> loadUnreadCounts() async {
-    if (state.isLoading || state.isRefreshing) return;
-    emit(state.copyWith(isLoading: true, clearError: true));
-    await _fetchFromApi();
   }
 
   // ─── Private ─────────────────────────────────────────────────────────────────
@@ -149,9 +115,8 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
     _subscriptions[key] = _watchUnreadCountForTypeUseCase(type).listen((count) {
       if (isClosed) return;
       // A spurious 0 on the FIRST emit (custom-token sign-in still propagating, or an
-      // empty/mismatched inbox path) must not clobber a positive REST-seeded count — that was
-      // leaving the badge blank on mobile. Ignore a not-yet-live 0 that would hide the REST
-      // count; a real (>0) emit, or a later 0 once Firestore is already live (a genuine read),
+      // empty/mismatched inbox path) must not clobber whatever count is already showing.
+      // A real (>0) emit, or a later 0 once Firestore is already live (a genuine read),
       // still applies.
       final alreadyLive = _firestoreDelivered.contains(key);
       if (count == 0 && !alreadyLive && (_counts[key] ?? 0) > 0) {
@@ -170,7 +135,15 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
       ); // Firestore is now authoritative for this type
       _counts[key] = count;
       _emit();
-    }, onError: (_) => unawaited(_bootstrapRest()));
+    }, onError: (_) => _retrySubscribeToType(type));
+  }
+
+  /// No REST fallback on a stream error — Firestore is the only source for
+  /// these counts (see class doc). Retry the SAME Firestore stream instead.
+  void _retrySubscribeToType(ConversationType type) {
+    Future.delayed(const Duration(seconds: 3), () {
+      if (!isClosed) _subscribeToType(type);
+    });
   }
 
   /// One unfiltered listener over the whole `user_inbox` collection,
@@ -198,72 +171,5 @@ class UnreadBadgeCubit extends Cubit<UnreadBadgeState> {
         ),
       );
     }
-  }
-
-  /// Fired on every [MessagingEventService.onConversationMarkedRead] — a
-  /// conversation was just marked read (thread opened), so re-fetch
-  /// `/messages/unread-per-conversation` (grouped by type) and apply it to
-  /// every type it mentions immediately, rather than waiting for this
-  /// type's Firestore stream to independently notice the read receipt.
-  /// Types the response doesn't mention are left untouched.
-  Future<void> _refreshAfterMarkedRead() async {
-    final result = await _getUnreadCountsByTypeUseCase();
-    if (isClosed) return;
-    result.fold(
-      (failure) => debugPrint(
-        '[UnreadDebug][badge] post-mark-read refresh failed: '
-        '${failure.message}',
-      ),
-      (counts) {
-        debugPrint('[UnreadDebug][badge] post-mark-read REST refresh: $counts');
-        counts.forEach((type, count) {
-          _counts[type] = count;
-        });
-        _emit();
-      },
-    );
-  }
-
-  /// Top-bar badge total is `/messages/unread-per-conversation` summed
-  /// across every conversation (see [GetUnreadCountsByTypeUseCase] and
-  /// [UnreadBadgeState.totalUnread]) — confirmed reliable against real
-  /// traffic, unlike `/messages/unread-summary` which this used to call.
-  Future<bool> _fetchFromApi() async {
-    final result = await _getUnreadCountsByTypeUseCase();
-    if (isClosed) return false;
-    return result.fold(
-      (failure) {
-        emit(
-          state.copyWith(
-            isLoading: false,
-            isRefreshing: false,
-            errorMessage: failure.message ?? 'Failed to load unread counts.',
-          ),
-        );
-        return false;
-      },
-      (counts) {
-        debugPrint(
-          '[UnreadDebug][badge] REST per-conversation-by-type: $counts',
-        );
-        // Seed only real conversation-type keys that Firestore hasn't delivered
-        // yet. Skipping Firestore-delivered types keeps the reaction-inclusive
-        // live count; filtering to known types drops the REST "TOTAL" aggregate
-        // so it can't double-count in totalUnread.
-        for (final type in ConversationType.values) {
-          final key = type.toApiString();
-          if (_firestoreDelivered.contains(key)) {
-            debugPrint(
-              '[UnreadDebug][badge:$key] REST value ignored (Firestore already live)',
-            );
-            continue;
-          }
-          final value = counts[key];
-          if (value != null) _counts[key] = value;
-        }
-        _emit();
-        return true;
-      },
-    );
   }
 }
