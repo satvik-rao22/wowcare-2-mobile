@@ -598,7 +598,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // 'APP'.
     final String signInMethod = isQrSignIn
         ? 'QR'
-        : (isStaffAdmin && !widget.forceSelf ? 'APP' : 'GPS');
+        : (isStaffAdmin && !widget.forceSelf ? 'PIN' : 'GPS');
 
     // Whether this sign-in targets the current user's own record — drives
     // post-submit UI (geofence status sync, navigating back vs to the daily
