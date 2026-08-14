@@ -110,9 +110,12 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
         // screen for guardians and the admin one for staff/admins. This payload
         // is what a tap on the local notification routes to, so resolving it
         // persona-less sent parents to the (empty-for-them) admin billing screen.
+        // Admin persona also gets a direct deep-link for newsletter / pending
+        // approval activity notifications instead of the shared list screens.
         final destination = NotificationRouteResolver.resolve(
           message,
           isGuardian: _isGuardianPersona(),
+          isAdminPersona: _isAdminPersonaOnly(),
         );
         // Encode the target org/school into the payload so a tap on this local
         // notification (now, or after a kill/relaunch) can switch school before
@@ -184,6 +187,19 @@ class PushNotificationCubit extends Cubit<PushNotificationState> {
       final ctx = CoreUtils.rootNavigatorKey.currentContext;
       if (ctx == null || !ctx.mounted) return false;
       return ctx.read<RoleCubit>().isParent;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// True only for the `admin` persona bucket — deliberately narrower than
+  /// [RoleCubit.isAdmin], which also covers `staff`. See
+  /// [NotificationRouteResolver.resolve]'s `isAdminPersona` param.
+  bool _isAdminPersonaOnly() {
+    try {
+      final ctx = CoreUtils.rootNavigatorKey.currentContext;
+      if (ctx == null || !ctx.mounted) return false;
+      return ctx.read<RoleCubit>().role == 'admin';
     } catch (_) {
       return false;
     }

@@ -356,6 +356,56 @@ class AuthCubit extends Cubit<AuthState> {
     return 'This school is not active. Please contact your administrator.';
   }
 
+  /// Live (not cached) backend status per schoolCode for [organizationCode],
+  /// straight from `/api/v1/users/details`. Used to hide non-ACTIVE (e.g.
+  /// PENDING) schools from the org/school selection pickers during login —
+  /// at that point in the flow the `/users/details` cache RoleCubit
+  /// populates post-login may not exist yet, so the cached snapshot alone
+  /// isn't reliable here.
+  ///
+  /// Returns an empty map (fail open — nothing gets hidden) on any
+  /// verification error, so a backend hiccup never blocks org/school
+  /// selection outright.
+  Future<Map<String, String>> fetchSchoolStatusesForOrg(
+    String organizationCode,
+  ) async {
+    final org = organizationCode.trim();
+    if (org.isEmpty) return const <String, String>{};
+
+    final accessToken =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.accessToken,
+        ) ??
+        '').trim();
+    if (accessToken.isEmpty) return const <String, String>{};
+
+    List<Map<String, dynamic>> userDetails;
+    try {
+      userDetails = await _remoteDataSource.getUserDetails(
+        accessToken: accessToken,
+      );
+    } catch (e) {
+      AppLogger.w('[AUTH] Fetching school statuses failed (non-fatal): $e');
+      return const <String, String>{};
+    }
+
+    final statuses = <String, String>{};
+    for (final user in userDetails) {
+      final uOrg = (user['organizationCode'] ?? '').toString().trim();
+      if (uOrg != org) continue;
+      final schools = user['schools'];
+      if (schools is! List) continue;
+      for (final s in schools) {
+        if (s is! Map) continue;
+        final code = (s['schoolCode'] ?? '').toString().trim();
+        if (code.isEmpty) continue;
+        final status = (s['status'] ?? '').toString().trim().toUpperCase();
+        if (status.isNotEmpty) statuses[code] = status;
+      }
+    }
+    return statuses;
+  }
+
   Future<void> login({
     required String username,
     required String password,
