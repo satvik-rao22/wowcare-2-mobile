@@ -1,9 +1,11 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:get_it/get_it.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../data/features/notifications/datasources/fcm_registration_remote_data_source.dart';
 import '../../data/features/notifications/datasources/fcm_remote_data_source.dart';
@@ -498,9 +500,23 @@ Future<void> configureDependencies({String? baseUrl}) async {
   await isarCacheService.init();
   serviceLocator.registerLazySingleton<CacheService>(() => isarCacheService);
 
+  // Persistent, disk-backed cookie jar — the mobile equivalent of the web
+  // clients' `credentials: 'include'`. The backend's refresh-token cookie
+  // (set on /auth/login, read back on /auth/refresh) is captured and
+  // re-attached here automatically; nothing in app code parses Set-Cookie
+  // or constructs a Cookie header by hand. Stored under Application Support
+  // (not Documents — this is app-internal state, not user-facing) so it
+  // survives app restarts, not just hot reloads.
+  final cookieDir = await getApplicationSupportDirectory();
+  final cookieJar = PersistCookieJar(
+    storage: FileStorage('${cookieDir.path}/.cookies/'),
+  );
+  serviceLocator.registerLazySingleton<CookieJar>(() => cookieJar);
+
   serviceLocator.registerLazySingleton<ApiClient>(
     () => ApiClient(
       baseUrl: apiBaseUrl,
+      cookieJar: cookieJar,
       interceptors: <Interceptor>[
         AuthInterceptor(serviceLocator<StorageService>()),
       ],

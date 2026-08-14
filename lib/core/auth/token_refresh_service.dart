@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -141,16 +142,26 @@ class TokenRefreshService {
   }
 
   Future<String?> _doRefresh() async {
-    final refreshToken = await readRefreshToken();
-    if (refreshToken.isEmpty) {
-      AppLogger.d('[TokenRefresh] no refresh token stored');
+    final url = ApiPaths.url(ApiPaths.authRefresh);
+
+    // Diagnostic only — the actual Cookie header is no longer built by hand
+    // here. `_dio` (the app's single, shared Dio — see the class doc) has a
+    // CookieManager attached in ApiClient, which captures Set-Cookie on
+    // every response (login included) and re-attaches matching cookies on
+    // every request automatically, exactly mirroring the web clients'
+    // `credentials: 'include'`. Peeking at the jar just tells us up front
+    // whether this call has anything to send, so a truly session-less cold
+    // start doesn't burn a network round-trip it can't win.
+    final hasCookie = await _hasRefreshCookie(url);
+    if (!hasCookie) {
+      AppLogger.d('[TokenRefresh] no refresh-token cookie in jar for $url');
       return null;
     }
 
-    final url = ApiPaths.url(ApiPaths.authRefresh);
     final response = await _dio.post<dynamic>(
       url,
-      // Empty body — the cookie is the credential, exactly as on web.
+      // Empty body — the cookie (attached automatically by CookieManager)
+      // is the credential, exactly as on web.
       data: const <String, dynamic>{},
       options: Options(
         headers: <String, String>{
@@ -158,9 +169,6 @@ class TokenRefreshService {
           // is what opts the request into the gateway's strict header matrix
           // (see AuthInterceptor's exemption), and a PARTIAL strict set is 4xx'd.
           ...ApiHeaders.json,
-          // What `credentials: 'include'` does in the browser. The web cookie is
-          // JS-set (not httpOnly), so we hold the same value and echo it back.
-          'Cookie': 'refreshToken=${Uri.encodeComponent(refreshToken)}',
         },
         // Inspect the status ourselves rather than throwing.
         validateStatus: (_) => true,
@@ -190,19 +198,18 @@ class TokenRefreshService {
 
     await _storage.saveString(StorageKeys.accessToken, newAccess);
 
-    // Invariant 4 — persist a rotated refresh token when one comes back.
-    //
-    // With the cookie form the server most likely rotates via `Set-Cookie`
-    // rather than in the JSON body (that's what the browser would silently
-    // absorb), so check BOTH. Missing the rotation is the worst class of bug
-    // here: the next refresh presents a consumed token and the user is logged
-    // out hours later, seemingly at random.
+    // Invariant 4 — a rotated refresh token must survive. The jar
+    // (CookieManager, attached in ApiClient) already captured any rotated
+    // `Set-Cookie` automatically and will send it on the next refresh —
+    // nothing here builds a Cookie header by hand anymore. Some backends
+    // ALSO echo the rotated value in the JSON body; mirror that into the
+    // legacy Keychain store too, purely for backward-compatible diagnostics.
     final rotated =
         (body['refreshToken'] ?? body['refresh_token'] ?? '').toString().trim();
     final rotatedCookie = _refreshTokenFromSetCookie(response.headers);
     final newRefresh = rotated.isNotEmpty ? rotated : rotatedCookie;
-    if (newRefresh.isNotEmpty && newRefresh != refreshToken) {
-      AppLogger.d('[TokenRefresh] refresh token rotated — persisting');
+    if (newRefresh.isNotEmpty) {
+      AppLogger.d('[TokenRefresh] refresh token rotated — mirroring to Keychain');
       await saveRefreshToken(newRefresh);
     }
 
@@ -214,6 +221,22 @@ class TokenRefreshService {
 
     AppLogger.d('[TokenRefresh] access token renewed (expiresIn=${expiresIn}s)');
     return newAccess;
+  }
+
+  /// Peeks the shared cookie jar for a refresh-token-shaped cookie scoped to
+  /// [url], without making a request. Purely a fast-fail: skips a network
+  /// round-trip that a session-less cold start can't win anyway. On any read
+  /// failure this fails OPEN (returns true) — a jar glitch must not silently
+  /// block every refresh forever; the actual POST is the real source of truth.
+  Future<bool> _hasRefreshCookie(String url) async {
+    try {
+      final jar = serviceLocator<CookieJar>();
+      final cookies = await jar.loadForRequest(Uri.parse(url));
+      return cookies.any((c) => c.name.toLowerCase().contains('refresh'));
+    } catch (e) {
+      AppLogger.d('[TokenRefresh] cookie jar peek failed: $e');
+      return true;
+    }
   }
 
   /// Proactive refresh — the piece the web doesn't need. A browser tab stays
