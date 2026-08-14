@@ -8,6 +8,7 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
@@ -443,6 +444,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       return const GlobalScaffold(
         hasBackButton: false,
         bodyPadding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+        // This route (/admin-chat) is registered OUTSIDE the shell's
+        // StatefulShellRoute, so the nav bar's own route-derived resolution
+        // can't find a shell ancestor and would otherwise show nothing (or,
+        // before that fallback was fixed, incorrectly Dashboard) — force
+        // the correct Communication/Messages tab highlighted explicitly.
+        activeItemOverride: BottomNavigationItem.communication,
         body: ParentDirectMessagingScreen(
           conversationType: ConversationType.adminChat,
           notCreatedLabel: 'Start Conversation with Admin',

@@ -182,7 +182,13 @@ BottomNavigationItem itemForBranchIndex({
 /// list on every build gives each branch a new GlobalKey, which confuses
 /// Flutter's element lifecycle and triggers the
 /// "_elements.contains(element)" assertion.
-final _dashboardBranchKey = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
+/// Public (not `_`-prefixed like its sibling branch keys) because the
+/// Attendance popup (a modal, not a route) must push the parent's
+/// attendance profile onto THIS specific navigator, regardless of which
+/// branch's own `CustomNavigationBar` instance happened to handle the tap —
+/// see `AttendancePopupManager.openParentChildAttendance`'s doc for why an
+/// ambient `BuildContext` can't be trusted for this.
+final dashboardBranchKey = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
 final _classroomBranchKey = GlobalKey<NavigatorState>(debugLabel: 'classroom');
 final _activityBranchKey = GlobalKey<NavigatorState>(debugLabel: 'activity');
 final _messagingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'messaging');
@@ -636,7 +642,7 @@ final GoRouter appRouter = GoRouter(
         // drill-down — e.g. Staff → Edit Profile — still use
         // `context.push(...)` and live as siblings here.)
         StatefulShellBranch(
-          navigatorKey: _dashboardBranchKey,
+          navigatorKey: dashboardBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,

@@ -164,7 +164,17 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
     final BottomNavigationItem? item;
     if (shell == null) {
-      item = BottomNavigationItem.dashboard;
+      // No _ShellScope ancestor — this screen is one of the top-level
+      // routes registered OUTSIDE the StatefulShellRoute (e.g. /admin-chat,
+      // openConversation, the notification-deep-link routes), rendered by
+      // the root navigator as a sibling of the shell rather than one of its
+      // branches. Defaulting to Dashboard here used to actively claim
+      // Dashboard was active while viewing a completely different screen —
+      // same mistake the branch-0 drill-down case below already avoids.
+      // Screens that DO conceptually belong to a tab (e.g. AdminChatHostScreen
+      // -> Communication) should pass activeItemOverride explicitly, same
+      // pattern as StudentAttendanceProfile does for Attendance.
+      item = null;
     } else if (shell.currentIndex == 0) {
       // Branch 0 (the Dashboard branch) also hosts every non-tab drill-down
       // (Billing, Scheduling, Staff, Reports, …). Those screens are NOT
