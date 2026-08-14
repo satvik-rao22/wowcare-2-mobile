@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -17,8 +18,10 @@ import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.da
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
 import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
@@ -38,6 +41,7 @@ import 'package:wowcare/domain/features/communication/usecases/watch_conversatio
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/src/app_router.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -1652,6 +1656,19 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   String _currentUserCode = '';
   Timer? _timeout;
 
+  /// The staff member's own primary classroom — its Classroom Notes
+  /// conversation (if any) is always shown as the first row, regardless of
+  /// recency, so a staff member never has to go hunting for their own
+  /// classroom's Notes. Null for admin/unscoped personas or before this
+  /// resolves; see [resolveStaffPrimaryClassroomCode]'s own fail-open
+  /// contract.
+  String? _primaryClassroomCode;
+
+  /// Classroom code → name, resolved once so the primary classroom's Notes
+  /// row can show the classroom's actual name instead of the generic
+  /// "Classroom" fallback `displayTitle` uses for CLASSROOM_CHAT.
+  final Map<String, String> _classroomNames = <String, String>{};
+
   @override
   void initState() {
     super.initState();
@@ -1667,14 +1684,48 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
   /// Mirrors the messaging inbox: seed from the Isar cache for a fast first frame, then watch the
   /// Firestore inbox in realtime. Uses type: null so all conversation types are fetched — the REST
-  /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not —
-  /// but [_top2] excludes ConversationType.classroomChat (Classroom Notes) so this row surfaces
-  /// student-scoped chat (ROOM_CHAT) instead; Notes already has its own surface on the Classroom
-  /// screen.
+  /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
+  /// [_buildDisplayItems] pins the staff member's own primary classroom's Notes (if any) as the
+  /// first row and fills the rest with the most recent other conversation(s).
   Future<void> _init() async {
     final storage = serviceLocator<StorageService>();
     _currentUserCode =
         (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
+
+    // Fire-and-forget: don't block the fast cache-first-frame path below.
+    // Re-applies _buildDisplayItems once either resolves so already-loaded
+    // items get retroactively re-ranked.
+    unawaited(
+      resolveStaffPrimaryClassroomCode(storage: storage)
+          .then((code) {
+            if (!mounted) return;
+            setState(() {
+              _primaryClassroomCode = code;
+              _items = _buildDisplayItems(_items);
+            });
+          })
+          .catchError((_) {}),
+    );
+    unawaited(
+      storage.getString(StorageKeys.schoolCode).then((schoolCode) async {
+        final trimmed = (schoolCode ?? '').trim();
+        if (trimmed.isEmpty) return;
+        try {
+          final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+            schoolCode: trimmed,
+            onlyTypeClassroom: false,
+          );
+          if (!mounted) return;
+          setState(() {
+            _classroomNames.addAll({
+              for (final c in classrooms) c.code: c.name,
+            });
+          });
+        } catch (_) {
+          // Best-effort — the Notes row falls back to "Classroom".
+        }
+      }),
+    );
 
     _timeout = Timer(const Duration(seconds: 8), () {
       if (mounted) {
@@ -1688,7 +1739,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       cached.fold((_) {}, (list) {
         if (mounted) {
           setState(() {
-            _items = _top2(list);
+            _items = _buildDisplayItems(list);
             _loading = false;
           });
         }
@@ -1706,7 +1757,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             // If REST API found chats, merge them with current items to ensure
             // we don't miss anything, and take the top 2 most recent.
             if (list.isNotEmpty) {
-              _items = _top2([..._items, ...list]);
+              _items = _buildDisplayItems([..._items, ...list]);
               _loading = false;
             }
           });
@@ -1722,7 +1773,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
           // If Firestore returns items, use them (merged to preserve names if needed).
           // If it returns empty, only overwrite if we didn't get any from REST/Cache.
           if (list.isNotEmpty) {
-            _items = _top2([..._items, ...list]);
+            _items = _buildDisplayItems([..._items, ...list]);
           }
           _loading = false;
         });
@@ -1740,31 +1791,106 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     );
   }
 
-  List<ConversationEntity> _top2(List<ConversationEntity> list) {
-    final seen = <String>{};
-    final unique = <ConversationEntity>[];
+  /// Ranks a conversation by its own last MESSAGE, never `updatedAt`.
+  /// `updatedAt` is a generic "last modified" stamp that background sync
+  /// (unread-count reconciliation, participant/read-receipt updates, a
+  /// Firestore re-sync of the per-user inbox) can bump with NO new message
+  /// at all — using it as a recency fallback let a conversation nobody had
+  /// actually messaged in briefly jump to the top the moment one of those
+  /// unrelated fields ticked, then fall back once the next snapshot arrived
+  /// — the exact "keeps changing, not actually the most recent chat"
+  /// symptom. A conversation with no messages yet (`lastMessageAt == null`)
+  /// ranks as the oldest possible instant instead, so it can never
+  /// out-rank one with real activity.
+  DateTime _rankTime(ConversationEntity conversation) =>
+      conversation.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Row 1: the staff member's own primary classroom's Notes conversation —
+  /// pinned regardless of recency, so it's always reachable from here
+  /// rather than only when it happens to be the most recently active
+  /// conversation. Row 2: the single most recent OTHER conversation
+  /// (Room Chat/Staff Direct/Admin Chat, or a different classroom's Notes).
+  /// Falls back to the two most recent conversations overall when this
+  /// staff member has no primary classroom (admin/unscoped persona) or its
+  /// Notes conversation isn't in [list] yet.
+  List<ConversationEntity> _buildDisplayItems(List<ConversationEntity> list) {
+    // Callers pass `[..._items, ...freshSnapshot]` — the OLD top-2 selection
+    // first, the fresh cache/REST/Firestore data second. Cache, REST, and
+    // the live Firestore watch all resolve independently and can arrive in
+    // ANY order (a slow REST fallback can land after Firestore already
+    // delivered a newer snapshot) — so dedup can't just trust arrival
+    // position either way: "keep the first copy seen" freezes a
+    // conversation at whatever it was the moment it first entered `_items`
+    // (later messages never surface); "keep the last copy seen" is just as
+    // wrong the moment a stale response resolves AFTER a fresher one,
+    // silently reverting back. Compare each duplicate's own timestamp
+    // instead and keep whichever is actually more recent — the only
+    // ordering that can't be defeated by network/cache timing.
+    final byCode = <String, ConversationEntity>{};
     for (final item in list) {
       final code = item.code.trim();
-      if (code.isEmpty || seen.contains(code)) continue;
-      // Classroom Notes has its own surface on the Classroom screen — this
-      // row shows student-scoped chat (ROOM_CHAT) instead.
-      if (item.type == ConversationType.classroomChat) continue;
-      seen.add(code);
-      unique.add(item);
+      if (code.isEmpty) continue;
+      final existing = byCode[code];
+      if (existing == null || !_rankTime(item).isBefore(_rankTime(existing))) {
+        byCode[code] = item;
+      }
     }
-    unique.sort((a, b) {
-      final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
-      final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
-      return bt.compareTo(at);
-    });
-    return unique.take(2).toList(growable: false);
+    final unique = byCode.values.toList();
+    unique.sort((a, b) => _rankTime(b).compareTo(_rankTime(a)));
+
+    final primaryClassroom = _primaryClassroomCode?.trim();
+    ConversationEntity? primaryNotes;
+    if (primaryClassroom != null && primaryClassroom.isNotEmpty) {
+      for (final item in unique) {
+        if (item.type == ConversationType.classroomChat &&
+            item.classroomCode?.trim() == primaryClassroom) {
+          primaryNotes = item;
+          break;
+        }
+      }
+    }
+
+    if (primaryNotes == null) {
+      // No primary classroom, or its Notes conversation hasn't loaded into
+      // [list] yet — degrade to the two most recent conversations overall.
+      return unique.take(2).toList(growable: false);
+    }
+    final mostRecentOther = unique
+        .where((item) => item.code != primaryNotes!.code)
+        .firstOrNull;
+
+    return [
+      primaryNotes,
+      if (mostRecentOther != null) mostRecentOther,
+    ].take(2).toList(growable: false);
   }
 
   String _displayTitle(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat) {
+      final classroomCode = conversation.classroomCode?.trim() ?? '';
+      if (classroomCode.isNotEmpty) {
+        final classroomName = _classroomNames[classroomCode]?.trim();
+        if (classroomName != null && classroomName.isNotEmpty) {
+          return classroomName;
+        }
+      }
+      return 'Classroom';
+    }
     return conversation.displayTitle(_currentUserCode);
   }
 
   void _openConversation(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat &&
+        (conversation.classroomCode ?? '').trim().isNotEmpty) {
+      // Classroom Notes lives on the Classroom screen's own Notes tab (tab
+      // index 2 — see AppRoutes.classroom's route definition), not as a
+      // standalone thread — matches how every other Notes entry point in
+      // the app (notifications, the Classrooms list) opens it.
+      context.go(
+        '${AppRoutes.classroom}?classroomCode=${conversation.classroomCode!.trim()}&tab=2',
+      );
+      return;
+    }
     Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => ConversationThreadScreen(conversation: conversation),

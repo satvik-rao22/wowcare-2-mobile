@@ -29,12 +29,10 @@ import '../../../../domain/features/communication/usecases/get_message_receipts_
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
-import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'unread_badge_cubit.dart';
 import 'communication_state.dart';
 
 class CommunicationCubit extends Cubit<CommunicationState> {
@@ -441,12 +439,10 @@ class CommunicationCubit extends Cubit<CommunicationState> {
       staffStatuses: staffStatuses,
       search: search,
     );
-    // The top app bar's bell badge (UnreadBadgeCubit) is a separate app-wide
-    // singleton with its own Firestore stream, not touched by the above — a
-    // pull-to-refresh here could otherwise leave it visibly stale. Its own
-    // REST-vs-Firestore guard already protects against this clobbering a
-    // live count, so this is safe to call unconditionally.
-    unawaited(serviceLocator<UnreadBadgeCubit>().loadUnreadCounts());
+    // The top app bar's chat-bubble badge (UnreadBadgeCubit) is a separate
+    // app-wide singleton with its own always-live Firestore stream — it is
+    // NOT refreshed here. It needs no nudge: Firestore is its sole source of
+    // truth and updates it continuously regardless of what this screen does.
   }
 
   Future<void> loadConversations({
@@ -711,7 +707,8 @@ class CommunicationCubit extends Cubit<CommunicationState> {
         aggregatedDeliveredAt = m.time;
       }
 
-      if (aggregatedReadAt == m.readAt && aggregatedDeliveredAt == m.deliveredAt) {
+      if (aggregatedReadAt == m.readAt &&
+          aggregatedDeliveredAt == m.deliveredAt) {
         return m;
       }
       return Message(

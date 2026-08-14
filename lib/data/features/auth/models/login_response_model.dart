@@ -54,6 +54,21 @@ class LoginResponseModel {
     );
   }
 
+  LoginResponseModel copyWith({String? refreshToken}) {
+    return LoginResponseModel(
+      accessToken: accessToken,
+      refreshToken: refreshToken ?? this.refreshToken,
+      expiresIn: expiresIn,
+      refreshExpiresIn: refreshExpiresIn,
+      tokenType: tokenType,
+      userCode: userCode,
+      email: email,
+      displayName: displayName,
+      firstLogin: firstLogin,
+      roles: roles,
+    );
+  }
+
   Map<String, dynamic> toJson() {
     return {
       'accessToken': accessToken,

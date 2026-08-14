@@ -3530,6 +3530,24 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
             conversation.participants,
           );
         });
+        // Re-seed the recipient count read/delivered-by-all tick
+        // aggregation uses (CommunicationCubit.seedRecipientCount) with
+        // this fresher roster — the seed the caller screen provided at
+        // navigation time can be stale/incomplete for the exact same
+        // reason [_refreshedParticipants] exists, and unlike that field it
+        // is otherwise never corrected for the life of this screen (see
+        // seedRecipientCount's own doc), which was making a group message
+        // look "read by everyone" once just the FEW participants the stale
+        // seed knew about had actually read it.
+        final freshCount = conversation.participants
+            .where((p) => p.isActive && p.userCode != _currentUserCode)
+            .length;
+        if (freshCount > 0 && mounted) {
+          context.read<CommunicationCubit>().seedRecipientCount(
+            conversationCode,
+            freshCount,
+          );
+        }
       },
     );
   }

@@ -306,7 +306,6 @@ import '../../domain/features/communication/usecases/get_classroom_roster_presen
 import '../../domain/features/communication/usecases/toggle_private_mode_usecase.dart';
 import '../../domain/features/communication/usecases/mark_conversation_read_usecase.dart';
 import '../../domain/features/communication/usecases/get_unread_counts_per_conversation_usecase.dart';
-import '../../domain/features/communication/usecases/get_unread_counts_by_type_usecase.dart';
 import '../../domain/features/communication/usecases/get_message_receipts_usecase.dart';
 import '../../domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import '../../domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
@@ -1359,9 +1358,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetUnreadCountsPerConversationUseCase>(
     () => GetUnreadCountsPerConversationUseCase(serviceLocator()),
   );
-  serviceLocator.registerFactory<GetUnreadCountsByTypeUseCase>(
-    () => GetUnreadCountsByTypeUseCase(serviceLocator()),
-  );
   serviceLocator.registerFactory<GetMessageReceiptsUseCase>(
     () => GetMessageReceiptsUseCase(serviceLocator()),
   );
@@ -1372,7 +1368,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerLazySingleton<UnreadBadgeCubit>(
     () => UnreadBadgeCubit(
       watchUnreadCountForTypeUseCase: serviceLocator(),
-      getUnreadCountsByTypeUseCase: serviceLocator(),
       watchTotalUnreadCountUseCase: serviceLocator(),
     ),
   );

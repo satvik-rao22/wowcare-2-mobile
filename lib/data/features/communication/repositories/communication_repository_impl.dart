@@ -46,43 +46,25 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       (await storageService.getString(StorageKeys.userCode))?.trim() ?? '';
 
   /// The REST `/conversations/type/{TYPE}` list's own `unreadCount` field is
-  /// confirmed always empty — the backend doesn't compute it there.
-  /// `/messages/unread-per-conversation` is a separate, sibling endpoint to
-  /// the aggregate-by-type one (`/messages/unread-summary`, already relied
-  /// on for the top app bar's badge) that HAS been confirmed reliable
-  /// against real traffic. Prefer it; fall back to the participant field
-  /// (in case the backend starts populating it) only for a conversation the
-  /// per-conversation endpoint didn't mention.
+  /// confirmed always empty — the backend doesn't compute it there. This
+  /// used to fall back to a separate REST call
+  /// (`/messages/unread-per-conversation`) to fill it in, but unread counts
+  /// must come from Firestore only — no API call of any kind (see
+  /// [ConversationListCubit]/`UnreadBadgeCubit`'s own "Firestore is the sole
+  /// source of truth" contract, and this endpoint was firing on every
+  /// conversation-list load/refresh across every legacy messaging screen,
+  /// intermittently flashing a stale REST count before Firestore's own
+  /// listener corrected it). Derives only from data already in hand — the
+  /// per-user participant field on each conversation (also currently always
+  /// empty, but read on the chance the backend starts populating it) — no
+  /// network call. Firestore (via the cubit's own watch/reconciliation)
+  /// remains the real source for unread counts.
   Future<List<Conversation>> _resolveUnreadCounts(
     List<Conversation> conversations,
   ) async {
-    // Null (not just empty) distinguishes "endpoint call failed" from
-    // "endpoint succeeded and mentioned nothing" — the two need different
-    // fallbacks below.
-    Map<String, int>? perConversation;
-    try {
-      perConversation = await remoteDataSource.getUnreadCountsPerConversation();
-    } catch (_) {
-      // Endpoint unreachable — fall through to the participant-field guess.
-    }
     final userCode = await _userCode;
+    if (userCode.isEmpty) return conversations;
     return conversations.map((c) {
-      if (perConversation != null) {
-        // The endpoint only ever returns conversations with a NON-ZERO
-        // unread count — confirmed against a real payload that omitted
-        // every already-read conversation entirely. A conversation absent
-        // from a SUCCESSFUL response has genuinely been read (0 unread),
-        // not "unknown, guess from the participant field" — that
-        // participant field is confirmed always-empty from this endpoint
-        // anyway (see the comment further down), so falling back to it
-        // here just left a just-read conversation's badge stuck at
-        // whatever stale value it last held (e.g. across pull-to-refresh).
-        return c.copyWith(unreadCount: perConversation[c.code] ?? 0);
-      }
-      // Endpoint call itself failed — no authoritative data at all, so
-      // fall back to whatever signal is available rather than guessing 0
-      // for everything.
-      if (userCode.isEmpty) return c;
       ConversationParticipant? mine;
       for (final p in c.participants) {
         if (p.userCode == userCode) {

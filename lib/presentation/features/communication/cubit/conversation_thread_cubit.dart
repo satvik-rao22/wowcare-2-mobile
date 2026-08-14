@@ -327,6 +327,20 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     return true;
   }
 
+  /// Updates the conversation this thread is bound to with fresher data
+  /// (e.g. a REST re-fetch after a new message arrives) — notably its
+  /// `participants` list, which read/delivered-by-all tick aggregation
+  /// (see `EntityMessageTile`'s `_activeRecipientCount`) depends on.
+  /// Without this, that count stayed frozen at whatever the conversation
+  /// looked like the instant the screen first mounted, for the entire
+  /// session: a snapshot mid-sync at that exact moment could under-count
+  /// the true participants and make a message look "read by everyone" the
+  /// moment just a couple of the real recipients had read it.
+  void updateConversation(ConversationEntity conversation) {
+    if (isClosed) return;
+    emit(state.copyWith(conversation: conversation));
+  }
+
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
 
   /// Load messages from API. Used on first entry and as Firestore fallback.
