@@ -14,6 +14,8 @@ import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/entities/ratio_monitoring_classroom.dart';
+import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_or_create_classroom_chat_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
@@ -67,6 +69,54 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
   /// can fail when the widget is first inflated inside a LayoutBuilder during
   /// the layout phase before the InheritedWidget chain is fully resolved).
   RatioMonitoringCubit? _cubit;
+
+  // ── Notes (CLASSROOM_CHAT) unread badges ──────────────────────────────────
+  // Firestore-backed, one live stream per classroom code — mirrors
+  // ClassroomScreen's own Notes-tab badge (_maybeSyncNotesUnread /
+  // getClassroomNotesUnreadCountStream), generalized to resolve several
+  // classrooms at once since this card lists every classroom in one table.
+  final Map<String, Stream<int>> _notesUnreadStreams = {};
+  final Set<String> _notesUnreadResolving = {};
+
+  /// Returns the live Firestore unread-count stream for [classroomCode]'s
+  /// Notes chat, resolving (and caching) it on first request. Returns a
+  /// constant 0 stream until resolution completes or if the classroom has
+  /// no Notes chat yet — never touches REST.
+  Stream<int> _notesUnreadStreamFor(String classroomCode) {
+    final cached = _notesUnreadStreams[classroomCode];
+    if (cached != null) return cached;
+    if (classroomCode.isNotEmpty &&
+        !_notesUnreadResolving.contains(classroomCode)) {
+      _notesUnreadResolving.add(classroomCode);
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        if (!mounted) return;
+        try {
+          final conv = await serviceLocator<GetOrCreateClassroomChatUseCase>()
+              .findExisting(classroomCode);
+          final code = conv?.code ?? '';
+          if (!mounted || code.isEmpty) return;
+          setState(() {
+            _notesUnreadStreams[classroomCode] =
+                serviceLocator<ConversationEntityRepository>()
+                    .watchUnreadCountForConversation(code)
+                    .asBroadcastStream();
+          });
+        } catch (_) {
+          // No chat yet / transient failure — badge stays hidden.
+        }
+      });
+    }
+    return Stream.value(0);
+  }
+
+  /// Opens [room]'s classroom screen straight on the Notes tab (tab index 2
+  /// — see AppRoutes.classroom's `tab` query param in app_router.dart).
+  void _navigateToClassroomNotes(
+    BuildContext context,
+    RatioMonitoringClassroom room,
+  ) {
+    context.go('${ClassroomScreen.routeName}?classroomCode=${room.code}&tab=2');
+  }
 
   // ---------------------------------------------------------------------------
   // Lifecycle
@@ -337,14 +387,65 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               padding: const EdgeInsets.all(8.0),
               child: Row(
                 children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    name: room.name,
-                    classroomCode: room.code,
-                    size: 30,
-                    fontSize: 12,
-                    disableProfileLookupFallback: true,
-                    disableAttendanceStatusLookup: true,
+                  // Classroom avatar: Firestore-sourced Notes (CLASSROOM_CHAT)
+                  // unread count badge, tapping it opens that classroom's
+                  // Notes tab directly (distinct from the row's own tap
+                  // target, which opens the classroom screen's default tab).
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => _navigateToClassroomNotes(context, room),
+                    child: StreamBuilder<int>(
+                      stream: _notesUnreadStreamFor(room.code),
+                      builder: (context, snapshot) {
+                        final unread = snapshot.data ?? 0;
+                        return Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            DocumentImageWidget(
+                              fileUuid: '',
+                              name: room.name,
+                              classroomCode: room.code,
+                              size: 30,
+                              fontSize: 12,
+                              disableProfileLookupFallback: true,
+                              disableAttendanceStatusLookup: true,
+                            ),
+                            if (unread > 0)
+                              Positioned(
+                                top: -4,
+                                right: -4,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.white,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(
+                                    unread > 99 ? '99+' : unread.toString(),
+                                    style: const TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      color: Colors.white,
+                                      height: 1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
                   const SizedBox(width: 8.0),
                   Expanded(
