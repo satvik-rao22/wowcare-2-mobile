@@ -1366,9 +1366,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                 },
               ),
             ),
-
             // if (!_isMinimized) _buildCommunicationSection(),
-            if (!_isMinimized) const _CommunicationRowWidget(),
+            if (!_isMinimized)
+              _CommunicationRowWidget(studentCode: _selectedChildCode),
           ],
         ),
       ),
@@ -1381,7 +1381,9 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 // ---------------------------------------------------------------------------
 
 class _CommunicationRowWidget extends StatefulWidget {
-  const _CommunicationRowWidget();
+  const _CommunicationRowWidget({required this.studentCode, super.key});
+  
+  final String studentCode;
 
   @override
   State<_CommunicationRowWidget> createState() =>
@@ -1390,7 +1392,7 @@ class _CommunicationRowWidget extends StatefulWidget {
 
 class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   String _currentUserCode = '';
-  ConversationEntity? _conversation;
+  List<ConversationEntity> _items = [];
   bool _loading = true;
   StreamSubscription<List<ConversationEntity>>? _sub;
   Timer? _timeout;
@@ -1402,19 +1404,59 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   }
 
   @override
+  void didUpdateWidget(_CommunicationRowWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.studentCode != widget.studentCode) {
+      _sub?.cancel();
+      _timeout?.cancel();
+      _items = [];
+      _loading = true;
+      unawaited(_init());
+    }
+  }
+
+  @override
   void dispose() {
     _sub?.cancel();
     _timeout?.cancel();
     super.dispose();
   }
 
-  /// Admin Chat is v2-only (ConversationEntity/ConversationType.adminChat) —
-  /// it was never part of the legacy CommunicationCubit/Conversation stack
-  /// this row used to read from, so `conversationsByType[null]` could never
-  /// contain it and the row always fell back to its "no chat" state even
-  /// when a real Admin Chat conversation existed. Mirrors the staff-persona
-  /// "My Day" card's equivalent row (my_day_card.dart), which already reads
-  /// from this same v2 source.
+  void _updateState(List<ConversationEntity> list) {
+    if (!mounted) return;
+    
+    if (list.isEmpty && _items.isNotEmpty) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    // Merge existing items with the new list to avoid dropping conversations
+    // if a stream emits a partial update or an empty fallback list.
+    final all = <String, ConversationEntity>{};
+    for (final c in _items) all[c.code] = c;
+    for (final c in list) all[c.code] = c;
+
+    final mergedList = all.values.toList();
+    
+    final adminChats = mergedList.where((c) => c.type == ConversationType.adminChat).toList();
+    final staffChats = mergedList.where((c) => c.type == ConversationType.roomChat).toList();
+    
+    final newItems = <ConversationEntity>[];
+    if (adminChats.isNotEmpty) newItems.add(_latest(adminChats));
+    if (staffChats.isNotEmpty) newItems.add(_latest(staffChats));
+    
+    newItems.sort((a, b) {
+      final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
+      final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
+      return bt.compareTo(at);
+    });
+
+    setState(() {
+      _items = newItems;
+      _loading = false;
+    });
+  }
+
   Future<void> _init() async {
     _currentUserCode =
         (await serviceLocator<StorageService>().getString(
@@ -1427,47 +1469,27 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     });
 
     try {
-      final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
-          .call(type: ConversationType.adminChat);
-      cached.fold((_) {}, (list) {
-        if (mounted && list.isNotEmpty) {
-          setState(() {
-            _conversation = _latest(list);
-            _loading = false;
-          });
-        }
-      });
+      final cached = await serviceLocator<GetCachedConversationsEntityUseCase>().call();
+      cached.fold((_) {}, _updateState);
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
 
-    // Fallback to REST concurrently in case Firestore/cache is empty.
     unawaited(
       serviceLocator<GetConversationsEntityUseCase>()
-          .call(type: ConversationType.adminChat)
+          .call()
           .then((result) {
             if (!mounted) return;
-            result.fold((_) {}, (list) {
-              if (list.isNotEmpty) {
-                setState(() {
-                  _conversation = _latest(list);
-                  _loading = false;
-                });
-              }
-            });
+            result.fold((_) {}, _updateState);
           }),
     );
 
     _sub = serviceLocator<WatchConversationsUseCase>()
-        .call(type: ConversationType.adminChat)
+        .call()
         .listen(
           (list) {
-            if (!mounted) return;
             _timeout?.cancel();
-            setState(() {
-              if (list.isNotEmpty) _conversation = _latest(list);
-              _loading = false;
-            });
+            _updateState(list);
           },
           onError: (_) {
             if (!mounted) return;
@@ -1500,33 +1522,16 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final conversation = _conversation;
-
-    final displayTitle = conversation != null
-        ? conversation.displayTitle(_currentUserCode)
-        : '—';
-
-    final isSentByMe =
-        conversation != null && conversation.lastMessageBy == _currentUserCode;
+  Widget _buildConversationRow(ConversationEntity conversation) {
+    final displayTitle = conversation.displayTitle(_currentUserCode);
+    final isSentByMe = conversation.lastMessageBy == _currentUserCode;
     final senderPrefix = isSentByMe ? 'You: ' : '';
+    final preview = MessageContentProcessor.previewText(conversation.lastMessagePreview);
+    final displayText = preview.isNotEmpty ? '$senderPrefix$preview' : '';
+    final avatarUrl = conversation.displayAvatar(_currentUserCode) ?? '';
 
-    final preview = conversation != null
-        ? MessageContentProcessor.previewText(conversation.lastMessagePreview)
-        : '';
-    final displayText = preview.isNotEmpty
-        ? '$senderPrefix$preview'
-        : (_loading ? 'Loading…' : 'No recent conversations');
-
-    final avatarUrl = conversation?.displayAvatar(_currentUserCode) ?? '';
-
-    return Container(
+    return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: const BoxDecoration(
-        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        color: Color.fromRGBO(44, 99, 226, 0.05),
-      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
@@ -1566,14 +1571,49 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
           ),
           const SizedBox(width: 8),
           _ChatActionButton(
-            onPressed: () {
-              if (conversation != null) {
-                _openConversation(conversation);
-              } else {
-                MessagingEntryScreen.show(context);
-              }
-            },
+            onPressed: () => _openConversation(conversation),
           ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading && _items.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 20),
+        child: Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+
+    if (_items.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
+        color: Color.fromRGBO(44, 99, 226, 0.05),
+      ),
+      child: Column(
+        children: [
+          for (int i = 0; i < _items.length; i++) ...[
+            if (i > 0)
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: AppColors.primaryColor.withValues(alpha: 0.06),
+              ),
+            _buildConversationRow(_items[i]),
+          ],
         ],
       ),
     );

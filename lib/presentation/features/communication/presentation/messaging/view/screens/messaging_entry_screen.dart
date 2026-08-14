@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/src/app_router.dart';
+import '../../../../../classrooom/views/screens/classroom_screen.dart';
 
 /// Communication Launcher — opened from the message icon in [CustomAppBar].
 ///
@@ -207,7 +208,11 @@ class _MessagingLauncherSheetContent extends StatelessWidget {
                           verticalPadding: responsive.isTablet ? 26 : 22,
                           onTap: () {
                             Navigator.of(context).pop();
-                            context.go(AppRoutes.classroom);
+                            // If the ClassroomScreen is already alive (kept in memory by the shell),
+                            // this notifies it directly to switch its tab controller.
+                            ClassroomScreenNav.openClassroomTab(tabIndex: 2);
+                            // If the ClassroomScreen isn't alive yet, this route passes the initial tab.
+                            context.go('${AppRoutes.classroom}?tab=2');
                           },
                         ),
                       ],
