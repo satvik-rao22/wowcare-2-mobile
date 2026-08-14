@@ -333,12 +333,61 @@ class _ParentDirectMessagingScreenState
             // neither necessarily wins the gesture cleanly. Only wrap here
             // for the loading/error/no-conversation states, which have no
             // refresh indicator of their own.
-            if (_selectedConversation != null) return body;
-            return CustomRefreshIndicator(
-              onRefresh: _listCubit.refresh,
-              child: body,
+            final content = _selectedConversation != null
+                ? body
+                : CustomRefreshIndicator(
+                    onRefresh: _listCubit.refresh,
+                    child: body,
+                  );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildRefreshHeader(),
+                Expanded(child: content),
+              ],
             );
           },
+        ),
+      ),
+    );
+  }
+
+  /// Discoverable manual refresh — mirrors the pull-to-refresh
+  /// ([_listCubit.refresh]) so the parent isn't limited to the pull gesture,
+  /// which isn't obvious and can't be triggered once a thread is open (that
+  /// state owns its own pull-to-refresh instead — see the doc above where
+  /// this is used). Matches the discoverable refresh icon on the
+  /// staff/admin side (staff_messaging_tab.dart, admin_chat_host_screen.dart);
+  /// this screen (Room Chat AND Admin Chat, for the parent persona — see
+  /// [AdminChatHostScreen]) previously had no equivalent.
+  Widget _buildRefreshHeader() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            unawaited(_listCubit.refresh());
+            CoreUtils.showTopSnackBar(
+              context: context,
+              message: 'Refreshing…',
+              duration: const Duration(milliseconds: 1200),
+            );
+          },
+          child: Container(
+            margin: const EdgeInsets.only(bottom: 8),
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: const Color(0x33B1AFE9),
+            ),
+            child: const Icon(
+              Icons.refresh,
+              color: AppColors.primaryColor,
+              size: 20,
+            ),
+          ),
         ),
       ),
     );
@@ -431,8 +480,9 @@ class _ParentDirectMessagingScreenState
     final recipientCount =
         selected.participants.where((p) => p.isActive).length - 1;
     return BlocProvider<CommunicationCubit>(
-      create: (_) => serviceLocator<CommunicationCubit>()
-        ..seedRecipientCount(selected.code, recipientCount),
+      create: (_) =>
+          serviceLocator<CommunicationCubit>()
+            ..seedRecipientCount(selected.code, recipientCount),
       child: ParentMessagingThread(
         key: ValueKey(selected.code),
         parentInfo: _buildParentInfo(selected),

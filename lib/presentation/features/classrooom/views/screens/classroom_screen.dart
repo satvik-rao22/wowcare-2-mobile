@@ -26,6 +26,43 @@ import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 
+/// One value at a time: which classroom + tab an ALREADY-alive
+/// [ClassroomScreen] should jump to right now.
+class ClassroomTabCommand {
+  const ClassroomTabCommand({required this.classroomCode, required this.tabIndex});
+  final String classroomCode;
+  final int tabIndex;
+}
+
+/// Commands an already-mounted [ClassroomScreen] to select a classroom and
+/// switch tabs — e.g. from RatioMonitoringCard's Notes badge.
+///
+/// [ClassroomScreen] lives inside a `StatefulShellBranch`, so its State
+/// persists across navigations within that branch: a `context.go()` to it
+/// with new query params only ever triggers `didUpdateWidget`, never a
+/// fresh `initState()`, and relying on that rebuild to reliably fire (it
+/// didn't, in practice, across a branch switch) made cross-branch deep
+/// links into a specific tab flaky. This is a direct Dart-level channel
+/// instead — [ClassroomScreen] subscribes to it once in `initState` for its
+/// entire lifetime, so it works regardless of whether/when go_router
+/// chooses to rebuild the widget.
+class ClassroomScreenNav {
+  ClassroomScreenNav._();
+  static final ValueNotifier<ClassroomTabCommand?> command = ValueNotifier(
+    null,
+  );
+
+  static void openClassroomTab({
+    required String classroomCode,
+    required int tabIndex,
+  }) {
+    command.value = ClassroomTabCommand(
+      classroomCode: classroomCode,
+      tabIndex: tabIndex,
+    );
+  }
+}
+
 class ClassroomScreen extends StatefulWidget {
   const ClassroomScreen({
     super.key,
@@ -65,6 +102,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   // Whether [widget.initialClassroomCode] has already been honored, so a manual
   // dropdown change afterwards isn't overridden on the next rebuild.
   bool _appliedInitialClassroom = false;
+  // Set by a [ClassroomScreenNav] command — takes priority over
+  // [widget.initialClassroomCode] in [_pickDefaultClassroom] when present.
+  String? _pendingClassroomCode;
   bool _defaultClassroomPrefsResolved = false;
   String? _staffPrimaryClassroomCode;
   bool _defaultClassroomApplied = false;
@@ -86,9 +126,26 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     _tabController.addListener(() {
       setState(() {});
     });
+    ClassroomScreenNav.command.addListener(_handleNavCommand);
 
     _resolveStaffPersonaRestrictions();
     _resolveDefaultClassroomPrefs();
+  }
+
+  /// Reacts to a [ClassroomScreenNav.openClassroomTab] call — see that
+  /// class's doc for why this exists instead of relying on `didUpdateWidget`.
+  void _handleNavCommand() {
+    final cmd = ClassroomScreenNav.command.value;
+    if (cmd == null || !mounted) return;
+    ClassroomScreenNav.command.value = null; // consume once
+    setState(() {
+      _pendingClassroomCode = cmd.classroomCode;
+      _appliedInitialClassroom = false;
+      _defaultClassroomApplied = false;
+    });
+    if (_tabController.index != cmd.tabIndex) {
+      _tabController.animateTo(cmd.tabIndex);
+    }
   }
 
   @override
@@ -126,16 +183,19 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   Classroom? _pickDefaultClassroom(List<Classroom> classrooms) {
     if (classrooms.isEmpty) return null;
 
-    final targetCode = widget.initialClassroomCode?.trim();
+    final targetCode =
+        (_pendingClassroomCode ?? widget.initialClassroomCode)?.trim();
     if (!_appliedInitialClassroom &&
         targetCode != null &&
         targetCode.isNotEmpty) {
       for (final c in classrooms) {
         if (c.code.trim() == targetCode) {
           _appliedInitialClassroom = true;
+          _pendingClassroomCode = null;
           return c;
         }
       }
+      _pendingClassroomCode = null;
       return classrooms.first;
     }
 
@@ -190,10 +250,20 @@ class _ClassroomScreenState extends State<ClassroomScreen>
         _defaultClassroomApplied = false;
       });
     }
+    // Same deal for the requested starting tab (e.g. the Ratio Monitoring
+    // dashboard card's Notes badge targets tab 2) — TabController only
+    // honors `initialIndex` in initState, so on an already-alive
+    // ClassroomScreen (this branch's state persists across navigations)
+    // the tab would otherwise silently stay wherever it was left.
+    if (oldWidget.initialTabIndex != widget.initialTabIndex &&
+        _tabController.index != widget.initialTabIndex) {
+      _tabController.animateTo(widget.initialTabIndex);
+    }
   }
 
   @override
   void dispose() {
+    ClassroomScreenNav.command.removeListener(_handleNavCommand);
     _tabController.dispose();
     _studentsScrollController.dispose();
     _staffScrollController.dispose();

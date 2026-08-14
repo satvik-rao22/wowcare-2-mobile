@@ -151,43 +151,78 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         // hours hits on relaunch, and why this rarely surfaced on web (a
         // browser tab's token usually doesn't go stale within the tab's
         // lifetime).
+        //
+        // This is only a PRE-EMPTIVE check though: ensureFreshToken() trusts
+        // the locally-recorded expiry timestamp and silently no-ops (no
+        // refresh call, no log line) whenever that says the token still has
+        // life left — even if the server has actually invalidated it for an
+        // unrelated reason (revoked session, clock drift, a shorter real
+        // TTL than what got recorded). So getLoginContext below can still
+        // 401 despite this. Handle that the same way
+        // SessionExpiredInterceptor handles every OTHER endpoint's 401: one
+        // forced refresh (bypassing ensureFreshToken's "looks fine" guess)
+        // and ONE retry, before concluding the session is genuinely dead.
         await TokenRefreshService.instance.ensureFreshToken();
         final freshAccessToken =
             (await storage.getString(StorageKeys.accessToken) ?? '').trim();
 
         final authRemote = serviceLocator<AuthRemoteDataSource>();
-        final contextData = await authRemote.getLoginContext(
-          accessToken: freshAccessToken.isNotEmpty
+
+        Future<Map<String, dynamic>?> fetchContext(String token) async {
+          try {
+            return await authRemote.getLoginContext(accessToken: token);
+          } on DioException catch (e) {
+            if (e.response?.statusCode == 401) return null;
+            rethrow;
+          }
+        }
+
+        var contextData = await fetchContext(
+          freshAccessToken.isNotEmpty
               ? freshAccessToken
               : cachedLogin.accessToken,
         );
-        await authLocal.saveLoginContext(contextData);
-        await authLocal.saveOrgAndSchoolFromContext(contextData);
+        if (contextData == null) {
+          final renewedToken = await TokenRefreshService.instance
+              .refreshSession();
+          if (renewedToken != null && renewedToken.isNotEmpty) {
+            contextData = await fetchContext(renewedToken);
+          }
+        }
+        if (contextData == null) {
+          // Genuinely dead even after a forced refresh + retry — not just
+          // "not yet worth refreshing" per ensureFreshToken's guess.
+          sessionExpired = true;
+        } else {
+          await authLocal.saveLoginContext(contextData);
+          await authLocal.saveOrgAndSchoolFromContext(contextData);
 
-        final rawRedirect = contextData['redirectUrl'];
-        redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
+          final rawRedirect = contextData['redirectUrl'];
+          redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
 
-        final orgCode =
-            (contextData['LastLoginOrganizationCode'] as String?)?.trim() ?? '';
-        final schoolCode =
-            (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
+          final orgCode =
+              (contextData['LastLoginOrganizationCode'] as String?)?.trim() ??
+              '';
+          final schoolCode =
+              (contextData['LastLoginSchoolCode'] as String?)?.trim() ?? '';
 
-        if (orgCode.isNotEmpty) {
-          final existingSchoolCode =
-              (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
-          final effectiveSchoolCode = schoolCode.isNotEmpty
-              ? schoolCode
-              : existingSchoolCode;
+          if (orgCode.isNotEmpty) {
+            final existingSchoolCode =
+                (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+            final effectiveSchoolCode = schoolCode.isNotEmpty
+                ? schoolCode
+                : existingSchoolCode;
 
-          if (effectiveSchoolCode.isNotEmpty) {
-            await authLocal.setSelectedOrgAndSchool(
-              organizationCode: orgCode,
-              schoolCode: effectiveSchoolCode,
-              schoolName: '',
-            );
-          } else {
-            // Only org known; keep any existing school selection.
-            await storage.saveString(StorageKeys.organizationCode, orgCode);
+            if (effectiveSchoolCode.isNotEmpty) {
+              await authLocal.setSelectedOrgAndSchool(
+                organizationCode: orgCode,
+                schoolCode: effectiveSchoolCode,
+                schoolName: '',
+              );
+            } else {
+              // Only org known; keep any existing school selection.
+              await storage.saveString(StorageKeys.organizationCode, orgCode);
+            }
           }
         }
       }

@@ -5,6 +5,7 @@ import 'package:equatable/equatable.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/notifications/realtime/notification_realtime_data_source.dart';
 import 'package:wowcare/domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
@@ -25,10 +26,12 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
     required GetNotificationUnreadCountsUseCase getUnreadCounts,
     required NotificationRealtimeDataSource realtime,
     required StorageService storage,
-  })  : _getUnreadCounts = getUnreadCounts,
-        _realtime = realtime,
-        _storage = storage,
-        super(const NotificationBadgeState.initial());
+  }) : _getUnreadCounts = getUnreadCounts,
+       _realtime = realtime,
+       _storage = storage,
+       super(const NotificationBadgeState.initial()) {
+    SchoolSwitchEvents.epoch.addListener(_handleContextSwitch);
+  }
 
   final GetNotificationUnreadCountsUseCase _getUnreadCounts;
   final NotificationRealtimeDataSource _realtime;
@@ -38,6 +41,7 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
   String _watchedUserCode = '';
   Timer? _debounce;
   Timer? _retry;
+  int _lastHandledEpoch = SchoolSwitchEvents.epoch.value;
 
   /// Fetches the authoritative unread / unclicked totals from
   /// `GET /api/v1/notification/inbox/unread-counts`. Failures are swallowed so a
@@ -90,8 +94,8 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
     // snapshot lands (pure latency optimisation).
     await load();
 
-    final userCode =
-        (await _storage.getString(StorageKeys.userCode) ?? '').trim();
+    final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     if (userCode.isEmpty) {
       AppLogger.d('[NotifBadge] startWatching skipped — no userCode yet');
       return;
@@ -104,6 +108,28 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
     _firestoreSub = _realtime
         .watchNotificationChanges(userCode: userCode)
         .listen((_) => _scheduleRefresh(), onError: (_) {});
+  }
+
+  /// Re-fetches the REST count after a school OR persona switch (both fire
+  /// [SchoolSwitchEvents.notifySwitched] — see custom_drawer.dart,
+  /// active_school_switcher.dart, user_profile_screen.dart).
+  ///
+  /// The Firestore listener itself doesn't need to change — it's keyed by
+  /// userCode only, per [startWatching]'s own doc — but the REST count can
+  /// still be scoped server-side to the currently active role/school (sent
+  /// via the request's `x-role`/`x-school-code`/`x-organization-code`
+  /// headers), so it must be re-read under the NEW scope. Without this the
+  /// bell badge kept showing whatever was last loaded under the PREVIOUS
+  /// persona: [startWatching] normally re-runs on every [GlobalScaffold]
+  /// mount, but a persona switch deliberately does NOT remount it (branch
+  /// screens stay alive in an `IndexedStack`) — the exact gap
+  /// [UnreadBadgeCubit] already closes for the messaging badge via this
+  /// same epoch listener.
+  void _handleContextSwitch() {
+    if (isClosed) return;
+    if (SchoolSwitchEvents.epoch.value == _lastHandledEpoch) return;
+    _lastHandledEpoch = SchoolSwitchEvents.epoch.value;
+    unawaited(load());
   }
 
   /// Coalesces bursts of Firestore changes into a single REST refresh.
@@ -153,6 +179,7 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
 
   @override
   Future<void> close() {
+    SchoolSwitchEvents.epoch.removeListener(_handleContextSwitch);
     _debounce?.cancel();
     _retry?.cancel();
     _firestoreSub?.cancel();

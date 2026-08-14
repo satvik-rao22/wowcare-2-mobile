@@ -506,9 +506,18 @@ class FirebaseConversationRealtimeDataSource
     attach = (int attempt) {
       inner?.cancel();
       runZonedGuarded(() {
-        inner = query.snapshots().listen(
+        inner = query.snapshots(includeMetadataChanges: true).listen(
           (snapshot) {
             if (controller.isClosed) return;
+            // Firestore's on-device persistence can serve a stale snapshot
+            // (e.g. the pre-mark-read unreadCount) as the FIRST emission on a
+            // freshly attached listener, before the server round-trip
+            // confirms the real value — that's what let a just-read
+            // conversation's badge flash back to a non-zero count on
+            // re-subscribe (dashboard badge, classroom Notes badge). Only
+            // forward server-confirmed snapshots; a genuinely offline device
+            // just waits rather than showing a value the user already read.
+            if (snapshot.metadata.isFromCache) return;
             controller.add(
               snapshot.docs.fold<int>(
                 0,
