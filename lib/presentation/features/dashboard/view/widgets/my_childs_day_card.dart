@@ -1613,6 +1613,18 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   Widget build(BuildContext context) {
     final conversation = _conversation;
 
+    // No conversation to show, and we're done looking — the row itself
+    // (placeholder avatar, "No recent conversations", chat button) added
+    // nothing actionable, just dead space. Skip it entirely rather than
+    // rendering an empty-state row. While still loading, render nothing
+    // rather than a "Loading…" row that may immediately disappear.
+    if (conversation == null && !_loading) {
+      return const SizedBox.shrink();
+    }
+    if (_loading) {
+      return const SizedBox.shrink();
+    }
+
     final displayTitle = conversation != null
         ? conversation.displayTitle(_currentUserCode)
         : '—';
