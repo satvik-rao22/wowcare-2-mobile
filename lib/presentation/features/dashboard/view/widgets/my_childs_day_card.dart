@@ -578,19 +578,25 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   // ----- Timer display -----
 
-  Widget _buildTimeUnit(String value, String label) {
+  Widget _buildTimeUnit(
+    String value,
+    String label,
+    double fontSize,
+    double unitWidth,
+    double labelFontSize,
+  ) {
     return Column(
       children: [
         SizedBox(
-          width: 64,
+          width: unitWidth,
           child: Text(
             value,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               color: AppColors.primaryColor,
-              fontSize: 48,
+              fontSize: fontSize,
               fontWeight: FontWeight.w600,
-              fontFeatures: [FontFeature.tabularFigures()],
+              fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ),
@@ -598,7 +604,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           label,
           style: TextStyle(
             color: AppColors.primaryColor.withValues(alpha: 0.5),
-            fontSize: 12,
+            fontSize: labelFontSize,
             height: 0.1,
           ),
         ),
@@ -606,14 +612,19 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
     );
   }
 
-  Widget _buildTimeSeparator() {
-    return const Padding(
-      padding: EdgeInsets.fromLTRB(2, 0, 2, 10),
+  Widget _buildTimeSeparator(double fontSize) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        fontSize * 0.04,
+        0,
+        fontSize * 0.04,
+        fontSize * 0.2,
+      ),
       child: Text(
         ':',
         style: TextStyle(
           color: AppColors.primaryColor,
-          fontSize: 48,
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -622,19 +633,86 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
   Widget _buildAlignedTimerDisplay(Duration duration) {
     final bool showDays = duration.inHours >= 24;
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        if (showDays) ...[
-          _buildTimeUnit(duration.inDays.toString(), 'DD'),
-          _buildTimeSeparator(),
-        ],
-        _buildTimeUnit(_twoDigits(duration.inHours.remainder(24)), 'HH'),
-        _buildTimeSeparator(),
-        _buildTimeUnit(_twoDigits(duration.inMinutes.remainder(60)), 'MM'),
-        _buildTimeSeparator(),
-        _buildTimeUnit(_twoDigits(duration.inSeconds.remainder(60)), 'SS'),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final double availableWidth = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : 400.0;
+
+        final int numUnits = showDays ? 4 : 3;
+        final int numSeparators = numUnits - 1;
+
+        // Based on original dimensions: unit was 64px for 48px font (ratio ~1.34)
+        // Separator had 4px padding + colon width at 48px font (ratio ~0.35)
+        const double unitRatio = 1.34;
+        const double separatorRatio = 0.35;
+        final double totalRatio =
+            (numUnits * unitRatio) + (numSeparators * separatorRatio);
+
+        // Account for user text scaling preferences
+        double textScaleFactor = 1.0;
+        try {
+          // Use textScaler if available (newer Flutter versions)
+          textScaleFactor = MediaQuery.textScalerOf(context).scale(1.0);
+        } catch (_) {
+          // Fallback for older Flutter versions
+          // ignore: deprecated_member_use
+          textScaleFactor = MediaQuery.of(context).textScaleFactor;
+        }
+
+        // Calculate maximum font size that fits the available width
+        final double calculatedFontSize =
+            availableWidth / (totalRatio * textScaleFactor);
+
+        // Enforce boundaries. Original font size was 48.
+        final double fontSize = calculatedFontSize.clamp(14.0, 48.0);
+
+        // Scale widths by textScaleFactor to ensure containers grow with text
+        final double scaledFontSize = fontSize * textScaleFactor;
+        final double unitWidth = scaledFontSize * unitRatio;
+
+        // Scale label proportionally, original was 12 for 48 font (0.25)
+        final double labelFontSize = (fontSize * 0.25).clamp(10.0, 12.0);
+
+        return Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            if (showDays) ...[
+              _buildTimeUnit(
+                duration.inDays.toString(),
+                'DD',
+                fontSize,
+                unitWidth,
+                labelFontSize,
+              ),
+              _buildTimeSeparator(fontSize),
+            ],
+            _buildTimeUnit(
+              _twoDigits(duration.inHours.remainder(24)),
+              'HH',
+              fontSize,
+              unitWidth,
+              labelFontSize,
+            ),
+            _buildTimeSeparator(fontSize),
+            _buildTimeUnit(
+              _twoDigits(duration.inMinutes.remainder(60)),
+              'MM',
+              fontSize,
+              unitWidth,
+              labelFontSize,
+            ),
+            _buildTimeSeparator(fontSize),
+            _buildTimeUnit(
+              _twoDigits(duration.inSeconds.remainder(60)),
+              'SS',
+              fontSize,
+              unitWidth,
+              labelFontSize,
+            ),
+          ],
+        );
+      },
     );
   }
 
