@@ -110,18 +110,45 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
       final map = <String, (int, int)>{};
       for (final d in days) {
+        // A day is off/non-working when School Settings marks it INACTIVE or
+        // non-regular (e.g. a holiday override) — exclude it so students can't
+        // be scheduled on it. Null status is treated as active (unknown data
+        // shouldn't hide a day that used to work).
+        final isOff = (d.status != null && !d.isActive) || !d.isRegular;
+        if (isOff) continue;
         map[d.dayOfWeek] = (
           _localTimeStringToMinutes(d.startTime),
           _localTimeStringToMinutes(d.endTime),
         );
       }
       if (!mounted) return;
+
+      // Drop any already-set schedule entries that fall on a day the school
+      // no longer works (stale data from before this school-settings change,
+      // or an off day carried over from `initialSchedule`).
+      final removedOffDays = <String>[];
+      _schedule.removeWhere((day, _) {
+        final isWorkingDay = map.containsKey(day.toUpperCase());
+        if (!isWorkingDay) removedOffDays.add(day);
+        return !isWorkingDay;
+      });
+
       setState(() {
         _schoolMinutesByDay = map;
         if (!_hasInitialSchedule) {
           _initializeDefaultSchedule(overwriteExisting: true);
         }
       });
+
+      if (removedOffDays.isNotEmpty && mounted) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message:
+              '${removedOffDays.join(', ')} removed from the schedule — '
+              'the school is closed that day.',
+          isError: true,
+        );
+      }
     } catch (_) {
       // Keep fallback hours if API fails.
     }
@@ -349,6 +376,15 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     for (final entry in _schedule.entries) {
       final day = entry.key;
       final times = entry.value;
+
+      if (!_schoolMinutesByDay.containsKey(day.toUpperCase())) {
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: '$day is a school off day and cannot be scheduled.',
+          isError: true,
+        );
+        return;
+      }
 
       if (times['start'] == null || times['end'] == null) {
         CoreUtils.showTopSnackBar(
