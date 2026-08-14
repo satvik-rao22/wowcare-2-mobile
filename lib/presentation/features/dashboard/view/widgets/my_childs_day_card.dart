@@ -1469,15 +1469,17 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 class _CommunicationRowWidget extends StatefulWidget {
   const _CommunicationRowWidget({super.key, required this.studentCode});
 
-  /// The child THIS card is currently showing. Admin Chat conversations are
-  /// per-student — a parent with more than one child can have one Admin
-  /// Chat conversation per sibling, so this row must only ever consider the
-  /// one belonging to this specific child. Previously unfiltered: it picked
-  /// the single most-recently-active Admin Chat conversation across ALL of
-  /// the parent's children, so a sibling's more recent message could show
-  /// up on THIS child's day card instead of this child's own conversation
-  /// (or "No recent conversations" when this child had one but a sibling's
-  /// was more recent).
+  /// The child THIS card is currently showing. Admin Chat and Room Chat
+  /// conversations are both per-student — a parent with more than one
+  /// child can have one of each per sibling, so this row must only ever
+  /// consider conversations belonging to this specific child, across BOTH
+  /// types, and show whichever of the two was most recently active.
+  /// Previously unfiltered: it picked the single most-recently-active
+  /// Admin Chat conversation across ALL of the parent's children, so a
+  /// sibling's more recent message could show up on THIS child's day card
+  /// instead of this child's own conversation (or "No recent
+  /// conversations" when this child had one but a sibling's was more
+  /// recent).
   final String studentCode;
 
   @override
@@ -1485,12 +1487,41 @@ class _CommunicationRowWidget extends StatefulWidget {
       _CommunicationRowWidgetState();
 }
 
+/// Both types this row considers, in no particular order — the more recent
+/// of the two (by studentCode-filtered `lastMessageAt`) is what's shown.
+const _kCommunicationRowTypes = [
+  ConversationType.adminChat,
+  ConversationType.roomChat,
+];
+
 class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   String _currentUserCode = '';
-  ConversationEntity? _conversation;
+
+  /// Most-recent conversation per type, filtered to [widget.studentCode].
+  /// Populated independently per type (each has its own cache/REST/watch
+  /// pipeline below) so one type resolving doesn't block or clobber the
+  /// other; [_conversation] recomputes the winner from both every time
+  /// either slot updates.
+  final Map<ConversationType, ConversationEntity?> _byType = {};
+
   bool _loading = true;
-  StreamSubscription<List<ConversationEntity>>? _sub;
+  final Map<ConversationType, StreamSubscription<List<ConversationEntity>>>
+  _subs = {};
   Timer? _timeout;
+
+  /// Whichever of [_byType]'s entries is most recently active. Null when
+  /// this child has neither an Admin Chat nor a Room Chat conversation yet.
+  ConversationEntity? get _conversation {
+    ConversationEntity? winner;
+    for (final c in _byType.values) {
+      if (c == null) continue;
+      if (winner == null || _recencyOf(c) > _recencyOf(winner)) winner = c;
+    }
+    return winner;
+  }
+
+  int _recencyOf(ConversationEntity c) =>
+      (c.lastMessageAt ?? c.updatedAt).millisecondsSinceEpoch;
 
   @override
   void initState() {
@@ -1500,18 +1531,20 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
   @override
   void dispose() {
-    _sub?.cancel();
+    for (final sub in _subs.values) {
+      sub.cancel();
+    }
     _timeout?.cancel();
     super.dispose();
   }
 
-  /// Admin Chat is v2-only (ConversationEntity/ConversationType.adminChat) —
-  /// it was never part of the legacy CommunicationCubit/Conversation stack
-  /// this row used to read from, so `conversationsByType[null]` could never
-  /// contain it and the row always fell back to its "no chat" state even
-  /// when a real Admin Chat conversation existed. Mirrors the staff-persona
-  /// "My Day" card's equivalent row (my_day_card.dart), which already reads
-  /// from this same v2 source.
+  /// Admin Chat and Room Chat are both v2-only (ConversationEntity) — never
+  /// part of the legacy CommunicationCubit/Conversation stack this row used
+  /// to read from, so `conversationsByType[null]` could never contain
+  /// either and the row always fell back to its "no chat" state even when a
+  /// real conversation existed. Mirrors the staff-persona "My Day" card's
+  /// equivalent row (my_day_card.dart), which already reads from this same
+  /// v2 source.
   Future<void> _init() async {
     _currentUserCode =
         (await serviceLocator<StorageService>().getString(
@@ -1523,14 +1556,20 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       if (mounted) setState(() => _loading = false);
     });
 
+    for (final type in _kCommunicationRowTypes) {
+      unawaited(_watchType(type));
+    }
+  }
+
+  Future<void> _watchType(ConversationType type) async {
     try {
       final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
-          .call(type: ConversationType.adminChat);
+          .call(type: type);
       cached.fold((_) {}, (list) {
         final mine = _latest(list);
         if (mounted && mine != null) {
           setState(() {
-            _conversation = mine;
+            _byType[type] = mine;
             _loading = false;
           });
         }
@@ -1542,14 +1581,14 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     // Fallback to REST concurrently in case Firestore/cache is empty.
     unawaited(
       serviceLocator<GetConversationsEntityUseCase>()
-          .call(type: ConversationType.adminChat)
+          .call(type: type)
           .then((result) {
             if (!mounted) return;
             result.fold((_) {}, (list) {
               final mine = _latest(list);
               if (mine != null) {
                 setState(() {
-                  _conversation = mine;
+                  _byType[type] = mine;
                   _loading = false;
                 });
               }
@@ -1557,15 +1596,15 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
           }),
     );
 
-    _sub = serviceLocator<WatchConversationsUseCase>()
-        .call(type: ConversationType.adminChat)
+    _subs[type] = serviceLocator<WatchConversationsUseCase>()
+        .call(type: type)
         .listen(
           (list) {
             if (!mounted) return;
             _timeout?.cancel();
             setState(() {
               final mine = _latest(list);
-              if (mine != null) _conversation = mine;
+              if (mine != null) _byType[type] = mine;
               _loading = false;
             });
           },
@@ -1591,11 +1630,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
         .where((c) => c.studentCode == widget.studentCode)
         .toList();
     if (mine.isEmpty) return null;
-    mine.sort((a, b) {
-      final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
-      final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
-      return bt.compareTo(at);
-    });
+    mine.sort((a, b) => _recencyOf(b).compareTo(_recencyOf(a)));
     return mine.first;
   }
 

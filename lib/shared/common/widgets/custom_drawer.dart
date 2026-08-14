@@ -900,58 +900,53 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   expanded,
                                 ),
                             children: [
-                              if (showParentMessagingDrawer ||
-                                  showAdminChatDrawer)
-                                _NestedExpansionTile(
-                                  title: 'Parent Messaging',
-                                  icon: MediaRes.parentMessaging,
-                                  children: [
-                                    if (showParentMessagingDrawer)
-                                      DrawerListTile(
-                                        title: 'Room Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.classroom_drawer_icon,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
-                                        ),
-                                        trailing: _UnreadBadge(
-                                          count: unreadState.unreadFor(
-                                            ConversationType.roomChat,
-                                          ),
-                                        ),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          context.go(
-                                            MessagingScreen
-                                                .parentMessagingRoute,
-                                          );
-                                        },
-                                      ),
-                                    if (showAdminChatDrawer)
-                                      DrawerListTile(
-                                        title: 'Admin Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.parentMessaging,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
-                                        ),
-                                        trailing: _UnreadBadge(
-                                          count: unreadState.unreadFor(
-                                            ConversationType.adminChat,
-                                          ),
-                                        ),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          context.go(
-                                            AdminChatHostScreen.routeName,
-                                          );
-                                        },
-                                      ),
-                                  ],
+                              // Flattened directly under "Messages" (no
+                              // intermediate "Parent Messaging" nesting) —
+                              // Room Chat and Admin Chat are the two options
+                              // a parent needs, one tap away.
+                              if (showParentMessagingDrawer)
+                                DrawerListTile(
+                                  title: 'Room Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.classroom_drawer_icon,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.roomChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(
+                                      MessagingScreen.parentMessagingRoute,
+                                    );
+                                  },
+                                ),
+                              if (showAdminChatDrawer)
+                                DrawerListTile(
+                                  title: 'Admin Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.parentMessaging,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.adminChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(
+                                      AdminChatHostScreen.routeName,
+                                    );
+                                  },
                                 ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(

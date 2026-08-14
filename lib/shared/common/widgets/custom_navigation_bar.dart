@@ -302,7 +302,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       case BottomNavigationItem.activities:
         return 'Activities';
       case BottomNavigationItem.communication:
-        return isParent ? 'Communication' : 'Messages';
+        return 'Messages';
       case BottomNavigationItem.billing:
         return 'Billing';
     }

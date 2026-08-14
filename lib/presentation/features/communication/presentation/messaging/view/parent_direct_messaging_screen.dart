@@ -157,7 +157,7 @@ class _ParentDirectMessagingScreenState
     if (mounted) setState(() => _resolvingExistence = true);
 
     final repo = serviceLocator<ConversationEntityRepository>();
-    final isAdmin = widget.conversationType == 'ADMIN_CHAT';
+    final isAdmin = widget.conversationType == ConversationType.adminChat;
     final result = isAdmin
         ? await repo.findAdminChatConversation(studentCode: code)
         : await repo.findRoomChatConversation(studentCode: code);
