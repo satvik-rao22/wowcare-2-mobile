@@ -39,6 +39,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/context_switch_cache_cleaner.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -153,6 +154,24 @@ class _CustomDrawerState extends State<CustomDrawer> {
             },
           )
           .toList();
+
+      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval)
+      // from the switcher, using the cached `/users/details` snapshot. An
+      // unknown/missing status is treated as active so a stale snapshot
+      // never hides a school the user should be able to reach.
+      if (orgCode != null && orgCode.isNotEmpty) {
+        final cachedUsers = await readCachedUserAccessDetailsUsers(storage);
+        if (cachedUsers.isNotEmpty) {
+          schoolsForOrg = schoolsForOrg.where((e) {
+            final status = schoolStatusFromUserDetails(
+              cachedUsers,
+              orgCode,
+              e['schoolCode'] ?? '',
+            );
+            return status == null || status == 'ACTIVE';
+          }).toList();
+        }
+      }
 
       if (!mounted) return;
       setState(() {
@@ -356,6 +375,25 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     final authLocal = serviceLocator<AuthLocalDataSource>();
     final authCubit = context.read<AuthCubit>();
+
+    // Re-verify from the backend (not just the possibly-stale dropdown list)
+    // that the target school is still active before switching into it.
+    if (isSchoolChanged) {
+      final blockMessage = await authCubit.verifySchoolActiveOrBlockMessage(
+        organizationCode: _currentOrgCode!,
+        schoolCode: schoolCode,
+      );
+      if (blockMessage != null) {
+        if (!mounted) return;
+        setState(() => _isSchoolDropdownOpen = false);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: blockMessage,
+          isError: true,
+        );
+        return;
+      }
+    }
 
     // Persist new selection locally (used by all APIs).
     await authLocal.setSelectedOrgAndSchool(
