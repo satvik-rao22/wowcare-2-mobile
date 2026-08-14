@@ -67,9 +67,16 @@ class NotificationRouteResolver {
   /// open a different screen per persona (guardians → parent billing; staff /
   /// admins → the dashboard billing screen), which the action string alone can't
   /// express — so the caller passes the resolved persona in.
+  ///
+  /// [isAdminPersona] is true only for the `admin` persona bucket (not
+  /// `staff`/`parent`/`kiosk`). For the admin persona, a newsletter or a
+  /// pending-approval activity notification skips the generic list screen and
+  /// deep-links straight to that specific newsletter/activity using the code
+  /// carried in the payload.
   static NotificationDestination? resolve(
     PushNotification n, {
     bool isGuardian = false,
+    bool isAdminPersona = false,
   }) {
     final action = NotificationAction.canonical(n.action);
 
@@ -83,6 +90,11 @@ class NotificationRouteResolver {
         n,
         highlight: _kInvoice,
       );
+    }
+
+    if (isAdminPersona) {
+      final adminDestination = _adminNewsletterOrApprovalDestination(n, action);
+      if (adminDestination != null) return adminDestination;
     }
 
     final builder = _table[action];
@@ -252,6 +264,44 @@ class NotificationRouteResolver {
     'activity_code',
   ];
   static const _kInvoice = ['invoiceCode', 'invoice_code'];
+  // Backend doesn't send a newsletter-identifying code yet (only
+  // organizationCode/schoolCode) — these are the keys to watch for once it
+  // does. Until then [_adminNewsletterOrApprovalDestination] falls back to the
+  // newsletter list, same as every other persona gets today.
+  static const _kNewsletter = ['newsletterCode', 'newsletter_code'];
+
+  /// Admin-persona deep-links for [NotificationAction.newsletterSent] and the
+  /// two activity "pending approval" actions: straight to that specific
+  /// newsletter/activity screen instead of the shared list/feed everyone else
+  /// lands on. Returns null (caller falls through to [_table]) when the action
+  /// isn't one of these, or the payload doesn't carry the code needed to
+  /// target a specific item.
+  static NotificationDestination? _adminNewsletterOrApprovalDestination(
+    PushNotification n,
+    String action,
+  ) {
+    if (action == NotificationAction.newsletterSent) {
+      final code = _firstCode(n, _kNewsletter);
+      if (code == null) return null;
+      return NotificationDestination(
+        path: AppRoutes.newsletterPreviewByCode,
+        queryParameters: {'code': code},
+      );
+    }
+    if (action == NotificationAction.incidentApprovalPending ||
+        action == NotificationAction.incidentAcknowledgementPending) {
+      final code = _firstCode(n, _kActivity);
+      if (code == null) return null;
+      final query = <String, String>{'code': code};
+      final student = _firstCode(n, _kStudent);
+      if (student != null) query['studentCode'] = student;
+      return NotificationDestination(
+        path: AppRoutes.activityApprovalByCode,
+        queryParameters: query,
+      );
+    }
+    return null;
+  }
 
   /// Billing actions are routed by the current user's persona in [resolve]
   /// (guardian → parent billing, staff/admin → dashboard billing) rather than by
