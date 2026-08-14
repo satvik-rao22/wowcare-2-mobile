@@ -347,16 +347,22 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         );
         if (prefilled != null) _activityDate = prefilled;
       }
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
-      final parameterValues =
-          _buildParameterValues(details, desc, staffCode, amountOz!);
+      final parameterValues = _buildParameterValues(
+        details,
+        desc,
+        staffCode,
+        amountOz!,
+        resolvedActivityTime.localTimeHms,
+      );
 
       final message = await _editor.createActivity(
         activityTypeCode: activityTypeCode,
@@ -445,16 +451,22 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
         return _typeError;
       }
 
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
-      final parameterValues =
-          _buildParameterValues(details, desc, staffCode, amountOz!);
+      final parameterValues = _buildParameterValues(
+        details,
+        desc,
+        staffCode,
+        amountOz!,
+        resolvedActivityTime.localTimeHms,
+      );
 
       final remainingNorm = imageDeliveryUrlsFromAttachmentRows(
         state.detailAttachmentRows,
@@ -618,6 +630,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     String description,
     String staffCode,
     double amountOz,
+    String localTimeHms,
   ) {
     String? findParamCode(String contains) {
       final target = contains.toLowerCase();
@@ -639,8 +652,7 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     String two(int v) => v.toString().padLeft(2, '0');
     final localDate =
         '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-    final localTime =
-        '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+    final localTime = localTimeHms;
     final staffPresentCode = (_staffPresentCode ?? staffCode).trim();
 
     return <Map<String, dynamic>>[

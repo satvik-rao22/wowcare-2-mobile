@@ -953,18 +953,18 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
       );
       final localDate =
           '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
-      final localTime =
-          '${_activityTime!.hour.toString().padLeft(2, '0')}:${_activityTime!.minute.toString().padLeft(2, '0')}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
 
       final attachments = _uploadedAttachments.isNotEmpty
           ? _uploadedAttachments
@@ -1175,13 +1175,13 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
 
       final localDate =
           '${_activityDate!.year.toString().padLeft(4, '0')}-${_activityDate!.month.toString().padLeft(2, '0')}-${_activityDate!.day.toString().padLeft(2, '0')}';
-      final localTime =
-          '${_activityTime!.hour.toString().padLeft(2, '0')}:${_activityTime!.minute.toString().padLeft(2, '0')}:00';
-      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
+      final localTime = resolvedActivityTime.localTimeHms;
+      final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final desc = _descriptionController.text.trim();
       if (desc.length > ActivityDescriptionLimits.maxLength) {

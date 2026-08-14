@@ -21,6 +21,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -255,6 +256,106 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Verifies (via `/api/v1/users/details`, the backend's source of truth for
+  /// school approval status) that at least one school tied to this login's
+  /// roles is ACTIVE. Returns null when login may proceed; otherwise returns
+  /// the message to surface to the user.
+  ///
+  /// Roles with no schoolCode (e.g. org-level admins) are not school-scoped
+  /// and are skipped. A verification failure (network error, etc.) never
+  /// blocks login — it's treated the same as an unknown/missing status.
+  Future<String?> _pendingSchoolBlockMessage(
+    LoginResponseModel response,
+  ) async {
+    final schoolRoles = response.roles
+        .where(
+          (r) =>
+              r.organizationCode.trim().isNotEmpty &&
+              r.schoolCode.trim().isNotEmpty,
+        )
+        .toList();
+    if (schoolRoles.isEmpty) return null;
+
+    List<Map<String, dynamic>> userDetails;
+    try {
+      userDetails = await _remoteDataSource.getUserDetails(
+        accessToken: response.accessToken,
+      );
+    } catch (e) {
+      AppLogger.w(
+        '[AUTH] School status verification failed (non-fatal): $e',
+      );
+      return null;
+    }
+
+    final relevantStatuses = schoolRoles
+        .map(
+          (r) => schoolStatusFromUserDetails(
+            userDetails,
+            r.organizationCode,
+            r.schoolCode,
+          ),
+        )
+        .where((s) => s != null)
+        .cast<String>()
+        .toList();
+
+    // Only block when EVERY school tied to this login is explicitly
+    // non-active. An unknown/missing status is treated as active so a
+    // backend hiccup or unmapped school never locks a legitimate user out.
+    if (relevantStatuses.isNotEmpty &&
+        relevantStatuses.every((s) => s != 'ACTIVE')) {
+      if (relevantStatuses.contains('PENDING')) {
+        return 'Your school account is pending approval. Please contact your administrator.';
+      }
+      return 'Your school account is not active. Please contact your administrator.';
+    }
+    return null;
+  }
+
+  /// Verifies from the backend (`/api/v1/users/details`, live — not the
+  /// cached snapshot) that [schoolCode] under [organizationCode] is ACTIVE
+  /// before a school switch (drawer dropdown, org-switch flow, or a
+  /// notification-driven switch) is allowed to proceed. Returns the message
+  /// to surface and block on, or null when the switch may proceed.
+  ///
+  /// Fails open: a verification error (network, missing token, etc.) never
+  /// blocks the switch, matching the login-time check's policy.
+  Future<String?> verifySchoolActiveOrBlockMessage({
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final org = organizationCode.trim();
+    final school = schoolCode.trim();
+    if (org.isEmpty || school.isEmpty) return null;
+
+    final accessToken =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.accessToken,
+        ) ??
+        '').trim();
+    if (accessToken.isEmpty) return null;
+
+    List<Map<String, dynamic>> userDetails;
+    try {
+      userDetails = await _remoteDataSource.getUserDetails(
+        accessToken: accessToken,
+      );
+    } catch (e) {
+      AppLogger.w(
+        '[AUTH] School status verification failed (non-fatal): $e',
+      );
+      return null;
+    }
+
+    final status = schoolStatusFromUserDetails(userDetails, org, school);
+    if (status == null || status == 'ACTIVE') return null;
+    if (status == 'PENDING') {
+      return 'This school is pending approval. Please contact your administrator.';
+    }
+    return 'This school is not active. Please contact your administrator.';
+  }
+
   Future<void> login({
     required String username,
     required String password,
@@ -284,6 +385,15 @@ class AuthCubit extends Cubit<AuthState> {
               'Super Admin accounts can only be accessed through the web portal.',
             ),
           );
+          return;
+        }
+
+        // SCHOOL STATUS CHECK: block before anything is cached or persisted
+        // when every school tied to this login is not yet ACTIVE (e.g. still
+        // PENDING approval), so no mobile session is established.
+        final blockMessage = await _pendingSchoolBlockMessage(response);
+        if (blockMessage != null) {
+          emit(AuthError(blockMessage));
           return;
         }
 

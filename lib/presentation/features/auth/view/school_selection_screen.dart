@@ -15,6 +15,9 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 
 class SchoolSelectionScreen extends StatefulWidget {
   const SchoolSelectionScreen({
@@ -42,6 +45,7 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
   String? _selectedSchoolCode;
   bool _hasTriggeredLoad = false;
   bool _isSubmitting = false;
+  List<Map<String, dynamic>> _cachedUserDetails = const <Map<String, dynamic>>[];
 
   String _formatRole(String role) {
     if (role.isEmpty) return '';
@@ -60,7 +64,18 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
     if (!_hasTriggeredLoad) {
       _hasTriggeredLoad = true;
       context.read<AuthCubit>().loadSchoolsForOrg(widget.selectedOrg);
+      _loadCachedSchoolStatuses();
     }
+  }
+
+  // Loads the cached `/users/details` snapshot so PENDING (non-active)
+  // schools can be hidden from this picker. Unknown/missing status is
+  // treated as active — see [schoolStatusFromUserDetails].
+  Future<void> _loadCachedSchoolStatuses() async {
+    final storage = serviceLocator<StorageService>();
+    final users = await readCachedUserAccessDetailsUsers(storage);
+    if (!mounted || users.isEmpty) return;
+    setState(() => _cachedUserDetails = users);
   }
 
   @override
@@ -135,12 +150,24 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
             orgDisplayName = orgNames[orgIndex];
           }
 
-          final List<Map<String, String>> schoolEntries =
+          final List<Map<String, String>> allSchoolEntries =
               widget.schoolsForOrg != null
                   ? widget.schoolsForOrg!
                   : (state is AuthLoaded
                       ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
                       : const <Map<String, String>>[]);
+          // Hide schools that are not yet ACTIVE (e.g. still PENDING
+          // approval) from the picker.
+          final schoolEntries = _cachedUserDetails.isEmpty
+              ? allSchoolEntries
+              : allSchoolEntries.where((e) {
+                  final status = schoolStatusFromUserDetails(
+                    _cachedUserDetails,
+                    widget.selectedOrg,
+                    e['schoolCode'] ?? '',
+                  );
+                  return status == null || status == 'ACTIVE';
+                }).toList();
           final schools = schoolEntries
               .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
               .where((s) => s.isNotEmpty)
@@ -389,6 +416,20 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
                                 final schoolCode = _selectedSchoolCode ??
                                     _selectedSchool!;
                                 try {
+                                  final blockMessage = await authCubit
+                                      .verifySchoolActiveOrBlockMessage(
+                                    organizationCode: widget.selectedOrg,
+                                    schoolCode: schoolCode,
+                                  );
+                                  if (blockMessage != null) {
+                                    if (!context.mounted) return;
+                                    CoreUtils.showTopSnackBar(
+                                      context: context,
+                                      message: blockMessage,
+                                      isError: true,
+                                    );
+                                    return;
+                                  }
                                   await authCubit.updateLoginContext(
                                     lastLoginOrganizationCode:
                                         widget.selectedOrg,

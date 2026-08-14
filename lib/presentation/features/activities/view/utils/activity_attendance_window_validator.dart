@@ -9,7 +9,17 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
+
+/// A transferred student's classroom-scoped "at time" sign-in record can
+/// still be keyed to the classroom they were transferred OUT of, so the
+/// scoped check below can return "not signed in" for a student who is
+/// genuinely present. This window bounds a classroom-agnostic fallback
+/// (today's sign-in status, no classroom filter) to only kick in for
+/// effectively-"now" submissions, so a real backdated/future check still
+/// gets the stricter classroom-scoped answer.
+const Duration _fallbackSignInCheckTolerance = Duration(minutes: 10);
 
 Future<Map<String, bool>> _fetchStudentSignedInStatusAtTime({
   required ApiClient apiClient,
@@ -194,12 +204,39 @@ Future<bool> validateStudentsWithinAttendanceWindow({
         classroomCode: classroomCode,
         instantUtc: instantUtc,
       );
-      final notSignedInNames = <String>[
+      var notSignedInCodes = <String>[
         for (final code in studentCodes)
-          if (studentStatus[code] != true)
-            (studentNameByCode[code] == null || studentNameByCode[code]!.isEmpty)
-                ? 'Selected student'
-                : studentNameByCode[code]!,
+          if (studentStatus[code] != true) code,
+      ];
+
+      // The classroom-scoped check above can false-positive for a student who
+      // was transferred to another classroom but never signed out: their
+      // active sign-in record may still be keyed to the OLD classroom, so a
+      // query scoped to the (new) classroomCode finds nothing. For
+      // effectively-"now" submissions, re-check those specific students with
+      // a classroom-agnostic "today" status before blocking them.
+      if (notSignedInCodes.isNotEmpty &&
+          instantUtc
+                  .difference(ServerTimeService.instance.nowUtc())
+                  .abs() <=
+              _fallbackSignInCheckTolerance) {
+        try {
+          final fallbackStatus = await serviceLocator<AttendanceRepository>()
+              .getStudentTodaySignInStatusMap(notSignedInCodes);
+          notSignedInCodes = notSignedInCodes
+              .where((code) =>
+                  fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN')
+              .toList(growable: false);
+        } catch (_) {
+          // Fallback is best-effort; keep the scoped result on failure.
+        }
+      }
+
+      final notSignedInNames = <String>[
+        for (final code in notSignedInCodes)
+          (studentNameByCode[code] == null || studentNameByCode[code]!.isEmpty)
+              ? 'Selected student'
+              : studentNameByCode[code]!,
       ];
       if (notSignedInNames.isNotEmpty) {
         CoreUtils.showTopSnackBar(

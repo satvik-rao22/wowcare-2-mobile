@@ -1655,10 +1655,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       final attachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
@@ -1725,8 +1726,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       String two(int v) => v.toString().padLeft(2, '0');
       final localDate =
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
 
       final whatValueForParam = sameWhatAndNotes && additionalNotes.isNotEmpty
           ? '$whatHappened\n\n$additionalNotes'
@@ -1994,10 +1994,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         return;
       }
 
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       final newAttachments = await _ensureIncidentMediaUploaded(
         classroomCode: classroomCode,
@@ -2087,8 +2088,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       String two(int v) => v.toString().padLeft(2, '0');
       final localDate =
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
 
       final whatValueForParam = sameWhatAndNotes && additionalNotes.isNotEmpty
           ? '$whatHappened\n\n$additionalNotes'

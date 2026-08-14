@@ -38,6 +38,37 @@ List<String> distinctActiveRolesForCurrentSchoolFromUserDetails(
   return out;
 }
 
+/// Backend status (upper-cased, e.g. `ACTIVE`, `PENDING`) for [schoolCode]
+/// within [organizationCode] from a `/users/details` payload snapshot.
+/// Returns null when the school isn't present in the snapshot — callers
+/// should treat an unknown status as active so a stale/incomplete snapshot
+/// never locks a legitimate user out.
+String? schoolStatusFromUserDetails(
+  List<Map<String, dynamic>> users,
+  String organizationCode,
+  String schoolCode,
+) {
+  final org = organizationCode.trim();
+  final school = schoolCode.trim();
+  if (org.isEmpty || school.isEmpty) return null;
+
+  for (final user in users) {
+    final uOrg = (user['organizationCode'] ?? '').toString().trim();
+    if (uOrg != org) continue;
+    final schools = user['schools'];
+    if (schools is! List) continue;
+    for (final s in schools) {
+      if (s is! Map) continue;
+      final m = Map<String, dynamic>.from(s);
+      final sc = (m['schoolCode'] ?? '').toString().trim();
+      if (sc != school) continue;
+      final status = (m['status'] ?? '').toString().trim().toUpperCase();
+      return status.isEmpty ? null : status;
+    }
+  }
+  return null;
+}
+
 Future<List<Map<String, dynamic>>> readCachedUserAccessDetailsUsers(
   StorageService storage,
 ) async {

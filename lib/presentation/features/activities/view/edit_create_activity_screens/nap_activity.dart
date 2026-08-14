@@ -689,10 +689,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       final staffParamCode = findParamCode('staff');
       final descParamCode = findParamCode('description');
 
-      final t = _activityTime!;
       final localDate =
           '${_activityDate!.year}-${_two(_activityDate!.month)}-${_two(_activityDate!.day)}';
-      final localTime = '${_two(t.hour)}:${_two(t.minute)}:00';
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       // Ensure the API payload uses the attendance date chosen on student selection.
@@ -702,10 +700,12 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
+      final localTime = resolvedActivityTime.localTimeHms;
 
       final parameterValues = <Map<String, dynamic>>[
         if (dateParamCode != null && dateParamCode.trim().isNotEmpty)
@@ -840,11 +840,11 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         return;
       }
 
-      final t = _activityTime!;
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
@@ -866,7 +866,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
 
       final localDate =
           '${_activityDate!.year}-${_two(_activityDate!.month)}-${_two(_activityDate!.day)}';
-      final localTime = '${_two(t.hour)}:${_two(t.minute)}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final parameterValues = <Map<String, dynamic>>[

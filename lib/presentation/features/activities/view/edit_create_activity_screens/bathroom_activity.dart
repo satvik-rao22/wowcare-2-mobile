@@ -987,10 +987,11 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       if (prefilled != null) {
         _activityDate = prefilled;
       }
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       // POST /api/v1/activities — same payload as MedicationActivityScreen (multi-student fan-out via studentCodes).
       final details = await _editor.getActivityTypeDetails(
@@ -1037,8 +1038,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       String two(int v) => v.toString().padLeft(2, '0');
       final localDate =
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final typeEntry = _paramForOptionOrValue(
@@ -1215,10 +1215,11 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
         return;
       }
 
-      final activityDateIso = await activityUtcIsoFromSchoolWallClock(
+      final resolvedActivityTime = await resolveActivityDateTime(
         date: _activityDate!,
         time: _activityTime!,
       );
+      final activityDateIso = resolvedActivityTime.iso;
 
       final details = await _editor.getActivityTypeDetails(
         code: activityTypeCode,
@@ -1264,8 +1265,7 @@ class _BathroomActivityScreenState extends State<BathroomActivityScreen> {
       String two(int v) => v.toString().padLeft(2, '0');
       final localDate =
           '${_activityDate!.year}-${two(_activityDate!.month)}-${two(_activityDate!.day)}';
-      final localTime =
-          '${two(_activityTime!.hour)}:${two(_activityTime!.minute)}:00';
+      final localTime = resolvedActivityTime.localTimeHms;
       final staffPresentCode = ((_staffPresentCode ?? staffCode).trim());
 
       final typeEntry = _paramForOptionOrValue(

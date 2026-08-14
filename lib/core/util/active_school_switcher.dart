@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/context_switch_cache_cleaner.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -82,6 +83,29 @@ Future<bool> switchActiveSchoolIfNeeded({
   final String? schoolName = (match['schoolName'] ?? '').trim().isNotEmpty
       ? match['schoolName']!.trim()
       : null;
+
+  // Verify from the backend that the notified school is still ACTIVE before
+  // switching into it — a notification can be stale (e.g. sent before the
+  // school's approval was revoked, or the school is still PENDING).
+  final blockMessage = await authCubit.verifySchoolActiveOrBlockMessage(
+    organizationCode: org,
+    schoolCode: school,
+  );
+  if (blockMessage != null) {
+    AppLogger.d(
+      '[FCM] Notification targets a non-active school ($org / $school) — '
+      'staying in current school. Reason: $blockMessage',
+    );
+    final ctx = CoreUtils.rootNavigatorKey.currentContext;
+    if (ctx != null && ctx.mounted) {
+      CoreUtils.showTopSnackBar(
+        context: ctx,
+        message: blockMessage,
+        isError: true,
+      );
+    }
+    return false;
+  }
 
   AppLogger.d(
     '[FCM] Switching active school for notification: '
