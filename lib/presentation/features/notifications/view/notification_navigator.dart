@@ -76,10 +76,12 @@ class _NotificationNavigatorState extends State<NotificationNavigator> {
     }
     // Resolve again with the resolved persona: billing actions open the parent
     // vs admin billing screen depending on whether the current user is a
-    // guardian. Non-billing actions are unaffected.
+    // guardian, and newsletter/pending-approval actions deep-link straight to
+    // the specific item for the admin persona. Other actions are unaffected.
     final destination = NotificationRouteResolver.resolve(
       message,
       isGuardian: roleCubit.isParent,
+      isAdminPersona: roleCubit.role == 'admin',
     );
     if (destination == null) return;
     // URL changes (incl. the `highlightCode` query param) → go_router rebuilds

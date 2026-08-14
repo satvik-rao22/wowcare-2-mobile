@@ -7,6 +7,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/incident_activity.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
@@ -34,6 +36,7 @@ import 'package:wowcare/presentation/features/classrooom/views/screens/classroom
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/open_conversation_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
@@ -85,6 +88,11 @@ class AppRoutes {
   static const String adminChat = AdminChatHostScreen.routeName;
   static const String openConversation = OpenConversationScreen.routeName;
   static const String parentBilling = ParentBillingScreen.routeName;
+
+  // Notification deep-links for the admin persona: land straight on the
+  // specific newsletter / pending-approval activity, not a generic list.
+  static const String newsletterPreviewByCode = '/newsletter-preview-by-code';
+  static const String activityApprovalByCode = '/activity-approval-by-code';
 }
 
 /// Path lookups by branch index — used by the bottom nav when there is no
@@ -1210,6 +1218,44 @@ final GoRouter appRouter = GoRouter(
         conversationCode: state.uri.queryParameters['conversationCode'] ?? '',
         conversationType: state.uri.queryParameters['conversationType'],
       ),
+    ),
+    // Notification deep-link (admin persona, NEWSLETTER_SENT): open the
+    // specific newsletter's preview screen. Self-loads by code.
+    GoRoute(
+      path: AppRoutes.newsletterPreviewByCode,
+      pageBuilder: (context, state) => _fastPage(
+        state,
+        PreviewNewsletterScreen(
+          newsletterCode: state.uri.queryParameters['code'] ?? '',
+        ),
+      ),
+    ),
+    // Notification deep-link (admin persona, INCIDENT_APPROVAL_PENDING /
+    // INCIDENT_ACKNOWLEDGEMENT_PENDING): open that specific incident directly
+    // in the admin approve/reject view. Only `activityCode` is real here — the
+    // rest of the placeholder is overwritten once the screen self-loads full
+    // detail via GET /api/v2/activities/{code} (same prefetch every edit-mode
+    // open already relies on).
+    GoRoute(
+      path: AppRoutes.activityApprovalByCode,
+      pageBuilder: (context, state) {
+        final q = state.uri.queryParameters;
+        return _fastPage(
+          state,
+          IncidentActivityScreen(
+            isEdit: true,
+            activityData: ActivityItem(
+              time: '',
+              date: '',
+              name: '',
+              studentList: const <String>[],
+              createdBy: '',
+              activityCode: q['code'],
+              studentCode: q['studentCode'],
+            ),
+          ),
+        );
+      },
     ),
   ],
 );
