@@ -446,6 +446,7 @@ class ActivityStudentSelectionCubit
       signedOutTime: null,
       tagCodes: const <String>[],
       tagNames: const <String>[],
+      attendedMultipleClassroomsOnDate: attendedClassrooms.length > 1,
     );
   }
 

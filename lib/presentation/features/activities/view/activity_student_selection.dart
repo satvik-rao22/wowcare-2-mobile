@@ -134,6 +134,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       'signedOutBy': student.signedOutBy,
       'signedOutTime': student.signedOutTime,
       'attendanceDate': _formatAttendanceDate(_selectedAttendanceDate),
+      'classroomCodeAmbiguousForDate': student.attendedMultipleClassroomsOnDate,
     };
   }
 

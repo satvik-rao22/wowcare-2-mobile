@@ -195,6 +195,11 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       (s['studentCode'] ?? '').toString().trim():
           (s['name'] ?? 'Selected student').toString().trim(),
   };
+  final ambiguousClassroomStudentCodes = <String>{
+    for (final s in students)
+      if (s['classroomCodeAmbiguousForDate'] == true)
+        (s['studentCode'] ?? '').toString().trim(),
+  };
 
   if (studentCodes.isNotEmpty) {
     try {
@@ -215,16 +220,29 @@ Future<bool> validateStudentsWithinAttendanceWindow({
       // query scoped to the (new) classroomCode finds nothing. For
       // effectively-"now" submissions, re-check those specific students with
       // a classroom-agnostic "today" status before blocking them.
-      if (notSignedInCodes.isNotEmpty &&
+      //
+      // This fallback only proves the student is signed in SOMEWHERE, not in
+      // `classroomCode` specifically — safe only when `classroomCode` was the
+      // student's sole classroom that day. When the student had more than one
+      // classroom stint that day (a same-day transfer), applying it would
+      // wrongly clear a student who is legitimately no longer in the OLD
+      // classroom being posted to, defeating the very check this validator
+      // exists for. Those students stay excluded from the fallback and are
+      // left to the stricter scoped result.
+      final fallbackEligibleCodes = notSignedInCodes
+          .where((code) => !ambiguousClassroomStudentCodes.contains(code))
+          .toList(growable: false);
+      if (fallbackEligibleCodes.isNotEmpty &&
           instantUtc
                   .difference(ServerTimeService.instance.nowUtc())
                   .abs() <=
               _fallbackSignInCheckTolerance) {
         try {
           final fallbackStatus = await serviceLocator<AttendanceRepository>()
-              .getStudentTodaySignInStatusMap(notSignedInCodes);
+              .getStudentTodaySignInStatusMap(fallbackEligibleCodes);
           notSignedInCodes = notSignedInCodes
               .where((code) =>
+                  !fallbackEligibleCodes.contains(code) ||
                   fallbackStatus[code]?.toUpperCase() != 'SIGNED_IN')
               .toList(growable: false);
         } catch (_) {

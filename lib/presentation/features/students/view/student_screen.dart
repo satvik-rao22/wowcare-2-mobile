@@ -743,6 +743,15 @@ class _StudentScreenState extends State<StudentScreen> {
     Student student, {
     required Map<String, String> classroomCodeByName,
   }) {
+    // The students-list API already returns the student's live/current
+    // classroom code directly (see [Student.classroomCode]) — always prefer
+    // it. A transferred student's current classroom can be outside this
+    // staff member's scoped [classroomCodeByName] list, so falling back to a
+    // name -> code lookup (or worse, the raw display name) for that case
+    // silently sends activities to the wrong classroom.
+    final liveCode = student.classroomCode.trim();
+    if (liveCode.isNotEmpty) return liveCode;
+
     final raw = student.classroom.trim();
     if (raw.isEmpty) return '';
     if (raw.toUpperCase().startsWith('CLS_')) return raw;
