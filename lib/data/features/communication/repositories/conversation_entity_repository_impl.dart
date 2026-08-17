@@ -579,7 +579,12 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   }) async* {
     final org = await _orgCode;
     final school = await _schoolCode;
-    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final user = await _userCode;
+
+    if (org.isEmpty || school.isEmpty || user.isEmpty) {
+      yield [];
+      return;
+    }
 
     yield* _realtime
         .watchInbox(
@@ -654,7 +659,12 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   Stream<int> watchUnreadCountForType(ConversationType type) async* {
     final org = await _orgCode;
     final school = await _schoolCode;
-    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final user = await _userCode;
+
+    if (org.isEmpty || school.isEmpty || user.isEmpty) {
+      yield 0;
+      return;
+    }
 
     yield* _realtime.watchUnreadCountForType(
       organizationCode: org,
@@ -672,7 +682,12 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
     }
     final org = await _orgCode;
     final school = await _schoolCode;
-    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final user = await _userCode;
+
+    if (org.isEmpty || school.isEmpty || user.isEmpty) {
+      yield 0;
+      return;
+    }
 
     yield* _realtime.watchUnreadCountForConversation(
       organizationCode: org,
@@ -686,7 +701,12 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   Stream<int> watchTotalUnreadCount() async* {
     final org = await _orgCode;
     final school = await _schoolCode;
-    final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final user = await _userCode;
+
+    if (org.isEmpty || school.isEmpty || user.isEmpty) {
+      yield 0;
+      return;
+    }
 
     yield* _realtime.watchTotalUnreadCount(
       organizationCode: org,

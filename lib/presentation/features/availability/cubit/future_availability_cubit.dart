@@ -26,7 +26,21 @@ class FutureAvailabilityCubit extends Cubit<FutureAvailabilityState> {
     required bool isTwoShifts,
   }) async {
     final normalizedDate = DateTime(date.year, date.month, date.day);
-    final schoolCode = await _resolveSchoolCode();
+    
+    String schoolCode;
+    try {
+      schoolCode = await _resolveSchoolCode();
+    } catch (e) {
+      if (isClosed) return;
+      emit(state.copyWith(
+        isLoading: false,
+        isRefreshing: false,
+        selectedDate: normalizedDate,
+        isTwoShifts: isTwoShifts,
+        errorMessage: ApiErrorHandler.extractErrorMessage(e),
+      ));
+      return;
+    }
 
     // Try cache first.
     final shift = isTwoShifts
