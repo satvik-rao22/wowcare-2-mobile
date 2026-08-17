@@ -177,7 +177,6 @@ void main() {
 
     reportsCubit = ReportsCubit(
       storageService: fakeStorageService,
-      getTagNamesForSchoolUseCase: GetTagNamesForSchoolUseCase(mockStudentRepo),
       generateReportUseCase: GenerateReportUseCase(fakeReportsRepo),
       getRecentReportsUseCase: GetRecentReportsUseCase(fakeReportsRepo),
       getStudentTagsUseCase: GetStudentTagsUseCase(fakeReportsRepo),

@@ -53,7 +53,9 @@ class MyDayCubit extends Cubit<MyDayState> {
     _isFetching = true;
 
     if (!isSilent && state.isInitial) {
-      emit(state.copyWith(status: MyDayStatus.loading));
+      if (!isClosed) {
+        emit(state.copyWith(status: MyDayStatus.loading));
+      }
     }
 
     await _fetch();
@@ -75,6 +77,7 @@ class MyDayCubit extends Cubit<MyDayState> {
   Future<void> _fetch() async {
     final schoolCode = await _storageService.getString(StorageKeys.schoolCode);
     if (schoolCode == null || schoolCode.trim().isEmpty) {
+      if (isClosed) return;
       emit(
         state.copyWith(
           status: MyDayStatus.loaded,
@@ -173,6 +176,7 @@ class MyDayCubit extends Cubit<MyDayState> {
         'staffWork=${todayWorkSchedule?.dayOfWeek}',
       );
 
+      if (isClosed) return;
       emit(
         state.copyWith(
           status: MyDayStatus.loaded,
@@ -191,6 +195,7 @@ class MyDayCubit extends Cubit<MyDayState> {
       );
     } catch (e) {
       AppLogger.e('[MyDayCubit] fetch failed: $e');
+      if (isClosed) return;
       emit(
         state.copyWith(status: MyDayStatus.error, errorMessage: ApiErrorHandler.extractErrorMessage(e)),
       );
