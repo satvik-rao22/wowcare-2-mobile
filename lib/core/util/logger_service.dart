@@ -66,4 +66,25 @@ class AppLogger {
       } catch (_) {}
     }
   }
+
+  /// Logs a console-only error message (Red) and a Crashlytics breadcrumb.
+  /// Does NOT trigger a Crashlytics non-fatal error event.
+  static void c(Object? message, [Object? error, StackTrace? stackTrace]) {
+    if (kDebugMode) {
+      print('$_red[ERROR] $message$_reset');
+      if (error != null) {
+        print('$_red[Error Detail] $error$_reset');
+      }
+      if (stackTrace != null) {
+        print('$_red[Stack Trace]\n$stackTrace$_reset');
+      }
+    } else {
+      try {
+        FirebaseCrashlytics.instance.log('[ERROR] $message');
+        if (error != null) {
+          FirebaseCrashlytics.instance.log('[Error Detail] $error');
+        }
+      } catch (_) {}
+    }
+  }
 }

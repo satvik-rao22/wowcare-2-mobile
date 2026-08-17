@@ -92,6 +92,8 @@ class ApiClient {
               statusCode: error.response?.statusCode,
               message: error.message,
               errorData: error.response?.data,
+              dioError: error,
+              stackTrace: error.stackTrace,
             );
           } else {
             ApiLogger.logUnexpectedError(
