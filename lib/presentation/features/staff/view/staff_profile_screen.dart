@@ -213,8 +213,6 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   /// on failure editing stays disabled for staff.
   Future<void> _loadOwnStaffCodeIfStaff() async {
     try {
-      final role = context.read<RoleCubit>();
-      if (!role.isStaff) return;
       final code = await resolveStaffCodeForLoggedInUser();
       if (!mounted) return;
       setState(() => _ownStaffCode = code);
@@ -232,6 +230,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       return own.isNotEmpty && own == widget.staffCode.trim();
     }
     return ModuleAccess.mayWrite(role, AppAccessModules.staff);
+  }
+
+  bool _canMessageStaff() {
+    final own = (_ownStaffCode ?? '').trim();
+    // Keep the action hidden until the identity lookup finishes. This avoids
+    // briefly offering a self-message action while the profile initializes.
+    return own.isNotEmpty && own != widget.staffCode.trim();
   }
 
   bool _looksLikeClassroomCode(String value) {
@@ -746,6 +751,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   }
 
   Widget _buildStaffActionButtons(BuildContext context) {
+    final canMessageStaff = _canMessageStaff();
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -804,25 +810,26 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               );
             },
           ),
-          _buildActionIcon(
-            MediaRes.communicationIcon,
-            onTap: () {
-              final code = widget.staffCode.trim();
-              if (code.isEmpty) return;
-              openMessagingShortcut(
-                context,
-                recipients: [
-                  SelectedRecipient(
-                    code: code,
-                    name: widget.name,
-                    isStaff: true,
-                    userCode: _profileUserCode,
-                    designation: widget.designation,
-                  ),
-                ],
-              );
-            },
-          ),
+          if (canMessageStaff)
+            _buildActionIcon(
+              MediaRes.communicationIcon,
+              onTap: () {
+                final code = widget.staffCode.trim();
+                if (code.isEmpty) return;
+                openMessagingShortcut(
+                  context,
+                  recipients: [
+                    SelectedRecipient(
+                      code: code,
+                      name: widget.name,
+                      isStaff: true,
+                      userCode: _profileUserCode,
+                      designation: widget.designation,
+                    ),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );
