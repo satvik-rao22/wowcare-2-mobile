@@ -1445,20 +1445,39 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 
             // if (!_isMinimized) _buildCommunicationSection(),
             if (!_isMinimized)
-              _CommunicationRowWidget(
-                // Re-key on child switch: a plain rebuild wouldn't otherwise
-                // reset this widget's own internal state/subscription at all
-                // (it previously took no input from the selected child, so
-                // Flutter had no reason to treat a sibling switch as
-                // anything but the exact same widget instance) — see the
-                // widget's own doc for the resulting bug this caused.
-                key: ValueKey('comm_row_$_selectedChildCode'),
-                studentCode: _selectedChildCode,
-              ),
+              // One row per child, not just the one selected in the schedule/
+              // sign-in switcher above — a guardian with multiple children
+              // previously had to flip through the switcher to see each
+              // child's latest chat; now every sibling's row shows at once,
+              // stacked in the order ParentChildCubit returns them, flush
+              // against each other and against the card above (no per-row
+              // gap/floating-card look). Which row ends up visually last
+              // isn't knowable here — each row resolves whether it has a
+              // conversation to show asynchronously and independently — so
+              // every row rounds its own bottom corners uniformly rather
+              // than trying to single out "the last one".
+              ..._buildCommunicationRows(context),
           ],
         ),
       ),
     );
+  }
+
+  List<Widget> _buildCommunicationRows(BuildContext context) {
+    final siblings = context.watch<ParentChildCubit>().children;
+    return siblings
+        .map(
+          (child) => _CommunicationRowWidget(
+            // Keyed per child (not the selected one) — each row is its own
+            // independent, persistently-mounted widget instance now, so
+            // this only needs to disambiguate siblings from each other, not
+            // react to a switcher change.
+            key: ValueKey('comm_row_${child.code}'),
+            studentCode: child.code,
+            childName: child.name,
+          ),
+        )
+        .toList(growable: false);
   }
 }
 
@@ -1467,7 +1486,11 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
 // ---------------------------------------------------------------------------
 
 class _CommunicationRowWidget extends StatefulWidget {
-  const _CommunicationRowWidget({super.key, required this.studentCode});
+  const _CommunicationRowWidget({
+    super.key,
+    required this.studentCode,
+    required this.childName,
+  });
 
   /// The child THIS card is currently showing. Admin Chat and Room Chat
   /// conversations are both per-student — a parent with more than one
@@ -1481,6 +1504,12 @@ class _CommunicationRowWidget extends StatefulWidget {
   /// conversations" when this child had one but a sibling's was more
   /// recent).
   final String studentCode;
+
+  /// Now that every sibling's row renders at once (not just the child
+  /// currently selected in the switcher above), the conversation's own
+  /// title alone no longer says which child a row belongs to — this labels
+  /// each row explicitly.
+  final String childName;
 
   @override
   State<_CommunicationRowWidget> createState() =>
@@ -1675,9 +1704,23 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
     final avatarUrl = conversation?.displayAvatar(_currentUserCode) ?? '';
 
+    // With every sibling's row now shown at once, the conversation title
+    // alone (often the other party's name, not the child's) doesn't say
+    // which child this is about — EXCEPT for Room Chat, whose stored title
+    // typically already IS the child's name, in which case a separate
+    // caption would just repeat it verbatim right above itself. Only show
+    // the caption when it adds information the title doesn't already have.
+    final showChildNameCaption =
+        widget.childName.isNotEmpty &&
+        widget.childName.trim().toLowerCase() !=
+            displayTitle.trim().toLowerCase();
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: const BoxDecoration(
+        // Flush against the card above and every other sibling row — no
+        // per-row margin — rounded only at the bottom to match the card's
+        // own shape.
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
         color: Color.fromRGBO(44, 99, 226, 0.05),
       ),
@@ -1697,6 +1740,16 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (showChildNameCaption)
+                  Text(
+                    widget.childName,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: AppColors.primaryColor.withValues(alpha: 0.6),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 Text(
                   displayTitle.isNotEmpty ? displayTitle : '—',
                   overflow: TextOverflow.ellipsis,

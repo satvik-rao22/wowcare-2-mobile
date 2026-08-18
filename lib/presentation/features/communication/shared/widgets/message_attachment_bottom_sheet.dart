@@ -27,17 +27,31 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
     required this.onAttachmentsSelected,
     required this.onEmojiSelected,
     this.onViewParticipants,
+    this.onAttachmentError,
   });
 
   final void Function(List<ChatAttachment>) onAttachmentsSelected;
   final void Function(String emoji) onEmojiSelected;
   final VoidCallback? onViewParticipants;
 
+  /// Fired when one or more picked files were rejected (currently: over the
+  /// size limit) instead of silently dropping them. Takes a message rather
+  /// than the caller re-deriving one, since only this widget knows which
+  /// files failed and why.
+  ///
+  /// Deliberately NOT shown from inside this widget: `_pick*` methods pop
+  /// this bottom sheet (`Navigator.of(context).pop()`) before the async
+  /// pick/validate work even starts, so by the time `_processFiles` knows a
+  /// file was rejected, this widget's own context is already unmounted. The
+  /// caller's chat-screen context is what's still alive to show a snackbar.
+  final void Function(String message)? onAttachmentError;
+
   static Future<void> show(
     BuildContext context, {
     required void Function(List<ChatAttachment>) onAttachmentsSelected,
     required void Function(String emoji) onEmojiSelected,
     VoidCallback? onViewParticipants,
+    void Function(String message)? onAttachmentError,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -48,6 +62,7 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
         onAttachmentsSelected: onAttachmentsSelected,
         onEmojiSelected: onEmojiSelected,
         onViewParticipants: onViewParticipants,
+        onAttachmentError: onAttachmentError,
       ),
     );
   }
@@ -133,6 +148,8 @@ class _MessageAttachmentBottomSheetState
   /// can hand back a mix of photos and videos in one call.
   Future<void> _processFiles(List<File> files) async {
     final valid = <ChatAttachment>[];
+    // name -> limit that was exceeded, for the rejection message below.
+    final rejected = <String, int>{};
     for (final file in files) {
       final ext = p.extension(file.path).toLowerCase().replaceFirst('.', '');
       final isImage = FilePickerUtils.allowedImageExtensions.contains(ext);
@@ -141,7 +158,10 @@ class _MessageAttachmentBottomSheetState
 
       final size = await file.length();
       final maxSize = isVideo ? _videoMaxSizeBytes : _imageMaxSizeBytes;
-      if (size > maxSize) continue;
+      if (size > maxSize) {
+        rejected[p.basename(file.path)] = maxSize;
+        continue;
+      }
 
       final mime = lookupMimeType(file.path) ??
           FilePickerUtils.getMimeType(ext);
@@ -156,9 +176,35 @@ class _MessageAttachmentBottomSheetState
         ),
       );
     }
+    // Previously silent: rejected files just vanished and the sheet had
+    // already closed, so the user got no feedback at all on why nothing was
+    // attached — they'd only notice the message never had their file on it.
+    if (rejected.isNotEmpty) {
+      widget.onAttachmentError?.call(_rejectionMessage(rejected));
+    }
     if (valid.isEmpty) return;
     widget.onAttachmentsSelected(valid);
   }
+
+  /// e.g. "photo.png exceeds the 10 MB limit" or, for a mixed batch,
+  /// "3 files exceed the size limit (10 MB for images/documents, 200 MB for
+  /// video)".
+  String _rejectionMessage(Map<String, int> rejected) {
+    if (rejected.length == 1) {
+      final entry = rejected.entries.first;
+      return '${entry.key} exceeds the ${_readableSize(entry.value)} limit';
+    }
+    final distinctLimits = rejected.values.toSet();
+    if (distinctLimits.length == 1) {
+      return '${rejected.length} files exceed the '
+          '${_readableSize(distinctLimits.first)} limit';
+    }
+    return '${rejected.length} files exceed the size limit '
+        '(${_readableSize(_imageMaxSizeBytes)} for images/documents, '
+        '${_readableSize(_videoMaxSizeBytes)} for video)';
+  }
+
+  String _readableSize(int bytes) => '${(bytes / (1024 * 1024)).round()} MB';
 
   // ── Build ─────────────────────────────────────────────────────────────────
 

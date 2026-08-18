@@ -528,6 +528,10 @@ class _ParentDirectMessagingScreenState
       },
       // No participants to show yet — the conversation doesn't exist.
       onViewParticipants: null,
+      onAttachmentError: (message) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+      },
     );
   }
 

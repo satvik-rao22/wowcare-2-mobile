@@ -3659,6 +3659,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         );
       },
       onViewParticipants: _showParticipantsDialog,
+      onAttachmentError: (message) {
+        if (!mounted) return;
+        CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+      },
     );
   }
 
@@ -3973,31 +3977,23 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
 
     const monthNames = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
     ];
 
+    // Matches web's groupMessagesByDate (ChatMessageArea.tsx): "Today" /
+    // "Yesterday" alone, with no date suffix — mobile used to append the
+    // full date after those labels ("Today, 12 August 2026"), which web
+    // never does.
     String label;
     if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day) {
-      label =
-          "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label = 'Today';
     } else if (schoolDate.year == now.year &&
         schoolDate.month == now.month &&
         schoolDate.day == now.day - 1) {
-      label =
-          "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label = 'Yesterday';
     } else {
       label =
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";

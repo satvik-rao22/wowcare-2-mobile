@@ -115,13 +115,13 @@ class _EditStudentProfileDetailsScreenState
   Map<String, String> _studentNameToCode = {};
 
   List<String> _availableGuardianNames = [];
-  final List<String> _statusOptions = [
-    'Active',
-    'Inactive',
-    'Upcoming',
-    'Waitlist',
-    'Graduated',
-  ];
+  // Waitlist and Graduated removed: no mobile workflow exists for either
+  // status, so offering them here just let a student get stuck in a status
+  // nothing on mobile can act on. A student already carrying one of these
+  // (set elsewhere, e.g. web) still displays it correctly — CustomDropdown
+  // shows selectedItem as plain text and doesn't require it to be a member
+  // of items — this only removes them as something to select going forward.
+  final List<String> _statusOptions = ['Active', 'Inactive', 'Upcoming'];
   final List<String> _stateSubsidyOptions = ['Yes', 'No'];
   final List<String> _genderOptions = const ['Male', 'Female', 'Other'];
   String? _selectedGender;

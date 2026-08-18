@@ -1646,6 +1646,10 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             selection: TextSelection.collapsed(offset: pos + emoji.length),
           );
         },
+        onAttachmentError: (message) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+        },
       ),
     );
   }
@@ -1661,59 +1665,23 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       schoolTz,
     );
 
+    // Matches web's groupMessagesByDate (ChatMessageArea.tsx): "Today" /
+    // "Yesterday" alone, with no date suffix — mobile used to append the
+    // full date after those labels ("Today, 12 August 2026"), which web
+    // never does.
     String label;
     if (schoolDate.year == schoolNow.year &&
         schoolDate.month == schoolNow.month &&
         schoolDate.day == schoolNow.day) {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label =
-          "Today, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label = 'Today';
     } else if (schoolDate.year == schoolNow.year &&
         schoolDate.month == schoolNow.month &&
         schoolDate.day == schoolNow.day - 1) {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
-      ];
-      label =
-          "Yesterday, ${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";
+      label = 'Yesterday';
     } else {
-      final monthNames = [
-        'January',
-        'February',
-        'March',
-        'April',
-        'May',
-        'June',
-        'July',
-        'August',
-        'September',
-        'October',
-        'November',
-        'December',
+      const monthNames = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
       ];
       label =
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";

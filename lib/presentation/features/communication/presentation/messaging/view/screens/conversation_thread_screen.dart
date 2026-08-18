@@ -854,6 +854,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
           );
         },
         onViewParticipants: _showParticipantsDialog,
+        onAttachmentError: (message) {
+          if (!mounted) return;
+          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+        },
       ),
     );
   }
@@ -971,27 +975,19 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       ServerTimeService.instance.nowUtc(),
       tz,
     );
-    const months = [
-      'January',
-      'February',
-      'March',
-      'April',
-      'May',
-      'June',
-      'July',
-      'August',
-      'September',
-      'October',
-      'November',
-      'December',
-    ];
+    // Matches web's groupMessagesByDate (ChatMessageArea.tsx): "Today" /
+    // "Yesterday" alone, with no date suffix.
     if (d.year == now.year && d.month == now.month && d.day == now.day) {
-      return 'Today, ${d.day} ${months[d.month - 1]} ${d.year}';
+      return 'Today';
     } else if (d.year == now.year &&
         d.month == now.month &&
         d.day == now.day - 1) {
-      return 'Yesterday, ${d.day} ${months[d.month - 1]} ${d.year}';
+      return 'Yesterday';
     }
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
 

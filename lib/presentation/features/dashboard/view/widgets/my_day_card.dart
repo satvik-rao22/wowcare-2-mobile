@@ -1874,7 +1874,16 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
           return classroomName;
         }
       }
-      return 'Classroom';
+      // _classroomNames is a separate, fire-and-forget fetch that races the
+      // conversation list — this row could render before it resolves (or if
+      // it fails, never gets it at all). The conversation's OWN stored
+      // title is set to the classroom's name at creation time
+      // (GetOrCreateClassroomChatUseCase) and doesn't depend on that second
+      // fetch succeeding, so try it before giving up to the generic
+      // "Classroom" label — displayTitle already does exactly this for
+      // every other conversation type below, CLASSROOM_CHAT just never
+      // reached it.
+      return conversation.displayTitle(_currentUserCode, fallback: 'Classroom');
     }
     return conversation.displayTitle(_currentUserCode);
   }
