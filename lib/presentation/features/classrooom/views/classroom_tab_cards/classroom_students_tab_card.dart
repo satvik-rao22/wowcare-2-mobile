@@ -243,6 +243,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
   void _loadForSelectedRoom({
     required bool refresh,
     List<String>? studentCodes,
+    // Bypasses the roster cache while still going through `loadInitial`'s
+    // "clear immediately on a different request" UX (unlike `_cubit.refresh`,
+    // which deliberately keeps the previous result on screen while
+    // refreshing). Only meaningful when [refresh] is false.
+    bool forceRefresh = false,
   }) {
     final classroomCode = widget.selectedRoom?.code ?? '';
     if (classroomCode.trim().isEmpty) return;
@@ -273,6 +278,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
+        forceRefresh: forceRefresh,
       );
     }
   }
@@ -341,7 +347,17 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
         _isNappingFilter = false;
         _isPresentFilter = false;
       });
-      _loadForSelectedRoom(refresh: false);
+      // Force a fresh fetch (bypass the roster cache) on every classroom
+      // switch — not just on pull-to-refresh. A student transferred into
+      // this room moments ago (from elsewhere in the app) wouldn't appear
+      // otherwise: without forcing, a cache entry up to 5 minutes old can
+      // short-circuit the network call entirely, so switching to this room
+      // via the dropdown could silently serve a pre-transfer roster until
+      // the user manually pulls to refresh. Still routed through
+      // `loadInitial` (refresh: false), not `_cubit.refresh`, so the OLD
+      // room's roster is cleared immediately instead of staying on screen
+      // under a loading spinner while the new room's fetch is in flight.
+      _loadForSelectedRoom(refresh: false, forceRefresh: true);
       _loadNapStartStudentCodes(refresh: true);
       _loadStaffSignInStatus();
     }

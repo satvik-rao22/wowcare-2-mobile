@@ -1462,6 +1462,15 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     return _classroomNameByCode[c] ?? c;
   }
 
+  // `t.hour`/`.minute`/`.second` are SCHOOL-local wall-clock fields (the
+  // attendance API has no timezone context of its own — see
+  // [StudentAttendanceTimeModel.fromJson]). The DateTime built here is
+  // therefore only valid for DISPLAY formatting (DateFormat reads raw
+  // calendar fields, so it's zone-agnostic); it must NOT be fed to
+  // `.toIso8601String()` directly for [ActivityItem.activityDateIso] — Dart
+  // would interpret these school-local field values as DEVICE-local and
+  // compute the wrong UTC instant whenever the device's timezone differs
+  // from the school's. Use [_wallClockToUtcIso] for the ISO field instead.
   DateTime? _attendanceClockToDateTime(StudentAttendanceTime? t, DateTime day) {
     if (t == null) return null;
     return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
@@ -1473,6 +1482,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     final minute = (t.minute as int?) ?? 0;
     final second = (t.second as int?) ?? 0;
     return DateTime(day.year, day.month, day.day, hour, minute, second);
+  }
+
+  /// Converts a SCHOOL-local wall-clock [DateTime] (as produced by
+  /// [_attendanceClockToDateTime]/[_absentClockToDateTime]) into the correct
+  /// UTC instant, for use as [ActivityItem.activityDateIso] — the one field
+  /// the cross-source sort comparator (`_activityItemSortDateTime`) actually
+  /// relies on. Without this, attendance/absent-sourced rows sort against a
+  /// wrong instant (offset by device-tz vs school-tz) while activity-feed
+  /// rows (whose ISO comes untouched from the backend) sort correctly,
+  /// producing exactly the "attendance rows clustered separately from
+  /// activity rows" symptom instead of true chronological interleaving.
+  String _wallClockToUtcIso(DateTime schoolWallClock) {
+    return SchoolZoneDateTime.utcFromSchoolWallClockDateTime(
+      schoolWallClock,
+      _schoolIana,
+    ).toIso8601String();
   }
 
   DateTime? _tryParseDisplayDateTime(String dateRaw, String timeRaw) {
@@ -1626,7 +1651,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               classroomCode: viewingFromClassroom
                   ? (row.fromClassroomCode ?? row.classroomCode).trim()
                   : ((row.toClassroomCode ?? row.classroomCode).trim()),
-              activityDateIso: at.toIso8601String(),
+              activityDateIso: _wallClockToUtcIso(at),
               studentActivityRefs: <Map<String, String>>[
                 {
                   'name': studentName,
@@ -1665,7 +1690,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                   : row.signedOutBy!.trim(),
               studentCode: studentCode?.isEmpty == true ? null : studentCode,
               classroomCode: (row.toClassroomCode ?? row.classroomCode).trim(),
-              activityDateIso: at.toIso8601String(),
+              activityDateIso: _wallClockToUtcIso(at),
               studentActivityRefs: <Map<String, String>>[
                 {
                   'name': studentName,
@@ -1695,7 +1720,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 : row.signedInBy!.trim(),
             studentCode: studentCode?.isEmpty == true ? null : studentCode,
             classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
+            activityDateIso: _wallClockToUtcIso(at),
             studentActivityRefs: <Map<String, String>>[
               {
                 'name': studentName,
@@ -1723,7 +1748,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 : row.signedOutBy!.trim(),
             studentCode: studentCode?.isEmpty == true ? null : studentCode,
             classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
+            activityDateIso: _wallClockToUtcIso(at),
             studentActivityRefs: <Map<String, String>>[
               {
                 'name': studentName,
@@ -1735,7 +1760,12 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         );
       }
     }
-    out.sort(_compareActivityItemsByTimeDesc);
+    // Intentionally NOT sorted here. Sorting this source alone, then
+    // concatenating with the activity-feed and absent-records lists, then
+    // sorting again used to run the comparator twice over differently-scoped
+    // inputs. The caller combines all three sources into one list first and
+    // sorts exactly once over the full, merged set — that single sort is the
+    // only place order is decided.
     return out;
   }
 
@@ -1781,7 +1811,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
               : row.markedAbsentByName!.trim(),
           studentCode: studentCode.isEmpty ? null : studentCode,
           classroomCode: row.classroomCode.trim(),
-          activityDateIso: at.toIso8601String(),
+          activityDateIso: _wallClockToUtcIso(at),
           studentActivityRefs: <Map<String, String>>[
             {
               'name': studentName,
@@ -1791,7 +1821,10 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         ),
       );
     }
-    out.sort(_compareActivityItemsByTimeDesc);
+    // Intentionally NOT sorted here — see the matching note in
+    // [_mapAttendanceDailyPageToItems]: the caller combines all three
+    // sources into one list first and sorts exactly once over the merged
+    // set, which is the only place order is decided.
     return out;
   }
 

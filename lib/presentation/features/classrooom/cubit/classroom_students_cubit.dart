@@ -60,6 +60,13 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
     List<String>? studentCodes,
     List<String>? status,
     List<String>? tagCodes,
+    // When true, bypasses the repository's roster cache even though this
+    // still goes through the "clear immediately on a different request" UX
+    // below — used when switching to a classroom whose cached roster may be
+    // stale (e.g. a student was just transferred into it elsewhere in the
+    // app), as opposed to a plain first-mount load where a recent cache hit
+    // is fine.
+    bool forceRefresh = false,
   }) async {
     if (state.isLoading) return;
 
@@ -93,7 +100,7 @@ class ClassroomStudentsCubit extends Cubit<ClassroomStudentsState> {
         studentCodes: studentCodes,
         status: status,
         tagCodes: tagCodes,
-        refresh: false,
+        refresh: forceRefresh,
       );
 
       if (isClosed) return;

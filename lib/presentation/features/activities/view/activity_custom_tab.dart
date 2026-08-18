@@ -634,6 +634,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     return _classroomNameByCode[c] ?? c;
   }
 
+  // `t.hour`/`.minute`/`.second` are SCHOOL-local wall-clock fields (the
+  // attendance API has no timezone context of its own — see
+  // [StudentAttendanceTimeModel.fromJson]). The DateTime built here is
+  // therefore only valid for DISPLAY formatting; it must NOT be fed to
+  // `.toIso8601String()` directly for [ActivityItem.activityDateIso] — Dart
+  // would interpret these school-local field values as DEVICE-local and
+  // compute the wrong UTC instant whenever the device's timezone differs
+  // from the school's. Use [_wallClockToUtcIso] for the ISO field instead.
   DateTime? _attendanceClockToDateTime(StudentAttendanceTime? t, DateTime day) {
     if (t == null) return null;
     return DateTime(day.year, day.month, day.day, t.hour, t.minute, t.second);
@@ -645,6 +653,21 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     final minute = (t.minute as int?) ?? 0;
     final second = (t.second as int?) ?? 0;
     return DateTime(day.year, day.month, day.day, hour, minute, second);
+  }
+
+  /// Converts a SCHOOL-local wall-clock [DateTime] (as produced by
+  /// [_attendanceClockToDateTime]/[_absentClockToDateTime]) into the correct
+  /// UTC instant, for use as [ActivityItem.activityDateIso] — the field the
+  /// cross-source sort comparator (`_activityDateTimeOrEpoch`) relies on.
+  /// Without this, attendance/absent-sourced rows sort against a wrong
+  /// instant (offset by device-tz vs school-tz) while activity-feed rows
+  /// (whose ISO comes untouched from the backend) sort correctly, producing
+  /// a source-clustered order instead of true chronological interleaving.
+  String _wallClockToUtcIso(DateTime schoolWallClock) {
+    return SchoolZoneDateTime.utcFromSchoolWallClockDateTime(
+      schoolWallClock,
+      _schoolIana,
+    ).toIso8601String();
   }
 
   DateTime _activityDateTimeOrEpoch(ActivityItem item) {
@@ -797,7 +820,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               classroomCode: viewingFromClassroom
                   ? (row.fromClassroomCode ?? row.classroomCode).trim()
                   : ((row.toClassroomCode ?? row.classroomCode).trim()),
-              activityDateIso: at.toIso8601String(),
+              activityDateIso: _wallClockToUtcIso(at),
               studentActivityRefs: <Map<String, String>>[
                 {
                   'name': studentName,
@@ -836,7 +859,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                   : row.signedOutBy!.trim(),
               studentCode: studentCode?.isEmpty == true ? null : studentCode,
               classroomCode: (row.toClassroomCode ?? row.classroomCode).trim(),
-              activityDateIso: at.toIso8601String(),
+              activityDateIso: _wallClockToUtcIso(at),
               studentActivityRefs: <Map<String, String>>[
                 {
                   'name': studentName,
@@ -867,7 +890,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                 : row.signedInBy!.trim(),
             studentCode: studentCode?.isEmpty == true ? null : studentCode,
             classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
+            activityDateIso: _wallClockToUtcIso(at),
             studentActivityRefs: <Map<String, String>>[
               {
                 'name': studentName,
@@ -896,7 +919,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                 : row.signedOutBy!.trim(),
             studentCode: studentCode?.isEmpty == true ? null : studentCode,
             classroomCode: row.classroomCode.trim(),
-            activityDateIso: at.toIso8601String(),
+            activityDateIso: _wallClockToUtcIso(at),
             studentActivityRefs: <Map<String, String>>[
               {
                 'name': studentName,
@@ -951,7 +974,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               : row.markedAbsentByName!.trim(),
           studentCode: studentCode.isEmpty ? null : studentCode,
           classroomCode: row.classroomCode.trim(),
-          activityDateIso: at.toIso8601String(),
+          activityDateIso: _wallClockToUtcIso(at),
           studentActivityRefs: <Map<String, String>>[
             {
               'name': studentName,
