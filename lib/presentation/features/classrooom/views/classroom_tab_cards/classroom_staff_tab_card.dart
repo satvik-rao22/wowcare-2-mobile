@@ -797,7 +797,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
   /// the profile is reached some other way). Admin/authorized roles, and a
   /// staff member opening their OWN card, still go to the profile as
   /// before.
-  void _openStaffProfile(Staff staff) {
+  Future<void> _openStaffProfile(Staff staff) async {
     if (staff.staffCode.trim().isEmpty) return;
 
     final role = context.read<RoleCubit>();
@@ -821,7 +821,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       return;
     }
 
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => StaffProfileScreen(
@@ -835,6 +835,8 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
         ),
       ),
     );
+    if (!mounted) return;
+    _handleExternalRefresh();
   }
 
   Future<void> _openFilterScreen() async {

@@ -83,7 +83,7 @@ class ClassroomStaffCubit extends Cubit<ClassroomStaffState> {
         search: search,
         status: status,
         designation: designation,
-        refresh: false,
+        refresh: true,
       );
 
       if (isClosed) return;

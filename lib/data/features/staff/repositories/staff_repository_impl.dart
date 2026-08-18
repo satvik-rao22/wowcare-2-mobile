@@ -166,6 +166,10 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
     await _cacheManager.invalidateCaches(keys.toList(growable: false));
   }
 
+  Future<void> _invalidateClassroomStaffRosterCaches() async {
+    await _cacheManager.clearFeatureCaches('classroom');
+  }
+
   @override
   Future<StaffCount> getStaffCount({
     required String organizationCode,
@@ -649,6 +653,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     await _invalidateStaffProfileCaches(staffCode);
     await _invalidateAllStaffListAndSummaryCaches();
+    await _invalidateClassroomStaffRosterCaches();
 
     return message;
   }
@@ -665,6 +670,7 @@ class StaffRepositoryImpl implements StaffRepository, StaffRepositoryWithCache {
 
     await _invalidateStaffProfileCaches(staffCode);
     await _invalidateAllStaffListAndSummaryCaches();
+    await _invalidateClassroomStaffRosterCaches();
 
     return message;
   }
