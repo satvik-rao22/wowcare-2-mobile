@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -50,7 +51,8 @@ class AdminChatHostScreen extends StatefulWidget {
   State<AdminChatHostScreen> createState() => _AdminChatHostScreenState();
 }
 
-class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
+class _AdminChatHostScreenState extends State<AdminChatHostScreen>
+    with SchoolSwitchReloadMixin {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _showUnreadOnly = false;
@@ -118,6 +120,21 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
   void _onScroll() {
     // Firestore stream auto-loads; no manual pagination needed.
+  }
+
+  /// This screen (branch 3 / Communication) is kept alive in the shell's
+  /// IndexedStack across a persona switch (e.g. admin <-> guardian for the
+  /// same account/school) — it never re-mounts on its own, so [_cubit]'s
+  /// Firestore subscription, opened once in [initState], would otherwise
+  /// keep resolving unread counts under the persona active when this screen
+  /// was FIRST built rather than the one now active. Restarting it re-reads
+  /// the current persona (see ConversationEntityRepositoryImpl's
+  /// `_unreadRoleBucket`) so an ADMIN_CHAT conversation's unreadByRole-based
+  /// count updates for the persona actually looking at it now.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    unawaited(_cubit.startWatching());
   }
 
   /// Rapid search: hits the student list API on every keystroke, mirroring

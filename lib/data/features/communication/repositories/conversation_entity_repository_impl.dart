@@ -3,6 +3,7 @@ import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_remote_data_source.dart';
 import 'package:wowcare/data/features/communication/realtime/conversation_realtime_data_source.dart';
@@ -573,6 +574,17 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
 
   // ─── Realtime streams (Firestore) ────────────────────────────────────────────
 
+  /// Coarse persona bucket ('ADMIN' / 'GUARDIAN') matching the keys on a
+  /// user_inbox doc's `unreadByRole` map — see
+  /// [resolveRoleAwareUnreadCount]'s own doc for why this matters. Sourced
+  /// from [resolveActiveBackendRole], the same single source of truth the
+  /// `x-role` request header uses, so a dual-role account's unread badges
+  /// never disagree with which persona it's actually acting as.
+  Future<String> get _unreadRoleBucket async {
+    final raw = await resolveActiveBackendRole(_storage);
+    return raw.trim().toUpperCase() == 'GUARDIAN' ? 'GUARDIAN' : 'ADMIN';
+  }
+
   @override
   Stream<List<ConversationEntity>> watchConversations({
     ConversationType? type,
@@ -580,6 +592,7 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
     final org = await _orgCode;
     final school = await _schoolCode;
     final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
 
     yield* _realtime
         .watchInbox(
@@ -587,6 +600,7 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
           schoolCode: school,
           userCode: user,
           filterType: type?.toApiString(),
+          roleBucket: roleBucket,
         )
         .asyncMap((inboxItems) async {
           // For each Firestore inbox item, merge with the Isar-cached entity so
@@ -655,12 +669,14 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
     final org = await _orgCode;
     final school = await _schoolCode;
     final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
 
     yield* _realtime.watchUnreadCountForType(
       organizationCode: org,
       schoolCode: school,
       userCode: user,
       conversationType: type.toApiString(),
+      roleBucket: roleBucket,
     );
   }
 
@@ -673,12 +689,14 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
     final org = await _orgCode;
     final school = await _schoolCode;
     final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
 
     yield* _realtime.watchUnreadCountForConversation(
       organizationCode: org,
       schoolCode: school,
       userCode: user,
       conversationCode: conversationCode,
+      roleBucket: roleBucket,
     );
   }
 
@@ -687,11 +705,13 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
     final org = await _orgCode;
     final school = await _schoolCode;
     final user = (await _storage.getString(StorageKeys.userCode)) ?? '';
+    final roleBucket = await _unreadRoleBucket;
 
     yield* _realtime.watchTotalUnreadCount(
       organizationCode: org,
       schoolCode: school,
       userCode: user,
+      roleBucket: roleBucket,
     );
   }
 }

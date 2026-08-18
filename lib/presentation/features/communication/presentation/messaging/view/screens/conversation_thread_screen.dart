@@ -23,7 +23,6 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
-import 'package:wowcare/domain/features/communication/usecases/search_messages_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/notifications/cubit/push_notification_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_thread_cubit.dart';
@@ -44,7 +43,6 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/loadi
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -342,15 +340,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     result.fold((_) {}, (codes) => setState(() => _presentUserCodes = codes));
   }
 
-  // ── In-thread search ──────────────────────────────────────────────────────
-
-  late final SearchMessagesUseCase _searchUseCase;
-  bool _showSearch = false;
-  final TextEditingController _searchController = TextEditingController();
-  List<MessageEntity> _searchResults = [];
-  bool _isSearching = false;
-  Timer? _searchDebounce;
-
   @override
   void initState() {
     super.initState();
@@ -390,7 +379,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       isDraft: widget.isDraft,
       onResolveConversation: widget.onResolveConversation,
     );
-    _searchUseCase = SearchMessagesUseCase(serviceLocator());
 
     // Pre-set _senderCode synchronously so it matches the cubit's _currentUserCode
     // from the moment the screen is built. _loadSenderInfo will confirm/update it
@@ -528,45 +516,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     }
   }
 
-  // ── In-thread search ──────────────────────────────────────────────────────
-
-  void _onSearchChanged(String query) {
-    _searchDebounce?.cancel();
-    if (query.trim().isEmpty) {
-      setState(() {
-        _searchResults = [];
-        _isSearching = false;
-      });
-      return;
-    }
-    setState(() => _isSearching = true);
-    _searchDebounce = Timer(const Duration(milliseconds: 400), () async {
-      final result = await _searchUseCase(
-        conversationCode: widget.conversation.code,
-        query: query.trim(),
-        limit: 30,
-      );
-      if (!mounted) return;
-      result.fold(
-        (_) => setState(() => _isSearching = false),
-        (hits) => setState(() {
-          _searchResults = hits;
-          _isSearching = false;
-        }),
-      );
-    });
-  }
-
-  void _closeSearch() {
-    _searchDebounce?.cancel();
-    setState(() {
-      _showSearch = false;
-      _searchResults = [];
-      _isSearching = false;
-    });
-    _searchController.clear();
-  }
-
   // ── Scroll to message (GlobalKey-based) ───────────────────────────────────
 
   void _scrollToMessage(String messageCode) {
@@ -584,12 +533,10 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     unawaited(_saveDraft());
-    _searchDebounce?.cancel();
     unawaited(_cubit.close());
     _privateModeToggleCubit?.close();
     _tabController?.dispose();
     _inputController.dispose();
-    _searchController.dispose();
     _scrollController.removeListener(_onScroll);
     _scrollBehavior.dispose();
     _scrollController.dispose();
@@ -1172,24 +1119,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     );
                   },
                 ),
-              Tooltip(
-                message: _showSearch ? 'Close search' : 'Search messages',
-                child: IconButton(
-                  icon: Icon(
-                    _showSearch
-                        ? Icons.search_off_rounded
-                        : Icons.search_rounded,
-                    color: AppColors.primaryColor,
-                  ),
-                  onPressed: () {
-                    if (_showSearch) {
-                      _closeSearch();
-                    } else {
-                      setState(() => _showSearch = true);
-                    }
-                  },
-                ),
-              ),
               Tooltip(
                 message: 'View Participants',
                 child: IconButton(
@@ -1931,8 +1860,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                   mainAxisSize: MainAxisSize.max,
                   children: [
                     _buildParticipantHeader(),
-                    // ── In-thread search bar ─────────────────────────────────
-                    if (_showSearch) _buildSearchBar(),
                     Expanded(
                       child: Stack(
                         children: [
@@ -1962,10 +1889,6 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                               ),
                             ),
                           ),
-                          // Search results overlay
-                          if (_showSearch &&
-                              (_searchResults.isNotEmpty || _isSearching))
-                            _buildSearchResultsOverlay(),
                         ],
                       ),
                     ),
@@ -2081,220 +2004,4 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         current.sentAt.difference(prev.sentAt).inMinutes <= 5;
   }
 
-  // ── Search bar ────────────────────────────────────────────────────────────
-
-  Widget _buildSearchBar() {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-      color: Colors.white,
-      child: Row(
-        children: [
-          Expanded(
-            child: TextField(
-              controller: _searchController,
-              autofocus: true,
-              onChanged: _onSearchChanged,
-              style: const TextStyle(fontSize: 14, fontFamily: 'Manrope'),
-              decoration: InputDecoration(
-                hintText: 'Search messages…',
-                hintStyle: const TextStyle(
-                  color: Color(0xFFB2BEC3),
-                  fontSize: 14,
-                  fontFamily: 'Manrope',
-                ),
-                prefixIcon: _isSearching
-                    ? const Padding(
-                        padding: EdgeInsets.all(12),
-                        child: PrimaryCircularLoader(size: 16, strokeWidth: 2),
-                      )
-                    : const Icon(
-                        Icons.search_rounded,
-                        color: Color(0xFFB2BEC3),
-                        size: 20,
-                      ),
-                suffixIcon: _searchController.text.isNotEmpty
-                    ? IconButton(
-                        icon: const Icon(
-                          Icons.close_rounded,
-                          color: Color(0xFFB2BEC3),
-                          size: 18,
-                        ),
-                        onPressed: () {
-                          _searchController.clear();
-                          _onSearchChanged('');
-                        },
-                      )
-                    : null,
-                filled: true,
-                fillColor: const Color(0xFFF4F7FD),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
-                ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(24),
-                  borderSide: BorderSide.none,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: _closeSearch,
-            child: Text(
-              'Cancel',
-              style: TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 13,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── Search results overlay ────────────────────────────────────────────────
-
-  Widget _buildSearchResultsOverlay() {
-    return Positioned.fill(
-      child: Material(
-        color: Colors.white.withValues(alpha: 0.97),
-        child: _isSearching && _searchResults.isEmpty
-            ? const Center(child: PrimaryCircularLoader())
-            : _searchResults.isEmpty
-            ? Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.search_off_rounded,
-                      size: 48,
-                      color: AppColors.primaryColor.withValues(alpha: 0.25),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'No messages found',
-                      style: TextStyle(
-                        color: const Color(0xFF636E72),
-                        fontSize: 14,
-                        fontFamily: 'Manrope',
-                      ),
-                    ),
-                  ],
-                ),
-              )
-            : ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                itemCount: _searchResults.length,
-                separatorBuilder: (_, __) => const Divider(height: 1),
-                itemBuilder: (context, i) {
-                  final hit = _searchResults[i];
-                  final query = _searchController.text.trim().toLowerCase();
-                  final plain = hit.text
-                      .replaceAll(RegExp(r'<[^>]*>'), '')
-                      .trim();
-
-                  return ListTile(
-                    dense: true,
-                    leading: DocumentImageWidget(
-                      disableAttendanceStatusLookup: true,
-                      fileUuid: '',
-                      name: hit.senderName,
-                      size: 32,
-                      fontSize: 12,
-                    ),
-                    title: Text(
-                      hit.senderName,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF573353),
-                      ),
-                    ),
-                    subtitle: _buildHighlightedText(plain, query),
-                    trailing: Text(
-                      _formatSearchTime(hit.sentAt),
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: Color(0xFF94A3B8),
-                      ),
-                    ),
-                    onTap: () {
-                      _closeSearch();
-                      // Give the list time to rebuild before scrolling.
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        _scrollToMessage(
-                          hit.code.isNotEmpty ? hit.code : hit.id,
-                        );
-                      });
-                    },
-                  );
-                },
-              ),
-      ),
-    );
-  }
-
-  /// Returns a [RichText] where every occurrence of [query] in [text] is
-  /// rendered in bold / primary-colour so the match stands out.
-  Widget _buildHighlightedText(String text, String query) {
-    if (query.isEmpty) {
-      return Text(
-        text,
-        maxLines: 2,
-        overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
-      );
-    }
-
-    final lower = text.toLowerCase();
-    final spans = <TextSpan>[];
-    int start = 0;
-
-    while (start < text.length) {
-      final idx = lower.indexOf(query, start);
-      if (idx == -1) {
-        spans.add(
-          TextSpan(
-            text: text.substring(start),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
-          ),
-        );
-        break;
-      }
-      if (idx > start) {
-        spans.add(
-          TextSpan(
-            text: text.substring(start, idx),
-            style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
-          ),
-        );
-      }
-      spans.add(
-        TextSpan(
-          text: text.substring(idx, idx + query.length),
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: AppColors.primaryColor,
-          ),
-        ),
-      );
-      start = idx + query.length;
-    }
-
-    return RichText(
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      text: TextSpan(children: spans),
-    );
-  }
-
-  String _formatSearchTime(DateTime dt) {
-    final tz = SchoolTimezoneResolver.lastKnownTimeZone;
-    final d = SchoolZoneDateTime.dateTimeFromInstantInSchool(dt, tz);
-    return '${d.hour.toString().padLeft(2, '0')}:${d.minute.toString().padLeft(2, '0')}';
-  }
 }

@@ -111,7 +111,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 final names = cubit.childNames;
                 final canPickChild = !state.isLoading && names.isNotEmpty;
                 return Padding(
-                  padding: const EdgeInsets.only(left: 20),
+                  padding: const EdgeInsets.only(left: 4),
                   child: SizedBox(
                     width: 220,
                     child: CustomDropdown(
@@ -161,19 +161,35 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
         if (!isKiosk)
           BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
             builder: (context, badgeState) {
-              final role = context.read<RoleCubit>();
-              // Sum of every doc in the Firestore user_inbox collection —
-              // one listener over the whole list, matching the web's
-              // FirestoreInboxService.listenToUserInbox pattern. Falls
-              // back to the persona-scoped REST-seeded total only until
-              // that listener's first emission.
-              final int unreadCount =
-                  badgeState.firestoreTotal ??
-                  (role.isParent
-                      ? badgeState.parentTotal
-                      : role.isAdmin
-                      ? badgeState.adminTotal
-                      : badgeState.staffTotal);
+              // watch, not read: this badge's value depends on the CURRENT
+              // persona (parentTotal vs adminTotal vs staffTotal below), so
+              // it must also rebuild when RoleCubit's state changes on its
+              // own — a bare `.read` only captured whatever role happened to
+              // be active the last time UnreadBadgeCubit itself emitted,
+              // which left the badge showing the PREVIOUS persona's count
+              // for a dual-role account until some unrelated Firestore
+              // event happened to also fire after switching profile.
+              final role = context.watch<RoleCubit>();
+              final personaTotal = role.isParent
+                  ? badgeState.parentTotal
+                  : role.isAdmin
+                  ? badgeState.adminTotal
+                  : badgeState.staffTotal;
+              // firestoreTotal sums EVERY doc in the user's Firestore
+              // user_inbox collection with no type filter — it can't apply
+              // the persona-visibility rules parentTotal/adminTotal/
+              // staffTotal do (e.g. CLASSROOM_CHAT is staff-internal and
+              // "deliberately excluded from parentTotal" — see
+              // UnreadBadgeState's own doc). A dual-role account (e.g. also
+              // staff at the same school) would otherwise see their parent
+              // badge inflated by conversations the parent persona can't
+              // even open. Only fall back to the unfiltered total before
+              // the per-type streams have delivered anything at all — once
+              // countsByType is populated, the persona-scoped total is
+              // always the correct, authoritative one.
+              final int unreadCount = badgeState.countsByType.isNotEmpty
+                  ? personaTotal
+                  : (badgeState.firestoreTotal ?? personaTotal);
               // Icon + badge share ONE tap target (InkResponse via IconButton
               // below) instead of the badge being a bare, non-interactive
               // Positioned Container layered on top of it — tapping directly

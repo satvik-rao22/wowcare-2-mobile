@@ -7,6 +7,41 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 
+/// Picks the persona-correct unread count off a raw user_inbox document map.
+///
+/// Prefers the per-persona breakdown present on conversations more than one
+/// role can see (e.g. ADMIN_CHAT — see [ConversationInboxItem.fromFirestore]'s
+/// own doc for why a flat count isn't enough there), and falls back to the
+/// flat `unreadCount` field when [roleBucket] is null or the document has
+/// neither shape below (every other conversation type, and any doc from
+/// before this field existed).
+///
+/// The backend writes this as a FLAT field literally named `unreadByRole.
+/// ADMIN` / `unreadByRole.GUARDIAN` (a dot inside the key itself — the write
+/// path used a plain map literal with `set(..., merge: true)`, which treats
+/// the key as one opaque segment, not `update()`'s dot-as-nested-path
+/// notation) — confirmed from the Firestore console, which renders it as an
+/// unindented top-level row, not an expandable nested map. `doc.data()`
+/// hands that back as a literal `"unreadByRole.ADMIN"` key in the returned
+/// map, NOT as `data['unreadByRole']['ADMIN']`. Checking the actual nested-map
+/// shape too, second, costs nothing and keeps this correct if a future
+/// backend change ever switches to writing it that way instead.
+int resolveRoleAwareUnreadCount(Map<String, dynamic> data, String? roleBucket) {
+  final flat = (data['unreadCount'] as num?)?.toInt() ?? 0;
+  if (roleBucket == null) return flat;
+
+  final dottedKey = data['unreadByRole.$roleBucket'];
+  if (dottedKey is num) return dottedKey.toInt();
+
+  final byRole = data['unreadByRole'];
+  if (byRole is Map) {
+    final perRole = byRole[roleBucket];
+    if (perRole is num) return perRole.toInt();
+  }
+
+  return flat;
+}
+
 // ─── Lightweight DTO for Firestore user_inbox data ──────────────────────────
 /// Represents the per-user conversation record stored in Firestore
 /// under orgs/{org}/schools/{school}/user_inbox/{user}/conversations/{code}.
@@ -60,16 +95,28 @@ class ConversationInboxItem {
   final String? privateModeActivatedBy;
   final DateTime? privateModeActivatedAt;
 
+  /// [roleBucket] — the CURRENT persona's coarse bucket ('ADMIN' / 'GUARDIAN'),
+  /// resolved from [StorageKeys.activeSchoolRole] by the repository. A dual-role
+  /// account (e.g. an org admin who is ALSO a guardian at the same school) shares
+  /// ONE user_inbox doc per conversation regardless of which persona they're
+  /// currently active as, so a flat `unreadCount` can't tell "read as admin" apart
+  /// from "read as guardian" for the same underlying doc — that's what the doc's
+  /// `unreadByRole` map (e.g. `{ADMIN: 0, GUARDIAN: 3}`) is for on conversations
+  /// visible to more than one role (ADMIN_CHAT). Resolved here, once, at parse
+  /// time, so every downstream consumer of [unreadCount] (mergeWith,
+  /// toMinimalEntity, badges) automatically gets the persona-correct value
+  /// without having to know this distinction exists.
   factory ConversationInboxItem.fromFirestore(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
+    DocumentSnapshot<Map<String, dynamic>> doc, {
+    String? roleBucket,
+  }) {
     final d = doc.data() ?? {};
     return ConversationInboxItem(
       conversationCode: d['conversationCode'] as String? ?? doc.id,
       conversationType: d['conversationType'] as String? ?? 'ROOM_CHAT',
       title: d['title'] as String? ?? '',
       lastMessagePreview: d['lastMessagePreview'] as String? ?? '',
-      unreadCount: (d['unreadCount'] as num?)?.toInt() ?? 0,
+      unreadCount: resolveRoleAwareUnreadCount(d, roleBucket),
       isActive: d['isActive'] as bool? ?? true,
       isMuted: d['isMuted'] as bool? ?? false,
       isPinned: d['isPinned'] as bool? ?? false,
@@ -172,6 +219,9 @@ abstract class ConversationRealtimeDataSource {
   /// Stream of per-user inbox items from Firestore user_inbox collection.
   ///
   /// [filterType] — when non-null, filters to a specific conversationType.
+  /// [roleBucket] — see [resolveRoleAwareUnreadCount]; the current persona's
+  /// coarse bucket ('ADMIN' / 'GUARDIAN'), used to pick the right unread
+  /// count on conversations a dual-role account shares one inbox doc for.
   /// Results are sorted by [lastMessageAt] descending on the client — NO
   /// Firestore orderBy is used, so no composite index is required.
   Stream<List<ConversationInboxItem>> watchInbox({
@@ -179,32 +229,39 @@ abstract class ConversationRealtimeDataSource {
     required String schoolCode,
     required String userCode,
     String? filterType,
+    String? roleBucket,
   });
 
   /// Lightweight stream: total unread count across all conversations.
-  /// Only reads [unreadCount] — never triggers Isar reads or writes.
+  /// Only reads [unreadCount] (or the [roleBucket]-selected entry of
+  /// `unreadByRole` when present) — never triggers Isar reads or writes.
   Stream<int> watchTotalUnreadCount({
     required String organizationCode,
     required String schoolCode,
     required String userCode,
+    String? roleBucket,
   });
 
-  /// Lightweight per-type unread sum — only reads [unreadCount] per doc.
-  /// Used by [UnreadBadgeCubit] to avoid duplicating the full merge pipeline.
+  /// Lightweight per-type unread sum — only reads [unreadCount] (or the
+  /// [roleBucket]-selected entry of `unreadByRole`) per doc. Used by
+  /// [UnreadBadgeCubit] to avoid duplicating the full merge pipeline.
   Stream<int> watchUnreadCountForType({
     required String organizationCode,
     required String schoolCode,
     required String userCode,
     required String conversationType,
+    String? roleBucket,
   });
 
-  /// Lightweight per-conversation unread — reads [unreadCount] for the single
-  /// inbox doc keyed by [conversationCode]. Used for per-classroom badges.
+  /// Lightweight per-conversation unread — reads [unreadCount] (or the
+  /// [roleBucket]-selected entry of `unreadByRole`) for the single inbox doc
+  /// keyed by [conversationCode]. Used for per-classroom badges.
   Stream<int> watchUnreadCountForConversation({
     required String organizationCode,
     required String schoolCode,
     required String userCode,
     required String conversationCode,
+    String? roleBucket,
   });
 }
 
@@ -241,6 +298,7 @@ class FirebaseConversationRealtimeDataSource
     required String schoolCode,
     required String userCode,
     String? filterType,
+    String? roleBucket,
   }) {
     // Bug fix: do NOT use orderBy('lastMessageAt') + where('conversationType')
     // together — that requires a Firestore composite index which may not exist
@@ -308,7 +366,12 @@ class FirebaseConversationRealtimeDataSource
             if (controller.isClosed) return;
             final items =
                 snapshot.docs
-                    .map(ConversationInboxItem.fromFirestore)
+                    .map(
+                      (doc) => ConversationInboxItem.fromFirestore(
+                        doc,
+                        roleBucket: roleBucket,
+                      ),
+                    )
                     .where((item) => item.isActive)
                     .toList()
                   ..sort((a, b) {
@@ -345,6 +408,7 @@ class FirebaseConversationRealtimeDataSource
     required String organizationCode,
     required String schoolCode,
     required String userCode,
+    String? roleBucket,
   }) {
     final ref = _inboxRef(
       organizationCode: organizationCode,
@@ -402,7 +466,7 @@ class FirebaseConversationRealtimeDataSource
               snapshot.docs.fold<int>(
                 0,
                 (sum, doc) =>
-                    sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+                    sum + resolveRoleAwareUnreadCount(doc.data(), roleBucket),
               ),
             );
           },
@@ -431,13 +495,14 @@ class FirebaseConversationRealtimeDataSource
     required String schoolCode,
     required String userCode,
     required String conversationType,
+    String? roleBucket,
   }) {
     final query = _inboxRef(
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       userCode: userCode,
     ).where('conversationType', isEqualTo: conversationType);
-    return _watchInboxUnreadSum(query);
+    return _watchInboxUnreadSum(query, roleBucket: roleBucket);
   }
 
   @override
@@ -446,6 +511,7 @@ class FirebaseConversationRealtimeDataSource
     required String schoolCode,
     required String userCode,
     required String conversationCode,
+    String? roleBucket,
   }) {
     // A single inbox doc, keyed by conversationCode (the doc id). Reusing the
     // same query-snapshot path as the per-type watch keeps the resilient
@@ -456,13 +522,17 @@ class FirebaseConversationRealtimeDataSource
       schoolCode: schoolCode,
       userCode: userCode,
     ).where(FieldPath.documentId, isEqualTo: conversationCode);
-    return _watchInboxUnreadSum(query);
+    return _watchInboxUnreadSum(query, roleBucket: roleBucket);
   }
 
-  /// Resilient sum of `unreadCount` across the docs matched by [query] in the
+  /// Resilient sum of `unreadCount` (role-aware — see
+  /// [resolveRoleAwareUnreadCount]) across the docs matched by [query] in the
   /// user_inbox collection, with the shared permission-denied re-auth + backoff
   /// retry. Backs both the per-type and per-conversation unread watches.
-  Stream<int> _watchInboxUnreadSum(Query<Map<String, dynamic>> query) {
+  Stream<int> _watchInboxUnreadSum(
+    Query<Map<String, dynamic>> query, {
+    String? roleBucket,
+  }) {
     final controller = StreamController<int>();
     StreamSubscription<QuerySnapshot<Map<String, dynamic>>>? inner;
     StreamSubscription<User?>? authWaitSub;
@@ -522,7 +592,7 @@ class FirebaseConversationRealtimeDataSource
               snapshot.docs.fold<int>(
                 0,
                 (sum, doc) =>
-                    sum + ((doc.data()['unreadCount'] as num?)?.toInt() ?? 0),
+                    sum + resolveRoleAwareUnreadCount(doc.data(), roleBucket),
               ),
             );
           },

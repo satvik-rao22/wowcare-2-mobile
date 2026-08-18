@@ -7,6 +7,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_input_bar.dart';
@@ -60,7 +61,8 @@ class ParentDirectMessagingScreen extends StatefulWidget {
 }
 
 class _ParentDirectMessagingScreenState
-    extends State<ParentDirectMessagingScreen> {
+    extends State<ParentDirectMessagingScreen>
+    with SchoolSwitchReloadMixin {
   late final ConversationListCubit _listCubit;
   ConversationEntity? _selectedConversation;
 
@@ -112,6 +114,29 @@ class _ParentDirectMessagingScreenState
     _emptyInputController.dispose();
     _emptyInputFocus.dispose();
     super.dispose();
+  }
+
+  /// This screen is kept alive in the shell's IndexedStack across a persona
+  /// switch (e.g. admin <-> guardian for the same account/school) — it never
+  /// re-mounts on its own, so [_listCubit]'s Firestore subscription, opened
+  /// once in [initState], would otherwise keep resolving unread counts under
+  /// the persona active when this screen was FIRST built rather than the one
+  /// now active. Restarting it re-reads the current persona (see
+  /// ConversationEntityRepositoryImpl's `_unreadRoleBucket`) so an
+  /// ADMIN_CHAT conversation's unreadByRole-based count updates for the
+  /// persona actually looking at it now. Also re-runs the authoritative
+  /// existence lookup for the current child, since that too was gated on
+  /// "already resolved for this child code" and would otherwise skip
+  /// re-checking after switching back to a persona that can see this
+  /// conversation type.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    unawaited(_listCubit.startWatching());
+    _resolvedForChildCode = null;
+    _resolveExistingConversation(
+      context.read<ParentChildCubit>().state.selectedChild,
+    );
   }
 
   /// Syncs the selected conversation to [child] by matching [studentCode].
