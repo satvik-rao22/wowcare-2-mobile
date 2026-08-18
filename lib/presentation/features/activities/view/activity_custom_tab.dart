@@ -648,6 +648,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 
   DateTime _activityDateTimeOrEpoch(ActivityItem item) {
+    // Prefer the full-precision ISO instant \u2014 every source (activity feed,
+    // attendance daily, absent records) already populates [activityDateIso]
+    // with real second-level precision. The display `date`/`time` strings
+    // below are formatted with DateFormat.jm() ("10:15 AM"), which never
+    // includes seconds, so trying them FIRST (as this used to) meant two
+    // rows occurring in the same minute always collapsed to an identical
+    // sort key and silently fell through to the alphabetical tiebreak in
+    // [_compareActivityItemsByTimeDesc] instead of true chronological order.
+    final iso = (item.activityDateIso ?? '').trim();
+    if (iso.isNotEmpty) {
+      try {
+        return SchoolZoneDateTime.dateTimeFromInstantInSchool(
+          DateTime.parse(iso),
+          _schoolIana,
+        );
+      } catch (_) {}
+    }
+
     final cardDate = item.date.trim();
     final normalizedTime = item.time
         .replaceAll(RegExp(r'\s+'), ' ')
@@ -669,15 +687,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       } catch (_) {}
     }
 
-    final iso = (item.activityDateIso ?? '').trim();
-    if (iso.isNotEmpty) {
-      try {
-        return SchoolZoneDateTime.dateTimeFromInstantInSchool(
-          DateTime.parse(iso),
-          _schoolIana,
-        );
-      } catch (_) {}
-    }
     return DateTime.fromMillisecondsSinceEpoch(0, isUtc: true);
   }
 

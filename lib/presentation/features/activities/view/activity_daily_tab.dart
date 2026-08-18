@@ -1517,6 +1517,22 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
   }
 
   DateTime _activityItemSortDateTime(ActivityItem item) {
+    // Prefer the full-precision ISO instant — every source (activity feed,
+    // attendance daily, absent records) already populates [activityDateIso]
+    // with real second-level precision. The display `date`/`time` strings
+    // below are formatted via DateFormat.jm() ("10:15 AM"), which never
+    // includes seconds, so trying them FIRST (as this used to) meant two
+    // rows occurring in the same minute always collapsed to an identical
+    // sort key and silently fell through to the alphabetical-by-name
+    // tiebreak in [_compareActivityItemsByTimeDesc] instead of true
+    // chronological order.
+    final iso = (item.activityDateIso ?? '').trim();
+    if (iso.isNotEmpty) {
+      try {
+        return DateTime.parse(iso);
+      } catch (_) {}
+    }
+
     final parsedDisplay = _tryParseDisplayDateTime(item.date, item.time);
     if (parsedDisplay != null) return parsedDisplay;
 
@@ -1524,13 +1540,6 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     if (date.isNotEmpty) {
       try {
         return DateFormat('MMMM d, yyyy').parseStrict(date);
-      } catch (_) {}
-    }
-
-    final iso = (item.activityDateIso ?? '').trim();
-    if (iso.isNotEmpty) {
-      try {
-        return DateTime.parse(iso);
       } catch (_) {}
     }
     return DateTime.fromMillisecondsSinceEpoch(0);

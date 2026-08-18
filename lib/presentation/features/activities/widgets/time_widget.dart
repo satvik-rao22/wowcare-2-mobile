@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
@@ -34,6 +36,29 @@ class TimeWidget extends StatefulWidget {
 class _TimeWidgetState extends State<TimeWidget> {
   late TimeOfDay _selectedTime;
 
+  /// True once the user has picked a DIFFERENT time via the picker UI (as
+  /// opposed to the live school-now default). Freezes [_selectedTime] and
+  /// stops [_liveNowTimer] the moment it's set — a manual choice must never
+  /// get silently overwritten by the live-now tracking below.
+  bool _userPickedManually = false;
+
+  /// Keeps [_selectedTime] tracking live school "now" (minute-aligned, no
+  /// network calls — reuses the already-synced [ServerTimeService] offset)
+  /// for as long as the user hasn't manually touched the field.
+  ///
+  /// Without this, [_selectedTime] is a snapshot frozen at whenever this
+  /// widget happened to initialize. [SchoolZoneDateTime.resolvePickedInstantUtc]
+  /// only returns full second-precision "now" at submit time when the
+  /// picked value STILL equals school-now at that moment — if the user
+  /// spends any time filling in the rest of the form (which is the common
+  /// case) without ever touching the time field, that frozen snapshot goes
+  /// stale and the resolver wrongly treats it as a deliberately-picked
+  /// instant, truncating seconds to 0 even though the user never touched
+  /// the time field. Keeping the value live for as long as it's untouched
+  /// guarantees the "did the user actually pick a time" check stays correct
+  /// no matter how long the form stays open before Save is pressed.
+  Timer? _liveNowTimer;
+
   @override
   void initState() {
     super.initState();
@@ -57,8 +82,43 @@ class _TimeWidgetState extends State<TimeWidget> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onTimeChanged?.call(_selectedTime);
       });
+      _scheduleNextLiveNowTick();
     }
     _setSchoolDefaultTimeIfNeeded();
+  }
+
+  @override
+  void dispose() {
+    _liveNowTimer?.cancel();
+    super.dispose();
+  }
+
+  TimeOfDay _currentSchoolNow() {
+    final tz = SchoolTimezoneResolver.lastKnownTimeZone.trim();
+    return SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+      tz.isNotEmpty ? tz : SchoolTimezoneResolver.fallbackTimeZone,
+    ).$2;
+  }
+
+  /// Fires shortly after the next real minute boundary, refreshes
+  /// [_selectedTime] to school-now, then reschedules — keeping the field
+  /// aligned to the wall clock instead of drifting on a fixed-period timer.
+  void _scheduleNextLiveNowTick() {
+    _liveNowTimer?.cancel();
+    final nowUtc = ServerTimeService.instance.nowUtc();
+    final msIntoMinute = nowUtc.second * 1000 + nowUtc.millisecond;
+    // +500ms safety margin past the boundary so the tick lands just after
+    // the minute actually rolls over, never just before.
+    final msUntilNextTick = (60000 - msIntoMinute) + 500;
+    _liveNowTimer = Timer(Duration(milliseconds: msUntilNextTick), () {
+      if (!mounted || _userPickedManually) return;
+      final now = _currentSchoolNow();
+      if (now != _selectedTime) {
+        setState(() => _selectedTime = now);
+        widget.onTimeChanged?.call(_selectedTime);
+      }
+      _scheduleNextLiveNowTick();
+    });
   }
 
   Future<void> _setSchoolDefaultTimeIfNeeded() async {
@@ -69,11 +129,15 @@ class _TimeWidgetState extends State<TimeWidget> {
       apiClient: serviceLocator<ApiClient>(),
     );
     final schoolNow = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone).$2;
-    if (!mounted) return;
+    if (!mounted || _userPickedManually) return;
     setState(() {
       _selectedTime = schoolNow;
     });
     widget.onTimeChanged?.call(_selectedTime);
+    // The timezone may have just resolved for the first time (was UTC
+    // fallback at initState) — realign the live-now tick to the now-correct
+    // wall clock rather than waiting on the fallback-zone-based schedule.
+    _scheduleNextLiveNowTick();
   }
 
   TimeOfDay? _parseTimeOfDay(String? timeStr) {
@@ -108,7 +172,9 @@ class _TimeWidgetState extends State<TimeWidget> {
       time: widget.doNotShowTime ? null : _selectedTime,
       onTimeSelected: (picked) {
         if (picked == _selectedTime) return;
+        _liveNowTimer?.cancel();
         setState(() {
+          _userPickedManually = true;
           _selectedTime = picked;
         });
         widget.onTimeChanged?.call(_selectedTime);
