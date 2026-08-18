@@ -410,11 +410,16 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
     switch (result) {
       case EditProfileSaveResult.success:
         final message = (cubit.lastSaveMessage ?? '').trim();
+        // A failed email-change attempt (see saveProfile's own doc) must
+        // never read as an unqualified success — the rest of the profile
+        // did save, but the email specifically didn't, so this warns
+        // instead of celebrating.
         CoreUtils.showTopSnackBar(
           context: context,
           message:
               message.isNotEmpty ? message : 'Profile updated successfully',
-          isSuccess: true,
+          isSuccess: !cubit.emailChangeFailed,
+          isWarning: cubit.emailChangeFailed,
         );
         // Pop with result so caller can refresh profile details.
         Navigator.pop(context, true);

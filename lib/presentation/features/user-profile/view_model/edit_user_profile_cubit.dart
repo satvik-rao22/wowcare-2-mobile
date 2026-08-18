@@ -2,6 +2,7 @@ import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../core/util/storage_keys.dart';
 import '../../../../data/features/student/datasources/student_remote_datasource.dart';
@@ -38,6 +39,16 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
   /// surface it (like other APIs) instead of a hardcoded string.
   String? _lastSaveMessage;
   String? get lastSaveMessage => _lastSaveMessage;
+
+  /// True when this save attempted an email change and the email-change API
+  /// call itself failed (network error, backend rejection, etc.) — the rest
+  /// of the profile (name/phone/address) may still have saved fine. The view
+  /// uses this to show a warning instead of a plain success snackbar, so a
+  /// failed email change is never silently indistinguishable from a real
+  /// success — see [lastSaveMessage] for the reason, which is included in it
+  /// when this is true.
+  bool _emailChangeFailed = false;
+  bool get emailChangeFailed => _emailChangeFailed;
 
   /// True once [loadProfile] runs for a guardian/parent persona, so [saveProfile]
   /// routes to the guardian update endpoint instead of the staff one.
@@ -224,6 +235,7 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
     bool isParent = false,
   }) async {
     emit(state.copyWith(isSubmitting: true));
+    _emailChangeFailed = false;
 
     if (isParent || _isGuardian) {
       return _saveGuardianProfile(fields: fields, email: email);
@@ -238,40 +250,76 @@ class EditUserProfileCubit extends Cubit<EditUserProfileState> {
 
       final repo = _staffRepository;
 
-      // If email changed, call email-change API before updating the profile.
-      try {
-        final userCode =
-            (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
-        final oldEmail =
-            (await _storageService.getString(StorageKeys.email) ?? '').trim();
-        final organizationCode =
-            (await _storageService.getString(StorageKeys.organizationCode) ?? '')
-                .trim();
-        final schoolCode =
-            (await _storageService.getString(StorageKeys.schoolCode) ?? '')
-                .trim();
+      // If email changed, call the email-change API before updating the rest
+      // of the profile. Its own response `message` is the one that actually
+      // matters here — the backend's email-change endpoint is what would say
+      // something like "verification email sent to the new address", and
+      // that message must reach the user, not get silently discarded in
+      // favour of the unrelated /profile PATCH's generic message below.
+      String? emailChangeMessage;
+      final userCode =
+          (await _storageService.getString(StorageKeys.userCode) ?? '').trim();
+      final oldEmail =
+          (await _storageService.getString(StorageKeys.email) ?? '').trim();
+      final organizationCode =
+          (await _storageService.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final schoolCode =
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
+      final emailChanged =
+          userCode.isNotEmpty &&
+          oldEmail.isNotEmpty &&
+          oldEmail.toLowerCase() != email.toLowerCase() &&
+          organizationCode.isNotEmpty &&
+          schoolCode.isNotEmpty;
 
-        if (userCode.isNotEmpty &&
-            oldEmail.isNotEmpty &&
-            oldEmail.toLowerCase() != email &&
-            organizationCode.isNotEmpty &&
-            schoolCode.isNotEmpty) {
-          await repo.changeUserEmail(
+      if (emailChanged) {
+        try {
+          emailChangeMessage = await repo.changeUserEmail(
             userCode: userCode,
             oldEmail: oldEmail,
             newEmail: email,
             organizationCode: organizationCode,
             schoolCode: schoolCode,
           );
-          // Keep local storage in sync with the new email.
+          // The backend call succeeded — it either applied the change or
+          // (per its own returned message) queued verification. Either way
+          // this is the address the account will end up with, so the local
+          // cache follows it; if verification is actually required, the
+          // message surfaced below is what tells the user that, rather than
+          // this app silently pretending nothing happened.
           await _storageService.saveString(StorageKeys.email, email);
+        } catch (e) {
+          // No longer swallowed: a failed email change must not be
+          // indistinguishable from a successful one. The rest of the
+          // profile (name/phone/address) still saves below — an email
+          // failure alone shouldn't block those — but the final message
+          // and `emailChangeFailed` flag tell the view to warn, not
+          // congratulate.
+          _emailChangeFailed = true;
+          emailChangeMessage = ApiErrorHandler.extractErrorMessage(e);
         }
-      } catch (_) {
-        // Non-blocking: email-change failure should not block the profile save.
       }
 
-      _lastSaveMessage =
-          await repo.updateMyProfile(staffCode: staffCode, fields: fields);
+      final profileMessage = await repo.updateMyProfile(
+        staffCode: staffCode,
+        fields: fields,
+      );
+
+      if (!emailChanged) {
+        _lastSaveMessage = profileMessage;
+      } else if (_emailChangeFailed) {
+        _lastSaveMessage =
+            'Profile updated, but the email change failed: '
+            '${(emailChangeMessage ?? '').trim().isNotEmpty ? emailChangeMessage : 'please try again.'}';
+      } else {
+        // Prefer the email-change endpoint's own message (e.g. a
+        // verification notice) — it's the more specific, actionable one
+        // when an email change was actually attempted.
+        final trimmed = (emailChangeMessage ?? '').trim();
+        _lastSaveMessage = trimmed.isNotEmpty ? trimmed : profileMessage;
+      }
 
       if (!isClosed) emit(state.copyWith(isSubmitting: false));
       return EditProfileSaveResult.success;

@@ -146,20 +146,38 @@ class _MessageAttachmentBottomSheetState
   /// Classifies each file by its own extension (image / video / document)
   /// rather than a single blanket type for the whole batch — [_pickGallery]
   /// can hand back a mix of photos and videos in one call.
+  ///
+  /// [FileType.custom] + `allowedExtensions` on the OS picker (see
+  /// [_pickGallery]/[_pickDocument]) is the FIRST line of defence — it stops
+  /// most unsupported files from ever being selectable. It isn't airtight on
+  /// every platform/file-provider combination (a known `file_picker`
+  /// limitation, most often seen with third-party providers surfaced inside
+  /// iOS's Files app, which don't always honour the UTType filter), so this
+  /// re-validates every file's extension against the same three allow-lists
+  /// before accepting it — anything matching none of them is rejected here
+  /// rather than silently uploaded mislabelled as a "document".
   Future<void> _processFiles(List<File> files) async {
     final valid = <ChatAttachment>[];
     // name -> limit that was exceeded, for the rejection message below.
-    final rejected = <String, int>{};
+    final oversized = <String, int>{};
+    final unsupported = <String>[];
     for (final file in files) {
       final ext = p.extension(file.path).toLowerCase().replaceFirst('.', '');
       final isImage = FilePickerUtils.allowedImageExtensions.contains(ext);
       final isVideo = FilePickerUtils.allowedVideoExtensions.contains(ext);
+      final isDocument = FilePickerUtils.allowedDocumentExtensions.contains(
+        ext,
+      );
+      if (!isImage && !isVideo && !isDocument) {
+        unsupported.add(p.basename(file.path));
+        continue;
+      }
       final type = isImage ? 'image' : (isVideo ? 'video' : 'document');
 
       final size = await file.length();
       final maxSize = isVideo ? _videoMaxSizeBytes : _imageMaxSizeBytes;
       if (size > maxSize) {
-        rejected[p.basename(file.path)] = maxSize;
+        oversized[p.basename(file.path)] = maxSize;
         continue;
       }
 
@@ -179,29 +197,55 @@ class _MessageAttachmentBottomSheetState
     // Previously silent: rejected files just vanished and the sheet had
     // already closed, so the user got no feedback at all on why nothing was
     // attached — they'd only notice the message never had their file on it.
-    if (rejected.isNotEmpty) {
-      widget.onAttachmentError?.call(_rejectionMessage(rejected));
+    final message = _rejectionMessage(
+      oversized: oversized,
+      unsupported: unsupported,
+    );
+    if (message != null) {
+      widget.onAttachmentError?.call(message);
     }
     if (valid.isEmpty) return;
     widget.onAttachmentsSelected(valid);
   }
 
-  /// e.g. "photo.png exceeds the 10 MB limit" or, for a mixed batch,
-  /// "3 files exceed the size limit (10 MB for images/documents, 200 MB for
-  /// video)".
-  String _rejectionMessage(Map<String, int> rejected) {
-    if (rejected.length == 1) {
-      final entry = rejected.entries.first;
-      return '${entry.key} exceeds the ${_readableSize(entry.value)} limit';
+  /// Combines both rejection reasons into one message — e.g. "photo.png
+  /// exceeds the 10 MB limit", "archive.zip is not a supported file type",
+  /// or, for a mixed batch, "2 files couldn't be attached: 1 exceeds the
+  /// size limit, 1 is an unsupported file type". Null when nothing was
+  /// rejected.
+  String? _rejectionMessage({
+    required Map<String, int> oversized,
+    required List<String> unsupported,
+  }) {
+    if (oversized.isEmpty && unsupported.isEmpty) return null;
+
+    if (unsupported.isEmpty) {
+      if (oversized.length == 1) {
+        final entry = oversized.entries.first;
+        return '${entry.key} exceeds the ${_readableSize(entry.value)} limit';
+      }
+      final distinctLimits = oversized.values.toSet();
+      if (distinctLimits.length == 1) {
+        return '${oversized.length} files exceed the '
+            '${_readableSize(distinctLimits.first)} limit';
+      }
+      return '${oversized.length} files exceed the size limit '
+          '(${_readableSize(_imageMaxSizeBytes)} for images/documents, '
+          '${_readableSize(_videoMaxSizeBytes)} for video)';
     }
-    final distinctLimits = rejected.values.toSet();
-    if (distinctLimits.length == 1) {
-      return '${rejected.length} files exceed the '
-          '${_readableSize(distinctLimits.first)} limit';
+
+    if (oversized.isEmpty) {
+      if (unsupported.length == 1) {
+        return '${unsupported.first} is not a supported file type';
+      }
+      return '${unsupported.length} files are not a supported file type';
     }
-    return '${rejected.length} files exceed the size limit '
-        '(${_readableSize(_imageMaxSizeBytes)} for images/documents, '
-        '${_readableSize(_videoMaxSizeBytes)} for video)';
+
+    final total = oversized.length + unsupported.length;
+    return "$total files couldn't be attached: ${oversized.length} "
+        'exceed${oversized.length == 1 ? 's' : ''} the size limit, '
+        '${unsupported.length} unsupported file type'
+        '${unsupported.length == 1 ? '' : 's'}';
   }
 
   String _readableSize(int bytes) => '${(bytes / (1024 * 1024)).round()} MB';

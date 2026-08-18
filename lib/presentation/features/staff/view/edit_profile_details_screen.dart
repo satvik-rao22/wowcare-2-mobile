@@ -20,6 +20,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_staff_tab_card.dart'
+    show notifyClassroomStaffChanged;
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -813,13 +815,17 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
       // Classrooms have dedicated endpoints (the /profile PATCH ignores them).
       // Update allowed classrooms first so the primary is valid within the set,
-      // then update the primary classroom.
-      if (allowedClassroomCodes.isNotEmpty) {
-        await repository.updateStaffAllowedClassrooms(
-          staffCode: widget.staffCode,
-          classroomCodes: allowedClassroomCodes,
-        );
-      }
+      // then update the primary classroom. Always send the current selection,
+      // even when empty — `_selectedAllowedClassrooms` is the form's own live
+      // state (not an "untouched" sentinel), so an empty list is a genuine,
+      // intentional "remove every classroom assignment". Skipping the call
+      // when empty (the previous `isNotEmpty` guard) silently dropped that
+      // removal — the staff member stayed assigned server-side even after
+      // unchecking their only classroom and saving.
+      await repository.updateStaffAllowedClassrooms(
+        staffCode: widget.staffCode,
+        classroomCodes: allowedClassroomCodes,
+      );
       if (primaryClassroomCode != null && primaryClassroomCode.isNotEmpty) {
         await repository.updateStaffPrimaryClassroom(
           staffCode: widget.staffCode,
@@ -841,6 +847,13 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       // Profile mutation — poke the scheduling screens so they silently
       // re-pull the staff list on the next visit.
       SchedulingCacheGate.invalidate();
+      // Same idea for the Classroom module's own Staff tab: allowed/primary
+      // classroom assignment may have just changed (including a full
+      // removal above), so its cached roster is stale the moment this
+      // returns — without this, a removed staff member kept showing in
+      // that classroom's list until some unrelated refresh happened to
+      // fire.
+      notifyClassroomStaffChanged();
 
       // Upload the picked photo in the BACKGROUND so saving returns instantly;
       // it keeps running even after this screen is popped.
@@ -1206,7 +1219,28 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                             !classrooms.contains(
                                               _selectedPrimaryClassroom,
                                             )) {
-                                          _selectedPrimaryClassroom = null;
+                                          // The removed classroom was this
+                                          // staff member's primary. Leaving
+                                          // this null meant _saveProfile's
+                                          // `primaryClassroomCode != null`
+                                          // guard skipped calling
+                                          // updateStaffPrimaryClassroom
+                                          // entirely on save — the backend's
+                                          // primaryClassroomCode (what the
+                                          // Classroom -> Staff list actually
+                                          // filters by, NOT allowedClassroomCodes)
+                                          // stayed pointed at the just-removed
+                                          // classroom, so the staff member kept
+                                          // showing in its roster no matter how
+                                          // many times that list refreshed.
+                                          // Auto-picking a remaining allowed
+                                          // classroom (when one exists) keeps
+                                          // this field non-null so the save
+                                          // actually persists a real change.
+                                          _selectedPrimaryClassroom =
+                                              classrooms.isNotEmpty
+                                              ? classrooms.first
+                                              : null;
                                         }
                                       });
                                     },

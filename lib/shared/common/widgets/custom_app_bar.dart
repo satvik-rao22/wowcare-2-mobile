@@ -20,6 +20,9 @@ import '../../../presentation/features/user-profile/view/notification_settings_s
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
+import 'package:wowcare/src/app_router.dart'
+    show goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -1067,11 +1070,37 @@ Future<void> _switchToNextProfileFromAppBar(BuildContext context) async {
     await cubit.load(isParent: context.read<RoleCubit>().isParent);
     if (!context.mounted) return;
 
+    // "Switch Profile" can be tapped from ANY screen, including ones with a
+    // route imperatively pushed on top of the root navigator OR a shell
+    // branch's own nested navigator (the parent Attendance profile onto
+    // dashboardBranchKey, a Communication-module sub-screen onto
+    // messagingBranchKey, etc.) — `context.go` alone doesn't know how to pop
+    // those, so the pushed screen just keeps covering Dashboard. Unwind
+    // every branch's navigator first — see popAllShellBranchNavigators's
+    // own doc.
+    popAllShellBranchNavigators(context);
+    if (!context.mounted) return;
+
     // Land on the new persona's dashboard. DashboardScreen branches on RoleCubit,
     // so this shows the correct (admin/staff/parent) dashboard and rebuilds it
     // fresh — otherwise a stale Billing/Messaging/etc. screen lingers after the
-    // switch and shows the previous persona's data.
-    context.go(DashboardScreen.routeName);
+    // switch and shows the previous persona's data. goToDashboardRoot (not a
+    // bare context.go) is what actually switches the shell's active branch —
+    // see its own doc for why a plain `go` wasn't landing on Dashboard from
+    // another branch (e.g. Messaging).
+    goToDashboardRoot(context);
+
+    // Tell every kept-alive branch screen (Dashboard, Classroom, Activity,
+    // Messaging, Billing) to reload fresh for the new persona — deliberately
+    // AFTER navigating away, not before. Messaging's own SchoolSwitchReloadMixin
+    // reacts to this by re-keying the BlocProvider that wraps its
+    // GlobalScaffold (and therefore this very kebab menu's own context) —
+    // firing it while still on Messages disposed the context this function
+    // is running on mid-flight, so `if (!context.mounted) return;` above
+    // silently aborted before ever reaching the navigation call. The persona
+    // switch itself (role, cached storage) had already fully applied by
+    // then, which is why it "worked" while the screen never moved.
+    SchoolSwitchEvents.notifySwitched();
   } catch (e) {
     if (!context.mounted) return;
     CoreUtils.showTopSnackBar(

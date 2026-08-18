@@ -35,6 +35,8 @@ import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
 /// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
@@ -182,6 +184,26 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     _searchController.addListener(_onSearchChanged);
     _loadForSelectedRoom(refresh: false);
     classroomStaffRefreshTick.addListener(_handleExternalRefresh);
+    _loadOwnStaffCodeIfStaff();
+  }
+
+  /// Logged-in user's own staffCode (resolved lazily, staff persona only) —
+  /// used by [_openStaffProfile] to tell "my own card" apart from a
+  /// colleague's.
+  String? _ownStaffCode;
+
+  Future<void> _loadOwnStaffCodeIfStaff() async {
+    try {
+      final role = context.read<RoleCubit>();
+      if (!role.isStaff) return;
+      final code = await resolveStaffCodeForLoggedInUser();
+      if (!mounted) return;
+      setState(() => _ownStaffCode = code);
+    } catch (_) {
+      // Best-effort — falls back to treating every card as "not mine",
+      // i.e. a staff persona gets routed to messaging even on their own
+      // card if this fails, which is safe (never over-grants edit access).
+    }
   }
 
   void _handleExternalRefresh() {
@@ -767,8 +789,38 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
     return 'ACTIVE';
   }
 
+  /// A plain staff persona tapping a COLLEAGUE's card here opens a message
+  /// to them instead of that colleague's profile — sidesteps the "can view
+  /// but never edit" gray area for this persona entirely, rather than
+  /// opening the profile and just disabling Edit on it (StaffProfileTab's
+  /// own `_canEditProfile` still does that too, as a second layer, in case
+  /// the profile is reached some other way). Admin/authorized roles, and a
+  /// staff member opening their OWN card, still go to the profile as
+  /// before.
   void _openStaffProfile(Staff staff) {
     if (staff.staffCode.trim().isEmpty) return;
+
+    final role = context.read<RoleCubit>();
+    final own = (_ownStaffCode ?? '').trim();
+    final isOwnCard = own.isNotEmpty && own == staff.staffCode.trim();
+
+    if (role.isStaff && !isOwnCard) {
+      openMessagingShortcut(
+        context,
+        recipients: [
+          SelectedRecipient(
+            code: staff.staffCode,
+            name: staff.name,
+            isStaff: true,
+            userCode: staff.userCode,
+            avatar: staff.photoUuid,
+            designation: staff.designation,
+          ),
+        ],
+      );
+      return;
+    }
+
     Navigator.push(
       context,
       MaterialPageRoute(

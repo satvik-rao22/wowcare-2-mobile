@@ -188,11 +188,58 @@ BottomNavigationItem itemForBranchIndex({
 /// branch's own `CustomNavigationBar` instance happened to handle the tap —
 /// see `AttendancePopupManager.openParentChildAttendance`'s doc for why an
 /// ambient `BuildContext` can't be trusted for this.
+/// Public (not `_`-prefixed) for the same reason as [dashboardBranchKey]:
+/// any branch can end up with a screen imperatively pushed onto its OWN
+/// nested navigator (a sub-screen, a dialog-as-route, the Attendance
+/// profile), which go_router's own `context.go` doesn't know how to pop —
+/// see [popAllShellBranchNavigators]'s doc for the concrete bug this fixes
+/// (e.g. "Switch Profile" not landing on Dashboard because the Attendance
+/// profile, or a Communication-module sub-screen, was still covering it).
 final dashboardBranchKey = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
-final _classroomBranchKey = GlobalKey<NavigatorState>(debugLabel: 'classroom');
-final _activityBranchKey = GlobalKey<NavigatorState>(debugLabel: 'activity');
-final _messagingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'messaging');
-final _billingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'billing');
+final classroomBranchKey = GlobalKey<NavigatorState>(debugLabel: 'classroom');
+final activityBranchKey = GlobalKey<NavigatorState>(debugLabel: 'activity');
+final messagingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'messaging');
+final billingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'billing');
+
+/// Every shell branch's own nested navigator, for callers that need to
+/// unwind ALL of them (not just one specific branch) — see
+/// [popAllShellBranchNavigators].
+final List<GlobalKey<NavigatorState>> _allShellBranchKeys = [
+  dashboardBranchKey,
+  classroomBranchKey,
+  activityBranchKey,
+  messagingBranchKey,
+  billingBranchKey,
+];
+
+/// Pops every pushed route off EVERY shell branch's own nested navigator,
+/// plus the app's root navigator, back down to each branch's root screen.
+///
+/// Needed before a plain `context.go(someRoute)` whenever the caller can't
+/// be sure nothing is imperatively pushed on top of whichever navigator is
+/// currently showing — `go()` only ever changes go_router's OWN declarative
+/// page list; it has no way to know about (or pop) a route pushed directly
+/// via `NavigatorState.push`/`Navigator.of(context).push` bypassing
+/// go_router, so that pushed screen just keeps covering the destination.
+/// Two concrete cases this fixes, both hit via the app bar's "Switch
+/// Profile": the parent Attendance profile (pushed onto
+/// [dashboardBranchKey] — see `AttendancePopupManager
+/// .openParentChildAttendance`) and Communication-module sub-screens
+/// (pushed onto [messagingBranchKey] from within `MessagingScreen`/
+/// `ParentMessagingThread`/etc.). Safe to call unconditionally — a branch
+/// with nothing pushed on it just no-ops (`canPop()` is false).
+void popAllShellBranchNavigators(BuildContext context) {
+  final rootNavigator = Navigator.of(context, rootNavigator: true);
+  while (rootNavigator.canPop()) {
+    rootNavigator.pop();
+  }
+  for (final key in _allShellBranchKeys) {
+    final navigator = key.currentState;
+    while (navigator != null && navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+}
 
 /// Deep-link captured from a notification that cold-launched the app (killed
 /// state). On a killed-state tap the app starts at the splash, which runs an
@@ -1106,7 +1153,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 1 — Classrooms (staff/admin only).
         StatefulShellBranch(
-          navigatorKey: _classroomBranchKey,
+          navigatorKey: classroomBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.classroom,
@@ -1126,7 +1173,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 2 — Activities.
         StatefulShellBranch(
-          navigatorKey: _activityBranchKey,
+          navigatorKey: activityBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.activityFeed,
@@ -1167,7 +1214,7 @@ final GoRouter appRouter = GoRouter(
         // same branch serves both parent and staff/admin without having to
         // pass arguments through the URL.
         StatefulShellBranch(
-          navigatorKey: _messagingBranchKey,
+          navigatorKey: messagingBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.messaging,
@@ -1190,7 +1237,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 4 — Parent billing (parent only).
         StatefulShellBranch(
-          navigatorKey: _billingBranchKey,
+          navigatorKey: billingBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.parentBilling,
@@ -1480,3 +1527,24 @@ class _ShellScope extends InheritedWidget {
 /// Public accessor used by the bottom-nav widget.
 StatefulNavigationShell? appNavigationShell(BuildContext context) =>
     _ShellScope.maybeOf(context);
+
+/// Navigates to the Dashboard branch's root screen, the PROVEN way — see
+/// CustomNavigationBar._performNavigation, which switches branches via
+/// `shell.goBranch(branchIndex)`, never a bare `context.go(...)`. A plain
+/// `context.go(AppRoutes.dashboard)` while already inside the shell on a
+/// DIFFERENT branch (e.g. Communication/Messaging) does not reliably swap
+/// which branch the IndexedStack shows — the underlying GoRouterState/
+/// location updates, but StatefulNavigationShell's own active-index
+/// tracking is what CustomNavigationBar's tab-switching relies on
+/// `goBranch` for, not `go`. That's what made "Switch Profile" land back
+/// on Messages instead of Dashboard even after
+/// [popAllShellBranchNavigators] correctly cleared everything pushed on
+/// top of it.
+void goToDashboardRoot(BuildContext context) {
+  final shell = appNavigationShell(context);
+  if (shell != null && shell.currentIndex != 0) {
+    shell.goBranch(0);
+  } else {
+    GoRouter.of(context).go(AppRoutes.dashboard);
+  }
+}
