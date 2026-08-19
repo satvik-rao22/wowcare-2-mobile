@@ -167,7 +167,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                             vertical: 14,
                                           ),
                                           color: hasSelections
-                                              ? Color(0xFFF8F7FA)
+                                              ? Color(0xFFF4F5FA)
                                               : Colors.transparent,
                                           child: Row(
                                             children: [
@@ -181,7 +181,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                                         .inputFontSize,
                                                     fontWeight: FontWeight.w500,
                                                     color: hasSelections
-                                                        ? Color(0xff573353)
+                                                        ? Color(0xFF0A1C5D)
                                                         : Colors.grey.shade400,
                                                   ),
                                                 ),
@@ -231,7 +231,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                               fontSize:
                                                   responsive.inputFontSize,
                                               fontWeight: FontWeight.w500,
-                                              color: const Color(0xff573353),
+                                              color: const Color(0xFF0A1C5D),
                                             ),
                                           ),
                                         ),
@@ -289,7 +289,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                 fontSize: responsive.labelFontSize,
                 fontFamily: "Manrope",
                 fontWeight: FontWeight.w400,
-                color: const Color(0xff573353),
+                color: const Color(0xFF0A1C5D),
               ),
               children: [
                 TextSpan(text: widget.label),
@@ -319,13 +319,13 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               // decoration: BoxDecoration(
               //   color: Colors.white,
               //   border: Border.all(
-              //     color: widget.errorText != null ? Colors.red : const Color(0x66573353),
+              //     color: widget.errorText != null ? Colors.red : const Color(0x660A1C5D),
               //   ),
               //   borderRadius: BorderRadius.circular(responsive.isTablet ? 12 : 10),
               // ),
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
-                //color: const Color(0xFFF8F7FA),
+                color: const Color(0xFFACEAEC).withValues(alpha: 0.102),
+                //color: const Color(0xFFF4F5FA),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Stack(
@@ -350,7 +350,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       child: Text(
                         widget.hintText,
                         style: TextStyle(
-                          color: const Color(0xff573353),
+                          color: const Color(0xFF0A1C5D),
                           fontSize: responsive.inputFontSize,
                           fontFamily: 'Manrope',
                           fontWeight: FontWeight.w500,
@@ -414,7 +414,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       _isDropdownOpen
                           ? Icons.keyboard_arrow_up_rounded
                           : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xff573353),
+                      color: const Color(0xFF0A1C5D),
                       size: responsive.isTablet ? 28 : 24,
                     ),
                   ),

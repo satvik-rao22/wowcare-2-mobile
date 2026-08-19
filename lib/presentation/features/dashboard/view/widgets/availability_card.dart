@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -208,13 +209,10 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
             date: _selectedAvailabilityDate,
             isTwoShifts: true,
           ),
-          child: Container(
+          child: SkeuPanel(
+            radius: SkeuRadius.xxl,
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.cardColor,
-            ),
+
             child: Column(
               children: [
                 // Header row
@@ -419,7 +417,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
-              color: Color.fromRGBO(87, 51, 83, 1),
+              color: Color.fromRGBO(10, 28, 93, 1),
             ),
           ),
           const SizedBox(height: 12),
@@ -467,7 +465,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
                           fontSize: 14,
-                          color: Color.fromRGBO(87, 51, 83, 1),
+                          color: Color.fromRGBO(10, 28, 93, 1),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,

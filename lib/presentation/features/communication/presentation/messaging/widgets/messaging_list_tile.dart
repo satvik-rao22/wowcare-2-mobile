@@ -67,7 +67,7 @@ class MessagingListTile extends StatelessWidget {
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(
-            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
+            bottom: BorderSide(color: Color(0xFFF4F5FA), width: 1),
           ),
         ),
         child: ListTile(

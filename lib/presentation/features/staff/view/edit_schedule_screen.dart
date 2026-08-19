@@ -634,7 +634,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   fontFamily: 'Manrope',
                   fontSize: responsive.labelFontSize,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353),
+                  color: const Color(0xFF0A1C5D),
                   decoration: isEnabled
                       ? TextDecoration.none
                       : TextDecoration.lineThrough,
@@ -744,7 +744,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 fontFamily: 'Manrope',
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
-                color: Color(0xff573353),
+                color: Color(0xFF0A1C5D),
               ),
             ),
             const SizedBox(height: 8),

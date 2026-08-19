@@ -152,10 +152,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
 }
 
 class _NewsletterRow extends StatelessWidget {
-  const _NewsletterRow({
-    required this.item,
-    required this.classroomName,
-  });
+  const _NewsletterRow({required this.item, required this.classroomName});
 
   final NewsletterEntity item;
   final String classroomName;

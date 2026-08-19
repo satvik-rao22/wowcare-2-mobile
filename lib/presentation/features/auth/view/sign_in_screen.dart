@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
@@ -13,14 +11,11 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/widget/sign_in_form.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
-import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 
 class SignInScreen extends StatefulWidget {
   const SignInScreen({super.key});
@@ -76,6 +71,10 @@ class _SignInScreenState extends State<SignInScreen>
 
   bool _offeredBiometricPrefill = false;
 
+  /// Whether the secure store is holding a password. Drives the visibility of
+  /// the biometric unlock key: with nothing saved there is nothing to unlock.
+  bool _hasSavedPassword = false;
+
   Future<void> _loadSavedCredentials() async {
     final localDataSource = serviceLocator<AuthLocalDataSource>();
     final credentials = await localDataSource.getSavedCredentials();
@@ -100,7 +99,30 @@ class _SignInScreenState extends State<SignInScreen>
     // "Remember me" still works on unsecured devices.
     if (rememberMeValue) {
       await _offerBiometricPrefill();
+    } else {
+      // No auto-prompt, but the unlock key still needs to know whether the
+      // Keychain has anything in it.
+      await _refreshHasSavedPassword();
     }
+  }
+
+  Future<void> _refreshHasSavedPassword() async {
+    try {
+      final has = await serviceLocator<SecureCredentialStore>()
+          .hasSavedPassword();
+      if (mounted && _hasSavedPassword != has) {
+        setState(() => _hasSavedPassword = has);
+      }
+    } catch (_) {
+      // Secure store unavailable — the unlock key simply stays hidden.
+    }
+  }
+
+  /// The explicit "Unlock with Face ID" key. Unlike [_offerBiometricPrefill]
+  /// this is not one-shot: the user asked for it, so it always prompts.
+  Future<void> _unlockWithBiometrics() async {
+    _offeredBiometricPrefill = false;
+    await _offerBiometricPrefill();
   }
 
   Future<void> _offerBiometricPrefill() async {
@@ -110,6 +132,9 @@ class _SignInScreenState extends State<SignInScreen>
       final secureStore = serviceLocator<SecureCredentialStore>();
       final has = await secureStore.hasSavedPassword();
       AppLogger.d('[RememberMe] prefill: hasSavedPassword=$has');
+      if (mounted && _hasSavedPassword != has) {
+        setState(() => _hasSavedPassword = has);
+      }
       if (!has) {
         AppLogger.d(
           '[RememberMe] prefill ABORTED — no password in Keychain. It was '
@@ -213,7 +238,9 @@ class _SignInScreenState extends State<SignInScreen>
       _saveCredentials();
 
       // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
-      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      AppLogger.d(
+        '[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}',
+      );
       if (loginResponseIsKioskUser(state.loginResponse.roles)) {
         AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
         if (context.mounted) {
@@ -281,20 +308,16 @@ class _SignInScreenState extends State<SignInScreen>
     return BlocConsumer<AuthCubit, AuthState>(
       listener: _handleAuthState,
       builder: (context, state) {
-        return Scaffold(
+        return SkeuScaffold(
+          resizeToAvoidBottomInset: true,
           body: GestureDetector(
             behavior: HitTestBehavior.translucent,
             onTap: () => FocusScope.of(context).unfocus(),
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-              ),
-              child: Stack(
-                children: [
-                  _buildLottieAnimation(),
-                  _buildBottomMenu(context, state),
-                ],
-              ),
+            child: Column(
+              children: [
+                _buildBrandRail(),
+                Expanded(child: _buildSheet(context, state)),
+              ],
             ),
           ),
         );
@@ -302,188 +325,151 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 
-  Widget _buildLottieAnimation() {
-    return Align(
-      alignment: Alignment.topCenter,
-      child: Container(
-        width: MediaQuery.of(context).size.width,
-        margin: EdgeInsets.only(
-          top:
-              MediaQuery.of(context).padding.top +
-              MediaQuery.of(context).size.height * 0.01,
-        ),
-        height: MediaQuery.of(context).size.height * 0.4,
-        child: Lottie.asset(MediaRes.signInLottie),
-      ),
-    );
-  }
-
-  Widget _buildBottomMenu(BuildContext context, AuthState state) {
-    final isLoading = state is AuthLoading;
-
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: AnimatedBuilder(
-        animation: _bottomMenuHeightAnimationController,
-        builder: (context, child) {
-          final height =
-              MediaQuery.of(context).size.height *
-              0.5 *
-              _bottomMenuHeightUpAnimation.value;
-          return Container(
-            width: MediaQuery.of(context).size.width,
-            height: height,
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(30.0),
-                topRight: Radius.circular(30.0),
+  /// The navy-to-teal rail the brand lockup sits on, with two soft blooms
+  /// bleeding light in from the corners. This is the app's one dark surface, so
+  /// everything below it reads as lit from above.
+  Widget _buildBrandRail() {
+    return ClipRect(
+      child: DecoratedBox(
+        decoration: const BoxDecoration(gradient: SkeuSurfaces.rail),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned(
+              top: -60,
+              right: -40,
+              child: SkeuBloom(
+                color: SkeuColors.teal500.withValues(alpha: .45),
+                size: 200,
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  const Text(
-                    '  Login with email',
-                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
-                  ),
-                  const SizedBox(height: 20),
-                  SignInForm(
-                    emailController: emailController,
-                    passwordController: passwordController,
-                    formKey: formKey,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          rememberMe = !rememberMe;
-                        });
-                      },
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const SizedBox(width: 2),
-                          CustomCheckbox(
-                            value: rememberMe,
-                            onChanged: (bool? clicked) {
-                              setState(() {
-                                rememberMe = clicked ?? false;
-                              });
-                            },
-                          ),
-                          const SizedBox(width: 4),
-                          const Text(
-                            'Remember me',
-                            style: TextStyle(color: AppColors.themeColor),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 200),
-                    transitionBuilder:
-                        (Widget child, Animation<double> animation) =>
-                            ScaleTransition(scale: animation, child: child),
-                    child: isLoading
-                        ? Center(
-                            key: const ValueKey('loading'),
-                            child: Container(
-                              height: 50,
-                              width: 50,
-                              decoration: BoxDecoration(
-                                gradient: AppColors.buildPrimaryGradient(),
-                                shape: BoxShape.circle,
-                              ),
-                              child: const RefreshProgressIndicator(
-                                color: Colors.white,
-                                elevation: 0,
-                                backgroundColor: Colors.transparent,
-                                strokeWidth: 3,
-                              ),
-                            ),
-                          )
-                        : RoundedButtonNew(
-                            key: const ValueKey('button'),
-                            label: 'Sign-In',
-                            isLoading: isLoading,
-                            enabled: _canSubmit,
-                            onPressed: () => _handleSignIn(context),
-                            gradient: AppColors.buildPrimaryGradient(),
-                            lableColor: Colors.white,
-                          ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => const ForgotPasswordScreen(),
-                        ),
-                      );
-                    },
-                    child: const Text(
-                      'Forgot Password?',
-                      style: TextStyle(color: AppColors.themeColor),
-                    ),
-                  ),
-                ],
+            Positioned(
+              bottom: -70,
+              left: -50,
+              child: SkeuBloom(
+                color: SkeuColors.pink500.withValues(alpha: .28),
+                size: 180,
               ),
             ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class RoundedButtonNew extends StatelessWidget {
-  final String label;
-  final bool isLoading;
-  final bool enabled;
-  final VoidCallback onPressed;
-  final Gradient gradient;
-  final Color lableColor;
-
-  const RoundedButtonNew({
-    required this.label,
-    required this.isLoading,
-    required this.onPressed,
-    required this.gradient,
-    required this.lableColor,
-    this.enabled = true,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isInteractive = enabled && !isLoading;
-    return GestureDetector(
-      onTap: isInteractive ? onPressed : null,
-      child: Opacity(
-        opacity: isInteractive ? 1.0 : 0.5,
-        child: Container(
-          width: double.infinity,
-          height: 50,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(25),
-            gradient: gradient,
-          ),
-          alignment: Alignment.center,
-          child: isLoading
-              ? const CircularProgressIndicator(color: Colors.white)
-              : Text(
-                  label,
-                  style: TextStyle(
-                    color: lableColor,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
+            SafeArea(
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 14, 24, 46),
+                child: Center(
+                  child: SkeuBrandLockup(
+                    markSize: 96,
+                    fontSize: 28,
+                    tagline: 'Make Every Day Wow!',
                   ),
                 ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The credentials sheet: a raised panel that rides 28px up over the rail and
+  /// holds the two wells, the remember-me checkbox and the two keys.
+  Widget _buildSheet(BuildContext context, AuthState state) {
+    final isLoading = state is AuthLoading;
+
+    return AnimatedBuilder(
+      animation: _bottomMenuHeightAnimationController,
+      builder: (context, child) {
+        // The sheet slides up from below the fold on first frame — the only
+        // entrance animation on the screen.
+        return FractionalTranslation(
+          translation: Offset(0, 1 - _bottomMenuHeightUpAnimation.value),
+          child: child,
+        );
+      },
+      child: Transform.translate(
+        offset: const Offset(0, -28),
+        child: SkeuPanel(
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
+          gradient: SkeuSurfaces.card,
+          insets: SkeuElevation.bevelTop,
+          shadows: const [
+            BoxShadow(
+              color: Color(0x4D0A1C5D),
+              offset: Offset(0, -10),
+              blurRadius: 26,
+              spreadRadius: -14,
+            ),
+          ],
+          padding: const EdgeInsets.fromLTRB(24, 26, 24, 26),
+          child: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Align(
+                  alignment: Alignment.centerLeft,
+                  child: SkeuBrandRail(),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Login with email',
+                  style: SkeuText.field(weight: SkeuText.weightHeading),
+                ),
+                const SizedBox(height: 18),
+                SignInForm(
+                  emailController: emailController,
+                  passwordController: passwordController,
+                  formKey: formKey,
+                  onSubmit: _canSubmit ? () => _handleSignIn(context) : null,
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  children: [
+                    SkeuCheckbox(
+                      value: rememberMe,
+                      onChanged: (checked) =>
+                          setState(() => rememberMe = checked),
+                    ),
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: () => setState(() => rememberMe = !rememberMe),
+                      child: Text(
+                        'Remember me',
+                        style: SkeuText.body(weight: SkeuText.weightHeading),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                SkeuButton(
+                  label: 'Sign-In',
+                  isLoading: isLoading,
+                  enabled: _canSubmit,
+                  onPressed: () => _handleSignIn(context),
+                ),
+                if (_hasSavedPassword) ...[
+                  const SizedBox(height: 10),
+                  SkeuButton(
+                    label: 'Unlock with Face ID',
+                    variant: SkeuButtonVariant.neutral,
+                    icon: Icons.fingerprint_rounded,
+                    height: 52,
+                    fontSize: 15,
+                    onPressed: _unlockWithBiometrics,
+                  ),
+                ],
+                const SizedBox(height: 6),
+                SkeuTextButton(
+                  label: 'Forgot Password?',
+                  onPressed: () {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (_) => const ForgotPasswordScreen(),
+                      ),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
         ),
       ),
     );

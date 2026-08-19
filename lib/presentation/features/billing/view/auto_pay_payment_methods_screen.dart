@@ -36,7 +36,7 @@ class AutoPayPaymentMethodsScreen extends StatefulWidget {
 
 class _AutoPayPaymentMethodsScreenState
     extends State<AutoPayPaymentMethodsScreen> {
-  static const Color _accent = Color(0xFF6F8CFF);
+  static const Color _accent = Color(0xFF45CDD1);
   static const Color _autopayTagBg = Color(0xFFEEE9FF);
   static const Color _autopayTagFg = Color(0xFF6F52FF);
 
@@ -1123,7 +1123,7 @@ class _EditMethodSheet extends StatefulWidget {
 }
 
 class _EditMethodSheetState extends State<_EditMethodSheet> {
-  static const Color _primary = Color(0xFF573353);
+  static const Color _primary = Color(0xFF0A1C5D);
 
   late final TextEditingController _holder;
   late final TextEditingController _routing;
@@ -1401,7 +1401,7 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: const Color(0x660A1C5D)),
         borderRadius: BorderRadius.circular(8),
       ),
       child: TextField(

@@ -114,7 +114,7 @@ class GeofenceSignInSheet extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 18,
               fontWeight: FontWeight.w700,
-              color: Color(0xff573353), // AppColors.primaryColor
+              color: Color(0xFF0A1C5D), // AppColors.primaryColor
             ),
             textAlign: TextAlign.center,
           ),

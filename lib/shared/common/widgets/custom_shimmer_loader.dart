@@ -889,7 +889,7 @@ class _ShimmerTableRow extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Expanded(child: left),
-                Container(width: 1, color: const Color(0xFFE9ECEF)),
+                Container(width: 1, color: const Color(0xFFE9EBF5)),
                 SizedBox(
                   width: ClassroomSchedulingShimmer._statusColumnWidth,
                   child: Center(child: right),
@@ -898,7 +898,7 @@ class _ShimmerTableRow extends StatelessWidget {
             ),
           ),
         ),
-        Container(height: 1, color: const Color(0xFFE9ECEF)),
+        Container(height: 1, color: const Color(0xFFE9EBF5)),
       ],
     );
   }
@@ -1909,7 +1909,7 @@ class _ShimmerCard extends StatelessWidget {
     required this.child,
     this.padding = const EdgeInsets.all(16),
     this.borderRadius,
-    this.borderColor = const Color(0xFFE9ECEF),
+    this.borderColor = const Color(0xFFE9EBF5),
   });
 
   final Widget child;
@@ -2138,7 +2138,7 @@ class _DetailCardShimmer extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE9ECEF)),
+        border: Border.all(color: const Color(0xFFE9EBF5)),
       ),
       child: Column(
         children: [
@@ -2165,7 +2165,7 @@ class _DetailCardShimmer extends StatelessWidget {
             thickness: 1,
             indent: 16,
             endIndent: 16,
-            color: Color(0xFFE9ECEF),
+            color: Color(0xFFE9EBF5),
           ),
           Padding(
             padding: const EdgeInsets.all(16),
@@ -2361,7 +2361,7 @@ class LedgerCardShimmer extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE9ECEF)),
+          border: Border.all(color: const Color(0xFFE9EBF5)),
         ),
         child: Center(
           child: Container(
@@ -2537,7 +2537,7 @@ class ParentTransactionCardShimmer extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE9ECEF)),
+          border: Border.all(color: const Color(0xFFE9EBF5)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
@@ -2625,7 +2625,7 @@ class ParentStatementCardShimmer extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: const Color(0xFFE9ECEF)),
+          border: Border.all(color: const Color(0xFFE9EBF5)),
         ),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,

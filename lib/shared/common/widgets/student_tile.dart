@@ -31,9 +31,9 @@ class StudentTile extends StatelessWidget {
         //height: 60,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          //color: isSelected ? const Color(0xFFF8F7FA) : Colors.white,
+          //color: isSelected ? const Color(0xFFF4F5FA) : Colors.white,
           color: isSelected
-              ? const Color(0xFFB1AFE9).withValues(alpha: 0.102)
+              ? const Color(0xFFACEAEC).withValues(alpha: 0.102)
               : Colors.white,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
@@ -52,7 +52,7 @@ class StudentTile extends StatelessWidget {
                   fontFamily: 'Manrope',
                   fontSize: isTablet ? 16 : 14,
                   fontWeight: FontWeight.w500,
-                  color: const Color(0xff573353),
+                  color: const Color(0xFF0A1C5D),
                   height: 19 / 14,
                 ),
                 overflow: TextOverflow.ellipsis,

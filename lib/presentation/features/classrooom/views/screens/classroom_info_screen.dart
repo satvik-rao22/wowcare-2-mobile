@@ -169,10 +169,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       color: Colors.white,
       surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
-        side: const BorderSide(
-          width: 1.5,
-          color: Color.fromARGB(255, 232, 234, 234),
-        ),
+        side: BorderSide.none,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
@@ -679,10 +676,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
       color: Colors.white,
       surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
-        side: const BorderSide(
-          width: 1.5,
-          color: Color.fromARGB(255, 232, 234, 234),
-        ),
+        side: BorderSide.none,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(
@@ -722,7 +716,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                 details.ageRangeCompactDisplay,
                 style: const TextStyle(
                   fontFamily: 'Manrope',
-                  color: Color(0xff573353),
+                  color: Color(0xFF0A1C5D),
                 ),
               ),
               const SizedBox(height: 4),
@@ -735,7 +729,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       text: 'Capacity: ',
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        color: Color(0xff573353),
+                        color: Color(0xFF0A1C5D),
                       ),
                       children: [
                         TextSpan(
@@ -743,7 +737,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
-                            color: Color(0xff573353),
+                            color: Color(0xFF0A1C5D),
                           ),
                         ),
                       ],
@@ -757,7 +751,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                       text: 'Ratio: ',
                       style: const TextStyle(
                         fontFamily: 'Manrope',
-                        color: Color(0xff573353),
+                        color: Color(0xFF0A1C5D),
                       ),
                       children: [
                         TextSpan(
@@ -765,7 +759,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                           style: const TextStyle(
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.bold,
-                            color: Color(0xff573353),
+                            color: Color(0xFF0A1C5D),
                           ),
                         ),
                       ],
@@ -1006,7 +1000,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                         //             fontFamily: 'Manrope',
                         //             fontSize: 20,
                         //             fontWeight: FontWeight.bold,
-                        //             color: const Color(0xff573353),
+                        //             color: const Color(0xFF0A1C5D),
                         //           ),
                         //         ),
                         //         const SizedBox(height: 16),
@@ -1020,7 +1014,7 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
                         //               'Nov 2025',
                         //               style: TextStyle(
                         //                 fontFamily: 'Manrope',
-                        //                 color: Color(0xff573353),
+                        //                 color: Color(0xFF0A1C5D),
                         //               ),
                         //             ),
                         //             Icon(Icons.chevron_right,

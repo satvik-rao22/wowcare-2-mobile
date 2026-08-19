@@ -1,13 +1,12 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
@@ -763,7 +762,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                   fontFamily: 'Manrope',
                                   fontSize: titleFontSize,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xff573353),
+                                  color: const Color(0xFF0A1C5D),
                                   height: titleLineHeight,
                                 ),
                                 textAlign: TextAlign.left,
@@ -988,15 +987,10 @@ class _StaffScreenState extends State<StaffScreen> {
                         ),
                         const SizedBox(height: 16),
                         // Filter card with search and filter icon
-                        Container(
+                        SkeuPanel(
+                          radius: SkeuRadius.xxl,
                           padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: AppColors.cardBorderColor,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                            color: AppColors.cardColor,
-                          ),
+
                           child: Column(
                             children: [
                               Row(
@@ -1159,8 +1153,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                           // so the green indicator reflects the
                                           // latest status for the new results.
                                           if (mounted) {
-                                            DocumentImageWidget
-                                                .refreshAttendanceStatusDots();
+                                            DocumentImageWidget.refreshAttendanceStatusDots();
                                           }
                                         }
                                       },
@@ -1168,12 +1161,14 @@ class _StaffScreenState extends State<StaffScreen> {
                                       child: Stack(
                                         clipBehavior: Clip.none,
                                         children: [
-                                          Padding(
-                                            padding: const EdgeInsets.all(8),
-                                            child: SvgPicture.asset(
-                                              MediaRes.filterIcon,
-                                              height: 20,
-                                            ),
+                                          // The filter key: a neutral rimmed
+                                          // square, the same object as every
+                                          // other key in the app.
+                                          const SkeuIconButton(
+                                            icon: Icons.tune_rounded,
+                                            size: 44,
+                                            radius: SkeuRadius.field,
+                                            iconSize: 19,
                                           ),
                                           BlocBuilder<StaffCubit, StaffState>(
                                             builder: (context, staffState) {
@@ -1234,12 +1229,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                                         vertical: 2,
                                                       ),
                                                   decoration: BoxDecoration(
-                                                    color: const Color.fromRGBO(
-                                                      179,
-                                                      38,
-                                                      30,
-                                                      1,
-                                                    ),
+                                                    color: const Color(0xFFE01B5D),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           10,
@@ -1297,10 +1287,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500,
                                         ),
-                                        color: const Color.fromRGBO(
-                                          177,
-                                          175,
-                                          233,
+                                        color: const Color.fromRGBO(172, 234, 236,
                                           0.3,
                                         ),
                                       ),
@@ -1330,7 +1317,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                           fontFamily: 'Manrope',
                                           fontSize: 13,
                                           fontWeight: FontWeight.w500,
-                                          color: Color(0xff573353),
+                                          color: Color(0xFF0A1C5D),
                                         ),
                                       ),
                                       const SizedBox(width: 8),
@@ -1352,8 +1339,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                           if (!mounted) return;
                                           // Re-sync attendance dots for the
                                           // newly loaded (in)active list.
-                                          DocumentImageWidget
-                                              .refreshAttendanceStatusDots();
+                                          DocumentImageWidget.refreshAttendanceStatusDots();
                                           final err =
                                               staffCubit.state.errorMessage;
                                           if (err != null && err.isNotEmpty) {

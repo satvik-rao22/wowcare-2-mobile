@@ -159,7 +159,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
       fontSize: responsive.labelFontSize,
       fontFamily: Fonts.manrope,
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
   }
 
@@ -173,7 +173,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -187,7 +187,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
               fontFamily: Fonts.manrope,
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
             decoration: InputDecoration(
@@ -274,7 +274,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                   responsive.isTablet ? 12.0 : 8.0,
                 ),
                 border: Border.all(
-                  color: const Color(0x66573353),
+                  color: const Color(0x660A1C5D),
                 ),
               ),
               child: Text(
@@ -291,7 +291,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                   fontFamily: Fonts.manrope,
                   fontSize: responsive.inputFontSize,
                   fontWeight: FontWeight.w600,
-                  color: const Color(0xff573353),
+                  color: const Color(0xFF0A1C5D),
                 ),
               ),
             ),
@@ -311,7 +311,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                 fontFamily: Fonts.manrope,
                 fontSize: responsive.inputFontSize,
                 fontWeight: FontWeight.w600,
-                color: const Color(0xff573353),
+                color: const Color(0xFF0A1C5D),
                 height: 19 / 14,
               ),
               isEnabled: !widget.isEditing,
@@ -342,7 +342,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                             fontFamily: Fonts.manrope,
                             fontSize: responsive.inputFontSize,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
+                            color: const Color(0xFF0A1C5D),
                             height: 19 / 14,
                           ),
                           isEnabled: !widget.isEditing && !widget.lockClassroomSelection,
@@ -374,7 +374,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                             fontFamily: Fonts.manrope,
                             fontSize: responsive.inputFontSize,
                             fontWeight: FontWeight.w600,
-                            color: const Color(0xff573353),
+                            color: const Color(0xFF0A1C5D),
                             height: 19 / 14,
                           ),
                           isEnabled: !widget.lockClassroomSelection,
@@ -407,7 +407,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                       fontFamily: Fonts.manrope,
                       fontSize: responsive.inputFontSize,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xff573353),
+                      color: const Color(0xFF0A1C5D),
                       height: 19 / 14,
                     ),
                     isEnabled: !widget.lockClassroomSelection,
@@ -437,7 +437,7 @@ class _AddEditIndividualMovementScreenState extends State<AddEditIndividualMovem
                       fontFamily: Fonts.manrope,
                       fontSize: responsive.inputFontSize,
                       fontWeight: FontWeight.w600,
-                      color: const Color(0xff573353),
+                      color: const Color(0xFF0A1C5D),
                       height: 19 / 14,
                     ),
                     isEnabled: !widget.isEditing && !widget.lockClassroomSelection,

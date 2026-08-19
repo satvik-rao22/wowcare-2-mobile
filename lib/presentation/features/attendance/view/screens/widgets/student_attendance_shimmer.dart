@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -18,14 +19,11 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
-      child: Container(
+      child: SkeuPanel(
+        radius: SkeuRadius.xxl,
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
-        ),
+
         child: Row(
           children: [
             // Avatar shimmer
@@ -97,14 +95,11 @@ class StudentAbsentCardShimmer extends StatelessWidget {
     return Shimmer.fromColors(
       baseColor: Colors.grey.shade300,
       highlightColor: Colors.grey.shade100,
-      child: Container(
+      child: SkeuPanel(
+        radius: SkeuRadius.xxl,
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
-        decoration: BoxDecoration(
-          color: AppColors.cardColor,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.cardBorderColor, width: 1),
-        ),
+
         child: Row(
           children: [
             // Avatar shimmer

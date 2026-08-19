@@ -286,7 +286,7 @@ class _StudentAttendancePerStudentReportScreenState
     fontSize: r.labelFontSize,
     fontFamily: 'Manrope',
     fontWeight: FontWeight.w400,
-    color: const Color(0xff573353),
+    color: const Color(0xFF0A1C5D),
   );
 
   @override

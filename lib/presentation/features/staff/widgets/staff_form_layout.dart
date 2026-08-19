@@ -50,7 +50,7 @@ class StaffFormLayout extends StatelessWidget {
                             IconButton(
                               icon: const Icon(
                                 Icons.arrow_back,
-                                color: Color(0xff573353),
+                                color: Color(0xFF0A1C5D),
                               ),
                               onPressed: () => Navigator.maybePop(context),
                             ),
@@ -70,7 +70,7 @@ class StaffFormLayout extends StatelessWidget {
                             child: Text(
                               'WowCare',
                               style: TextStyle(
-                                color: Color(0xff573353),
+                                color: Color(0xFF0A1C5D),
                                 fontWeight: FontWeight.w600,
                                 fontSize: 18,
                               ),
@@ -78,7 +78,7 @@ class StaffFormLayout extends StatelessWidget {
                           ),
                           if (showKioskLogoutMenu)
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Color(0xff573353)),
+                              icon: const Icon(Icons.more_vert, color: Color(0xFF0A1C5D)),
                               onSelected: (value) {
                                 if (value == 'logout') {
                                   AppLogger.d('[Kiosk] Logout selected from menu');
@@ -91,7 +91,7 @@ class StaffFormLayout extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.logout, size: 20, color: Color(0xff573353)),
+                                      Icon(Icons.logout, size: 20, color: Color(0xFF0A1C5D)),
                                       SizedBox(width: 12),
                                       Text('Logout'),
                                     ],
@@ -140,7 +140,7 @@ class StaffFormLayout extends StatelessWidget {
                         fontFamily: 'Manrope',
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: const Color(0xFF0A1C5D),
                       ),
                     ),
                   ),

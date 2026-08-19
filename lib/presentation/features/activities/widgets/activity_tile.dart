@@ -32,7 +32,7 @@ class ActivityTile extends StatelessWidget {
             color: Colors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xff573353).withValues(alpha: 0.1),
+              color: const Color(0xFF0A1C5D).withValues(alpha: 0.1),
               width: 1,
             ),
           ),

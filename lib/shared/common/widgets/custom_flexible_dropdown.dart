@@ -99,7 +99,7 @@ class _CustomFlexibleDropdownState extends State<CustomFlexibleDropdown> {
           width: double.infinity,
           padding: widget.contentPadding ?? const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF8F7FA),
+            color: const Color(0xFFF4F5FA),
             borderRadius: BorderRadius.circular(10),
           ),
           child: PopupMenuButton<String>(

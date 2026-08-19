@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 
-class CustomChip extends StatefulWidget {
+/// A read-only badge: a soft tinted plate with a lit bevel, carrying a short
+/// label and optionally a trailing widget.
+///
+/// Pill-shaped in the skeuomorphic language, because a chip is a bead of
+/// information rather than a rectangle of colour. [color] / [gradient] still
+/// choose its wash, so existing call sites keep their own tone.
+class CustomChip extends StatelessWidget {
   const CustomChip({
     required this.label,
     required this.labelStyle,
@@ -14,35 +21,21 @@ class CustomChip extends StatefulWidget {
   final TextStyle labelStyle;
   final Widget? widget;
   final Color? color;
-  final LinearGradient? gradient;
+  final Gradient? gradient;
 
-  @override
-  State<CustomChip> createState() => _CustomChipState();
-}
-
-class _CustomChipState extends State<CustomChip> {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.all(0),
-      padding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 4,
-      ),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(4),
-        color: widget.color,
-        gradient: widget.gradient,
-      ),
+    return SkeuPanel(
+      radius: SkeuRadius.pill,
+      shadows: const [],
+      color: gradient == null ? (color ?? SkeuColors.teal50) : null,
+      gradient: gradient,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            widget.label,
-            style: widget.labelStyle,
-          ),
-          if (widget.widget != null) const SizedBox(width: 8),
-          if (widget.widget != null) widget.widget!,
+          Text(label, style: labelStyle),
+          if (widget != null) ...[const SizedBox(width: 8), widget!],
         ],
       ),
     );

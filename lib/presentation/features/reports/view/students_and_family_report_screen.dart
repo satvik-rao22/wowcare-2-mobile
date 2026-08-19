@@ -223,7 +223,7 @@ class _StudentsAndFamilyReportScreenState
     fontSize: r.labelFontSize,
     fontFamily: 'Manrope',
     fontWeight: FontWeight.w400,
-    color: const Color(0xff573353),
+    color: const Color(0xFF0A1C5D),
   );
 
   @override
@@ -291,7 +291,7 @@ class _StudentsAndFamilyReportScreenState
                     fontFamily: 'Manrope',
                     fontSize: responsive.labelFontSize,
                     fontWeight: FontWeight.w500,
-                    color: const Color(0xff573353),
+                    color: const Color(0xFF0A1C5D),
                   ),
                 ),
                 SizedBox(height: responsive.verticalSpacing),

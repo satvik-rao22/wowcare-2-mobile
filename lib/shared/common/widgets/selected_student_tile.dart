@@ -31,7 +31,7 @@ class SelectedStudentTile extends StatelessWidget {
       fontFamily: 'Manrope',
       fontSize: isTablet ? 16 : 14,
       fontWeight: FontWeight.w500,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
       height: 19 / 14,
     );
 
@@ -108,7 +108,7 @@ class SelectedStudentTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: useViewColors
             ? Colors.white
-            : const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+            : const Color(0xFFACEAEC).withValues(alpha: 0.102),
         borderRadius: BorderRadius.circular(useViewColors ? 24 : 12),
         border: Border.all(color: AppColors.themeColor, width: 1),
       ),

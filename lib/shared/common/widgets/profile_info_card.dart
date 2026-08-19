@@ -138,13 +138,13 @@ class ProfileField extends StatelessWidget {
     fontFamily: 'Manrope',
     fontSize: 16,
     fontWeight: FontWeight.w600,
-    color: Color(0xff573353),
+    color: Color(0xFF0A1C5D),
   );
 
   static const TextStyle _valueStaff = TextStyle(
     fontFamily: 'Manrope',
     fontSize: 15,
-    color: Color(0xff573353),
+    color: Color(0xFF0A1C5D),
     fontWeight: FontWeight.w400,
   );
 

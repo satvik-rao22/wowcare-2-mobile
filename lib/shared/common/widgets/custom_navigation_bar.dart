@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/fonts.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_cubit.dart';
@@ -284,20 +281,24 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     }
   }
 
-  String _iconFor(BottomNavigationItem item) {
+  /// The design's nav glyphs. Material's rounded line icons stand in for the
+  /// lucide set the design document uses — unlike the app's multi-colour SVG
+  /// nav icons these tint white on the selected teal key, which the raised /
+  /// pressed treatment depends on.
+  IconData _iconFor(BottomNavigationItem item) {
     switch (item) {
       case BottomNavigationItem.dashboard:
-        return MediaRes.dashboardIcon;
+        return Icons.space_dashboard_rounded;
       case BottomNavigationItem.attendance:
-        return MediaRes.attendanceIcon;
+        return Icons.fact_check_outlined;
       case BottomNavigationItem.classrooms:
-        return MediaRes.classroomIcon;
+        return Icons.apartment_rounded;
       case BottomNavigationItem.activities:
-        return MediaRes.activitesIcon;
+        return Icons.celebration_outlined;
       case BottomNavigationItem.communication:
-        return MediaRes.communicationIcon;
+        return Icons.chat_bubble_outline_rounded;
       case BottomNavigationItem.billing:
-        return MediaRes.billing_drawer_icon;
+        return Icons.receipt_long_rounded;
     }
   }
 
@@ -318,6 +319,9 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     }
   }
 
+  /// One destination. The selected slot is a raised teal key sitting on a 2px
+  /// rim; the others are bare, so the current tab reads as a button that
+  /// stayed pressed down rather than as a highlight colour.
   Widget _buildNavItem({
     required BottomNavigationItem item,
     required BottomNavigationItem? activeItem,
@@ -326,87 +330,85 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
     int badgeCount = 0,
   }) {
     final bool isActive = activeItem == item;
+    final Color ink = isActive ? SkeuColors.white : SkeuColors.inkSoft;
 
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTap: () => context.read<BottomNavigationCubit>().selectItem(item),
-        borderRadius: BorderRadius.circular(sizes.activeRadius),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeInOut,
-          padding: EdgeInsets.symmetric(
-            horizontal: sizes.itemPaddingH,
-            vertical: sizes.itemPaddingV,
-          ),
-          decoration: isActive
-              ? BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.35),
-                  borderRadius: BorderRadius.circular(sizes.activeRadius),
-                )
-              : const BoxDecoration(),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AnimatedContainer(
+              duration: SkeuMotion.quick,
+              curve: SkeuMotion.easeOut,
+              padding: EdgeInsets.symmetric(
+                horizontal: sizes.itemPaddingH,
+                vertical: sizes.itemPaddingV,
+              ),
+              decoration: BoxDecoration(
+                gradient: isActive ? SkeuSurfaces.faceTeal : null,
+                borderRadius: BorderRadius.circular(sizes.activeRadius + 4),
+                boxShadow: isActive
+                    ? const [
+                        BoxShadow(
+                          color: SkeuElevation.rimTeal,
+                          offset: Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  SvgPicture.asset(
-                    _iconFor(item),
-                    height: sizes.iconSize,
-                    colorFilter: isActive
-                        ? const ColorFilter.mode(Colors.white, BlendMode.dstIn)
-                        : null,
-                  ),
-                  if (badgeCount > 0)
-                    Positioned(
-                      top: -5,
-                      right: -8,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 4,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: Colors.white, width: 1.2),
-                        ),
-                        constraints: const BoxConstraints(
-                          minWidth: 16,
-                          minHeight: 16,
-                        ),
-                        child: Text(
-                          badgeCount > 99 ? '99+' : '$badgeCount',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 9,
-                            fontWeight: FontWeight.w800,
-                            height: 1,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
+                  Icon(_iconFor(item), size: sizes.iconSize, color: ink),
+                  const SizedBox(height: 3),
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Text(
+                      _labelFor(item, isParent),
+                      style: TextStyle(
+                        color: ink,
+                        fontFamily: SkeuText.family,
+                        fontSize: sizes.fontSize,
+                        fontWeight: SkeuText.weightHeading,
                       ),
+                      maxLines: 1,
+                      softWrap: false,
                     ),
+                  ),
                 ],
               ),
-              const SizedBox(height: 3),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  _labelFor(item, isParent),
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontFamily: Fonts.inter,
-                    fontSize: sizes.fontSize,
-                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
+            ),
+            if (badgeCount > 0)
+              Positioned(
+                top: 2,
+                right: sizes.itemPaddingH,
+                child: Container(
+                  height: 17,
+                  constraints: const BoxConstraints(minWidth: 17),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: SkeuColors.pink600,
+                    borderRadius: BorderRadius.circular(SkeuRadius.pill),
+                    border: Border.all(color: SkeuColors.white, width: 1.5),
                   ),
-                  maxLines: 1,
-                  softWrap: false,
+                  child: Text(
+                    badgeCount > 99 ? '99+' : '$badgeCount',
+                    style: const TextStyle(
+                      color: SkeuColors.white,
+                      fontFamily: SkeuText.family,
+                      fontSize: 10,
+                      fontWeight: SkeuText.weightEyebrow,
+                      height: 1.1,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
                 ),
               ),
-            ],
-          ),
+          ],
         ),
       ),
     );
@@ -440,21 +442,16 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           state.pendingNavigationItem!,
         );
       },
-      child: ClipRRect(
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        child: Container(
+      // The bar is a raised slab floating clear of all three edges, as in the
+      // design — not a full-bleed strip welded to the bottom of the screen.
+      child: Padding(
+        padding: sizes.barPadding,
+        child: SkeuPanel(
           key: _containerKey,
-          padding: sizes.barPadding,
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.12),
-                blurRadius: 12,
-                offset: const Offset(0, -6),
-              ),
-            ],
-          ),
+          radius: 26,
+          gradient: SkeuSurfaces.raised,
+          shadows: SkeuElevation.elev3,
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: slotOrder.map((item) {

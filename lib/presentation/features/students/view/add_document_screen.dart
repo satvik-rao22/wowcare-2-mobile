@@ -514,7 +514,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -566,7 +566,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: const Color(0x660A1C5D)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -639,7 +639,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
               horizontal: responsive.isTablet ? 20.0 : 16.0,
             ),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: const Color(0x660A1C5D)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -695,7 +695,7 @@ class _AddStudentDocumentScreenState extends State<AddStudentDocumentScreen> {
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),

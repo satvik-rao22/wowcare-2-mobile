@@ -819,7 +819,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                       fontFamily: 'Manrope',
                       fontSize: 20,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
+                      color: Color(0xFF0A1C5D),
                     ),
                   ),
                   const SizedBox(height: 16),

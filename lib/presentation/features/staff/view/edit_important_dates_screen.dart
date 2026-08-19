@@ -471,7 +471,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
                       fontSize: responsive.labelFontSize,
                       fontFamily: "Manrope",
                       fontWeight: FontWeight.w400,
-                      color: const Color(0xff573353),
+                      color: const Color(0xFF0A1C5D),
                     ),
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
                     onSelect: (val) {
@@ -567,7 +567,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(
@@ -583,7 +583,7 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
             constraints: const BoxConstraints(minHeight: 40),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: const Color(0xFFF8F7FA),
+              color: const Color(0xFFF4F5FA),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Padding(

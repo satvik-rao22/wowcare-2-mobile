@@ -12,7 +12,7 @@ class MessagingHeader extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: Colors.transparent,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+        border: Border(bottom: BorderSide(color: Color(0xFFE9EBF5), width: 1)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),

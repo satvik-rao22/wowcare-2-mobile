@@ -3,6 +3,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
@@ -100,20 +101,24 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
     final String? assetCode =
         (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null;
 
-    return Container(
+    // A roster row is a raised plate. A student who is not expected today sinks
+    // into a recessed well instead, so "not in the room" reads as depth rather
+    // than as a grey fill.
+    return SkeuPanel(
       padding: const EdgeInsets.symmetric(vertical: 12),
       margin: const EdgeInsets.only(bottom: 12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
-        borderRadius: BorderRadius.circular(12),
-        color: shouldGreyOut ? Colors.grey[100] : null,
-      ),
+      radius: SkeuRadius.lg,
+      gradient: shouldGreyOut ? SkeuSurfaces.sunken : SkeuSurfaces.raised,
+      shadows: shouldGreyOut ? const [] : SkeuElevation.elev1,
+      insets: shouldGreyOut
+          ? SkeuElevation.wellSm
+          : SkeuElevation.bevelFull,
       child: Row(
         children: [
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
             child: CustomCheckbox(
-              borderColor: AppColors.primaryColor.withValues(alpha: 0.2),
+              borderColor: SkeuColors.borderField,
               value: widget.isSelected,
               onChanged: widget.onSelectionChanged,
             ),
@@ -425,7 +430,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                     fontFamily: 'Manrope',
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
-                    color: Color(0xff573353),
+                    color: Color(0xFF0A1C5D),
                   ),
                 ),
                 const SizedBox(height: 2),
@@ -434,7 +439,7 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
                   style: const TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 14,
-                    color: Color(0xff573353),
+                    color: Color(0xFF0A1C5D),
                   ),
                 ),
               ],

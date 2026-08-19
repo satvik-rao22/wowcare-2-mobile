@@ -377,7 +377,7 @@
 //                                   const Text(
 //                                     'Date',
 //                                     style: TextStyle(
-//                                       color: Color.fromRGBO(87, 51, 83, 0.5),
+//                                       color: Color.fromRGBO(10, 28, 93, 0.5),
 //                                       fontSize: 14,
 //                                     ),
 //                                   ),
@@ -429,7 +429,7 @@
 //                                   const Text(
 //                                     'Time',
 //                                     style: TextStyle(
-//                                       color: Color.fromRGBO(87, 51, 83, 0.5),
+//                                       color: Color.fromRGBO(10, 28, 93, 0.5),
 //                                       fontSize: 14,
 //                                     ),
 //                                   ),

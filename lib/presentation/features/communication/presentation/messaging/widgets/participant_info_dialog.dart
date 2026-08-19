@@ -148,7 +148,7 @@ class ParticipantInfoDialog extends StatelessWidget {
                   // Admins
                   if (admins.isNotEmpty) ...[
                     _SectionHeader(label: 'ADMINS', count: admins.length),
-                    const Divider(height: 8, color: Color(0xFFE2E8F0)),
+                    const Divider(height: 8, color: Color(0xFFE9EBF5)),
                     const SizedBox(height: 4),
                     ...admins.map((p) => _ParticipantTile(data: p)),
                     const SizedBox(height: 12),
@@ -157,7 +157,7 @@ class ParticipantInfoDialog extends StatelessWidget {
                   // Staff
                   if (staff.isNotEmpty) ...[
                     _SectionHeader(label: 'STAFF', count: staff.length),
-                    const Divider(height: 8, color: Color(0xFFE2E8F0)),
+                    const Divider(height: 8, color: Color(0xFFE9EBF5)),
                     const SizedBox(height: 4),
                     ...staff.map((p) => _ParticipantTile(data: p)),
                     const SizedBox(height: 12),
@@ -166,7 +166,7 @@ class ParticipantInfoDialog extends StatelessWidget {
                   // Guardians/Parents
                   if (guardians.isNotEmpty) ...[
                     _SectionHeader(label: 'PARENTS', count: guardians.length),
-                    const Divider(height: 8, color: Color(0xFFE2E8F0)),
+                    const Divider(height: 8, color: Color(0xFFE9EBF5)),
                     const SizedBox(height: 4),
                     ...guardians.map((p) => _ParticipantTile(data: p)),
                   ],

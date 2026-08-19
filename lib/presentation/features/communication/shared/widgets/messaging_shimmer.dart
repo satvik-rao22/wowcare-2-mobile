@@ -16,7 +16,7 @@ class MessagingShimmer extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: const BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+                  bottom: BorderSide(color: Color(0xFFE9EBF5), width: 1),
                 ),
               ),
               child: Row(

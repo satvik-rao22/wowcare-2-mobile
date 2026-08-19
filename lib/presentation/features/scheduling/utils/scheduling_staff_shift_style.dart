@@ -9,7 +9,7 @@ class SchedulingStaffShiftStyle {
 
   static const Color workTimeColor = Color(0xFFACF3AA);
   static const Color breakTimeColor = Color(0xFFF38D8D);
-  static const Color outsideShiftColor = Color(0xFFE9ECEF);
+  static const Color outsideShiftColor = Color(0xFFE9EBF5);
 
   static Color slotColor(StaffShiftSlotStatus status) {
     switch (status) {

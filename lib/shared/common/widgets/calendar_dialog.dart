@@ -283,7 +283,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: const Color.fromRGBO(87, 51, 83, 0.1),
+                                  color: const Color.fromRGBO(10, 28, 93, 0.1),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 0),
@@ -371,7 +371,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                               Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(8),
-                                  color: const Color.fromRGBO(87, 51, 83, 0.1),
+                                  color: const Color.fromRGBO(10, 28, 93, 0.1),
                                 ),
                                 padding: const EdgeInsets.symmetric(
                                     horizontal: 8, vertical: 0),
@@ -491,7 +491,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                           child: OutlinedButton(
                             onPressed: () => Navigator.pop(context),
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFF6C7FD8)),
+                              side: const BorderSide(color: Color(0xFF1D9B9E)),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
                               ),
@@ -503,7 +503,7 @@ class _CalendarDialogState extends State<CalendarDialog> {
                                 fontFamily: 'Manrope',
                                 fontSize: 16,
                                 fontWeight: FontWeight.w700,
-                                color: Color(0xFF6C7FD8),
+                                color: Color(0xFF1D9B9E),
                                 height: 1,
                               ),
                             ),

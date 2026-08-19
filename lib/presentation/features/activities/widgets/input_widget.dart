@@ -33,7 +33,7 @@ class _InputWidgetState extends State<InputWidget> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -52,7 +52,7 @@ class _InputWidgetState extends State<InputWidget> {
           constraints: BoxConstraints(minHeight: widget.height ?? responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
           ),
           child: TextField(
@@ -86,7 +86,7 @@ class _InputWidgetState extends State<InputWidget> {
                         '$currentLength / $maxLength',
                         style: labelStyle.copyWith(
                           fontSize: 11,
-                          color: const Color(0xff573353).withValues(alpha: 0.55),
+                          color: const Color(0xFF0A1C5D).withValues(alpha: 0.55),
                         ),
                       ),
                     );
@@ -104,7 +104,7 @@ class _InputWidgetState extends State<InputWidget> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
           ),

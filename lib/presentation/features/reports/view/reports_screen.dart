@@ -519,7 +519,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                           fontFamily: 'Manrope',
                           fontSize: titleFontSize,
                           fontWeight: FontWeight.w600,
-                          color: const Color(0xff573353),
+                          color: const Color(0xFF0A1C5D),
                           height: titleLineHeight,
                         ),
                         textAlign: TextAlign.left,
@@ -544,7 +544,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                               splashRadius: 14,
                               icon: const Icon(
                                 Icons.chevron_left,
-                                color: Color(0xff573353),
+                                color: Color(0xFF0A1C5D),
                                 size: 25,
                               ),
                               onPressed: () {
@@ -562,7 +562,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                                 labelPadding: EdgeInsets.zero,
                                 tabAlignment: TabAlignment.start,
                                 labelColor: AppColors.themeColor,
-                                unselectedLabelColor: const Color(0xff573353),
+                                unselectedLabelColor: const Color(0xFF0A1C5D),
                                 dividerColor: Colors.transparent,
                                 indicatorSize: TabBarIndicatorSize.label,
                                 indicator: UnderlineTabIndicator(
@@ -603,7 +603,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                               splashRadius: 14,
                               icon: const Icon(
                                 Icons.chevron_right,
-                                color: Color(0xff573353),
+                                color: Color(0xFF0A1C5D),
                                 size: 25,
                               ),
                               onPressed: () {
@@ -1171,7 +1171,7 @@ class _ReportsList extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: const Color(0xff573353).withValues(alpha: 0.6),
+              color: const Color(0xFF0A1C5D).withValues(alpha: 0.6),
             ),
           ),
         ),

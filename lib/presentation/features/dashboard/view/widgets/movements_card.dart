@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
@@ -537,13 +537,10 @@ class _MovementsCardState extends State<MovementsCard> {
         return DashboardCardErrorOverlay(
           show: isError,
           onRetry: () => context.read<IndividualMovementsCubit>().refresh(),
-          child: Container(
+          child: SkeuPanel(
+            radius: SkeuRadius.xxl,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-            ),
+
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,

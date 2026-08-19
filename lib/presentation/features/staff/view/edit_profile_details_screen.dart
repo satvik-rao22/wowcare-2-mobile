@@ -457,7 +457,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             fontSize: responsive.labelFontSize,
             fontFamily: 'Manrope',
             fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
+            color: const Color(0xFF0A1C5D),
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
@@ -469,7 +469,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             decoration: BoxDecoration(
               color: Colors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: const Color(0x660A1C5D)),
             ),
             child: _profilePhoto != null
                 ? ClipRRect(
@@ -1076,7 +1076,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                               fontFamily: 'Manrope',
                               fontSize: responsive.titleFontSize,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xff573353),
+                              color: const Color(0xFF0A1C5D),
                             ),
                           ),
                         ),
@@ -1234,7 +1234,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                         fontSize: responsive.labelFontSize,
                                         fontFamily: "Manrope",
                                         fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
+                                        color: const Color(0xFF0A1C5D),
                                       ),
                                       showAsterisk: !_isAdminSelected,
                                       labelBottomSpacing: responsive.isTablet
@@ -1247,14 +1247,14 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                         fontFamily: 'Manrope',
                                         fontSize: responsive.inputFontSize,
                                         fontWeight: FontWeight.w600,
-                                        color: const Color(0xff573353),
+                                        color: const Color(0xFF0A1C5D),
                                         height: 19 / 14,
                                       ),
                                       popupItemTextStyle: TextStyle(
                                         fontFamily: 'Manrope',
                                         fontSize: responsive.inputFontSize,
                                         fontWeight: FontWeight.w400,
-                                        color: const Color(0xff573353),
+                                        color: const Color(0xFF0A1C5D),
                                       ),
                                       contentPadding: EdgeInsets.symmetric(
                                         horizontal: responsive.isTablet
@@ -1367,7 +1367,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                     fontSize: responsive.labelFontSize,
                                     fontFamily: "Manrope",
                                     fontWeight: FontWeight.w400,
-                                    color: const Color(0xff573353),
+                                    color: const Color(0xFF0A1C5D),
                                   ),
                                   selectedTextStyle: TextStyle(
                                     fontFamily: 'Manrope',
@@ -1380,7 +1380,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                     fontFamily: 'Manrope',
                                     fontSize: responsive.inputFontSize,
                                     fontWeight: FontWeight.w400,
-                                    color: const Color(0xff573353),
+                                    color: const Color(0xFF0A1C5D),
                                   ),
                                   contentPadding: EdgeInsets.symmetric(
                                     horizontal: responsive.isTablet
@@ -1472,7 +1472,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(
@@ -1496,7 +1496,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1519,7 +1519,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
           ),
@@ -1548,7 +1548,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         fontSize: responsive.labelFontSize,
         fontFamily: "Manrope",
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: const Color(0xFF0A1C5D),
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: responsive.isTablet ? 64.0 : 56.0,
@@ -1556,14 +1556,14 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         fontFamily: 'Manrope',
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w600,
-        color: const Color(0xff573353),
+        color: const Color(0xFF0A1C5D),
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(
         fontFamily: 'Manrope',
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: const Color(0xFF0A1C5D),
       ),
       contentPadding: EdgeInsets.symmetric(
         horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1578,7 +1578,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(
@@ -1593,7 +1593,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             width: double.infinity,
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: const Color(0x660A1C5D)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -1617,7 +1617,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                         fontWeight: selectedDate != null
                             ? FontWeight.w600
                             : FontWeight.w500,
-                        color: const Color(0xff573353),
+                        color: const Color(0xFF0A1C5D),
                         height: 19 / 14,
                       ),
                       overflow: TextOverflow.ellipsis,

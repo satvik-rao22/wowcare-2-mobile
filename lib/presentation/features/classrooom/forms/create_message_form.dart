@@ -12,7 +12,7 @@
 
 //   Container _buildStudentCard(StudentHelper student) => Container(
 //         decoration: BoxDecoration(
-//           border: Border.all(color: const Color.fromRGBO(89, 120, 247, 1)),
+//           border: Border.all(color: const Color.fromRGBO(29, 155, 158, 1)),
 //           borderRadius: BorderRadius.circular(8),
 //           color: const Color.fromRGBO(249, 245, 250, 1),
 //         ),
@@ -33,7 +33,7 @@
 //               student.name.split(' ').first,
 //               style: const TextStyle(
 //                 fontFamily: 'Manrope',
-//                 color: Color.fromRGBO(87, 51, 83, 1),
+//                 color: Color.fromRGBO(10, 28, 93, 1),
 //                 fontSize: 14,
 //                 fontWeight: FontWeight.w500,
 //               ),
@@ -85,26 +85,26 @@
 //                     hintText: 'Hello Parents, Children had a good day today!',
 //                     hintStyle: const TextStyle(
 //                       fontFamily: 'Manrope',
-//                       color: const Color.fromRGBO(87, 51, 83, 0.5),
+//                       color: const Color.fromRGBO(10, 28, 93, 0.5),
 //                       fontSize: 15,
 //                     ),
 //                     border: OutlineInputBorder(
 //                       borderRadius: BorderRadius.circular(10),
 //                       borderSide: const BorderSide(
-//                         color: const Color.fromRGBO(87, 51, 83, 0.5),
+//                         color: const Color.fromRGBO(10, 28, 93, 0.5),
 //                       ),
 //                     ),
 //                     enabledBorder: OutlineInputBorder(
 //                       borderRadius: BorderRadius.circular(10),
 //                       borderSide: const BorderSide(
-//                         color: Color.fromRGBO(87, 51, 83, 0.4),
+//                         color: Color.fromRGBO(10, 28, 93, 0.4),
 //                         width: 1,
 //                       ),
 //                     ),
 //                     focusedBorder: OutlineInputBorder(
 //                       borderRadius: BorderRadius.circular(10),
 //                       borderSide: const BorderSide(
-//                         color: Color.fromRGBO(87, 51, 83, 0.4),
+//                         color: Color.fromRGBO(10, 28, 93, 0.4),
 //                         width: 2,
 //                       ),
 //                     ),

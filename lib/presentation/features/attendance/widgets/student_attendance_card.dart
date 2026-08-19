@@ -75,7 +75,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                               fontFamily: 'Manrope',
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xff573353),
+                              color: Color(0xFF0A1C5D),
                               height: 19 / 14,
                             ),
                           ),
@@ -85,7 +85,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                               fontFamily: 'Manrope',
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xff573353),
+                              color: Color(0xFF0A1C5D),
                               height: 19 / 14,
                             ),
                           ),
@@ -101,7 +101,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                         thickness: 1,
                         indent: 16,
                         endIndent: 16,
-                        color: Color(0xFFE9ECEF),
+                        color: Color(0xFFE9EBF5),
                       ),
                       
                       // Details section
@@ -129,7 +129,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                     child: OutlinedButton(
                                       onPressed: widget.onDelete,
                                       style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(color: Color(0xFF6C7FD8)),
+                                        side: const BorderSide(color: Color(0xFF1D9B9E)),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(8),
                                         ),
@@ -141,7 +141,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
+                                          color: Color(0xFF1D9B9E),
                                           height: 16 / 16,
                                         ),
                                       ),
@@ -201,7 +201,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             fontFamily: 'Manrope',
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: Color(0xFF0A1C5D),
             height: 16 / 13,
           ),
         ),
@@ -211,7 +211,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard> {
             fontFamily: 'Manrope',
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Color(0xff573353),
+            color: Color(0xFF0A1C5D),
             height: 19 / 14,
           ),
         ),

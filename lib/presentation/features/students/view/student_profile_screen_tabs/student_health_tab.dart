@@ -155,7 +155,7 @@ class _StudentHealthTabState extends State<StudentHealthTab>
                             fontFamily: 'Manrope',
                             fontSize: 14,
                             fontWeight: FontWeight.w400,
-                            color: Color(0xff573353),
+                            color: Color(0xFF0A1C5D),
                             height: 16 / 13,
                           ),
                         ),

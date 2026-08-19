@@ -682,7 +682,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(8),
-                                color: const Color.fromRGBO(177, 175, 233, 0.1),
+                                color: const Color.fromRGBO(172, 234, 236, 0.1),
                               ),
                               child: AppText.value(
                                 currentClassroom,

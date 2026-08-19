@@ -148,6 +148,25 @@ flutter:
     - assets/languages/
     - assets/forte_auto_pay.html
   fonts:
+    # Poppins is the ChildcareWow brand substitute face (the brand guide's
+    # Modulus Pro is unlicensed here); the skeuomorphic design system uses it
+    # for every text style. Weights map to the design tokens:
+    # 500 body, 600 heading, 700 bold, 800 eyebrow.
+    - family: Poppins
+      fonts:
+        - asset: assets/fonts/poppins/Poppins-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/poppins/Poppins-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/poppins/Poppins-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/poppins/Poppins-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/poppins/Poppins-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/poppins/Poppins-ExtraBold.ttf
+          weight: 800
     - family: MervaleScript
       fonts:
         - asset: assets/fonts/mervale_script/MervaleScript-Regular.ttf

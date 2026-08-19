@@ -213,7 +213,7 @@ class _BillingScreenState extends State<BillingScreen>
                                     fontFamily: 'Manrope',
                                     fontSize: titleFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
+                                    color: const Color(0xFF0A1C5D),
                                     height: titleLineHeight,
                                   ),
                                   textAlign: TextAlign.left,
@@ -334,7 +334,7 @@ class _BillingScreenState extends State<BillingScreen>
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_left, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_left, color: Color(0xFF0A1C5D), size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current > 0) {
@@ -349,7 +349,7 @@ class _BillingScreenState extends State<BillingScreen>
                                     labelPadding: EdgeInsets.zero,
                                     tabAlignment: TabAlignment.start,
                                     labelColor: AppColors.themeColor,
-                                    unselectedLabelColor: const Color(0xff573353),
+                                    unselectedLabelColor: const Color(0xFF0A1C5D),
                                     dividerColor: Colors.transparent,
                                     indicatorSize: TabBarIndicatorSize.label,
                                     indicator: UnderlineTabIndicator(
@@ -385,7 +385,7 @@ class _BillingScreenState extends State<BillingScreen>
                                   visualDensity: VisualDensity.compact,
                                   constraints: const BoxConstraints.tightFor(width: 26, height: 32),
                                   splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_right, color: Color(0xff573353), size: 25),
+                                  icon: const Icon(Icons.chevron_right, color: Color(0xFF0A1C5D), size: 25),
                                   onPressed: () {
                                     final int current = controller.index;
                                     if (current < _tabs.length - 1) {

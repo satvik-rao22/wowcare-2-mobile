@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -16,7 +17,7 @@ import 'package:wowcare/presentation/features/billing/widgets/models/student_mod
 
 class SelectStudentsScreen extends StatefulWidget {
   const SelectStudentsScreen({Key? key, this.invoiceData, this.onNext})
-      : super(key: key);
+    : super(key: key);
   final Map<String, dynamic>? invoiceData;
 
   /// Optional override for the "Next" action. When provided, it's called with
@@ -55,9 +56,9 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
       child: BlocBuilder<SelectStudentsCubit, SelectStudentsState>(
         builder: (context, state) {
           final filtered = state.filteredStudents;
-          final visibleCodes =
-              filtered.map((student) => student.code).toList();
-          final bool areAllSelected = filtered.isNotEmpty &&
+          final visibleCodes = filtered.map((student) => student.code).toList();
+          final bool areAllSelected =
+              filtered.isNotEmpty &&
               filtered.every(
                 (student) => state.selectedStudentCodes.contains(student.code),
               );
@@ -68,13 +69,10 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
+                SkeuPanel(
+                  radius: SkeuRadius.xxl,
                   padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: AppColors.cardBorderColor),
-                    borderRadius: BorderRadius.circular(12),
-                    color: AppColors.cardColor,
-                  ),
+
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -150,48 +148,48 @@ class _SelectStudentsScreenState extends State<SelectStudentsScreen> {
                   child: state.isLoading
                       ? const Center(child: PrimaryCircularLoader())
                       : (state.errorMessage != null && filtered.isEmpty)
-                          ? Center(
-                              child: Padding(
-                                padding: const EdgeInsets.all(24),
-                                child: Text(
-                                  state.errorMessage!,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: 14,
-                                    color: AppColors.billingTextColor,
-                                  ),
-                                ),
+                      ? Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(24),
+                            child: Text(
+                              state.errorMessage!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontFamily: 'Manrope',
+                                fontSize: 14,
+                                color: AppColors.billingTextColor,
                               ),
-                            )
-                          : filtered.isEmpty
-                              ? const Center(
-                                  child: Text(
-                                    'No students found.',
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: 14,
-                                      color: AppColors.billingTextColor,
-                                    ),
-                                  ),
-                                )
-                              : ListView.builder(
-                                  itemCount: filtered.length,
-                                  itemBuilder: (context, index) {
-                                    final student = filtered[index];
-                                    final isChecked = state.selectedStudentCodes
-                                        .contains(student.code);
-                                    return _StudentRow(
-                                      student: student,
-                                      isChecked: isChecked,
-                                      onTap: () =>
-                                          _cubit.toggleStudent(student.code),
-                                      onChanged: (val) =>
-                                          _cubit.setStudentSelected(
-                                              student.code, val ?? false),
-                                    );
-                                  },
-                                ),
+                            ),
+                          ),
+                        )
+                      : filtered.isEmpty
+                      ? const Center(
+                          child: Text(
+                            'No students found.',
+                            style: TextStyle(
+                              fontFamily: 'Manrope',
+                              fontSize: 14,
+                              color: AppColors.billingTextColor,
+                            ),
+                          ),
+                        )
+                      : ListView.builder(
+                          itemCount: filtered.length,
+                          itemBuilder: (context, index) {
+                            final student = filtered[index];
+                            final isChecked = state.selectedStudentCodes
+                                .contains(student.code);
+                            return _StudentRow(
+                              student: student,
+                              isChecked: isChecked,
+                              onTap: () => _cubit.toggleStudent(student.code),
+                              onChanged: (val) => _cubit.setStudentSelected(
+                                student.code,
+                                val ?? false,
+                              ),
+                            );
+                          },
+                        ),
                 ),
               ],
             ),
@@ -304,7 +302,7 @@ class _StudentRow extends StatelessWidget {
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color(0xFF6657F8), width: 1),
+          border: Border.all(color: const Color(0xFF1D9B9E), width: 1),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Row(
@@ -341,17 +339,14 @@ class _StudentRow extends StatelessWidget {
                       style: const TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 12,
-                        color: Color(0x99573353),
+                        color: Color(0x990A1C5D),
                       ),
                     ),
                   ],
                 ],
               ),
             ),
-            CustomCheckbox(
-              value: isChecked,
-              onChanged: onChanged,
-            ),
+            CustomCheckbox(value: isChecked, onChanged: onChanged),
           ],
         ),
       ),

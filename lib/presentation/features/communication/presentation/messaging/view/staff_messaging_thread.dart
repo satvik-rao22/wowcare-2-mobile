@@ -513,8 +513,8 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               begin: Alignment.centerLeft,
               end: Alignment.centerRight,
               colors: [
-                Color.fromRGBO(89, 120, 247, 0.1),
-                Color.fromRGBO(156, 132, 255, 0.1),
+                Color.fromRGBO(29, 155, 158, 0.1),
+                Color.fromRGBO(29, 155, 158, 0.1),
               ],
             ),
           ),
@@ -706,7 +706,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                   child: Container(
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(12),
-                                      color: const Color(0xFFF4F7FD),
+                                      color: const Color(0xFFF4F5FA),
                                     ),
                                     child: ListView.builder(
                                       controller: _scrollController,
@@ -988,7 +988,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                             child: Container(
                               decoration: BoxDecoration(
                                 borderRadius: BorderRadius.circular(12),
-                                color: const Color(0xFFF4F7FD),
+                                color: const Color(0xFFF4F5FA),
                               ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -1358,7 +1358,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+        border: Border(bottom: BorderSide(color: Color(0xFFE9EBF5), width: 1)),
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16),
@@ -1690,7 +1690,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0x1A573353),
+        color: const Color(0x1A0A1C5D),
         borderRadius: BorderRadius.circular(12),
       ),
       child: CustomTextWidget(

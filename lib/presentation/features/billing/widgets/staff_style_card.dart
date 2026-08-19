@@ -7,8 +7,8 @@ import 'package:wowcare/app/theme/colors.dart';
 /// All billing cards use the same white, rounded, [AppColors.cardBorderColor]
 /// bordered, tap-to-expand container, the same `#573353` text colour and the
 /// same Manrope font sizes/weights so they match the staff card exactly.
-const Color kBillingCardTextColor = Color(0xff573353);
-const Color kBillingCardDividerColor = Color(0xFFE9ECEF);
+const Color kBillingCardTextColor = Color(0xFF0A1C5D);
+const Color kBillingCardDividerColor = Color(0xFFE9EBF5);
 
 /// Text styles lifted verbatim from the staff card.
 class BillingCardText {
@@ -247,7 +247,7 @@ class StaffCardActions extends StatelessWidget {
   final String primaryLabel;
   final VoidCallback? onPrimary;
 
-  static const Color _accent = Color(0xFF6C7FD8);
+  static const Color _accent = Color(0xFF1D9B9E);
 
   @override
   Widget build(BuildContext context) {

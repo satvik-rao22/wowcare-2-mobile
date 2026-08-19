@@ -253,7 +253,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
                                 fontSize: responsive.labelFontSize,
                                 fontFamily: 'Manrope',
                                 fontWeight: FontWeight.w400,
-                                color: const Color(0xff573353),
+                                color: const Color(0xFF0A1C5D),
                               ),
                               showAsterisk: true,
                               labelBottomSpacing:
@@ -285,7 +285,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
                           fontSize: responsive.labelFontSize,
                           fontFamily: 'Manrope',
                           fontWeight: FontWeight.w400,
-                          color: const Color(0xff573353),
+                          color: const Color(0xFF0A1C5D),
                         ),
                         showAsterisk: true,
                         labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -416,7 +416,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -468,7 +468,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
             fontSize: responsive.labelFontSize,
             fontFamily: 'Manrope',
             fontWeight: FontWeight.w500,
-            color: const Color(0xff573353),
+            color: const Color(0xFF0A1C5D),
           ),
         ),
         const Spacer(),
@@ -547,7 +547,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
         fontSize: responsive.labelFontSize,
         fontFamily: 'Manrope',
         fontWeight: FontWeight.w500,
-        color: const Color(0xff573353),
+        color: const Color(0xFF0A1C5D),
       ),
       onChanged: (val) => cubit.setPublish(val ?? false),
     );
@@ -558,7 +558,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -571,7 +571,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -584,7 +584,7 @@ class _AddShiftViewState extends State<_AddShiftView> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
             decoration: InputDecoration(

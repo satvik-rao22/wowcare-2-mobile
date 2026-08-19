@@ -35,7 +35,7 @@ class MessagingFilterDropdown extends StatelessWidget {
         fontSize: responsive.labelFontSize,
         fontFamily: "Manrope",
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: const Color(0xFF0A1C5D),
       ),
       labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
       fieldHeight: 40,
@@ -44,7 +44,7 @@ class MessagingFilterDropdown extends StatelessWidget {
         fontSize: responsive.inputFontSize,
         fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
         color: selectedItem != null
-            ? const Color(0xff573353)
+            ? const Color(0xFF0A1C5D)
             : Colors.grey[600],
         height: 19 / 14,
       ),
@@ -52,7 +52,7 @@ class MessagingFilterDropdown extends StatelessWidget {
         fontFamily: 'Manrope',
         fontSize: responsive.inputFontSize,
         fontWeight: FontWeight.w400,
-        color: const Color(0xff573353),
+        color: const Color(0xFF0A1C5D),
       ),
     );
   }

@@ -299,7 +299,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
                             fontSize: responsive.labelFontSize,
                             fontFamily: 'Manrope',
                             fontWeight: FontWeight.w400,
-                            color: const Color(0xff573353),
+                            color: const Color(0xFF0A1C5D),
                           ),
                           showAsterisk: true,
                           labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -318,7 +318,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
                       fontSize: responsive.labelFontSize,
                       fontFamily: 'Manrope',
                       fontWeight: FontWeight.w400,
-                      color: const Color(0xff573353),
+                      color: const Color(0xFF0A1C5D),
                     ),
                     showAsterisk: true,
                     labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -450,7 +450,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
           fontFamily: 'Manrope',
           fontSize: responsive.titleFontSize * 0.85,
           fontWeight: FontWeight.w600,
-          color: const Color(0xff573353),
+          color: const Color(0xFF0A1C5D),
         ),
       ),
     );
@@ -468,7 +468,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -517,7 +517,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
             fontSize: responsive.labelFontSize,
             fontFamily: 'Manrope',
             fontWeight: FontWeight.w500,
-            color: const Color(0xff573353),
+            color: const Color(0xFF0A1C5D),
           ),
         ),
         const Spacer(),
@@ -598,7 +598,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
         fontSize: responsive.labelFontSize,
         fontFamily: 'Manrope',
         fontWeight: FontWeight.w500,
-        color: const Color(0xff573353),
+        color: const Color(0xFF0A1C5D),
       ),
       onChanged: (val) => cubit.setPublish(val ?? false),
     );
@@ -609,7 +609,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -622,7 +622,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -635,7 +635,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
             decoration: InputDecoration(

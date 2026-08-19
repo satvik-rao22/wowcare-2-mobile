@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
@@ -149,13 +147,11 @@ class _AttentionGridState extends State<AttentionGrid> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Need your attention',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: SkeuText.title(
+            weight: SkeuText.weightHeading,
+          ).copyWith(fontSize: 18),
         ),
         const SizedBox(height: 12),
         _buildGrid(initialCards, _handleCardTap),
@@ -261,13 +257,11 @@ class _AttentionGridState extends State<AttentionGrid> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Need your attention',
-          style: TextStyle(
-            color: AppColors.primaryColor,
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-          ),
+          style: SkeuText.title(
+            weight: SkeuText.weightHeading,
+          ).copyWith(fontSize: 18),
         ),
         const SizedBox(height: 12),
         IntrinsicHeight(
@@ -439,6 +433,8 @@ class _AttentionGridState extends State<AttentionGrid> {
 
 // ── Show More/Less button ─────────────────────────────────────────────────────
 
+/// The "Show More / Show Less" toggle. A quiet text action, not a key: it
+/// reveals more of the same content rather than performing anything.
 class _ShowMoreButton extends StatelessWidget {
   const _ShowMoreButton({required this.expanded, required this.onTap});
 
@@ -447,51 +443,28 @@ class _ShowMoreButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              expanded ? 'Show Less' : 'Show More',
-              style: const TextStyle(
-                color: AppColors.primaryColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Icon(
-              expanded
-                  ? Icons.keyboard_arrow_up_rounded
-                  : Icons.keyboard_arrow_down_rounded,
-              color: AppColors.primaryColor,
-              size: 20,
-            ),
-          ],
-        ),
-      ),
+    return SkeuTextButton(
+      label: expanded ? 'Show Less' : 'Show More',
+      onPressed: onTap,
+      padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 2),
     );
   }
 }
 
 // ── Shimmer placeholder ───────────────────────────────────────────────────────
 
+/// A card-shaped placeholder while the counts load: the real raised panel with
+/// recessed blanks where the figure and label will land, so the layout does not
+/// jump when the data arrives.
 class _ShimmerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SkeuPanel(
+      radius: 18,
       padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(10),
-      ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
+        baseColor: SkeuColors.cream200,
+        highlightColor: SkeuColors.cream100,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,8 +475,8 @@ class _ShimmerCard extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(6),
+                    color: SkeuColors.cream200,
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -511,7 +484,7 @@ class _ShimmerCard extends StatelessWidget {
                   width: 80,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: SkeuColors.cream200,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -522,7 +495,7 @@ class _ShimmerCard extends StatelessWidget {
               width: 100,
               height: 24,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: SkeuColors.cream200,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -535,6 +508,8 @@ class _ShimmerCard extends StatelessWidget {
 
 // ── Attention card ────────────────────────────────────────────────────────────
 
+/// One "Need your attention" tile: a big teal figure, what it counts, and
+/// either a status badge or a dotted breakdown underneath.
 class _AttentionCard extends StatelessWidget {
   const _AttentionCard({required this.model, this.onTap});
 
@@ -543,103 +518,82 @@ class _AttentionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InkWell(
+    return SkeuPanel(
+      radius: 18,
+      padding: const EdgeInsets.all(14),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(10),
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          border: Border.all(color: AppColors.cardBorderColor),
-          borderRadius: BorderRadius.circular(10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // ── Header row: count + label (+ optional tag) ──────────────────
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (model.isCurrency)
-                  _CurrencyBadge()
-                else
-                  Text(
-                    '${model.count}',
-                    style: const TextStyle(
-                      color: AppColors.themeColor,
-                      fontSize: 26,
-                      fontWeight: FontWeight.w700,
-                    ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // ── Header row: count + label (+ optional tag) ──────────────────
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (model.isCurrency)
+                _CurrencyBadge()
+              else
+                Text(
+                  '${model.count}',
+                  style: TextStyle(
+                    fontFamily: SkeuText.family,
+                    color: SkeuColors.teal600,
+                    fontSize: 26,
+                    height: 1,
+                    fontWeight: SkeuText.weightBold,
                   ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: model.labelTag != null
-                      ? Text.rich(
-                          TextSpan(
-                            children: [
-                              TextSpan(
-                                text: model.label,
-                                style: const TextStyle(
-                                  color: AppColors.primaryColor,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              TextSpan(
-                                text: ' (${model.labelTag})',
-                                style: TextStyle(
-                                  color: AppColors.primaryColor.withValues(
-                                    alpha: 0.55,
-                                  ),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        )
-                      : Text(
-                          model.label,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.primaryColor,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            // ── Bottom section: sub-items, value text, or pill ───────────────
-            if (model.subItems != null)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: model.subItems!
-                    .map((item) => _SubItemRow(item: item))
-                    .toList(),
-              )
-            else if (model.valueText != null)
-              Text(
-                model.valueText!,
-                style: const TextStyle(
-                  color: AppColors.themeColor,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(
+                    text: model.label,
+                    style: SkeuText.body(
+                      weight: SkeuText.weightHeading,
+                    ).copyWith(height: 1.25),
+                    children: model.labelTag == null
+                        ? null
+                        : [
+                            TextSpan(
+                              text: ' (${model.labelTag})',
+                              style: SkeuText.meta(
+                                color: SkeuColors.ink.withValues(alpha: .55),
+                              ),
+                            ),
+                          ],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
-              )
-            else
-              _StatusPill(
-                text: model.pillText ?? '',
-                tone: model.tone,
-                showThumbDown: model.showThumbDown,
               ),
-          ],
-        ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          // ── Bottom section: sub-items, value text, or pill ───────────────
+          if (model.subItems != null)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: model.subItems!
+                  .map((item) => _SubItemRow(item: item))
+                  .toList(),
+            )
+          else if (model.valueText != null)
+            Text(
+              model.valueText!,
+              style: TextStyle(
+                fontFamily: SkeuText.family,
+                color: SkeuColors.danger600,
+                fontSize: 18,
+                fontWeight: SkeuText.weightBold,
+              ),
+            )
+          else
+            _StatusPill(
+              text: model.pillText ?? '',
+              tone: model.tone,
+              showThumbDown: model.showThumbDown,
+            ),
+        ],
       ),
     );
   }
@@ -647,31 +601,24 @@ class _AttentionCard extends StatelessWidget {
 
 // ── Currency badge ────────────────────────────────────────────────────────────
 
+/// The outstanding-balance card leads with a currency glyph instead of a count.
 class _CurrencyBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 34,
-      height: 34,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: AppColors.errorColor.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: const Text(
-        '\$',
-        style: TextStyle(
-          color: AppColors.errorColor,
-          fontSize: 18,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
+    return SkeuIconTile(
+      icon: Icons.attach_money_rounded,
+      tone: SkeuTone.bad,
+      size: 34,
+      iconSize: 20,
+      radius: 11,
     );
   }
 }
 
 // ── Status pill ───────────────────────────────────────────────────────────────
 
+/// The state word under a count — "Pending Approval", "Not in Ratio". Squared
+/// corners, because it labels a figure rather than ending a row.
 class _StatusPill extends StatelessWidget {
   const _StatusPill({
     required this.text,
@@ -685,43 +632,19 @@ class _StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final Color base = tone == _AttentionTone.warning
-        ? AppColors.accentColor
-        : AppColors.errorColor;
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: base.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: base,
-                fontSize: 12,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ),
-          if (showThumbDown) ...[
-            const SizedBox(width: 6),
-            SvgPicture.asset(MediaRes.thumbDown, width: 14, height: 14),
-          ],
-        ],
-      ),
+    return SkeuStatusChip(
+      label: text,
+      tone: tone == _AttentionTone.warning ? SkeuTone.warn : SkeuTone.bad,
+      pill: false,
+      fontSize: 12,
+      icon: showThumbDown ? Icons.thumb_down_alt_outlined : null,
     );
   }
 }
 
 // ── Sub-item row ──────────────────────────────────────────────────────────────
 
+/// One dotted breakdown line, e.g. "Overdue (3)".
 class _SubItemRow extends StatelessWidget {
   const _SubItemRow({required this.item});
 
@@ -729,33 +652,13 @@ class _SubItemRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = item.tone == _AttentionTone.danger
-        ? AppColors.errorColor
-        : AppColors.accentColor;
-
     return Padding(
       padding: const EdgeInsets.only(top: 4),
-      child: Row(
-        children: [
-          Container(
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-          ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              '${item.label} (${item.count})',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: TextStyle(
-                color: AppColors.primaryColor.withValues(alpha: 0.8),
-                fontSize: 12,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-        ],
+      child: SkeuLegendEntry(
+        label: '${item.label} (${item.count})',
+        color: item.tone == _AttentionTone.danger
+            ? SkeuColors.danger500
+            : SkeuColors.sun400,
       ),
     );
   }

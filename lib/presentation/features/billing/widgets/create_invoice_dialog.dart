@@ -48,7 +48,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                       child: Icon(
                         Icons.close,
                         size: 18,
-                        color: Color(0x99573353),
+                        color: Color(0x990A1C5D),
                       ),
                     ),
                   ),
@@ -61,7 +61,7 @@ class CreateInvoiceDialog extends StatelessWidget {
                   fontFamily: 'Manrope',
                   fontSize: 13,
                   fontWeight: FontWeight.w500,
-                  color: Color(0x99573353),
+                  color: Color(0x990A1C5D),
                 ),
               ),
               const SizedBox(height: 16),
@@ -125,7 +125,7 @@ class BillingActionCardState extends State<BillingActionCard> {
               : AppColors.billingTextColor;
           final Color secondaryText = _isHighlighted
               ? Colors.white70
-              : const Color(0x99573353);
+              : const Color(0x990A1C5D);
           final Color iconBg = _isHighlighted
               ? Colors.white24
               : AppColors.themeColor.withValues(alpha: 0.1);

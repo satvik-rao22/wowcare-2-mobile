@@ -180,7 +180,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
                       fontFamily: 'Manrope',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xff573353),
+                      color: Color(0xFF0A1C5D),
                     ),
                   ),
                   IconButton(

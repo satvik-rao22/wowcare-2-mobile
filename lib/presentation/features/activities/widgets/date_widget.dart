@@ -159,8 +159,8 @@ class _DateWidgetState extends State<DateWidget> {
         width: double.infinity,
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
-          //color: const Color(0xFFF8F7FA),
+          color: const Color(0xFFACEAEC).withValues(alpha: 0.102),
+          //color: const Color(0xFFF4F5FA),
           borderRadius: BorderRadius.circular(10),
         ),
         child: Padding(

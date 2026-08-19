@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -1508,13 +1509,10 @@ class _StudentAttendanceDailyViewScreenState
         _selectedTagNames.isNotEmpty ||
         _searchController.text.trim().isNotEmpty;
 
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.cardColor,
-      ),
+
       child: Column(
         children: [
           Row(
@@ -1549,7 +1547,7 @@ class _StudentAttendanceDailyViewScreenState
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(
-                              color: Color.fromRGBO(179, 38, 30, 1),
+                              color: Color(0xFFE01B5D),
                               shape: BoxShape.circle,
                             ),
                           ),

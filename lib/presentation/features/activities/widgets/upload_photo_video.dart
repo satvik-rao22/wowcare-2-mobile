@@ -93,7 +93,7 @@
 // //               fontFamily: 'Manrope',
 // //               fontSize: 24,
 // //               fontWeight: FontWeight.w600,
-// //               color: Color(0xff573353),
+// //               color: Color(0xFF0A1C5D),
 // //             ),
 // //           ),
 // //           content: Padding(
@@ -187,7 +187,7 @@
 // //           //     onPressed: () => Navigator.pop(dialogContext),
 // //           //     child: const Text(
 // //           //       'Cancel',
-// //           //       style: TextStyle(color: Color(0xff573353)),
+// //           //       style: TextStyle(color: Color(0xFF0A1C5D)),
 // //           //     ),
 // //           //   ),
 // //           // ],
@@ -209,7 +209,7 @@
 // //           Icon(
 // //             icon,
 // //             size: 35,
-// //             color: const Color(0xff573353),
+// //             color: const Color(0xFF0A1C5D),
 // //           ),
 // //           const SizedBox(width: 10),
 // //           Text(
@@ -218,7 +218,7 @@
 // //             style: const TextStyle(
 // //               fontSize: 16,
 // //               fontWeight: FontWeight.w400,
-// //               color: Color(0xff573353),
+// //               color: Color(0xFF0A1C5D),
 // //             ),
 // //           ),
 // //         ],
@@ -236,8 +236,8 @@
 // //           height: 290,
 // //           //margin: const EdgeInsets.symmetric(horizontal: 20),
 // //           decoration: BoxDecoration(
-// //             color: const Color(0x1AB1AFE9),
-// //             //color: const Color(0xff573353).withValues(alpha:0.05),
+// //             color: const Color(0x1AACEAEC),
+// //             //color: const Color(0xFF0A1C5D).withValues(alpha:0.05),
 // //             borderRadius: BorderRadius.circular(12),
 // //           ),
 // //           child: _mediaFile == null
@@ -681,7 +681,7 @@
 //             fontFamily: 'Manrope',
 //             fontSize: 24,
 //             fontWeight: FontWeight.w600,
-//             color: Color(0xff573353),
+//             color: Color(0xFF0A1C5D),
 //           ),
 //         ),
 //         content: Column(
@@ -713,9 +713,9 @@
 //       },
 //       child: Row(
 //         children: [
-//           Icon(icon, size: 35, color: const Color(0xff573353)),
+//           Icon(icon, size: 35, color: const Color(0xFF0A1C5D)),
 //           const SizedBox(width: 12),
-//           Text(label, style: const TextStyle(fontSize: 16, color: Color(0xff573353))),
+//           Text(label, style: const TextStyle(fontSize: 16, color: Color(0xFF0A1C5D))),
 //         ],
 //       ),
 //     );
@@ -734,7 +734,7 @@
 //             child: Container(
 //               width: double.infinity,
 //               decoration: BoxDecoration(
-//                 color: const Color(0x1AB1AFE9),
+//                 color: const Color(0x1AACEAEC),
 //                 borderRadius: BorderRadius.circular(12),
 //               ),
 //               child: Column(
@@ -766,7 +766,7 @@
 //                   fontSize: responsive.labelFontSize,
 //                   fontFamily: "Manrope",
 //                   fontWeight: FontWeight.w400,
-//                   color: const Color(0xff573353),
+//                   color: const Color(0xFF0A1C5D),
 //                 ),
 //                 children: [
 //                   TextSpan(text: widget.label),
@@ -781,7 +781,7 @@
 //                   constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
 //                   decoration: BoxDecoration(
 //                     color: Colors.white,
-//                     border: Border.all(color: const Color(0x66573353)),
+//                     border: Border.all(color: const Color(0x660A1C5D)),
 //                     borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
 //                   ),
 //                   child: Padding(
@@ -798,7 +798,7 @@
 //                             fontSize: responsive.labelFontSize,
 //                             fontFamily: "Manrope",
 //                             fontWeight: FontWeight.w400,
-//                             color: const Color(0xff573353),
+//                             color: const Color(0xFF0A1C5D),
 //                           ),
 //                         ),
 //                         Opacity(
@@ -850,7 +850,7 @@
 //                   _currentType == MediaType.video
 //                       ? 'New selection replaces current video'
 //                       : '${_photos.length} Photo${_photos.length > 1 ? 's' : ''} selected',
-//                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xff573353)),
+//                   style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w400, color: Color(0xFF0A1C5D)),
 //                 ),
 //                 const SizedBox(height: 12),
 //               ],
@@ -884,7 +884,7 @@
 //         //       icon: const Icon(Icons.add, size: 18),
 //         //       label: const Text('Add More'),
 //         //       style: ElevatedButton.styleFrom(
-//         //         backgroundColor: const Color(0xff573353),
+//         //         backgroundColor: const Color(0xFF0A1C5D),
 //         //         foregroundColor: Colors.white,
 //         //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
 //         //       ),
@@ -1789,7 +1789,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 40),
               decoration: BoxDecoration(
-                color: const Color(0x1AB1AFE9),
+                color: const Color(0x1AACEAEC),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -1818,7 +1818,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                   text: widget.label,
                   style: TextStyle(
                     fontSize: responsive.labelFontSize,
-                    color: const Color(0xff573353),
+                    color: const Color(0xFF0A1C5D),
                   ),
                   children: widget.isRequired
                       ? [
@@ -1836,7 +1836,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0x66573353)),
+                    border: Border.all(color: const Color(0x660A1C5D)),
                     borderRadius: BorderRadius.circular(12),
                     color: Colors.white,
                   ),

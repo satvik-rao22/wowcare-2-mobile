@@ -477,7 +477,7 @@ class _MessageBubbleState extends State<MessageBubble>
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFF573353),
+                  color: Color(0xFF0A1C5D),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -486,7 +486,7 @@ class _MessageBubbleState extends State<MessageBubble>
                 'Are you sure you want to delete this message?',
                 style: TextStyle(
                   fontSize: 14,
-                  color: Color.fromRGBO(87, 51, 83, 0.7),
+                  color: Color.fromRGBO(10, 28, 93, 0.7),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -530,7 +530,7 @@ class _MessageBubbleState extends State<MessageBubble>
                   child: const Text(
                     'Cancel',
                     style: TextStyle(
-                      color: Color(0xFF573353),
+                      color: Color(0xFF0A1C5D),
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -785,7 +785,7 @@ class _MessageBubbleState extends State<MessageBubble>
                               Text(
                                 senderLabel,
                                 style: const TextStyle(
-                                  color: Color.fromRGBO(87, 51, 83, 0.7),
+                                  color: Color.fromRGBO(10, 28, 93, 0.7),
                                   fontWeight: FontWeight.w500,
                                   fontSize: 14,
                                 ),
@@ -960,7 +960,7 @@ class _MessageBubbleState extends State<MessageBubble>
                     style: TextStyle(
                       color: useLightText
                           ? Colors.white.withValues(alpha: 0.75)
-                          : const Color.fromRGBO(87, 51, 83, 0.6),
+                          : const Color.fromRGBO(10, 28, 93, 0.6),
                       fontSize: 14,
                       fontStyle: FontStyle.italic,
                     ),

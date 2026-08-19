@@ -122,7 +122,7 @@ class _Header extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: responsive.titleFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
             ),
           ),
         ),
@@ -178,7 +178,7 @@ class _Header extends StatelessWidget {
                           .read<NotificationCenterCubit>()
                           .setModuleFilter(null),
                       icon: const Icon(Icons.close_rounded, size: 20),
-                      color: const Color(0xff573353),
+                      color: const Color(0xFF0A1C5D),
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(
                         minWidth: 32,

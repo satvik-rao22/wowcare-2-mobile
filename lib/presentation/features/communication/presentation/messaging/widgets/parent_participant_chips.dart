@@ -154,7 +154,7 @@ class ParentParticipantChips extends StatelessWidget {
   Color _roleColor(String roleStr) {
     final upper = roleStr.toUpperCase();
     return switch (upper) {
-      'ADMIN' => const Color(0xFF6C63FF),
+      'ADMIN' => const Color(0xFF1D9B9E),
       'GUARDIAN' => const Color(0xFF00B4DB),
       'PARENT' => const Color(0xFF00B4DB),
       'STAFF' => const Color(0xFFFF9F1C),

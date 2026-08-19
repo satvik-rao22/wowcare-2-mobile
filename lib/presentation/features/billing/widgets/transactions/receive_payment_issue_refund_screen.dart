@@ -264,7 +264,7 @@ class _ReceivePaymentIssueRefundScreenState
 
   BoxDecoration _fieldBox(ResponsiveHelper responsive) => BoxDecoration(
     color: AppColors.billingCardColor,
-    border: Border.all(color: const Color(0x66573353)),
+    border: Border.all(color: const Color(0x660A1C5D)),
     borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
   );
 
@@ -301,7 +301,7 @@ class _ReceivePaymentIssueRefundScreenState
           fontFamily: 'Manrope',
           fontSize: responsive.inputFontSize,
           fontWeight: FontWeight.w600,
-          color: const Color(0xff573353),
+          color: const Color(0xFF0A1C5D),
         ),
         decoration: InputDecoration(
           hintText: hint,
@@ -520,7 +520,7 @@ class _ReceivePaymentIssueRefundScreenState
       decoration: BoxDecoration(
         color: AppColors.billingCardColor,
         border: Border.all(
-          color: over ? AppColors.errorColor : const Color(0x33573353),
+          color: over ? AppColors.errorColor : const Color(0x330A1C5D),
         ),
         borderRadius: BorderRadius.circular(radius),
       ),
@@ -589,7 +589,7 @@ class _ReceivePaymentIssueRefundScreenState
     const List<Color> palette = <Color>[
       Color(0xFFB983FF),
       Color(0xFFF6D365),
-      Color(0xFF6F8CFF),
+      Color(0xFF45CDD1),
       Color(0xFF7ED9A6),
       Color(0xFFFF9AA2),
     ];
@@ -661,7 +661,7 @@ class _ReceivePaymentIssueRefundScreenState
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     final double radius = responsive.isTablet ? 12.0 : 8.0;
 
@@ -669,7 +669,7 @@ class _ReceivePaymentIssueRefundScreenState
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
         color: active ? AppColors.billingCardColor : const Color(0xFFF4F4F6),
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: const Color(0x660A1C5D)),
         borderRadius: BorderRadius.circular(radius),
       ),
       child: Row(
@@ -678,7 +678,7 @@ class _ReceivePaymentIssueRefundScreenState
             alignment: Alignment.center,
             padding: _fieldPadding(responsive),
             decoration: BoxDecoration(
-              color: const Color(0x1AB1AFE9),
+              color: const Color(0x1AACEAEC),
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(radius),
                 bottomLeft: Radius.circular(radius),
@@ -728,7 +728,7 @@ class _ReceivePaymentIssueRefundScreenState
       fontFamily: 'Manrope',
       fontSize: responsive.inputFontSize,
       fontWeight: FontWeight.w600,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(

@@ -219,7 +219,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                               style: TextStyle(
                                 fontFamily: 'Manrope',
                                 fontSize: 14,
-                                color: Color(0x99573353),
+                                color: Color(0x990A1C5D),
                               ),
                             ),
                           ),
@@ -418,7 +418,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
               width: widget.width,
               padding: const EdgeInsets.symmetric(horizontal: 10),
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+                color: const Color(0xFFACEAEC).withValues(alpha: 0.102),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(

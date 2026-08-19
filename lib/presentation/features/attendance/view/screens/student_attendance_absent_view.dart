@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -166,8 +167,8 @@ class _StudentAttendanceAbsentViewState
     try {
       final enabled =
           await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+            storage: serviceLocator<StorageService>(),
+          );
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       _loadClassroomData();
@@ -1037,7 +1038,7 @@ class _StudentAttendanceAbsentViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: const Color(0xFF0A1C5D),
                             height: 19 / 14,
                           ),
                           maxLines: 2,
@@ -1052,7 +1053,7 @@ class _StudentAttendanceAbsentViewState
                             fontFamily: 'Manrope',
                             fontSize: responsive.isTablet ? 16 : 14,
                             fontWeight: FontWeight.w500,
-                            color: const Color(0xff573353),
+                            color: const Color(0xFF0A1C5D),
                             height: 19 / 14,
                           ),
                           maxLines: 1,
@@ -1100,18 +1101,10 @@ class _StudentAttendanceAbsentViewState
                 child: SizedBox(
                   width: double.infinity,
                   child: _loadingButtons[student.studentId] == true
-                      ? Container(
+                      ? SkeuPanel(
+                          radius: SkeuRadius.xxl,
                           height: 48,
-                          decoration: BoxDecoration(
-                            color: AppColors.cardBorderColor.withValues(
-                              alpha: 0.1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: AppColors.cardBorderColor,
-                              width: 1,
-                            ),
-                          ),
+
                           child: const Center(
                             child: SizedBox(
                               width: 20,
@@ -1173,7 +1166,7 @@ class _StudentAttendanceAbsentViewState
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
               height: 16 / 13,
             ),
           ),
@@ -1187,7 +1180,7 @@ class _StudentAttendanceAbsentViewState
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
             textAlign: TextAlign.end,

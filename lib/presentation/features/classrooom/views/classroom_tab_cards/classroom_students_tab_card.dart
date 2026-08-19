@@ -2,6 +2,9 @@ import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
+import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -1325,368 +1328,292 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
 
           return Stack(
             children: [
-              Card(
-                elevation: 0,
-                margin: const EdgeInsets.all(0),
-                shape: const Border(
-                  left: BorderSide(color: AppColors.themeColor),
-                  top: BorderSide(color: AppColors.themeColor),
-                  right: BorderSide(color: AppColors.themeColor),
-                  bottom: BorderSide(color: AppColors.themeColor),
-                ),
-                color: Colors.white,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                  child: Column(
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SearchBar(
-                              controller: _searchController,
-                              constraints: const BoxConstraints(minHeight: 36),
-                              backgroundColor:
-                                  const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
-                                  ),
-                              surfaceTintColor:
-                                  const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
-                                  ),
-                              hintText: 'Search',
-                              hintStyle: const WidgetStatePropertyAll(
-                                TextStyle(
-                                  fontFamily: 'Manrope',
-                                  color: Color.fromRGBO(87, 51, 83, 0.7),
-                                  fontSize: 13,
+              // The screen already wraps this tab body in one raised panel, so
+              // the body itself is a bare column — a second outlined box around
+              // the same content would read as two nested cards.
+              Padding(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: CustomSearchBar(
+                            controller: _searchController,
+                            hintText: 'Search',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        SkeuIconButton(
+                          icon: Icons.tune_rounded,
+                          size: 40,
+                          iconSize: 18,
+                          radius: SkeuRadius.md,
+                          onPressed: _openClassroomStudentFilter,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                              ),
+                              child: CustomCheckbox(
+                                borderColor: AppColors.primaryColor.withValues(
+                                  alpha: 0.2,
+                                ),
+                                value: isSelectAllChecked,
+                                onChanged: (val) => _toggleSelectAll(
+                                  val,
+                                  effectiveVisibleStudents,
                                 ),
                               ),
-                              leading: const Icon(
-                                Icons.search,
+                            ),
+                            const Text(
+                              'Select All',
+                              style: TextStyle(
+                                fontFamily: 'Manrope',
                                 color: AppColors.primaryColor,
-                                size: 18,
-                              ),
-                              elevation: const WidgetStatePropertyAll(0),
-                              side: const WidgetStatePropertyAll(
-                                BorderSide(
-                                  width: 1,
-                                  color: Color.fromARGB(255, 188, 173, 186),
-                                ),
-                              ),
-                              shape: WidgetStatePropertyAll(
-                                RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            onPressed: _openClassroomStudentFilter,
-                            icon: SvgPicture.asset(
-                              MediaRes.filterIcon,
-                              height: 22,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
+                            const Spacer(),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.end,
+                              children: [
+                                for (final status in _selectedStatus) ...[
+                                  _buildStatusChip(status),
+                                  const SizedBox(width: 8),
+                                ],
+                                CustomClearAllChip(
+                                  onTap: _clearAllSelections,
                                 ),
-                                child: CustomCheckbox(
-                                  borderColor: AppColors.primaryColor
-                                      .withValues(alpha: 0.2),
-                                  value: isSelectAllChecked,
-                                  onChanged: (val) => _toggleSelectAll(
-                                    val,
-                                    effectiveVisibleStudents,
-                                  ),
-                                ),
-                              ),
-                              const Text(
-                                'Select All',
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  color: AppColors.primaryColor,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              const Spacer(),
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.end,
-                                children: [
-                                  for (final status in _selectedStatus) ...[
-                                    _buildStatusChip(status),
-                                    const SizedBox(width: 8),
-                                  ],
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(6),
-                                      gradient:
-                                          AppColors.buildPrimaryGradient(),
-                                    ),
-                                    child: TextButton(
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 4,
-                                          vertical: 3,
-                                        ),
-                                        minimumSize: Size.zero,
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                      ),
-                                      onPressed: _clearAllSelections,
-                                      child: const Text(
-                                        'Clear All',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  IconButton(
-                                    onPressed: () {
-                                      showDialog(
-                                        context: context,
-                                        builder: (BuildContext context) {
-                                          return AlertDialog(
-                                            title: const Text('Information'),
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: details.entries.map((
-                                                entry,
-                                              ) {
-                                                bool isSvg = entry.key.endsWith(
-                                                  '.svg',
-                                                );
-                                                return Padding(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 4.0,
-                                                      ),
-                                                  child: Row(
-                                                    children: [
-                                                      isSvg
-                                                          ? SvgPicture.asset(
-                                                              entry.key,
-                                                              width: 24,
-                                                              height: 24,
-                                                            )
-                                                          : Image.asset(
-                                                              entry.key,
-                                                              width: 24,
-                                                              height: 24,
-                                                            ),
-                                                      const SizedBox(width: 20),
-                                                      Expanded(
-                                                        child: Text(
-                                                          entry.value,
-                                                          style:
-                                                              const TextStyle(
-                                                                fontFamily:
-                                                                    'Manrope',
-                                                                fontSize: 14,
-                                                              ),
+                                IconButton(
+                                  onPressed: () {
+                                    showDialog(
+                                      context: context,
+                                      builder: (BuildContext context) {
+                                        return AlertDialog(
+                                          title: const Text('Information'),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: details.entries.map((
+                                              entry,
+                                            ) {
+                                              bool isSvg = entry.key.endsWith(
+                                                '.svg',
+                                              );
+                                              return Padding(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      vertical: 4.0,
+                                                    ),
+                                                child: Row(
+                                                  children: [
+                                                    isSvg
+                                                        ? SvgPicture.asset(
+                                                            entry.key,
+                                                            width: 24,
+                                                            height: 24,
+                                                          )
+                                                        : Image.asset(
+                                                            entry.key,
+                                                            width: 24,
+                                                            height: 24,
+                                                          ),
+                                                    const SizedBox(width: 20),
+                                                    Expanded(
+                                                      child: Text(
+                                                        entry.value,
+                                                        style: const TextStyle(
+                                                          fontFamily: 'Manrope',
+                                                          fontSize: 14,
                                                         ),
                                                       ),
-                                                    ],
-                                                  ),
-                                                );
-                                              }).toList(),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }).toList(),
+                                          ),
+                                          actions: <Widget>[
+                                            TextButton(
+                                              child: const Text('Close'),
+                                              onPressed: () {
+                                                Navigator.of(context).pop();
+                                              },
                                             ),
-                                            actions: <Widget>[
-                                              TextButton(
-                                                child: const Text('Close'),
-                                                onPressed: () {
-                                                  Navigator.of(context).pop();
-                                                },
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                    },
-                                    icon: const Icon(
-                                      Icons.info_outline_rounded,
-                                      color: AppColors.primaryColor,
-                                      size: 20,
-                                    ),
+                                          ],
+                                        );
+                                      },
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.info_outline_rounded,
+                                    color: AppColors.primaryColor,
+                                    size: 20,
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Row(
-                            children: [
-                              CustomToggle(
-                                label: 'Signed In',
-                                isToggled: _isPresentFilter,
-                                onToggle: (value) {
-                                  setState(() {
-                                    _isPresentFilter = value;
-                                  });
-                                },
-                                labelStyle: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  color: AppColors.primaryColor,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
                                 ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            CustomToggle(
+                              label: 'Signed In',
+                              isToggled: _isPresentFilter,
+                              onToggle: (value) {
+                                setState(() {
+                                  _isPresentFilter = value;
+                                });
+                              },
+                              labelStyle: const TextStyle(
+                                fontFamily: 'Manrope',
+                                color: AppColors.primaryColor,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
                               ),
-                              const SizedBox(width: 20),
-                              CustomToggle(
-                                label: 'Napping',
-                                isToggled: _isNappingFilter,
-                                onToggle: (value) {
-                                  _applyNappingToggle(value);
-                                },
-                                labelStyle: const TextStyle(
-                                  fontFamily: 'Manrope',
-                                  color: AppColors.primaryColor,
-                                  fontSize: 15,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                            ),
+                            const SizedBox(width: 20),
+                            CustomToggle(
+                              label: 'Napping',
+                              isToggled: _isNappingFilter,
+                              onToggle: (value) {
+                                _applyNappingToggle(value);
+                              },
+                              labelStyle: const TextStyle(
+                                fontFamily: 'Manrope',
+                                color: AppColors.primaryColor,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
                               ),
-                            ],
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Expanded(
-                        child: Builder(
-                          builder: (context) {
-                            if ((state.isLoading || _isLoadingNapStudents) &&
-                                effectiveVisibleStudents.isEmpty) {
-                              return const ClassroomStudentsListShimmer();
-                            }
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Expanded(
+                      child: Builder(
+                        builder: (context) {
+                          if ((state.isLoading || _isLoadingNapStudents) &&
+                              effectiveVisibleStudents.isEmpty) {
+                            return const ClassroomStudentsListShimmer();
+                          }
 
-                            if (effectiveVisibleStudents.isEmpty) {
-                              return CustomRefreshIndicator(
-                                onRefresh: _refreshAll,
-                                child: LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    return ListView(
-                                      children: [
-                                        SizedBox(
-                                          height: constraints.maxHeight,
-                                          child: Center(
-                                            child: Text(
-                                              _isNappingFilter &&
-                                                      _napFilterEmptyResult
-                                                  ? 'No students are currently napping.'
-                                                  : _isNappingFilter
-                                                  ? 'No students are napping.'
-                                                  : 'No students assigned.',
-                                              style: TextStyle(
-                                                fontFamily: 'Manrope',
-                                                fontSize: 16,
-                                                color: AppColors.primaryColor
-                                                    .withValues(alpha: 0.6),
-                                              ),
+                          if (effectiveVisibleStudents.isEmpty) {
+                            return CustomRefreshIndicator(
+                              onRefresh: _refreshAll,
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return ListView(
+                                    children: [
+                                      SizedBox(
+                                        height: constraints.maxHeight,
+                                        child: Center(
+                                          child: Text(
+                                            _isNappingFilter &&
+                                                    _napFilterEmptyResult
+                                                ? 'No students are currently napping.'
+                                                : _isNappingFilter
+                                                ? 'No students are napping.'
+                                                : 'No students assigned.',
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              color: AppColors.primaryColor
+                                                  .withValues(alpha: 0.6),
                                             ),
                                           ),
                                         ),
-                                      ],
-                                    );
-                                  },
-                                ),
-                              );
-                            }
-
-                            final upcomingOnlyFilter =
-                                _selectedStatus.length == 1 &&
-                                _selectedStatus.first.trim().toUpperCase() ==
-                                    'UPCOMING';
-
-                            return CustomRefreshIndicator(
-                              onRefresh: _refreshAll,
-                              child: ListView.builder(
-                                // Always scrollable so a short roster (too few
-                                // students to fill the viewport) can still be
-                                // pulled to refresh.
-                                physics: const AlwaysScrollableScrollPhysics(),
-                                itemCount: effectiveVisibleStudents.length,
-                                itemBuilder: (context, index) {
-                                  final student =
-                                      effectiveVisibleStudents[index];
-                                  final isTarget = _isHighlightTarget(
-                                    student.studentCode,
-                                  );
-                                  return HighlightableCard(
-                                    key: isTarget ? _highlightRowKey : null,
-                                    code: student.studentCode,
-                                    highlightCode: widget.highlightCode,
-                                    borderRadius: 12,
-                                    onHighlighted: () {
-                                      final ctx =
-                                          _highlightRowKey.currentContext;
-                                      if (ctx != null) {
-                                        Scrollable.ensureVisible(
-                                          ctx,
-                                          duration: const Duration(
-                                            milliseconds: 400,
-                                          ),
-                                          alignment: 0.1,
-                                          curve: Curves.easeOut,
-                                        );
-                                      }
-                                    },
-                                    child: ClassroomStudentListItem(
-                                      studentId: student.studentCode.hashCode,
-                                      studentCode: student.studentCode,
-                                      isSignedIn: student.signedIn,
-                                      isAbsent: student.absent,
-                                      isExpectedToday: student.expectedToday,
-                                      studentStatus: student.status,
-                                      todayAttendanceStatusRaw:
-                                          _todayStatusForStudentCode(
-                                            student.studentCode,
-                                          ),
-                                      name: student.fullName,
-                                      imageUrl: student.profilePictureUrl ?? '',
-                                      icons: _getStudentIcons(student),
-                                      forceUpcomingProfileStatusDot:
-                                          upcomingOnlyFilter,
-                                      isSelected:
-                                          studentSelections[student
-                                              .studentCode] ??
-                                          false,
-                                      onSelectionChanged: (bool? value) {
-                                        _toggleStudentSelection(
-                                          student.studentCode,
-                                          value,
-                                          effectiveVisibleStudents,
-                                        );
-                                      },
-                                    ),
+                                      ),
+                                    ],
                                   );
                                 },
                               ),
                             );
-                          },
-                        ),
+                          }
+
+                          final upcomingOnlyFilter =
+                              _selectedStatus.length == 1 &&
+                              _selectedStatus.first.trim().toUpperCase() ==
+                                  'UPCOMING';
+
+                          return CustomRefreshIndicator(
+                            onRefresh: _refreshAll,
+                            child: ListView.builder(
+                              // Always scrollable so a short roster (too few
+                              // students to fill the viewport) can still be
+                              // pulled to refresh.
+                              physics: const AlwaysScrollableScrollPhysics(),
+                              itemCount: effectiveVisibleStudents.length,
+                              itemBuilder: (context, index) {
+                                final student = effectiveVisibleStudents[index];
+                                final isTarget = _isHighlightTarget(
+                                  student.studentCode,
+                                );
+                                return HighlightableCard(
+                                  key: isTarget ? _highlightRowKey : null,
+                                  code: student.studentCode,
+                                  highlightCode: widget.highlightCode,
+                                  borderRadius: 12,
+                                  onHighlighted: () {
+                                    final ctx = _highlightRowKey.currentContext;
+                                    if (ctx != null) {
+                                      Scrollable.ensureVisible(
+                                        ctx,
+                                        duration: const Duration(
+                                          milliseconds: 400,
+                                        ),
+                                        alignment: 0.1,
+                                        curve: Curves.easeOut,
+                                      );
+                                    }
+                                  },
+                                  child: ClassroomStudentListItem(
+                                    studentId: student.studentCode.hashCode,
+                                    studentCode: student.studentCode,
+                                    isSignedIn: student.signedIn,
+                                    isAbsent: student.absent,
+                                    isExpectedToday: student.expectedToday,
+                                    studentStatus: student.status,
+                                    todayAttendanceStatusRaw:
+                                        _todayStatusForStudentCode(
+                                          student.studentCode,
+                                        ),
+                                    name: student.fullName,
+                                    imageUrl: student.profilePictureUrl ?? '',
+                                    icons: _getStudentIcons(student),
+                                    forceUpcomingProfileStatusDot:
+                                        upcomingOnlyFilter,
+                                    isSelected:
+                                        studentSelections[student
+                                            .studentCode] ??
+                                        false,
+                                    onSelectionChanged: (bool? value) {
+                                      _toggleStudentSelection(
+                                        student.studentCode,
+                                        value,
+                                        effectiveVisibleStudents,
+                                      );
+                                    },
+                                  ),
+                                );
+                              },
+                            ),
+                          );
+                        },
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
               // StudentActionPanel shown when students are selected

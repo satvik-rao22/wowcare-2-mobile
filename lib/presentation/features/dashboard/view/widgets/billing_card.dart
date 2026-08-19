@@ -1,6 +1,7 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -34,8 +35,9 @@ class BillingCard extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<TransactionsCubit>(
-          create: (_) => serviceLocator<TransactionsCubit>()
-            ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
+          create: (_) =>
+              serviceLocator<TransactionsCubit>()
+                ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
         ),
         BlocProvider<AnalyticsCubit>(
           create: (_) => serviceLocator<AnalyticsCubit>()..load(),
@@ -97,9 +99,10 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
     final year = AppTime.now().year;
     final from = DateTime(year, _monthIndex, 1);
     final to = DateTime(year, _monthIndex + 1, 0, 23, 59, 59);
-    return context
-        .read<TransactionsCubit>()
-        .loadOverview(dateFrom: from, dateTo: to);
+    return context.read<TransactionsCubit>().loadOverview(
+      dateFrom: from,
+      dateTo: to,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -123,10 +126,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       final key = e.name.trim().toLowerCase();
       if (key.length >= 3) byMonth[key.substring(0, 3)] = e.value;
     }
-    return List<double>.generate(
-      12,
-      (i) => byMonth[_monthAbbr[i]] ?? 0.0,
-    );
+    return List<double>.generate(12, (i) => byMonth[_monthAbbr[i]] ?? 0.0);
   }
 
   // ---------------------------------------------------------------------------
@@ -135,13 +135,10 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -239,9 +236,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           onSelect: (value) {
                             if (value != null) {
                               setState(() => _selectedYear = int.parse(value));
-                              context
-                                  .read<AnalyticsCubit>()
-                                  .setYear(_selectedYear);
+                              context.read<AnalyticsCubit>().setYear(
+                                _selectedYear,
+                              );
                             }
                           },
                         ),
@@ -267,8 +264,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           child: ShimmerLoader(height: 220),
                         );
                       }
-                      final revenue =
-                          _toMonthlyValues(state.analytics?.revenue ?? const []);
+                      final revenue = _toMonthlyValues(
+                        state.analytics?.revenue ?? const [],
+                      );
                       return _buildYearlySection(revenue);
                     },
                   ),
@@ -336,8 +334,10 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
             Expanded(
               child: _buildBillingStatus(
                 amount: '\$${overview.outstanding.toStringAsFixed(2)}',
-                percentage:
-                    _getPercentage(overview.outstanding, totalAllAmounts),
+                percentage: _getPercentage(
+                  overview.outstanding,
+                  totalAllAmounts,
+                ),
                 label: 'Outstanding',
                 percentageColor: Colors.red,
               ),

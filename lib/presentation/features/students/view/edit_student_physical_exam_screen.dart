@@ -217,7 +217,7 @@ class _EditStudentPhysicalExamScreenState
                 fontFamily: 'Manrope',
                 fontSize: 15,
                 fontWeight: FontWeight.w400,
-                color: Color(0xff573353),
+                color: Color(0xFF0A1C5D),
               ),
               children: [
                 TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
@@ -230,7 +230,7 @@ class _EditStudentPhysicalExamScreenState
             child: Container(
               decoration: BoxDecoration(
                 color: Colors.white,
-                border: Border.all(color: const Color(0x66573353)),
+                border: Border.all(color: const Color(0x660A1C5D)),
                 borderRadius: BorderRadius.circular(8),
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -267,7 +267,7 @@ class _EditStudentPhysicalExamScreenState
               fontSize: 15,
               fontFamily: 'Manrope',
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
             ),
             labelBottomSpacing: 6,
             onSelect: (val) => setState(() => _status = val ?? _status),

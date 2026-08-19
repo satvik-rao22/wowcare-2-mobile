@@ -35,7 +35,7 @@ class ViewWidget extends StatelessWidget {
           width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Color(0xFFB1AFE9).withValues(alpha: 0.102),
+            color: Color(0xFFACEAEC).withValues(alpha: 0.102),
             //color: Colors.white.withValues(alpha:0.85),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: AppColors.primaryColor),

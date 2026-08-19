@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -41,15 +42,12 @@ class SiblingCardsWidget extends StatelessWidget {
       ['Net Paid', netPaid, AppColors.themeColor],
       ['Refunded', refunded, const Color(0xFFE08600)],
       ['Unpaid', unpaid, const Color(0xFFD64545)],
-      ['In Process', inProcess, const Color(0xFF6F8CFF)],
+      ['In Process', inProcess, const Color(0xFF45CDD1)],
     ];
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: const Color(0xFFF8F9FA),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.cardBorderColor),
-      ),
+
       child: Wrap(
         spacing: 12,
         runSpacing: 12,
@@ -81,7 +79,7 @@ class SiblingCardsWidget extends StatelessWidget {
           Text(
             label,
             style: AppTextStyles.value.copyWith(
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               fontSize: 12,
               fontWeight: FontWeight.w500,
             ),
@@ -100,9 +98,7 @@ class SiblingCardsWidget extends StatelessWidget {
         color: AppColors.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: AppColors.cardBorderColor,
-          ),
+          side: BorderSide(color: AppColors.cardBorderColor),
         ),
         child: Padding(
           padding: const EdgeInsets.all(24.0),
@@ -141,7 +137,7 @@ class SiblingCardsWidget extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: AppTextStyles.value.copyWith(
-                                  color: const Color(0xff573353),
+                                  color: const Color(0xFF0A1C5D),
                                   fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -153,7 +149,7 @@ class SiblingCardsWidget extends StatelessWidget {
                                   overflow: TextOverflow.ellipsis,
                                   style: AppTextStyles.value.copyWith(
                                     fontSize: 12,
-                                    color: const Color(0xff573353),
+                                    color: const Color(0xFF0A1C5D),
                                   ),
                                 ),
                             ],
@@ -186,7 +182,7 @@ class SiblingCardsWidget extends StatelessWidget {
                           'Current\nBalance',
                           textAlign: TextAlign.center,
                           style: AppTextStyles.title.copyWith(
-                            color: const Color(0xff573353),
+                            color: const Color(0xFF0A1C5D),
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
                           ),

@@ -1,52 +1,71 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu_tokens.dart';
 
+/// The app's legacy colour tokens, remapped onto the ChildcareWow brand
+/// palette in [SkeuColors].
+///
+/// Screens that have not yet been rebuilt in the skeuomorphic language still
+/// reference these names, so pointing them at the brand ramps brings the whole
+/// app onto one palette without touching every call site: the old violet /
+/// aubergine scheme is gone, and teal now carries structure, navy carries text,
+/// and pink is reserved for the recommended action. Prefer [SkeuColors]
+/// directly in new code.
 class AppColors {
   const AppColors._();
 
-  static const themeColor = Color.fromRGBO(89, 120, 247, 1);
+  /// Was violet #5978F7. Teal is the brand's structural / interactive colour.
+  static const themeColor = SkeuColors.teal600;
 
-  static const primaryColor = Color.fromRGBO(87, 51, 83, 1);
-  static const secondaryColor = Color.fromRGBO(27, 35, 126, 1);
+  /// Was aubergine #573353. Navy ink carries every heading and body text.
+  static const primaryColor = SkeuColors.ink;
+  static const secondaryColor = SkeuColors.navy700;
 
-  static const cardColor = Colors.white;
-  static final cardBorderColor = AppColors.primaryColor.withValues(alpha: 0.15);
+  static const cardColor = SkeuColors.white;
+  static final cardBorderColor = SkeuColors.borderHairline;
 
-  static const fieldBackgroundColor = Color.fromRGBO(177, 175, 233, 0.1);
+  static const fieldBackgroundColor = SkeuColors.cream100;
 
-  static const accentColor = Color.fromRGBO(220, 156, 19, 1);
-  static const errorColor = Color.fromRGBO(211, 47, 47, 1);
-  static const warningColor = Color.fromRGBO(255, 160, 0, 1);
-  static const successColor = Color.fromRGBO(56, 142, 60, 1);
+  static const accentColor = SkeuColors.sun400;
 
-  static const dividerColor = Color.fromRGBO(189, 189, 189, 1);
+  /// Form-error red, deliberately NOT brand pink: pink means "recommended
+  /// action" and must never double as a warning.
+  static const errorColor = SkeuColors.danger500;
+  static const warningColor = SkeuColors.sun400;
+  static const successColor = SkeuColors.green500;
 
-  static const classroomStudentTabColor = Color.fromRGBO(44, 99, 226, 0.1);
-  static const classroomStaffTabColor = Color.fromRGBO(203, 246, 255, 0.4);
-  static const classroomNotesTabColor = Color.fromRGBO(217, 255, 203, 0.4);
+  static const dividerColor = SkeuColors.cream200;
 
-  static const Color lightBlueProgressBar = Color.fromRGBO(155, 232, 255, 1);
-  static const Color mustardProgressBar = Color.fromRGBO(253, 205, 22, 1);
-  static const Color lightGreenProgressBar = Color.fromRGBO(151, 242, 148, 1);
-  static const Color redProgressBar = Color.fromRGBO(240, 111, 111, 1);
-  static const Color refundLegendColor = Color(0xFFA8D8FF);
-  static const Color paidLegendColor = Color(0xFF25AC7C);
-  static const Color colorBox = Color(0xFFACF3AA);
-  static const Color colorBox2 = Color(0xFFF38D8D);
-  static const Color colorBox3 = Color(0xFF5978F7);
+  static const classroomStudentTabColor = SkeuColors.teal50;
+  static const classroomStaffTabColor = SkeuColors.teal100;
+  static const classroomNotesTabColor = SkeuColors.green100;
+
+  // Bar bands are the design's mid-light ramp steps: saturated enough to read
+  // inside a recessed trough, light enough that four of them side by side stay
+  // calm. The status dots elsewhere use the -400/-500 steps instead.
+  static const Color lightBlueProgressBar = SkeuColors.teal300;
+  static const Color mustardProgressBar = SkeuColors.sun300;
+  static const Color lightGreenProgressBar = SkeuColors.green300;
+  static const Color redProgressBar = SkeuColors.danger100;
+  static const Color refundLegendColor = SkeuColors.teal200;
+  static const Color paidLegendColor = SkeuColors.green500;
+  static const Color colorBox = SkeuColors.green300;
+  static const Color colorBox2 = SkeuColors.danger500;
+  static const Color colorBox3 = SkeuColors.teal500;
 
   static const List<Color> scaffoldGradientColors = [
-    Color.fromRGBO(255, 255, 255, 1),
-    Color.fromRGBO(251, 238, 250, 1),
+    Color(0xFFFFFFFF),
+    Color(0xFFEFF1F9),
   ];
 
+  /// The primary object face: teal, the brand's structural colour.
   static const List<Color> primaryGradientColors = [
-    Color.fromRGBO(111, 140, 255, 1),
-    Color.fromRGBO(156, 132, 255, 1),
+    SkeuColors.teal400,
+    SkeuColors.teal600,
   ];
 
   static const List<Color> secondaryGradientColors = [
-    Color.fromRGBO(89, 120, 247, 1),
-    Color.fromRGBO(156, 132, 255, 1),
+    SkeuColors.teal500,
+    SkeuColors.teal700,
   ];
 
   /// Messaging: every staff/admin/teacher/director message renders with
@@ -61,8 +80,8 @@ class AppColors {
   /// Placeholder tone pending design confirmation — same two-stop,
   /// similar-saturation style as [primaryGradientColors].
   static const List<Color> pinkGradientColors = [
-    Color.fromRGBO(255, 154, 196, 1),
-    Color.fromRGBO(255, 107, 157, 1),
+    SkeuColors.pink400,
+    SkeuColors.pink600,
   ];
 
   static var chipBackground;
@@ -98,90 +117,64 @@ class AppColors {
   }) => LinearGradient(colors: colors, begin: begin, end: end);
 
   // Avatar color palette used exclusively by profile initials widgets
+  /// Monogram beads cycle the brand's own tinted surfaces, so a wall of
+  /// avatars reads as one family rather than six unrelated pastels.
   static const List<Color> profileAvatarColors = <Color>[
-    Color(0xFFFF9B9B), // soft red
-    Color(0xFFFDCD16), // yellow
-    Color(0xFF87CEEB), // sky blue
-    Color(0xFFFDA758), // orange
-    Color(0xFFF67EAF), // pink
-    Color(0xFFCB9AFC), // lavender (new)
+    SkeuColors.pink200,
+    SkeuColors.sun200,
+    SkeuColors.teal200,
+    SkeuColors.orange200,
+    SkeuColors.green200,
+    SkeuColors.purple200,
   ];
 
+  /// Tag washes, drawn from the brand's soft surface tints.
   static const List<Color> tagColors = [
-    Color(0xFFFFF8E1), // amber pastel
-    Color(0x4DB1AFE9), // 5 Days
-    Color(0x66CBF6FF), // Full Day
-    Color(0x66D9FFCB), // Photo Permission
-    Color(0xFFFCE4EC), // soft pink
-    Color(0xFFF3E5F5), // purple pastel
-    Color(0xFFE0F7FA), // cyan pastel
+    SkeuColors.sun100,
+    SkeuColors.teal50,
+    SkeuColors.teal100,
+    SkeuColors.green100,
+    SkeuColors.pink100,
+    SkeuColors.purple100,
+    SkeuColors.orange100,
   ];
 
-  static const List<Color> tagTextColors = [Color(0xFF1B237E)];
+  static const List<Color> tagTextColors = [SkeuColors.ink];
 
   // Billing specific colors
-  static const Color billingTextColor = Color(
-    0xff573353,
-  ); // Primary text color for billing
-  static const Color billingTextSecondary = Color(
-    0xff573353,
-  ); // Secondary text (with opacity)
+  static const Color billingTextColor = SkeuColors.ink;
+  static const Color billingTextSecondary = SkeuColors.inkSoft;
 
   // Transaction badge colors
-  static const Color billingInvoiceBadgeColor = Color.fromRGBO(
-    203,
-    246,
-    255,
-    0.4,
-  );
-  static const Color billingPaymentBadgeColor = Color.fromRGBO(
-    227,
-    255,
-    203,
-    0.4,
-  );
-  static const Color billingRefundBadgeColor = Color.fromRGBO(
-    229,
-    231,
-    235,
-    0.4,
-  );
-  static const Color billingDefaultBadgeColor = Color(0xFFE4E7F5);
+  static const Color billingInvoiceBadgeColor = SkeuColors.teal100;
+  static const Color billingPaymentBadgeColor = SkeuColors.green100;
+  static const Color billingRefundBadgeColor = SkeuColors.cream200;
+  static const Color billingDefaultBadgeColor = SkeuColors.cream200;
 
   // Transaction status colors
-  static const Color billingStatusInProgressColor = Color.fromRGBO(
-    255,
-    152,
-    0,
-    0.3,
-  ); // Orange
-  static const Color billingStatusCancelledColor = Color.fromRGBO(
-    244,
-    67,
-    54,
-    0.3,
-  ); // Red
+  static const Color billingStatusInProgressColor = SkeuColors.sun200;
+  static const Color billingStatusCancelledColor = SkeuColors.danger100;
 
   // Card and container colors
-  static const Color billingCardColor = Colors.white;
+  static const Color billingCardColor = SkeuColors.white;
   static final Color billingCardBorderColor = primaryColor.withValues(
     alpha: 0.2,
   );
-  static final Color billingCardShadowColor = Colors.black.withValues(
-    alpha: 0.03,
+  static final Color billingCardShadowColor = SkeuColors.navy.withValues(
+    alpha: 0.06,
   );
 
   // Divider colors
   static final Color billingDividerColor = primaryColor.withValues(alpha: 0.1);
 
   // Button colors
-  static const Color billingButtonTextColor = Colors.white;
+  static const Color billingButtonTextColor = SkeuColors.white;
 
   // Error/Alert colors for billing
-  static final Color billingErrorBackgroundColor = Colors.red.shade50;
-  static final Color billingErrorBorderColor = Colors.red.shade200;
-  static final Color billingErrorIconColor = Colors.red.shade600;
-  static final Color billingErrorTextColor = Colors.red.shade700;
+  static const Color billingErrorBackgroundColor = SkeuColors.danger50;
+  static const Color billingErrorBorderColor = SkeuColors.danger100;
+  static const Color billingErrorIconColor = SkeuColors.danger600;
+  static const Color billingErrorTextColor = SkeuColors.danger600;
 
   // Grey shades for billing
   static const Color billingGrey = Colors.grey;
@@ -193,36 +186,37 @@ class AppColors {
   );
 
   // Success color
-  static const Color billingSuccessColor = Colors.green;
+  static const Color billingSuccessColor = SkeuColors.green500;
 
   // Background colors
-  static const Color billingBackgroundColor = Colors.white;
+  static const Color billingBackgroundColor = SkeuColors.white;
   static const Color billingTransparentColor = Colors.transparent;
 
   // Shadow colors
-  static final Color billingShadowColor = Colors.black.withValues(alpha: 0.03);
-  static final Color billingShadowColorLight = Colors.black.withValues(
+  // Every shadow in the design system is navy-tinted, never pure black.
+  static final Color billingShadowColor = SkeuColors.navy.withValues(
     alpha: 0.05,
   );
-  static final Color billingShadowColorMedium = Colors.black.withValues(
-    alpha: 0.08,
+  static final Color billingShadowColorLight = SkeuColors.navy.withValues(
+    alpha: 0.06,
+  );
+  static final Color billingShadowColorMedium = SkeuColors.navy.withValues(
+    alpha: 0.1,
   );
 
   // Border colors with opacity
-  static const Color billingBorderLight = Color(
-    0x1AB1AFE9,
-  ); // Light purple border
+  static const Color billingBorderLight = SkeuColors.borderHairline;
   static final Color billingBorderMedium = primaryColor.withValues(alpha: 0.2);
   static final Color billingBorderHeavy = primaryColor.withValues(alpha: 0.4);
-  static const Color billingDividerLight = Color(0xFFE9ECEF);
+  static const Color billingDividerLight = SkeuColors.cream200;
 
   // Button and input colors
   static final Color billingButtonDisabled = Colors.grey[300]!;
   static final Color billingInputBorderDefault = Colors.grey.shade200;
-  static final Color billingInputBorderFocused = const Color(0xFF6657F8);
+  static const Color billingInputBorderFocused = SkeuColors.teal500;
   static final Color billingInputBackgroundDisabled = Colors.grey[200]!;
 
   // Status indicator colors (for success/error states)
-  static const Color billingStatusSuccess = Colors.green;
-  static const Color billingStatusError = Color(0xFFFF3B30);
+  static const Color billingStatusSuccess = SkeuColors.green500;
+  static const Color billingStatusError = SkeuColors.danger500;
 }

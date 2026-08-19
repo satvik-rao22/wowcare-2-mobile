@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -282,7 +283,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               style: const TextStyle(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w500,
-                color: Color.fromRGBO(87, 51, 83, 1),
+                color: Color.fromRGBO(10, 28, 93, 1),
               ),
             ),
             const SizedBox(height: 20),
@@ -463,7 +464,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                       style: const TextStyle(
                         fontSize: 14.0,
                         fontWeight: FontWeight.w600,
-                        color: Color.fromRGBO(87, 51, 83, 1),
+                        color: Color.fromRGBO(10, 28, 93, 1),
                       ),
                     ),
                   ),
@@ -487,7 +488,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14.0,
-                  color: Color.fromRGBO(87, 51, 83, 1),
+                  color: Color.fromRGBO(10, 28, 93, 1),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -509,7 +510,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 14.0,
-                  color: Color.fromRGBO(87, 51, 83, 1),
+                  color: Color.fromRGBO(10, 28, 93, 1),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -564,13 +565,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
         return DashboardCardErrorOverlay(
           show: state.isError,
           onRetry: _load,
-          child: Container(
+          child: SkeuPanel(
+            radius: SkeuRadius.xxl,
             padding: const EdgeInsets.all(4),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: AppColors.cardColor,
-            ),
+
             child: Column(
               children: [
                 // ── Card header ────────────────────────────────────────────────
@@ -676,13 +674,10 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(4),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.cardColor,
-      ),
+
       child: Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,

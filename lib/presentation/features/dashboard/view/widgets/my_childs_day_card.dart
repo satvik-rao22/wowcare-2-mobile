@@ -790,7 +790,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   //                 vertical: 4,
   //               ),
   //               decoration: BoxDecoration(
-  //                 color: const Color.fromRGBO(177, 175, 233, 0.3),
+  //                 color: const Color.fromRGBO(172, 234, 236, 0.3),
   //                 borderRadius: BorderRadius.circular(20),
   //               ),
   //               child: Text(
@@ -1609,20 +1609,20 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
     // Fallback to REST concurrently in case Firestore/cache is empty.
     unawaited(
-      serviceLocator<GetConversationsEntityUseCase>()
-          .call(type: type)
-          .then((result) {
-            if (!mounted) return;
-            result.fold((_) {}, (list) {
-              final mine = _latest(list);
-              if (mine != null) {
-                setState(() {
-                  _byType[type] = mine;
-                  _loading = false;
-                });
-              }
+      serviceLocator<GetConversationsEntityUseCase>().call(type: type).then((
+        result,
+      ) {
+        if (!mounted) return;
+        result.fold((_) {}, (list) {
+          final mine = _latest(list);
+          if (mine != null) {
+            setState(() {
+              _byType[type] = mine;
+              _loading = false;
             });
-          }),
+          }
+        });
+      }),
     );
 
     _subs[type] = serviceLocator<WatchConversationsUseCase>()
@@ -1722,7 +1722,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
         // per-row margin — rounded only at the bottom to match the card's
         // own shape.
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        color: Color.fromRGBO(44, 99, 226, 0.05),
+        color: Color.fromRGBO(39, 190, 193, 0.05),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,

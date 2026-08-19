@@ -453,7 +453,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                             icon: const Icon(Icons.close),
                                           ),
                                     filled: true,
-                                    fillColor: const Color(0xFFF8F7FA),
+                                    fillColor: const Color(0xFFF4F5FA),
                                     border: OutlineInputBorder(
                                       borderRadius: BorderRadius.circular(12),
                                       borderSide: BorderSide.none,
@@ -599,7 +599,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                           children: [
                                             const Divider(
                                               height: 1,
-                                              color: Color(0xFFE9ECEF),
+                                              color: Color(0xFFE9EBF5),
                                             ),
                                             const SizedBox(height: 12),
                                             _DocumentDetailRow(
@@ -675,7 +675,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                         style: OutlinedButton.styleFrom(
                                                           side: const BorderSide(
                                                             color: Color(
-                                                              0xFF6C7FD8,
+                                                              0xFF1D9B9E,
                                                             ),
                                                           ),
                                                           shape: RoundedRectangleBorder(
@@ -696,7 +696,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                             fontWeight:
                                                                 FontWeight.w700,
                                                             color: Color(
-                                                              0xFF6C7FD8,
+                                                              0xFF1D9B9E,
                                                             ),
                                                           ),
                                                         ),
@@ -723,7 +723,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                       style: OutlinedButton.styleFrom(
                                                         side: const BorderSide(
                                                           color: Color(
-                                                            0xFF6C7FD8,
+                                                            0xFF1D9B9E,
                                                           ),
                                                         ),
                                                         shape: RoundedRectangleBorder(
@@ -751,7 +751,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                                     FontWeight
                                                                         .w700,
                                                                 color: Color(
-                                                                  0xFF6C7FD8,
+                                                                  0xFF1D9B9E,
                                                                 ),
                                                               ),
                                                             ),
@@ -876,7 +876,7 @@ class _DocumentDetailRow extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: Color(0xFF0A1C5D),
           ),
         ),
         const SizedBox(width: 12),
@@ -890,7 +890,7 @@ class _DocumentDetailRow extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
             ),
           ),
         ),

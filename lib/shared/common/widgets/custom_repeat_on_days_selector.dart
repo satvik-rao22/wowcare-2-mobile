@@ -150,7 +150,7 @@ class _CustomRepeatOnDaysSelectorState
               decoration: BoxDecoration(
                 color: isSelected
                     ? const Color(0xFFE9E6EC) // selected background
-                    : const Color(0xFFF8F7FA), // unselected background
+                    : const Color(0xFFF4F5FA), // unselected background
                 borderRadius: BorderRadius.circular(
                   8,
                 ), // rectangular with slight curve

@@ -3059,12 +3059,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                         vertical: 2,
                                                       ),
                                                   decoration: BoxDecoration(
-                                                    color: const Color.fromRGBO(
-                                                      179,
-                                                      38,
-                                                      30,
-                                                      1,
-                                                    ),
+                                                    color: const Color(0xFFE01B5D),
                                                     borderRadius:
                                                         BorderRadius.circular(
                                                           10,
@@ -4540,7 +4535,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       child: Container(
         constraints: const BoxConstraints(minHeight: 40),
         decoration: BoxDecoration(
-          color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+          color: const Color(0xFFACEAEC).withValues(alpha: 0.102),
           borderRadius: BorderRadius.circular(8),
         ),
         child: Padding(

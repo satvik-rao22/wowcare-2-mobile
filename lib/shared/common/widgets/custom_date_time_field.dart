@@ -311,7 +311,7 @@ class _CustomDateTimeFieldState extends State<CustomDateTimeField> {
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(10),
               color: widget.isDisabled == true
-                  ? const Color(0xFFF8F7FA).withValues(alpha: 0.5)
+                  ? const Color(0xFFF4F5FA).withValues(alpha: 0.5)
                   : AppColors.fieldBackgroundColor,
             ),
             child: Row(

@@ -207,7 +207,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                                 fontFamily: 'Manrope',
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: const Color(0xFF0A1C5D),
                               ),
                             ),
                           ),
@@ -616,7 +616,7 @@ class _PhysicalExamCard extends StatelessWidget {
     if (upper == 'OVERDUE') return const Color(0xFFFFEBEE);
     if (upper == 'DUE') return const Color(0xFFFFF8E1);
     if (upper == 'SCHEDULED') return const Color(0xFFE8F1FE);
-    return const Color(0xFFF3F4FB);
+    return const Color(0xFFF4F5FA);
   }
 
   @override
@@ -656,7 +656,7 @@ class _PhysicalExamCard extends StatelessWidget {
                       icon: const Icon(
                         Icons.more_horiz,
                         size: 20,
-                        color: Color(0xFF573353),
+                        color: Color(0xFF0A1C5D),
                       ),
                       visualDensity: VisualDensity.compact,
                       constraints: const BoxConstraints(
@@ -759,7 +759,7 @@ class _DialogField extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
               height: 16 / 13,
             ),
             children: [
@@ -779,7 +779,7 @@ class _DialogField extends StatelessWidget {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F4FB),
+              color: const Color(0xFFF4F5FA),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -832,7 +832,7 @@ class _DialogDropdown extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w400,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
               height: 16 / 13,
             ),
             children: [
@@ -849,7 +849,7 @@ class _DialogDropdown extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F4FB),
+            color: const Color(0xFFF4F5FA),
             borderRadius: BorderRadius.circular(10),
           ),
           child: DropdownButtonHideUnderline(

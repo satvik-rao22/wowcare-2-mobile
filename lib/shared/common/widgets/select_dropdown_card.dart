@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/app/theme/colors.dart';
 
 class SelectDropdownCard extends StatelessWidget {
@@ -21,19 +22,9 @@ class SelectDropdownCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final borderRadius = BorderRadius.circular(14);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.fieldBackgroundColor,
-        borderRadius: borderRadius,
-        border: Border.all(color: AppColors.cardBorderColor),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(0, 0, 0, 0.04),
-            blurRadius: 8,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
+
       child: DropdownButtonFormField<String>(
         initialValue: initialValue,
         isExpanded: true,

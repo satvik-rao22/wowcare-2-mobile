@@ -128,7 +128,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           //         fontFamily: 'Manrope',
           //         fontSize: 15,
           //         fontWeight: FontWeight.w400,
-          //         color: Color(0xff573353),
+          //         color: Color(0xFF0A1C5D),
           //       ),
           //     ),
           //     Switch(
@@ -187,14 +187,14 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
             fontFamily: 'Manrope',
             fontSize: 15,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: Color(0xFF0A1C5D),
           ),
         ),
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(8),
           ),
           child: TextField(
@@ -206,7 +206,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w600,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
             ),
             decoration: const InputDecoration(
               border: InputBorder.none,

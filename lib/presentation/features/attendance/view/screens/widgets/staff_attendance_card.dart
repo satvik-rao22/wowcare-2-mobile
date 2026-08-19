@@ -95,7 +95,7 @@ class StaffAttendanceCard extends StatefulWidget {
 class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
   // Shared text tokens mirrored from StaffCard so attendance cards read with
   // the same Manrope/plum visual identity.
-  static const Color _plum = Color(0xff573353);
+  static const Color _plum = Color(0xFF0A1C5D);
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +226,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
                 thickness: 1,
                 indent: 16,
                 endIndent: 16,
-                color: Color(0xFFE9ECEF),
+                color: Color(0xFFE9EBF5),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -559,7 +559,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
     return OutlinedButton(
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
-        side: const BorderSide(color: Color(0xFF6C7FD8)),
+        side: const BorderSide(color: Color(0xFF1D9B9E)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
         backgroundColor: Colors.white,
@@ -570,7 +570,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
           fontFamily: 'Manrope',
           fontSize: 16,
           fontWeight: FontWeight.w700,
-          color: Color(0xFF6C7FD8),
+          color: Color(0xFF1D9B9E),
           height: 16 / 16,
         ),
       ),

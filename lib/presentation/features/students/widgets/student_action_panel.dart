@@ -483,7 +483,7 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: const Color.fromRGBO(156, 132, 255, 1),
+                  color: const Color.fromRGBO(29, 155, 158, 1),
                   boxShadow: [
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.2),
@@ -556,7 +556,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
               style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Color(0xff573353),
+                color: Color(0xFF0A1C5D),
               ),
             ),
             const SizedBox(height: 8),
@@ -666,7 +666,7 @@ class _StudentSidePanel extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 400),
         padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
-          border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+          border: Border.all(color: const Color.fromRGBO(69, 205, 209, 1)),
           color: Colors.white,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
@@ -954,7 +954,7 @@ class _AttendanceChipButton extends StatelessWidget {
             fontWeight: FontWeight.w600,
             color: onTap == null
                 ? const Color.fromRGBO(130, 130, 130, 1)
-                : const Color(0xff573353),
+                : const Color(0xFF0A1C5D),
           ),
         ),
       ),

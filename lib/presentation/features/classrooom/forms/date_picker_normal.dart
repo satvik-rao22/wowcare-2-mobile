@@ -207,7 +207,7 @@ Future<DateTime?> pickNormalDate({
 //                       child: CalendarDatePicker2(
 //                         config: CalendarDatePicker2Config(
 //                           calendarType: CalendarDatePicker2Type.range,
-//                           selectedDayHighlightColor: const Color(0xFF6F8CFF),
+//                           selectedDayHighlightColor: const Color(0xFF45CDD1),
 //                           centerAlignModePicker: true,
 //                           firstDate: DateTime(2000),
 //                           lastDate: DateTime(2100),
@@ -235,7 +235,7 @@ Future<DateTime?> pickNormalDate({
 //                       child: CalendarDatePicker2(
 //                         config: CalendarDatePicker2Config(
 //                           calendarType: CalendarDatePicker2Type.single,
-//                           selectedDayHighlightColor: const Color(0xFF6F8CFF),
+//                           selectedDayHighlightColor: const Color(0xFF45CDD1),
 //                           centerAlignModePicker: true,
 //                           firstDate: DateTime(2000),
 //                           lastDate: DateTime(2100),
@@ -269,7 +269,7 @@ Future<DateTime?> pickNormalDate({
 //                               Container(
 //                                 decoration: BoxDecoration(
 //                                   borderRadius: BorderRadius.circular(8),
-//                                   color: const Color.fromRGBO(87, 51, 83, 0.1),
+//                                   color: const Color.fromRGBO(10, 28, 93, 0.1),
 //                                 ),
 //                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
 //                                 child: SizedBox(
@@ -331,7 +331,7 @@ Future<DateTime?> pickNormalDate({
 //                               Container(
 //                                 decoration: BoxDecoration(
 //                                   borderRadius: BorderRadius.circular(8),
-//                                   color: const Color.fromRGBO(87, 51, 83, 0.1),
+//                                   color: const Color.fromRGBO(10, 28, 93, 0.1),
 //                                 ),
 //                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
 //                                 child: SizedBox(

@@ -963,7 +963,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
   Color _roleColor(String role) {
     switch (role.toUpperCase()) {
       case 'GUARDIAN':
-        return const Color(0xFF6C63FF);
+        return const Color(0xFF1D9B9E);
       case 'STAFF':
         return const Color(0xFF00897B);
       case 'ADMIN':
@@ -995,7 +995,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       width: double.infinity,
       decoration: const BoxDecoration(
         color: Colors.transparent,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+        border: Border(bottom: BorderSide(color: Color(0xFFE9EBF5), width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Column(
@@ -1097,7 +1097,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                               fontSize: 12,
                               fontWeight: FontWeight.w600,
                               color: pmState.isEnabled
-                                  ? const Color(0xFF6C63FF)
+                                  ? const Color(0xFF1D9B9E)
                                   : const Color(0xFFB2BEC3),
                             ),
                           ),
@@ -1107,9 +1107,9 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                             onChanged: canOperate
                                 ? (_) => _privateModeToggleCubit!.toggle()
                                 : null,
-                            activeThumbColor: const Color(0xFF6C63FF),
+                            activeThumbColor: const Color(0xFF1D9B9E),
                             activeTrackColor: const Color(
-                              0xFF6C63FF,
+                              0xFF1D9B9E,
                             ).withValues(alpha: 0.4),
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
@@ -1642,7 +1642,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                         vertical: 4,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0x1A573353),
+                        color: const Color(0x1A0A1C5D),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: CustomTextWidget(
@@ -1854,7 +1854,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
-                  color: const Color(0xFFF4F7FD),
+                  color: const Color(0xFFF4F5FA),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.max,

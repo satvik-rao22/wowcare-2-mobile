@@ -2,13 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/reusable_log_out_model_sheet.dart';
-import 'package:wowcare/shared/common/widgets/rounded_button.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 
 class SignOutScreen extends StatefulWidget {
@@ -71,69 +70,57 @@ class _SignOutScreenState extends State<SignOutScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return FractionallySizedBox(
-      heightFactor: 0.42, // take ~42% of screen height
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(16),
+    return SkeuBottomSheet(
+      maxHeightFactor: .5,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: 8),
+          // A recessed disc holding the illustration: the sheet asks a
+          // question, so nothing in it is raised except the two keys.
+          Center(
+            child: SkeuWell(
+              width: 148,
+              height: 148,
+              radius: SkeuRadius.pill,
+              gradient: SkeuSurfaces.pinkSoft,
+              insets: SkeuElevation.wellLg,
+              padding: const EdgeInsets.all(18),
+              child: Image.asset(MediaRes.logout_image, fit: BoxFit.contain),
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            SizedBox(
-              height: 160,
-              child: Image.asset(
-                MediaRes.logout_image,
-                fit: BoxFit.contain,
+          const SizedBox(height: 20),
+          Text(
+            'Are you sure you want to log out?',
+            textAlign: TextAlign.center,
+            style: SkeuText.title(),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(
+                child: SkeuButton(
+                  label: 'Cancel',
+                  variant: SkeuButtonVariant.neutral,
+                  height: 50,
+                  radius: SkeuRadius.md,
+                  onPressed: () => Navigator.pop(context),
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              'Are you sure you want to log out?',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: AppColors.themeColor,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+              const SizedBox(width: 14),
+              Expanded(
+                child: SkeuButton(
+                  label: 'Sign Out',
+                  height: 50,
+                  radius: SkeuRadius.md,
+                  isLoading: isLoading,
+                  onPressed: _handleSignOut,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              height: 50,
-              child: isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        Expanded(
-                          child: RoundedButton(
-                            lable: 'Cancel',
-                            lableColor: Colors.white,
-                            buttonColor: Colors.grey,
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: RoundedButton(
-                            lable: 'Sign Out',
-                            lableColor: AppColors.cardColor,
-                            buttonColor: AppColors.themeColor,
-                            onPressed: _handleSignOut,
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
-          ],
-        ),
+            ],
+          ),
+        ],
       ),
     );
   }

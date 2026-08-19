@@ -68,7 +68,7 @@ class ReportFormLayout extends StatelessWidget {
                         fontFamily: 'Manrope',
                         fontSize: responsive.titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: const Color(0xFF0A1C5D),
                       ),
                     ),
                   ),
@@ -165,7 +165,7 @@ class ReportFieldLabel extends StatelessWidget {
             fontSize: responsive.labelFontSize,
             fontFamily: 'Manrope',
             fontWeight: FontWeight.w400,
-            color: const Color(0xff573353),
+            color: const Color(0xFF0A1C5D),
           ),
           children: [
             TextSpan(text: label),
@@ -334,7 +334,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.chevron_left,
-                      color: Color(0xff573353)),
+                      color: Color(0xFF0A1C5D)),
                   onPressed: _year > _minYear
                       ? () => setState(() => _year--)
                       : null,
@@ -345,12 +345,12 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                     fontFamily: 'Manrope',
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xff573353),
+                    color: Color(0xFF0A1C5D),
                   ),
                 ),
                 IconButton(
                   icon: const Icon(Icons.chevron_right,
-                      color: Color(0xff573353)),
+                      color: Color(0xFF0A1C5D)),
                   onPressed: _year < _maxYear
                       ? () => setState(() => _year++)
                       : null,
@@ -391,7 +391,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                         fontSize: 16,
                         fontWeight:
                             isSelected ? FontWeight.w600 : FontWeight.w500,
-                        color: const Color(0xff573353),
+                        color: const Color(0xFF0A1C5D),
                       ),
                     ),
                   ),
@@ -458,13 +458,13 @@ class ReportFormatSelector extends StatelessWidget {
           fontSize: responsive.labelFontSize,
           fontFamily: 'Manrope',
           fontWeight: FontWeight.w400,
-          color: const Color(0xff573353),
+          color: const Color(0xFF0A1C5D),
         ),
         hintText: !showLabel ? 'Select Format' : null,
         hintStyle: TextStyle(
           fontSize: responsive.labelFontSize,
           fontFamily: 'Manrope',
-          color: const Color(0xff573353).withValues(alpha: 0.5),
+          color: const Color(0xFF0A1C5D).withValues(alpha: 0.5),
         ),
       ),
       items: const [

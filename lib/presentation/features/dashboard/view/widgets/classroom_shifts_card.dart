@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
@@ -153,13 +154,10 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
           show: state.isError,
           onRetry: () =>
               context.read<ClassroomShiftsCubit>().load(_selectedDate),
-          child: Container(
+          child: SkeuPanel(
+            radius: SkeuRadius.xxl,
             padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              border: Border.all(color: AppColors.cardBorderColor),
-              borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
-            ),
+
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -326,8 +324,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                           isLast:
                                               i == displayEntries.length - 1 &&
                                               !hasMoreToShow,
-                                          onClassroomNameTap: () =>
-                                              context.go(
+                                          onClassroomNameTap: () => context.go(
                                             '${SchedulingScreen.routeName}'
                                             '?view=day'
                                             '&highlightCode=${displayEntries[i].classroomCode}'
@@ -574,13 +571,10 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
+
       child: Shimmer.fromColors(
         baseColor: Colors.grey.shade300,
         highlightColor: Colors.grey.shade100,

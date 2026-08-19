@@ -230,7 +230,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                             fontFamily: 'Manrope',
                                             fontSize: isTablet ? 16 : 14,
                                             fontWeight: FontWeight.w500,
-                                            color: const Color(0xff573353),
+                                            color: const Color(0xFF0A1C5D),
                                             height: 19 / 14,
                                           ),
                                           overflow: TextOverflow.ellipsis,
@@ -248,7 +248,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                   fontFamily: 'Manrope',
                                                   fontSize: isTablet ? 16 : 14,
                                                   fontWeight: FontWeight.w500,
-                                                  color: const Color(0xff573353),
+                                                  color: const Color(0xFF0A1C5D),
                                                   height: 19 / 14,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
@@ -272,7 +272,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                           fontWeight:
                                                               FontWeight.w700,
                                                           color: const Color(
-                                                              0xff573353),
+                                                              0xFF0A1C5D),
                                                           height: 16 / 12,
                                                         ),
                                                         overflow: TextOverflow
@@ -309,7 +309,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                       fontWeight:
                                                           FontWeight.w500,
                                                       color: const Color(
-                                                          0xff573353),
+                                                          0xFF0A1C5D),
                                                       height: 19 / 14,
                                                     ),
                                                     overflow:
@@ -329,7 +329,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                               thickness: 1,
                               indent: 16,
                               endIndent: 16,
-                              color: Color(0xFFE9ECEF),
+                              color: Color(0xFFE9EBF5),
                             ),
                             Padding(
                               padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -427,7 +427,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
             fontFamily: 'Manrope',
             fontSize: 13,
             fontWeight: FontWeight.w400,
-            color: Color(0xff573353),
+            color: Color(0xFF0A1C5D),
             height: 16 / 13,
           ),
         ),
@@ -442,7 +442,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                   fontFamily: 'Manrope',
                   fontSize: 14,
                   fontWeight: FontWeight.w500,
-                  color: valueColor ?? const Color(0xff573353),
+                  color: valueColor ?? const Color(0xFF0A1C5D),
                   height: 19 / 14,
                 ),
                 textAlign: TextAlign.right,
@@ -455,7 +455,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                     fontFamily: 'Manrope',
                     fontSize: 10,
                     fontWeight: FontWeight.w500,
-                    color: Color(0xff573353),
+                    color: Color(0xFF0A1C5D),
                     height: 14 / 10,
                   ),
                   textAlign: TextAlign.right,

@@ -209,7 +209,7 @@ class ViewShiftScreen extends StatelessWidget {
           fontFamily: 'Manrope',
           fontSize: responsive.titleFontSize * 0.85,
           fontWeight: FontWeight.w600,
-          color: const Color(0xff573353),
+          color: const Color(0xFF0A1C5D),
         ),
       ),
     );
@@ -224,7 +224,7 @@ class ViewShiftScreen extends StatelessWidget {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -265,7 +265,7 @@ class ViewShiftScreen extends StatelessWidget {
           fontSize: responsive.labelFontSize,
           fontFamily: 'Manrope',
           fontWeight: FontWeight.w400,
-          color: const Color(0xff573353),
+          color: const Color(0xFF0A1C5D),
         ),
         showAsterisk: true,
         labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
@@ -294,7 +294,7 @@ class ViewShiftScreen extends StatelessWidget {
       fontSize: responsive.labelFontSize,
       fontFamily: 'Manrope',
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -316,7 +316,7 @@ class ViewShiftScreen extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
           ),
@@ -466,7 +466,7 @@ class _ShiftScopeBottomSheet extends StatelessWidget {
                   fontFamily: 'Manrope',
                   fontSize: titleFontSize,
                   fontWeight: FontWeight.w700,
-                  color: const Color(0xff573353),
+                  color: const Color(0xFF0A1C5D),
                   height: 1.2,
                 ),
                 textAlign: TextAlign.center,

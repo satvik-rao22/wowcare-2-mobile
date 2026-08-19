@@ -1065,7 +1065,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFFF4F7FD),
+                            color: const Color(0xFFF4F5FA),
                           ),
                           child: NestedScrollView(
                             // headerSliverBuilder intentionally empty — tabs
@@ -2170,7 +2170,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: const Color(0xFFF4F7FD),
+                            color: const Color(0xFFF4F5FA),
                           ),
                           child: Column(
                             children: [
@@ -3678,7 +3678,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     return Container(
       decoration: const BoxDecoration(
         color: Colors.white,
-        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
+        border: Border(bottom: BorderSide(color: Color(0xFFE9EBF5), width: 1)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -4002,7 +4002,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
-        color: const Color(0x1A573353),
+        color: const Color(0x1A0A1C5D),
         borderRadius: BorderRadius.circular(12),
       ),
       child: CustomTextWidget(

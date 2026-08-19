@@ -1,6 +1,7 @@
 import 'dart:async' show unawaited;
 import 'dart:convert' show jsonDecode;
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
@@ -809,13 +810,10 @@ class _StaffAttendanceDailyViewScreenState
     ResponsiveHelper responsive, {
     required bool hasActiveFilters,
   }) {
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: AppColors.cardColor,
-      ),
+
       child: Column(
         children: [
           Row(
@@ -850,7 +848,7 @@ class _StaffAttendanceDailyViewScreenState
                             width: 8,
                             height: 8,
                             decoration: const BoxDecoration(
-                              color: Color.fromRGBO(179, 38, 30, 1),
+                              color: Color(0xFFE01B5D),
                               shape: BoxShape.circle,
                             ),
                           ),

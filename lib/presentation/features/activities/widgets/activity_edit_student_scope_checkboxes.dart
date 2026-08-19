@@ -96,7 +96,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.w500,
                       fontSize: 14,
-                      color: Color(0xff573353),
+                      color: Color(0xFF0A1C5D),
                     ),
                   ),
                 ),
@@ -168,7 +168,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w500,
                                 fontSize: 14,
-                                color: Color(0xff573353),
+                                color: Color(0xFF0A1C5D),
                               ),
                             ),
                           ),

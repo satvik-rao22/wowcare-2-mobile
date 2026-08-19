@@ -10,7 +10,7 @@ class ChatThreadShimmer extends StatelessWidget {
 
   final int itemCount;
 
-  static const _baseColor = Color(0xFFE2E8F0);
+  static const _baseColor = Color(0xFFE9EBF5);
   static const _highlightColor = Color(0xFFF8FAFC);
 
   @override

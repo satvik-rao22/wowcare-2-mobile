@@ -268,7 +268,7 @@ class _MessageAttachmentBottomSheetState
                       decoration: BoxDecoration(
                         color: const Color(0xFFF4F6FB),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFE9EBF5)),
                       ),
                       alignment: Alignment.center,
                       child: Text(emoji, style: const TextStyle(fontSize: 22)),
@@ -280,7 +280,7 @@ class _MessageAttachmentBottomSheetState
           ),
 
           const SizedBox(height: 12),
-          const Divider(height: 1, color: Color(0xFFF1F3F5)),
+          const Divider(height: 1, color: Color(0xFFF4F5FA)),
           const SizedBox(height: 8),
 
           // ── Attachment grid ─────────────────────────────────────────
@@ -335,7 +335,7 @@ class _MessageAttachmentBottomSheetState
           ),
 
           const SizedBox(height: 8),
-          const Divider(height: 1, color: Color(0xFFF1F3F5)),
+          const Divider(height: 1, color: Color(0xFFF4F5FA)),
 
           // ── View Participants ───────────────────────────────────────
           if (widget.onViewParticipants != null)

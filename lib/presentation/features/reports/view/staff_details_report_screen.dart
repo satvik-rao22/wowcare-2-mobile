@@ -197,7 +197,7 @@ class _StaffDirectoryReportScreenState
     fontSize: r.labelFontSize,
     fontFamily: 'Manrope',
     fontWeight: FontWeight.w400,
-    color: const Color(0xff573353),
+    color: const Color(0xFF0A1C5D),
   );
 
   @override
@@ -270,7 +270,7 @@ class _StaffDirectoryReportScreenState
                     fontFamily: 'Manrope',
                     fontSize: responsive.labelFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: const Color(0xFF0A1C5D),
                   ),
                 ),
                 SizedBox(height: responsive.verticalSpacing),

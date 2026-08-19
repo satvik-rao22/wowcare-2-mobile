@@ -106,7 +106,7 @@ class NotificationCategoryStyle {
         );
       default:
         return const NotificationCategoryStyle(
-          foreground: Color(0xFF573353),
+          foreground: Color(0xFF0A1C5D),
           background: Color(0xFFF1ECF1),
         );
     }

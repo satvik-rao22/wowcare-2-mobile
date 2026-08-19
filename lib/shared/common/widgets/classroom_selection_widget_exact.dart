@@ -134,7 +134,7 @@ class _ClassroomSelectionWidgetExactState
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? const Color(0x1A573353)
+                          ? const Color(0x1A0A1C5D)
                           : Colors.white,
                     ),
                     child: Row(
@@ -146,7 +146,7 @@ class _ClassroomSelectionWidgetExactState
                               fontFamily: "Manrope",
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: Color(0xff573353),
+                              color: Color(0xFF0A1C5D),
                             ),
                           ),
                         ),
@@ -154,7 +154,7 @@ class _ClassroomSelectionWidgetExactState
                           const Icon(
                             Icons.check,
                             size: 18,
-                            color: Color(0xff573353),
+                            color: Color(0xFF0A1C5D),
                           ),
                       ],
                     ),
@@ -277,7 +277,7 @@ class _ClassroomSelectionWidgetExactState
                                   border: InputBorder.none,
                                   prefixIcon: Icon(
                                     Icons.search,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                   ),
                                 ),
                                 onChanged: (value) {
@@ -355,7 +355,7 @@ class _ClassroomSelectionWidgetExactState
                                                         fontWeight:
                                                             FontWeight.w500,
                                                         color: Color(
-                                                          0xff573353,
+                                                          0xFF0A1C5D,
                                                         ),
                                                       ),
                                                     ),
@@ -408,7 +408,7 @@ class _ClassroomSelectionWidgetExactState
                 fontSize: labelFontSize,
                 fontFamily: "Manrope",
                 fontWeight: FontWeight.w400,
-                color: const Color(0xff573353),
+                color: const Color(0xFF0A1C5D),
               ),
               children: [
                 const TextSpan(text: 'Primary Classroom'),
@@ -434,7 +434,7 @@ class _ClassroomSelectionWidgetExactState
                 border: Border.all(
                   color: widget.primaryClassroomError != null
                       ? Colors.red
-                      : const Color(0x66573353),
+                      : const Color(0x660A1C5D),
                 ),
                 borderRadius: BorderRadius.circular(
                   responsive.isTablet ? 12.0 : 8.0,
@@ -448,7 +448,7 @@ class _ClassroomSelectionWidgetExactState
                       widget.primaryClassroom ?? 'Select Primary Classroom',
                       style: TextStyle(
                         color: widget.primaryClassroom == null
-                            ? const Color(0xff573353)
+                            ? const Color(0xFF0A1C5D)
                             : Colors.black,
                         fontSize: inputFontSize,
                         fontFamily: 'Manrope',
@@ -461,7 +461,7 @@ class _ClassroomSelectionWidgetExactState
                       _isPrimaryDropdownOpen
                           ? Icons.keyboard_arrow_up_rounded
                           : Icons.keyboard_arrow_down_rounded,
-                      color: const Color(0xff573353),
+                      color: const Color(0xFF0A1C5D),
                       size: responsive.isTablet ? 28.0 : 24.0,
                     ),
                 ],
@@ -489,7 +489,7 @@ class _ClassroomSelectionWidgetExactState
               fontSize: labelFontSize,
               fontFamily: "Manrope",
               fontWeight: FontWeight.w400,
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
             ),
             children: const [
               TextSpan(text: "Allowed Classrooms"),
@@ -550,7 +550,7 @@ class _ClassroomSelectionWidgetExactState
                     border: Border.all(
                       color: widget.allowedClassroomsError != null
                           ? Colors.red
-                          : const Color(0x66573353),
+                          : const Color(0x660A1C5D),
                     ),
                     borderRadius: BorderRadius.circular(
                       responsive.isTablet ? 12.0 : 8.0,
@@ -571,7 +571,7 @@ class _ClassroomSelectionWidgetExactState
                                 child: Text(
                                   "Select",
                                   style: TextStyle(
-                                    color: const Color(0xff573353),
+                                    color: const Color(0xFF0A1C5D),
                                     fontSize: inputFontSize,
                                     fontFamily: 'Manrope',
                                     fontWeight: FontWeight.w500,
@@ -595,7 +595,7 @@ class _ClassroomSelectionWidgetExactState
                                       label: Text(
                                         classroom,
                                         style: TextStyle(
-                                          color: const Color(0xff573353),
+                                          color: const Color(0xFF0A1C5D),
                                           fontSize: inputFontSize,
                                           fontFamily: 'Manrope',
                                           fontWeight: FontWeight.w500,
@@ -604,7 +604,7 @@ class _ClassroomSelectionWidgetExactState
                                       deleteIcon: Icon(
                                         Icons.close,
                                         size: responsive.isTablet ? 20.0 : 18.0,
-                                        color: const Color(0xff573353),
+                                        color: const Color(0xFF0A1C5D),
                                       ),
                                       backgroundColor: chipColor,
                                       onDeleted: widget.isEnabled
@@ -638,7 +638,7 @@ class _ClassroomSelectionWidgetExactState
                             _isAllowedDropdownOpen
                                 ? Icons.keyboard_arrow_up_rounded
                                 : Icons.keyboard_arrow_down_rounded,
-                            color: const Color(0xff573353),
+                            color: const Color(0xFF0A1C5D),
                             size: responsive.isTablet ? 28.0 : 24.0,
                           ),
                         ),

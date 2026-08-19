@@ -145,9 +145,9 @@ class MessageInfoDialog extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: const Color(0xFFF4F7FD),
+                        color: const Color(0xFFF4F5FA),
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: const Color(0xFFE2E8F0)),
+                        border: Border.all(color: const Color(0xFFE9EBF5)),
                       ),
                       child: Text(
                         _plainText(messageText),

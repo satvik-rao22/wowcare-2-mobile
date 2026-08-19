@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -149,9 +150,8 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight,
                     ),
-                    child: Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(8),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -192,13 +192,10 @@ class _EnrollmentOverviewCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
+
       child: Column(
         children: [
           Row(
@@ -232,15 +229,10 @@ class _EnrollmentOverviewCard extends StatelessWidget {
             leftValue: activeCount.toDouble(),
             rightValue: upcomingCount.toDouble(),
             onTitleTap: () {
-              context.go(
-                StudentScreen.routeName,
-              );
+              context.go(StudentScreen.routeName);
             },
             onLeftTap: () {
-              context.go(
-                StudentScreen.routeName,
-                extra: {'filter': 'ACTIVE'},
-              );
+              context.go(StudentScreen.routeName, extra: {'filter': 'ACTIVE'});
             },
             onRightTap: () {
               context.go(
@@ -390,21 +382,24 @@ class _SectionRow extends StatelessWidget {
                 ],
               ),
         const SizedBox(height: 16),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(10),
+        SkeuWell(
+          height: 24,
+          radius: 10,
+          gradient: SkeuSurfaces.sunken,
+          insets: SkeuElevation.wellSm,
           child: Row(
             children: [
               Expanded(
                 flex: (leftValue <= 0 && rightValue <= 0)
                     ? 1
                     : (leftValue * 100).round().clamp(1, 1000000),
-                child: Container(height: 24, color: leftColor),
+                child: ColoredBox(color: leftColor),
               ),
               Expanded(
                 flex: (leftValue <= 0 && rightValue <= 0)
                     ? 1
                     : (rightValue * 100).round().clamp(1, 1000000),
-                child: Container(height: 24, color: rightColor),
+                child: ColoredBox(color: rightColor),
               ),
             ],
           ),
@@ -473,13 +468,10 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
+
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -577,7 +569,7 @@ class _RatioHeaderCell extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Color.fromRGBO(87, 51, 83, 1),
+                color: Color.fromRGBO(10, 28, 93, 1),
                 fontFamily: 'Manrope',
               ),
             ),

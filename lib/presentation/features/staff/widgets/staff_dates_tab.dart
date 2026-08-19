@@ -337,7 +337,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 fontFamily: 'Manrope',
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: const Color(0xFF0A1C5D),
                               ),
                             ),
                           ),
@@ -1108,7 +1108,7 @@ class _DialogField extends StatelessWidget {
             height: 44,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFF4F4FB),
+              color: const Color(0xFFF4F5FA),
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
@@ -1166,7 +1166,7 @@ class _DialogDropdown extends StatelessWidget {
           height: 44,
           padding: const EdgeInsets.symmetric(horizontal: 12),
           decoration: BoxDecoration(
-            color: const Color(0xFFF4F4FB),
+            color: const Color(0xFFF4F5FA),
             borderRadius: BorderRadius.circular(10),
           ),
           child: DropdownButtonHideUnderline(

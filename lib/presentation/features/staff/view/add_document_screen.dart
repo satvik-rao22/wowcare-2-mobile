@@ -507,7 +507,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(
@@ -530,7 +530,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -571,7 +571,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(
@@ -585,7 +585,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
               color: Colors.white,
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: const Color(0x660A1C5D)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -617,7 +617,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                     MediaRes.calender_icon,
                     height: responsive.isTablet ? 28.0 : 24.0,
                     colorFilter: const ColorFilter.mode(
-                      Color(0xff573353),
+                      Color(0xFF0A1C5D),
                       BlendMode.srcIn,
                     ),
                   ),
@@ -662,7 +662,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
               horizontal: responsive.isTablet ? 20.0 : 16.0,
             ),
             decoration: BoxDecoration(
-              border: Border.all(color: const Color(0x66573353)),
+              border: Border.all(color: const Color(0x660A1C5D)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
@@ -690,7 +690,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                   MediaRes.uploadIcon,
                   height: responsive.isTablet ? 28.0 : 24.0,
                   colorFilter: const ColorFilter.mode(
-                    Color(0xff573353),
+                    Color(0xFF0A1C5D),
                     BlendMode.srcIn,
                   ),
                 ),
@@ -705,7 +705,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             child: LinearProgressIndicator(
               value: (_uploadProgressPercent / 100).clamp(0.0, 1.0),
               minHeight: 6,
-              backgroundColor: const Color(0x22573353),
+              backgroundColor: const Color(0x220A1C5D),
               valueColor: const AlwaysStoppedAnimation<Color>(
                 AppColors.themeColor,
               ),
@@ -722,7 +722,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(
@@ -737,7 +737,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           ),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),

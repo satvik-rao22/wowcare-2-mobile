@@ -46,8 +46,8 @@ class MessagingInputArea extends StatelessWidget {
                     begin: Alignment.centerLeft,
                     end: Alignment.centerRight,
                     colors: [
-                      Color.fromRGBO(89, 120, 247, 0.1),
-                      Color.fromRGBO(156, 132, 255, 0.1),
+                      Color.fromRGBO(29, 155, 158, 0.1),
+                      Color.fromRGBO(29, 155, 158, 0.1),
                     ],
                   ),
                   borderRadius: BorderRadius.circular(12),
@@ -156,14 +156,14 @@ class MessagingInputArea extends StatelessWidget {
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(
-                          color: Color(0xFFE2E8F0),
+                          color: Color(0xFFE9EBF5),
                           width: 1,
                         ),
                       ),
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(12),
                         borderSide: const BorderSide(
-                          color: Color(0xFFE2E8F0),
+                          color: Color(0xFFE9EBF5),
                           width: 1,
                         ),
                       ),

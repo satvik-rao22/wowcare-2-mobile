@@ -99,7 +99,7 @@ class _NotificationSettingsScreenState
                               fontFamily: 'Manrope',
                               fontSize: responsive.titleFontSize,
                               fontWeight: FontWeight.w600,
-                              color: const Color(0xff573353),
+                              color: const Color(0xFF0A1C5D),
                             ),
                           ),
                         ),
@@ -202,10 +202,10 @@ class _NotificationSettingsScreenState
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           decoration: BoxDecoration(
-            color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+            color: const Color(0xFFACEAEC).withValues(alpha: 0.102),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(10)),
             border: const Border(
-              bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+              bottom: BorderSide(color: Color(0xFFE9EBF5), width: 1),
             ),
           ),
           child: const Row(

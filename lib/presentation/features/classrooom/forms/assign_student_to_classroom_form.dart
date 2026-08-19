@@ -708,7 +708,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
                   'No students selected',
                   style: TextStyle(
                     fontFamily: 'Manrope',
-                    color: const Color(0xff573353),
+                    color: const Color(0xFF0A1C5D),
                     fontSize: 16,
                   ),
                 ),

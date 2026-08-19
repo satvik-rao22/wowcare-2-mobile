@@ -2,15 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 
 class OrganizationSelectionScreen extends StatefulWidget {
   const OrganizationSelectionScreen({super.key, this.isSwitchFlow = false});
@@ -27,13 +23,21 @@ class _OrganizationSelectionScreenState
   String? _selectedOrgCode;
   bool _hasTriggeredOrgNamesLoad = false;
 
+  /// Whether the inline option list under the field is showing. The design
+  /// picks an org from a list that unfolds in place rather than a modal popup,
+  /// so the chosen value and the choices stay on screen together.
+  bool _isPickerOpen = false;
+
   String _formatRole(String role) {
     if (role.isEmpty) return '';
     final cleaned = role.toLowerCase().replaceAll('_', ' ');
     return cleaned
         .split(' ')
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
+        .map(
+          (word) => word.isEmpty
+              ? word
+              : '${word[0].toUpperCase()}${word.substring(1)}',
+        )
         .join(' ');
   }
 
@@ -44,9 +48,7 @@ class _OrganizationSelectionScreenState
     if (_hasTriggeredOrgNamesLoad) return;
     final authCubit = context.read<AuthCubit>();
     if (authCubit.state is! AuthLoaded) return;
-    final orgCodes = (authCubit.state as AuthLoaded)
-        .loginResponse
-        .roles
+    final orgCodes = (authCubit.state as AuthLoaded).loginResponse.roles
         .map((r) => r.organizationCode)
         .where((c) => c.isNotEmpty)
         .toSet()
@@ -58,11 +60,6 @@ class _OrganizationSelectionScreenState
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final padding = MediaQuery.of(context).padding;
-    final screenHeight = size.height - padding.top - padding.bottom;
-    final screenWidth = size.width;
-
     void onBack() {
       if (widget.isSwitchFlow) {
         // When opened as a "switch organisation" flow:
@@ -83,14 +80,16 @@ class _OrganizationSelectionScreenState
 
     return PopScope(
       canPop: widget.isSwitchFlow,
-      onPopInvoked: (_) {
+      onPopInvokedWithResult: (didPop, _) {
         if (!widget.isSwitchFlow) onBack();
       },
       child: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
           if (state is! AuthLoaded) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+            return const SkeuScaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: SkeuColors.teal600),
+              ),
             );
           }
 
@@ -98,8 +97,7 @@ class _OrganizationSelectionScreenState
           final userName = login.displayName.isNotEmpty
               ? login.displayName
               : login.email;
-          final rawRole =
-              login.roles.isNotEmpty ? login.roles.first.role : '';
+          final rawRole = login.roles.isNotEmpty ? login.roles.first.role : '';
           final userRole = _formatRole(rawRole);
 
           // Always use roles for org codes; org names from API (no cache)
@@ -109,250 +107,206 @@ class _OrganizationSelectionScreenState
               .toSet()
               .toList();
           final orgNames = state.orgNames;
-          final orgDisplayItems = (orgNames.length == orgCodes.length &&
-                  orgNames.isNotEmpty)
+          final orgDisplayItems =
+              (orgNames.length == orgCodes.length && orgNames.isNotEmpty)
               ? orgNames
               : orgCodes;
           // Hide unresolved items (fallback raw org codes) from dropdown.
           final resolvedOrgCodes = <String>[];
           final resolvedOrgDisplayItems = <String>[];
-          for (var i = 0; i < orgCodes.length && i < orgDisplayItems.length; i++) {
+          for (
+            var i = 0;
+            i < orgCodes.length && i < orgDisplayItems.length;
+            i++
+          ) {
             final code = orgCodes[i].trim();
             final display = orgDisplayItems[i].trim();
             final isFallbackCode =
-                display.isEmpty || display == code || display.toUpperCase().startsWith('ORG_');
+                display.isEmpty ||
+                display == code ||
+                display.toUpperCase().startsWith('ORG_');
             if (isFallbackCode) continue;
             resolvedOrgCodes.add(code);
             resolvedOrgDisplayItems.add(display);
           }
 
           final isNextEnabled =
-              _selectedOrgCode != null && resolvedOrgCodes.contains(_selectedOrgCode);
+              _selectedOrgCode != null &&
+              resolvedOrgCodes.contains(_selectedOrgCode);
 
-          return Scaffold(
-            body: Container(
-              color: Colors.white,
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // Back button at top (same layout as ForgotPasswordScreen)
-                    Padding(
-                      padding: EdgeInsets.all(screenWidth * 0.04),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.arrow_back,
-                            color: const Color(0xFF333333),
-                            size: screenHeight * 0.03,
-                          ),
-                          onPressed: onBack,
-                        ),
+          final selectedIndex = _selectedOrgCode == null
+              ? -1
+              : resolvedOrgCodes.indexOf(_selectedOrgCode!);
+          final selectedLabel =
+              selectedIndex >= 0 &&
+                  selectedIndex < resolvedOrgDisplayItems.length
+              ? resolvedOrgDisplayItems[selectedIndex]
+              : null;
+
+          return SkeuScaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: SkeuIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        onPressed: onBack,
                       ),
                     ),
-                    Expanded(
-                      child: Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.06,
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 28),
+                          const Center(
+                            child: SkeuBrandLockup(
+                              markSize: 70,
+                              fontSize: 23,
+                              careColor: SkeuColors.ink,
+                            ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Image.asset(
-                                MediaRes.logo_wow,
-                                height: screenHeight * 0.12,
-                                width: screenHeight * 0.12,
-                              ),
-                              SizedBox(height: screenHeight * 0.01),
-                              ShaderMask(
-                                shaderCallback: (Rect bounds) {
-                                  return AppColors.buildPrimaryGradient()
-                                      .createShader(bounds);
-                                },
-                                blendMode: BlendMode.srcIn,
-                                child: Text(
-                                  'WowCare',
-                                  style: TextStyle(
-                                    fontSize: screenHeight * 0.03,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.03),
-                              // Profile avatar + name/role in a row (like design)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  DocumentImageWidget(
-                                    fileUuid: login.userCode,
-                                    name: userName,
-                                    size: screenHeight * 0.07,
-                                    fontSize: screenHeight * 0.024,
-                                  ),
-                                  SizedBox(width: screenWidth * 0.03),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        userName,
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: screenHeight * 0.022,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF573353),
-                                        ),
-                                      ),
-                                      SizedBox(height: screenHeight * 0.004),
-                                      Text(
-                                        userRole,
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: screenHeight * 0.016,
-                                          fontWeight: FontWeight.w400,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: screenHeight * 0.035),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'Select Organization',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: screenHeight * 0.022,
-                                    height: 2 / 6,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF333333),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.01),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  "Choose the organization you want to continue with.",
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: screenHeight * 0.016,
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xFF333333),
-                                    height: 22 / 12,
-                                  ),
-                                  textAlign: TextAlign.left,
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.01),
-                              Container(
-                                width: double.infinity,
-                                height: 1,
-                                color: const Color(0xFFFFF3E9),
-                              ),
-                              SizedBox(height: screenHeight * 0.02),
-                              CustomDropdown(
-                                hintText: resolvedOrgDisplayItems.isNotEmpty
-                                    ? 'Select organization'
-                                    : 'No organizations',
-                                items: resolvedOrgDisplayItems,
-                                selectedItem: () {
-                                  if (_selectedOrgCode == null) return null;
-                                  final index =
-                                      resolvedOrgCodes.indexOf(_selectedOrgCode!);
-                                  if (index != -1 &&
-                                      index < resolvedOrgDisplayItems.length) {
-                                    return resolvedOrgDisplayItems[index];
-                                  }
-                                  return null;
-                                }(),
-                                height: screenHeight * 0.06,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: screenHeight * 0.01,
-                                  horizontal: screenWidth * 0.04,
-                                ),
-                                leadingIcon: SvgPicture.asset(
-                                  MediaRes.homeIcon,
-                                  height: screenHeight * 0.022,
-                                  width: screenHeight * 0.022,
-                                  colorFilter: const ColorFilter.mode(
-                                    Color(0xFF573353),
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                                selectedTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF333333),
-                                ),
-                                popupItemTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.02,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF333333),
-                                ),
-                                onSelect: (value) {
-                                  setState(() {
-                                    if (value == null) {
-                                      _selectedOrgCode = null;
-                                    } else {
-                                      final index =
-                                          resolvedOrgDisplayItems.indexOf(value);
-                                      if (index != -1 &&
-                                          index < resolvedOrgCodes.length) {
-                                        _selectedOrgCode = resolvedOrgCodes[index];
-                                      }
-                                    }
-                                  });
-                                },
-                              ),
-                              SizedBox(height: screenHeight * 0.02),
-                            ],
+                          const SizedBox(height: 22),
+                          _buildIdentityCard(
+                            login.userCode,
+                            userName,
+                            userRole,
                           ),
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(screenWidth * 0.06),
-                      child: CustomButtonLayout(
-                        confirmButtonLabel: 'Next',
-                        showCancelButton: false,
-                        isForm: false,
-                        onPressedConfirm: isNextEnabled
-                            ? () async {
-                                if (_selectedOrgCode == null) return;
-                                final authCubit = context.read<AuthCubit>();
-                                await authCubit.updateLoginContext(
-                                  lastLoginOrganizationCode: _selectedOrgCode!,
-                                  lastLoginSchoolCode: null,
-                                );
-                                if (!context.mounted) return;
-                                // Always pass null so school selection fetches fresh from API
-                                Navigator.of(context).push(
-                                  MaterialPageRoute(
-                                    builder: (_) => SchoolSelectionScreen(
-                                      selectedOrg: _selectedOrgCode!,
-                                      isSwitchFlow: widget.isSwitchFlow,
-                                      schoolsForOrg: null,
-                                      orgFromLoginContext: !widget.isSwitchFlow,
+                          const SizedBox(height: 22),
+                          const SkeuPageHeader(
+                            title: 'Select Organization',
+                            subtitle:
+                                'Choose the organization you want to continue with.',
+                          ),
+                          const SizedBox(height: 22),
+                          SkeuSelectField(
+                            value: selectedLabel,
+                            hintText: resolvedOrgDisplayItems.isNotEmpty
+                                ? 'Select organization'
+                                : 'No organizations',
+                            icon: Icons.apartment_rounded,
+                            isOpen: _isPickerOpen,
+                            enabled: resolvedOrgDisplayItems.isNotEmpty,
+                            onTap: () =>
+                                setState(() => _isPickerOpen = !_isPickerOpen),
+                          ),
+                          if (_isPickerOpen &&
+                              resolvedOrgDisplayItems.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            SkeuOptionList(
+                              children: [
+                                for (
+                                  var i = 0;
+                                  i < resolvedOrgDisplayItems.length;
+                                  i++
+                                )
+                                  SkeuOptionRow(
+                                    label: resolvedOrgDisplayItems[i],
+                                    selected:
+                                        resolvedOrgCodes[i] == _selectedOrgCode,
+                                    leading: SkeuIconTile(
+                                      icon: Icons.apartment_rounded,
+                                      size: 34,
+                                      iconSize: 17,
+                                      radius: 11,
+                                      tone: i.isEven
+                                          ? SkeuTone.info
+                                          : SkeuTone.sun,
                                     ),
+                                    onTap: () => setState(() {
+                                      _selectedOrgCode = resolvedOrgCodes[i];
+                                      _isPickerOpen = false;
+                                    }),
                                   ),
-                                );
-                              }
-                            : null,
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                        ],
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: SkeuButton(
+                      label: 'Next',
+                      radius: 18,
+                      enabled: isNextEnabled,
+                      onPressed: () async {
+                        if (_selectedOrgCode == null) return;
+                        final authCubit = context.read<AuthCubit>();
+                        await authCubit.updateLoginContext(
+                          lastLoginOrganizationCode: _selectedOrgCode!,
+                          lastLoginSchoolCode: null,
+                        );
+                        if (!context.mounted) return;
+                        // Always pass null so school selection fetches fresh from API
+                        Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (_) => SchoolSelectionScreen(
+                              selectedOrg: _selectedOrgCode!,
+                              isSwitchFlow: widget.isSwitchFlow,
+                              schoolsForOrg: null,
+                              orgFromLoginContext: !widget.isSwitchFlow,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           );
         },
+      ),
+    );
+  }
+
+  /// Who you are signing in as: photo bead, name, role. A raised panel, because
+  /// it states a fact rather than offering a choice.
+  Widget _buildIdentityCard(String userCode, String userName, String userRole) {
+    return SkeuPanel(
+      radius: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          SkeuAvatarFrame(
+            size: 54,
+            tone: SkeuTone.pink,
+            child: DocumentImageWidget(
+              fileUuid: userCode,
+              name: userName,
+              size: 54,
+              fontSize: 19,
+            ),
+          ),
+          const SizedBox(width: 14),
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  userName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: SkeuText.title(),
+                ),
+                if (userRole.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(userRole, style: SkeuText.small()),
+                ],
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -3,9 +3,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:flutter/services.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
-import 'package:flutter_svg/svg.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
@@ -85,9 +85,17 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final List<String>? studentList;
   final bool isKiosk;
 
+  /// The rail row is 58px in the design, and the 3px brand rail closes it off.
+  /// A tab strip, when present, sits on the light page surface below the rail
+  /// so tab labels keep reading against a light background.
+  static const double _railRowHeight = 58;
+  static const double _brandRailHeight = 3;
+
   @override
   Size get preferredSize => Size.fromHeight(
-    kToolbarHeight + (tabs != null ? kTextTabBarHeight : 0.0),
+    _railRowHeight +
+        _brandRailHeight +
+        (tabs != null ? kTextTabBarHeight : 0.0),
   );
 
   @override
@@ -98,270 +106,234 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     // can skip pushing a duplicate when already on that screen.
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      foregroundColor: Colors.black,
-      titleSpacing: 0,
-      title: isParent
-          ? BlocBuilder<ParentChildCubit, ParentChildState>(
-              builder: (context, state) {
-                final cubit = context.read<ParentChildCubit>();
-                final names = cubit.childNames;
-                final canPickChild = !state.isLoading && names.isNotEmpty;
-                return Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: SizedBox(
-                    width: 220,
-                    child: CustomDropdown(
-                      hintText: state.isLoading
-                          ? 'Loading children...'
-                          : 'No children linked',
-                      items: names,
-                      selectedItem: state.selectedChild?.name,
-                      onSelect: cubit.selectByName,
-                      isEnabled: canPickChild,
-                    ),
-                  ),
-                );
-              },
-            )
-          : null,
-      leading: hasBackButton
-          ? IconButton(
-              icon: SvgPicture.asset(MediaRes.backButton),
-              onPressed: () {
-                // Use GoRouter's navigation for proper back handling in shell routes.
-                // In StatefulShellRoute, context.canPop() may not work as expected because
-                // the route hierarchy differs from traditional Navigator stacks.
-                // Always try to pop from the shell context first, preserving route history.
-                debugPrint(
-                  '[CustomAppBar] Back button pressed. '
-                  'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}',
-                );
-
-                if (Navigator.of(context).canPop()) {
-                  Navigator.of(context).pop();
-                } else if (context.canPop()) {
-                  context.pop();
-                } else {
-                  // Fallback: navigate to dashboard if nothing to pop
-                  context.go(DashboardScreen.routeName);
-                }
-              },
-            )
-          : Builder(
-              builder: (context) => IconButton(
-                icon: SvgPicture.asset(MediaRes.hamburgerIcon),
-                onPressed: () => Scaffold.of(context).openDrawer(),
-              ),
-            ),
-      actions: [
-        if (!isKiosk)
-          BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
-            builder: (context, badgeState) {
-              // watch, not read: this badge's value depends on the CURRENT
-              // persona (parentTotal vs adminTotal vs staffTotal below), so
-              // it must also rebuild when RoleCubit's state changes on its
-              // own — a bare `.read` only captured whatever role happened to
-              // be active the last time UnreadBadgeCubit itself emitted,
-              // which left the badge showing the PREVIOUS persona's count
-              // for a dual-role account until some unrelated Firestore
-              // event happened to also fire after switching profile.
-              final role = context.watch<RoleCubit>();
-              final personaTotal = role.isParent
-                  ? badgeState.parentTotal
-                  : role.isAdmin
-                  ? badgeState.adminTotal
-                  : badgeState.staffTotal;
-              // firestoreTotal sums EVERY doc in the user's Firestore
-              // user_inbox collection with no type filter — it can't apply
-              // the persona-visibility rules parentTotal/adminTotal/
-              // staffTotal do (e.g. CLASSROOM_CHAT is staff-internal and
-              // "deliberately excluded from parentTotal" — see
-              // UnreadBadgeState's own doc). A dual-role account (e.g. also
-              // staff at the same school) would otherwise see their parent
-              // badge inflated by conversations the parent persona can't
-              // even open. Only fall back to the unfiltered total before
-              // the per-type streams have delivered anything at all — once
-              // countsByType is populated, the persona-scoped total is
-              // always the correct, authoritative one.
-              final int unreadCount = badgeState.countsByType.isNotEmpty
-                  ? personaTotal
-                  : (badgeState.firestoreTotal ?? personaTotal);
-              // Icon + badge share ONE tap target (InkResponse via IconButton
-              // below) instead of the badge being a bare, non-interactive
-              // Positioned Container layered on top of it — tapping directly
-              // on the count number wasn't reliably reaching the IconButton
-              // underneath it.
-              return IconButton(
-                icon: SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      SvgPicture.asset(
-                        MediaRes.chatsIcon,
-                        width: 22,
-                        height: 22,
+    // The header is the app's one dark surface: a navy-to-teal slab that
+    // everything below reads as lit from. The gradient is painted by a
+    // DecoratedBox wrapping the whole bar — including the status-bar inset the
+    // Scaffold hands it — rather than by AppBar.flexibleSpace, which only sizes
+    // itself reliably inside a SliverAppBar.
+    return PreferredSize(
+      preferredSize: preferredSize,
+      child: DecoratedBox(
+        decoration: const BoxDecoration(gradient: SkeuSurfaces.rail),
+        child: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          scrolledUnderElevation: 0,
+          foregroundColor: SkeuColors.white,
+          toolbarHeight: _railRowHeight,
+          titleSpacing: 0,
+          systemOverlayStyle: SystemUiOverlayStyle.light,
+          title: isParent
+              ? BlocBuilder<ParentChildCubit, ParentChildState>(
+                  builder: (context, state) {
+                    final cubit = context.read<ParentChildCubit>();
+                    final names = cubit.childNames;
+                    final canPickChild = !state.isLoading && names.isNotEmpty;
+                    return Padding(
+                      padding: const EdgeInsets.only(left: 4),
+                      child: SizedBox(
+                        width: 220,
+                        child: CustomDropdown(
+                          hintText: state.isLoading
+                              ? 'Loading children...'
+                              : 'No children linked',
+                          items: names,
+                          selectedItem: state.selectedChild?.name,
+                          onSelect: cubit.selectByName,
+                          isEnabled: canPickChild,
+                          onRail: true,
+                        ),
                       ),
-                      if (unreadCount > 0)
-                        Positioned(
-                          right: -6,
-                          top: -6,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 5,
-                              vertical: 2,
-                            ),
-                            decoration: BoxDecoration(
-                              color: const Color.fromRGBO(179, 38, 30, 1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Text(
-                              unreadCount > 99 ? '99+' : '$unreadCount',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                // Open the messaging launcher (Staff Messaging / Admin Chat / Room Chats,
-                // role-gated, each with its unread badge) instead of jumping straight to
-                // one surface — so the user can pick which messaging area to open, as on web.
-                // Presented as a bottom sheet overlay (not a pushed page) — picking which
-                // messaging area to open is a quick dismissible choice, not a destination.
-                onPressed: () => MessagingEntryScreen.show(context),
-              );
-            },
-          ),
-        if (!isKiosk)
-          BlocBuilder<NotificationBadgeCubit, NotificationBadgeState>(
-            builder: (context, badgeState) {
-              final int unreadCount = badgeState.unreadCount;
-              // Icon + badge share ONE tap target — see the chat bell above
-              // for why (the badge number wasn't reliably tappable as a
-              // bare Positioned sibling of the IconButton).
-              //
-              // This count is account-wide (userCode + schoolCode + role) —
-              // the backend has no per-student notification scoping, so a
-              // parent with multiple children sees ONE combined total here
-              // regardless of which child is selected in the dropdown right
-              // next to it. Without this tooltip that reads as a bug ("this
-              // notification isn't about the child I have selected") rather
-              // than the actual, current behaviour — this is a UI
-              // clarification, not a fix, since scoping it per child would
-              // require the backend to accept a studentCode filter.
-              return Tooltip(
-                message: isParent
-                    ? 'Notifications for all your children'
-                    : 'Notifications',
-                child: IconButton(
-                  icon: SizedBox(
-                    width: 22,
-                    height: 22,
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        SvgPicture.asset(
-                          MediaRes.notificationsIcon,
-                          width: 22,
-                          height: 22,
-                        ),
-                        if (unreadCount > 0)
-                          Positioned(
-                            right: -6,
-                            top: -6,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 5,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: const Color.fromRGBO(179, 38, 30, 1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                unreadCount > 99 ? '99+' : '$unreadCount',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                  onPressed: () async {
-                    // Don't stack a second notification page when the bell is
-                    // tapped again while already on it.
-                    if (currentRoute == NotificationCenterScreen.routeName) {
-                      return;
-                    }
-                    await context.push(NotificationCenterScreen.routeName);
-                    // The user may have read notifications in the center —
-                    // reconcile the badge with the server on return.
-                    if (context.mounted) {
-                      context.read<NotificationBadgeCubit>().refresh();
-                    }
+                    );
                   },
+                )
+              : Row(
+                  children: const [
+                    SkeuLogoMark(size: 27),
+                    SizedBox(width: 8),
+                    WowCareWordmark(fontSize: 19, careColor: SkeuColors.white),
+                  ],
                 ),
-              );
-            },
-          ),
-        if (!isKiosk) const _AppBarKebabMenu(),
-      ],
-      bottom: hasTabs
-          ? PreferredSize(
-              preferredSize: Size.fromHeight(kTextTabBarHeight + 2),
-              child: Column(
-                children: [
-                  Container(
-                    height: 1.5,
-                    decoration: BoxDecoration(
-                      gradient: AppColors.buildSecondaryGradient(),
+          leading: hasBackButton
+              ? Padding(
+                  padding: const EdgeInsets.only(left: 14),
+                  child: SkeuRailAction(
+                    icon: Icons.arrow_back_rounded,
+                    onTap: () {
+                      // Use GoRouter's navigation for proper back handling in shell routes.
+                      // In StatefulShellRoute, context.canPop() may not work as expected because
+                      // the route hierarchy differs from traditional Navigator stacks.
+                      // Always try to pop from the shell context first, preserving route history.
+                      debugPrint(
+                        '[CustomAppBar] Back button pressed. '
+                        'canPop=${context.canPop()}, currentRoute=${ModalRoute.of(context)?.settings.name}',
+                      );
+
+                      if (Navigator.of(context).canPop()) {
+                        Navigator.of(context).pop();
+                      } else if (context.canPop()) {
+                        context.pop();
+                      } else {
+                        // Fallback: navigate to dashboard if nothing to pop
+                        context.go(DashboardScreen.routeName);
+                      }
+                    },
+                  ),
+                )
+              : Builder(
+                  builder: (context) => Padding(
+                    padding: const EdgeInsets.only(left: 14),
+                    child: SkeuRailAction(
+                      icon: Icons.menu_rounded,
+                      onTap: () => Scaffold.of(context).openDrawer(),
                     ),
                   ),
-                  TabBar(
-                    controller: tabController,
-                    tabAlignment:
-                        tabBarStyle?.tabAlignment ?? TabAlignment.center,
-                    indicator: tabBarStyle?.indicator,
-                    dividerColor: tabBarStyle?.dividerColor,
-                    indicatorPadding:
-                        tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
-                    isScrollable: tabBarStyle?.isScrollable ?? false,
-                    labelColor: tabBarStyle?.labelColor ?? Colors.black87,
-                    unselectedLabelColor:
-                        tabBarStyle?.unselectedLabelColor ?? Colors.black54,
-                    indicatorWeight: tabBarStyle?.indicatorWeight ?? 2,
-                    indicatorSize: tabBarStyle?.indicatorSize,
-                    splashFactory: NoSplash.splashFactory,
-                    labelStyle: tabBarStyle?.labelStyle,
-                    unselectedLabelStyle: tabBarStyle?.unselectedLabelStyle,
-                    tabs: tabs!,
-                  ),
-                ],
-              ),
-            )
-          : PreferredSize(
-              preferredSize: const Size.fromHeight(1.5),
-              child: Container(
-                height: 1.5,
-                decoration: BoxDecoration(
-                  gradient: AppColors.buildSecondaryGradient(),
                 ),
+          leadingWidth: 52,
+          actions: [
+            if (!isKiosk)
+              BlocBuilder<UnreadBadgeCubit, UnreadBadgeState>(
+                builder: (context, badgeState) {
+                  // watch, not read: this badge's value depends on the CURRENT
+                  // persona (parentTotal vs adminTotal vs staffTotal below), so
+                  // it must also rebuild when RoleCubit's state changes on its
+                  // own — a bare `.read` only captured whatever role happened to
+                  // be active the last time UnreadBadgeCubit itself emitted,
+                  // which left the badge showing the PREVIOUS persona's count
+                  // for a dual-role account until some unrelated Firestore
+                  // event happened to also fire after switching profile.
+                  final role = context.watch<RoleCubit>();
+                  final personaTotal = role.isParent
+                      ? badgeState.parentTotal
+                      : role.isAdmin
+                      ? badgeState.adminTotal
+                      : badgeState.staffTotal;
+                  // firestoreTotal sums EVERY doc in the user's Firestore
+                  // user_inbox collection with no type filter — it can't apply
+                  // the persona-visibility rules parentTotal/adminTotal/
+                  // staffTotal do (e.g. CLASSROOM_CHAT is staff-internal and
+                  // "deliberately excluded from parentTotal" — see
+                  // UnreadBadgeState's own doc). A dual-role account (e.g. also
+                  // staff at the same school) would otherwise see their parent
+                  // badge inflated by conversations the parent persona can't
+                  // even open. Only fall back to the unfiltered total before
+                  // the per-type streams have delivered anything at all — once
+                  // countsByType is populated, the persona-scoped total is
+                  // always the correct, authoritative one.
+                  final int unreadCount = badgeState.countsByType.isNotEmpty
+                      ? personaTotal
+                      : (badgeState.firestoreTotal ?? personaTotal);
+                  // Icon + badge share ONE tap target so the count number is as
+                  // tappable as the glyph under it.
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: SkeuRailAction(
+                      icon: Icons.chat_bubble_outline_rounded,
+                      iconSize: 19,
+                      badgeCount: unreadCount,
+                      // Open the messaging launcher (Staff Messaging / Admin Chat /
+                      // Room Chats, role-gated, each with its unread badge) instead
+                      // of jumping straight to one surface — so the user can pick
+                      // which messaging area to open, as on web. Presented as a
+                      // bottom sheet overlay (not a pushed page) — picking which
+                      // messaging area to open is a quick dismissible choice, not a
+                      // destination.
+                      onTap: () => MessagingEntryScreen.show(context),
+                    ),
+                  );
+                },
               ),
+            if (!isKiosk)
+              BlocBuilder<NotificationBadgeCubit, NotificationBadgeState>(
+                builder: (context, badgeState) {
+                  final int unreadCount = badgeState.unreadCount;
+                  // This count is account-wide (userCode + schoolCode + role) —
+                  // the backend has no per-student notification scoping, so a
+                  // parent with multiple children sees ONE combined total here
+                  // regardless of which child is selected in the dropdown right
+                  // next to it. Without this tooltip that reads as a bug ("this
+                  // notification isn't about the child I have selected") rather
+                  // than the actual, current behaviour — this is a UI
+                  // clarification, not a fix, since scoping it per child would
+                  // require the backend to accept a studentCode filter.
+                  return Tooltip(
+                    message: isParent
+                        ? 'Notifications for all your children'
+                        : 'Notifications',
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: SkeuRailAction(
+                        icon: Icons.notifications_none_rounded,
+                        iconSize: 19,
+                        badgeCount: unreadCount,
+                        onTap: () async {
+                          // Don't stack a second notification page when the bell is
+                          // tapped again while already on it.
+                          if (currentRoute ==
+                              NotificationCenterScreen.routeName) {
+                            return;
+                          }
+                          await context.push(
+                            NotificationCenterScreen.routeName,
+                          );
+                          // The user may have read notifications in the center —
+                          // reconcile the badge with the server on return.
+                          if (context.mounted) {
+                            context.read<NotificationBadgeCubit>().refresh();
+                          }
+                        },
+                      ),
+                    ),
+                  );
+                },
+              ),
+            if (!isKiosk) const _AppBarKebabMenu(),
+          ],
+          bottom: PreferredSize(
+            preferredSize: Size.fromHeight(
+              _brandRailHeight + (hasTabs ? kTextTabBarHeight : 0.0),
             ),
+            child: Column(
+              children: [
+                // The brand rail — pink, sun, teal, green, the logo's own colour
+                // order — closes off the dark slab.
+                const SizedBox(
+                  height: _brandRailHeight,
+                  width: double.infinity,
+                  child: SkeuBrandRail(width: null, height: _brandRailHeight),
+                ),
+                if (hasTabs)
+                  DecoratedBox(
+                    decoration: const BoxDecoration(
+                      gradient: SkeuSurfaces.card,
+                    ),
+                    child: TabBar(
+                      controller: tabController,
+                      tabAlignment:
+                          tabBarStyle?.tabAlignment ?? TabAlignment.center,
+                      indicator: tabBarStyle?.indicator,
+                      dividerColor: tabBarStyle?.dividerColor,
+                      indicatorPadding:
+                          tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
+                      isScrollable: tabBarStyle?.isScrollable ?? false,
+                      labelColor: tabBarStyle?.labelColor ?? SkeuColors.teal700,
+                      unselectedLabelColor:
+                          tabBarStyle?.unselectedLabelColor ??
+                          SkeuColors.inkFaint,
+                      indicatorColor: SkeuColors.teal600,
+                      indicatorWeight: tabBarStyle?.indicatorWeight ?? 2,
+                      indicatorSize: tabBarStyle?.indicatorSize,
+                      splashFactory: NoSplash.splashFactory,
+                      labelStyle: tabBarStyle?.labelStyle,
+                      unselectedLabelStyle: tabBarStyle?.unselectedLabelStyle,
+                      tabs: tabs!,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -443,7 +415,13 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
 
     return PopupMenuButton<int>(
       constraints: const BoxConstraints(maxWidth: 240),
-      icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
+      // Plateless on the rail — the overflow glyph is the quietest action in
+      // the header, so it gets no plate of its own.
+      icon: const Icon(
+        Icons.more_vert_rounded,
+        size: 22,
+        color: SkeuColors.white,
+      ),
       offset: const Offset(0, 48),
       color: Colors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -857,7 +835,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                         fontFamily: "Manrope",
                         fontSize: titleFontSize,
                         fontWeight: FontWeight.w600,
-                        color: const Color(0xff573353),
+                        color: const Color(0xFF0A1C5D),
                         height: 1.2,
                       ),
                       textAlign: TextAlign.center,
@@ -893,7 +871,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                               Navigator.pop(context);
                             },
                             style: OutlinedButton.styleFrom(
-                              side: const BorderSide(color: Color(0xFF6C7FD8)),
+                              side: const BorderSide(color: Color(0xFF1D9B9E)),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
                                   borderRadius / 2,

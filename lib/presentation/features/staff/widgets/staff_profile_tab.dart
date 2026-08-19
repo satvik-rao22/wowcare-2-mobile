@@ -279,9 +279,9 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
   @override
   Widget build(BuildContext context) {
     final chipColors = <Color>[
-      const Color.fromRGBO(177, 175, 233, 0.3),
-      const Color.fromRGBO(203, 246, 255, 0.4),
-      const Color.fromRGBO(217, 255, 203, 0.4),
+      const Color.fromRGBO(172, 234, 236, 0.3),
+      const Color.fromRGBO(212, 244, 245, 0.4),
+      const Color.fromRGBO(216, 246, 231, 0.4),
     ];
 
     return BlocProvider<StaffProfileCubit>.value(
@@ -557,7 +557,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 15,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                     fontWeight: FontWeight.w400,
                                   ),
                                 )
@@ -572,10 +572,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                       final name = _displayClassroomName(code);
                                       return _Chip(
                                         label: name,
-                                        labelColor: const Color.fromRGBO(
-                                          27,
-                                          35,
-                                          126,
+                                        labelColor: const Color.fromRGBO(20, 42, 122,
                                           1,
                                         ),
                                         color:
@@ -596,7 +593,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                   style: TextStyle(
                                     fontFamily: 'Manrope',
                                     fontSize: 15,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                     fontWeight: FontWeight.w400,
                                   ),
                                 )
@@ -604,10 +601,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                   label: _displayClassroomName(
                                     profile.primaryClassroomCode,
                                   ),
-                                  labelColor: const Color.fromRGBO(
-                                    27,
-                                    35,
-                                    126,
+                                  labelColor: const Color.fromRGBO(20, 42, 122,
                                     1,
                                   ),
                                   color: chipColors.first,
@@ -672,13 +666,13 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                       fontFamily: 'Manrope',
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
-                                      color: Color(0xff573353),
+                                      color: Color(0xFF0A1C5D),
                                     ),
                                   ),
                                   const Icon(
                                     Icons.edit,
                                     size: 16,
-                                    color: Color(0x99573353),
+                                    color: Color(0x990A1C5D),
                                   ),
                                 ],
                               ),
@@ -747,10 +741,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                       width: 130,
                                                       label: displayDay,
                                                       labelColor: isAvailable
-                                                          ? const Color.fromRGBO(
-                                                              27,
-                                                              35,
-                                                              126,
+                                                          ? const Color.fromRGBO(20, 42, 122,
                                                               1,
                                                             )
                                                           : Colors
@@ -758,10 +749,10 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                                 .shade700,
                                                       color: isAvailable
                                                           ? const Color(
-                                                              0x4DB1AFE9,
+                                                              0x4DACEAEC,
                                                             )
                                                           : const Color(
-                                                              0xFFF3F4FB,
+                                                              0xFFF4F5FA,
                                                             ),
                                                     ),
                                                     if (workLabel != null &&
@@ -773,10 +764,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                         width: 130,
                                                         label: workLabel,
                                                         labelColor:
-                                                            const Color.fromRGBO(
-                                                              27,
-                                                              35,
-                                                              126,
+                                                            const Color.fromRGBO(20, 42, 122,
                                                               1,
                                                             ),
                                                         color:
@@ -793,10 +781,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                         width: 130,
                                                         label: '$breakLabel',
                                                         labelColor:
-                                                            const Color.fromRGBO(
-                                                              27,
-                                                              35,
-                                                              126,
+                                                            const Color.fromRGBO(20, 42, 122,
                                                               1,
                                                             ),
                                                         color:
@@ -883,7 +868,7 @@ class _ScheduleChip extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(8),
         border: isTimeChip
-            ? Border.all(color: const Color(0x4DB1AFE9), width: 1.5)
+            ? Border.all(color: const Color(0x4DACEAEC), width: 1.5)
             : null,
       ),
       alignment: Alignment.center,
@@ -920,7 +905,7 @@ class _Field extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
+            color: Color(0xFF0A1C5D),
           ),
         ),
         const SizedBox(height: 6),
@@ -930,7 +915,7 @@ class _Field extends StatelessWidget {
             style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 15,
-              color: Color(0xff573353),
+              color: Color(0xFF0A1C5D),
               fontWeight: FontWeight.w400,
             ),
           )

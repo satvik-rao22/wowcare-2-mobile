@@ -26,7 +26,7 @@ class UpcomingMoveWidget extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: 16,
             fontWeight: FontWeight.w600,
-            color: Color(0xff573353),
+            color: Color(0xFF0A1C5D),
           ),
         ),
         const SizedBox(height: 6),

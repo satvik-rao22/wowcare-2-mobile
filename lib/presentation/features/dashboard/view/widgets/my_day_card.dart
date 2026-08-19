@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
@@ -1079,12 +1080,9 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
           return DashboardCardErrorOverlay(
             show: state.status == MyDayStatus.error,
             onRetry: () => context.read<MyDayCubit>().load(),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: AppColors.cardBorderColor),
-                borderRadius: BorderRadius.circular(12),
-                color: AppColors.cardColor,
-              ),
+            child: SkeuPanel(
+              radius: SkeuRadius.xxl,
+
               child: Column(
                 children: [
                   // ── Header ──────────────────────────────────────────────────
@@ -1131,7 +1129,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                         labelStyle: const TextStyle(
                           color: AppColors.secondaryColor,
                         ),
-                        color: const Color.fromRGBO(177, 175, 233, 0.3),
+                        color: const Color.fromRGBO(172, 234, 236, 0.3),
                       ),
                       const SizedBox(height: 8),
 
@@ -1141,7 +1139,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                         labelStyle: const TextStyle(
                           color: AppColors.secondaryColor,
                         ),
-                        color: const Color.fromRGBO(177, 175, 233, 0.3),
+                        color: const Color.fromRGBO(172, 234, 236, 0.3),
                       ),
                       const SizedBox(height: 8),
 
@@ -1931,7 +1929,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       width: double.infinity,
       decoration: const BoxDecoration(
         borderRadius: BorderRadius.vertical(bottom: Radius.circular(12)),
-        color: Color.fromRGBO(44, 99, 226, 0.05),
+        color: Color.fromRGBO(39, 190, 193, 0.05),
       ),
       child: _buildContent(),
     );
@@ -2223,12 +2221,17 @@ class _CustomChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(100),
+    // A read-only figure, so it sits in a recessed well rather than on a
+    // raised plate: nothing here is pressable.
+    return SkeuWell(
+      radius: SkeuRadius.pill,
+      gradient: LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: [color, color.withValues(alpha: .45)],
       ),
+      insets: SkeuElevation.wellSm,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Text(label, style: labelStyle, overflow: TextOverflow.ellipsis),
     );
   }

@@ -186,26 +186,26 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                 decoration: InputDecoration(
                   hintText: 'Enter Absent Notes',
                   hintStyle: AppTextStyles.body.copyWith(
-                    color: const Color.fromRGBO(87, 51, 83, 0.5),
+                    color: const Color.fromRGBO(10, 28, 93, 0.5),
                     fontSize: 15,
                   ),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
+                      color: Color.fromRGBO(10, 28, 93, 0.4),
                     ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
+                      color: Color.fromRGBO(10, 28, 93, 0.4),
                       width: 1,
                     ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
                     borderSide: const BorderSide(
-                      color: Color.fromRGBO(87, 51, 83, 0.4),
+                      color: Color.fromRGBO(10, 28, 93, 0.4),
                       width: 2,
                     ),
                   ),

@@ -750,7 +750,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       child: Container(
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(12),
-                          color: const Color(0x33B1AFE9),
+                          color: const Color(0x33ACEAEC),
                         ),
                         child: CustomSearchBar(
                           controller: _searchController,
@@ -784,7 +784,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: const Color(0x33B1AFE9),
+                            color: const Color(0x33ACEAEC),
                           ),
                           child: Icon(
                             Icons.refresh,
@@ -1060,7 +1060,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   style: const TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
-                    color: Color(0xff573353),
+                    color: Color(0xFF0A1C5D),
                   ),
                 ),
               ),
@@ -1673,7 +1673,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
           decoration: const BoxDecoration(
             color: Colors.white,
             border: Border(
-              bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
+              bottom: BorderSide(color: Color(0xFFF4F5FA), width: 1),
             ),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
@@ -1705,7 +1705,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
-                        color: Color(0xff573353),
+                        color: Color(0xFF0A1C5D),
                       ),
                     ),
                     if (isDisabled)
@@ -1731,7 +1731,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                 const Icon(
                   Icons.edit_outlined,
                   size: 18,
-                  color: Color(0xFF6C5CE7),
+                  color: Color(0xFF1A7C7F),
                 ),
             ],
           ),

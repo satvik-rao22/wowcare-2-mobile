@@ -40,7 +40,7 @@ class PayNowAuthorizeScreen extends StatefulWidget {
 }
 
 class _PayNowAuthorizeScreenState extends State<PayNowAuthorizeScreen> {
-  static const Color _accent = Color(0xFF6F8CFF);
+  static const Color _accent = Color(0xFF45CDD1);
 
   final PayNowAuthorizeCubit _cubit = serviceLocator<PayNowAuthorizeCubit>();
 

@@ -182,7 +182,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                           Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              color: const Color(0x33B1AFE9),
+                              color: const Color(0x33ACEAEC),
                             ),
                             child: CustomSearchBar(
                               controller: _searchController,
@@ -560,7 +560,7 @@ class _StaffDirectoryTile extends StatelessWidget {
         decoration: const BoxDecoration(
           color: Color(0xFFFAFAFF),
           border: Border(
-            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
+            bottom: BorderSide(color: Color(0xFFF4F5FA), width: 1),
           ),
         ),
         child: ListTile(
@@ -593,7 +593,7 @@ class _StaffDirectoryTile extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF6C5CE7).withValues(alpha: 0.08),
+                    color: const Color(0xFF1A7C7F).withValues(alpha: 0.08),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Text(
@@ -601,7 +601,7 @@ class _StaffDirectoryTile extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.w600,
-                      color: Color(0xFF6C5CE7),
+                      color: Color(0xFF1A7C7F),
                     ),
                   ),
                 ),
@@ -638,7 +638,7 @@ class _ConversationTileContent extends StatelessWidget {
         decoration: const BoxDecoration(
           color: Colors.white,
           border: Border(
-            bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
+            bottom: BorderSide(color: Color(0xFFF4F5FA), width: 1),
           ),
         ),
         child: ListTile(
@@ -803,7 +803,7 @@ class _TypeChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final (label, color) = switch (type) {
-      ConversationType.staffDirect => ('Staff Direct', const Color(0xFF6C5CE7)),
+      ConversationType.staffDirect => ('Staff Direct', const Color(0xFF1A7C7F)),
       ConversationType.roomChat => ('Room Chat', const Color(0xFF00B894)),
       ConversationType.adminChat => ('Admin Chat', const Color(0xFF0984E3)),
       ConversationType.classroomChat => ('Classroom', const Color(0xFFE17055)),

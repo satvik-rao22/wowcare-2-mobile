@@ -69,7 +69,7 @@ class ProfileMenuHeader extends StatelessWidget {
                   Text(
                     state.displayName.isNotEmpty ? state.displayName : 'User',
                     style: const TextStyle(
-                      color: Color(0xFF573353),
+                      color: Color(0xFF0A1C5D),
                       fontFamily: 'Manrope',
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
@@ -81,7 +81,7 @@ class ProfileMenuHeader extends StatelessWidget {
                   Text(
                     state.persona.isNotEmpty ? state.persona : 'Profile',
                     style: const TextStyle(
-                      color: Color(0xFF573353),
+                      color: Color(0xFF0A1C5D),
                       fontFamily: 'Manrope',
                       fontSize: 14,
                       fontWeight: FontWeight.w400,

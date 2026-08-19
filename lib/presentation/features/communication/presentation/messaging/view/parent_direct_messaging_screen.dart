@@ -405,7 +405,7 @@ class _ParentDirectMessagingScreenState
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0x33B1AFE9),
+              color: const Color(0x33ACEAEC),
             ),
             child: const Icon(
               Icons.refresh,
@@ -680,7 +680,7 @@ class _ParentDirectMessagingScreenState
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: const Color(0xFFF4F7FD),
+              color: const Color(0xFFF4F5FA),
             ),
             child: Column(
               children: [
@@ -689,7 +689,7 @@ class _ParentDirectMessagingScreenState
                   decoration: const BoxDecoration(
                     color: Colors.transparent,
                     border: Border(
-                      bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
+                      bottom: BorderSide(color: Color(0xFFE9EBF5), width: 1),
                     ),
                   ),
                   padding: const EdgeInsets.fromLTRB(16, 8, 4, 8),
@@ -733,7 +733,7 @@ class _ParentDirectMessagingScreenState
                     ),
                   ),
                 ),
-                const Divider(height: 1, color: Color(0xFFE9ECEF)),
+                const Divider(height: 1, color: Color(0xFFE9EBF5)),
                 // Centered empty state
                 Expanded(
                   child: Center(

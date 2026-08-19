@@ -24,7 +24,7 @@ class CustomTimeChip extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: const Color.fromRGBO(177, 175, 233, 0.4),
+          color: const Color.fromRGBO(172, 234, 236, 0.4),
           width: 1.5,
         ),
       ),
@@ -34,7 +34,7 @@ class CustomTimeChip extends StatelessWidget {
           Text(
             label,
             style: const TextStyle(
-              color: Color.fromRGBO(27, 35, 126, 1),
+              color: Color.fromRGBO(20, 42, 122, 1),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),

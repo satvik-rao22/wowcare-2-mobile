@@ -64,7 +64,7 @@
 //             fontFamily: 'Manrope',
 //             fontSize: 14,
 //             fontWeight: FontWeight.w500,
-//             color: Color(0xff573353),
+//             color: Color(0xFF0A1C5D),
 //           ),
 //         ),
 //         const SizedBox(height: 6),
@@ -78,7 +78,7 @@
 //             ),
 //             decoration: BoxDecoration(
 //               color: Colors.white,
-//               border: Border.all(color: const Color(0x66573353)),
+//               border: Border.all(color: const Color(0x660A1C5D)),
 //               borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
 //             ),
 //             child: Row(
@@ -87,7 +87,7 @@
 //                   child: Text(
 //                     _formatTime(time),
 //                     style: const TextStyle(
-//                       color: Color(0xff573353),
+//                       color: Color(0xFF0A1C5D),
 //                       fontSize: 15,
 //                       fontFamily: 'Manrope',
 //                       fontWeight: FontWeight.w600,
@@ -97,7 +97,7 @@
 //                 SvgPicture.asset(
 //                   MediaRes.clock_icon,
 //                   height: responsive.isTablet ? 20.0 : 18.0,
-//                   colorFilter: const ColorFilter.mode(Color(0xff573353), BlendMode.srcIn),
+//                   colorFilter: const ColorFilter.mode(Color(0xFF0A1C5D), BlendMode.srcIn),
 //                 ),
 //               ],
 //             ),

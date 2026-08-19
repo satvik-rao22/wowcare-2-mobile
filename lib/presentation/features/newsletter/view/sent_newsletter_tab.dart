@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -227,13 +228,10 @@ class _SentNewsLetterTabState extends State<SentNewsLetterTab> {
 
   Widget _buildSearchAndFilterBox(ClassroomState classroomState) {
     final List<String> roomNames = _classroomNameOptions(classroomState);
-    return Container(
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
       padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: AppColors.cardBorderColor),
-        borderRadius: BorderRadius.circular(12),
-      ),
+
       child: Row(
         children: [
           Expanded(

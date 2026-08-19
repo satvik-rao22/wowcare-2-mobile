@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
@@ -193,16 +194,13 @@ class _StudentCardState extends State<StudentCard> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // A roster row is a raised panel that unfolds in place, so expanding a
+        // student never changes what kind of object it is.
         return IntrinsicHeight(
-          child: Container(
+          child: SkeuPanel(
             width: constraints.maxWidth,
             height: isExpanded ? null : 64.0,
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.cardBorderColor, width: 1),
-            ),
-            clipBehavior: Clip.antiAlias,
+            radius: 18,
             child: Material(
               color: Colors.transparent,
               child: InkWell(
@@ -273,7 +271,7 @@ class _StudentCardState extends State<StudentCard> {
                                       fontFamily: 'Manrope',
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
-                                      color: const Color(0xff573353),
+                                      color: const Color(0xFF0A1C5D),
                                       height: 19 / 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -287,7 +285,7 @@ class _StudentCardState extends State<StudentCard> {
                                       fontFamily: 'Manrope',
                                       fontSize: isTablet ? 16 : 14,
                                       fontWeight: FontWeight.w500,
-                                      color: const Color(0xff573353),
+                                      color: const Color(0xFF0A1C5D),
                                       height: 19 / 14,
                                     ),
                                     overflow: TextOverflow.ellipsis,
@@ -306,7 +304,7 @@ class _StudentCardState extends State<StudentCard> {
                         thickness: 1,
                         indent: 16,
                         endIndent: 16,
-                        color: Color(0xFFE9ECEF),
+                        color: Color(0xFFE9EBF5),
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -321,7 +319,7 @@ class _StudentCardState extends State<StudentCard> {
                                     fontFamily: 'Manrope',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                     height: 16 / 13,
                                   ),
                                 ),
@@ -340,7 +338,7 @@ class _StudentCardState extends State<StudentCard> {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0x4DB1AFE9),
+                                              color: const Color(0x4DACEAEC),
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
@@ -361,7 +359,7 @@ class _StudentCardState extends State<StudentCard> {
                                               vertical: 4,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: const Color(0x66CBF6FF),
+                                              color: const Color(0x66D4F4F5),
                                               borderRadius:
                                                   BorderRadius.circular(8),
                                             ),
@@ -385,7 +383,7 @@ class _StudentCardState extends State<StudentCard> {
                                                     vertical: 4,
                                                   ),
                                               decoration: BoxDecoration(
-                                                color: const Color(0x66D9FFCB),
+                                                color: const Color(0x66D8F6E7),
                                                 borderRadius:
                                                     BorderRadius.circular(8),
                                               ),
@@ -395,7 +393,7 @@ class _StudentCardState extends State<StudentCard> {
                                                   fontFamily: 'Inter',
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w400,
-                                                  color: Color(0xFF1B237E),
+                                                  color: Color(0xFF0A1C5D),
                                                   height: 15 / 12,
                                                 ),
                                               ),
@@ -437,7 +435,7 @@ class _StudentCardState extends State<StudentCard> {
                                       fontFamily: 'Manrope',
                                       fontSize: 13,
                                       fontWeight: FontWeight.w400,
-                                      color: Color(0xff573353),
+                                      color: Color(0xFF0A1C5D),
                                       height: 16 / 13,
                                     ),
                                   ),
@@ -483,8 +481,8 @@ class _StudentCardState extends State<StudentCard> {
                                           ),
                                           decoration: BoxDecoration(
                                             color: isActive
-                                                ? const Color(0x4DB1AFE9)
-                                                : const Color(0xFFF3F4FB),
+                                                ? const Color(0x4DACEAEC)
+                                                : const Color(0xFFF4F5FA),
                                             borderRadius: BorderRadius.circular(
                                               8,
                                             ),
@@ -497,7 +495,7 @@ class _StudentCardState extends State<StudentCard> {
                                               fontSize: 13,
                                               color: isActive
                                                   ? const Color(0xFF4B5B7A)
-                                                  : const Color(0xFFB1AFC9),
+                                                  : const Color(0xFF8A93B2),
                                             ),
                                           ),
                                         );
@@ -538,7 +536,7 @@ class _StudentCardState extends State<StudentCard> {
                                     fontFamily: 'Manrope',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                     height: 16 / 13,
                                   ),
                                 ),
@@ -548,7 +546,7 @@ class _StudentCardState extends State<StudentCard> {
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                     height: 19 / 14,
                                   ),
                                 ),
@@ -565,7 +563,7 @@ class _StudentCardState extends State<StudentCard> {
                                     fontFamily: 'Manrope',
                                     fontSize: 13,
                                     fontWeight: FontWeight.w400,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                     height: 16 / 13,
                                   ),
                                 ),
@@ -575,7 +573,7 @@ class _StudentCardState extends State<StudentCard> {
                                     fontFamily: 'Manrope',
                                     fontSize: 14,
                                     fontWeight: FontWeight.w500,
-                                    color: Color(0xff573353),
+                                    color: Color(0xFF0A1C5D),
                                     height: 19 / 14,
                                   ),
                                 ),
@@ -613,7 +611,7 @@ class _StudentCardState extends State<StudentCard> {
                                       },
                                       style: OutlinedButton.styleFrom(
                                         side: const BorderSide(
-                                          color: Color(0xFF6C7FD8),
+                                          color: Color(0xFF1D9B9E),
                                         ),
                                         shape: RoundedRectangleBorder(
                                           borderRadius: BorderRadius.circular(
@@ -630,7 +628,7 @@ class _StudentCardState extends State<StudentCard> {
                                           fontFamily: 'Manrope',
                                           fontSize: 16,
                                           fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
+                                          color: Color(0xFF1D9B9E),
                                           height: 16 / 16,
                                         ),
                                       ),
@@ -665,7 +663,7 @@ class _StudentCardState extends State<StudentCard> {
                                         },
                                         style: OutlinedButton.styleFrom(
                                           side: const BorderSide(
-                                            color: Color(0xFF6C7FD8),
+                                            color: Color(0xFF1D9B9E),
                                           ),
                                           shape: RoundedRectangleBorder(
                                             borderRadius: BorderRadius.circular(8),
@@ -678,7 +676,7 @@ class _StudentCardState extends State<StudentCard> {
                                             fontFamily: 'Manrope',
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
-                                            color: Color(0xFF6C7FD8),
+                                            color: Color(0xFF1D9B9E),
                                             height: 16 / 16,
                                           ),
                                         ),

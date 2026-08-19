@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 
+/// One band of a [CustomStatBarCard]'s bar, and its legend entry.
 class ProgressItemHelper {
   const ProgressItemHelper({
     required this.label,
@@ -15,6 +16,16 @@ class ProgressItemHelper {
   final String? filterValue;
 }
 
+/// A "total, broken down" card: the headline figure beside a proportional bar
+/// and its dotted legend.
+///
+/// In the skeuomorphic language the bar is a recessed trough with the bands
+/// sitting flush inside it, so the whole card reads as one gauge. Tapping a
+/// legend entry still filters the list behind it; the selected entry keeps a
+/// teal underline.
+///
+/// Two shapes, unchanged from before: the default puts the figure on the left,
+/// and [fullWidthBar] stacks a title/value row over a full-width trough.
 class CustomStatBarCard extends StatelessWidget {
   const CustomStatBarCard({
     required this.title,
@@ -46,19 +57,176 @@ class CustomStatBarCard extends StatelessWidget {
   final String? selectedFilterValue;
   final bool normalizeBarByItemSum;
 
-  /// When `true` the widget renders as a plain section — no border, no
-  /// background, flush horizontal padding — for use inside an existing card.
+  /// When `true` the widget renders as a plain section — no panel, flush
+  /// horizontal padding — for use inside an existing card.
   final bool embedded;
+
+  static const _trackRadius = 9.0;
+  static const _trackHeight = 22.0;
 
   @override
   Widget build(BuildContext context) {
+    final content = fullWidthBar ? _buildFullWidth() : _buildInline();
+    if (embedded) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: content,
+      );
+    }
+    return SkeuPanel(
+      radius: SkeuRadius.xxl,
+      padding: const EdgeInsets.all(16),
+      child: content,
+    );
+  }
+
+  // ── The figure beside the bar (student / staff / classroom summaries) ──────
+  Widget _buildInline() {
+    final headline = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          title,
+          style: SkeuText.small().copyWith(
+            height: 1.3,
+            fontSize: titleFontSize,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          number,
+          style: TextStyle(
+            fontFamily: SkeuText.family,
+            fontSize: numberFontSize ?? 30,
+            fontWeight: SkeuText.weightBold,
+            color: SkeuColors.ink,
+            letterSpacing: (numberFontSize ?? 30) * -0.02,
+          ),
+        ),
+      ],
+    );
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        SizedBox(
+          width: 82,
+          child: onHeaderTap != null
+              ? GestureDetector(onTap: onHeaderTap, child: headline)
+              : headline,
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTrack(),
+              const SizedBox(height: 10),
+              _buildLegend(),
+              if (footer != null) ...[
+                const SizedBox(height: 8),
+                Align(alignment: Alignment.center, child: footer!),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── Title and value above a full-width bar (billing / accounting) ──────────
+  Widget _buildFullWidth() {
+    final header = Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: SkeuText.field(
+              weight: SkeuText.weightHeading,
+            ).copyWith(fontSize: titleFontSize ?? 15),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            number,
+            maxLines: 1,
+            overflow: TextOverflow.fade,
+            textAlign: TextAlign.right,
+            style: TextStyle(
+              fontFamily: SkeuText.family,
+              fontSize: numberFontSize ?? 22,
+              fontWeight: SkeuText.weightBold,
+              color: SkeuColors.ink,
+            ),
+          ),
+        ),
+      ],
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        onHeaderTap != null
+            ? GestureDetector(onTap: onHeaderTap, child: header)
+            : header,
+        const SizedBox(height: 12),
+        _buildTrack(),
+        const SizedBox(height: 12),
+        _buildLegend(),
+        if (footer != null) ...[
+          const SizedBox(height: 8),
+          Align(alignment: Alignment.center, child: footer!),
+        ],
+      ],
+    );
+  }
+
+  /// The recessed trough. Bands are laid out on a 1000-unit flex so a single
+  /// unit of a large total still gets a visible sliver, and the unfilled
+  /// remainder of the total stays as empty trough rather than a grey band.
+  Widget _buildTrack() {
     final barItems = progressItems ?? items;
-    double sumValues = barItems.fold(0, (sum, item) => sum + item.value);
-    final int parsedTotal = int.tryParse(number) ?? 0;
-    final double effectiveTotal = normalizeBarByItemSum
-        ? sumValues
-        : parsedTotal.toDouble();
-    bool hasValidTotal = effectiveTotal > 0;
+    final sumValues = barItems.fold<double>(0, (sum, item) => sum + item.value);
+    final parsedTotal = double.tryParse(number.replaceAll(',', '')) ?? 0;
+    final effectiveTotal = normalizeBarByItemSum ? sumValues : parsedTotal;
+    final hasValidTotal = effectiveTotal > 0;
+
+    return SkeuWell(
+      height: _trackHeight,
+      radius: _trackRadius,
+      gradient: SkeuSurfaces.sunken,
+      insets: SkeuElevation.wellSm,
+      child: !hasValidTotal
+          ? const SizedBox.shrink()
+          : Row(
+              children: [
+                for (final item in barItems.where((i) => i.value > 0))
+                  Expanded(
+                    flex: (((item.value / effectiveTotal) * 1000).round())
+                        .clamp(1, 1 << 30),
+                    child: ColoredBox(color: item.color),
+                  ),
+                if (!normalizeBarByItemSum && sumValues < effectiveTotal)
+                  Expanded(
+                    flex:
+                        ((((effectiveTotal - sumValues) / effectiveTotal) *
+                                    1000)
+                                .round())
+                            .clamp(1, 1 << 30),
+                    child: const SizedBox.shrink(),
+                  ),
+              ],
+            ),
+    );
+  }
+
+  Widget _buildLegend() {
     final legendRows = <List<ProgressItemHelper>>[];
     for (var i = 0; i < items.length; i += 2) {
       legendRows.add(
@@ -66,346 +234,84 @@ class CustomStatBarCard extends StatelessWidget {
       );
     }
 
-    Widget buildLegendItem(ProgressItemHelper item) {
-      final isSelected =
-          selectedFilterValue != null &&
-          selectedFilterValue == item.filterValue;
-      final labelParts = item.label.split('\n');
-      final titleText = labelParts.first;
-      final valueText = labelParts.length > 1
-          ? labelParts.sublist(1).join('\n')
-          : '';
-      final labelWidget = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            titleText,
-            style: TextStyle(
-              color: AppColors.primaryColor.withValues(alpha: 0.8),
-              fontSize: 14,
+    return Column(
+      children: [
+        for (var r = 0; r < legendRows.length; r++)
+          Padding(
+            padding: EdgeInsets.only(
+              bottom: r == legendRows.length - 1 ? 0 : 8,
+            ),
+            child: Row(
+              children: [
+                for (final item in legendRows[r])
+                  Expanded(child: _buildLegendItem(item)),
+                if (legendRows[r].length == 1 && items.length > 1)
+                  const Expanded(child: SizedBox.shrink()),
+              ],
             ),
           ),
-          if (valueText.isNotEmpty)
-            Text(
-              valueText,
-              style: const TextStyle(
-                color: AppColors.themeColor,
-                fontSize: 14,
-                fontWeight: FontWeight.w700,
-              ),
+      ],
+    );
+  }
+
+  Widget _buildLegendItem(ProgressItemHelper item) {
+    final isSelected =
+        selectedFilterValue != null && selectedFilterValue == item.filterValue;
+    // A label may carry its value on a second line ("Net Paid\n$39,400").
+    final labelParts = item.label.split('\n');
+    final labelWidget = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          labelParts.first,
+          style: SkeuText.small(
+            color: SkeuColors.ink.withValues(alpha: .8),
+          ),
+        ),
+        if (labelParts.length > 1)
+          Text(
+            labelParts.sublist(1).join('\n'),
+            style: SkeuText.small(
+              color: SkeuColors.teal700,
+              weight: SkeuText.weightBold,
             ),
-        ],
-      );
-      return Container(
-        padding: EdgeInsets.symmetric(horizontal: 1, vertical: 2),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              height: 10,
-              width: 10,
-              decoration: BoxDecoration(
-                color: item.color,
-                shape: BoxShape.circle,
-              ),
+          ),
+      ],
+    );
+
+    return Container(
+      padding: const EdgeInsets.only(bottom: 2),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: isSelected ? SkeuColors.teal600 : Colors.transparent,
+            width: 2,
+          ),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            height: 10,
+            width: 10,
+            decoration: BoxDecoration(
+              color: item.color,
+              shape: BoxShape.circle,
             ),
-            const SizedBox(width: 6),
-            onLegendTap != null
+          ),
+          const SizedBox(width: 7),
+          Flexible(
+            child: onLegendTap != null
                 ? GestureDetector(
                     onTap: () => onLegendTap!(item.label, item.filterValue),
                     child: labelWidget,
                   )
                 : labelWidget,
-          ],
-        ),
-        decoration: BoxDecoration(
-          shape: BoxShape.rectangle,
-          color: isSelected ? Colors.white : Colors.transparent,
-          border: Border(
-            bottom: BorderSide(
-              color: isSelected ? AppColors.themeColor : Colors.transparent,
-              width: 2,
-            ),
           ),
-        ),
-      );
-    }
-
-    Widget buildLegendLayout() {
-      return Column(
-        children: legendRows
-            .map(
-              (row) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: row.length == 2
-                      ? MainAxisAlignment.spaceBetween
-                      : MainAxisAlignment.center,
-                  children: row.asMap().entries.map((entry) {
-                    final index = entry.key;
-                    final item = entry.value;
-                    final alignment = row.length == 2
-                        ? (index == 0
-                              ? Alignment.centerLeft
-                              : Alignment.centerRight)
-                        : Alignment.center;
-                    return Expanded(
-                      child: Align(
-                        alignment: alignment,
-                        child: buildLegendItem(item),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            )
-            .toList(),
-      );
-    }
-
-    if (fullWidthBar) {
-      // Admin billing style: label and value above, bar full width
-      final percentList = barItems.map((item) => item.value).toList();
-      final percentTotal = percentList.fold(0.0, (a, b) => a + b);
-      return Container(
-        padding: embedded
-            ? const EdgeInsets.symmetric(vertical: 8)
-            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: embedded
-            ? null
-            : BoxDecoration(
-                border: Border.all(color: AppColors.cardBorderColor),
-                borderRadius: BorderRadius.circular(12),
-                color: AppColors.cardColor,
-              ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            onHeaderTap != null
-                ? GestureDetector(
-                    onTap: onHeaderTap,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontFamily: 'Manrope',
-                              color: const Color(0xff573353),
-                              fontWeight: FontWeight.w500,
-                              fontSize: titleFontSize ?? 15,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            number,
-                            maxLines: 1,
-                            overflow: TextOverflow.fade,
-                            textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              color: AppColors.themeColor,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            color: const Color(0xff573353),
-                            fontWeight: FontWeight.w500,
-                            fontSize: titleFontSize ?? 15,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          number,
-                          maxLines: 1,
-                          overflow: TextOverflow.fade,
-                          textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            color: AppColors.themeColor,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-            const SizedBox(height: 12),
-            ClipRRect(
-              borderRadius: BorderRadius.circular(100),
-              child: SizedBox(
-                height: 20,
-                width: double.infinity,
-                child: Row(
-                  children: percentTotal == 0
-                      ? [Expanded(child: Container(color: Colors.grey[300]))]
-                      : [
-                          ...barItems.map(
-                            (item) => Expanded(
-                              flex: ((item.value * 1000) ~/ percentTotal),
-                              child: Container(color: item.color),
-                            ),
-                          ),
-                          if (percentTotal < 100)
-                            Expanded(
-                              flex: ((100 - percentTotal) * 1000 ~/ 100),
-                              child: Container(color: Colors.grey[300]),
-                            ),
-                        ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            buildLegendLayout(),
-            if (footer != null) ...[
-              const SizedBox(height: 8),
-              Align(alignment: Alignment.center, child: footer!),
-            ],
-          ],
-        ),
-      );
-    } else {
-      // Original style
-      return Container(
-        padding: embedded
-            ? const EdgeInsets.symmetric(vertical: 8)
-            : const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        decoration: embedded
-            ? null
-            : BoxDecoration(
-                border: Border.all(color: AppColors.cardBorderColor),
-                borderRadius: BorderRadius.circular(12),
-                color: AppColors.cardColor,
-              ),
-        child: Row(
-          children: [
-            onHeaderTap != null
-                ? GestureDetector(
-                    onTap: onHeaderTap,
-                    child: Column(
-                      children: [
-                        Text(
-                          number,
-                          style: TextStyle(
-                            fontSize: numberFontSize ?? 24,
-                            color: AppColors.themeColor,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontFamily: 'Manrope',
-                            color: const Color(0xff573353),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : Column(
-                    children: [
-                      Text(
-                        number,
-                        style: TextStyle(
-                          fontSize: numberFontSize ?? 24,
-                          color: AppColors.themeColor,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      Text(
-                        title,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontFamily: 'Manrope',
-                          color: const Color(0xff573353),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-            const SizedBox(width: 20),
-            Expanded(
-              child: Column(
-                children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(100),
-                    child: SizedBox(
-                      height: 20,
-                      child: Row(
-                        children: !hasValidTotal
-                            ? [
-                                Expanded(
-                                  child: Container(color: Colors.grey[300]),
-                                ),
-                              ]
-                            : [
-                                // Use a higher-resolution flex so small values don't round to 0.
-                                // If a segment has value > 0, it must have at least 1 flex.
-                                ...barItems.where((item) => item.value > 0).map(
-                                  (item) {
-                                    final computed =
-                                        ((item.value / effectiveTotal) * 1000)
-                                            .round();
-                                    final flex = computed <= 0 ? 1 : computed;
-                                    return Expanded(
-                                      flex: flex,
-                                      child: Container(color: item.color),
-                                    );
-                                  },
-                                ),
-                                if (!normalizeBarByItemSum &&
-                                    sumValues < effectiveTotal)
-                                  Expanded(
-                                    flex: (() {
-                                      final remaining =
-                                          effectiveTotal - sumValues;
-                                      final computed =
-                                          ((remaining / effectiveTotal) * 1000)
-                                              .round();
-                                      return computed <= 0 ? 1 : computed;
-                                    })(),
-                                    child: Container(color: Colors.grey[300]),
-                                  ),
-                              ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  buildLegendLayout(),
-                  if (footer != null) ...[
-                    const SizedBox(height: 8),
-                    Align(alignment: Alignment.center, child: footer!),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      );
-    }
+        ],
+      ),
+    );
   }
 }

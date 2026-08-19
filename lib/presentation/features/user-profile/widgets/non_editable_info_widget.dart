@@ -60,8 +60,8 @@ class NonEditableInfoWidget extends StatelessWidget {
               ),
               width: double.infinity,
               decoration: BoxDecoration(
-                color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
-                //color: const Color(0xFFF8F7FA),
+                color: const Color(0xFFACEAEC).withValues(alpha: 0.102),
+                //color: const Color(0xFFF4F5FA),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Padding(
@@ -75,7 +75,7 @@ class NonEditableInfoWidget extends StatelessWidget {
                     fontFamily: 'Manrope',
                     fontSize: responsive.inputFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: const Color(0xFF0A1C5D),
                     height: 19 / 14,
                   ),
                   overflow: TextOverflow.ellipsis,

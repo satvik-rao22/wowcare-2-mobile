@@ -2,11 +2,10 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/app_time.dart';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -1447,7 +1446,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 fontFamily: 'Manrope',
                                 fontSize: titleFontSize,
                                 fontWeight: FontWeight.w600,
-                                color: const Color(0xff573353),
+                                color: const Color(0xFF0A1C5D),
                                 height: titleLineHeight,
                               ),
                               textAlign: TextAlign.left,
@@ -1675,13 +1674,10 @@ class _StudentScreenState extends State<StudentScreen> {
                         const SizedBox(height: 16),
                       ],
                       // Filter/search card
-                      Container(
+                      SkeuPanel(
+                        radius: SkeuRadius.xxl,
                         padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: AppColors.cardBorderColor),
-                          borderRadius: BorderRadius.circular(12),
-                          color: AppColors.cardColor,
-                        ),
+
                         child: Column(
                           children: [
                             Row(
@@ -1693,140 +1689,89 @@ class _StudentScreenState extends State<StudentScreen> {
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Material(
-                                  color: Colors.transparent,
-                                  child: InkWell(
-                                    onTap: () async {
-                                      final result = await Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => BlocProvider.value(
-                                            value: context
-                                                .read<ClassroomCubit>(),
-                                            child: StudentFilterScreen(
-                                              initialFilters: _currentFilters,
+                                // The filter key: a neutral rimmed square with
+                                // a count of the non-default filters applied.
+                                Builder(
+                                  builder: (context) {
+                                    final statusList =
+                                        _currentFilters['Status'] ??
+                                        const <String>[];
+                                    final classroomList =
+                                        _currentFilters['Classroom'] ??
+                                        const <String>[];
+                                    final tagsList =
+                                        _currentFilters['Tags'] ??
+                                        const <String>[];
+                                    final parentsList =
+                                        _currentFilters['Parents'] ??
+                                        const <String>[];
+                                    final attendanceList =
+                                        _currentFilters['Attendance'] ??
+                                        const <String>[];
+
+                                    final String status = statusList.isNotEmpty
+                                        ? statusList.first
+                                        : '';
+                                    final statusUpper = status
+                                        .trim()
+                                        .toUpperCase();
+
+                                    // Treat empty or ACTIVE as default (no badge
+                                    // contribution).
+                                    final bool hasNonDefaultStatus =
+                                        statusUpper.isNotEmpty &&
+                                        statusUpper != 'ACTIVE';
+
+                                    final int badgeCount =
+                                        (hasNonDefaultStatus ? 1 : 0) +
+                                        (classroomList.isNotEmpty ? 1 : 0) +
+                                        (tagsList.isNotEmpty ? 1 : 0) +
+                                        (parentsList.isNotEmpty ? 1 : 0) +
+                                        (attendanceList.isNotEmpty ? 1 : 0);
+
+                                    return SkeuIconButton(
+                                      icon: Icons.tune_rounded,
+                                      size: 44,
+                                      radius: SkeuRadius.field,
+                                      badgeCount: badgeCount,
+                                      onPressed: () async {
+                                        final result = await Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (_) => BlocProvider.value(
+                                              value: context
+                                                  .read<ClassroomCubit>(),
+                                              child: StudentFilterScreen(
+                                                initialFilters: _currentFilters,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                      );
-                                      if (!mounted) return;
-                                      if (result is Map) {
-                                        final normalized =
-                                            <String, List<String>>{};
-                                        result.forEach((key, value) {
-                                          final k = key.toString();
-                                          if (value is List) {
-                                            normalized[k] = value
-                                                .map((e) => e.toString())
-                                                .toList();
-                                          } else if (value != null) {
-                                            normalized[k] = [value.toString()];
-                                          }
-                                        });
-
-                                        setState(() {
-                                          _currentFilters = normalized;
-                                        });
-                                        await _applyFiltersToCubit();
-                                      }
-                                    },
-                                    borderRadius: BorderRadius.circular(100),
-                                    child: Stack(
-                                      clipBehavior: Clip.none,
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.all(8),
-                                          child: SvgPicture.asset(
-                                            MediaRes.filterIcon,
-                                            height: 20,
-                                          ),
-                                        ),
-                                        Builder(
-                                          builder: (context) {
-                                            final statusList =
-                                                _currentFilters['Status'] ??
-                                                const <String>[];
-                                            final classroomList =
-                                                _currentFilters['Classroom'] ??
-                                                const <String>[];
-                                            final tagsList =
-                                                _currentFilters['Tags'] ??
-                                                const <String>[];
-                                            final parentsList =
-                                                _currentFilters['Parents'] ??
-                                                const <String>[];
-                                            final attendanceList =
-                                                _currentFilters['Attendance'] ??
-                                                const <String>[];
-
-                                            final String status =
-                                                statusList.isNotEmpty
-                                                ? statusList.first
-                                                : '';
-                                            final statusUpper = status
-                                                .trim()
-                                                .toUpperCase();
-
-                                            // Treat empty or ACTIVE as default (no badge contribution).
-                                            final bool hasNonDefaultStatus =
-                                                statusUpper.isNotEmpty &&
-                                                statusUpper != 'ACTIVE';
-                                            final bool hasClassroomFilter =
-                                                classroomList.isNotEmpty;
-                                            final bool hasTagsFilter =
-                                                tagsList.isNotEmpty;
-                                            final bool hasParentsFilter =
-                                                parentsList.isNotEmpty;
-                                            final bool hasAttendanceFilter =
-                                                attendanceList.isNotEmpty;
-
-                                            final int badgeCount =
-                                                (hasNonDefaultStatus ? 1 : 0) +
-                                                (hasClassroomFilter ? 1 : 0) +
-                                                (hasTagsFilter ? 1 : 0) +
-                                                (hasParentsFilter ? 1 : 0) +
-                                                (hasAttendanceFilter ? 1 : 0);
-
-                                            if (badgeCount == 0) {
-                                              return const SizedBox.shrink();
+                                        );
+                                        if (!mounted) return;
+                                        if (result is Map) {
+                                          final normalized =
+                                              <String, List<String>>{};
+                                          result.forEach((key, value) {
+                                            final k = key.toString();
+                                            if (value is List) {
+                                              normalized[k] = value
+                                                  .map((e) => e.toString())
+                                                  .toList();
+                                            } else if (value != null) {
+                                              normalized[k] = [
+                                                value.toString(),
+                                              ];
                                             }
+                                          });
 
-                                            return Positioned(
-                                              right: 2,
-                                              top: 2,
-                                              child: Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 5,
-                                                      vertical: 2,
-                                                    ),
-                                                decoration: BoxDecoration(
-                                                  color: const Color.fromRGBO(
-                                                    179,
-                                                    38,
-                                                    30,
-                                                    1,
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(10),
-                                                ),
-                                                child: Text(
-                                                  badgeCount > 99
-                                                      ? '99+'
-                                                      : '$badgeCount',
-                                                  style: const TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 10,
-                                                    fontWeight: FontWeight.w700,
-                                                  ),
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                                          setState(() {
+                                            _currentFilters = normalized;
+                                          });
+                                          await _applyFiltersToCubit();
+                                        }
+                                      },
+                                    );
+                                  },
                                 ),
                               ],
                             ),
@@ -1850,10 +1795,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                       ),
-                                      color: const Color.fromRGBO(
-                                        177,
-                                        175,
-                                        233,
+                                      color: const Color.fromRGBO(172, 234, 236,
                                         0.3,
                                       ),
                                     ),
@@ -1873,7 +1815,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                         fontFamily: 'Manrope',
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
-                                        color: Color(0xff573353),
+                                        color: Color(0xFF0A1C5D),
                                       ),
                                     ),
                                     const SizedBox(width: 8),

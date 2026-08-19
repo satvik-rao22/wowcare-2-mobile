@@ -789,7 +789,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                   fontFamily: "Manrope",
                                   fontSize: responsive.titleFontSize,
                                   fontWeight: FontWeight.w600,
-                                  color: const Color(0xff573353),
+                                  color: const Color(0xFF0A1C5D),
                                 ),
                               ),
                             ),
@@ -880,7 +880,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                             fontSize: responsive.labelFontSize,
                                             fontFamily: "Manrope",
                                             fontWeight: FontWeight.w400,
-                                            color: const Color(0xff573353),
+                                            color: const Color(0xFF0A1C5D),
                                           ),
                                           showAsterisk: true,
                                           labelBottomSpacing:
@@ -968,7 +968,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                             fontSize: responsive.labelFontSize,
                                             fontFamily: "Manrope",
                                             fontWeight: FontWeight.w400,
-                                            color: const Color(0xff573353),
+                                            color: const Color(0xFF0A1C5D),
                                           ),
                                           showAsterisk: true,
                                           labelBottomSpacing:
@@ -1060,7 +1060,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                                         fontWeight:
                                                             FontWeight.w400,
                                                         color: const Color(
-                                                          0xff573353,
+                                                          0xFF0A1C5D,
                                                         ),
                                                       ),
                                                       showAsterisk: true,
@@ -1125,7 +1125,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                                 const Icon(
                                                   Icons.info_outline,
                                                   size: 16,
-                                                  color: Color(0xff573353),
+                                                  color: Color(0xFF0A1C5D),
                                                 ),
                                                 const SizedBox(width: 8),
                                                 Expanded(
@@ -1136,7 +1136,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                                           .labelFontSize,
                                                       fontFamily: 'Manrope',
                                                       color: const Color(
-                                                        0xff573353,
+                                                        0xFF0A1C5D,
                                                       ),
                                                       // fontStyle: FontStyle.italic,
                                                     ),
@@ -1159,7 +1159,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                                   responsive.labelFontSize,
                                               fontFamily: "Manrope",
                                               fontWeight: FontWeight.w400,
-                                              color: const Color(0xff573353),
+                                              color: const Color(0xFF0A1C5D),
                                             ),
                                             showAsterisk: true,
                                             labelBottomSpacing:
@@ -1287,7 +1287,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
       fontSize: responsive.labelFontSize,
       fontFamily: "Manrope",
       fontWeight: FontWeight.w400,
-      color: const Color(0xff573353),
+      color: const Color(0xFF0A1C5D),
     );
 
     return Column(
@@ -1310,7 +1310,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
             color: Colors.white,
-            border: Border.all(color: const Color(0x66573353)),
+            border: Border.all(color: const Color(0x660A1C5D)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -1325,7 +1325,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               fontFamily: 'Manrope',
               fontSize: responsive.inputFontSize,
               fontWeight: FontWeight.w600, // typing weight
-              color: const Color(0xff573353),
+              color: const Color(0xFF0A1C5D),
               height: 19 / 14,
             ),
             decoration: InputDecoration(

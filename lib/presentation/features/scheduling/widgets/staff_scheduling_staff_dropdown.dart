@@ -50,7 +50,7 @@ class StaffSchedulingStaffDropdown extends StatelessWidget {
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFB1AFE9).withValues(alpha: 0.102),
+        color: const Color(0xFFACEAEC).withValues(alpha: 0.102),
         borderRadius: BorderRadius.circular(10),
       ),
       child: DropdownButtonHideUnderline(

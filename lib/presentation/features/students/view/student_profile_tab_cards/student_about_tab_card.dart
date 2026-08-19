@@ -502,7 +502,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                     style: TextStyle(
                       fontFamily: 'Manrope',
                       fontSize: 15,
-                      color: Color(0xff573353),
+                      color: Color(0xFF0A1C5D),
                       fontWeight: FontWeight.w400,
                     ),
                   ),
@@ -597,7 +597,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                               fontFamily: 'Manrope',
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
-                              color: Color(0xff573353),
+                              color: Color(0xFF0A1C5D),
                               letterSpacing: -0.03 * 16,
                             ),
                           ),
@@ -784,13 +784,13 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                           fontFamily: 'Manrope',
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Color(0xff573353),
+                          color: Color(0xFF0A1C5D),
                         ),
                       ),
                       const Icon(
                         Icons.edit,
                         size: 16,
-                        color: Color(0x99573353),
+                        color: Color(0x990A1C5D),
                       ),
                     ],
                   ),
@@ -924,26 +924,20 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                                           width: 110,
                                           label: fullDay,
                                           labelColor: isAvailable
-                                              ? const Color.fromRGBO(
-                                                  27,
-                                                  35,
-                                                  126,
+                                              ? const Color.fromRGBO(20, 42, 122,
                                                   1,
                                                 )
                                               : Colors.grey.shade700,
                                           color: isAvailable
-                                              ? const Color(0x4DB1AFE9)
-                                              : const Color(0xFFF3F4FB),
+                                              ? const Color(0x4DACEAEC)
+                                              : const Color(0xFFF4F5FA),
                                         ),
                                         if (isAvailable) ...[
                                           const SizedBox(height: 6),
                                           _ScheduleChip(
                                             width: 110,
                                             label: timeText,
-                                            labelColor: const Color.fromRGBO(
-                                              27,
-                                              35,
-                                              126,
+                                            labelColor: const Color.fromRGBO(20, 42, 122,
                                               1,
                                             ),
                                             color: Colors.transparent,
@@ -1106,7 +1100,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //                           style: const TextStyle(
     //                             fontFamily: 'Manrope',
     //                             fontSize: 16,
-    //                             color: Color(0xff573353),
+    //                             color: Color(0xFF0A1C5D),
     //                             fontWeight: FontWeight.w600,
     //                             letterSpacing: -0.03 * 16,
     //                           ),
@@ -1161,18 +1155,18 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //                           width: 110,
     //                           label: fullDay,
     //                           labelColor: isAvailable
-    //                               ? const Color.fromRGBO(27, 35, 126, 1)
+    //                               ? const Color.fromRGBO(20, 42, 122, 1)
     //                               : Colors.grey.shade700,
     //                           color: isAvailable
-    //                               ? const Color(0x4DB1AFE9)
-    //                               : const Color(0xFFF3F4FB),
+    //                               ? const Color(0x4DACEAEC)
+    //                               : const Color(0xFFF4F5FA),
     //                         ),
     //                         if (isAvailable) ...[
     //                           const SizedBox(height: 6),
     //                           _ScheduleChip(
     //                             width: 110,
     //                             label: timeText,
-    //                             labelColor: const Color.fromRGBO(27, 35, 126, 1),
+    //                             labelColor: const Color.fromRGBO(20, 42, 122, 1),
     //                             color: Colors.transparent,
     //                             isTimeChip: true,
     //                           ),
@@ -1221,12 +1215,12 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
       bgColor = const Color.fromARGB(255, 242, 238, 176);
     } else if (isWaitlist) {
       label = 'Waitlist';
-      labelColor = const Color.fromRGBO(27, 35, 126, 1);
-      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+      labelColor = const Color.fromRGBO(20, 42, 122, 1);
+      bgColor = const Color.fromRGBO(172, 234, 236, 0.3);
     } else if (isGraduated) {
       label = 'Graduated';
-      labelColor = const Color.fromRGBO(27, 35, 126, 1);
-      bgColor = const Color.fromRGBO(177, 175, 233, 0.3);
+      labelColor = const Color.fromRGBO(20, 42, 122, 1);
+      bgColor = const Color.fromRGBO(172, 234, 236, 0.3);
     } else if (isInactive) {
       label = 'Inactive';
       labelColor = const Color.fromRGBO(250, 65, 65, 1);
@@ -1255,9 +1249,9 @@ class _tags extends StatelessWidget {
   final List<String> tags;
 
   static const List<Color> _chipColors = [
-    Color.fromRGBO(177, 175, 233, 0.3),
-    Color.fromRGBO(203, 246, 255, 0.4),
-    Color.fromRGBO(217, 255, 203, 0.4),
+    Color.fromRGBO(172, 234, 236, 0.3),
+    Color.fromRGBO(212, 244, 245, 0.4),
+    Color.fromRGBO(216, 246, 231, 0.4),
   ];
 
   @override
@@ -1296,7 +1290,7 @@ class _ProfileTagChip extends StatelessWidget {
           fontFamily: 'Manrope',
           fontWeight: FontWeight.w600,
           fontSize: 15,
-          color: Color.fromRGBO(27, 35, 126, 1),
+          color: Color.fromRGBO(20, 42, 122, 1),
         ),
       ),
     );
@@ -1327,7 +1321,7 @@ class _ScheduleChip extends StatelessWidget {
         color: color,
         borderRadius: BorderRadius.circular(8),
         border: isTimeChip
-            ? Border.all(color: const Color(0x4DB1AFE9), width: 1.5)
+            ? Border.all(color: const Color(0x4DACEAEC), width: 1.5)
             : null,
       ),
       alignment: Alignment.center,

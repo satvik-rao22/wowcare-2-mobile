@@ -356,7 +356,7 @@ class SchedulingDayGanttRow extends StatelessWidget {
   final Widget left;
   final Widget right;
 
-  static const Color dividerColor = Color(0xFFE9ECEF);
+  static const Color dividerColor = Color(0xFFE9EBF5);
 
   @override
   Widget build(BuildContext context) {

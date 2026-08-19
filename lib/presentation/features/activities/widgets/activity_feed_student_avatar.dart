@@ -68,7 +68,7 @@ Future<void> showActivityStudentListSheet(
                       ),
                       IconButton(
                         onPressed: () => Navigator.of(ctx).pop(),
-                        icon: const Icon(Icons.close, color: Color(0xff573353)),
+                        icon: const Icon(Icons.close, color: Color(0xFF0A1C5D)),
                       ),
                     ],
                   ),
@@ -102,7 +102,7 @@ Future<void> showActivityStudentListSheet(
                                   fontFamily: 'Manrope',
                                   fontSize: 15,
                                   fontWeight: FontWeight.w600,
-                                  color: Color(0xff573353),
+                                  color: Color(0xFF0A1C5D),
                                 ),
                               ),
                             ),

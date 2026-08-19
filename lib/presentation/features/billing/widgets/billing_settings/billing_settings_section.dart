@@ -54,7 +54,7 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
                       fontWeight: FontWeight.w600,
                       color: isSelected
                           ? AppColors.themeColor
-                          : const Color(0xff573353),
+                          : const Color(0xFF0A1C5D),
                     ),
                   ),
                 ),

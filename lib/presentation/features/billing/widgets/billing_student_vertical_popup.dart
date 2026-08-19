@@ -96,7 +96,7 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: const Color.fromRGBO(156, 132, 255, 1),
+              color: const Color.fromRGBO(29, 155, 158, 1),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.2),
@@ -448,7 +448,7 @@ class BillingMoreOptionsPopup extends StatelessWidget {
       constraints: const BoxConstraints(maxHeight: 400),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
+        border: Border.all(color: const Color.fromRGBO(69, 205, 209, 1)),
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [

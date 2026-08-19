@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 
-/// Compact gradient-bordered `+ / -` button used by dashboard cards to
-/// collapse or expand their body.
+/// The small rimmed key that folds a dashboard card open and shut.
 ///
-/// Reusable across every dashboard card so the collapse affordance stays
-/// visually consistent.
+/// In the skeuomorphic language this is a real key: a neutral face on a 2px
+/// rim, with a chevron that rotates as the card opens. Reused by every
+/// dashboard card so the collapse affordance stays one recognisable object.
 class DashboardCardToggle extends StatelessWidget {
   const DashboardCardToggle({
     super.key,
@@ -20,43 +20,6 @@ class DashboardCardToggle extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: 26,
-        height: 26,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Gradient border.
-            Container(
-              width: 26,
-              height: 26,
-              decoration: BoxDecoration(
-                gradient: AppColors.buildPrimaryGradient(),
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            // White inner background.
-            Container(
-              width: 21,
-              height: 21,
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-              ),
-            ),
-            // Icon.
-            Icon(
-              minimized ? Icons.add : Icons.remove,
-              color: AppColors.primaryGradientColors.first,
-              size: 18,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      SkeuFoldKey(expanded: !minimized, onTap: onTap);
 }

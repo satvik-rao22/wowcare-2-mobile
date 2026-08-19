@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 
+/// The quiet half of a confirm/cancel pair.
+///
+/// A neutral rimmed key in the skeuomorphic language — the same object as the
+/// confirm key, in the material that says "not the recommended action". It sits
+/// beside the pink one without competing with it.
 class CustomCancelButton extends StatelessWidget {
   const CustomCancelButton({
     this.cancelButtonLabel,
@@ -12,47 +17,17 @@ class CustomCancelButton extends StatelessWidget {
   final String? cancelButtonLabel;
   final void Function()? onPressedCancel;
 
-  /// When true, the label text is painted with the primary gradient instead of
-  /// the flat [AppColors.primaryColor].
+  /// Retained for call-site compatibility. The skeuomorphic language has one
+  /// neutral key face, so a gradient label would put a second treatment on the
+  /// same object; the flag no longer changes the rendering.
   final bool gradientLabel;
 
   @override
-  Widget build(BuildContext context) {
-    const labelStyle = TextStyle(
-      color: AppColors.primaryColor,
-      fontSize: 16,
-      fontWeight: FontWeight.w600,
-    );
-    final label = Text(cancelButtonLabel ?? 'Cancel', style: labelStyle);
-
-    return Container(
-      height: 48,
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        gradient: AppColors.buildPrimaryGradient(), // gradient border
-      ),
-      padding: const EdgeInsets.all(1),
-      child: TextButton(
-        onPressed: onPressedCancel ?? () => Navigator.pop(context),
-        style: TextButton.styleFrom(
-          backgroundColor: Colors.white,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        ),
-        child: gradientLabel
-            ? ShaderMask(
-                blendMode: BlendMode.srcIn,
-                shaderCallback: (bounds) =>
-                    AppColors.buildPrimaryGradient().createShader(
-                      Rect.fromLTWH(0, 0, bounds.width, bounds.height),
-                    ),
-                child: Text(
-                  cancelButtonLabel ?? 'Cancel',
-                  style: labelStyle.copyWith(color: Colors.white),
-                ),
-              )
-            : label,
-      ),
-    );
-  }
+  Widget build(BuildContext context) => SkeuButton(
+    label: cancelButtonLabel ?? 'Cancel',
+    variant: SkeuButtonVariant.neutral,
+    height: 48,
+    radius: SkeuRadius.md,
+    onPressed: onPressedCancel ?? () => Navigator.pop(context),
+  );
 }

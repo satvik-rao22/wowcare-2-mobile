@@ -24,9 +24,9 @@ class SchedulingBlockStatusStyle {
 
   static const Color dayInRatioColor = Color(0xFFACF3AA);
 
-  static const Color dayExtraStaffColor = Color(0xFF5978F7);
+  static const Color dayExtraStaffColor = Color(0xFF1D9B9E);
 
-  static const Color dayEmptyColor = Color(0xFFE9ECEF);
+  static const Color dayEmptyColor = Color(0xFFE9EBF5);
 
 
 

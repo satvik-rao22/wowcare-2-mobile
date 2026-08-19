@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_toggle.dart';
 
 /// Standard header row shared by every dashboard card: a title, an optional
@@ -37,22 +35,24 @@ class DashboardCardHeader extends StatelessWidget {
         Text(
           title,
           softWrap: false,
-          style: const TextStyle(
-            color: AppColors.primaryColor,
+          style: TextStyle(
+            fontFamily: SkeuText.family,
+            color: SkeuColors.ink,
             fontSize: 18,
-            fontWeight: FontWeight.w700,
+            fontWeight: SkeuText.weightBold,
+            letterSpacing: 18 * SkeuText.trackingHeading,
           ),
           maxLines: 1,
         ),
         if (showRedirect) ...[
-          const SizedBox(width: 6),
+          const SizedBox(width: 8),
           GestureDetector(
             onTap: onRedirect,
             behavior: HitTestBehavior.opaque,
-            child: SvgPicture.asset(
-              MediaRes.redirectArrowGradientIcon,
-              width: 16,
-              height: 16,
+            child: const Icon(
+              Icons.arrow_outward_rounded,
+              size: 16,
+              color: SkeuColors.ink,
             ),
           ),
         ],

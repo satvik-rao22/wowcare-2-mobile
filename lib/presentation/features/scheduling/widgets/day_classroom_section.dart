@@ -12,7 +12,7 @@ import 'staff_schedule_tile.dart';
 const double kSchedulingStatusColumnWidth = 140;
 
 /// Grid colour for the body row dividers — soft grey from the design spec.
-const Color kSchedulingGridColor = Color(0xFFE9ECEF);
+const Color kSchedulingGridColor = Color(0xFFE9EBF5);
 
 /// Blue border colour used to set the header row apart from the body.
 const Color kSchedulingHeaderBorderColor = Color(0x332C62E2);

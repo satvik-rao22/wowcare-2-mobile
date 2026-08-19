@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 
+/// The app-wide search field.
+///
+/// A recessed well in the skeuomorphic language — the same material as every
+/// other input, so "type here" reads the same everywhere. Replaces Material's
+/// [SearchBar], whose raised outlined shell is the opposite of what this design
+/// wants. All existing parameters are honoured; [searchBarColor] and
+/// [borderColor] no longer apply, because the well paints its own face and rim.
 class CustomSearchBar extends StatefulWidget {
   const CustomSearchBar({
     required this.controller,
@@ -15,8 +22,13 @@ class CustomSearchBar extends StatefulWidget {
   final TextEditingController controller;
   final String hintText;
   final Function(String)? onChanged;
+
+  /// Retained for call-site compatibility — the well's face is fixed.
   final WidgetStateProperty<Color>? searchBarColor;
+
+  /// Retained for call-site compatibility — the well paints its own rim.
   final Color? borderColor;
+
   final List<Widget>? trailing;
 
   @override
@@ -24,57 +36,58 @@ class CustomSearchBar extends StatefulWidget {
 }
 
 class _CustomSearchBarState extends State<CustomSearchBar> {
+  final FocusNode _focusNode = FocusNode();
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(() {
+      if (mounted && _focused != _focusNode.hasFocus) {
+        setState(() => _focused = _focusNode.hasFocus);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focusNode.dispose();
+    super.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Theme(
-      data: Theme.of(context).copyWith(
-        textSelectionTheme: const TextSelectionThemeData(
-          cursorColor: AppColors.themeColor,
-        ),
-      ),
-      child: SearchBar(
-        controller: widget.controller,
-        constraints: const BoxConstraints(
-          minHeight: 44,
-          maxHeight: 44,
-        ),
-        elevation: const WidgetStatePropertyAll(0),
-        backgroundColor: widget.searchBarColor ?? const WidgetStatePropertyAll(Colors.white),
-        // Keep the fill pure white — prevents Material 3 from applying a
-        // surface tint / overlay that greys the search box.
-        surfaceTintColor: const WidgetStatePropertyAll(Colors.white),
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
-        hintText: widget.hintText,
-        onChanged: widget.onChanged,
-        hintStyle: WidgetStatePropertyAll(
-          TextStyle(
-            color: AppColors.primaryColor.withValues(alpha: 0.7),
-            fontSize: 15,
+    return SkeuWell(
+      height: 44,
+      radius: SkeuRadius.field,
+      focused: _focused,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.search_rounded,
+            size: 18,
+            color: SkeuColors.inkFaint,
           ),
-        ),
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 4),
-          child: Icon(
-            Icons.search,
-            color: AppColors.primaryColor,
-          ),
-        ),
-        trailing: widget.trailing,
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: BorderSide(
-              color: widget.borderColor ?? AppColors.primaryColor.withValues(alpha: 0.2),
-              width: 1.2,
+          const SizedBox(width: 9),
+          Expanded(
+            child: TextField(
+              controller: widget.controller,
+              focusNode: _focusNode,
+              onChanged: widget.onChanged,
+              cursorColor: SkeuColors.teal600,
+              style: SkeuText.body(),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.zero,
+                hintText: widget.hintText,
+                hintStyle: SkeuText.body(color: SkeuColors.inkFaint),
+              ),
             ),
           ),
-        ),
-        textStyle: const WidgetStatePropertyAll(
-          TextStyle(
-            color: AppColors.primaryColor,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+          if (widget.trailing != null) ...widget.trailing!,
+        ],
       ),
     );
   }

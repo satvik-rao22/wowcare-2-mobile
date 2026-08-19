@@ -110,7 +110,7 @@ class _DuplicateStudentBottomSheetState
                     fontFamily: "Manrope",
                     fontSize: titleFontSize,
                     fontWeight: FontWeight.w600,
-                    color: const Color(0xff573353),
+                    color: const Color(0xFF0A1C5D),
                     height: 1.2,
                   ),
                   textAlign: TextAlign.center,

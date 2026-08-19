@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/src/app_router.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -197,10 +198,20 @@ class _CustomDrawerState extends State<CustomDrawer> {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const CircleAvatar(
-              backgroundColor: Colors.white,
-              radius: 28,
-              backgroundImage: AssetImage(MediaRes.logo_wow),
+            // The brand mark sits on the same translucent plate as the rail's
+            // keys, so the drawer header reads as part of the header slab.
+            Container(
+              width: 56,
+              height: 56,
+              padding: const EdgeInsets.all(6),
+              decoration: BoxDecoration(
+                color: SkeuColors.white.withValues(alpha: .14),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: SkeuColors.white.withValues(alpha: .3),
+                ),
+              ),
+              child: const SkeuLogoMark(size: 44),
             ),
             const SizedBox(width: 16),
             Expanded(
@@ -208,13 +219,9 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 14),
-                  const Text(
-                    'WowCare',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 19,
-                      fontWeight: FontWeight.w900,
-                    ),
+                  const WowCareWordmark(
+                    fontSize: 19,
+                    careColor: SkeuColors.white,
                   ),
                   const SizedBox(height: 16),
                   // School switcher dropdown (for current organization)
@@ -797,9 +804,11 @@ class _CustomDrawerState extends State<CustomDrawer> {
 
     return Drawer(
       width: MediaQuery.of(context).size.width * 2 / 3,
+      // The drawer is the app's second dark surface, on the same navy-to-teal
+      // rail as the header, so opening it reads as sliding the header out.
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
+        decoration: const BoxDecoration(gradient: SkeuSurfaces.rail),
         child: Column(
           children: [
             _header(),
@@ -1461,39 +1470,38 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
     }
   }
 
+  /// Ink for a raised (current / open) item is the page's own navy; on the dark
+  /// rail an unraised item is white.
   Color _getIconColor() {
     if (_effectiveIsCurrentRoute) {
-      return AppColors.themeColor;
+      return SkeuColors.teal700;
     }
-    return _isExpanded ? AppColors.themeColor : Colors.white;
+    return _isExpanded ? SkeuColors.teal700 : SkeuColors.white;
   }
 
   Color _getTextColor() {
     if (_effectiveIsCurrentRoute) {
-      return AppColors.themeColor;
+      return SkeuColors.ink;
     }
-    return _isExpanded ? AppColors.themeColor : Colors.white;
+    return _isExpanded ? SkeuColors.ink : SkeuColors.white;
   }
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: _handleTap,
+      // The current / open item lifts off the dark rail as a raised neutral
+      // plate; the rest stay flush with it.
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 2),
         decoration: BoxDecoration(
-          color: _effectiveIsCurrentRoute || _isExpanded
-              ? Colors.white
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-          boxShadow: [
-            if (_effectiveIsCurrentRoute || _isExpanded)
-              const BoxShadow(
-                blurRadius: 4,
-                color: Colors.black26,
-                offset: Offset(0, 4),
-              ),
-          ],
+          gradient: _effectiveIsCurrentRoute || _isExpanded
+              ? SkeuSurfaces.faceNeutral
+              : null,
+          borderRadius: BorderRadius.circular(SkeuRadius.md),
+          boxShadow: _effectiveIsCurrentRoute || _isExpanded
+              ? SkeuElevation.elev2
+              : null,
         ),
         child: widget.isExpansionEnabled
             ? ExpansionTile(
@@ -1519,8 +1527,8 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                       ? null
                       : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
                 ),
-                iconColor: AppColors.themeColor,
-                collapsedIconColor: Colors.white,
+                iconColor: SkeuColors.teal700,
+                collapsedIconColor: SkeuColors.white,
                 title: Text(
                   widget.title,
                   maxLines: 1,

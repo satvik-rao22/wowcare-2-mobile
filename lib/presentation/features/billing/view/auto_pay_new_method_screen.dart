@@ -19,7 +19,7 @@ class AutoPayNewMethodScreen extends StatefulWidget {
 }
 
 class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
-  static const Color _primary = Color(0xFF573353);
+  static const Color _primary = Color(0xFF0A1C5D);
   static const Color _infoBg = Color(0xFFFFF3E0);
 
   late final AutoPayNewMethodCubit _cubit = AutoPayNewMethodCubit();
@@ -395,7 +395,7 @@ class _AutoPayNewMethodScreenState extends State<AutoPayNewMethodScreen> {
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
         color: Colors.white,
-        border: Border.all(color: const Color(0x66573353)),
+        border: Border.all(color: const Color(0x660A1C5D)),
         borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
       ),
       child: TextField(

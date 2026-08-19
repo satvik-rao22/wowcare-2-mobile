@@ -1,18 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
@@ -22,6 +15,7 @@ class SchoolSelectionScreen extends StatefulWidget {
     required this.selectedOrg,
     this.isSwitchFlow = false,
     this.schoolsForOrg,
+
     /// True when org comes from login-context (redirect select-school).
     /// Only then do we call names-by-org API for that org.
     this.orgFromLoginContext = false,
@@ -29,6 +23,7 @@ class SchoolSelectionScreen extends StatefulWidget {
 
   final String selectedOrg;
   final bool isSwitchFlow;
+
   /// When switching org from Dashboard: list of {schoolCode, schoolName} for selected org.
   final List<Map<String, String>>? schoolsForOrg;
   final bool orgFromLoginContext;
@@ -44,15 +39,10 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
   bool _isSubmitting = false;
   Map<String, String> _schoolStatuses = const <String, String>{};
 
-  String _formatRole(String role) {
-    if (role.isEmpty) return '';
-    final cleaned = role.toLowerCase().replaceAll('_', ' ');
-    return cleaned
-        .split(' ')
-        .map((word) =>
-            word.isEmpty ? word : '${word[0].toUpperCase()}${word.substring(1)}')
-        .join(' ');
-  }
+  /// Whether the inline option list under the field is showing. The design
+  /// picks a school from a list that unfolds in place rather than a modal
+  /// popup, so the chosen value and the choices stay on screen together.
+  bool _isPickerOpen = false;
 
   @override
   void didChangeDependencies() {
@@ -78,11 +68,6 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
-    final padding = MediaQuery.of(context).padding;
-    final screenHeight = size.height - padding.top - padding.bottom;
-    final screenWidth = size.width;
-
     Future<void> onBack() async {
       if (widget.isSwitchFlow) {
         Navigator.of(context).pop();
@@ -116,19 +101,14 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
       child: BlocBuilder<AuthCubit, AuthState>(
         builder: (context, state) {
           if (state is! AuthLoaded && !widget.isSwitchFlow) {
-            return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+            return const SkeuScaffold(
+              body: Center(
+                child: CircularProgressIndicator(color: SkeuColors.teal600),
+              ),
             );
           }
 
           final login = state is AuthLoaded ? state.loginResponse : null;
-          final userName = login?.displayName.isNotEmpty == true
-              ? login!.displayName
-              : (login?.email ?? '');
-          final rawRole = login?.roles.isNotEmpty == true
-              ? login!.roles.first.role
-              : '';
-          final userRole = _formatRole(rawRole);
 
           // Get organization codes and names to find the display name
           final orgCodes = (login?.roles ?? [])
@@ -137,12 +117,12 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
               .toSet()
               .toList();
           final orgNames = state is AuthLoaded ? state.orgNames : <String>[];
-          
+
           // Find the organization name for the selected org code
           String orgDisplayName = widget.selectedOrg; // fallback to code
           final orgIndex = orgCodes.indexOf(widget.selectedOrg);
-          if (orgIndex != -1 && 
-              orgIndex < orgNames.length && 
+          if (orgIndex != -1 &&
+              orgIndex < orgNames.length &&
               orgNames.isNotEmpty &&
               orgNames.length == orgCodes.length) {
             orgDisplayName = orgNames[orgIndex];
@@ -150,23 +130,25 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
 
           final List<Map<String, String>> allSchoolEntries =
               widget.schoolsForOrg != null
-                  ? widget.schoolsForOrg!
-                  : (state is AuthLoaded
-                      ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
-                      : const <Map<String, String>>[]);
+              ? widget.schoolsForOrg!
+              : (state is AuthLoaded
+                    ? (state.schoolsByOrg[widget.selectedOrg] ?? const [])
+                    : const <Map<String, String>>[]);
           // Hide schools that are not yet ACTIVE (e.g. still PENDING
           // approval) from the picker.
           final schoolEntries = _schoolStatuses.isEmpty
               ? allSchoolEntries
               : allSchoolEntries.where((e) {
-                  final status = _schoolStatuses[(e['schoolCode'] ?? '').trim()];
+                  final status =
+                      _schoolStatuses[(e['schoolCode'] ?? '').trim()];
                   return status == null || status == 'ACTIVE';
                 }).toList();
           final schools = schoolEntries
               .map((e) => e['schoolName'] ?? e['schoolCode'] ?? '')
               .where((s) => s.isNotEmpty)
               .toList();
-          final isLoading = state is AuthLoaded &&
+          final isLoading =
+              state is AuthLoaded &&
               state.isPrefetchingSchools &&
               schools.isEmpty;
 
@@ -190,294 +172,217 @@ class _SchoolSelectionScreenState extends State<SchoolSelectionScreen> {
 
           final isNextEnabled = _selectedSchool != null && schools.isNotEmpty;
 
-          return Scaffold(
-            body: Container(
-              color: Colors.white,
-              child: SafeArea(
-                child: Column(
-                  children: [
-                    // Back button at top (same layout as ForgotPasswordScreen)
-                    Padding(
-                      padding: EdgeInsets.all(screenWidth * 0.04),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: IconButton(
-                          icon: Icon(
-                            Icons.arrow_back,
-                            color: const Color(0xFF333333),
-                            size: screenHeight * 0.03,
-                          ),
-                          onPressed: onBack,
-                        ),
+          return SkeuScaffold(
+            body: SafeArea(
+              child: Column(
+                children: [
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 0),
+                      child: SkeuIconButton(
+                        icon: Icons.arrow_back_rounded,
+                        onPressed: onBack,
                       ),
                     ),
-                    Expanded(
-                      child: Center(
-                        child: Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: screenWidth * 0.06,
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(height: 28),
+                          const Center(
+                            child: SkeuBrandLockup(
+                              markSize: 70,
+                              fontSize: 23,
+                              careColor: SkeuColors.ink,
+                            ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Image.asset(
-                                MediaRes.logo_wow,
-                                height: screenHeight * 0.12,
-                                width: screenHeight * 0.12,
-                              ),
-                              SizedBox(height: screenHeight * 0.01),
-                              ShaderMask(
-                                shaderCallback: (Rect bounds) {
-                                  return AppColors.buildPrimaryGradient()
-                                      .createShader(bounds);
-                                },
-                                blendMode: BlendMode.srcIn,
-                                child: Text(
-                                  'WowCare',
-                                  style: TextStyle(
-                                    fontSize: screenHeight * 0.03,
-                                    fontWeight: FontWeight.w500,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.03),
-                              // Profile avatar + name/role in a row (like design)
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  DocumentImageWidget(
-                                    fileUuid: login?.userCode ?? '',
-                                    name: userName,
-                                    size: screenHeight * 0.07,
-                                    fontSize: screenHeight * 0.024,
-                                  ),
-                                  SizedBox(width: screenWidth * 0.03),
-                                  Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Text(
-                                        userName,
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: screenHeight * 0.022,
-                                          fontWeight: FontWeight.w600,
-                                          color: const Color(0xFF573353),
-                                        ),
-                                      ),
-                                      SizedBox(height: screenHeight * 0.004),
-                                      Text(
-                                        userRole,
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: screenHeight * 0.016,
-                                          fontWeight: FontWeight.w400,
-                                          color: Colors.grey.shade600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                              SizedBox(height: screenHeight * 0.02),
-                              // Organization name (same idea as previous subtitle)
-                              Text(
-                                orgDisplayName,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.02,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF573353),
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.02),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  'Select your School',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: screenHeight * 0.022,
-                                    height: 2 / 6,
-                                    fontWeight: FontWeight.w500,
-                                    color: const Color(0xFF333333),
-                                  ),
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.01),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: Text(
-                                  "Choose the school you want to continue with.",
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: screenHeight * 0.016,
-                                    fontWeight: FontWeight.w400,
-                                    color: const Color(0xFF333333),
-                                    height: 22 / 12,
-                                  ),
-                                  textAlign: TextAlign.left,
-                                ),
-                              ),
-                              SizedBox(height: screenHeight * 0.01),
-                              Container(
-                                width: double.infinity,
-                                height: 1,
-                                color: const Color(0xFFFFF3E9),
-                              ),
-                              SizedBox(height: screenHeight * 0.02),
-                              if (isLoading)
-                                Padding(
-                                  padding: EdgeInsets.only(bottom: screenHeight * 0.02),
-                                  child: const LinearProgressIndicator(),
-                                ),
-                              CustomDropdown(
-                                hintText: isLoading
-                                    ? 'Loading schools...'
-                                    : (schools.isNotEmpty
-                                        ? 'Select school'
-                                        : 'No schools found'),
-                                items: schools,
-                                selectedItem: _selectedSchool,
-                                height: screenHeight * 0.06,
-                                contentPadding: EdgeInsets.symmetric(
-                                  vertical: screenHeight * 0.01,
-                                  horizontal: screenWidth * 0.04,
-                                ),
-                                leadingIcon: SvgPicture.asset(
-                                  MediaRes.homeIcon,
-                                  height: screenHeight * 0.022,
-                                  width: screenHeight * 0.022,
-                                  colorFilter: const ColorFilter.mode(
-                                    Color(0xFF573353),
-                                    BlendMode.srcIn,
-                                  ),
-                                ),
-                                selectedTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.022,
-                                  fontWeight: FontWeight.w500,
-                                  color: const Color(0xFF333333),
-                                ),
-                                popupItemTextStyle: TextStyle(
-                                  fontFamily: 'Manrope',
-                                  fontSize: screenHeight * 0.02,
-                                  fontWeight: FontWeight.w400,
-                                  color: const Color(0xFF333333),
-                                ),
-                                onSelect: (value) {
-                                  setState(() {
-                                    _selectedSchool = value;
-                                    if (value != null && schoolEntries.isNotEmpty) {
-                                      final entry = schoolEntries.firstWhere(
-                                        (e) =>
-                                            (e['schoolName'] ?? e['schoolCode']) ==
-                                            value,
-                                        orElse: () => <String, String>{},
-                                      );
-                                      _selectedSchoolCode =
-                                          entry['schoolCode'] ?? entry['schoolName'];
-                                    }
-                                  });
-                                },
-                              ),
-                              SizedBox(height: screenHeight * 0.02),
-                            ],
+                          const SizedBox(height: 22),
+                          // The organisation you came in through, stated as a
+                          // small raised pill rather than a heading: it is
+                          // context for the choice below, not the choice.
+                          Center(child: _buildOrgPill(orgDisplayName)),
+                          const SizedBox(height: 22),
+                          const SkeuPageHeader(
+                            title: 'Select School',
+                            subtitle:
+                                'Choose the school you want to continue with.',
                           ),
-                        ),
+                          const SizedBox(height: 22),
+                          if (isLoading)
+                            const Padding(
+                              padding: EdgeInsets.only(bottom: 16),
+                              child: SkeuProgressBar(value: .35, height: 6),
+                            ),
+                          SkeuSelectField(
+                            value: _selectedSchool,
+                            hintText: isLoading
+                                ? 'Loading schools...'
+                                : (schools.isNotEmpty
+                                      ? 'Select school'
+                                      : 'No schools found'),
+                            icon: Icons.school_outlined,
+                            isOpen: _isPickerOpen,
+                            enabled: schools.isNotEmpty,
+                            onTap: () =>
+                                setState(() => _isPickerOpen = !_isPickerOpen),
+                          ),
+                          if (_isPickerOpen && schoolEntries.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            SkeuOptionList(
+                              children: [
+                                for (var i = 0; i < schoolEntries.length; i++)
+                                  ..._buildSchoolRow(schoolEntries, i),
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 24),
+                        ],
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.all(screenWidth * 0.06),
-                      child: CustomButtonLayout(
-                        confirmButtonLabel: 'Next',
-                        showCancelButton: false,
-                        isForm: false,
-                        isLoading: _isSubmitting,
-                        onPressedConfirm: isNextEnabled
-                            ? () async {
-                                if (_isSubmitting) return;
-                                setState(() => _isSubmitting = true);
-                                if (_selectedSchool == null) {
-                                  if (mounted) {
-                                    setState(() => _isSubmitting = false);
-                                  }
-                                  return;
-                                }
-                                final authCubit = context.read<AuthCubit>();
-                                final schoolCode = _selectedSchoolCode ??
-                                    _selectedSchool!;
-                                try {
-                                  final blockMessage = await authCubit
-                                      .verifySchoolActiveOrBlockMessage(
-                                    organizationCode: widget.selectedOrg,
-                                    schoolCode: schoolCode,
-                                  );
-                                  if (blockMessage != null) {
-                                    if (!context.mounted) return;
-                                    CoreUtils.showTopSnackBar(
-                                      context: context,
-                                      message: blockMessage,
-                                      isError: true,
-                                    );
-                                    return;
-                                  }
-                                  await authCubit.updateLoginContext(
-                                    lastLoginOrganizationCode:
-                                        widget.selectedOrg,
-                                    lastLoginSchoolCode: schoolCode,
-                                  );
-                                  if (widget.isSwitchFlow) {
-                                    await authCubit.setSelectedOrgAndSchool(
-                                      organizationCode: widget.selectedOrg,
-                                      schoolCode: schoolCode,
-                                      schoolName: _selectedSchool,
-                                    );
-                                  } else {
-                                    await authCubit.completeLogin(
-                                      selectedOrgCode: widget.selectedOrg,
-                                      selectedSchoolName: _selectedSchool!,
-                                      selectedSchoolCode: _selectedSchoolCode,
-                                    );
-                                  }
-                                  // Prefetch profile + permissions + parent-child
-                                  // BEFORE opening Dashboard so UI doesn't lazily
-                                  // trigger guardian/children calls.
-                                  await authCubit.prefetchStaffProfileForOrgAndSchool(
-                                    organizationCode: widget.selectedOrg,
-                                    schoolCode: schoolCode,
-                                  );
-                                  if (!context.mounted) return;
-                                  await context
-                                      .read<RoleCubit>()
-                                      .refreshAccessFromServer(force: true);
-                                  if (!context.mounted) return;
-                                  context
-                                      .read<ParentChildCubit>()
-                                      .invalidate();
-                                  await context
-                                      .read<ParentChildCubit>()
-                                      .ensureLoaded(force: true);
-                                  if (!context.mounted) return;
-                                  context.go(DashboardScreen.routeName);
-                                } finally {
-                                  if (mounted) {
-                                    setState(() => _isSubmitting = false);
-                                  }
-                                }
-                              }
-                            : null,
-                      ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: SkeuButton(
+                      label: 'Next',
+                      radius: 18,
+                      enabled: isNextEnabled,
+                      isLoading: _isSubmitting,
+                      onPressed: () => _handleNext(context),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ),
           );
         },
       ),
     );
+  }
+
+  /// One school in the unfolded list, preceded by a hairline for every row but
+  /// the first. Tones rotate so a long list of rooms stays scannable.
+  List<Widget> _buildSchoolRow(List<Map<String, String>> entries, int i) {
+    final entry = entries[i];
+    final name = entry['schoolName'] ?? entry['schoolCode'] ?? '';
+    final code = entry['schoolCode'] ?? '';
+    const tones = [SkeuTone.info, SkeuTone.sun, SkeuTone.pink, SkeuTone.ok];
+    return [
+      if (i > 0)
+        const SkeuDivider(margin: EdgeInsets.symmetric(horizontal: 14)),
+      SkeuOptionRow(
+        label: name,
+        subtitle: code.isNotEmpty && code != name ? code : null,
+        selected: name == _selectedSchool,
+        leading: SkeuIconTile(
+          icon: Icons.apartment_rounded,
+          size: 34,
+          iconSize: 17,
+          radius: 11,
+          tone: tones[i % tones.length],
+        ),
+        onTap: () => setState(() {
+          _selectedSchool = name;
+          _selectedSchoolCode = code.isNotEmpty ? code : name;
+          _isPickerOpen = false;
+        }),
+      ),
+    ];
+  }
+
+  /// The organisation chip: a small raised pill carrying the org's name.
+  Widget _buildOrgPill(String orgDisplayName) {
+    return SkeuPanel(
+      radius: SkeuRadius.pill,
+      shadows: SkeuElevation.elev1,
+      padding: const EdgeInsets.fromLTRB(12, 8, 16, 8),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Icon(
+            Icons.apartment_rounded,
+            size: 16,
+            color: SkeuColors.teal700,
+          ),
+          const SizedBox(width: 10),
+          Flexible(
+            child: Text(
+              orgDisplayName,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: SkeuText.small(
+                color: SkeuColors.ink,
+                weight: SkeuText.weightHeading,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleNext(BuildContext context) async {
+    if (_isSubmitting) return;
+    setState(() => _isSubmitting = true);
+    if (_selectedSchool == null) {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+      return;
+    }
+    final authCubit = context.read<AuthCubit>();
+    final schoolCode = _selectedSchoolCode ?? _selectedSchool!;
+    try {
+      final blockMessage = await authCubit.verifySchoolActiveOrBlockMessage(
+        organizationCode: widget.selectedOrg,
+        schoolCode: schoolCode,
+      );
+      if (blockMessage != null) {
+        if (!context.mounted) return;
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: blockMessage,
+          isError: true,
+        );
+        return;
+      }
+      await authCubit.updateLoginContext(
+        lastLoginOrganizationCode: widget.selectedOrg,
+        lastLoginSchoolCode: schoolCode,
+      );
+      if (widget.isSwitchFlow) {
+        await authCubit.setSelectedOrgAndSchool(
+          organizationCode: widget.selectedOrg,
+          schoolCode: schoolCode,
+          schoolName: _selectedSchool,
+        );
+      } else {
+        await authCubit.completeLogin(
+          selectedOrgCode: widget.selectedOrg,
+          selectedSchoolName: _selectedSchool!,
+          selectedSchoolCode: _selectedSchoolCode,
+        );
+      }
+      // Prefetch profile + permissions + parent-child BEFORE opening Dashboard
+      // so UI doesn't lazily trigger guardian/children calls.
+      await authCubit.prefetchStaffProfileForOrgAndSchool(
+        organizationCode: widget.selectedOrg,
+        schoolCode: schoolCode,
+      );
+      if (!context.mounted) return;
+      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
+      if (!context.mounted) return;
+      context.read<ParentChildCubit>().invalidate();
+      await context.read<ParentChildCubit>().ensureLoaded(force: true);
+      if (!context.mounted) return;
+      context.go(DashboardScreen.routeName);
+    } finally {
+      if (mounted) {
+        setState(() => _isSubmitting = false);
+      }
+    }
   }
 }
