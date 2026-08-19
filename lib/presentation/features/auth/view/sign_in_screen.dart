@@ -325,9 +325,11 @@ class _SignInScreenState extends State<SignInScreen>
     );
   }
 
-  /// The navy-to-teal rail the brand lockup sits on, with two soft blooms
-  /// bleeding light in from the corners. This is the app's one dark surface, so
-  /// everything below it reads as lit from above.
+  /// The flat navy rail the brand lockup sits on. This is the app's one dark
+  /// surface, so everything below it reads as lit from above.
+  ///
+  /// v2 flattened it: the navy-to-teal wash and the two soft corner blooms are
+  /// both gone, because the flat pass leaves no blurs and no gradients anywhere.
   Widget _buildBrandRail() {
     return ClipRect(
       child: DecoratedBox(
@@ -335,22 +337,6 @@ class _SignInScreenState extends State<SignInScreen>
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            Positioned(
-              top: -60,
-              right: -40,
-              child: SkeuBloom(
-                color: SkeuColors.teal500.withValues(alpha: .45),
-                size: 200,
-              ),
-            ),
-            Positioned(
-              bottom: -70,
-              left: -50,
-              child: SkeuBloom(
-                color: SkeuColors.pink500.withValues(alpha: .28),
-                size: 180,
-              ),
-            ),
             SafeArea(
               bottom: false,
               child: Padding(

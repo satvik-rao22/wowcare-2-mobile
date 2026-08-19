@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/app_time.dart';
 
@@ -54,7 +56,6 @@ import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
 import '../widgets/student_card.dart';
 import 'add_student_wizard_screen.dart';
@@ -106,6 +107,11 @@ class _StudentScreenState extends State<StudentScreen> {
   final Map<String, String> _attendanceStatusByStudentCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
+
+  /// v2 FAB dock: shows the "Student added" pill above the add key for a beat
+  /// after a successful add.
+  bool _showAddedConfirmation = false;
+  Timer? _addedConfirmationTimer;
 
   final GetClassroomByCodeUseCase _getClassroomByCode =
       serviceLocator<GetClassroomByCodeUseCase>();
@@ -229,11 +235,23 @@ class _StudentScreenState extends State<StudentScreen> {
     _currentFilters['Classroom'] = cleaned;
   }
 
+  /// Pops the "Student added" pill above the FAB and retires it on its own.
+  void _showAddedConfirmationPill() {
+    if (!mounted) return;
+    _addedConfirmationTimer?.cancel();
+    setState(() => _showAddedConfirmation = true);
+    _addedConfirmationTimer = Timer(const Duration(milliseconds: 2400), () {
+      if (!mounted) return;
+      setState(() => _showAddedConfirmation = false);
+    });
+  }
+
   @override
   void dispose() {
     ProfilePhotoUploadEvents.studentTick.removeListener(
       _onProfilePhotoUploaded,
     );
+    _addedConfirmationTimer?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.dispose();
@@ -1452,69 +1470,6 @@ class _StudentScreenState extends State<StudentScreen> {
                               textAlign: TextAlign.left,
                             ),
                           ),
-                          if (ModuleAccess.mayWrite(
-                            context.watch<RoleCubit>(),
-                            AppAccessModules.student,
-                          ))
-                            GradientAddButton(
-                              onTap: () async {
-                                final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        const AddStudentWizardScreen(),
-                                  ),
-                                );
-                                if (!mounted) return;
-                                AppLogger.d(
-                                  '[StudentScreen] Received result from AddStudentWizardScreen: ' +
-                                      result.toString(),
-                                );
-                                if (result is Map &&
-                                    (result['showPostAddPrompt'] == true)) {
-                                  final studentName =
-                                      (result['studentName'] as String?) ?? '';
-                                  final studentCode =
-                                      (result['studentCode'] as String?) ?? '';
-                                  // New student added successfully → reset cache + refresh list
-                                  await _refreshAllStudentApis();
-                                  WidgetsBinding.instance.addPostFrameCallback((
-                                    _,
-                                  ) {
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      backgroundColor: Colors.white,
-                                      shape: const RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.only(
-                                          topLeft: Radius.circular(24),
-                                          topRight: Radius.circular(24),
-                                        ),
-                                      ),
-                                      builder: (ctx) =>
-                                          PostAddStudentBottomSheet(
-                                            studentName: studentName,
-                                            onLater: () =>
-                                                Navigator.of(ctx).pop(),
-                                            onYes: () {
-                                              Navigator.of(ctx).pop();
-                                              if (studentCode.isNotEmpty) {
-                                                _openEditStudentDetails(
-                                                  studentCode,
-                                                );
-                                              }
-                                            },
-                                          ),
-                                    );
-                                  });
-                                }
-                              },
-                              isTablet:
-                                  MediaQuery.of(context).size.width >= 600,
-                              isLargeTablet:
-                                  MediaQuery.of(context).size.width >= 900,
-                            ),
-                          SizedBox(width: 10),
                           // Clock action button
                           // Container(
                           //   width: 38,
@@ -1795,7 +1750,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                       ),
-                                      color: const Color.fromRGBO(172, 234, 236,
+                                      color: const Color.fromRGBO(
+                                        172,
+                                        234,
+                                        236,
                                         0.3,
                                       ),
                                     ),
@@ -2072,9 +2030,76 @@ class _StudentScreenState extends State<StudentScreen> {
           stackChildren.add(actionPanel);
         }
 
+        // v2: the one floating action key. Handed to the scaffold's floating
+        // action slot rather than stacked at a fixed inset, so it stays clear
+        // of the custom navigation bar whatever height that bar reports. Same
+        // RBAC guard the header button had.
+        final canAddStudent = ModuleAccess.mayWrite(
+          context.watch<RoleCubit>(),
+          AppAccessModules.student,
+        );
+        final Widget? fabDock = !canAddStudent
+            ? null
+            : SkeuFabDock(
+                confirmation: _showAddedConfirmation
+                    ? const SkeuFabConfirmation(label: 'Student added')
+                    : null,
+                fab: SkeuFab(
+                  icon: Icons.add_rounded,
+                  tooltip: 'Add student',
+                  onTap: () async {
+                    final result = await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const AddStudentWizardScreen(),
+                      ),
+                    );
+                    if (!mounted) return;
+                    AppLogger.d(
+                      '[StudentScreen] Received result from AddStudentWizardScreen: ' +
+                          result.toString(),
+                    );
+                    if (result is Map &&
+                        (result['showPostAddPrompt'] == true)) {
+                      final studentName =
+                          (result['studentName'] as String?) ?? '';
+                      final studentCode =
+                          (result['studentCode'] as String?) ?? '';
+                      _showAddedConfirmationPill();
+                      // New student added successfully → reset cache + refresh list
+                      await _refreshAllStudentApis();
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        showModalBottomSheet(
+                          context: context,
+                          isScrollControlled: true,
+                          backgroundColor: Colors.white,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(24),
+                              topRight: Radius.circular(24),
+                            ),
+                          ),
+                          builder: (ctx) => PostAddStudentBottomSheet(
+                            studentName: studentName,
+                            onLater: () => Navigator.of(ctx).pop(),
+                            onYes: () {
+                              Navigator.of(ctx).pop();
+                              if (studentCode.isNotEmpty) {
+                                _openEditStudentDetails(studentCode);
+                              }
+                            },
+                          ),
+                        );
+                      });
+                    }
+                  },
+                ),
+              );
+
         return GlobalScaffold(
           body: Stack(children: stackChildren),
           showCustomNavigationBar: true,
+          floatingActionButton: fabDock,
         );
       },
     );

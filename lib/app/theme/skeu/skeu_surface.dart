@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'skeu_inner_shadow.dart';
+import 'skeu_press.dart';
 import 'skeu_tokens.dart';
 
 /// A raised panel: gradient face, navy-tinted drop shadow, lit top bevel.
@@ -111,7 +112,7 @@ class SkeuPanel extends StatelessWidget {
     );
 
     if (onTap != null) {
-      panel = _SkeuPressable(onTap: onTap!, child: panel);
+      panel = SkeuPressable.surface(onTap: onTap, child: panel);
     }
     return panel;
   }
@@ -192,7 +193,7 @@ class SkeuWell extends StatelessWidget {
       ),
     );
 
-    if (onTap != null) well = _SkeuPressable(onTap: onTap!, child: well);
+    if (onTap != null) well = SkeuPressable.surface(onTap: onTap, child: well);
     return well;
   }
 }
@@ -408,72 +409,6 @@ class SkeuBrandRail extends StatelessWidget {
     decoration: BoxDecoration(
       gradient: SkeuSurfaces.railBrand,
       borderRadius: BorderRadius.circular(SkeuRadius.pill),
-    ),
-  );
-}
-
-/// A soft coloured bloom — the out-of-focus light behind the navy sign-in rail.
-class SkeuBloom extends StatelessWidget {
-  const SkeuBloom({
-    required this.color,
-    required this.size,
-    this.blur = SkeuSurfaces.blurBloom,
-    super.key,
-  });
-
-  final Color color;
-  final double size;
-  final double blur;
-
-  @override
-  Widget build(BuildContext context) => IgnorePointer(
-    // A radial fade rather than a blurred solid: it gives the same 48px CSS
-    // bloom without a backdrop filter, and it stays cheap on a scrolling page.
-    child: Container(
-      width: size * 2,
-      height: size * 2,
-      decoration: BoxDecoration(
-        shape: BoxShape.circle,
-        gradient: RadialGradient(
-          colors: [color, color.withValues(alpha: 0)],
-          stops: const [.22, 1],
-        ),
-      ),
-    ),
-  );
-}
-
-/// Shared press feedback: the object sinks 2px and dims a touch. Every tappable
-/// skeuomorphic surface uses it so pressing anything feels like pressing the
-/// same material.
-class _SkeuPressable extends StatefulWidget {
-  const _SkeuPressable({required this.onTap, required this.child});
-
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  State<_SkeuPressable> createState() => _SkeuPressableState();
-}
-
-class _SkeuPressableState extends State<_SkeuPressable> {
-  bool _down = false;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTapDown: (_) => setState(() => _down = true),
-    onTapUp: (_) => setState(() => _down = false),
-    onTapCancel: () => setState(() => _down = false),
-    onTap: widget.onTap,
-    child: AnimatedSlide(
-      offset: _down ? const Offset(0, .012) : Offset.zero,
-      duration: SkeuMotion.press,
-      child: AnimatedScale(
-        scale: _down ? .985 : 1,
-        duration: SkeuMotion.press,
-        child: widget.child,
-      ),
     ),
   );
 }

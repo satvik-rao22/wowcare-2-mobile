@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'skeu_press.dart';
 import 'skeu_surface.dart';
 import 'skeu_tokens.dart';
 
@@ -386,8 +387,7 @@ class SkeuOptionRow extends StatelessWidget {
   final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
+  Widget build(BuildContext context) => SkeuPressable.surface(
     onTap: onTap,
     child: AnimatedContainer(
       duration: SkeuMotion.quick,
@@ -473,7 +473,7 @@ class SkeuSearchField extends StatelessWidget {
           ),
         ),
         if ((controller?.text.isNotEmpty ?? false) && onClear != null)
-          GestureDetector(
+          SkeuPressable.surface(
             onTap: onClear,
             child: const Icon(
               Icons.close_rounded,
@@ -503,8 +503,7 @@ class SkeuCheckbox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final br = BorderRadius.circular(8);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return SkeuPressable.surface(
       onTap: onChanged == null ? null : () => onChanged!(!value),
       child: AnimatedContainer(
         duration: SkeuMotion.quick,
@@ -536,10 +535,9 @@ class SkeuCheckbox extends StatelessWidget {
 
 /// A physical toggle: a recessed track with a raised knob that slides in it.
 class SkeuSwitch extends StatelessWidget {
+  /// Flat pass: the off track is one flat colour, like every other surface.
   static const _offTrack = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [SkeuColors.cream200, Color(0xFFF2F4FB)],
+    colors: [SkeuColors.cream200, SkeuColors.cream200],
   );
 
   const SkeuSwitch({

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'skeu_display.dart';
 import 'skeu_inner_shadow.dart';
+import 'skeu_press.dart';
 import 'skeu_surface.dart';
 import 'skeu_tokens.dart';
 
@@ -216,11 +217,7 @@ class SkeuRailAction extends StatelessWidget {
     return Align(
       widthFactor: 1,
       heightFactor: 1,
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: content,
-      ),
+      child: SkeuPressable.surface(onTap: onTap, child: content),
     );
   }
 }
@@ -261,56 +258,61 @@ class SkeuSectionCard extends StatelessWidget {
   final double gap;
 
   @override
-  Widget build(BuildContext context) => SkeuPanel(
-    radius: radius,
-    padding: padding,
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget build(BuildContext context) {
+    final titleRow = Row(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Row(
-          children: [
-            Flexible(
-              child: GestureDetector(
-                onTap: onTitleTap,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Flexible(
-                      child: Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: SkeuText.family,
-                          fontSize: 18,
-                          fontWeight: SkeuText.weightBold,
-                          color: SkeuColors.ink,
-                          letterSpacing: 18 * SkeuText.trackingHeading,
-                        ),
-                      ),
-                    ),
-                    if (onTitleTap != null) ...[
-                      const SizedBox(width: 8),
-                      const Icon(
-                        Icons.arrow_outward_rounded,
-                        size: 16,
-                        color: SkeuColors.ink,
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+        Flexible(
+          child: Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontFamily: SkeuText.family,
+              fontSize: 18,
+              fontWeight: SkeuText.weightBold,
+              color: SkeuColors.ink,
+              letterSpacing: 18 * SkeuText.trackingHeading,
             ),
-            const Spacer(),
-            if (trailing != null) ...[trailing!, const SizedBox(width: 10)],
-            if (onToggle != null)
-              SkeuFoldKey(expanded: expanded, onTap: onToggle!),
-          ],
+          ),
         ),
-        if (expanded) ...[SizedBox(height: gap), child],
+        if (onTitleTap != null) ...[
+          const SizedBox(width: 8),
+          const Icon(
+            Icons.arrow_outward_rounded,
+            size: 16,
+            color: SkeuColors.ink,
+          ),
+        ],
       ],
-    ),
-  );
+    );
+
+    return SkeuPanel(
+      radius: radius,
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Flexible(
+                // Only the "opens the module" variant is a tappable surface, so
+                // a plain title must not sink under a finger.
+                child: onTitleTap == null
+                    ? titleRow
+                    : SkeuPressable.surface(onTap: onTitleTap, child: titleRow),
+              ),
+              const Spacer(),
+              if (trailing != null) ...[trailing!, const SizedBox(width: 10)],
+              if (onToggle != null)
+                SkeuFoldKey(expanded: expanded, onTap: onToggle!),
+            ],
+          ),
+          if (expanded) ...[SizedBox(height: gap), child],
+        ],
+      ),
+    );
+  }
 }
 
 /// The small rimmed key that folds a [SkeuSectionCard] open and shut. 27px, a
@@ -330,8 +332,7 @@ class SkeuFoldKey extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final br = BorderRadius.circular(9);
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return SkeuPressable.surface(
       onTap: onTap,
       child: Container(
         width: size,
@@ -373,9 +374,14 @@ class SkeuFoldKey extends StatelessWidget {
   }
 }
 
-/// A segmented control sunk into the card it belongs to: a recessed trough
-/// holding one raised teal key per segment. Only the selected key is raised,
-/// so the control shows its state as geometry, not colour alone.
+/// A segmented switcher: a recessed well holding one teal key that **slides**
+/// between the segments.
+///
+/// v2 of the design rebuilt this interaction. In v1 each segment recoloured
+/// itself in place, so the selection teleported. Here a single indicator is
+/// positioned absolutely and animated to the chosen segment on the spring ease,
+/// so it slides across and settles with a slight overshoot; the labels
+/// crossfade underneath it. Segments sink 3px on press like any other key.
 class SkeuSegmentedTabs extends StatelessWidget {
   const SkeuSegmentedTabs({
     required this.labels,
@@ -398,54 +404,108 @@ class SkeuSegmentedTabs extends StatelessWidget {
   final ValueChanged<int> onChanged;
   final double height;
 
+  /// The gap between segments, matching the design's `gap:4px`.
+  static const _gap = 4.0;
+
   @override
-  Widget build(BuildContext context) => SkeuWell(
-    radius: SkeuRadius.lg,
-    gradient: SkeuSurfaces.sunken,
-    padding: const EdgeInsets.all(5),
-    child: Row(
-      children: [
-        for (var i = 0; i < labels.length; i++)
-          Expanded(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => onChanged(i),
-              child: AnimatedContainer(
-                duration: SkeuMotion.quick,
-                curve: SkeuMotion.easeOut,
-                height: height - 10,
-                margin: EdgeInsets.only(right: i == labels.length - 1 ? 0 : 4),
-                decoration: BoxDecoration(
-                  gradient: i == selectedIndex ? SkeuSurfaces.faceTeal : null,
-                  borderRadius: BorderRadius.circular(SkeuRadius.md),
-                  boxShadow: i == selectedIndex
-                      ? const [
+  Widget build(BuildContext context) {
+    final count = labels.length;
+    final inner = height - 10; // the well's 5px padding, top and bottom
+
+    return SkeuWell(
+      radius: SkeuRadius.lg,
+      gradient: SkeuSurfaces.sunken,
+      padding: const EdgeInsets.all(5),
+      child: SizedBox(
+        height: inner,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final segment = count == 0
+                ? 0.0
+                : (constraints.maxWidth - _gap * (count - 1)) / count;
+            final index = selectedIndex.clamp(0, count == 0 ? 0 : count - 1);
+
+            return Stack(
+              children: [
+                if (count > 0)
+                  AnimatedPositioned(
+                    duration: SkeuMotion.base,
+                    curve: SkeuMotion.spring,
+                    left: (segment + _gap) * index,
+                    top: 0,
+                    width: segment,
+                    height: inner,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: SkeuSurfaces.faceTeal,
+                        borderRadius: BorderRadius.circular(SkeuRadius.md),
+                        boxShadow: const [
                           BoxShadow(
                             color: SkeuElevation.rimTeal,
                             offset: Offset(0, 2),
                           ),
-                        ]
-                      : null,
-                ),
-                alignment: Alignment.center,
-                child: DefaultTextStyle.merge(
-                  style: SkeuText.body(
-                    color: i == selectedIndex
-                        ? SkeuColors.white
-                        : SkeuColors.inkSoft,
-                    weight: SkeuText.weightHeading,
+                        ],
+                      ),
+                    ),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  child:
-                      (i < labelWidgets.length ? labelWidgets[i] : null) ??
-                      Text(labels[i]),
+                Row(
+                  children: [
+                    for (var i = 0; i < count; i++) ...[
+                      if (i > 0) const SizedBox(width: _gap),
+                      SizedBox(
+                        width: segment,
+                        height: inner,
+                        child: SkeuPressable.key(
+                          onTap: () => onChanged(i),
+                          child: _SegmentLabel(
+                            selected: i == index,
+                            child:
+                                (i < labelWidgets.length
+                                    ? labelWidgets[i]
+                                    : null) ??
+                                Text(labels[i]),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
-              ),
-            ),
-          ),
-      ],
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+/// One segment's contents, crossfading between the selected and unselected ink
+/// as the indicator slides underneath.
+class _SegmentLabel extends StatelessWidget {
+  const _SegmentLabel({required this.selected, required this.child});
+
+  final bool selected;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<Color?>(
+    tween: ColorTween(end: selected ? SkeuColors.white : SkeuColors.inkSoft),
+    duration: SkeuMotion.quick,
+    curve: SkeuMotion.easeOut,
+    builder: (context, color, child) => IconTheme.merge(
+      data: IconThemeData(color: color),
+      child: DefaultTextStyle.merge(
+        style: SkeuText.body(
+          color: color ?? SkeuColors.inkSoft,
+          weight: SkeuText.weightHeading,
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+        child: child!,
+      ),
     ),
+    child: Center(child: child),
   );
 }
 
@@ -521,8 +581,7 @@ class SkeuNavBar extends StatelessWidget {
       ],
     );
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
+    return SkeuPressable.surface(
       onTap: () => onTap(index),
       child: Stack(
         clipBehavior: Clip.none,
@@ -645,8 +704,7 @@ class SkeuPersonRow extends StatelessWidget {
   final Widget? leading;
 
   @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
+  Widget build(BuildContext context) => SkeuPressable.surface(
     onTap: onTap,
     child: Row(
       children: [
@@ -839,8 +897,7 @@ class SkeuTable extends StatelessWidget {
             ),
             for (var r = 0; r < rows.length; r++) ...[
               if (r > 0) const SkeuDivider(),
-              GestureDetector(
-                behavior: HitTestBehavior.opaque,
+              SkeuPressable.surface(
                 onTap: rows[r].onTap,
                 child: DecoratedBox(
                   decoration: const BoxDecoration(

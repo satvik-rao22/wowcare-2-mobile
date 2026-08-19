@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'skeu_inner_shadow.dart';
+import 'skeu_press.dart';
 import 'skeu_tokens.dart';
 
 /// The material of a pressable key.
@@ -8,6 +9,69 @@ import 'skeu_tokens.dart';
 /// Pink is THE recommended action and must never double as a warning; teal is
 /// structure and secondary actions; neutral is the quiet third option.
 enum SkeuButtonVariant { pink, teal, sun, green, orange, navy, neutral, danger }
+
+/// The material of one rimmed key: its flat face, the solid rim it sits on, the
+/// ambient coloured glow under it, and the ink its label takes.
+///
+/// Shared by [SkeuButton] and [SkeuFab] so a variant means the same thing
+/// wherever it is pressed.
+typedef SkeuKeySkin = ({Gradient face, Color rim, Color glow, Color label});
+
+/// Resolves [variant] to its key material.
+SkeuKeySkin skeuKeySkin(SkeuButtonVariant variant) => switch (variant) {
+  SkeuButtonVariant.pink => (
+    face: SkeuSurfaces.facePink,
+    rim: SkeuElevation.rimPink,
+    glow: const Color(0xFF8E0E3A),
+    label: SkeuColors.white,
+  ),
+  SkeuButtonVariant.teal => (
+    face: SkeuSurfaces.faceTeal,
+    rim: SkeuElevation.rimTeal,
+    glow: const Color(0xFF186265),
+    label: SkeuColors.white,
+  ),
+  SkeuButtonVariant.sun => (
+    face: SkeuSurfaces.faceSun,
+    rim: SkeuElevation.rimSun,
+    glow: const Color(0xFFD3790C),
+    label: SkeuColors.sun800,
+  ),
+  SkeuButtonVariant.green => (
+    face: SkeuSurfaces.faceGreen,
+    rim: SkeuElevation.rimGreen,
+    glow: const Color(0xFF0C7143),
+    label: SkeuColors.white,
+  ),
+  SkeuButtonVariant.orange => (
+    face: SkeuSurfaces.faceOrange,
+    rim: SkeuColors.orange600,
+    glow: SkeuColors.orange600,
+    label: SkeuColors.white,
+  ),
+  SkeuButtonVariant.navy => (
+    face: SkeuSurfaces.faceNavy,
+    rim: SkeuElevation.rimNavy,
+    glow: SkeuColors.navy900,
+    label: SkeuColors.white,
+  ),
+  SkeuButtonVariant.neutral => (
+    face: SkeuSurfaces.faceNeutral,
+    rim: SkeuElevation.rimNeutral,
+    glow: SkeuColors.navy,
+    label: SkeuColors.ink,
+  ),
+  SkeuButtonVariant.danger => (
+    // Flat pass: danger has no `--face-*` token of its own, so it is
+    // flattened here to danger-500 to match every other face.
+    face: const LinearGradient(
+      colors: [SkeuColors.danger500, SkeuColors.danger500],
+    ),
+    rim: SkeuColors.danger600,
+    glow: SkeuColors.danger600,
+    label: SkeuColors.white,
+  ),
+};
 
 /// A rimmed key you push down onto.
 ///
@@ -85,62 +149,7 @@ class _SkeuButtonState extends State<SkeuButton> {
   bool get _interactive =>
       widget.enabled && !widget.isLoading && widget.onPressed != null;
 
-  ({Gradient face, Color rim, Color glow, Color label}) get _skin =>
-      switch (widget.variant) {
-        SkeuButtonVariant.pink => (
-          face: SkeuSurfaces.facePink,
-          rim: SkeuElevation.rimPink,
-          glow: const Color(0xFF8E0E3A),
-          label: SkeuColors.white,
-        ),
-        SkeuButtonVariant.teal => (
-          face: SkeuSurfaces.faceTeal,
-          rim: SkeuElevation.rimTeal,
-          glow: const Color(0xFF186265),
-          label: SkeuColors.white,
-        ),
-        SkeuButtonVariant.sun => (
-          face: SkeuSurfaces.faceSun,
-          rim: SkeuElevation.rimSun,
-          glow: const Color(0xFFD3790C),
-          label: SkeuColors.sun800,
-        ),
-        SkeuButtonVariant.green => (
-          face: SkeuSurfaces.faceGreen,
-          rim: SkeuElevation.rimGreen,
-          glow: const Color(0xFF0C7143),
-          label: SkeuColors.white,
-        ),
-        SkeuButtonVariant.orange => (
-          face: SkeuSurfaces.faceOrange,
-          rim: SkeuColors.orange600,
-          glow: SkeuColors.orange600,
-          label: SkeuColors.white,
-        ),
-        SkeuButtonVariant.navy => (
-          face: SkeuSurfaces.faceNavy,
-          rim: SkeuElevation.rimNavy,
-          glow: SkeuColors.navy900,
-          label: SkeuColors.white,
-        ),
-        SkeuButtonVariant.neutral => (
-          face: SkeuSurfaces.faceNeutral,
-          rim: SkeuElevation.rimNeutral,
-          glow: SkeuColors.navy,
-          label: SkeuColors.ink,
-        ),
-        SkeuButtonVariant.danger => (
-          face: const LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFE8574C), Color(0xFFD92D20), Color(0xFFCB2A1E)],
-            stops: [0, .52, 1],
-          ),
-          rim: SkeuColors.danger600,
-          glow: SkeuColors.danger600,
-          label: SkeuColors.white,
-        ),
-      };
+  SkeuKeySkin get _skin => skeuKeySkin(widget.variant);
 
   @override
   Widget build(BuildContext context) {
@@ -180,16 +189,7 @@ class _SkeuButtonState extends State<SkeuButton> {
         borderRadius: br,
         child: Stack(
           children: [
-            // Specular highlight over the coloured face.
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: SkeuSurfaces.glossTop,
-                  ),
-                ),
-              ),
-            ),
+            // No specular highlight: the v2 flat pass removed `--gloss-top`.
             Positioned.fill(
               child: IgnorePointer(
                 child: CustomPaint(
@@ -379,7 +379,7 @@ class SkeuIconButton extends StatelessWidget {
     }
 
     if (onPressed != null) {
-      key = _PressSink(onTap: onPressed!, child: key);
+      key = SkeuPressable.surface(onTap: onPressed, child: key);
     }
     if (tooltip != null) key = Tooltip(message: tooltip!, child: key);
     return key;
@@ -431,34 +431,6 @@ class SkeuTextButton extends StatelessWidget {
           ),
         ],
       ),
-    ),
-  );
-}
-
-class _PressSink extends StatefulWidget {
-  const _PressSink({required this.onTap, required this.child});
-
-  final VoidCallback onTap;
-  final Widget child;
-
-  @override
-  State<_PressSink> createState() => _PressSinkState();
-}
-
-class _PressSinkState extends State<_PressSink> {
-  bool _down = false;
-
-  @override
-  Widget build(BuildContext context) => GestureDetector(
-    behavior: HitTestBehavior.opaque,
-    onTapDown: (_) => setState(() => _down = true),
-    onTapUp: (_) => setState(() => _down = false),
-    onTapCancel: () => setState(() => _down = false),
-    onTap: widget.onTap,
-    child: AnimatedScale(
-      scale: _down ? .93 : 1,
-      duration: SkeuMotion.press,
-      child: widget.child,
     ),
   );
 }

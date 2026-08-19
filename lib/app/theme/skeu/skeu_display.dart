@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'skeu_inner_shadow.dart';
+import 'skeu_press.dart';
 import 'skeu_surface.dart';
 import 'skeu_tokens.dart';
 
@@ -112,11 +113,11 @@ enum SkeuTone { ok, warn, bad, info, sun, pink, purple, orange, neutral }
 ({Gradient surface, Color ink}) skeuToneSkin(SkeuTone tone) => switch (tone) {
   SkeuTone.ok => (surface: SkeuSurfaces.greenSoft, ink: SkeuColors.green700),
   SkeuTone.warn => (surface: SkeuSurfaces.sunSoft, ink: SkeuColors.sun700),
+  // Flat pass: danger has no `--surface-*-soft` token, so it is flattened here
+  // the same way the tokens were — one value near the wash's darker end.
   SkeuTone.bad => (
     surface: const LinearGradient(
-      begin: Alignment.topCenter,
-      end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFF7F6), SkeuColors.danger100],
+      colors: [Color(0xFFFEE8E7), Color(0xFFFEE8E7)],
     ),
     ink: SkeuColors.danger600,
   ),
@@ -187,7 +188,7 @@ class SkeuStatusChip extends StatelessWidget {
       ),
     );
     if (onTap != null) {
-      chip = GestureDetector(onTap: onTap, child: chip);
+      chip = SkeuPressable.surface(onTap: onTap, child: chip);
     }
     return chip;
   }
@@ -248,7 +249,9 @@ class SkeuFilterChip extends StatelessWidget {
     );
 
     if (selected) {
-      return GestureDetector(
+      // The unselected chip gets its sink from [SkeuWell] below; the selected
+      // one paints its own face, so it needs the press wrapper itself.
+      return SkeuPressable.surface(
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 9),

@@ -15,7 +15,6 @@ import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_car
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_staff_tab_card.dart';
 import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
-import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_student_to_classroom_form.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/assign_staff_to_classroom_form.dart';
@@ -27,7 +26,10 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 /// One value at a time: which classroom + tab an ALREADY-alive
 /// [ClassroomScreen] should jump to right now.
 class ClassroomTabCommand {
-  const ClassroomTabCommand({required this.classroomCode, required this.tabIndex});
+  const ClassroomTabCommand({
+    required this.classroomCode,
+    required this.tabIndex,
+  });
   final String classroomCode;
   final int tabIndex;
 }
@@ -181,8 +183,8 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   Classroom? _pickDefaultClassroom(List<Classroom> classrooms) {
     if (classrooms.isEmpty) return null;
 
-    final targetCode =
-        (_pendingClassroomCode ?? widget.initialClassroomCode)?.trim();
+    final targetCode = (_pendingClassroomCode ?? widget.initialClassroomCode)
+        ?.trim();
     if (!_appliedInitialClassroom &&
         targetCode != null &&
         targetCode.isNotEmpty) {
@@ -227,8 +229,9 @@ class _ClassroomScreenState extends State<ClassroomScreen>
   Future<void> _resolveStaffPersonaRestrictions() async {
     try {
       final storage = serviceLocator<StorageService>();
-      final shouldScope =
-          await isAttendanceScopedStaffPersona(storage: storage);
+      final shouldScope = await isAttendanceScopedStaffPersona(
+        storage: storage,
+      );
       if (!mounted) return;
       setState(() => _hideAssignFabForStaffPersona = shouldScope);
     } catch (_) {
@@ -350,153 +353,156 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     return KeyedSubtree(
       key: ValueKey<int>(_schoolReloadEpoch),
       child: BlocProvider<ClassroomCubit>(
-      create: (_) => serviceLocator<ClassroomCubit>()
-        ..loadActiveClassrooms(applyAttendanceStaffScope: true),
-      child: BlocBuilder<ClassroomCubit, ClassroomState>(
-        builder: (context, state) {
-          final classrooms = state.classrooms;
-          if (classrooms.isNotEmpty) {
-            _applyDefaultClassroomSelection(classrooms);
-          }
+        create: (_) =>
+            serviceLocator<ClassroomCubit>()
+              ..loadActiveClassrooms(applyAttendanceStaffScope: true),
+        child: BlocBuilder<ClassroomCubit, ClassroomState>(
+          builder: (context, state) {
+            final classrooms = state.classrooms;
+            if (classrooms.isNotEmpty) {
+              _applyDefaultClassroomSelection(classrooms);
+            }
 
-          final isInitialLoading = state.isLoading && classrooms.isEmpty;
+            final isInitialLoading = state.isLoading && classrooms.isEmpty;
 
-          // Keep the Notes-tab unread badge bound to the current classroom.
-          _maybeSyncNotesUnread(selectedRoom?.code ?? '');
+            // Keep the Notes-tab unread badge bound to the current classroom.
+            _maybeSyncNotesUnread(selectedRoom?.code ?? '');
 
-          return GlobalScaffold(
-            bodyPadding: EdgeInsets.zero,
-            floatingActionButton: _buildTabFab(context),
-            body: Padding(
-              // Extra bottom padding clears the (extend-body) floating bottom
-              // nav so the tab panel is never hidden behind it.
-              padding: EdgeInsets.fromLTRB(
-                0,
-                14,
-                0,
-                8 + CustomNavigationBar.navBarHeight,
-              ),
-              child: Column(
-                children: [
-                  // The room picker: one chip per classroom, the selected one
-                  // held down as a teal key. Scrolls horizontally, so a school
-                  // with many rooms still shows them all in one strip.
-                  if (isInitialLoading)
-                    const Padding(
-                      padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: ShimmerLoader(
-                          height: 36,
-                          width: 200,
-                          borderRadius: BorderRadius.all(Radius.circular(999)),
-                        ),
-                      ),
-                    )
-                  else
-                    Row(
-                      children: [
-                        Expanded(
-                          child: HighlightableCard(
-                            // Flashes the picker when the screen was opened
-                            // from a classroom notification whose code matches
-                            // the (pre-selected) room.
-                            code: selectedRoom?.code,
-                            highlightCode: widget.initialClassroomCode,
-                            borderRadius: SkeuRadius.pill,
-                            child: _buildRoomStrip(classrooms),
+            return GlobalScaffold(
+              bodyPadding: EdgeInsets.zero,
+              floatingActionButton: _buildTabFab(context),
+              body: Padding(
+                // Extra bottom padding clears the (extend-body) floating bottom
+                // nav so the tab panel is never hidden behind it.
+                padding: EdgeInsets.fromLTRB(
+                  0,
+                  14,
+                  0,
+                  8 + CustomNavigationBar.navBarHeight,
+                ),
+                child: Column(
+                  children: [
+                    // The room picker: one chip per classroom, the selected one
+                    // held down as a teal key. Scrolls horizontally, so a school
+                    // with many rooms still shows them all in one strip.
+                    if (isInitialLoading)
+                      const Padding(
+                        padding: EdgeInsets.fromLTRB(16, 4, 16, 4),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: ShimmerLoader(
+                            height: 36,
+                            width: 200,
+                            borderRadius: BorderRadius.all(
+                              Radius.circular(999),
+                            ),
                           ),
                         ),
-                        Padding(
-                          padding: const EdgeInsets.only(left: 8, right: 16),
-                          child: SkeuIconButton(
-                            icon: Icons.info_outline_rounded,
-                            tooltip: 'Class profile',
-                            onPressed: classrooms.isEmpty
-                                ? null
-                                : () {
-                                    final room =
-                                        selectedRoom ?? classrooms.first;
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const ClassroomInfoScreen(),
-                                        settings: RouteSettings(
-                                          arguments: room,
+                      )
+                    else
+                      Row(
+                        children: [
+                          Expanded(
+                            child: HighlightableCard(
+                              // Flashes the picker when the screen was opened
+                              // from a classroom notification whose code matches
+                              // the (pre-selected) room.
+                              code: selectedRoom?.code,
+                              highlightCode: widget.initialClassroomCode,
+                              borderRadius: SkeuRadius.pill,
+                              child: _buildRoomStrip(classrooms),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.only(left: 8, right: 16),
+                            child: SkeuIconButton(
+                              icon: Icons.info_outline_rounded,
+                              tooltip: 'Class profile',
+                              onPressed: classrooms.isEmpty
+                                  ? null
+                                  : () {
+                                      final room =
+                                          selectedRoom ?? classrooms.first;
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              const ClassroomInfoScreen(),
+                                          settings: RouteSettings(
+                                            arguments: room,
+                                          ),
                                         ),
+                                      );
+                                    },
+                            ),
+                          ),
+                        ],
+                      ),
+                    const SizedBox(height: 14),
+                    // Students / Staff / Notes live inside one raised panel, with
+                    // the segmented control sunk into its top edge — the design's
+                    // "one card, three faces" arrangement.
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: SkeuPanel(
+                          radius: 22,
+                          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                          child: Column(
+                            children: [
+                              SkeuSegmentedTabs(
+                                labels: const ['Students', 'Staff', 'Notes'],
+                                labelWidgets: [
+                                  null,
+                                  null,
+                                  _notesSegmentLabel(),
+                                ],
+                                selectedIndex: _tabController.index,
+                                onChanged: (i) => _tabController.animateTo(i),
+                              ),
+                              const SizedBox(height: 12),
+                              Expanded(
+                                child: isInitialLoading
+                                    ? const Padding(
+                                        padding: EdgeInsets.only(top: 4),
+                                        child: ClassroomStudentsTabShimmer(),
+                                      )
+                                    : TabBarView(
+                                        controller: _tabController,
+                                        children: [
+                                          ClassroomStudentsTabCard(
+                                            scrollController:
+                                                _studentsScrollController,
+                                            selectedRoom: selectedRoom,
+                                            highlightCode:
+                                                widget.initialHighlightCode,
+                                          ),
+                                          ClassroomStaffTabCard(
+                                            scrollController:
+                                                _staffScrollController,
+                                            selectedRoom: selectedRoom,
+                                            highlightCode:
+                                                widget.initialHighlightCode,
+                                          ),
+                                          ClassroomNotesTabCard(
+                                            scrollController:
+                                                _notesScrollController,
+                                            selectedRoom: selectedRoom,
+                                          ),
+                                        ],
                                       ),
-                                    );
-                                  },
+                              ),
+                            ],
                           ),
-                        ),
-                      ],
-                    ),
-                  const SizedBox(height: 14),
-                  // Students / Staff / Notes live inside one raised panel, with
-                  // the segmented control sunk into its top edge — the design's
-                  // "one card, three faces" arrangement.
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      child: SkeuPanel(
-                        radius: 22,
-                        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-                        child: Column(
-                          children: [
-                            SkeuSegmentedTabs(
-                              labels: const ['Students', 'Staff', 'Notes'],
-                              labelWidgets: [
-                                null,
-                                null,
-                                _notesSegmentLabel(),
-                              ],
-                              selectedIndex: _tabController.index,
-                              onChanged: (i) => _tabController.animateTo(i),
-                            ),
-                            const SizedBox(height: 12),
-                            Expanded(
-                              child: isInitialLoading
-                                  ? const Padding(
-                                      padding: EdgeInsets.only(top: 4),
-                                      child: ClassroomStudentsTabShimmer(),
-                                    )
-                                  : TabBarView(
-                                      controller: _tabController,
-                                      children: [
-                                        ClassroomStudentsTabCard(
-                                          scrollController:
-                                              _studentsScrollController,
-                                          selectedRoom: selectedRoom,
-                                          highlightCode:
-                                              widget.initialHighlightCode,
-                                        ),
-                                        ClassroomStaffTabCard(
-                                          scrollController:
-                                              _staffScrollController,
-                                          selectedRoom: selectedRoom,
-                                          highlightCode:
-                                              widget.initialHighlightCode,
-                                        ),
-                                        ClassroomNotesTabCard(
-                                          scrollController:
-                                              _notesScrollController,
-                                          selectedRoom: selectedRoom,
-                                        ),
-                                      ],
-                                    ),
-                            ),
-                          ],
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-          );
-        },
-      ),
+            );
+          },
+        ),
       ),
     );
   }
@@ -547,12 +553,19 @@ class _ClassroomScreenState extends State<ClassroomScreen>
     if (!context.read<RoleCubit>().canWriteModule(AppAccessModules.classroom)) {
       return null;
     }
+    // v2: one FAB pattern. The design draws it at 60px on a phone; tablets
+    // step up so the key stays a comfortable target on a wider canvas.
     final screenWidth = MediaQuery.of(context).size.width;
-    final isTablet = screenWidth >= 600;
-    final isLargeTablet = screenWidth >= 900;
-    
+    final fabSize = screenWidth >= 900
+        ? 76.0
+        : screenWidth >= 600
+        ? 68.0
+        : 60.0;
+
     if (_tabController.index == 0) {
-      return GradientAddButton(
+      return SkeuFab(
+        icon: Icons.add_rounded,
+        size: fabSize,
         onTap: () {
           showModalBottomSheet(
             context: context,
@@ -575,12 +588,12 @@ class _ClassroomScreenState extends State<ClassroomScreen>
             ),
           );
         },
-        isTablet: isTablet,
-        isLargeTablet: isLargeTablet,
       );
     }
     if (_tabController.index == 1) {
-      return GradientAddButton(
+      return SkeuFab(
+        icon: Icons.add_rounded,
+        size: fabSize,
         onTap: () {
           showModalBottomSheet(
             context: context,
@@ -603,8 +616,6 @@ class _ClassroomScreenState extends State<ClassroomScreen>
             ),
           );
         },
-        isTablet: isTablet,
-        isLargeTablet: isLargeTablet,
       );
     }
     return null;

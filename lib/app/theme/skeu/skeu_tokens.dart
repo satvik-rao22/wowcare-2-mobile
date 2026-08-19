@@ -127,161 +127,134 @@ class SkeuColors {
   static const statusInfoSoft = teal100;
 }
 
-/// Surfaces — the skeuomorphic layer.
+/// Surfaces — the skeuomorphic layer, **flat pass**.
 ///
-/// Every product surface is a shallow vertical gradient (light at the top,
-/// because the light source is directly above) plus a bevel from
-/// [SkeuElevation]. Gloss is a separate overlay so it can be layered on a
-/// coloured face without recolouring it.
+/// v2 of the design ("WowCare Mobile Redesign v2") collapses every gradient
+/// surface token to one flat colour. Depth is carried entirely by the lit top
+/// bevel, the recessed wells and the navy ambient shadow from [SkeuElevation] —
+/// there is no compensating darkening and no replacement gradient. Contrast was
+/// checked at the flattened value, not at a gradient's lightest end, which is
+/// why [faceTeal] flattens to teal-700 rather than teal-600.
+///
+/// The declared types stay [Gradient] so the ~60 call sites that pass these to
+/// `BoxDecoration.gradient` are unchanged; each is simply a single-colour
+/// gradient, which paints identically to a flat fill. Use the matching
+/// `…Color` constant when you need the raw [Color].
 class SkeuSurfaces {
   const SkeuSurfaces._();
 
-  /// `--surface-page`: radial-gradient(120% 90% at 50% -10%, ...)
-  static const page = RadialGradient(
-    center: Alignment(0, -1.2),
-    radius: 1.2,
-    colors: [Color(0xFFFFFFFF), Color(0xFFF6F7FC), Color(0xFFEFF1F9)],
-    stops: [0, .45, 1],
-  );
+  // ---- Neutral surfaces ----
+  static const pageColor = Color(0xFFF2F4FB);
+  static const cardColor = Color(0xFFFFFFFF);
+  static const raisedColor = Color(0xFFFBFCFE);
+  static const sunkenColor = Color(0xFFE8EBF6);
+  static const fieldColor = Color(0xFFF3F5FC);
+  static const navyColor = Color(0xFF0A1C5D);
+
+  /// `--surface-rail`: the one flat navy that anchors the app. The v1
+  /// navy-to-teal wash is gone.
+  static const railColor = Color(0xFF0A1C5D);
+
+  /// `--surface-page`
+  static const page = LinearGradient(colors: [pageColor, pageColor]);
 
   /// `--surface-card`
-  static const card = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFFFFF), Color(0xFFF8F9FE)],
-  );
+  static const card = LinearGradient(colors: [cardColor, cardColor]);
 
   /// `--surface-raised`
-  static const raised = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFFFFF), Color(0xFFF2F4FB)],
-  );
+  static const raised = LinearGradient(colors: [raisedColor, raisedColor]);
 
   /// `--surface-sunken`
-  static const sunken = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFECEEF7), Color(0xFFF7F8FD)],
-  );
+  static const sunken = LinearGradient(colors: [sunkenColor, sunkenColor]);
 
-  /// `--surface-field`: linear-gradient(180deg, #f2f4fb 0%, #ffffff 60%)
-  static const field = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFF2F4FB), Color(0xFFFFFFFF), Color(0xFFFFFFFF)],
-    stops: [0, .6, 1],
-  );
+  /// `--surface-field`
+  static const field = LinearGradient(colors: [fieldColor, fieldColor]);
 
   /// `--surface-navy`
-  static const navy = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF142A7A), Color(0xFF0A1C5D)],
-  );
+  static const navy = LinearGradient(colors: [navyColor, navyColor]);
 
-  /// `--surface-rail`: the navy-to-teal header the sign-in screen sits on.
-  static const rail = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF16307F), Color(0xFF0D2A6B), Color(0xFF186265)],
-    stops: [0, .45, 1],
-  );
+  /// `--surface-rail`
+  static const rail = LinearGradient(colors: [railColor, railColor]);
 
   static const glass = Color(0xD9FFFFFF); // rgb(255 255 255 / .85)
 
   // ---- Tinted surfaces — soft brand-washed panels ----
+  static const tealSoftColor = Color(0xFFDDF5F6);
+  static const pinkSoftColor = Color(0xFFFDE4EE);
+  static const sunSoftColor = Color(0xFFFDEFD4);
+  static const greenSoftColor = Color(0xFFDCF6E8);
+  static const orangeSoftColor = Color(0xFFFDEADE);
+  static const purpleSoftColor = Color(0xFFF1E7FA);
+
   static const tealSoft = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFF4FDFD), Color(0xFFD4F4F5)],
+    colors: [tealSoftColor, tealSoftColor],
   );
   static const pinkSoft = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFF6F9), Color(0xFFFDE2EC)],
+    colors: [pinkSoftColor, pinkSoftColor],
   );
-  static const sunSoft = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFFCF4), Color(0xFFFDF0D5)],
-  );
+  static const sunSoft = LinearGradient(colors: [sunSoftColor, sunSoftColor]);
   static const greenSoft = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFF4FDF8), Color(0xFFD8F6E7)],
+    colors: [greenSoftColor, greenSoftColor],
   );
   static const orangeSoft = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFF8F3), Color(0xFFFDEADD)],
+    colors: [orangeSoftColor, orangeSoftColor],
   );
   static const purpleSoft = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFAF6FE), Color(0xFFF1E7FA)],
+    colors: [purpleSoftColor, purpleSoftColor],
   );
 
   // ---- Pressable faces — solid brand-coloured objects ----
+  /// pink-600, 4.6:1 with white.
+  static const facePinkColor = SkeuColors.pink600;
+
+  /// teal-700, 4.9:1 with white. Flattening forced the step down from
+  /// teal-600: the v1 gradient only cleared AA at its light end.
+  static const faceTealColor = SkeuColors.teal700;
+
+  /// Navy text only — never white.
+  static const faceSunColor = SkeuColors.sun400;
+
+  /// Fills only; carries no text.
+  static const faceGreenColor = SkeuColors.green500;
+  static const faceOrangeColor = SkeuColors.orange500;
+  static const faceNavyColor = SkeuColors.navy;
+  static const faceNeutralColor = Color(0xFFFFFFFF);
+
   static const facePink = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFA699C), Color(0xFFE01B5D), Color(0xFFD4175A)],
-    stops: [0, .52, 1],
+    colors: [facePinkColor, facePinkColor],
   );
   static const faceTeal = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF45CDD1), Color(0xFF1D9B9E), Color(0xFF1B9295)],
-    stops: [0, .52, 1],
+    colors: [faceTealColor, faceTealColor],
   );
-  static const faceSun = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFBC971), Color(0xFFF9AD3A), Color(0xFFF2A52E)],
-    stops: [0, .52, 1],
-  );
+  static const faceSun = LinearGradient(colors: [faceSunColor, faceSunColor]);
   static const faceGreen = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF3CC986), Color(0xFF13B167), Color(0xFF10A25E)],
-    stops: [0, .52, 1],
+    colors: [faceGreenColor, faceGreenColor],
   );
   static const faceOrange = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFF8AB84), Color(0xFFF37A42), Color(0xFFEA6D33)],
-    stops: [0, .52, 1],
+    colors: [faceOrangeColor, faceOrangeColor],
   );
   static const faceNavy = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFF1E3488), Color(0xFF0A1C5D)],
+    colors: [faceNavyColor, faceNavyColor],
   );
   static const faceNeutral = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0xFFFFFFFF), Color(0xFFEEF0F8)],
+    colors: [faceNeutralColor, faceNeutralColor],
   );
 
   // ---- Overlays ----
-  /// `--gloss-top`: the specular highlight laid over a coloured face.
+  /// `--gloss-top: none`. The specular highlight was a gradient overlay, so
+  /// the flat pass removes it. Kept as a fully transparent gradient rather
+  /// than deleted so the render sites that layer it need no change.
   static const glossTop = LinearGradient(
-    begin: Alignment.topCenter,
-    end: Alignment.bottomCenter,
-    colors: [Color(0x73FFFFFF), Color(0x14FFFFFF), Color(0x00FFFFFF)],
-    stops: [0, .42, .6],
+    colors: [Color(0x00FFFFFF), Color(0x00FFFFFF)],
   );
 
-  /// `--gloss-sheen`: diagonal sweep for larger glass surfaces.
+  /// `--gloss-sheen: none`.
   static const glossSheen = LinearGradient(
-    begin: Alignment(-1, -.6),
-    end: Alignment(1, .6),
-    colors: [Color(0x00FFFFFF), Color(0x47FFFFFF), Color(0x00FFFFFF)],
-    stops: [.3, .48, .62],
+    colors: [Color(0x00FFFFFF), Color(0x00FFFFFF)],
   );
 
-  /// `--scrim-navy`: bottom-weighted scrim for text over imagery.
+  /// `--scrim-navy`: bottom-weighted scrim for text over imagery. Not part of
+  /// the flat pass — it is a legibility scrim, not a surface.
   static const scrimNavy = LinearGradient(
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
@@ -289,17 +262,25 @@ class SkeuSurfaces {
   );
 
   /// `--rail-brand`: pink -> sun -> teal -> green, the logo's own colour order.
+  /// Hard-stopped into four equal flat bands, the way the design draws it.
   static const railBrand = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
     colors: [
       SkeuColors.pink500,
+      SkeuColors.pink500,
+      SkeuColors.sun400,
       SkeuColors.sun400,
       SkeuColors.teal500,
+      SkeuColors.teal500,
+      SkeuColors.green500,
       SkeuColors.green500,
     ],
+    stops: [0, .25, .25, .5, .5, .75, .75, 1],
   );
 
+  /// `--blur-glass`. Retained as a token, but the flat pass uses no blurs, so
+  /// nothing in the app reads it today.
   static const blurGlass = 12.0;
   static const blurBloom = 48.0;
 }
@@ -559,8 +540,20 @@ class SkeuMotion {
   static const press = Duration(milliseconds: 90);
   static const quick = Duration(milliseconds: 160);
   static const base = Duration(milliseconds: 240);
+  static const panel = Duration(milliseconds: 300);
   static const slow = Duration(milliseconds: 380);
+
+  /// `--anim-*` entrance/settle durations from the v2 design.
+  static const fabIn = Duration(milliseconds: 560);
+  static const confirmPop = Duration(milliseconds: 420);
+  static const glowCycle = Duration(milliseconds: 3600);
+  static const glowDelay = Duration(milliseconds: 1000);
 
   static const easeOut = Curves.easeOutCubic;
   static const easeInOut = Curves.easeInOutCubic;
+
+  /// `--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1)`. The overshoot that
+  /// makes a sliding indicator *settle* rather than stop dead, and the pop on
+  /// the FAB and its confirmation.
+  static const spring = Cubic(0.34, 1.56, 0.64, 1);
 }

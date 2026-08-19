@@ -102,27 +102,12 @@ class _GradientAddButtonState extends State<GradientAddButton> {
             ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: br,
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: DecoratedBox(
-                  decoration: const BoxDecoration(
-                    gradient: SkeuSurfaces.glossTop,
-                  ),
-                ),
-              ),
-            ),
-            Center(
-              child: Icon(
-                Icons.add_rounded,
-                color: dead ? SkeuColors.inkFaint : SkeuColors.white,
-                size: buttonIconSize,
-              ),
-            ),
-          ],
+      // No gloss layer: the v2 flat pass removed `--gloss-top` entirely.
+      child: Center(
+        child: Icon(
+          Icons.add_rounded,
+          color: dead ? SkeuColors.inkFaint : SkeuColors.white,
+          size: buttonIconSize,
         ),
       ),
     );
