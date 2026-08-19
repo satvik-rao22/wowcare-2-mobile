@@ -45,6 +45,18 @@ abstract class AttendanceRepository {
     int size,
   });
 
+  /// Students who attended school on [attendanceDate], for the Create
+  /// Activity student picker. Each returned item's `signedInTime`/
+  /// `signedOutTime` reflect the student's most recent classroom stint for
+  /// that date, so `hasSignIn && !hasSignOut` means "currently signed in".
+  Future<StudentAttendanceCustomPage> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page,
+    int size,
+  });
+
   /// Student Sign-In form list - students that can be signed in for a date range.
   Future<StudentAttendanceCustomPage> getStudentSignInFormList({
     required String fromAttendanceDate,

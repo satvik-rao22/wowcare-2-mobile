@@ -578,6 +578,147 @@ class StudentAttendanceCustomPageModel extends Equatable {
   }
 }
 
+/// One classroom stint within a day for the mark-activity student list
+/// (`GET .../student-attendance/view/mark-activity/student-list`).
+/// `toTime == null` means the student is still in this classroom.
+class MarkActivityAttendedClassroomModel extends Equatable {
+  const MarkActivityAttendedClassroomModel({
+    required this.classroomCode,
+    required this.classroomName,
+    this.fromTime,
+    this.toTime,
+  });
+
+  final String classroomCode;
+  final String classroomName;
+  final String? fromTime;
+  final String? toTime;
+
+  factory MarkActivityAttendedClassroomModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    return MarkActivityAttendedClassroomModel(
+      classroomCode: json['classroomCode'] as String? ?? '',
+      classroomName: json['classroomName'] as String? ?? '',
+      fromTime: json['fromTime'] as String?,
+      toTime: json['toTime'] as String?,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'classroomCode': classroomCode,
+      'classroomName': classroomName,
+      'fromTime': fromTime,
+      'toTime': toTime,
+    };
+  }
+
+  @override
+  List<Object?> get props => [classroomCode, classroomName, fromTime, toTime];
+}
+
+class MarkActivityStudentListItemModel extends Equatable {
+  const MarkActivityStudentListItemModel({
+    required this.studentCode,
+    required this.studentName,
+    required this.attendedClassrooms,
+  });
+
+  final String studentCode;
+  final String studentName;
+
+  /// Chronologically ordered — the last entry is the student's current
+  /// classroom stint for the queried date.
+  final List<MarkActivityAttendedClassroomModel> attendedClassrooms;
+
+  factory MarkActivityStudentListItemModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final attendedClassrooms = (json['attendedClassrooms'] as List<dynamic>? ??
+            const [])
+        .map(
+          (e) => MarkActivityAttendedClassroomModel.fromJson(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+
+    return MarkActivityStudentListItemModel(
+      studentCode: json['studentCode'] as String? ?? '',
+      studentName: json['studentName'] as String? ?? '',
+      attendedClassrooms: attendedClassrooms,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'studentCode': studentCode,
+      'studentName': studentName,
+      'attendedClassrooms': attendedClassrooms.map((e) => e.toJson()).toList(),
+    };
+  }
+
+  @override
+  List<Object?> get props => [studentCode, studentName, attendedClassrooms];
+}
+
+class MarkActivityStudentListPageModel extends Equatable {
+  const MarkActivityStudentListPageModel({
+    required this.items,
+    required this.page,
+    required this.size,
+    required this.totalPages,
+    required this.totalElements,
+    required this.hasMore,
+  });
+
+  final List<MarkActivityStudentListItemModel> items;
+  final int page;
+  final int size;
+  final int totalPages;
+  final int totalElements;
+  final bool hasMore;
+
+  factory MarkActivityStudentListPageModel.fromJson(
+    Map<String, dynamic> json,
+  ) {
+    final data = json['data'] as Map<String, dynamic>? ?? {};
+    final content = data['content'] as List<dynamic>? ?? const [];
+    final pageNumber = data['number'] as int? ?? 0;
+    final pageSize = data['size'] as int? ?? content.length;
+    final totalPages = data['totalPages'] as int? ?? 0;
+    final totalElements = data['totalElements'] as int? ?? content.length;
+
+    final items = content
+        .map(
+          (e) => MarkActivityStudentListItemModel.fromJson(
+            e as Map<String, dynamic>,
+          ),
+        )
+        .toList();
+
+    return MarkActivityStudentListPageModel(
+      items: items,
+      page: pageNumber,
+      size: pageSize,
+      totalPages: totalPages,
+      totalElements: totalElements,
+      hasMore: pageNumber + 1 < totalPages,
+    );
+  }
+
+  @override
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
+}
+
 class StaffAttendanceDailyItemModel extends Equatable {
   const StaffAttendanceDailyItemModel({
     this.attendanceRecordCode,

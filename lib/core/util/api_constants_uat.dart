@@ -18,6 +18,7 @@ abstract final class ApiMicroservicesUat {
   static const String communication = 'communication';
   static const String notification = 'notification';
   static const String newsLatter = 'newslatter';
+  static const String scheduler = 'scheduler';
 }
 
 class ApiConstantsUat {
@@ -55,6 +56,7 @@ class ApiConstantsUat {
   static const String communicationBaseUrl = _host;
   static const String billingBaseUrl = _host;
   static const String newsLatterBaseUrl = _host;
+  static const String schedulerBaseUrl = _host;
 
   // ─── Forte (auto-pay tokenization) ─────────────────────────────────────────
   /// Forte environment used by the auto-pay webview in UAT. `'sandbox'` loads
@@ -86,6 +88,8 @@ class ApiConstantsUat {
         return documentMsBaseUrl;
       case ApiMicroservicesUat.communication:
         return communicationBaseUrl;
+      case ApiMicroservicesUat.scheduler:
+        return schedulerBaseUrl;
       case ApiMicroservicesUat.newsLatter:
         return newsLatterBaseUrl;
       case ApiMicroservicesUat.notification:

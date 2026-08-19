@@ -183,6 +183,7 @@ import '../../domain/features/availability/usecases/transition_individual_moveme
 import '../../domain/features/availability/usecases/update_individual_movement_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_expected_summary_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_attendance_custom_usecase.dart';
+import '../../domain/features/attendance/usecases/get_mark_activity_student_list_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_sign_out_form_list_usecase.dart';
 import '../../domain/features/attendance/usecases/get_student_transfer_form_list_usecase.dart';
@@ -952,6 +953,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
   serviceLocator.registerFactory<GetStudentAttendanceCustomUseCase>(
     () => GetStudentAttendanceCustomUseCase(serviceLocator()),
   );
+  serviceLocator.registerFactory<GetMarkActivityStudentListUseCase>(
+    () => GetMarkActivityStudentListUseCase(serviceLocator()),
+  );
   serviceLocator.registerFactory<GetStudentSignInFormListUseCase>(
     () => GetStudentSignInFormListUseCase(serviceLocator()),
   );
@@ -1134,6 +1138,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getTagNameCodeMapForSchoolUseCase:
           serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
       getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+      getMarkActivityStudentListUseCase:
+          serviceLocator<GetMarkActivityStudentListUseCase>(),
       staffRepository: serviceLocator<StaffRepository>(),
     ),
   );

@@ -440,6 +440,89 @@ class AttendanceRepositoryImpl
   }
 
   @override
+  Future<StudentAttendanceCustomPage> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+  }) async {
+    final pageModel = await _remoteDataSource.getMarkActivityStudentList(
+      attendanceDate: attendanceDate,
+      classroomCodes: classroomCodes,
+      tagCodes: tagCodes,
+      page: page,
+      size: size,
+    );
+
+    final selectedClassroomCode =
+        (classroomCodes != null && classroomCodes.isNotEmpty)
+            ? classroomCodes.first.trim()
+            : '';
+
+    return StudentAttendanceCustomPage(
+      items: pageModel.items
+          .map(
+            (item) => _mapMarkActivityItemModelToEntity(
+              item,
+              selectedClassroomCode: selectedClassroomCode,
+            ),
+          )
+          .toList(),
+      page: pageModel.page,
+      size: pageModel.size,
+      totalPages: pageModel.totalPages,
+      totalElements: pageModel.totalElements,
+      hasMore: pageModel.hasMore,
+    );
+  }
+
+  StudentAttendanceCustomItem _mapMarkActivityItemModelToEntity(
+    MarkActivityStudentListItemModel model, {
+    required String selectedClassroomCode,
+  }) {
+    final attendedClassrooms = model.attendedClassrooms;
+
+    // Classroom shown on the card: the stint matching the selected classroom
+    // filter, or the first stint if the student wasn't in it (e.g. no
+    // classroom filter applied).
+    final displayEntry = attendedClassrooms.firstWhere(
+      (entry) => entry.classroomCode.trim() == selectedClassroomCode,
+      orElse: () => attendedClassrooms.isNotEmpty
+          ? attendedClassrooms.first
+          : const MarkActivityAttendedClassroomModel(
+              classroomCode: '',
+              classroomName: '',
+            ),
+    );
+
+    // Sign-in status: attendedClassrooms is chronologically ordered, so the
+    // last entry is the student's current stint. `toTime == null` there
+    // means they're still signed in.
+    final currentEntry =
+        attendedClassrooms.isNotEmpty ? attendedClassrooms.last : null;
+
+    return StudentAttendanceCustomItem(
+      studentCode: model.studentCode,
+      studentName: model.studentName,
+      isExpectedToday: false,
+      classroomName: displayEntry.classroomName,
+      classroomCode: displayEntry.classroomCode,
+      attendedDays: 1,
+      attendedTime: '',
+      attendedHours: 0,
+      attendedMinutes: 0,
+      signedInBy: null,
+      signedInTime: currentEntry?.fromTime,
+      signedOutBy: null,
+      signedOutTime: currentEntry?.toTime,
+      tagCodes: const <String>[],
+      tagNames: const <String>[],
+      attendedMultipleClassroomsOnDate: attendedClassrooms.length > 1,
+    );
+  }
+
+  @override
   Future<StudentAttendanceCustomPage> getStudentSignInFormList({
     required String fromAttendanceDate,
     required String toAttendanceDate,

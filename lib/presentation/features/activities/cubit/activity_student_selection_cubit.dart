@@ -1,19 +1,17 @@
 import 'dart:convert';
 
 import 'package:bloc/bloc.dart';
-import 'package:dio/dio.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
-import 'package:wowcare/core/util/api_constants.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/core/util/api_paths.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_custom.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_mark_activity_student_list_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
@@ -35,24 +33,25 @@ class ActivityStudentSelectionCubit
     required GetActiveClassroomsUseCase getActiveClassroomsUseCase,
     required GetTagNameCodeMapForSchoolUseCase getTagNameCodeMapForSchoolUseCase,
     required GetNapStartStudentsUseCase getNapStartStudentsUseCase,
+    required GetMarkActivityStudentListUseCase getMarkActivityStudentListUseCase,
     required StaffRepository staffRepository,
   })  : _storage = storageService,
         _apiClient = apiClient,
-        _dio = apiClient.client,
         _cacheManager = CacheManager(storageService),
         _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
         _getTagNameCodeMapForSchoolUseCase = getTagNameCodeMapForSchoolUseCase,
         _getNapStartStudentsUseCase = getNapStartStudentsUseCase,
+        _getMarkActivityStudentListUseCase = getMarkActivityStudentListUseCase,
         _staffRepository = staffRepository,
         super(const ActivityStudentSelectionState());
 
   final StorageService _storage;
   final ApiClient _apiClient;
-  final Dio _dio;
   final CacheManager _cacheManager;
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final GetTagNameCodeMapForSchoolUseCase _getTagNameCodeMapForSchoolUseCase;
   final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
+  final GetMarkActivityStudentListUseCase _getMarkActivityStudentListUseCase;
   final StaffRepository _staffRepository;
 
   String _schoolCode = '';
@@ -328,25 +327,12 @@ class ActivityStudentSelectionCubit
     _safeEmit(state.copyWith(isLoadingStudents: true, clearStudentsError: true));
     try {
       final selectedDate = _formatAttendanceDate(date);
-      final response = await _dio.get<dynamic>(
-        ApiPaths.urlWithBase(
-          ApiPaths.studentAttendanceMarkActivityStudentList,
-          ApiConstants.attendanceBaseUrl,
-        ),
-        queryParameters: <String, dynamic>{
-          'attendanceDate': selectedDate,
-          if (classroomCodes != null && classroomCodes.isNotEmpty)
-            'classroomCodes': classroomCodes,
-          if (tagCodes.isNotEmpty) 'tagCodes': tagCodes,
-          'page': 0,
-          'size': 200,
-        },
-        options: Options(listFormat: ListFormat.multiCompatible),
+      final page = await _getMarkActivityStudentListUseCase(
+        attendanceDate: selectedDate,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes.isNotEmpty ? tagCodes : null,
       );
-      final students = _parseMarkActivityStudentListResponse(
-        response.data,
-        selectedClassroomCode: selectedClassroomCode,
-      );
+      final students = page.items;
       var nappingCodes = <String>{};
       if (selectedClassroomCode.isNotEmpty) {
         try {
@@ -376,78 +362,6 @@ class ActivityStudentSelectionCubit
         filtersMessage: message,
       ));
     }
-  }
-
-  List<StudentAttendanceCustomItem> _parseMarkActivityStudentListResponse(
-    dynamic payload, {
-    required String selectedClassroomCode,
-  }) {
-    if (payload is! Map<String, dynamic>) {
-      throw Exception(
-        'Unexpected mark-activity student list API response format',
-      );
-    }
-    final rootData = payload['data'];
-    if (rootData is! Map<String, dynamic>) {
-      return const <StudentAttendanceCustomItem>[];
-    }
-    final content = rootData['content'];
-    if (content is! List) {
-      return const <StudentAttendanceCustomItem>[];
-    }
-
-    return content
-        .whereType<Map>()
-        .map((raw) => Map<String, dynamic>.from(raw))
-        .map((student) => _mapMarkActivityStudent(
-              student,
-              selectedClassroomCode: selectedClassroomCode,
-            ))
-        .toList(growable: false);
-  }
-
-  StudentAttendanceCustomItem _mapMarkActivityStudent(
-    Map<String, dynamic> student, {
-    required String selectedClassroomCode,
-  }) {
-    final attendedClassrooms = (student['attendedClassrooms'] as List?)
-            ?.whereType<Map>()
-            .map((entry) => Map<String, dynamic>.from(entry))
-            .toList(growable: false) ??
-        const <Map<String, dynamic>>[];
-
-    final selectedTimelineEntry = attendedClassrooms.firstWhere(
-      (entry) =>
-          (entry['classroomCode'] ?? '').toString().trim() ==
-          selectedClassroomCode,
-      orElse: () => attendedClassrooms.isNotEmpty
-          ? attendedClassrooms.first
-          : <String, dynamic>{},
-    );
-
-    final classroomCode =
-        (selectedTimelineEntry['classroomCode'] ?? '').toString().trim();
-    final classroomName =
-        (selectedTimelineEntry['classroomName'] ?? '').toString().trim();
-
-    return StudentAttendanceCustomItem(
-      studentCode: (student['studentCode'] ?? '').toString().trim(),
-      studentName: (student['studentName'] ?? '').toString().trim(),
-      isExpectedToday: false,
-      classroomName: classroomName,
-      classroomCode: classroomCode,
-      attendedDays: 1,
-      attendedTime: '',
-      attendedHours: 0,
-      attendedMinutes: 0,
-      signedInBy: null,
-      signedInTime: '00:00:00',
-      signedOutBy: null,
-      signedOutTime: null,
-      tagCodes: const <String>[],
-      tagNames: const <String>[],
-      attendedMultipleClassroomsOnDate: attendedClassrooms.length > 1,
-    );
   }
 
   String _formatAttendanceDate(DateTime date) {

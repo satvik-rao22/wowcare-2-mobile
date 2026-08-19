@@ -36,6 +36,18 @@ abstract class AttendanceRemoteDataSource {
     required List<String> allowedClassroomCodes,
   });
 
+  /// Students who attended school on [attendanceDate], for the Create
+  /// Activity student picker. Deliberately not classroom-scope-resolved
+  /// (no `allowedClassroomCodes`) — [classroomCodes] is sent as-is, matching
+  /// this endpoint's existing caller behavior.
+  Future<MarkActivityStudentListPageModel> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+  });
+
   /// Student Sign-In form list - students that can be signed in for a date range.
   ///
   /// This follows the same paging structure as the custom view:
@@ -579,6 +591,50 @@ class AttendanceRemoteDataSourceImpl implements AttendanceRemoteDataSource {
     }
 
     return StudentAttendanceCustomPageModel.fromJson(
+      response.data! as Map<String, dynamic>,
+    );
+  }
+
+  @override
+  Future<MarkActivityStudentListPageModel> getMarkActivityStudentList({
+    required String attendanceDate,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    int page = 0,
+    int size = 200,
+  }) async {
+    final queryParameters = <String, dynamic>{
+      'attendanceDate': attendanceDate,
+      'page': page,
+      'size': size,
+    };
+
+    if (classroomCodes != null && classroomCodes.isNotEmpty) {
+      queryParameters['classroomCodes'] = classroomCodes;
+    }
+
+    if (tagCodes != null && tagCodes.isNotEmpty) {
+      queryParameters['tagCodes'] = tagCodes;
+    }
+
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.studentAttendanceMarkActivityStudentList,
+      ApiConstants.attendanceBaseUrl,
+    );
+
+    final response = await _client.get<dynamic>(
+      endpoint,
+      queryParameters: queryParameters,
+      options: _attendanceListOptions,
+    );
+
+    if (response.data is! Map<String, dynamic>) {
+      throw Exception(
+        'Unexpected mark-activity student list API response format',
+      );
+    }
+
+    return MarkActivityStudentListPageModel.fromJson(
       response.data! as Map<String, dynamic>,
     );
   }

@@ -17,6 +17,13 @@ abstract final class ApiMicroservices {
   static const String newsLatter = 'newslatter';
   static const String notification = 'notification';
   static const String billing = 'billing';
+
+  /// Events, Tasks & School Calendar (holidays) microservice.
+  static const String scheduler = 'scheduler';
+
+  /// Dedicated dev-environment service backing Events, Tasks & School
+  /// Calendar (holidays). Independent of [scheduler].
+  static const String eventsTodo = 'events-todo';
 }
 
 class ApiConstants {
@@ -25,10 +32,25 @@ class ApiConstants {
 
   static const String _environment = String.fromEnvironment(
     'ENVIRONMENT',
-    defaultValue: 'LOCAL',
+    defaultValue: 'DEV',
   );
 
   static bool get isUat => _environment.toUpperCase() == 'UAT';
+
+  /// DEV shared backend (5.78.83.44, plain HTTP). Select with
+  /// `--dart-define=ENVIRONMENT=DEV`. Checked before UAT/LOCAL so those
+  /// environments are completely unchanged.
+  static bool get isDev => _environment.toUpperCase() == 'DEV';
+
+  /// DEV host root. Plain HTTP → cleartext must be allowed on Android
+  /// (network-security-config / usesCleartextTraffic) and iOS (ATS).
+  static const String _devHost = 'http://5.78.83.44';
+
+  /// `http://5.78.83.44:{port}[/{path}]`
+  static String _devUrl(int port, [String? path]) {
+    final base = '$_devHost:$port';
+    return path == null ? base : '$base/$path';
+  }
 
   /// Forte tokenization environment passed into the auto-pay webview.
   ///
@@ -82,57 +104,115 @@ class ApiConstants {
 
   // ─── Service base URLs ─────────────────────────────────────────────────────
 
-  /// User / Auth MS  (LOCAL: devtunnel | UAT: gateway)
-  static String get baseUrl =>
-      isUat ? ApiConstantsUat.baseUrl : _dev.url(_dev.userPort);
+  /// User / Auth MS  (DEV server | LOCAL devtunnel | UAT gateway)
+  static String get baseUrl => isDev
+      ? _devUrl(8082)
+      : isUat
+          ? ApiConstantsUat.baseUrl
+          : _dev.url(_dev.userPort);
 
-  /// Student MS  (LOCAL: devtunnel | UAT: gateway)
+  /// Student MS
+  static String get studentBaseUrl => isDev
+      ? _devUrl(8084)
+      : isUat
+          ? ApiConstantsUat.studentBaseUrl
+          : _dev.url(_dev.studentPort);
 
-  static String get studentBaseUrl =>
-      isUat ? ApiConstantsUat.studentBaseUrl : _dev.url(_dev.studentPort);
+  /// Classroom MS
+  static String get classroomBaseUrl => isDev
+      ? _devUrl(8088)
+      : isUat
+          ? ApiConstantsUat.classroomBaseUrl
+          : _dev.url(_dev.classroomPort);
 
-  /// Classroom MS  (LOCAL: devtunnel | UAT: gateway)
-  static String get classroomBaseUrl =>
-      isUat ? ApiConstantsUat.classroomBaseUrl : _dev.url(_dev.classroomPort);
+  /// Staff MS
+  static String get staffBaseUrl => isDev
+      ? _devUrl(8083)
+      : isUat
+          ? ApiConstantsUat.staffBaseUrl
+          : _dev.url(_dev.staffPort);
 
-  /// Staff MS  (LOCAL: devtunnel | UAT: gateway)
-  static String get staffBaseUrl =>
-      isUat ? ApiConstantsUat.staffBaseUrl : _dev.url(_dev.staffPort);
+  /// School / Organization MS
+  static String get schoolMs => isDev
+      ? _devUrl(8081)
+      : isUat
+          ? ApiConstantsUat.schoolMs
+          : _dev.url(_dev.schoolPort);
 
-  /// School / Organization MS  (LOCAL: devtunnel | UAT: gateway)
-  static String get schoolMs =>
-      isUat ? ApiConstantsUat.schoolMs : _dev.url(_dev.schoolPort);
+  /// Attendance MS
+  static String get attendanceBaseUrl => isDev
+      ? _devUrl(8085, 'attendance-ms')
+      : isUat
+          ? ApiConstantsUat.attendanceBaseUrl
+          : _dev.url(_dev.attendancePort, 'attendance');
 
-  /// Attendance MS  (LOCAL: devtunnel/attendance | UAT: gateway)
-  static String get attendanceBaseUrl => isUat
-      ? ApiConstantsUat.attendanceBaseUrl
-      : _dev.url(_dev.attendancePort, 'attendance');
+  /// Activity MS
+  static String get activityBaseUrl => isDev
+      ? _devUrl(8086)
+      : isUat
+          ? ApiConstantsUat.activityBaseUrl
+          : _dev.url(_dev.activityPort, 'wowcare-activity-ms');
 
-  /// Activity MS  (LOCAL: devtunnel/wowcare-activity-ms | UAT: gateway)
-  static String get activityBaseUrl => isUat
-      ? ApiConstantsUat.activityBaseUrl
-      : _dev.url(_dev.activityPort, 'wowcare-activity-ms');
+  /// Document MS
+  static String get documentMsBaseUrl => isDev
+      ? _devUrl(8087, 'document-ms')
+      : isUat
+          ? ApiConstantsUat.documentMsBaseUrl
+          : _dev.gatewayUrl('document-ms');
 
-  /// Document MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
-  static String get documentMsBaseUrl => isUat
-      ? ApiConstantsUat.documentMsBaseUrl
-      : _dev.gatewayUrl('document-ms');
+  /// Scheduler MS — Events, Tasks & School Calendar (holidays).
+  /// DEV server exposes it as the `events-todo` service on port 8091
+  /// (no context path — `http://5.78.83.44:8091`).
+  static String get schedulerBaseUrl => isDev
+      ? _devUrl(8091)
+      : isUat
+          ? ApiConstantsUat.schedulerBaseUrl
+          : (_dev.schedulerPort != null
+                ? _dev.url(_dev.schedulerPort!, 'scheduler')
+                : _dev.gatewayUrl('scheduler'));
 
-  /// Communication / Messaging MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
-  static String get communicationBaseUrl =>
-      isUat ? ApiConstantsUat.communicationBaseUrl : _dev.gatewayUrl();
+  /// Events/Todo MS — Events, Tasks & School Calendar (holidays).
+  /// DEV server exposes it directly at `http://5.78.83.44:8091` (no context
+  /// path). Kept independent from [schedulerBaseUrl].
+  static String get eventsTodoBaseUrl => isDev
+      ? _devUrl(8091)
+      : isUat
+          ? ApiConstantsUat.schedulerBaseUrl
+          : (_dev.schedulerPort != null
+                ? _dev.url(_dev.schedulerPort!, 'scheduler')
+                : _dev.gatewayUrl('scheduler'));
 
-  /// Newsletter MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
-  static String get newsLatterBaseUrl =>
-      isUat ? ApiConstantsUat.newsLatterBaseUrl : _dev.gatewayUrl();
+  /// Communication / Messaging MS
+  static String get communicationBaseUrl => isDev
+      ? _devUrl(8089)
+      : isUat
+          ? ApiConstantsUat.communicationBaseUrl
+          : (_dev.gatewayPort != null
+                ? _dev.url(_dev.gatewayPort!)
+                : _dev.url(_dev.communicationPort));
 
-  /// Notification MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
-  static String get notificationBaseUrl =>
-      isUat ? ApiConstantsUat.notificationBaseUrl : _dev.gatewayUrl();
+  /// Newsletter MS — DEV server doesn't list one; fall back to the user host.
+  static String get newsLatterBaseUrl => isDev
+      ? _devUrl(8082)
+      : isUat
+          ? ApiConstantsUat.newsLatterBaseUrl
+          : _dev.gatewayUrl();
 
-  /// Billing MS  (LOCAL: gateway tunnel/ngrok | UAT: gateway)
-  static String get billingBaseUrl =>
-      isUat ? ApiConstantsUat.billingBaseUrl : _dev.gatewayUrl();
+  /// Notification MS — served by the communication service, so on DEV it
+  /// shares that service's port (8089). Matching [communicationBaseUrl] here
+  /// is intentional; don't "de-duplicate" it.
+  static String get notificationBaseUrl => isDev
+      ? _devUrl(8089)
+      : isUat
+          ? ApiConstantsUat.notificationBaseUrl
+          : _dev.gatewayUrl();
+
+  /// Billing MS — DEV server doesn't list one; fall back to the user host.
+  static String get billingBaseUrl => isDev
+      ? _devUrl(8082)
+      : isUat
+          ? ApiConstantsUat.billingBaseUrl
+          : _dev.gatewayUrl();
 
   // ─── Endpoint helpers ──────────────────────────────────────────────────────
 
@@ -169,6 +249,10 @@ class ApiConstants {
         return documentMsBaseUrl;
       case ApiMicroservices.communication:
         return communicationBaseUrl;
+      case ApiMicroservices.scheduler:
+        return schedulerBaseUrl;
+      case ApiMicroservices.eventsTodo:
+        return eventsTodoBaseUrl;
       case ApiMicroservices.newsLatter:
         return newsLatterBaseUrl;
       case ApiMicroservices.notification:
@@ -181,8 +265,11 @@ class ApiConstants {
   }
 
 
-  static String get baseUrl1 =>
-      isUat ? ApiConstantsUat.classroomBaseUrl : _dev.url(8089);
+  static String get baseUrl1 => isDev
+      ? _devUrl(8089)
+      : isUat
+          ? ApiConstantsUat.classroomBaseUrl
+          : _dev.url(8089);
 }
 
 
@@ -200,6 +287,7 @@ class _DevTunnel {
     required this.activityPort,
     required this.communicationPort,
     this.gatewayPort,
+    this.schedulerPort,
   });
 
   /// Tunnel prefix before `-PORT.inc1.devtunnels.ms`.
@@ -216,6 +304,10 @@ class _DevTunnel {
   /// Port for the shared gateway services (notification/billing/newsletter/
   /// document). When null, those services fall back to ngrok.
   final int? gatewayPort;
+
+  /// Scheduler MS port on the devtunnel. When null, the scheduler falls back
+  /// to the shared gateway host.
+  final int? schedulerPort;
 
   /// `https://{id}-{port}.inc1.devtunnels.ms[/{path}]`
   String url(int port, [String? path]) {
