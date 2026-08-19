@@ -93,7 +93,7 @@ class _StudentsAndFamilyReportScreenState
     <String>[],
   );
   final ValueNotifier<String> _status = ValueNotifier<String>('Active');
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void dispose() {
@@ -127,7 +127,6 @@ class _StudentsAndFamilyReportScreenState
   @override
   void initState() {
     super.initState();
-    
   }
 
   void _onGenerate() async {
@@ -170,10 +169,10 @@ class _StudentsAndFamilyReportScreenState
         return;
       }
 
-      final tagNameToCode = await serviceLocator<
-          GetTagNameCodeMapForSchoolUseCase>()(
-        schoolCode: schoolCode,
-      );
+      final tagNameToCode =
+          await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
+            schoolCode: schoolCode,
+          );
       final unresolved = selectedTagNames.where(
         (name) => tagNameToCode[name] == null || tagNameToCode[name]!.isEmpty,
       );
@@ -340,6 +339,7 @@ class _StudentsAndFamilyReportScreenState
                     hintText: 'Select Classroom',
                     items: widget.classrooms,
                     selectedItems: selected,
+                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),
@@ -354,6 +354,7 @@ class _StudentsAndFamilyReportScreenState
                     label: 'Tag',
                     hintText: 'Select Tag',
                     items: widget.tags,
+                    isRequired: true,
                     selectedItems: selected,
                     onChanged: (s) => _selectedTags.value = s,
                     showSelectAll: true,

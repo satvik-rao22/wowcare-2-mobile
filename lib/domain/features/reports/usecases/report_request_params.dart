@@ -15,6 +15,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     this.tagCodes,
     required this.schoolName,
     this.search,
+    this.folderClassGrouping,
   });
 
   @override
@@ -36,6 +37,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
   final List<String>? tagCodes;
   final String? schoolName;
   final String? search;
+  final String? folderClassGrouping;
 
   ReportRequestParams copyWith({
     ReportType? reportType,
@@ -49,6 +51,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
     List<String>? tagCodes,
     String? schoolName,
     String? search,
+    String? folderClassGrouping,
   }) {
     return ReportRequestParams(
       reportType: reportType ?? this.reportType,
@@ -62,6 +65,7 @@ class ReportRequestParams extends Equatable implements ReportParams {
       tagCodes: tagCodes ?? this.tagCodes,
       schoolName: schoolName ?? this.schoolName,
       search: search ?? this.search,
+      folderClassGrouping: folderClassGrouping ?? this.folderClassGrouping,
     );
   }
 
@@ -125,6 +129,9 @@ class ReportRequestParams extends Equatable implements ReportParams {
     if (search != null && search!.trim().isNotEmpty) {
       body['search'] = search!.trim();
     }
+    if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty) {
+      body['grouping'] = folderClassGrouping;
+    }
 
     return body;
   }
@@ -149,6 +156,8 @@ class ReportRequestParams extends Equatable implements ReportParams {
         'school=${schoolName!.trim().toLowerCase()}',
       if (format.isNotEmpty) 'format=$format',
       if (date != null) 'date=${date!.toIso8601String().split('T')[0]}',
+      if (folderClassGrouping != null && folderClassGrouping!.isNotEmpty)
+        'grouping=$folderClassGrouping',
     ];
     return parts.join('|');
   }
@@ -166,5 +175,6 @@ class ReportRequestParams extends Equatable implements ReportParams {
     tagCodes,
     schoolName,
     search,
+    folderClassGrouping,
   ];
 }

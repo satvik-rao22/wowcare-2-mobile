@@ -43,7 +43,7 @@ class BillingReportFormScreen extends StatefulWidget {
 class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
-  String _format = 'PDF';
+  String _format = 'XLSX';
   late DateTime _periodDate;
   List<String> _selectedStudents = <String>[];
   late List<String> _selectedClassrooms;
@@ -52,6 +52,7 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
   Map<String, String> _classroomCodeByName = <String, String>{};
   bool _isLoadingStudents = false;
   int _fetchId = 0;
+  String _folderClassGrouping = 'Daily';
 
   @override
   void initState() {
@@ -246,6 +247,9 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
         schoolName: schoolName.isNotEmpty ? schoolName : null,
         roomCodes: classroomCodes.isNotEmpty ? classroomCodes : null,
         studentCodes: studentCodes.isNotEmpty ? studentCodes : null,
+        folderClassGrouping: widget.reportType == ReportType.billingPaymentSummary
+            ? _folderClassGrouping
+            : null,
       ),
     );
   }
@@ -319,6 +323,20 @@ class _BillingReportFormScreenState extends State<BillingReportFormScreen> {
               onDateSelected: (d) => setState(() => _endDate = d),
             ),
             SizedBox(height: responsive.verticalSpacing),
+            if (widget.reportType == ReportType.billingPaymentSummary) ...[
+              CustomDropdown(
+                label: 'Folder Class Grouping',
+                hintText: 'Select Grouping',
+                items: const ['Daily', 'Weekly', 'Monthly'],
+                initialValue: _folderClassGrouping,
+                onSelect: (value) {
+                  if (value != null) {
+                    setState(() => _folderClassGrouping = value);
+                  }
+                },
+              ),
+              SizedBox(height: responsive.verticalSpacing),
+            ],
             if (widget.reportType == ReportType.billingInvoice) ...[
               // Add the Optional filters:  Payment method (Card, ACH, Cash)
               CustomDropdown(

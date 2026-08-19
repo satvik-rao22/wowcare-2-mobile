@@ -34,7 +34,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
   List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
   List<String> _availableClassrooms = <String>[];
   Map<String, String> _classroomNameToCode = <String, String>{};
 
@@ -219,6 +219,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
               label: 'Classroom',
               hintText: 'Select Classroom',
               items: classroomItems,
+              isRequired: true,
               selectedItems: _selectedClassrooms,
               onChanged: (s) => setState(() => _selectedClassrooms = s),
               showSelectAll: true,

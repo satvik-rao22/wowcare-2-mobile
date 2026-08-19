@@ -46,7 +46,7 @@ class _BillingTransactionReportScreenState
   late DateTime _endDate;
   String _transactionType = 'All Transactions';
   List<String> _selectedTransactionTypes = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
   List<String> _availableStudents = <String>[];
   bool _isLoadingStudents = false;
   List<String> _selectedStudents = <String>[];
