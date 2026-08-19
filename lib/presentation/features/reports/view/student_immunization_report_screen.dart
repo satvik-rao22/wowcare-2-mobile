@@ -55,7 +55,7 @@ class _StudentImmunizationReportScreenState
   List<String> _selectedClassrooms = <String>[];
   List<String> _selectedTags = <String>[];
   bool _showParentInfo = false;
-  String _format = 'PDF';
+  String _format = 'XLSX';
   late DateTime _startDate;
   late DateTime _endDate;
 
@@ -65,7 +65,6 @@ class _StudentImmunizationReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
-    
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadVaccines();
@@ -84,7 +83,9 @@ class _StudentImmunizationReportScreenState
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
 
       if (schoolCode.isEmpty) {
-        AppLogger.w('[ImmunizationReport] schoolCode is empty – skipping vaccine load');
+        AppLogger.w(
+          '[ImmunizationReport] schoolCode is empty – skipping vaccine load',
+        );
         if (mounted) setState(() => _isLoadingVaccines = false);
         return;
       }
@@ -93,7 +94,9 @@ class _StudentImmunizationReportScreenState
         schoolCode: schoolCode,
       );
 
-      AppLogger.d('[ImmunizationReport] Loaded ${vaccines.length} vaccines from API: $vaccines');
+      AppLogger.d(
+        '[ImmunizationReport] Loaded ${vaccines.length} vaccines from API: $vaccines',
+      );
 
       final nameToCode = <String, String>{};
       final names = <String>[];
@@ -137,7 +140,9 @@ class _StudentImmunizationReportScreenState
     // ── Classroom codes ──────────────────────────────────────────────────────
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
       nameToCode: state.classroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -170,12 +175,8 @@ class _StudentImmunizationReportScreenState
 
     // ── Tag codes ────────────────────────────────────────────────────────────
     final tagNameToCode = state.tagNameToCode;
-    AppLogger.d(
-      '[ImmunizationReport] Selected tags (UI): $_selectedTags',
-    );
-    AppLogger.d(
-      '[ImmunizationReport] tagNameToCode map: $tagNameToCode',
-    );
+    AppLogger.d('[ImmunizationReport] Selected tags (UI): $_selectedTags');
+    AppLogger.d('[ImmunizationReport] tagNameToCode map: $tagNameToCode');
 
     List<String>? tagCodes;
     if (_selectedTags.isEmpty) {
@@ -291,7 +292,9 @@ class _StudentImmunizationReportScreenState
         builder: (context, isGenerating) {
           return ReportFormLayout(
             title: 'School Immunization Report',
-            onGenerate: (isGenerating || _isLoadingVaccines) ? null : _onGenerate,
+            onGenerate: (isGenerating || _isLoadingVaccines)
+                ? null
+                : _onGenerate,
             isLoading: isGenerating,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -306,6 +309,7 @@ class _StudentImmunizationReportScreenState
                   CustomMultiSelectDropdown(
                     label: 'Vaccines',
                     hintText: 'Select',
+                    isRequired: true,
                     items: _availableVaccines,
                     selectedItems: _selectedVaccines,
                     onChanged: (s) => setState(() => _selectedVaccines = s),
@@ -333,6 +337,7 @@ class _StudentImmunizationReportScreenState
                   label: 'Classroom',
                   hintText: 'Select Classroom',
                   items: widget.classrooms,
+                  isRequired: true,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
                   showSelectAll: true,
@@ -346,6 +351,7 @@ class _StudentImmunizationReportScreenState
                   label: 'Tag',
                   hintText: 'Select Tag',
                   items: widget.tags,
+                  isRequired: true,
                   selectedItems: _selectedTags,
                   onChanged: (s) => setState(() => _selectedTags = s),
                   showSelectAll: true,

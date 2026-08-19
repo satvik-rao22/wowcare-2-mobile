@@ -34,13 +34,12 @@ class _StudentDailyAttendanceReportScreenState
   late final ValueNotifier<DateTime> _date;
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void initState() {
     super.initState();
     _date = ValueNotifier<DateTime>(AppTime.now());
-    
   }
 
   @override
@@ -58,7 +57,9 @@ class _StudentDailyAttendanceReportScreenState
 
     final roomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty ? widget.classrooms : _selectedClassrooms.value,
+      names: _selectedClassrooms.value.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -168,6 +169,7 @@ class _StudentDailyAttendanceReportScreenState
                     hintText: 'Select Classroom',
                     items: widget.classrooms,
                     selectedItems: selected,
+                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),

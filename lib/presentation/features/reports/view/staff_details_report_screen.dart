@@ -63,7 +63,7 @@ class _StaffDirectoryReportScreenState
   late Set<String> _selectedStaffFields;
   String _status = 'Active Staff';
   List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
   List<String> _availableClassrooms = <String>[];
   Map<String, String> _classroomNameToCode = <String, String>{};
 
@@ -71,7 +71,7 @@ class _StaffDirectoryReportScreenState
   void initState() {
     super.initState();
     _selectedStaffFields = _defaultStaffFields.toSet();
-    
+
     _availableClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
@@ -86,11 +86,10 @@ class _StaffDirectoryReportScreenState
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isNotEmpty) {
-        final classrooms =
-            await serviceLocator<GetActiveClassroomsUseCase>()(
-              schoolCode: schoolCode,
-              onlyTypeClassroom: false,
-            );
+        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: false,
+        );
         final nameToCodeMap = <String, String>{};
         final names = <String>[];
         for (final c in classrooms) {
@@ -151,18 +150,16 @@ class _StaffDirectoryReportScreenState
         : cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
     if (classroomCodes == null) return;
 
-    AppLogger.d(
-      '[STAFF-DETAILS-UI] Selected classrooms: $_selectedClassrooms',
-    );
-    AppLogger.d(
-      '[STAFF-DETAILS-UI] Resolved classroomCodes: $classroomCodes',
-    );
+    AppLogger.d('[STAFF-DETAILS-UI] Selected classrooms: $_selectedClassrooms');
+    AppLogger.d('[STAFF-DETAILS-UI] Resolved classroomCodes: $classroomCodes');
 
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
@@ -306,6 +303,7 @@ class _StaffDirectoryReportScreenState
                   label: 'Classroom',
                   hintText: 'Select Classroom',
                   items: classroomItems,
+                  isRequired: true,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
                   showSelectAll: true,

@@ -30,7 +30,7 @@ class _BillingPlanReportScreenState extends State<BillingPlanReportScreen> {
   String _frequency = 'Monthly';
   late DateTime _periodMonth;
   List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
 
   @override
   void initState() {
