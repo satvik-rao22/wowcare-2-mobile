@@ -76,8 +76,7 @@ class SkeuInsetPainter extends CustomPainter {
 
       // Everything outside the shifted/deflated shape, so the blur spills in.
       final outer = Path()..addRect(rect.inflate(size.longestSide + 40));
-      final inner = Path()
-        ..addRRect(rrect.deflate(s.spread).shift(s.offset));
+      final inner = Path()..addRRect(rrect.deflate(s.spread).shift(s.offset));
       canvas.drawPath(
         Path.combine(PathOperation.difference, outer, inner),
         paint,

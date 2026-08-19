@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:wowcare/app/theme/skeu/skeu.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -140,27 +141,14 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
       return const ChatThreadShimmer();
     }
     if (_error != null || _conversation == null) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.forum_outlined, size: 40, color: Colors.grey),
-              const SizedBox(height: 12),
-              Text(
-                _error ?? 'Classroom chat is not available',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              OutlinedButton.icon(
-                onPressed: _load,
-                icon: const Icon(Icons.refresh, size: 16),
-                label: const Text('Retry'),
-              ),
-            ],
-          ),
+      return SkeuEmptyState(
+        icon: Icons.forum_outlined,
+        message: _error ?? 'Classroom chat is not available',
+        action: SkeuButton.small(
+          label: 'Retry',
+          icon: Icons.refresh_rounded,
+          variant: SkeuButtonVariant.neutral,
+          onPressed: _load,
         ),
       );
     }

@@ -382,9 +382,7 @@ class SkeuElevation {
   static const bevelBottom = [
     SkeuInset(color: Color(0x120A1C5D), offset: Offset(0, -1)),
   ];
-  static const bevelEdge = [
-    SkeuInset(color: Color(0x59FFFFFF), spread: 1),
-  ];
+  static const bevelEdge = [SkeuInset(color: Color(0x59FFFFFF), spread: 1)];
   static const bevelFull = [
     SkeuInset(color: Color(0xE6FFFFFF), offset: Offset(0, 1)),
     SkeuInset(color: Color(0x120A1C5D), offset: Offset(0, -1)),
@@ -498,12 +496,8 @@ class SkeuText {
       _s(11, weightBody, color: color);
 
   /// 12px eyebrow / badge label, uppercase with wide tracking.
-  static TextStyle eyebrow({Color color = SkeuColors.inkFaint}) => _s(
-    12,
-    weightEyebrow,
-    color: color,
-    letterSpacingEm: trackingEyebrow,
-  );
+  static TextStyle eyebrow({Color color = SkeuColors.inkFaint}) =>
+      _s(12, weightEyebrow, color: color, letterSpacingEm: trackingEyebrow);
 
   /// 12px caption.
   static TextStyle caption({

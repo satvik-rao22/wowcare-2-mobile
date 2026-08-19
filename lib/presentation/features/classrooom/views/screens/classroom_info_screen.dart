@@ -165,9 +165,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
   Widget _buildRoomDetailsLoadingCard(String classroomName) {
     return Card(
-      elevation: 0,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
         side: BorderSide.none,
         borderRadius: BorderRadius.circular(12),
@@ -672,9 +669,6 @@ class _ClassroomInfoScreenState extends State<ClassroomInfoScreen> {
 
   Widget _buildRoomDetailsCard(ClassroomDetails details) {
     return Card(
-      elevation: 0,
-      color: Colors.white,
-      surfaceTintColor: Colors.white,
       shape: RoundedRectangleBorder(
         side: BorderSide.none,
         borderRadius: BorderRadius.circular(12),

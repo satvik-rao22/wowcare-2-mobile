@@ -48,9 +48,18 @@ class WowCareWordmark extends StatelessWidget {
             text: 'W',
             style: TextStyle(color: SkeuColors.pink500),
           ),
-          const TextSpan(text: 'o', style: TextStyle(color: SkeuColors.sun400)),
-          const TextSpan(text: 'w', style: TextStyle(color: SkeuColors.teal500)),
-          TextSpan(text: 'Care', style: TextStyle(color: careColor)),
+          const TextSpan(
+            text: 'o',
+            style: TextStyle(color: SkeuColors.sun400),
+          ),
+          const TextSpan(
+            text: 'w',
+            style: TextStyle(color: SkeuColors.teal500),
+          ),
+          TextSpan(
+            text: 'Care',
+            style: TextStyle(color: careColor),
+          ),
         ],
       ),
     );
@@ -511,8 +520,9 @@ class SkeuStatTile extends StatelessWidget {
               child: Text.rich(
                 TextSpan(
                   text: label,
-                  style: SkeuText.body(weight: SkeuText.weightHeading)
-                      .copyWith(height: 1.25),
+                  style: SkeuText.body(
+                    weight: SkeuText.weightHeading,
+                  ).copyWith(height: 1.25),
                   children: sublabel == null
                       ? null
                       : [
@@ -535,10 +545,7 @@ class SkeuStatTile extends StatelessWidget {
         if (legend.isNotEmpty) ...[
           const SizedBox(height: 8),
           for (final entry in legend)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 5),
-              child: entry,
-            ),
+            Padding(padding: const EdgeInsets.only(bottom: 5), child: entry),
         ],
       ],
     ),
@@ -570,9 +577,7 @@ class SkeuLegendEntry extends StatelessWidget {
       Expanded(
         child: Text(
           label,
-          style: SkeuText.caption(
-            color: SkeuColors.ink.withValues(alpha: .8),
-          ),
+          style: SkeuText.caption(color: SkeuColors.ink.withValues(alpha: .8)),
         ),
       ),
     ],
@@ -677,16 +682,15 @@ class SkeuProgressBar extends StatelessWidget {
   final Color? fillColor;
 
   @override
-  Widget build(BuildContext context) => SkeuWell(
+  Widget build(BuildContext context) => SkeuTrough(
     radius: SkeuRadius.pill,
     height: height,
-    gradient: SkeuSurfaces.sunken,
-    insets: SkeuElevation.wellSm,
     child: Align(
       alignment: Alignment.centerLeft,
       child: FractionallySizedBox(
         widthFactor: value.clamp(0, 1),
-        child: Container(
+        heightFactor: 1,
+        child: DecoratedBox(
           decoration: BoxDecoration(
             gradient: fillColor == null ? fill : null,
             color: fillColor,
@@ -742,19 +746,20 @@ class SkeuSegmentBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visible = segments.where((s) => s.value > 0).toList();
-    final br = BorderRadius.circular(radius);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        SkeuWell(
+        SkeuTrough(
           height: height,
-          borderRadius: br,
-          gradient: SkeuSurfaces.sunken,
-          insets: SkeuElevation.wellSm,
+          radius: radius,
           child: visible.isEmpty
               ? const SizedBox.shrink()
+              // stretch, not the default centre: Expanded only sizes along the
+              // main axis, so without it each band would collapse to zero
+              // height.
               : Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final s in visible)
                       Expanded(
@@ -837,10 +842,7 @@ class SkeuTotalCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                label,
-                style: SkeuText.small().copyWith(height: 1.3),
-              ),
+              Text(label, style: SkeuText.small().copyWith(height: 1.3)),
               const SizedBox(height: 2),
               Text(
                 total,
@@ -978,11 +980,7 @@ class SkeuEmptyState extends StatelessWidget {
               ),
               const SizedBox(height: 6),
             ],
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: SkeuText.prose(),
-            ),
+            Text(message, textAlign: TextAlign.center, style: SkeuText.prose()),
             if (action != null) ...[const SizedBox(height: 18), action!],
           ],
         ),
@@ -1018,12 +1016,16 @@ class SkeuDetailRow extends StatelessWidget {
         ],
         Expanded(
           flex: 4,
-          child: Text(label, style: SkeuText.caption(weight: SkeuText.weightHeading)),
+          child: Text(
+            label,
+            style: SkeuText.caption(weight: SkeuText.weightHeading),
+          ),
         ),
         const SizedBox(width: 12),
         Expanded(
           flex: 6,
-          child: valueWidget ??
+          child:
+              valueWidget ??
               Text(
                 value,
                 textAlign: TextAlign.end,

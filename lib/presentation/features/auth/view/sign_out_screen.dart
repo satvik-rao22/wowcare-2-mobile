@@ -87,7 +87,12 @@ class _SignOutScreenState extends State<SignOutScreen> {
               gradient: SkeuSurfaces.pinkSoft,
               insets: SkeuElevation.wellLg,
               padding: const EdgeInsets.all(18),
-              child: Image.asset(MediaRes.logout_image, fit: BoxFit.contain),
+              // SizedBox.expand so the illustration is bounded by the disc —
+              // a well hands its child loose constraints, and an Image would
+              // otherwise lay itself out at its full pixel size.
+              child: SizedBox.expand(
+                child: Image.asset(MediaRes.logout_image, fit: BoxFit.contain),
+              ),
             ),
           ),
           const SizedBox(height: 20),

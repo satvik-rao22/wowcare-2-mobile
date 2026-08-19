@@ -382,12 +382,13 @@ class _SectionRow extends StatelessWidget {
                 ],
               ),
         const SizedBox(height: 16),
-        SkeuWell(
+        SkeuTrough(
           height: 24,
           radius: 10,
-          gradient: SkeuSurfaces.sunken,
-          insets: SkeuElevation.wellSm,
+          // stretch, not the default centre: Expanded only sizes along the
+          // main axis, so without it each band would collapse to zero height.
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
                 flex: (leftValue <= 0 && rightValue <= 0)

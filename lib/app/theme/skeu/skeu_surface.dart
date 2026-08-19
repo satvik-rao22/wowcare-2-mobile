@@ -72,10 +72,7 @@ class SkeuPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget content = Padding(
-      padding: padding ?? EdgeInsets.zero,
-      child: child,
-    );
+    Widget content = Padding(padding: padding ?? EdgeInsets.zero, child: child);
 
     if (insets.isNotEmpty || gloss != null) {
       content = Stack(
@@ -110,9 +107,7 @@ class SkeuPanel extends StatelessWidget {
         boxShadow: shadows ?? SkeuElevation.elev2,
         border: border,
       ),
-      child: clip
-          ? ClipRRect(borderRadius: _br, child: content)
-          : content,
+      child: clip ? ClipRRect(borderRadius: _br, child: content) : content,
     );
 
     if (onTap != null) {
@@ -199,6 +194,46 @@ class SkeuWell extends StatelessWidget {
 
     if (onTap != null) well = _SkeuPressable(onTap: onTap!, child: well);
     return well;
+  }
+}
+
+/// A gauge trough: a recessed track whose content fills it edge to edge.
+///
+/// [SkeuWell] stacks its content loosely so a text field keeps its natural
+/// height; a bar's coloured bands have no natural height at all and would
+/// collapse to nothing. This variant hands the child tight constraints and
+/// paints the recess *over* it, which is also the truer reading: the bands are
+/// the trough's fill, so the shadow of the rim falls on them.
+class SkeuTrough extends StatelessWidget {
+  const SkeuTrough({
+    required this.child,
+    required this.height,
+    this.radius = 9,
+    this.gradient = SkeuSurfaces.sunken,
+    this.insets = SkeuElevation.wellSm,
+    super.key,
+  });
+
+  final Widget child;
+  final double height;
+  final double radius;
+  final Gradient gradient;
+  final List<SkeuInset> insets;
+
+  @override
+  Widget build(BuildContext context) {
+    final br = BorderRadius.circular(radius);
+    return Container(
+      height: height,
+      decoration: BoxDecoration(gradient: gradient, borderRadius: br),
+      child: ClipRRect(
+        borderRadius: br,
+        child: CustomPaint(
+          foregroundPainter: SkeuInsetPainter(insets, br),
+          child: SizedBox.expand(child: child),
+        ),
+      ),
+    );
   }
 }
 
@@ -332,7 +367,9 @@ class SkeuBottomSheet extends StatelessWidget {
                           child: const SizedBox.shrink(),
                         ),
                       ),
-                    Flexible(child: Padding(padding: padding, child: child)),
+                    Flexible(
+                      child: Padding(padding: padding, child: child),
+                    ),
                   ],
                 ),
               ),
@@ -351,11 +388,8 @@ class SkeuDivider extends StatelessWidget {
   final EdgeInsetsGeometry margin;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 1,
-    margin: margin,
-    color: SkeuColors.borderHairline,
-  );
+  Widget build(BuildContext context) =>
+      Container(height: 1, margin: margin, color: SkeuColors.borderHairline);
 }
 
 /// The brand rail: pink -> sun -> teal -> green, the logo's own colour order.

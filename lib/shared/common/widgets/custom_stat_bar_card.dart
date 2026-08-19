@@ -197,14 +197,15 @@ class CustomStatBarCard extends StatelessWidget {
     final effectiveTotal = normalizeBarByItemSum ? sumValues : parsedTotal;
     final hasValidTotal = effectiveTotal > 0;
 
-    return SkeuWell(
+    return SkeuTrough(
       height: _trackHeight,
       radius: _trackRadius,
-      gradient: SkeuSurfaces.sunken,
-      insets: SkeuElevation.wellSm,
       child: !hasValidTotal
           ? const SizedBox.shrink()
+          // stretch, not the default centre: Expanded only sizes along the
+          // main axis, so without it each band would collapse to zero height.
           : Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 for (final item in barItems.where((i) => i.value > 0))
                   Expanded(
@@ -265,9 +266,7 @@ class CustomStatBarCard extends StatelessWidget {
       children: [
         Text(
           labelParts.first,
-          style: SkeuText.small(
-            color: SkeuColors.ink.withValues(alpha: .8),
-          ),
+          style: SkeuText.small(color: SkeuColors.ink.withValues(alpha: .8)),
         ),
         if (labelParts.length > 1)
           Text(

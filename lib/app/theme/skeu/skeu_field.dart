@@ -176,9 +176,7 @@ class _SkeuTextFieldState extends State<SkeuTextField> {
                         focusedBorder: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
                         hintText: widget.hintText,
-                        hintStyle: SkeuText.field(
-                          color: SkeuColors.inkFaint,
-                        ),
+                        hintStyle: SkeuText.field(color: SkeuColors.inkFaint),
                       ),
                     ),
                   ),
@@ -538,6 +536,12 @@ class SkeuCheckbox extends StatelessWidget {
 
 /// A physical toggle: a recessed track with a raised knob that slides in it.
 class SkeuSwitch extends StatelessWidget {
+  static const _offTrack = LinearGradient(
+    begin: Alignment.topCenter,
+    end: Alignment.bottomCenter,
+    colors: [SkeuColors.cream200, Color(0xFFF2F4FB)],
+  );
+
   const SkeuSwitch({
     required this.value,
     this.onChanged,
@@ -559,7 +563,7 @@ class SkeuSwitch extends StatelessWidget {
       radius: SkeuRadius.pill,
       width: width,
       height: height,
-      gradient: value ? SkeuSurfaces.faceTeal : SkeuSurfaces.sunken,
+      gradient: value ? SkeuSurfaces.faceTeal : _offTrack,
       insets: SkeuElevation.wellSm,
       child: AnimatedAlign(
         duration: SkeuMotion.quick,
@@ -573,7 +577,8 @@ class SkeuSwitch extends StatelessWidget {
             decoration: BoxDecoration(
               gradient: SkeuSurfaces.faceNeutral,
               shape: BoxShape.circle,
-              boxShadow: SkeuElevation.elev1,
+              boxShadow: SkeuElevation.elev2,
+              border: Border.all(color: SkeuColors.borderHairline),
             ),
           ),
         ),

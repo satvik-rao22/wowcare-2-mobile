@@ -203,8 +203,8 @@ class _SkeuButtonState extends State<SkeuButton> {
               ),
             ),
             Padding(
-              padding: widget.padding ??
-                  const EdgeInsets.symmetric(horizontal: 20),
+              padding:
+                  widget.padding ?? const EdgeInsets.symmetric(horizontal: 20),
               child: Center(child: _buildLabel(skin.label)),
             ),
           ],
@@ -336,7 +336,9 @@ class SkeuIconButton extends StatelessWidget {
                 ),
               ),
             ),
-            Center(child: Icon(icon, size: iconSize, color: iconColor)),
+            Center(
+              child: Icon(icon, size: iconSize, color: iconColor),
+            ),
           ],
         ),
       ),

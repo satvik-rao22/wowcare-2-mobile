@@ -3064,6 +3064,10 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                         BorderRadius.circular(
                                                           10,
                                                         ),
+                                                    border: Border.all(
+                                                      color: Colors.white,
+                                                      width: 1.5,
+                                                    ),
                                                   ),
                                                   child: Text(
                                                     badgeCount > 99
