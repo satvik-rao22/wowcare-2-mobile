@@ -24,6 +24,7 @@ class StudentEntity {
     this.tags = const [],
   });
 
+  
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

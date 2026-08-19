@@ -168,23 +168,8 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       // routes registered OUTSIDE the StatefulShellRoute (e.g. /admin-chat,
       // openConversation, the notification-deep-link routes), rendered by
       // the root navigator as a sibling of the shell rather than one of its
-      // branches. Defaulting to Dashboard here used to actively claim
-      // Dashboard was active while viewing a completely different screen —
-      // same mistake the branch-0 drill-down case below already avoids.
-      // Screens that DO conceptually belong to a tab (e.g. AdminChatHostScreen
-      // -> Communication) should pass activeItemOverride explicitly, same
-      // pattern as StudentAttendanceProfile does for Attendance.
+      // branches.
       item = null;
-    } else if (shell.currentIndex == 0) {
-      // Branch 0 (the Dashboard branch) also hosts every non-tab drill-down
-      // (Billing, Scheduling, Staff, Reports, …). Those screens are NOT
-      // bottom-nav tabs, so only the dashboard ROOT should light up the
-      // Dashboard slot — on any drill-down we highlight nothing instead of
-      // falsely marking Dashboard as active.
-      final path = _currentLocationPath(context);
-      item = path == AppRoutes.dashboard
-          ? BottomNavigationItem.dashboard
-          : null;
     } else {
       item = itemForBranchIndex(
         isParent: isParent,

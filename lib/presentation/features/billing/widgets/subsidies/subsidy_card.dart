@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/presentation/features/billing/cubit/subsidies_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
-
 import '../../../../../app/theme/colors.dart';
+import '../../../../../shared/common/utils/app_bottom_sheet.dart';
 import '../../../../../shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 
 class SubsidyCard extends StatefulWidget {
@@ -84,7 +84,7 @@ class _SubsidyCardState extends State<SubsidyCard> {
   }
 
   void _confirmDelete() {
-    showModalBottomSheet(
+    AppBottomSheet.show(
       context: context,
       isScrollControlled: true,
       backgroundColor: AppColors.billingTransparentColor,

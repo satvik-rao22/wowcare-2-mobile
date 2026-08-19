@@ -21,6 +21,7 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/staff/view/add_staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
 import 'package:wowcare/shared/common/widgets/post_add_staff_bottom_sheet.dart';
+import 'package:wowcare/shared/common/utils/app_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
@@ -823,7 +824,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                     WidgetsBinding.instance.addPostFrameCallback((
                                       _,
                                     ) {
-                                      showModalBottomSheet(
+                                      AppBottomSheet.show(
                                         context: context,
                                         isScrollControlled: true,
                                         backgroundColor: Colors.white,

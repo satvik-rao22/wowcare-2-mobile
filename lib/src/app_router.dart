@@ -666,8 +666,12 @@ final GoRouter appRouter = GoRouter(
         // branch *root* reaches this PopScope. From the dashboard (branch 0)
         // root we let the app exit as usual; from any other tab's root we return
         // to the dashboard instead of closing the app.
+        final activeBranchIndex = navigationShell.currentIndex;
+        final activeNavigator = _allShellBranchKeys[activeBranchIndex].currentState;
+        final canActiveBranchPop = activeNavigator?.canPop() ?? false;
+
         return PopScope(
-          canPop: navigationShell.currentIndex == 0,
+          canPop: canActiveBranchPop || activeBranchIndex == 0,
           onPopInvokedWithResult: (didPop, result) {
             if (didPop) return;
             navigationShell.goBranch(0);

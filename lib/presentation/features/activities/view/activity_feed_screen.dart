@@ -13,7 +13,6 @@ import 'package:wowcare/presentation/features/activities/view/activity_student_s
 import 'package:wowcare/presentation/features/activities/widgets/school_cloud_image_uploader_dialog.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-
 import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 import '../../../../core/util/core_utils.dart';
@@ -98,8 +97,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   @override
   void didUpdateWidget(covariant ActivityFeedScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
-    if (forceReset || (widget.initialTab != oldWidget.initialTab && widget.initialTab != null)) {
+    final bool forceReset =
+        widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+    if (forceReset ||
+        (widget.initialTab != oldWidget.initialTab &&
+            widget.initialTab != null)) {
       final int initialIndex = widget.initialTab == 1 ? 1 : 0;
       if (_tabController.index != initialIndex) {
         _tabController.animateTo(initialIndex);
@@ -111,7 +113,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>
   void initState() {
     super.initState();
     final int initialIndex = widget.initialTab == 1 ? 1 : 0;
-    _tabController = TabController(initialIndex: initialIndex, length: 2, vsync: this);
+    _tabController = TabController(
+      initialIndex: initialIndex,
+      length: 2,
+      vsync: this,
+    );
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
