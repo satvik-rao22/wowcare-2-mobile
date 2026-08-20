@@ -111,11 +111,11 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       formatDesignationForDisplay(code): code,
   };
 
-  // API expects hyphenated codes, e.g. attendanceStatus=SIGN-IN&attendanceStatus=ABSENT.
+  // API expects underscore codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
   static const Map<String, String> _labelToAttendanceCode = <String, String>{
-    'Signed-In': 'SIGN-IN',
-    'Signed-Out': 'SIGN-OUT',
-    'Not-Marked': 'NOT-MARKED',
+    'Signed-In': 'SIGNED_IN',
+    'Signed-Out': 'SIGNED_OUT',
+    'Not-Marked': 'NOT_MARKED',
     'Absent': 'ABSENT',
   };
 
@@ -223,7 +223,7 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         _selectedStatusList = <String>[_selectedStatusList.first];
       }
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
-      // Incoming values are backend codes (e.g. SIGN-IN); map back to the
+      // Incoming values are backend codes (e.g. SIGNED_IN); map back to the
       // display labels shown in the dropdown (e.g. Signed-In).
       _selectedAttendanceStatusList = widget.initialFilters!.attendanceStatuses
           .map((code) => _attendanceCodeToLabel[code.trim().toUpperCase()])

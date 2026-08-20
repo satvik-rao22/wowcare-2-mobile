@@ -559,9 +559,9 @@ class _StudentScreenState extends State<StudentScreen> {
 
     // API expects underscored codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
     const labelToAttendanceCode = <String, String>{
-      'Sign In': 'SIGNED_IN',
-      'Sign Out': 'SIGNED_OUT',
-      'Not Marked': 'NOT_MARKED',
+      'Signed-In': 'SIGNED_IN',
+      'Signed-Out': 'SIGNED_OUT',
+      'Not-Marked': 'NOT_MARKED',
       'Absent': 'ABSENT',
     };
     final selectedAttendanceLabels =
