@@ -266,23 +266,27 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         }
       });
       final convCode = widget.parentInfo['code'] as String;
-      // Captured while context is known-valid — used below AFTER the
-      // `mounted` check for markConversationRead, deliberately NOT gated
-      // on it (see that call's own comment).
       final communicationCubit = context.read<CommunicationCubit>();
+      // Fire an immediate, unawaited mark-read on open — matches Room Chat's
+      // sibling screens (staff_messaging_thread.dart,
+      // conversation_thread_screen.dart), which call this unconditionally
+      // as soon as the thread opens, before anything else. Previously this
+      // was sequenced AFTER `await loadMessages(...)` below: any failure,
+      // stall, or thrown exception in that await (network hiccup, a bad
+      // response for this specific conversation, …) silently aborted this
+      // whole callback before ever reaching the mark-read call, so the
+      // read receipt was never recorded — the conversation looked read in
+      // the UI but stayed unread server-side/in Firestore forever. Firing
+      // it first, independent of loadMessages, means the read receipt no
+      // longer depends on that call succeeding — and, as before, it's
+      // deliberately NOT gated on `mounted` either: a quick open-then-back
+      // tap must still record the read receipt even with no UI left to
+      // update.
+      unawaited(communicationCubit.markConversationRead(convCode));
       await communicationCubit.loadMessages(
         convCode,
         currentUserId: currentUserId,
       );
-      // Clear unread count for this conversation now that the user has
-      // viewed it — fired regardless of whether the widget is STILL
-      // mounted (deliberately NOT behind the `if (!mounted) return` below,
-      // which used to gate this too: a quick open-then-back tap unmounts
-      // this screen while `loadMessages()` is still in flight, and the
-      // server-side read receipt must still be recorded even though
-      // there's no UI left to update — otherwise the conversation's
-      // unread count is stuck forever, exactly as if it was never opened).
-      unawaited(communicationCubit.markConversationRead(convCode));
       if (!mounted) return;
       // Realtime listener starts only after the API/Isar history has
       // loaded — Firestore only ever applies deltas on top of it.

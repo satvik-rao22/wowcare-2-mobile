@@ -122,11 +122,26 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         await storage.getBool(StorageKeys.onboardingSeen) ?? false;
 
     if (!seenOnboarding) {
-      // First launch: show onboarding and clear any stale auth cache.
-      await serviceLocator<AuthLocalDataSource>().clearCache();
+      // `onboardingSeen` is a plain SharedPreferences bool: its write on
+      // completing onboarding can lose the race with an abrupt task-kill
+      // (Android's Editor.apply() flushes asynchronously) and read back
+      // false/null on the very next cold launch even though the user is
+      // genuinely logged in. Only treat this as a true first launch — and
+      // only then destroy the cached session — when there is no cached
+      // login to protect; otherwise persist the flag now and fall through
+      // to the normal session-restore flow below instead of forcing a
+      // fresh sign-in.
+      final hasExistingLogin =
+          await serviceLocator<AuthLocalDataSource>().getCachedLoginResponse() !=
+          null;
       if (!mounted) return;
-      context.go('/first-screen');
-      return;
+      if (!hasExistingLogin) {
+        await serviceLocator<AuthLocalDataSource>().clearCache();
+        if (!mounted) return;
+        context.go('/first-screen');
+        return;
+      }
+      await storage.saveBool(StorageKeys.onboardingSeen, true);
     }
 
     String? redirectUrl;

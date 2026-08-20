@@ -10,10 +10,12 @@ class HlsWebPlayer extends StatefulWidget {
   State<HlsWebPlayer> createState() => _HlsWebPlayerState();
 }
 
-class _HlsWebPlayerState extends State<HlsWebPlayer> {
+class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver {
   BetterPlayerController? _controller;
   final GlobalKey _playerKey = GlobalKey();
   bool _isEnteringPip = false;
+  bool _isPipActive = false;
+  bool _wasPlayingBeforeBackground = false;
   static const List<String> _limitedTrackNames = <String>[
     'Auto',
     '360p',
@@ -23,7 +25,42 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initPlayer();
+  }
+
+  // Mirrors YouTube's iOS behaviour: leaving the app while a video is
+  // playing shrinks it into the floating PiP window instead of pausing it.
+  // `paused` is Flutter's signal for applicationDidEnterBackground — the
+  // point Apple's docs say to call startPictureInPicture() from, which is
+  // also why the app enables the `audio` UIBackgroundMode and a `.playback`
+  // AVAudioSession category (see AppDelegate.swift): both are required for
+  // AVPictureInPictureController to keep running once the app is backgrounded.
+  //
+  // BetterPlayerConfiguration.handleLifecycle is intentionally off (see
+  // _initPlayer): its own AppLifecycleState handling pauses playback on
+  // every backgrounding with no regard for PiP, which would instantly
+  // freeze the floating window instead of letting it keep playing. We take
+  // over that pause/resume bookkeeping here so an active/about-to-start PiP
+  // session is exempted.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null) return;
+
+    if (state == AppLifecycleState.paused) {
+      if (_isPipActive) return;
+      final isPlaying = controller.isPlaying() ?? false;
+      _wasPlayingBeforeBackground = isPlaying;
+      if (isPlaying) {
+        _handleBackgrounding();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (!_isPipActive && _wasPlayingBeforeBackground) {
+        controller.play();
+      }
+      _wasPlayingBeforeBackground = false;
+    }
   }
 
   @override
@@ -43,7 +80,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     final config = BetterPlayerConfiguration(
       autoPlay: true,
       fit: BoxFit.contain,
-      handleLifecycle: true,
+      // Handled manually in didChangeAppLifecycleState so an active PiP
+      // session is exempted from the pause-on-background behaviour.
+      handleLifecycle: false,
       autoDetectFullscreenDeviceOrientation: true,
       autoDetectFullscreenAspectRatio: true,
       controlsConfiguration: BetterPlayerControlsConfiguration(
@@ -104,6 +143,11 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   }
 
   void _onPlayerEvent(BetterPlayerEvent event) {
+    if (event.betterPlayerEventType == BetterPlayerEventType.pipStart) {
+      _isPipActive = true;
+    } else if (event.betterPlayerEventType == BetterPlayerEventType.pipStop) {
+      _isPipActive = false;
+    }
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
       final controller = _controller;
       if (controller == null) return;
@@ -122,40 +166,56 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     }
   }
 
-  Future<void> _enterPipMode() async {
-    if (_isEnteringPip) return;
+  /// Returns whether PiP was actually requested, so callers driven by
+  /// backgrounding (see [_handleBackgrounding]) know whether to fall back
+  /// to a plain pause instead of leaving the video playing off-screen.
+  Future<bool> _enterPipMode() async {
+    if (_isEnteringPip) return false;
     final controller = _controller;
-    if (controller == null || _playerKey.currentContext == null) return;
+    if (controller == null || _playerKey.currentContext == null) return false;
 
     setState(() => _isEnteringPip = true);
     try {
       final supported = await controller.isPictureInPictureSupported();
-      if (!mounted) return;
+      if (!mounted) return false;
       if (!supported) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('PiP is not supported on this device right now.'),
           ),
         );
-        return;
+        return false;
       }
       await controller.enablePictureInPicture(_playerKey);
+      return true;
     } catch (error, stackTrace) {
       // The plugin delegates this to the platform activity. A lifecycle race
       // (for example, entering PiP while the player is disposing) used to
       // bubble up as an unhandled exception and terminate the screen/app.
       debugPrint('Unable to enter picture-in-picture: $error\n$stackTrace');
-      if (!mounted) return;
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Unable to start picture-in-picture.')),
       );
+      return false;
     } finally {
       if (mounted) setState(() => _isEnteringPip = false);
     }
   }
 
+  // Falls back to a plain pause when auto-PiP can't be started (unsupported
+  // device, race with disposal, etc.) so the video doesn't keep playing
+  // silently off-screen with nothing showing it.
+  Future<void> _handleBackgrounding() async {
+    final started = await _enterPipMode();
+    if (!started) {
+      _controller?.pause();
+    }
+  }
+
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller?.removeEventsListener(_onPlayerEvent);
     _controller?.dispose();
     super.dispose();

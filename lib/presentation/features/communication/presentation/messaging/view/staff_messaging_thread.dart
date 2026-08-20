@@ -199,24 +199,21 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
 
       if (mounted) {
         final threadId = widget.staffInfo['code'] as String;
-        // Captured while context is known-valid — used below AFTER the
-        // `mounted` check for markConversationRead, deliberately NOT
-        // gated on it (see that call's own comment).
         final communicationCubit = context.read<CommunicationCubit>();
+        // Fire an immediate, unawaited mark-read on open — BEFORE
+        // loadMessages, not after (see parent_messaging_thread.dart's
+        // matching fix for why): sequencing it after `await loadMessages`
+        // meant any failure/stall in that call silently skipped the read
+        // receipt entirely, leaving the conversation's unread count stuck
+        // even though the user genuinely opened and viewed it. As before,
+        // deliberately NOT gated on `mounted` either — a quick
+        // open-then-back tap must still record the read receipt even with
+        // no UI left to update.
+        unawaited(communicationCubit.markConversationRead(threadId));
         await communicationCubit.loadMessages(
           threadId,
           currentUserId: _currentUserCode,
         );
-        // Clear unread count for this conversation now that the user has
-        // viewed it — fired regardless of whether the widget is STILL
-        // mounted (deliberately NOT behind the `if (!mounted) return`
-        // below, which used to gate this too: a quick open-then-back tap
-        // unmounts this screen while `loadMessages()` is still in flight,
-        // and the server-side read receipt must still be recorded even
-        // though there's no UI left to update — otherwise the
-        // conversation's unread count is stuck forever, exactly as if it
-        // was never opened).
-        unawaited(communicationCubit.markConversationRead(threadId));
         if (!mounted) return;
         // Realtime listener starts only after the API/Isar history has
         // loaded — Firestore only ever applies deltas on top of it.

@@ -90,13 +90,6 @@ class _MessageAttachmentBottomSheetState
     await _processFiles([File(file.path)]);
   }
 
-  Future<void> _pickRecordVideo() async {
-    Navigator.of(context).pop();
-    final file = await _picker.pickVideo(source: ImageSource.camera);
-    if (file == null) return;
-    await _processFiles([File(file.path)]);
-  }
-
   /// Photos AND videos together, in one gallery browse — every format either
   /// type supports, not just images.
   Future<void> _pickGallery() async {
@@ -355,12 +348,6 @@ class _MessageAttachmentBottomSheetState
                   label: 'Document',
                   color: const Color(0xFFF59E0B),
                   onTap: _pickDocument,
-                ),
-                _AttachmentGridItem(
-                  icon: Icons.videocam_rounded,
-                  label: 'Video',
-                  color: const Color(0xFFEC4899),
-                  onTap: _pickRecordVideo,
                 ),
                 // _AttachmentGridItem(
                 //   icon: Icons.audiotrack_rounded,

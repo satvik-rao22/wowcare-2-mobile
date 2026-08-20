@@ -101,8 +101,13 @@ class CommunicationCubit extends Cubit<CommunicationState> {
   Future<void> markConversationRead(String conversationCode) async {
     final result = await markConversationReadUseCase(conversationCode);
     result.fold(
-      (_) {},
-      (_) => MessagingEventService.instance.notifyMarkedRead(conversationCode),
+      (failure) => AppLogger.d(
+        '[UnreadDebug][markRead] FAILED conv=$conversationCode: $failure',
+      ),
+      (_) {
+        AppLogger.d('[UnreadDebug][markRead] OK conv=$conversationCode');
+        MessagingEventService.instance.notifyMarkedRead(conversationCode);
+      },
     );
   }
 

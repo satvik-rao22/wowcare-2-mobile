@@ -3,6 +3,7 @@ import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_local_data_source.dart';
 import 'package:wowcare/data/features/communication/datasources/conversation_entity_remote_data_source.dart';
@@ -580,9 +581,19 @@ class ConversationEntityRepositoryImpl implements ConversationEntityRepository {
   /// from [resolveActiveBackendRole], the same single source of truth the
   /// `x-role` request header uses, so a dual-role account's unread badges
   /// never disagree with which persona it's actually acting as.
+  ///
+  /// Uses [roleStringIsGuardianPersona] (tolerates both `GUARDIAN` and
+  /// `PARENT` backend role literals) rather than a strict `== 'GUARDIAN'`
+  /// check — every other persona check in the app (RoleCubit._personaFamily,
+  /// AuthInterceptor._bucketFor) already tolerates the `PARENT` alias. A
+  /// strict check here silently mis-bucketed a `PARENT`-labelled guardian
+  /// into 'ADMIN', so their Firestore unread read watched `unreadByRole.
+  /// ADMIN` instead of `.GUARDIAN` — a stale count their own read receipts
+  /// never touch, which for a dual-role (guardian + admin/staff) account
+  /// looked like the badge never decrementing after reading as guardian.
   Future<String> get _unreadRoleBucket async {
     final raw = await resolveActiveBackendRole(_storage);
-    return raw.trim().toUpperCase() == 'GUARDIAN' ? 'GUARDIAN' : 'ADMIN';
+    return roleStringIsGuardianPersona(raw) ? 'GUARDIAN' : 'ADMIN';
   }
 
   @override

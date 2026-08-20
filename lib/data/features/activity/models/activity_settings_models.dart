@@ -123,6 +123,9 @@ class ActivityCreateRequestModel {
     required this.description,
     this.napStart,
     this.napEnd,
+    this.napReminderEnabled,
+    this.napReminderUserCode,
+    this.napReminderRole,
     this.bindingMode = 'SHARED',
     this.requireAdminApproval,
     this.parameterValues = const [],
@@ -139,6 +142,9 @@ class ActivityCreateRequestModel {
   final String description;
   final bool? napStart;
   final bool? napEnd;
+  final bool? napReminderEnabled;
+  final String? napReminderUserCode;
+  final String? napReminderRole;
   final String bindingMode;
   final bool? requireAdminApproval;
   final List<Map<String, dynamic>> parameterValues;
@@ -156,6 +162,11 @@ class ActivityCreateRequestModel {
       'description': description,
       if (napStart != null) 'napStart': napStart,
       if (napEnd != null) 'napEnd': napEnd,
+      if (napReminderEnabled != null) 'napReminderEnabled': napReminderEnabled,
+      if (napReminderUserCode != null && napReminderUserCode!.isNotEmpty)
+        'napReminderUserCode': napReminderUserCode,
+      if (napReminderRole != null && napReminderRole!.isNotEmpty)
+        'napReminderRole': napReminderRole,
       'bindingMode': bindingMode,
       if (requireAdminApproval != null)
         'requireAdminApproval': requireAdminApproval,

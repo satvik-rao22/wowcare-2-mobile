@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/core/util/app_time.dart';
@@ -31,14 +32,55 @@ int resolveRoleAwareUnreadCount(Map<String, dynamic> data, String? roleBucket) {
   if (roleBucket == null) return flat;
 
   final dottedKey = data['unreadByRole.$roleBucket'];
-  if (dottedKey is num) return dottedKey.toInt();
+  if (dottedKey is num) {
+    debugPrint(
+      '[UnreadDebug][resolve] conv=${data['conversationCode']} '
+      'roleBucket=$roleBucket source=dottedKey flat=$flat '
+      'resolved=${dottedKey.toInt()}',
+    );
+    return dottedKey.toInt();
+  }
 
   final byRole = data['unreadByRole'];
   if (byRole is Map) {
     final perRole = byRole[roleBucket];
-    if (perRole is num) return perRole.toInt();
+    if (perRole is num) {
+      debugPrint(
+        '[UnreadDebug][resolve] conv=${data['conversationCode']} '
+        'roleBucket=$roleBucket source=nestedMap flat=$flat '
+        'unreadByRole=$byRole resolved=${perRole.toInt()}',
+      );
+      return perRole.toInt();
+    }
   }
 
+  // The doc has started per-role tracking (a dotted `unreadByRole.<OTHER_ROLE>`
+  // key, or a non-empty nested `unreadByRole` map) but has no entry for THIS
+  // role. An absent entry here means "no unread recorded for this role yet",
+  // NOT "trust the flat legacy count" — that flat field can reflect a
+  // DIFFERENT role's read state (or a pre-migration value never updated
+  // since), which is exactly what left a conversation's badge stuck on a
+  // stale non-zero count even after the current role had genuinely read it:
+  // the backend only ever wrote an entry for the OTHER role, so this role's
+  // read receipt had nowhere role-aware to land, and falling back to flat
+  // kept surfacing the other role's number. Only a doc with NO per-role
+  // tracking at all (a true legacy doc, or brand new with no unreadByRole
+  // data whatsoever) still trusts flat below.
+  final hasAnyRoleAwareEntry =
+      data.keys.any((k) => k.startsWith('unreadByRole.')) ||
+      (byRole is Map && byRole.isNotEmpty);
+  if (hasAnyRoleAwareEntry) {
+    debugPrint(
+      '[UnreadDebug][resolve] conv=${data['conversationCode']} '
+      'roleBucket=$roleBucket source=roleAwareNoEntry flat=$flat resolved=0',
+    );
+    return 0;
+  }
+
+  debugPrint(
+    '[UnreadDebug][resolve] conv=${data['conversationCode']} '
+    'roleBucket=$roleBucket source=flatFallback flat=$flat',
+  );
   return flat;
 }
 
