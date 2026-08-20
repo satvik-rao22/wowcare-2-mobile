@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:wowcare/core/util/app_time.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -1175,16 +1176,24 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle == AppLifecycleState.paused ||
         lifecycle == AppLifecycleState.detached) {
+      debugPrint(
+        '[UnreadDebug][markRead] SKIPPED conv=${state.conversationCode} '
+        '(lifecycle=$lifecycle)',
+      );
       return;
     }
     final result = await _markConversationReadUseCase(state.conversationCode);
     // Publish event so ConversationListCubit zeroes the badge immediately —
     // before Firestore confirms the read receipt.
     result.fold(
-      (_) {},
-      (_) => MessagingEventService.instance.notifyMarkedRead(
-        state.conversationCode,
+      (failure) => debugPrint(
+        '[UnreadDebug][markRead] FAILED conv=${state.conversationCode}: '
+        '$failure',
       ),
+      (_) {
+        debugPrint('[UnreadDebug][markRead] OK conv=${state.conversationCode}');
+        MessagingEventService.instance.notifyMarkedRead(state.conversationCode);
+      },
     );
   }
 

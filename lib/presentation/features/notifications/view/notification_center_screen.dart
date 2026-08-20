@@ -44,7 +44,6 @@ class NotificationCenterScreen extends StatelessWidget {
     'CLASSROOM',
     'STUDENT',
     'STAFF',
-    'USER',
     'BILLING',
     'SCHEDULING',
     'AVAILABILITY',

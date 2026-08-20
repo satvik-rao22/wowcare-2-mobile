@@ -13,6 +13,7 @@ import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
+import '../../../../../core/util/user_details_school_roles.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
@@ -75,6 +76,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   String? _staffPresentCode;
   String? _schoolCode;
   String? _organizationCode;
+  String? _currentUserCode;
+  String? _currentUserRole;
   bool _isSubmitting = false;
   bool _isApprovingOrRejecting = false;
   bool _isSavingBeforeApprove = false;
@@ -320,6 +323,9 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     final apiDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
       staffCode: staffCode,
     );
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
+    final activeRole = await resolveActiveBackendRole(storage);
 
     if (!mounted) return;
     setState(() {
@@ -331,6 +337,10 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
           : staffCode!.trim();
       _schoolCode = schoolCode.isNotEmpty ? schoolCode : null;
       _organizationCode = organizationCode.isNotEmpty ? organizationCode : null;
+      _currentUserCode = userCode.isNotEmpty ? userCode : null;
+      _currentUserRole = activeRole.trim().isNotEmpty
+          ? activeRole.trim().toUpperCase()
+          : null;
     });
   }
 
@@ -744,6 +754,12 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
         description: description,
         napStart: !isNapEnd,
         napEnd: isNapEnd,
+        // Reminder only applies to starting a nap — mirrors the "Remind to
+        // check nap every 15 minutes" checkbox above, which is likewise
+        // hidden for nap end (_isNapEndContextForUi()).
+        napReminderEnabled: isNapEnd ? null : _remindCheckNapEvery15Minutes,
+        napReminderUserCode: isNapEnd ? null : _currentUserCode,
+        napReminderRole: isNapEnd ? null : _currentUserRole,
         requireAdminApproval: _showRequireAdminApprovalToggle
             ? _requireAdminApproval
             : false,

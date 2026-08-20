@@ -173,11 +173,14 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               // for a dual-role account until some unrelated Firestore
               // event happened to also fire after switching profile.
               final role = context.watch<RoleCubit>();
-              final personaTotal = role.isParent
-                  ? badgeState.parentTotal
-                  : role.isAdmin
-                  ? badgeState.adminTotal
-                  : badgeState.staffTotal;
+              // Uses the raw role string via totalForRole rather than
+              // RoleCubit.isAdmin — isAdmin is `role == 'admin' || role ==
+              // 'staff'` (a broad "non-parent" check used for module-access
+              // gating elsewhere), so a ternary on isAdmin/isParent always
+              // matched staff into the admin branch and never reached
+              // staffTotal, showing a STAFF persona counts that wrongly
+              // included ADMIN_CHAT (a type staff can't even open).
+              final personaTotal = badgeState.totalForRole(role.role);
               // firestoreTotal sums EVERY doc in the user's Firestore
               // user_inbox collection with no type filter — it can't apply
               // the persona-visibility rules parentTotal/adminTotal/
