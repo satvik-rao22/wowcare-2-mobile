@@ -376,7 +376,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     if (allowedCodes != null && allowedCodes.isNotEmpty) {
       queryParameters['classCodes'] = allowedCodes;
     }
-    // API expects hyphenated codes, e.g. attendanceStatus=SIGN-IN&attendanceStatus=ABSENT.
+    // API expects underscore codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
     final normalizedAttendanceStatuses = attendanceStatuses
         ?.map((s) => s.trim().toUpperCase())
         .where((s) => s.isNotEmpty)
@@ -394,7 +394,7 @@ class StaffRemoteDataSourceImpl implements StaffRemoteDataSource {
     final response = await _client.get<dynamic>(
       endpoint,
       queryParameters: queryParameters,
-      // Repeats keys: `attendanceStatus=SIGN-IN&attendanceStatus=ABSENT`.
+      // Repeats keys: `attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT`.
       options: Options(listFormat: ListFormat.multi),
     );
 
