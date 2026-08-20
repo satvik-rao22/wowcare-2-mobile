@@ -431,17 +431,17 @@ class _SignInScreenState extends State<SignInScreen>
                   enabled: _canSubmit,
                   onPressed: () => _handleSignIn(context),
                 ),
-                if (_hasSavedPassword) ...[
-                  const SizedBox(height: 10),
-                  SkeuButton(
-                    label: 'Unlock with Face ID',
-                    variant: SkeuButtonVariant.neutral,
-                    icon: Icons.fingerprint_rounded,
-                    height: 52,
-                    fontSize: 15,
-                    onPressed: _unlockWithBiometrics,
-                  ),
-                ],
+                // if (_hasSavedPassword) ...[
+                //   const SizedBox(height: 10),
+                //   SkeuButton(
+                //     label: 'Unlock with Face ID',
+                //     variant: SkeuButtonVariant.neutral,
+                //     icon: Icons.fingerprint_rounded,
+                //     height: 52,
+                //     fontSize: 15,
+                //     onPressed: _unlockWithBiometrics,
+                //   ),
+                // ],
                 const SizedBox(height: 6),
                 SkeuTextButton(
                   label: 'Forgot Password?',
