@@ -32,8 +32,6 @@ class NewsletterListItemModel {
   final String? primaryAttachmentDirectUrl;
   final String? primaryAttachmentMimeType;
   final int additionalAttachmentCount;
-
-  bool get showClassroomRow => classroom.trim().isNotEmpty;
 }
 
 class NewsletterSentListCard extends StatelessWidget {
@@ -121,13 +119,6 @@ class NewsletterSentListCard extends StatelessWidget {
                           ),
                       ],
                     ),
-                    if (newsLetter.showClassroomRow) ...[
-                      const SizedBox(height: 2),
-                      _AlignedMetaRow(
-                        label: 'Classroom',
-                        value: newsLetter.classroom,
-                      ),
-                    ],
                   ],
                 ),
               ),
