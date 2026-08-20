@@ -40,7 +40,7 @@ class _StudentIncidentReportScreenState
   late DateTime _endDate;
   List<String> _selectedStudents = <String>[];
   // late List<String> _selectedClassrooms;
-  String _format = 'PDF';
+  String _format = 'XLSX';
 
   @override
   void initState() {
@@ -208,6 +208,7 @@ class _StudentIncidentReportScreenState
                   itemToString: (item) => item,
                   singularLabel: 'Student',
                   pluralLabel: 'Students',
+                  isRequired: true,
                   showSelectAll: true,
                   enableSearch: true,
                   searchHintText: 'Search Students',

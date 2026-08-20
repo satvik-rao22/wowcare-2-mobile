@@ -55,7 +55,7 @@ class _StudentAttendancePerStudentReportScreenState
   Map<String, String> _classroomCodeByName = <String, String>{};
   bool _isLoadingStudents = false;
   int _fetchId = 0;
-  String _format = 'PDF';
+  String _format = 'XLSX';
 
   @override
   void initState() {

@@ -35,7 +35,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
   late final ValueNotifier<DateTime> _toDate;
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
   List<String> _availableClassrooms = <String>[];
   Map<String, String> _classroomNameToCode = <String, String>{};
 
@@ -246,6 +246,7 @@ class _StaffAbsentReportScreenState extends State<StaffAbsentReportScreen> {
                   builder: (_, selected, __) => CustomMultiSelectDropdown(
                     label: 'Classroom',
                     hintText: 'Select Classroom',
+                    isRequired: true,
                     items: classroomItems,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,

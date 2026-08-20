@@ -27,7 +27,7 @@ class _AnnualStateImmunizationReportScreenState
     extends State<AnnualStateImmunizationReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
-  String _format = 'PDF';
+  String _format = 'XLSX';
 
   @override
   void initState() {

@@ -1578,19 +1578,15 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
   Future<void> _openActivityFilter() async {
     final school = _schoolCode;
-    final classroomName = _selectdClassroom;
-    if (school == null ||
-        school.isEmpty ||
-        classroomName == null ||
-        !_classroomCodeByName.containsKey(classroomName)) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Select a classroom first',
-        isWarning: true,
-      );
+    if (school == null || school.isEmpty) {
       return;
     }
-    final classroomCode = _classroomCodeByName[classroomName]!;
+    
+    final classroomName = _selectdClassroom;
+    final classroomCode = (classroomName != null && _classroomCodeByName.containsKey(classroomName))
+        ? _classroomCodeByName[classroomName]!
+        : '';
+
     final result = await Navigator.push<Map<String, List<String>>>(
       context,
       MaterialPageRoute(

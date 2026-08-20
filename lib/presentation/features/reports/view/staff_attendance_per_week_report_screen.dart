@@ -47,7 +47,7 @@ class _StaffAttendancePerWeekReportScreenState
   late DateTime _periodMonth;
   List<String> _selectedStaff = <String>[];
   List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
   List<String> _availableClassrooms = <String>[];
   Map<String, String> _classroomNameToCode = <String, String>{};
 
@@ -62,7 +62,7 @@ class _StaffAttendancePerWeekReportScreenState
     super.initState();
     final now = AppTime.now();
     _periodMonth = DateTime(now.year, now.month, 1);
-    
+
     _selectedStaff = List<String>.from(widget.staff);
     _availableClassrooms = List<String>.from(widget.classrooms);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -78,11 +78,10 @@ class _StaffAttendancePerWeekReportScreenState
       final schoolCode =
           (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
       if (schoolCode.isNotEmpty) {
-        final classrooms =
-            await serviceLocator<GetActiveClassroomsUseCase>()(
-              schoolCode: schoolCode,
-              onlyTypeClassroom: false,
-            );
+        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: false,
+        );
         final nameToCodeMap = <String, String>{};
         final names = <String>[];
         for (final c in classrooms) {
@@ -98,7 +97,9 @@ class _StaffAttendancePerWeekReportScreenState
         }
       }
     } catch (e) {
-      AppLogger.e('[STAFF-ATTENDANCE-WEEKLY-UI] Failed to load staff classrooms: $e');
+      AppLogger.e(
+        '[STAFF-ATTENDANCE-WEEKLY-UI] Failed to load staff classrooms: $e',
+      );
     }
   }
 
@@ -143,7 +144,9 @@ class _StaffAttendancePerWeekReportScreenState
         : reportsState.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.isEmpty ? widget.classrooms : _selectedClassrooms,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
       nameToCode: nameToCode,
       labelPlural: 'classrooms',
     );
@@ -303,6 +306,7 @@ class _StaffAttendancePerWeekReportScreenState
                   onChanged: (s) => setState(() => _selectedStaff = s),
                   itemToString: (item) => item,
                   singularLabel: 'Staff Member',
+                  isRequired: true,
                   pluralLabel: 'Staff Members',
                   showSelectAll: true,
                   enableSearch: true,
@@ -316,6 +320,7 @@ class _StaffAttendancePerWeekReportScreenState
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
                   showSelectAll: true,
+                  isRequired: true,
                 ),
                 const ReportDefaultNote(
                   text: 'Note: All Classrooms will be selected by Default.',

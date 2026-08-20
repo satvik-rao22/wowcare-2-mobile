@@ -30,7 +30,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
   late final ValueNotifier<DateTime> _fromDate;
   late final ValueNotifier<DateTime> _toDate;
   late final ValueNotifier<List<String>> _selectedClassrooms;
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void initState() {
@@ -185,6 +185,7 @@ class _StudentAbsentReportScreenState extends State<StudentAbsentReportScreen> {
                     hintText: 'Select Classroom',
                     items: widget.classrooms,
                     selectedItems: selected,
+                    isRequired: true,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
                   ),

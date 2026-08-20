@@ -32,12 +32,11 @@ class _StudentEmergencyContactReportScreenState
     extends State<StudentEmergencyContactReportScreen> {
   final ValueNotifier<List<String>> _selectedClassrooms =
       ValueNotifier<List<String>>(<String>[]);
-  final ValueNotifier<String> _format = ValueNotifier<String>('PDF');
+  final ValueNotifier<String> _format = ValueNotifier<String>('XLSX');
 
   @override
   void initState() {
     super.initState();
-    
   }
 
   @override
@@ -63,7 +62,9 @@ class _StudentEmergencyContactReportScreenState
     final classroomNameToCode = cubit.state.classroomNameToCode;
     final classroomCodes = resolveReportCodes(
       context: context,
-      names: _selectedClassrooms.value.isEmpty ? widget.classrooms : _selectedClassrooms.value,
+      names: _selectedClassrooms.value.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms.value,
       nameToCode: classroomNameToCode,
       labelPlural: 'classrooms',
     );
@@ -177,6 +178,7 @@ class _StudentEmergencyContactReportScreenState
                     label: 'Classroom',
                     hintText: 'Select Classroom',
                     items: widget.classrooms,
+                    isRequired: true,
                     selectedItems: selected,
                     onChanged: (s) => _selectedClassrooms.value = s,
                     showSelectAll: true,
