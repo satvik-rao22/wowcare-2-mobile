@@ -1749,8 +1749,14 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
     }
 
     // Fallback to REST API concurrently in case Firestore fails or is empty.
+    // includeRestUnreadCounts: false — unread counts are Firestore-only
+    // app-wide; these REST-sourced items would otherwise carry a stale/wrong
+    // unreadCount that _buildDisplayItems' merge (by most-recent timestamp,
+    // not by source) could pick over the live Firestore value.
     unawaited(
-      serviceLocator<GetConversationsEntityUseCase>().call().then((result) {
+      serviceLocator<GetConversationsEntityUseCase>()
+          .call(includeRestUnreadCounts: false)
+          .then((result) {
         if (!mounted) return;
         result.fold((_) {}, (list) {
           setState(() {

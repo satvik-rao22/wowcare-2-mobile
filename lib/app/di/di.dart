@@ -1963,8 +1963,9 @@ Future<void> configureDependencies({String? baseUrl}) async {
       getUnreadCountsUseCase: serviceLocator(),
     ),
   );
-  // Live signal source for the bell badge: a Firestore listener on
-  // userNotifications/{userCode}/notifications that only triggers a REST refresh.
+  // Sole source for the bell badge count: a Firestore listener on
+  // userNotifications/{userCode}/notifications, counted client-side per
+  // snapshot — never REST (see NotificationRealtimeDataSource's own doc).
   serviceLocator.registerLazySingleton<NotificationRealtimeDataSource>(
     () => FirebaseNotificationRealtimeDataSource(
       firestore: FirebaseFirestore.instance,
@@ -1974,7 +1975,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
   // UnreadBadgeCubit). Provided at the app root; started on GlobalScaffold mount.
   serviceLocator.registerLazySingleton<NotificationBadgeCubit>(
     () => NotificationBadgeCubit(
-      getUnreadCounts: serviceLocator(),
       realtime: serviceLocator<NotificationRealtimeDataSource>(),
       storage: serviceLocator<StorageService>(),
     ),

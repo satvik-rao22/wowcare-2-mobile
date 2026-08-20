@@ -494,6 +494,23 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   Future<void> refresh() async {
     emit(state.copyWith(isRefreshing: true, clearError: true));
 
+    // Firestore is the primary source (see class doc) and, once live with no
+    // filters applied, is ALREADY streaming the full, correctly-ordered list
+    // independently of this pull-to-refresh gesture. Replacing state with a
+    // separately-paginated/ordered REST snapshot on top of that made the list
+    // visibly flip-flop between the two sources' orderings — a conversation
+    // could appear to reorder or momentarily duplicate at the seam as
+    // whichever response landed last won, then the next Firestore snapshot
+    // (arriving on its own timeline, unrelated to this refresh) immediately
+    // won again. REST is only actually needed here when it's the sole source
+    // in play — either Firestore hasn't gone live yet, or filters are active
+    // (Firestore's own listener steps aside for filters; see the `if
+    // (state.hasActiveFilters) return;` guard below).
+    if (_firestoreActive && !state.hasActiveFilters) {
+      if (!isClosed) emit(state.copyWith(isRefreshing: false));
+      return;
+    }
+
     final result = await _getConversationsUseCase(
       type: _conversationType,
       status: _resolveConversationStatus(),
@@ -631,6 +648,7 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       studentStatuses: state.activeStudentStatuses,
       staffStatuses: _networkStaffStatuses(state.activeStaffStatuses),
       search: state.activeSearch,
+      includeRestUnreadCounts: false,
     );
 
     if (isClosed) return;
@@ -642,23 +660,42 @@ class ConversationListCubit extends Cubit<ConversationListState> {
           errorMessage: failure.message ?? 'Failed to load conversations.',
         ),
       ),
-      (conversations) => emit(
-        ConversationListState.loaded(
-          conversationType: _conversationType,
-          conversations: _sortedByLatest(
-            _reconcileLastMessageSenderNames(conversations),
+      (conversations) {
+        // This runs unconditionally alongside the Firestore subscribe below
+        // (see startWatching's own comment on why), so it can land BEFORE
+        // Firestore's first snapshot — unread counts must still never come
+        // from this REST response (per the app-wide rule: unread counts are
+        // Firestore-only). Preserve whatever's already in state (0 if this
+        // conversation hasn't been seen yet); the live Firestore stream,
+        // already starting concurrently, corrects it moments later. Mirrors
+        // refresh()'s identical merge.
+        final firestoreUnreadByCode = {
+          for (final c in state.conversations) c.code: c.unreadCount,
+        };
+        final withFirestoreUnread = conversations
+            .map(
+              (c) =>
+                  c.copyWith(unreadCount: firestoreUnreadByCode[c.code] ?? 0),
+            )
+            .toList();
+        emit(
+          ConversationListState.loaded(
+            conversationType: _conversationType,
+            conversations: _sortedByLatest(
+              _reconcileLastMessageSenderNames(withFirestoreUnread),
+            ),
+            isFromCache: false,
+            page: 0,
+            hasMore: conversations.length >= _pageSize,
+            activeClassroomCodes: state.activeClassroomCodes,
+            activeTagCodes: state.activeTagCodes,
+            activeDesignations: state.activeDesignations,
+            activeStudentStatuses: state.activeStudentStatuses,
+            activeStaffStatuses: state.activeStaffStatuses,
+            activeSearch: state.activeSearch,
           ),
-          isFromCache: false,
-          page: 0,
-          hasMore: conversations.length >= _pageSize,
-          activeClassroomCodes: state.activeClassroomCodes,
-          activeTagCodes: state.activeTagCodes,
-          activeDesignations: state.activeDesignations,
-          activeStudentStatuses: state.activeStudentStatuses,
-          activeStaffStatuses: state.activeStaffStatuses,
-          activeSearch: state.activeSearch,
-        ),
-      ),
+        );
+      },
     );
   }
 

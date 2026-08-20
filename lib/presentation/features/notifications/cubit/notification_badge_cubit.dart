@@ -5,95 +5,58 @@ import 'package:equatable/equatable.dart';
 
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/logger_service.dart';
-import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/notifications/realtime/notification_realtime_data_source.dart';
-import 'package:wowcare/domain/features/notifications/usecases/get_notification_unread_counts_usecase.dart';
 
 part 'notification_badge_state.dart';
 
 /// Holds the unread notification count for the app-bar bell badge, mirroring the
-/// messaging [UnreadBadgeCubit]. The COUNT is always read from REST
-/// (`/notification/inbox/unread-counts`) — per the notifications spec it is never
-/// derived from Firestore. Live updates come from a Firestore listener on
-/// `userNotifications/{userCode}/notifications` that only triggers a REST
-/// refresh; the count itself stays authoritative from REST.
+/// messaging [UnreadBadgeCubit]. The COUNT is always derived directly from the
+/// live Firestore collection `userNotifications/{userCode}/notifications` —
+/// never from REST (see [NotificationRealtimeDataSource]'s own doc).
+///
+/// Unlike messaging's badge, this listener doesn't need re-scoping on a
+/// school/persona switch ([SchoolSwitchEvents]): it's keyed by userCode only,
+/// and the live snapshot already reflects the account's actual notifications
+/// regardless of which persona is currently active — the old REST count was
+/// the one that needed a re-read there (server-scoped via `x-role`/
+/// `x-school-code` headers), and that's gone now.
 ///
 /// A shared app-session singleton: provided at the app root and started once per
 /// [GlobalScaffold] mount via [startWatching].
 class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
   NotificationBadgeCubit({
-    required GetNotificationUnreadCountsUseCase getUnreadCounts,
     required NotificationRealtimeDataSource realtime,
     required StorageService storage,
-  }) : _getUnreadCounts = getUnreadCounts,
-       _realtime = realtime,
+  }) : _realtime = realtime,
        _storage = storage,
-       super(const NotificationBadgeState.initial()) {
-    SchoolSwitchEvents.epoch.addListener(_handleContextSwitch);
-  }
+       super(const NotificationBadgeState.initial());
 
-  final GetNotificationUnreadCountsUseCase _getUnreadCounts;
   final NotificationRealtimeDataSource _realtime;
   final StorageService _storage;
 
-  StreamSubscription<void>? _firestoreSub;
+  StreamSubscription<int>? _firestoreSub;
   String _watchedUserCode = '';
-  Timer? _debounce;
-  Timer? _retry;
-  int _lastHandledEpoch = SchoolSwitchEvents.epoch.value;
 
-  /// Fetches the authoritative unread / unclicked totals from
-  /// `GET /api/v1/notification/inbox/unread-counts`. Failures are swallowed so a
-  /// transient error (or a not-yet-logged-in state) never flashes the badge off.
-  Future<void> load() async {
-    try {
-      final counts = await _getUnreadCounts();
-      if (isClosed) return;
-      AppLogger.d(
-        '[NotifBadge] REST count → unread=${counts.unread} '
-        'unclicked=${counts.unclicked}',
-      );
-      emit(
-        state.copyWith(
-          unreadCount: counts.unread,
-          unclickedCount: counts.unclicked,
-        ),
-      );
-    } catch (e) {
-      AppLogger.d('[NotifBadge] REST count fetch failed: $e');
-      // Keep the previous counts on failure.
-    }
-  }
+  /// No REST re-fetch to trigger any more — Firestore is the only source and
+  /// updates live on its own. Kept as a no-op-unless-not-yet-watching entry
+  /// point so existing callers (FCM push handlers, background-tap) that used
+  /// to force a REST re-read still have something safe to call; it just
+  /// ensures the live subscription is attached.
+  Future<void> refresh() => startWatching();
 
-  Future<void> refresh() => load();
+  /// Same as [refresh] — kept for existing call sites. There's no longer a
+  /// "re-read once more shortly after" retry to do: the live listener already
+  /// self-corrects on the backend's own timeline, with no single read to be
+  /// stale against.
+  Future<void> refreshWithRetry() => startWatching();
 
-  /// Like [refresh], but for triggers that mean "a notification just
-  /// arrived/changed on the server" (FCM push, background-tap). The backend's
-  /// own read-model can lag a beat behind the push/Firestore write it's
-  /// reacting to, so a single REST read right now can come back stale with no
-  /// second chance to correct itself. Do the immediate read for the common
-  /// case where it's already caught up, then re-read once more shortly after
-  /// so a stale first read self-corrects instead of sticking until some
-  /// unrelated screen happens to refresh the badge.
-  Future<void> refreshWithRetry() async {
-    await load();
-    _retry?.cancel();
-    _retry = Timer(const Duration(seconds: 2), () {
-      if (!isClosed) load();
-    });
-  }
-
-  /// Does an immediate REST load and attaches the live Firestore listener so the
-  /// badge updates as notifications arrive / are read. Idempotent per user: safe
-  /// to call on every [GlobalScaffold] mount (login, navigation, school switch).
-  /// The notifications collection is keyed by userCode only (not school), so the
+  /// Attaches the live Firestore listener so the badge updates as
+  /// notifications arrive / are read. Idempotent per user: safe to call on
+  /// every [GlobalScaffold] mount (login, navigation, school switch). The
+  /// notifications collection is keyed by userCode only (not school), so the
   /// subscription is reused across school switches.
   Future<void> startWatching() async {
-    // Refresh the count immediately so the badge is correct before the first
-    // snapshot lands (pure latency optimisation).
-    await load();
-
     final userCode = (await _storage.getString(StorageKeys.userCode) ?? '')
         .trim();
     if (userCode.isEmpty) {
@@ -106,55 +69,25 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
     _watchedUserCode = userCode;
     await _firestoreSub?.cancel();
     _firestoreSub = _realtime
-        .watchNotificationChanges(userCode: userCode)
-        .listen((_) => _scheduleRefresh(), onError: (_) {});
-  }
-
-  /// Re-fetches the REST count after a school OR persona switch (both fire
-  /// [SchoolSwitchEvents.notifySwitched] — see custom_drawer.dart,
-  /// active_school_switcher.dart, user_profile_screen.dart).
-  ///
-  /// The Firestore listener itself doesn't need to change — it's keyed by
-  /// userCode only, per [startWatching]'s own doc — but the REST count can
-  /// still be scoped server-side to the currently active role/school (sent
-  /// via the request's `x-role`/`x-school-code`/`x-organization-code`
-  /// headers), so it must be re-read under the NEW scope. Without this the
-  /// bell badge kept showing whatever was last loaded under the PREVIOUS
-  /// persona: [startWatching] normally re-runs on every [GlobalScaffold]
-  /// mount, but a persona switch deliberately does NOT remount it (branch
-  /// screens stay alive in an `IndexedStack`) — the exact gap
-  /// [UnreadBadgeCubit] already closes for the messaging badge via this
-  /// same epoch listener.
-  void _handleContextSwitch() {
-    if (isClosed) return;
-    if (SchoolSwitchEvents.epoch.value == _lastHandledEpoch) return;
-    _lastHandledEpoch = SchoolSwitchEvents.epoch.value;
-    unawaited(load());
-  }
-
-  /// Coalesces bursts of Firestore changes into a single REST refresh.
-  void _scheduleRefresh() {
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 400), () {
-      if (isClosed) return;
-      load();
-    });
+        .watchUnreadCount(userCode: userCode)
+        .listen(
+          (count) {
+            if (isClosed) return;
+            AppLogger.d('[NotifBadge] Firestore unread=$count');
+            emit(state.copyWith(unreadCount: count));
+          },
+          onError: (_) {},
+        );
   }
 
   /// Applies a read-state change the caller already knows is correct (the
   /// mark-read/mark-all-read request just succeeded), so the bell updates in
-  /// the same frame instead of waiting on a REST round-trip. A REST refresh
-  /// right now would risk reading the backend's read-model before it has
-  /// caught up with the write it's reacting to, stomping this correct value
-  /// with a stale one — so push out any pending Firestore-triggered
-  /// reconciliation rather than doing one immediately.
+  /// the same frame instead of waiting on the Firestore round-trip. The next
+  /// live snapshot (once the backend's write lands) reconciles on top of
+  /// this automatically.
   void _applyLocalReadDelta(int newUnreadCount) {
     if (isClosed) return;
     emit(state.copyWith(unreadCount: newUnreadCount));
-    _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 1500), () {
-      if (!isClosed) load();
-    });
   }
 
   /// Call right after a single notification is successfully marked read.
@@ -168,8 +101,6 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
 
   /// Optimistically clears the badge and tears down the live listener (logout).
   void clear() {
-    _debounce?.cancel();
-    _retry?.cancel();
     _firestoreSub?.cancel();
     _firestoreSub = null;
     _watchedUserCode = '';
@@ -179,9 +110,6 @@ class NotificationBadgeCubit extends Cubit<NotificationBadgeState> {
 
   @override
   Future<void> close() {
-    SchoolSwitchEvents.epoch.removeListener(_handleContextSwitch);
-    _debounce?.cancel();
-    _retry?.cancel();
     _firestoreSub?.cancel();
     return super.close();
   }
