@@ -97,6 +97,11 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
       final map = <String, (int, int)>{};
       for (final d in days) {
+        // Skip days the school is closed on (INACTIVE) or that aren't a
+        // regular weekly schedule (e.g. HOLIDAY) — mirrors
+        // SchoolHoursResolver.hoursFor so off days can't be scheduled.
+        if (d.status != null && !d.isActive) continue;
+        if (!d.isRegular) continue;
         map[d.dayOfWeek] = (
           _localTimeStringToMinutes(d.startTime),
           _localTimeStringToMinutes(d.endTime),

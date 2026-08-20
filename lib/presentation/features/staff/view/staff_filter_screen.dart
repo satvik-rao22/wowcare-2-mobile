@@ -111,6 +111,18 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       formatDesignationForDisplay(code): code,
   };
 
+  // API expects hyphenated codes, e.g. attendanceStatus=SIGN-IN&attendanceStatus=ABSENT.
+  static const Map<String, String> _labelToAttendanceCode = <String, String>{
+    'Signed-In': 'SIGN-IN',
+    'Signed-Out': 'SIGN-OUT',
+    'Not-Marked': 'NOT-MARKED',
+    'Absent': 'ABSENT',
+  };
+
+  static final Map<String, String> _attendanceCodeToLabel = <String, String>{
+    for (final entry in _labelToAttendanceCode.entries) entry.value: entry.key,
+  };
+
   List<String> get _designationLabels =>
       _labelToDesignationCode.keys.toList()..sort();
 
@@ -211,9 +223,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         _selectedStatusList = <String>[_selectedStatusList.first];
       }
       _selectedDesignationList = List.from(widget.initialFilters!.tags);
-      _selectedAttendanceStatusList = List.from(
-        widget.initialFilters!.attendanceStatuses,
-      );
+      // Incoming values are backend codes (e.g. SIGN-IN); map back to the
+      // display labels shown in the dropdown (e.g. Signed-In).
+      _selectedAttendanceStatusList = widget.initialFilters!.attendanceStatuses
+          .map((code) => _attendanceCodeToLabel[code.trim().toUpperCase()])
+          .whereType<String>()
+          .toList();
       final sb = widget.initialFilters!.sortBy?.trim().toLowerCase();
       if (sb == 'asc' || sb == 'desc') {
         _selectedSortByList = [sb == 'asc' ? 'Ascending' : 'Descending'];
@@ -289,15 +304,8 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
         ? 'asc'
         : 'desc';
 
-    // API expects hyphenated codes, e.g. attendanceStatus=SIGN-IN&attendanceStatus=ABSENT.
-    const labelToAttendanceCode = <String, String>{
-      'Sign In': 'SIGN-IN',
-      'Sign Out': 'SIGN-OUT',
-      'Not Marked': 'NOT-MARKED',
-      'Absent': 'ABSENT',
-    };
     final attendanceStatuses = _selectedAttendanceStatusList
-        .map((label) => labelToAttendanceCode[label])
+        .map((label) => _labelToAttendanceCode[label])
         .whereType<String>()
         .toList();
 
