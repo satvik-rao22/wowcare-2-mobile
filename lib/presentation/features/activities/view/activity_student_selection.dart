@@ -403,7 +403,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
           ),
           const SizedBox(height: 12),
           CustomToggle(
-            label: 'Show signed-in students only',
+            label: _signedInOnly ? 'Signed In' : 'All Attended',
             isToggled: _signedInOnly,
             labelOnLeftSide: true,
             onToggle: (value) {
