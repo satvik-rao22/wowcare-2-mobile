@@ -1663,6 +1663,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                           ),
                                       name: student.fullName,
                                       imageUrl: student.profilePictureUrl ?? '',
+                                      dob: student.dob,
                                       icons: _getStudentIcons(student),
                                       forceUpcomingProfileStatusDot:
                                           upcomingOnlyFilter,

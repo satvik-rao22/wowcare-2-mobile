@@ -18,6 +18,7 @@ class StudentClassroomItem extends Equatable {
     required this.medication,
     required this.allergies,
     required this.dietaryRestriction,
+    this.dob,
   });
 
   final String classroomCode;
@@ -36,28 +37,28 @@ class StudentClassroomItem extends Equatable {
   final bool medication;
   final bool allergies;
   final bool dietaryRestriction;
+  final String? dob;
 
   String get fullName => ('$firstName $lastName').trim();
 
   @override
   List<Object?> get props => [
-        classroomCode,
-        studentCode,
-        firstName,
-        lastName,
-        profilePictureUrl,
-        status,
-        expectedToday,
-        signedIn,
-        absent,
-        notMarked,
-        nap,
-        photoPermission,
-        notes,
-        medication,
-        allergies,
-        dietaryRestriction,
-      ];
+    classroomCode,
+    studentCode,
+    firstName,
+    lastName,
+    profilePictureUrl,
+    status,
+    expectedToday,
+    signedIn,
+    absent,
+    notMarked,
+    nap,
+    photoPermission,
+    notes,
+    medication,
+    allergies,
+    dietaryRestriction,
+    dob,
+  ];
 }
-
-

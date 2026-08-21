@@ -4,8 +4,10 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
+import 'package:wowcare/core/util/upcoming_birthday.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/shared/common/widgets/birthday_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 // The following imports depend on backend/bloc not available now. Keeping commented.
@@ -32,6 +34,11 @@ class ClassroomStudentListItem extends StatefulWidget {
   final String studentStatus;
   final String? todayAttendanceStatusRaw;
 
+  /// Student's date of birth (any ISO-parseable string); used to show a cake
+  /// badge on the avatar when the birthday is today or within the next few
+  /// days. Null/unparseable simply means no badge.
+  final String? dob;
+
   /// When the classroom roster is filtered to upcoming students only, show the
   /// amber profile dot even if [studentStatus] from the API is missing or varies.
   final bool forceUpcomingProfileStatusDot;
@@ -51,6 +58,7 @@ class ClassroomStudentListItem extends StatefulWidget {
     required this.studentStatus,
     this.todayAttendanceStatusRaw,
     this.forceUpcomingProfileStatusDot = false,
+    this.dob,
   });
 
   @override
@@ -76,11 +84,13 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedAttendance =
-        (widget.todayAttendanceStatusRaw ?? '').trim().toUpperCase();
+    final normalizedAttendance = (widget.todayAttendanceStatusRaw ?? '')
+        .trim()
+        .toUpperCase();
     final hasAttendanceStatus =
         normalizedAttendance == 'SIGNED_IN' || normalizedAttendance == 'ABSENT';
-    final shouldGreyOut = !widget.isExpectedToday &&
+    final shouldGreyOut =
+        !widget.isExpectedToday &&
         !widget.isSignedIn &&
         !widget.isAbsent &&
         !hasAttendanceStatus;
@@ -97,8 +107,10 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
     final bool looksLikeUrl =
         rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
     final String? directUrl = looksLikeUrl ? rawPhoto : null;
-    final String? assetCode =
-        (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null;
+    final String? assetCode = (!looksLikeUrl && rawPhoto.isNotEmpty)
+        ? rawPhoto
+        : null;
+    final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.dob);
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
@@ -160,6 +172,14 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
                                   height: 18,
                                   width: 18,
                                 ),
+                              ),
+                            ),
+                          if (birthdayDaysUntil != null)
+                            Positioned(
+                              left: -2,
+                              bottom: -2,
+                              child: BirthdayAvatarBadge(
+                                daysUntil: birthdayDaysUntil,
                               ),
                             ),
                         ],
@@ -301,8 +321,9 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
   Future<void> _fetchHealth() async {
     final code = widget.studentCode.trim();
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<StudentRepository>().getStudentHealth(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,
@@ -491,8 +512,9 @@ Future<void> prefetchStudentDetailsHealth(String studentCode) async {
 
   final future = () async {
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<StudentRepository>().getStudentHealth(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,

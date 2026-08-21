@@ -7,9 +7,11 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/core/util/upcoming_birthday.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/widgets/birthday_badge.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -58,6 +60,7 @@ class StudentCard extends StatefulWidget {
   final VoidCallback? onEdit;
   final bool isSelected;
   final ValueChanged<bool?>? onSelected;
+
   /// From nap-start API (current classroom roster); shown on avatar like classroom list.
   final bool isNapping;
 
@@ -123,14 +126,12 @@ class _StudentCardState extends State<StudentCard> {
 
   static Future<List<String>> _fetchSchoolOpenDays() async {
     final storage = serviceLocator<StorageService>();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
     if (schoolCode.isEmpty) return const <String>[];
     final repo = serviceLocator<StaffRepository>();
     final days = await repo.getSchoolRegularSchedules(schoolCode: schoolCode);
-    final open = <String>{
-      for (final d in days) d.dayOfWeek.toUpperCase(),
-    };
+    final open = <String>{for (final d in days) d.dayOfWeek.toUpperCase()};
     final ordered = _weekOrder
         .where(open.contains)
         .map((k) => _enumToShort[k]!)
@@ -170,6 +171,7 @@ class _StudentCardState extends State<StudentCard> {
     // not the inactive set (Reactivate + Delete + Edit).
     final bool showActiveActions =
         widget.isActive || widget.status.trim().toUpperCase() == 'UPCOMING';
+    final birthdayDaysUntil = UpcomingBirthday.daysUntil(widget.birthDate);
     String _toEnumDay(String shortDay) {
       switch (shortDay) {
         case 'Mon':
@@ -267,16 +269,29 @@ class _StudentCardState extends State<StudentCard> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Flexible(
-                                  child: Text(
-                                    widget.name,
-                                    style: TextStyle(
-                                      fontFamily: 'Manrope',
-                                      fontSize: isTablet ? 16 : 14,
-                                      fontWeight: FontWeight.w500,
-                                      color: const Color(0xff573353),
-                                      height: 19 / 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text(
+                                          widget.name,
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: isTablet ? 16 : 14,
+                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xff573353),
+                                            height: 19 / 14,
+                                          ),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      if (birthdayDaysUntil != null) ...[
+                                        const SizedBox(width: 6),
+                                        BirthdayCountdownChip(
+                                          daysUntil: birthdayDaysUntil,
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -467,15 +482,17 @@ class _StudentCardState extends State<StudentCard> {
                                         final enumDay = _toEnumDay(day);
                                         final scheduleText =
                                             widget.scheduleByDay[enumDay];
-                                        final hasDayInList = widget.schedule.any(
-                                          (d) =>
-                                              d.trim().toLowerCase() ==
-                                              day.toLowerCase(),
-                                        );
+                                        final hasDayInList = widget.schedule
+                                            .any(
+                                              (d) =>
+                                                  d.trim().toLowerCase() ==
+                                                  day.toLowerCase(),
+                                            );
                                         final hasDayInMap =
                                             scheduleText != null &&
                                             scheduleText.trim().isNotEmpty;
-                                        final isActive = hasDayInList || hasDayInMap;
+                                        final isActive =
+                                            hasDayInList || hasDayInMap;
                                         final dayChip = Container(
                                           padding: const EdgeInsets.symmetric(
                                             horizontal: 10,
@@ -516,8 +533,9 @@ class _StudentCardState extends State<StudentCard> {
                                           message: tooltipText,
                                           triggerMode:
                                               TooltipTriggerMode.longPress,
-                                          showDuration:
-                                              const Duration(seconds: 3),
+                                          showDuration: const Duration(
+                                            seconds: 3,
+                                          ),
                                           preferBelow: true,
                                           child: dayChip,
                                         );
@@ -585,60 +603,6 @@ class _StudentCardState extends State<StudentCard> {
                               const SizedBox(height: 20),
                               Row(
                                 children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 40,
-                                    child: OutlinedButton(
-                                      onPressed: () {
-                                        showModalBottomSheet(
-                                          context: context,
-                                          isScrollControlled: true,
-                                          backgroundColor: Colors.transparent,
-                                          builder: (ctx) {
-                                            return DeleteConfirmationBottomSheet(
-                                              name: widget.name,
-                                              type: showActiveActions
-                                                  ? 'student_deactivate'
-                                                  : 'student_reactivate',
-                                              onDelete: () {
-                                                widget.onPrimaryAction?.call();
-                                                return Future.value();
-                                              },
-                                              onCancel: () {
-                                                Navigator.of(ctx).pop();
-                                              },
-                                            );
-                                          },
-                                        );
-                                      },
-                                      style: OutlinedButton.styleFrom(
-                                        side: const BorderSide(
-                                          color: Color(0xFF6C7FD8),
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                      ),
-                                      child: Text(
-                                        showActiveActions
-                                            ? 'Deactivate'
-                                            : 'Reactivate',
-                                        style: const TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Color(0xFF6C7FD8),
-                                          height: 16 / 16,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                if (!showActiveActions) ...[
-                                  const SizedBox(width: 16),
                                   Expanded(
                                     child: SizedBox(
                                       height: 40,
@@ -651,9 +615,12 @@ class _StudentCardState extends State<StudentCard> {
                                             builder: (ctx) {
                                               return DeleteConfirmationBottomSheet(
                                                 name: widget.name,
-                                                type: 'student_delete',
+                                                type: showActiveActions
+                                                    ? 'student_deactivate'
+                                                    : 'student_reactivate',
                                                 onDelete: () {
-                                                  widget.onDeleteAction?.call();
+                                                  widget.onPrimaryAction
+                                                      ?.call();
                                                   return Future.value();
                                                 },
                                                 onCancel: () {
@@ -668,13 +635,17 @@ class _StudentCardState extends State<StudentCard> {
                                             color: Color(0xFF6C7FD8),
                                           ),
                                           shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(8),
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
                                           ),
                                           padding: EdgeInsets.zero,
                                         ),
-                                        child: const Text(
-                                          'Delete',
-                                          style: TextStyle(
+                                        child: Text(
+                                          showActiveActions
+                                              ? 'Deactivate'
+                                              : 'Reactivate',
+                                          style: const TextStyle(
                                             fontFamily: 'Manrope',
                                             fontSize: 16,
                                             fontWeight: FontWeight.w700,
@@ -685,34 +656,85 @@ class _StudentCardState extends State<StudentCard> {
                                       ),
                                     ),
                                   ),
-                                ],
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: Container(
-                                    height: 40,
-                                    decoration: BoxDecoration(
-                                      borderRadius: BorderRadius.circular(8),
-                                      gradient:
-                                          AppColors.buildPrimaryGradient(),
-                                    ),
-                                    child: TextButton(
-                                      onPressed: widget.onEdit,
-                                      style: TextButton.styleFrom(
-                                        padding: EdgeInsets.zero,
+                                  if (!showActiveActions) ...[
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: SizedBox(
+                                        height: 40,
+                                        child: OutlinedButton(
+                                          onPressed: () {
+                                            showModalBottomSheet(
+                                              context: context,
+                                              isScrollControlled: true,
+                                              backgroundColor:
+                                                  Colors.transparent,
+                                              builder: (ctx) {
+                                                return DeleteConfirmationBottomSheet(
+                                                  name: widget.name,
+                                                  type: 'student_delete',
+                                                  onDelete: () {
+                                                    widget.onDeleteAction
+                                                        ?.call();
+                                                    return Future.value();
+                                                  },
+                                                  onCancel: () {
+                                                    Navigator.of(ctx).pop();
+                                                  },
+                                                );
+                                              },
+                                            );
+                                          },
+                                          style: OutlinedButton.styleFrom(
+                                            side: const BorderSide(
+                                              color: Color(0xFF6C7FD8),
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            padding: EdgeInsets.zero,
+                                          ),
+                                          child: const Text(
+                                            'Delete',
+                                            style: TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w700,
+                                              color: Color(0xFF6C7FD8),
+                                              height: 16 / 16,
+                                            ),
+                                          ),
+                                        ),
                                       ),
-                                      child: const Text(
-                                        'Edit',
-                                        style: TextStyle(
-                                          fontFamily: 'Manrope',
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w700,
-                                          color: Colors.white,
-                                          height: 16 / 16,
+                                    ),
+                                  ],
+                                  const SizedBox(width: 16),
+                                  Expanded(
+                                    child: Container(
+                                      height: 40,
+                                      decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(8),
+                                        gradient:
+                                            AppColors.buildPrimaryGradient(),
+                                      ),
+                                      child: TextButton(
+                                        onPressed: widget.onEdit,
+                                        style: TextButton.styleFrom(
+                                          padding: EdgeInsets.zero,
+                                        ),
+                                        child: const Text(
+                                          'Edit',
+                                          style: TextStyle(
+                                            fontFamily: 'Manrope',
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w700,
+                                            color: Colors.white,
+                                            height: 16 / 16,
+                                          ),
                                         ),
                                       ),
                                     ),
                                   ),
-                                ),
                                 ],
                               ),
                             ],
@@ -729,5 +751,4 @@ class _StudentCardState extends State<StudentCard> {
       },
     );
   }
-
 }
