@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_entity_mapper.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';

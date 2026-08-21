@@ -1,91 +1,79 @@
 import 'dart:convert';
 
+import 'package:bloc/bloc.dart';
 import 'package:dio/dio.dart';
+import 'package:equatable/equatable.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
-import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/auth/session_expired_coordinator.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
-import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
-import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
-import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
-import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
-import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
 import 'package:wowcare/data/features/notifications/models/push_notification_model.dart';
 import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/presentation/features/notifications/routing/notification_route_resolver.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/src/app_router.dart';
-import 'package:wowcare/core/util/active_school_switcher.dart';
-import 'package:wowcare/shared/common/widgets/animation_slide_widgets.dart';
+import 'package:wowcare/src/app_router.dart'
+    show consumePendingNotificationDeepLink, consumePendingNotificationOrgSchool;
 
-// Avoid silencing `forgot_password_screen.dart`/`sign_in_screen.dart` analyzer
-// `unused_import` lint — they're referenced by route-path constants below
-// (`DashboardScreen.routeName`, `SignInScreen.routeName`).
-// ignore_for_file: unused_import
-
-class SplashScreen extends StatefulWidget {
-  const SplashScreen({super.key});
-
-  @override
-  State<SplashScreen> createState() => _SplashScreenState();
-}
-
-class _SplashScreenState extends State<SplashScreen> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          AnimationWrapper(
-            type: AnimationType.bounce,
-            duration: Duration.zero,
-            curve: Curves.easeOut,
-            child: Image.asset(MediaRes.backgroundImage2, fit: BoxFit.cover),
-          ),
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Image.asset(
-                'assets/images/WowCarePNG.png',
-                width: 150,
-                height: 150,
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
+part 'splash_state.dart';
 
 /// Decides where the app goes on launch: onboarding, sign-in, org/school
-/// selection, or the dashboard. Lives in the router as the "/" route — uses
-/// `context.go(...)` to swap itself out once the decision is made.
-class SplashScreenWrapper extends StatefulWidget {
-  const SplashScreenWrapper({super.key});
+/// selection, the dashboard, or a notification deep-link.
+///
+/// MVVM golden rule (same as [RoleCubit]): this ViewModel has no View
+/// dependency (no BuildContext, widgets, navigation) — [SplashScreenWrapper]
+/// only calls [resolve] and reacts to the emitted [SplashState.route] via a
+/// `BlocListener`, performing the actual `context.go(...)` itself. The one
+/// exception is a killed-state notification's org/school switch
+/// ([switchActiveSchoolIfNeeded]), which itself needs a BuildContext to read
+/// other cubits — that single side effect stays in the widget, driven by
+/// [SplashState.pendingOrgSchool]/[SplashState.deepLinkLocation].
+///
+/// [RoleCubit]/[ParentChildCubit]/[AuthCubit] are injected as constructor
+/// dependencies rather than resolved via `serviceLocator` — those cubits are
+/// app-root singletons reachable only through the widget tree's
+/// `BlocProvider`s (see `app_providers.dart`/`app_bloc_providers.dart`), so
+/// the caller must pass the SAME instances via `context.read<...>()` at
+/// construction time; resolving a fresh one from `serviceLocator` would
+/// silently operate on a throwaway instance nothing else observes.
+class SplashCubit extends Cubit<SplashState> {
+  SplashCubit({
+    required StorageService storage,
+    required AuthLocalDataSource authLocal,
+    required AuthRemoteDataSource authRemote,
+    required KioskAccessControl kioskAccessControl,
+    required RegisterDeviceFcmTokenUseCase registerDeviceFcmTokenUseCase,
+    required RoleCubit roleCubit,
+    required ParentChildCubit parentChildCubit,
+    required AuthCubit authCubit,
+  }) : _storage = storage,
+       _authLocal = authLocal,
+       _authRemote = authRemote,
+       _kioskAccessControl = kioskAccessControl,
+       _registerDeviceFcmTokenUseCase = registerDeviceFcmTokenUseCase,
+       _roleCubit = roleCubit,
+       _parentChildCubit = parentChildCubit,
+       _authCubit = authCubit,
+       super(const SplashState());
 
-  @override
-  State<SplashScreenWrapper> createState() => _SplashScreenWrapperState();
-}
+  final StorageService _storage;
+  final AuthLocalDataSource _authLocal;
+  final AuthRemoteDataSource _authRemote;
+  final KioskAccessControl _kioskAccessControl;
+  final RegisterDeviceFcmTokenUseCase _registerDeviceFcmTokenUseCase;
+  final RoleCubit _roleCubit;
+  final ParentChildCubit _parentChildCubit;
+  final AuthCubit _authCubit;
 
-class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
-  @override
-  void initState() {
-    super.initState();
-    _navigateToHome();
+  void _safeEmit(SplashState next) {
+    if (!isClosed) emit(next);
   }
 
   /// Check if stored roles JSON contains exact KIOSK role (not STAFF_KIOSK, etc.)
@@ -112,14 +100,30 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
     return false;
   }
 
-  Future<void> _navigateToHome() async {
-    await Future.delayed(const Duration(seconds: 1));
-    if (!mounted) return;
+  /// Reads the notification that cold-launched the app (killed state) and maps
+  /// it to a go_router location, or null if the app wasn't launched from a
+  /// notification tap / the action has no in-app target. Safe to call this
+  /// early: the FCM plugin is reliably attached by the time [resolve] runs
+  /// (after its own 1s delay + the auth/login-context round trip).
+  Future<String?> _resolveLaunchDeepLink() async {
+    try {
+      final launch = await FirebaseMessaging.instance.getInitialMessage();
+      if (launch == null) return null;
+      final dest = NotificationRouteResolver.resolve(
+        PushNotificationModel.fromRemoteMessage(launch),
+      );
+      return dest?.location;
+    } catch (_) {
+      return null;
+    }
+  }
 
-    final storage = serviceLocator<StorageService>();
+  Future<void> resolve() async {
+    await Future.delayed(const Duration(seconds: 1));
+    if (isClosed) return;
 
     final seenOnboarding =
-        await storage.getBool(StorageKeys.onboardingSeen) ?? false;
+        await _storage.getBool(StorageKeys.onboardingSeen) ?? false;
 
     if (!seenOnboarding) {
       // `onboardingSeen` is a plain SharedPreferences bool: its write on
@@ -131,25 +135,21 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       // login to protect; otherwise persist the flag now and fall through
       // to the normal session-restore flow below instead of forcing a
       // fresh sign-in.
-      final hasExistingLogin =
-          await serviceLocator<AuthLocalDataSource>().getCachedLoginResponse() !=
-          null;
-      if (!mounted) return;
+      final hasExistingLogin = await _authLocal.getCachedLoginResponse() != null;
+      if (isClosed) return;
       if (!hasExistingLogin) {
-        await serviceLocator<AuthLocalDataSource>().clearCache();
-        if (!mounted) return;
-        context.go('/first-screen');
+        await _authLocal.clearCache();
+        _safeEmit(state.copyWith(route: SplashRoute.firstScreen));
         return;
       }
-      await storage.saveBool(StorageKeys.onboardingSeen, true);
+      await _storage.saveBool(StorageKeys.onboardingSeen, true);
     }
 
     String? redirectUrl;
     bool hasCachedLogin = false;
     bool sessionExpired = false;
     try {
-      final authLocal = serviceLocator<AuthLocalDataSource>();
-      final cachedLogin = await authLocal.getCachedLoginResponse();
+      final cachedLogin = await _authLocal.getCachedLoginResponse();
       if (cachedLogin != null) {
         hasCachedLogin = true;
 
@@ -179,13 +179,11 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         // and ONE retry, before concluding the session is genuinely dead.
         await TokenRefreshService.instance.ensureFreshToken();
         final freshAccessToken =
-            (await storage.getString(StorageKeys.accessToken) ?? '').trim();
-
-        final authRemote = serviceLocator<AuthRemoteDataSource>();
+            (await _storage.getString(StorageKeys.accessToken) ?? '').trim();
 
         Future<Map<String, dynamic>?> fetchContext(String token) async {
           try {
-            return await authRemote.getLoginContext(accessToken: token);
+            return await _authRemote.getLoginContext(accessToken: token);
           } on DioException catch (e) {
             if (e.response?.statusCode == 401) return null;
             rethrow;
@@ -209,8 +207,8 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
           // "not yet worth refreshing" per ensureFreshToken's guess.
           sessionExpired = true;
         } else {
-          await authLocal.saveLoginContext(contextData);
-          await authLocal.saveOrgAndSchoolFromContext(contextData);
+          await _authLocal.saveLoginContext(contextData);
+          await _authLocal.saveOrgAndSchoolFromContext(contextData);
 
           final rawRedirect = contextData['redirectUrl'];
           redirectUrl = rawRedirect is String ? rawRedirect.trim() : null;
@@ -223,20 +221,21 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
 
           if (orgCode.isNotEmpty) {
             final existingSchoolCode =
-                (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+                (await _storage.getString(StorageKeys.schoolCode) ?? '')
+                    .trim();
             final effectiveSchoolCode = schoolCode.isNotEmpty
                 ? schoolCode
                 : existingSchoolCode;
 
             if (effectiveSchoolCode.isNotEmpty) {
-              await authLocal.setSelectedOrgAndSchool(
+              await _authLocal.setSelectedOrgAndSchool(
                 organizationCode: orgCode,
                 schoolCode: effectiveSchoolCode,
                 schoolName: '',
               );
             } else {
               // Only org known; keep any existing school selection.
-              await storage.saveString(StorageKeys.organizationCode, orgCode);
+              await _storage.saveString(StorageKeys.organizationCode, orgCode);
             }
           }
         }
@@ -254,70 +253,71 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
       // Non-fatal: still decide navigation below.
     }
 
-    if (!mounted) return;
+    if (isClosed) return;
 
     if (sessionExpired) {
       // Full logout cascade: best-effort backend logout, clear cached session
       // (profile name, roles, tokens), reset auth cubits, show the "session
-      // expired" snackbar, and navigate to sign-in. Return so we never fall
-      // through to the dashboard with a dead session.
+      // expired" snackbar, and navigate to sign-in. The coordinator performs
+      // its own navigation (via a global navigator key), so this cubit just
+      // marks the route as handled and does nothing further.
       await SessionExpiredCoordinator.instance.performLogoutDueToExpiredSession(
         fromEntryRoute: true,
       );
+      _safeEmit(state.copyWith(route: SplashRoute.sessionExpired));
       return;
     }
 
     if (hasCachedLogin) {
       // Fast kiosk check from stored roles — no API needed.
-      final storedRoles = await storage.getString(StorageKeys.roles) ?? '';
+      final storedRoles = await _storage.getString(StorageKeys.roles) ?? '';
       final isKiosk = _isKioskFromStoredRoles(storedRoles);
       AppLogger.d('[Splash] Cached login - isKiosk=$isKiosk');
       if (isKiosk) {
-        if (!mounted) return;
         AppLogger.d('[Splash] Kiosk user detected - redirecting to /kiosk');
-        context.go('/kiosk');
+        _safeEmit(state.copyWith(route: SplashRoute.kiosk));
         return;
       }
 
       // Non-kiosk cached session: clear any stale kiosk flag from storage and
       // the static in-memory cache so GoRouter never sees a false positive.
       try {
-        await serviceLocator<KioskAccessControl>().deactivateKioskMode();
+        await _kioskAccessControl.deactivateKioskMode();
         AppLogger.d('[Splash] Non-kiosk cached session — kiosk state cleared');
       } catch (_) {
         KioskAccessControl.clearCacheForNonKioskLogin();
       }
 
-      await context.read<RoleCubit>().refreshAccessFromServer(force: true);
+      await _roleCubit.refreshAccessFromServer(force: true);
 
       try {
-        if (mounted && context.read<RoleCubit>().isParent) {
-          context.read<ParentChildCubit>().invalidate();
-          await context.read<ParentChildCubit>().ensureLoaded(force: true);
+        if (_roleCubit.isParent) {
+          _parentChildCubit.invalidate();
+          await _parentChildCubit.ensureLoaded(force: true);
         }
       } catch (_) {
         // Non-blocking.
       }
 
-      if (!mounted) return;
+      if (isClosed) return;
 
       final orgCode =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-          .trim();
+          (await _storage.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+      final schoolCode =
+          (await _storage.getString(StorageKeys.schoolCode) ?? '').trim();
       if (orgCode.isNotEmpty && schoolCode.isNotEmpty) {
-        if (!mounted) return;
-        await context.read<AuthCubit>().prefetchStaffProfileForOrgAndSchool(
+        await _authCubit.prefetchStaffProfileForOrgAndSchool(
           organizationCode: orgCode,
           schoolCode: schoolCode,
         );
         // PushNotificationCubit.init() runs before splash restores org/school.
         try {
-          await serviceLocator<RegisterDeviceFcmTokenUseCase>()();
+          await _registerDeviceFcmTokenUseCase();
         } catch (_) {}
       }
 
-      if (!mounted) return;
+      if (isClosed) return;
 
       // Killed-state cold launch: prefer the deep-link main() stashed; if main()
       // ran before the FCM plugin was attached (so getInitialMessage() returned
@@ -334,7 +334,7 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
         'resolved="$launchDeepLink" redirectUrl="$redirectUrl" '
         'orgSchool=$pendingOrgSchool',
       );
-      if (!mounted) return;
+      if (isClosed) return;
 
       if (redirectUrl != null && redirectUrl.isNotEmpty) {
         final url = redirectUrl.toLowerCase();
@@ -342,90 +342,56 @@ class _SplashScreenWrapperState extends State<SplashScreenWrapper> {
           // Login context still needs an org/school chosen — don't override the
           // routing with a notification deep-link (it has no school scope yet).
           // Drop the deep-link and continue to school selection.
-          final org = await storage.getString(StorageKeys.organizationCode);
-          if (!mounted) return;
-          await context.read<AuthCubit>().loadCachedData();
-          if (!mounted) return;
-          if (org != null && org.isNotEmpty) {
-            context.go(
-              '/school-selection',
-              extra: <String, dynamic>{
-                'selectedOrg': org,
-                'orgFromLoginContext': true,
-              },
+          final org = (await _storage.getString(StorageKeys.organizationCode) ?? '')
+              .trim();
+          if (isClosed) return;
+          await _authCubit.loadCachedData();
+          if (isClosed) return;
+          if (org.isNotEmpty) {
+            _safeEmit(
+              state.copyWith(
+                route: SplashRoute.schoolSelection,
+                schoolSelectionOrgCode: org,
+              ),
             );
           } else {
-            context.go('/org-selection');
+            _safeEmit(state.copyWith(route: SplashRoute.orgSelection));
           }
           return;
         }
         if (url.contains('select-organization')) {
           // Org not chosen yet — don't override routing with the deep-link.
-          await context.read<AuthCubit>().loadCachedData();
-          if (!mounted) return;
-          context.go('/org-selection');
+          await _authCubit.loadCachedData();
+          if (isClosed) return;
+          _safeEmit(state.copyWith(route: SplashRoute.orgSelection));
           return;
         }
         if (url.contains('dashboard') || url.contains('select-app')) {
-          if (launchDeepLink != null) {
-            await _switchSchoolForLaunch(pendingOrgSchool);
-            if (!mounted) return;
-          }
-          context.go(launchDeepLink ?? DashboardScreen.routeName);
+          _safeEmit(
+            state.copyWith(
+              route: SplashRoute.dashboardOrDeepLink,
+              deepLinkLocation: launchDeepLink,
+              pendingOrgSchool: pendingOrgSchool,
+            ),
+          );
           return;
         }
       }
 
       // No redirectUrl: default to dashboard — unless a notification cold-launched
       // the app, in which case route to its deep-link instead of home.
-      if (launchDeepLink != null) {
-        await _switchSchoolForLaunch(pendingOrgSchool);
-        if (!mounted) return;
-      }
-      context.go(launchDeepLink ?? DashboardScreen.routeName);
+      _safeEmit(
+        state.copyWith(
+          route: SplashRoute.dashboardOrDeepLink,
+          deepLinkLocation: launchDeepLink,
+          pendingOrgSchool: pendingOrgSchool,
+        ),
+      );
     } else {
       // No cached login: go to sign-in. Drop any pending deep-link so it can't
       // leak into a later authenticated session.
       consumePendingNotificationDeepLink();
-      context.go(SignInScreen.routeName);
+      _safeEmit(state.copyWith(route: SplashRoute.signIn));
     }
   }
-
-  /// Switches the active org/school to the killed-state notification's target
-  /// (multi-school user) before routing to its deep-link, so the destination
-  /// loads the notified school's data. No-op when [orgSchool] is null/empty or
-  /// already current.
-  Future<void> _switchSchoolForLaunch(Map<String, String>? orgSchool) async {
-    if (orgSchool == null) return;
-    if (!mounted) return;
-    try {
-      await switchActiveSchoolIfNeeded(
-        context: context,
-        organizationCode: orgSchool['organizationCode'],
-        schoolCode: orgSchool['schoolCode'],
-      );
-    } catch (e) {
-      AppLogger.d('[Splash] launch school-switch failed (non-fatal): $e');
-    }
-  }
-
-  /// Reads the notification that cold-launched the app (killed state) and maps
-  /// it to a go_router location, or null if the app wasn't launched from a
-  /// notification tap / the action has no in-app target. Safe to call here:
-  /// the FCM plugin is reliably attached by the time the splash decides routing.
-  Future<String?> _resolveLaunchDeepLink() async {
-    try {
-      final launch = await FirebaseMessaging.instance.getInitialMessage();
-      if (launch == null) return null;
-      final dest = NotificationRouteResolver.resolve(
-        PushNotificationModel.fromRemoteMessage(launch),
-      );
-      return dest?.location;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) => const SplashScreen();
 }

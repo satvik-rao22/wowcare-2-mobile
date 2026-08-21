@@ -4,7 +4,7 @@ import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/activity_feed_invalidation.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
+import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_students_tab_card.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
 
 /// Clears every cache layer so a school switch OR persona switch starts from

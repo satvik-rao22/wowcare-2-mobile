@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_component_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_component_entity.dart';
 
 class NewsletterComponentModel extends Equatable {
   const NewsletterComponentModel({

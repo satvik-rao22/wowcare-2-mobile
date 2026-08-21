@@ -32,8 +32,8 @@ import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
@@ -54,15 +54,21 @@ import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.
 import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/user_persona.dart';
-import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/splash/view/splash_screen.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/splash/cubit/splash_cubit.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/logout/kiosk_logout_page.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
@@ -347,7 +353,26 @@ final GoRouter appRouter = GoRouter(
   routes: [
     GoRoute(
       path: AppRoutes.splash,
-      builder: (context, state) => const SplashScreenWrapper(),
+      // RoleCubit/ParentChildCubit/AuthCubit are read from the ANCESTOR
+      // BlocProviders (app_providers.dart/app_bloc_providers.dart) rather
+      // than resolved via serviceLocator — SplashCubit needs to act on the
+      // SAME instances the rest of the app observes (e.g. it calls
+      // RoleCubit.refreshAccessFromServer so the dashboard sees the
+      // refreshed state), not a throwaway factory instance.
+      builder: (context, state) => BlocProvider(
+        create: (context) => SplashCubit(
+          storage: serviceLocator<StorageService>(),
+          authLocal: serviceLocator<AuthLocalDataSource>(),
+          authRemote: serviceLocator<AuthRemoteDataSource>(),
+          kioskAccessControl: serviceLocator<KioskAccessControl>(),
+          registerDeviceFcmTokenUseCase:
+              serviceLocator<RegisterDeviceFcmTokenUseCase>(),
+          roleCubit: context.read<RoleCubit>(),
+          parentChildCubit: context.read<ParentChildCubit>(),
+          authCubit: context.read<AuthCubit>(),
+        )..resolve(),
+        child: const SplashScreenWrapper(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.firstScreen,

@@ -36,7 +36,7 @@ import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 ///
 /// This is intentionally implemented as a thin wrapper around the shared
 /// [CalendarDialog] so feature modules can standardize on a single import:
-/// `@lib/presentation/features/classrooom/forms/date_picker_normal.dart`.
+/// `@lib/presentation/features/classroom/forms/date_picker_normal.dart`.
 Future<DateTime?> pickNormalDate({
   required BuildContext context,
   DateTime? initialDate,

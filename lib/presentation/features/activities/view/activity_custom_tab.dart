@@ -46,8 +46,8 @@ import '../../../../domain/features/attendance/entities/student_attendance_absen
     hide StudentAttendanceTime;
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_absent_records_activity_usecase.dart';
-import '../util/activity_filter_metadata_cache.dart';
-import '../util/activity_parent_feed_merge.dart';
+import '../utils/activity_filter_metadata_cache.dart';
+import '../utils/activity_parent_feed_merge.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';

@@ -49,7 +49,7 @@ import '../../../../domain/features/attendance/entities/student_attendance_absen
 import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
 import '../../../../domain/features/attendance/usecases/get_student_absent_records_activity_usecase.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../util/activity_filter_metadata_cache.dart';
+import '../utils/activity_filter_metadata_cache.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
@@ -66,7 +66,7 @@ import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
-import '../util/activity_parent_feed_merge.dart';
+import '../utils/activity_parent_feed_merge.dart';
 import '../utils/activity_staff_display.dart';
 import '../utils/activity_patch_attachments.dart';
 import 'activity_feed_card_permissions.dart';

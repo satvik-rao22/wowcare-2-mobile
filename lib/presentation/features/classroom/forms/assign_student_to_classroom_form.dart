@@ -23,7 +23,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/confirmation_bottom_sheet.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/presentation/features/classroom/utils/classroom_age_range.dart';
-import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_cubit.dart';
 
 // UI-only lightweight types
 class _TagEntity {

@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_recipient_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_recipient_entity.dart';
 
 class NewsletterRecipientModel extends Equatable {
   const NewsletterRecipientModel({

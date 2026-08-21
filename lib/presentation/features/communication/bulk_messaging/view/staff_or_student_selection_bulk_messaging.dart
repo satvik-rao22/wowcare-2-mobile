@@ -19,12 +19,12 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/safe_state_mixin.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../app/di/di.dart';
-import '../../../classrooom/views/filters/designation_display_utils.dart';
+import '../../../classroom/views/filters/designation_display_utils.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../../shared/common/widgets/custom_search_bar.dart';
-import '../../../student/cubit/student_cubit.dart';
+import '../../../students/cubit/student_cubit.dart';
 import '../widgets/selection_shimmer.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {

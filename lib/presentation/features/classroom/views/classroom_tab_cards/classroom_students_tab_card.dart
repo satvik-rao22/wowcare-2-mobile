@@ -9,7 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
-import 'package:wowcare/presentation/features/classrooom/views/widgets/classroom_student_list_item.dart';
+import 'package:wowcare/presentation/features/classroom/views/widgets/classroom_student_list_item.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_action_panel.dart';
 import 'package:wowcare/presentation/features/students/widgets/student_attendance_action_availability.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
@@ -27,10 +27,10 @@ import 'package:wowcare/domain/features/attendance/usecases/get_student_today_si
 import 'package:wowcare/domain/features/activity/usecases/get_nap_start_students_usecase.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
-import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/cubit/classroom_students_state.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_cubit.dart';
+import 'package:wowcare/presentation/features/classroom/cubit/classroom_students_state.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/views/filters/classroom_student_filter_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/filters/classroom_student_filter_screen.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart'
     as sign_in_form;
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_sign_out_form.dart'

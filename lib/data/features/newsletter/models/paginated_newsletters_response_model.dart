@@ -1,5 +1,5 @@
 import 'package:equatable/equatable.dart';
-import 'package:wowcare/domain/features/newsletters/entities/paginated_newsletters_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/paginated_newsletters_entity.dart';
 
 import 'newsletter_model.dart';
 
