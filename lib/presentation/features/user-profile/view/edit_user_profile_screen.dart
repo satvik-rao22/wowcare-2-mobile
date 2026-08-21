@@ -132,7 +132,6 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
-  static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
   @override
   void initState() {
@@ -301,16 +300,14 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       );
       return;
     }
-    // Staff keep the original E.164 check; guardians only need 10 digits (their
-    // numbers may legitimately start with 0, which E.164 would reject).
-    if (!widget.isParent && !_e164Regex.hasMatch('+$phoneDigits')) {
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: 'Please enter a valid 10-digit phone number',
-        isError: true,
-      );
-      return;
-    }
+    // The 10-digit check above is sufficient for both personas. Staff used
+    // to also be run through an E.164 check (`_e164Regex`, which requires
+    // the first digit after '+' to be 1-9) on top of that — but a genuine
+    // 10-digit local number can legitimately start with 0 (exactly the
+    // reasoning already applied to exempt guardians from this same check,
+    // per the comment that used to be here), so it rejected valid staff
+    // phone numbers like "0970291258" with the same "valid 10-digit phone
+    // number" error, even though it already was one.
     if (!widget.isParent && _streetController.text.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,

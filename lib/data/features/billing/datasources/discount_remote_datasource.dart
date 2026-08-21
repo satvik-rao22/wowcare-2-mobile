@@ -36,14 +36,20 @@ class DiscountRemoteDataSourceImpl implements DiscountRemoteDataSource {
     int page = 0,
     int size = 10,
   }) async {
+    // Flat param names, NOT the `criteria.`/`pageable.` nested convention
+    // other endpoints (attendance, student) use — this endpoint's backend
+    // controller binds plain @RequestParam fields. Sending the nested form
+    // here (as this used to) meant `criteria.status` was never recognized,
+    // so the status filter was silently ignored server-side and the same
+    // unfiltered list came back regardless of the "Show inactive" toggle.
     final response = await _client.get<Map<String, dynamic>>(
       ApiPaths.url(ApiPaths.discounts),
       queryParameters: <String, dynamic>{
-        'criteria.school': school,
-        'pageable.page': page,
-        'pageable.size': size,
-        if (name != null && name.isNotEmpty) 'criteria.name': name,
-        if (status != null) 'criteria.status': status,
+        'school': school,
+        'page': page,
+        'size': size,
+        if (name != null && name.isNotEmpty) 'name': name,
+        if (status != null) 'status': status,
       },
     );
     return DiscountPageModel.fromJson(response.data ?? {});

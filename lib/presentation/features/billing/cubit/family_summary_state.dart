@@ -26,6 +26,7 @@ class FamilySummaryState extends Equatable {
   List<FamilySummaryEntity> get filteredFamilies {
     final q = searchQuery.trim().toLowerCase();
     return families.where((f) {
+      if (!f.hasTransactions) return false;
       if (showOutstandingOnly && f.openBalance <= 0) return false;
       if (q.isEmpty) return true;
       return f.familyName.toLowerCase().contains(q) ||
@@ -37,9 +38,11 @@ class FamilySummaryState extends Equatable {
   double get totalOutstanding {
     final q = searchQuery.trim().toLowerCase();
     return families
-        .where((f) => q.isEmpty ||
-            f.familyName.toLowerCase().contains(q) ||
-            f.guardianName.toLowerCase().contains(q))
+        .where((f) =>
+            f.hasTransactions &&
+            (q.isEmpty ||
+                f.familyName.toLowerCase().contains(q) ||
+                f.guardianName.toLowerCase().contains(q)))
         .fold<double>(0, (sum, f) => sum + f.openBalance);
   }
 

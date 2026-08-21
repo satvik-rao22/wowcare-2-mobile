@@ -45,6 +45,17 @@ class ConversationListCubit extends Cubit<ConversationListState> {
   StreamSubscription<String>? _markedReadSubscription;
   bool _firestoreActive = false;
 
+  /// Unread count per conversation code, updated from EVERY Firestore
+  /// snapshot regardless of whether filters are active. The Firestore
+  /// listener below stops applying its snapshot to `state` while a filter/
+  /// search is active (state.hasActiveFilters) — content-wise that's correct
+  /// (Firestore's stream has no concept of those filters), but unread counts
+  /// still need to stay live. Without a separate map, REST-driven refreshes
+  /// while filtered (see `refresh()`/`_fallbackToApi()`) had nothing fresh to
+  /// overlay and kept showing whatever counts were frozen at the moment the
+  /// filter was first applied, never correcting even on pull-to-refresh.
+  final Map<String, int> _latestFirestoreUnread = {};
+
   /// Dedup guard so a conversation's last message only triggers one
   /// markConversationDelivered call per change — keyed by conversation
   /// code, valued by the `lastMessageAt` we already processed.
@@ -117,6 +128,10 @@ class ConversationListCubit extends Cubit<ConversationListState> {
       (conversations) {
         if (isClosed) return;
         _firestoreActive = true;
+        // Kept fresh unconditionally — see _latestFirestoreUnread's own doc.
+        for (final c in conversations) {
+          _latestFirestoreUnread[c.code] = c.unreadCount;
+        }
         // The Firestore inbox stream is always the FULL, unfiltered list
         // for this type — it has no concept of the classroomCodes/
         // tagCodes/designations filters applied via applyFilters(). While
@@ -535,17 +550,19 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         ),
       ),
       (conversations) {
-        // Match on code against the current (Firestore-sourced) state rather
-        // than trusting anything REST just returned. A conversation missing
-        // from state (e.g. brand new) defaults to 0 until the live Firestore
-        // stream, already running, delivers its real count moments later.
-        final firestoreUnreadByCode = {
-          for (final c in state.conversations) c.code: c.unreadCount,
-        };
+        // Overlay from _latestFirestoreUnread (kept live on every Firestore
+        // snapshot regardless of filter state — see its own doc) rather than
+        // state.conversations, which stops being updated for counts the
+        // whole time a filter/search is active and would otherwise keep
+        // showing the same stale numbers no matter how many times this
+        // refresh runs. A conversation missing from the map (e.g. brand new)
+        // defaults to 0 until the live Firestore stream delivers its real
+        // count moments later.
         final withFirestoreUnread = conversations
             .map(
-              (c) =>
-                  c.copyWith(unreadCount: firestoreUnreadByCode[c.code] ?? 0),
+              (c) => c.copyWith(
+                unreadCount: _latestFirestoreUnread[c.code] ?? 0,
+              ),
             )
             .toList();
         debugPrint(
@@ -665,17 +682,17 @@ class ConversationListCubit extends Cubit<ConversationListState> {
         // (see startWatching's own comment on why), so it can land BEFORE
         // Firestore's first snapshot — unread counts must still never come
         // from this REST response (per the app-wide rule: unread counts are
-        // Firestore-only). Preserve whatever's already in state (0 if this
-        // conversation hasn't been seen yet); the live Firestore stream,
-        // already starting concurrently, corrects it moments later. Mirrors
+        // Firestore-only). Overlay from _latestFirestoreUnread (see its own
+        // doc — kept live regardless of filter state, unlike
+        // state.conversations); a code missing from it (not seen yet)
+        // defaults to 0 until the live Firestore stream, already starting
+        // concurrently, delivers its real count moments later. Mirrors
         // refresh()'s identical merge.
-        final firestoreUnreadByCode = {
-          for (final c in state.conversations) c.code: c.unreadCount,
-        };
         final withFirestoreUnread = conversations
             .map(
-              (c) =>
-                  c.copyWith(unreadCount: firestoreUnreadByCode[c.code] ?? 0),
+              (c) => c.copyWith(
+                unreadCount: _latestFirestoreUnread[c.code] ?? 0,
+              ),
             )
             .toList();
         emit(

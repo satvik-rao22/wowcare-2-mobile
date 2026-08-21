@@ -9,6 +9,7 @@ import 'package:wowcare/presentation/features/billing/cubit/parent_statements_cu
 import 'package:wowcare/presentation/features/billing/widgets/generate_statement_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_statements_widget.dart';
 import 'package:wowcare/presentation/features/billing/widgets/parent_transaction_card.dart';
+import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -160,6 +161,31 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
       context: context,
       message: error,
       isError: true,
+    );
+  }
+
+  /// Opens an in-app PDF preview instead of saving/handing off to an
+  /// external viewer (that's what Download is for).
+  Future<void> _handleView(BillingStatementEntity statement) async {
+    final result = await _cubit.fetchStatementForPreview(statement);
+    if (!mounted) return;
+    final bytes = result.bytes;
+    if (bytes == null) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: result.error ?? 'Unable to preview this statement.',
+        isError: true,
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportFileViewerScreen(
+          fileData: bytes,
+          fileName: 'statement-${statement.code}.pdf',
+          fileType: 'pdf',
+        ),
+      ),
     );
   }
 
@@ -350,7 +376,7 @@ class _ParentStatementsTabState extends State<ParentStatementsTab> {
                                     isDownloading:
                                         state.isDownloading(statement.code),
                                     onDownload: () => _handleDownload(statement),
-                                    onView: () => _handleDownload(statement),
+                                    onView: () => _handleView(statement),
                                   ),
                                 ),
                               )

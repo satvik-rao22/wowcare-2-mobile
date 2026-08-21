@@ -113,6 +113,36 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                 final cubit = context.read<ParentChildCubit>();
                 final names = cubit.childNames;
                 final canPickChild = !state.isLoading && names.isNotEmpty;
+                // Only offer the switcher when there's actually something to
+                // switch to. A single-child (or still-loading, where the
+                // count isn't known yet) account keeps the interactive
+                // dropdown — hiding it only once we know for certain there's
+                // nothing else to pick avoids a layout flash while loading.
+                final showSwitcher =
+                    state.isLoading || state.children.length > 1;
+                if (!showSwitcher) {
+                  final label =
+                      state.selectedChild?.name ??
+                      (names.isNotEmpty ? names.first : 'No children linked');
+                  return Padding(
+                    padding: const EdgeInsets.only(left: 4),
+                    child: SizedBox(
+                      width: 220,
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          fontFamily: 'Manrope',
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xff573353),
+                          height: 19 / 14,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.left,
+                      ),
+                    ),
+                  );
+                }
                 return Padding(
                   padding: const EdgeInsets.only(left: 4),
                   child: SizedBox(
