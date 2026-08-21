@@ -5,7 +5,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_attendance_cubit.dart';
@@ -70,7 +70,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
           onRetry: () => context.read<MyAttendanceCubit>().load(),
           child: Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.white,
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
@@ -140,7 +140,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
   Widget _buildShimmer() {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.white,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -149,8 +149,8 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Shimmer.fromColors(
-          baseColor: Colors.grey.shade300,
-          highlightColor: Colors.grey.shade100,
+          baseColor: AppColors.grey.shade300,
+          highlightColor: AppColors.grey.shade100,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -198,7 +198,7 @@ class _MyAttendanceCardState extends State<MyAttendanceCard> {
     width: w,
     height: h,
     decoration: BoxDecoration(
-      color: Colors.white,
+      color: AppColors.white,
       borderRadius: BorderRadius.circular(radius),
     ),
   );

@@ -3,7 +3,7 @@ import 'dart:io' show Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/kiosk/entities/kiosk_pin_result_entity.dart';
@@ -77,7 +77,8 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
 
     // Reload QR on app resume from background
     if (state == AppLifecycleState.resumed) {
-      final isRealResume = _lastLifecycleState == AppLifecycleState.paused ||
+      final isRealResume =
+          _lastLifecycleState == AppLifecycleState.paused ||
           _lastLifecycleState == AppLifecycleState.detached;
 
       if (isRealResume) {
@@ -113,7 +114,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
   }
 
   Future<void> _onPinSubmit(String pin, {bool isLogout = false}) async {
-    AppLogger.d('[Kiosk] PIN submitted: length=${pin.length}, isLogout=$isLogout');
+    AppLogger.d(
+      '[Kiosk] PIN submitted: length=${pin.length}, isLogout=$isLogout',
+    );
     _currentPin = pin;
     final result = await context.read<KioskDashboardCubit>().submitPin(
       pin,
@@ -141,7 +144,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
       if (mounted && _qrLoadedOnce) {
         final currentRoute = ModalRoute.of(context);
         if (currentRoute?.isCurrent ?? false) {
-          AppLogger.d('[KIOSK] Dashboard returned to view - reloading QR for freshness');
+          AppLogger.d(
+            '[KIOSK] Dashboard returned to view - reloading QR for freshness',
+          );
           _loadQrCode();
         }
       }
@@ -177,7 +182,9 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
           canPop: false,
           onPopInvokedWithResult: (didPop, result) {
             if (!didPop) {
-              AppLogger.d('[Kiosk] Back button intercepted on dashboard (no-op)');
+              AppLogger.d(
+                '[Kiosk] Back button intercepted on dashboard (no-op)',
+              );
             }
           },
           child: Scaffold(
@@ -186,7 +193,7 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
               child: Column(
                 children: [
                   Container(
-                    color: Colors.white,
+                    color: AppColors.white,
                     child: SafeArea(
                       bottom: false,
                       child: Row(
@@ -205,70 +212,79 @@ class _KioskDashboardScreenState extends State<KioskDashboardScreen>
                           //     }
                           //   },
                           // ),
-                        const Padding(
-                          padding: EdgeInsets.only(left: 16.0),
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundImage: AssetImage(
-                              'assets/images/WowCarePNG.png',
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        const Expanded(
-                          child: Text(
-                            'WowCare',
-                            style: TextStyle(
-                              color: AppColors.primaryColor,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 18,
-                            ),
-                          ),
-                        ),
-                        PopupMenuButton<String>(
-                          icon: const Icon(Icons.more_vert, color: AppColors.primaryColor),
-                          onSelected: (value) {
-                            if (value == 'logout') {
-                              AppLogger.d('[Kiosk] Logout selected from menu');
-                              GoRouter.of(context).go('/kiosk/logout');
-                            }
-                          },
-                          itemBuilder: (BuildContext context) => [
-                            const PopupMenuItem<String>(
-                              value: 'logout',
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.logout, size: 20, color: AppColors.primaryColor),
-                                  SizedBox(width: 12),
-                                  Text('Logout'),
-                                ],
+                          const Padding(
+                            padding: EdgeInsets.only(left: 16.0),
+                            child: CircleAvatar(
+                              radius: 20,
+                              backgroundImage: AssetImage(
+                                'assets/images/WowCarePNG.png',
                               ),
                             ),
-                          ],
-                        ),
-                      ],
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'WowCare',
+                              style: TextStyle(
+                                color: AppColors.primaryColor,
+                                fontWeight: FontWeight.w600,
+                                fontSize: 18,
+                              ),
+                            ),
+                          ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(
+                              Icons.more_vert,
+                              color: AppColors.primaryColor,
+                            ),
+                            onSelected: (value) {
+                              if (value == 'logout') {
+                                AppLogger.d(
+                                  '[Kiosk] Logout selected from menu',
+                                );
+                                GoRouter.of(context).go('/kiosk/logout');
+                              }
+                            },
+                            itemBuilder: (BuildContext context) => [
+                              const PopupMenuItem<String>(
+                                value: 'logout',
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.logout,
+                                      size: 20,
+                                      color: AppColors.primaryColor,
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Logout'),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                Divider(height: 1, color: AppColors.themeColor),
-              ],
+                  Divider(height: 1, color: AppColors.themeColor),
+                ],
+              ),
             ),
-          ),
-          bottomSheet: Container(color: AppColors.themeColor, height: 1),
-          body: RefreshIndicator(
-            onRefresh: _refreshDashboard,
-            child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
-              builder: (context, state) {
-                return Container(
-                  decoration: BoxDecoration(
-                    gradient: AppColors.buildScaffoldGradient(),
-                  ),
-                  child: _buildContent(context, state, isTablet),
-                );
-              },
+            bottomSheet: Container(color: AppColors.themeColor, height: 1),
+            body: RefreshIndicator(
+              onRefresh: _refreshDashboard,
+              child: BlocBuilder<KioskDashboardCubit, KioskDashboardState>(
+                builder: (context, state) {
+                  return Container(
+                    decoration: BoxDecoration(
+                      gradient: AppColors.buildScaffoldGradient(),
+                    ),
+                    child: _buildContent(context, state, isTablet),
+                  );
+                },
+              ),
             ),
-          ),
           ),
         ),
       ),

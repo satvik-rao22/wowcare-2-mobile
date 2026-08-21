@@ -1,6 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:lottie/lottie.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 
 class ComingSoonScreen extends StatelessWidget {
@@ -34,7 +34,7 @@ class ComingSoonScreen extends StatelessWidget {
                 child: const Text(
                   'Go Back',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -46,4 +46,3 @@ class ComingSoonScreen extends StatelessWidget {
     );
   }
 }
-

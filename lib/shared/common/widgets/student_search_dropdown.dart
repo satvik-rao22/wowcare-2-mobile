@@ -1,5 +1,5 @@
 // import 'package:flutter/material.dart';
-// import '../../../app/theme/colors.dart';
+// import '../../../app/theme/AppColors.dart';
 
 // class StudentSearchDropdown extends StatefulWidget {
 //   final String hintText;
@@ -183,7 +183,7 @@
 //               onTap: () {
 //                 _hideOverlay();
 //               },
-//               child: Container(color: Colors.transparent),
+//               child: Container(color: AppColors.transparent),
 //             ),
 //           ),
 //           // Your original dropdown positioned exactly where it should be
@@ -198,7 +198,7 @@
 //                 height:
 //                     maxDropdownHeight, // Fixed height instead of constraints
 //                 decoration: BoxDecoration(
-//                   color: Colors.white,
+//                   color: AppColors.white,
 //                   borderRadius: BorderRadius.circular(8),
 //                   border: Border.all(color: AppColors.cardBorderColor),
 //                 ),
@@ -209,7 +209,7 @@
 //                     Container(
 //                       padding: const EdgeInsets.all(12),
 //                       decoration: const BoxDecoration(
-//                         color: Colors.white,
+//                         color: AppColors.white,
 //                         borderRadius: BorderRadius.only(
 //                           topLeft: Radius.circular(8),
 //                           topRight: Radius.circular(8),
@@ -223,7 +223,7 @@
 //                           prefixIcon: const Icon(
 //                             Icons.search,
 //                             size: 20,
-//                             color: Colors.grey,
+//                             color: AppColors.grey,
 //                           ),
 //                           suffixIcon: _isSearching
 //                               ? const SizedBox(
@@ -252,7 +252,7 @@
 //                             vertical: 8,
 //                           ),
 //                           filled: true,
-//                           fillColor: Colors.grey[50],
+//                           fillColor: AppColors.grey[50],
 //                         ),
 //                         style: const TextStyle(fontSize: 14),
 //                         onTap: () {
@@ -304,7 +304,7 @@
 //                                   'No students found',
 //                                   style: TextStyle(
 //                                     fontSize: 14,
-//                                     color: Colors.grey,
+//                                     color: AppColors.grey,
 //                                     fontStyle: FontStyle.italic,
 //                                   ),
 //                                 ),
@@ -329,7 +329,7 @@
 //                                       'Loading students...',
 //                                       style: TextStyle(
 //                                         fontSize: 14,
-//                                         color: Colors.grey,
+//                                         color: AppColors.grey,
 //                                       ),
 //                                     ),
 //                                   ],
@@ -433,7 +433,7 @@
 //                                               child: const Icon(
 //                                                 Icons.check,
 //                                                 size: 14,
-//                                                 color: Colors.white,
+//                                                 color: AppColors.white,
 //                                               ),
 //                                             ),
 //                                         ],

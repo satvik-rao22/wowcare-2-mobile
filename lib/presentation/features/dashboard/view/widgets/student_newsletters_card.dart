@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
@@ -16,6 +15,8 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_e
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class StudentNewslettersCard extends StatefulWidget {
   const StudentNewslettersCard({super.key});
@@ -66,7 +67,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
       onRetry: _refresh,
       child: Card(
         elevation: 0,
-        color: Colors.white,
+        color: AppColors.white,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
@@ -152,10 +153,7 @@ class _StudentNewslettersCardState extends State<StudentNewslettersCard>
 }
 
 class _NewsletterRow extends StatelessWidget {
-  const _NewsletterRow({
-    required this.item,
-    required this.classroomName,
-  });
+  const _NewsletterRow({required this.item, required this.classroomName});
 
   final NewsletterEntity item;
   final String classroomName;
@@ -220,7 +218,7 @@ class _NewsletterRow extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
-                            color: Colors.grey[600],
+                            color: AppColors.grey[600],
                             fontSize: 13,
                           ),
                         ),
@@ -231,7 +229,7 @@ class _NewsletterRow extends StatelessWidget {
                       //     Icon(
                       //       Icons.remove_red_eye_outlined,
                       //       size: 14,
-                      //       color: Colors.grey[600],
+                      //       color: AppColors.grey[600],
                       //     ),
                       //     const SizedBox(width: 4),
                       //     Text(
@@ -239,7 +237,7 @@ class _NewsletterRow extends StatelessWidget {
                       //       maxLines: 1,
                       //       overflow: TextOverflow.ellipsis,
                       //       style: TextStyle(
-                      //         color: Colors.grey[600],
+                      //         color: AppColors.grey[600],
                       //         fontSize: 13,
                       //       ),
                       //     ),
@@ -322,7 +320,7 @@ class _MetaRow extends StatelessWidget {
                   label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(color: Colors.grey[600], fontSize: 13),
+                  style: TextStyle(color: AppColors.grey[600], fontSize: 13),
                 ),
               ),
               const SizedBox(width: 8),

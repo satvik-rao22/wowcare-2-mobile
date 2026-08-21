@@ -7,6 +7,8 @@ import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter
 import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_rich_html_text.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
 
+import '../../../../../app/theme/colors.dart';
+
 /// Renders ordered newsletter layout components with theme-aware styling.
 class NewsletterComponentList extends StatelessWidget {
   const NewsletterComponentList({
@@ -22,7 +24,7 @@ class NewsletterComponentList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (components.isEmpty) return const SizedBox.shrink();
 
-    final NewsletterThemeColors theme = NewsletterThemeColors.fromKey(
+    final NewsletterThemeAppColors theme = NewsletterThemeAppColors.fromKey(
       colorThemeKey,
     );
 
@@ -52,7 +54,7 @@ class _NewsletterComponentTile extends StatelessWidget {
   });
 
   final NewsletterComponent component;
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {
@@ -209,7 +211,7 @@ class _HeadingBlock extends StatelessWidget {
   const _HeadingBlock({required this.part, required this.theme});
 
   final NewsletterContentPart? part;
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {
@@ -226,7 +228,7 @@ class _TextBlock extends StatelessWidget {
   const _TextBlock({required this.part, required this.theme});
 
   final NewsletterContentPart? part;
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {
@@ -248,7 +250,7 @@ class _SideBySideBlock extends StatelessWidget {
 
   final NewsletterContentPart? textPart;
   final NewsletterContentPart? imagePart;
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {
@@ -295,7 +297,7 @@ class _StackedBlock extends StatelessWidget {
   final NewsletterContentPart? textPart;
   final NewsletterContentPart? imagePart;
   final bool imageOnTop;
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {
@@ -338,7 +340,7 @@ class _TwoColumnTextBlock extends StatelessWidget {
 
   final NewsletterContentPart? left;
   final NewsletterContentPart? right;
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {
@@ -366,7 +368,7 @@ class _TwoColumnTextBlock extends StatelessWidget {
 class _DividerBlock extends StatelessWidget {
   const _DividerBlock({required this.theme});
 
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {
@@ -468,7 +470,7 @@ class _NewsletterComponentImageState extends State<_NewsletterComponentImage> {
             child: AspectRatio(
               aspectRatio: 16 / 9,
               child: ColoredBox(
-                color: Colors.grey.shade100,
+                color: AppColors.grey.shade100,
                 child: const Center(
                   child: SizedBox(
                     width: 22,
@@ -508,7 +510,7 @@ class _NewsletterComponentImageState extends State<_NewsletterComponentImage> {
                 loadingBuilder: (_, child, progress) {
                   if (progress == null) return child;
                   return ColoredBox(
-                    color: Colors.grey.shade100,
+                    color: AppColors.grey.shade100,
                     child: const Center(
                       child: SizedBox(
                         width: 22,

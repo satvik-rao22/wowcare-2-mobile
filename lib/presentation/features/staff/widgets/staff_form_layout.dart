@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -34,14 +34,14 @@ class StaffFormLayout extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       appBar: isKiosk
           ? PreferredSize(
               preferredSize: const Size.fromHeight(kToolbarHeight + 1),
               child: Column(
                 children: [
                   Container(
-                    color: Colors.white,
+                    color: AppColors.white,
                     child: SafeArea(
                       bottom: false,
                       child: Row(
@@ -78,10 +78,15 @@ class StaffFormLayout extends StatelessWidget {
                           ),
                           if (showKioskLogoutMenu)
                             PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: Color(0xff573353)),
+                              icon: const Icon(
+                                Icons.more_vert,
+                                color: Color(0xff573353),
+                              ),
                               onSelected: (value) {
                                 if (value == 'logout') {
-                                  AppLogger.d('[Kiosk] Logout selected from menu');
+                                  AppLogger.d(
+                                    '[Kiosk] Logout selected from menu',
+                                  );
                                   context.go('/kiosk/logout');
                                 }
                               },
@@ -91,7 +96,11 @@ class StaffFormLayout extends StatelessWidget {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      Icon(Icons.logout, size: 20, color: Color(0xff573353)),
+                                      Icon(
+                                        Icons.logout,
+                                        size: 20,
+                                        color: Color(0xff573353),
+                                      ),
                                       SizedBox(width: 12),
                                       Text('Logout'),
                                     ],
@@ -103,7 +112,7 @@ class StaffFormLayout extends StatelessWidget {
                       ),
                     ),
                   ),
-                  Divider(height: 1, color: Colors.grey[300]),
+                  Divider(height: 1, color: AppColors.grey[300]),
                 ],
               ),
             )
@@ -154,13 +163,13 @@ class StaffFormLayout extends StatelessWidget {
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

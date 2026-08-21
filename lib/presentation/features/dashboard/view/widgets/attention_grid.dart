@@ -3,13 +3,14 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/model/scheduling_models.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 // ── Tone ─────────────────────────────────────────────────────────────────────
 
@@ -485,13 +486,13 @@ class _ShimmerCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
+        baseColor: AppColors.grey[300]!,
+        highlightColor: AppColors.grey[100]!,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -502,7 +503,7 @@ class _ShimmerCard extends StatelessWidget {
                   width: 32,
                   height: 32,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(6),
                   ),
                 ),
@@ -511,7 +512,7 @@ class _ShimmerCard extends StatelessWidget {
                   width: 80,
                   height: 14,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -522,7 +523,7 @@ class _ShimmerCard extends StatelessWidget {
               width: 100,
               height: 24,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -549,7 +550,7 @@ class _AttentionCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border.all(color: AppColors.cardBorderColor),
           borderRadius: BorderRadius.circular(10),
         ),

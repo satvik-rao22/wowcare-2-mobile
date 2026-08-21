@@ -31,9 +31,7 @@ class NotificationPreferenceGroupRow extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: const BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
-        ),
+        border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       child: Row(
         children: [
@@ -96,9 +94,9 @@ class _DisabledChannelBox extends StatelessWidget {
         width: 18,
         height: 18,
         decoration: BoxDecoration(
-          color: Colors.grey.shade300,
+          color: AppColors.grey.shade300,
           borderRadius: BorderRadius.circular(2),
-          border: Border.all(color: Colors.grey.shade400, width: 1),
+          border: Border.all(color: AppColors.grey.shade400, width: 1),
         ),
       ),
     );

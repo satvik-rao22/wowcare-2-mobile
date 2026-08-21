@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -134,7 +134,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.startDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
+                        isDisabled:
+                            state.isStaffAdminPersona != true ||
+                            state.isSelfTarget,
                         onDateSelected: _cubit.selectStartDate,
                       ),
                     ],
@@ -153,7 +155,9 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: state.endDate,
-                        isDisabled: state.isStaffAdminPersona != true || state.isSelfTarget,
+                        isDisabled:
+                            state.isStaffAdminPersona != true ||
+                            state.isSelfTarget,
                         onDateSelected: _cubit.selectEndDate,
                       ),
                     ],
@@ -211,11 +215,17 @@ class _StaffMarkAbsentFormState extends State<StaffMarkAbsentForm> {
                   ),
                   errorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Colors.red, width: 1),
+                    borderSide: const BorderSide(
+                      color: AppColors.red,
+                      width: 1,
+                    ),
                   ),
                   focusedErrorBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(10),
-                    borderSide: const BorderSide(color: Colors.red, width: 2),
+                    borderSide: const BorderSide(
+                      color: AppColors.red,
+                      width: 2,
+                    ),
                   ),
                   filled: true,
                   fillColor: AppColors.cardColor,

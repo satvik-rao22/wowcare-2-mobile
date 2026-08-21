@@ -7,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
@@ -24,6 +23,7 @@ import 'package:wowcare/presentation/features/classrooom/views/screens/classroom
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
+import '../../../../../app/theme/colors.dart';
 import 'dashboard_error_chip.dart';
 
 // ---------------------------------------------------------------------------
@@ -294,7 +294,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               style: TextStyle(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: AppColors.grey.shade800,
               ),
             ),
           ] else
@@ -306,7 +306,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
               style: TextStyle(
                 fontSize: 14.0,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: AppColors.grey.shade800,
               ),
             ),
           const SizedBox(height: 12),
@@ -396,7 +396,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
           onTap: () => _navigateToClassroomNotes(context, room),
           child: Container(
             height: _cellH,
-            color: Colors.white,
+            color: AppColors.white,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -431,10 +431,10 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                                   minHeight: 16,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.red,
+                                  color: AppColors.red,
                                   borderRadius: BorderRadius.circular(8),
                                   border: Border.all(
-                                    color: Colors.white,
+                                    color: AppColors.white,
                                     width: 1,
                                   ),
                                 ),
@@ -444,7 +444,7 @@ class _RatioMonitoringCardState extends State<RatioMonitoringCard>
                                   style: const TextStyle(
                                     fontSize: 9,
                                     fontWeight: FontWeight.w700,
-                                    color: Colors.white,
+                                    color: AppColors.white,
                                     height: 1,
                                   ),
                                 ),
@@ -684,8 +684,8 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
         color: AppColors.cardColor,
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
+        baseColor: AppColors.grey.shade300,
+        highlightColor: AppColors.grey.shade100,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -699,7 +699,7 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
                     height: 20,
                     width: 150,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -707,7 +707,7 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
                     height: 20,
                     width: 80,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -715,14 +715,17 @@ class _RatioMonitoringCardShimmer extends StatelessWidget {
               ),
             ),
             // Column headers
-            Container(height: 90, color: Colors.white.withValues(alpha: 0.6)),
+            Container(
+              height: 90,
+              color: AppColors.white.withValues(alpha: 0.6),
+            ),
             // Data rows
             ...List.generate(
               _shimmerRows,
               (_) => Container(
                 height: _rowH,
                 margin: const EdgeInsets.only(top: 1),
-                color: Colors.white.withValues(alpha: 0.5),
+                color: AppColors.white.withValues(alpha: 0.5),
               ),
             ),
           ],

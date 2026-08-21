@@ -8,7 +8,7 @@ lib
 │   │   └── di.dart
 │   └── theme
 │       ├── button_themes.dart
-│       ├── colors.dart
+│       ├── AppColors.dart
 │       ├── decorations.dart
 │       ├── fonts.dart
 │       └── media_res.dart

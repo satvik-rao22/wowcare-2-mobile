@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 import 'package:wowcare/domain/features/classroom/entities/classroom.dart';
@@ -33,7 +33,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
 
   static const Color _tintOtherColumns = Color.fromRGBO(247, 245, 249, 1);
   static const Color _tintHeaderOtherColumns = Color.fromRGBO(245, 243, 247, 1);
-  static const Color _classroomColumnBg = Colors.white;
+  static const Color _classroomColumnBg = AppColors.white;
   DateTime _selectedAvailabilityDate = AppTime.now();
   bool _isTwoShifts = true;
   late final FutureAvailabilityCubit _cubit;
@@ -60,18 +60,18 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
   }
 
   void _loadAvailability() {
-    _cubit.load(
-      date: _selectedAvailabilityDate,
-      isTwoShifts: _isTwoShifts,
-    );
+    _cubit.load(date: _selectedAvailabilityDate, isTwoShifts: _isTwoShifts);
   }
 
   Widget _buildAvailabilityDateNavigator() {
-    final String formattedDate =
-        DateFormat('EEE, MMM d').format(_selectedAvailabilityDate);
+    final String formattedDate = DateFormat(
+      'EEE, MMM d',
+    ).format(_selectedAvailabilityDate);
 
     void changeDate(int days) {
-      final DateTime newDate = _selectedAvailabilityDate.add(Duration(days: days));
+      final DateTime newDate = _selectedAvailabilityDate.add(
+        Duration(days: days),
+      );
       _onDateChanged(newDate);
     }
 
@@ -79,7 +79,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           child: InkWell(
             onTap: () => changeDate(-1),
             borderRadius: BorderRadius.circular(100),
@@ -105,7 +105,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
         ),
         const SizedBox(width: 6),
         Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           child: InkWell(
             onTap: () async {
               final picked = await pickNormalDate(
@@ -129,7 +129,7 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
           ),
         ),
         Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           child: InkWell(
             onTap: () => changeDate(1),
             borderRadius: BorderRadius.circular(100),
@@ -183,10 +183,10 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
                       color: AppColors.primaryColor.withValues(alpha: 0.08),
                     ),
                     borderRadius: BorderRadius.circular(10),
-                    color: Colors.white,
+                    color: AppColors.white,
                     boxShadow: <BoxShadow>[
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.04),
+                        color: AppColors.black.withValues(alpha: 0.04),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -214,9 +214,12 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
                                 fontSize: 15,
                                 color: !_isTwoShifts
                                     ? AppColors.primaryColor
-                                    : AppColors.primaryColor.withValues(alpha: 0.55),
-                                fontWeight:
-                                    !_isTwoShifts ? FontWeight.w600 : FontWeight.w500,
+                                    : AppColors.primaryColor.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                fontWeight: !_isTwoShifts
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
                             ),
                             const SizedBox(width: 10),
@@ -234,9 +237,12 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
                                 fontSize: 15,
                                 color: _isTwoShifts
                                     ? AppColors.primaryColor
-                                    : AppColors.primaryColor.withValues(alpha: 0.55),
-                                fontWeight:
-                                    _isTwoShifts ? FontWeight.w600 : FontWeight.w500,
+                                    : AppColors.primaryColor.withValues(
+                                        alpha: 0.55,
+                                      ),
+                                fontWeight: _isTwoShifts
+                                    ? FontWeight.w600
+                                    : FontWeight.w500,
                               ),
                             ),
                           ],
@@ -247,34 +253,38 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
                           alignment: Alignment.topCenter,
                           child: ConstrainedBox(
                             constraints: const BoxConstraints(maxWidth: 420),
-                            child: BlocBuilder<FutureAvailabilityCubit,
-                                FutureAvailabilityState>(
-                              builder: (context, state) {
-                                if (state.isLoading) {
-                                  return const Center(
-                                    child: PrimaryCircularLoader(),
-                                  );
-                                }
+                            child:
+                                BlocBuilder<
+                                  FutureAvailabilityCubit,
+                                  FutureAvailabilityState
+                                >(
+                                  builder: (context, state) {
+                                    if (state.isLoading) {
+                                      return const Center(
+                                        child: PrimaryCircularLoader(),
+                                      );
+                                    }
 
-                                final rows = _buildRowsFromGrid(state.grid);
+                                    final rows = _buildRowsFromGrid(state.grid);
 
-                                if (rows.isEmpty) {
-                                  final msg = (state.errorMessage ?? '')
-                                      .trim()
-                                      .isNotEmpty
-                                      ? state.errorMessage!.trim()
-                                      : 'No availability data found for the selected date.';
-                                  return SizedBox.expand(
-                                    child: _buildStretchedMessage(
-                                      message: msg,
-                                      showRetry: state.errorMessage != null,
-                                    ),
-                                  );
-                                }
+                                    if (rows.isEmpty) {
+                                      final msg =
+                                          (state.errorMessage ?? '')
+                                              .trim()
+                                              .isNotEmpty
+                                          ? state.errorMessage!.trim()
+                                          : 'No availability data found for the selected date.';
+                                      return SizedBox.expand(
+                                        child: _buildStretchedMessage(
+                                          message: msg,
+                                          showRetry: state.errorMessage != null,
+                                        ),
+                                      );
+                                    }
 
-                                return _buildTable(rows);
-                              },
-                            ),
+                                    return _buildTable(rows);
+                                  },
+                                ),
                           ),
                         ),
                       ),
@@ -518,8 +528,9 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     return DocumentImageWidget(
       fileUuid: item.roomCode.isNotEmpty ? item.roomCode : item.roomName,
       name: item.roomName,
-      mediaAssetCode:
-          item.logoAssetCode.trim().isEmpty ? null : item.logoAssetCode,
+      mediaAssetCode: item.logoAssetCode.trim().isEmpty
+          ? null
+          : item.logoAssetCode,
       classroomCode: item.roomCode.isEmpty ? null : item.roomCode,
       size: _avatarRadius * 2,
       fontSize: 10,
@@ -531,8 +542,9 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     final List<_AvailabilityRow> alphaRooms = <_AvailabilityRow>[];
 
     for (final _AvailabilityRow item in data) {
-      final String firstChar =
-          item.roomName.trim().isNotEmpty ? item.roomName.trim()[0] : '';
+      final String firstChar = item.roomName.trim().isNotEmpty
+          ? item.roomName.trim()[0]
+          : '';
       if (RegExp(r'^\d').hasMatch(firstChar)) {
         numericRooms.add(item);
       } else {
@@ -556,26 +568,46 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
   }
 
   List<_AvailabilityRow> _buildRowsFromGrid(FutureAvailabilityGrid? grid) {
-    if (grid == null || grid.classrooms.isEmpty) return const <_AvailabilityRow>[];
+    if (grid == null || grid.classrooms.isEmpty)
+      return const <_AvailabilityRow>[];
 
-    final Map<String, List<FutureAvailabilityEntry>> groupedEntries = <String, List<FutureAvailabilityEntry>>{};
+    final Map<String, List<FutureAvailabilityEntry>> groupedEntries =
+        <String, List<FutureAvailabilityEntry>>{};
     for (final entry in grid.availability) {
-      groupedEntries.putIfAbsent(entry.classroomCode, () => <FutureAvailabilityEntry>[]).add(entry);
+      groupedEntries
+          .putIfAbsent(entry.classroomCode, () => <FutureAvailabilityEntry>[])
+          .add(entry);
     }
 
     return grid.classrooms.map((classroom) {
-      final entries = groupedEntries[classroom.code] ?? const <FutureAvailabilityEntry>[];
+      final entries =
+          groupedEntries[classroom.code] ?? const <FutureAvailabilityEntry>[];
 
-      final morning = _findByShift(entries, FutureAvailabilityShift.morning)?.availableSpots ?? 0;
-      final afternoon = _findByShift(entries, FutureAvailabilityShift.afternoon)?.availableSpots ?? 0;
+      final morning =
+          _findByShift(
+            entries,
+            FutureAvailabilityShift.morning,
+          )?.availableSpots ??
+          0;
+      final afternoon =
+          _findByShift(
+            entries,
+            FutureAvailabilityShift.afternoon,
+          )?.availableSpots ??
+          0;
       final fullDay =
-          _findByShift(entries, FutureAvailabilityShift.fullDay)?.availableSpots ??
+          _findByShift(
+            entries,
+            FutureAvailabilityShift.fullDay,
+          )?.availableSpots ??
           _findByShift(entries, FutureAvailabilityShift.all)?.availableSpots ??
           morning + afternoon;
 
       return _AvailabilityRow(
         roomCode: classroom.code,
-        roomName: classroom.name.trim().isEmpty ? classroom.code : classroom.name,
+        roomName: classroom.name.trim().isEmpty
+            ? classroom.code
+            : classroom.name,
         logoAssetCode: classroom.logoAssetCode,
         firstShiftCount: _isTwoShifts ? morning : fullDay,
         secondShiftCount: afternoon,
@@ -593,7 +625,8 @@ class _FutureAvailabilityScreenState extends State<FutureAvailabilityScreen> {
     return null;
   }
 
-  DateTime _normalizedDate(DateTime date) => DateTime(date.year, date.month, date.day);
+  DateTime _normalizedDate(DateTime date) =>
+      DateTime(date.year, date.month, date.day);
 }
 
 class _AvailabilityRow {

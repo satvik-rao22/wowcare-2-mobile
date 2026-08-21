@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -15,6 +14,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/students/view/add_pickup_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import '../../../../../app/theme/colors.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentPickupTabCard extends StatefulWidget {
@@ -155,7 +155,7 @@ class _StudentPickupTabCardState extends State<StudentPickupTabCard> {
                         'Failed to load pickups',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.redAccent,
                         ),
                       ),
                     );
@@ -328,7 +328,7 @@ class _PickupCardState extends State<_PickupCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
           name: widget.name,
@@ -387,7 +387,7 @@ class _PickupCardState extends State<_PickupCard> {
             width: constraints.maxWidth,
             // Match the Health tab cards: themeColor outline, square top-left.
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.only(
                 topRight: Radius.circular(8),
                 bottomLeft: Radius.circular(8),

@@ -7,7 +7,6 @@ import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:scroll_to_index/scroll_to_index.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_classroom_roster_present_user_codes_usecase.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_scroll_behavior.dart';
@@ -44,6 +43,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/new_m
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import '../../../../../../../app/theme/colors.dart';
 import '../../../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
@@ -803,7 +803,11 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
         onViewParticipants: _showParticipantsDialog,
         onAttachmentError: (message) {
           if (!mounted) return;
-          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
+          );
         },
       ),
     );
@@ -932,8 +936,18 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
       return 'Yesterday';
     }
     const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
     return '${d.day} ${months[d.month - 1]} ${d.year}';
   }
@@ -994,7 +1008,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
     return Container(
       width: double.infinity,
       decoration: const BoxDecoration(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
@@ -1278,7 +1292,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
 
   /// Horizontal row of "Group Chat" + one chip per guardian in
   /// [_tabGuardians]. Mirrors the legacy `ParentMessagingThread`'s tab
-  /// chips visually (same colors/shape) — tapping a chip calls
+  /// chips visually (same AppColors/shape) — tapping a chip calls
   /// `_tabController.animateTo`, and [_visibleMessagesForActiveTab] reacts
   /// to the resulting index change (via the listener in
   /// [_syncTabController], which just triggers a rebuild).
@@ -1351,7 +1365,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : color,
+                color: isSelected ? AppColors.white : color,
               ),
             ),
             if (showLockIcon) ...[
@@ -1359,7 +1373,7 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
               Icon(
                 Icons.visibility_off,
                 size: 12,
-                color: isSelected ? Colors.white : const Color(0xFFD63031),
+                color: isSelected ? AppColors.white : const Color(0xFFD63031),
               ),
             ],
           ],
@@ -1894,13 +1908,13 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
                     ),
                     Container(
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.white,
                         borderRadius: const BorderRadius.vertical(
                           bottom: Radius.circular(12),
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.05),
+                            color: AppColors.black.withValues(alpha: 0.05),
                             blurRadius: 6,
                             offset: const Offset(0, -2),
                           ),
@@ -2003,5 +2017,4 @@ class _ConversationThreadScreenState extends State<ConversationThreadScreen>
             (current.senderCode == _senderCode) &&
         current.sentAt.difference(prev.sentAt).inMinutes <= 5;
   }
-
 }

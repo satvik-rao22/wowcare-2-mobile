@@ -1,9 +1,7 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -37,6 +35,8 @@ import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.da
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// Bumped by any screen/flow that mutates the classroom staff roster (e.g. the
 /// "Assign Staff to Classroom" sheet). The Staff-tab card listens and
@@ -762,7 +762,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
       ),
       child: TextButton(
         style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.white,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -914,7 +914,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                       right: BorderSide(color: AppColors.themeColor),
                       bottom: BorderSide(color: AppColors.themeColor),
                     ),
-                    color: Colors.white,
+                    color: AppColors.white,
                     child: Column(
                       children: [
                         Padding(
@@ -931,11 +931,11 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                       ),
                                       backgroundColor:
                                           const WidgetStatePropertyAll<Color>(
-                                            Colors.white,
+                                            AppColors.white,
                                           ),
                                       surfaceTintColor:
                                           const WidgetStatePropertyAll<Color>(
-                                            Colors.white,
+                                            AppColors.white,
                                           ),
                                       hintText: 'Search',
                                       hintStyle: const WidgetStatePropertyAll(
@@ -1007,7 +1007,7 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                     ),
                                     child: TextButton(
                                       style: TextButton.styleFrom(
-                                        foregroundColor: Colors.white,
+                                        foregroundColor: AppColors.white,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 4,
                                           vertical: 3,
@@ -1139,12 +1139,12 @@ class _ClassroomStaffTabCardState extends State<ClassroomStaffTabCard> {
                                                     staff: staff,
                                                     showMessageIcon:
                                                         (_ownStaffCode ?? '')
-                                                                .trim()
-                                                                .isNotEmpty &&
-                                                            (_ownStaffCode ?? '')
-                                                                    .trim() !=
-                                                                staff.staffCode
-                                                                    .trim(),
+                                                            .trim()
+                                                            .isNotEmpty &&
+                                                        (_ownStaffCode ?? '')
+                                                                .trim() !=
+                                                            staff.staffCode
+                                                                .trim(),
                                                     isSelected:
                                                         staffSelections[staff
                                                             .staffCode] ??
@@ -1304,8 +1304,8 @@ class _StaffListItem extends StatelessWidget {
         !staff.isAbsent &&
         !hasAttendanceStatus;
     final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
-        ? Colors.green
-        : (normalizedAttendance == 'ABSENT' ? Colors.red : null);
+        ? AppColors.green
+        : (normalizedAttendance == 'ABSENT' ? AppColors.red : null);
     final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
         ? 'Staff is signed in'
         : (normalizedAttendance == 'ABSENT' ? 'Staff is absent' : null);
@@ -1313,9 +1313,9 @@ class _StaffListItem extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.only(top: 10, bottom: 10, left: 10),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: AppColors.grey[300]!),
         borderRadius: BorderRadius.circular(12),
-        color: shouldGreyOut ? Colors.grey[100] : null,
+        color: shouldGreyOut ? AppColors.grey[100] : null,
       ),
       child: Row(
         children: [
@@ -1446,7 +1446,7 @@ class _DesignationMultiSelectDropdownState
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.white,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
@@ -1476,7 +1476,7 @@ class _DesignationMultiSelectDropdownState
           color: Color(0xff573353),
           fontSize: 16,
         ),
-        dropdownColor: Colors.white,
+        dropdownColor: AppColors.white,
         items: widget.items.map((String item) {
           return DropdownMenuItem<String>(
             value: item,
@@ -1537,7 +1537,7 @@ class _DesignationMultiSelectDropdownState
           style: TextStyle(
             fontFamily: 'Manrope',
             color: _localSelectedItems.isEmpty
-                ? Colors.grey[600]
+                ? AppColors.grey[600]
                 : const Color(0xff573353),
             fontSize: 14,
           ),

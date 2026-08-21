@@ -3,7 +3,7 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/general_ledger_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/ledger_detail_screen.dart';
@@ -58,8 +58,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     unawaited(_cubit.loadInitial());
     widget.ledgerCreationNotifier?.addListener(_handleLedgerCreated);
     widget.onRegisterRefresh?.call(_cubit.loadInitial);
-    widget.onRegisterLoadNextPage
-        ?.call(() => unawaited(_cubit.loadNextPage()));
+    widget.onRegisterLoadNextPage?.call(() => unawaited(_cubit.loadNextPage()));
   }
 
   @override
@@ -84,17 +83,17 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   }
 
   void _onView(LedgerAccountModel ledger) {
-    unawaited(Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => LedgerDetailScreen(ledger: ledger),
+    unawaited(
+      Navigator.of(context).push(
+        MaterialPageRoute(builder: (_) => LedgerDetailScreen(ledger: ledger)),
       ),
-    ));
+    );
   }
 
   Future<void> _onEdit(LedgerAccountModel ledger) async {
-    final LedgerAccountModel? updated = await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => EditLedgerScreen(ledger: ledger)),
-    );
+    final LedgerAccountModel? updated = await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => EditLedgerScreen(ledger: ledger)));
     if (updated == null) return;
     _cubit.updateLedger(updated);
   }
@@ -103,7 +102,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -115,8 +114,11 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
           final ok = await _cubit.deactivateLedger(ledger.id);
           if (!mounted) return;
           Navigator.of(ctx).pop();
-          _showResult(ok,
-              success: 'Ledger deactivated.', fail: 'Failed to deactivate.');
+          _showResult(
+            ok,
+            success: 'Ledger deactivated.',
+            fail: 'Failed to deactivate.',
+          );
         },
       ),
     );
@@ -126,7 +128,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -138,8 +140,11 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
           final ok = await _cubit.reactivateLedger(ledger.id);
           if (!mounted) return;
           Navigator.of(ctx).pop();
-          _showResult(ok,
-              success: 'Ledger reactivated.', fail: 'Failed to reactivate.');
+          _showResult(
+            ok,
+            success: 'Ledger reactivated.',
+            fail: 'Failed to reactivate.',
+          );
         },
       ),
     );
@@ -149,7 +154,7 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
@@ -161,8 +166,11 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
           final ok = await _cubit.deleteLedger(ledger.id);
           if (!mounted) return;
           Navigator.of(ctx).pop();
-          _showResult(ok,
-              success: 'Ledger deleted.', fail: 'Failed to delete.');
+          _showResult(
+            ok,
+            success: 'Ledger deleted.',
+            fail: 'Failed to delete.',
+          );
         },
       ),
     );
@@ -171,10 +179,12 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
   void _showResult(bool ok, {required String success, required String fail}) {
     if (ok) {
       CoreUtils.showTopSnackBar(
-          context: context, message: success, isSuccess: true);
+        context: context,
+        message: success,
+        isSuccess: true,
+      );
     } else {
-      CoreUtils.showTopSnackBar(
-          context: context, message: fail, isError: true);
+      CoreUtils.showTopSnackBar(context: context, message: fail, isError: true);
     }
   }
 
@@ -252,7 +262,8 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                               isToggled: showInactive,
                               onToggle: (v) {
                                 _cubit.setStatusFilter(
-                                    v ? 'INACTIVE' : 'ACTIVE');
+                                  v ? 'INACTIVE' : 'ACTIVE',
+                                );
                               },
                             ),
                           ],
@@ -266,90 +277,94 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
               // ── Loading ─────────────────────────────────────────────
               if (state.isLoading)
                 const LedgerListShimmer()
-
               // ── Error ────────────────────────────────────────────────
               else if (state.hasError && state.allLedgers.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
                   child: Column(
                     children: [
-                      Icon(Icons.error_outline,
-                          size: 56,
-                          color: AppColors.errorColor
-                              .withValues(alpha: 0.5)),
+                      Icon(
+                        Icons.error_outline,
+                        size: 56,
+                        color: AppColors.errorColor.withValues(alpha: 0.5),
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'Failed to load ledgers.',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
-                            fontSize: 15,
-                            color: AppColors.billingTextColor),
+                          fontSize: 15,
+                          color: AppColors.billingTextColor,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                          onPressed: _cubit.loadInitial,
-                          child: const Text('Retry')),
+                        onPressed: _cubit.loadInitial,
+                        child: const Text('Retry'),
+                      ),
                     ],
                   ),
                 )
-
               // ── Empty ────────────────────────────────────────────────
               else if (state.visibleLedgers.isEmpty)
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 48),
                   child: Column(
                     children: [
-                      Icon(Icons.receipt_long_outlined,
-                          size: 56,
-                          color: AppColors.primaryColor
-                              .withValues(alpha: 0.3)),
+                      Icon(
+                        Icons.receipt_long_outlined,
+                        size: 56,
+                        color: AppColors.primaryColor.withValues(alpha: 0.3),
+                      ),
                       const SizedBox(height: 12),
                       Text(
                         'No ledger accounts match the current filters.',
                         textAlign: TextAlign.center,
                         style: AppTextStyles.title.copyWith(
-                            fontSize: 15,
-                            color: AppColors.billingTextColor),
+                          fontSize: 15,
+                          color: AppColors.billingTextColor,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       TextButton(
-                          onPressed: _clearFilters,
-                          child: const Text('Reset filters')),
+                        onPressed: _clearFilters,
+                        child: const Text('Reset filters'),
+                      ),
                     ],
                   ),
                 )
-
               // ── List ─────────────────────────────────────────────────
               else ...[
                 if (widget.onLoadMoreNeeded != null)
-                  Builder(builder: (_) {
-                    WidgetsBinding.instance.addPostFrameCallback((__) {
-                      if (mounted) widget.onLoadMoreNeeded!();
-                    });
-                    return const SizedBox.shrink();
-                  }),
-                ...state.visibleLedgers.map(
-                  (ledger) {
-                    final isActive = ledger.status != 'INACTIVE';
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: LedgerCard(
-                        ledgerName: ledger.name,
-                        type: ledger.category ?? ledger.type,
-                        openBalance: ledger.openBalance,
-                        isActive: isActive,
-                        onView: () => _onView(ledger),
-                        onEdit: isActive ? () => _onEdit(ledger) : null,
-                        onDeactivate:
-                            isActive ? () => _onDeactivate(ledger) : null,
-                        onReactivate:
-                            !isActive ? () => _onReactivate(ledger) : null,
-                        onDelete:
-                            !isActive ? () => _onDelete(ledger) : null,
-                      ),
-                    );
-                  },
-                ),
+                  Builder(
+                    builder: (_) {
+                      WidgetsBinding.instance.addPostFrameCallback((__) {
+                        if (mounted) widget.onLoadMoreNeeded!();
+                      });
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ...state.visibleLedgers.map((ledger) {
+                  final isActive = ledger.status != 'INACTIVE';
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: LedgerCard(
+                      ledgerName: ledger.name,
+                      type: ledger.category ?? ledger.type,
+                      openBalance: ledger.openBalance,
+                      isActive: isActive,
+                      onView: () => _onView(ledger),
+                      onEdit: isActive ? () => _onEdit(ledger) : null,
+                      onDeactivate: isActive
+                          ? () => _onDeactivate(ledger)
+                          : null,
+                      onReactivate: !isActive
+                          ? () => _onReactivate(ledger)
+                          : null,
+                      onDelete: !isActive ? () => _onDelete(ledger) : null,
+                    ),
+                  );
+                }),
 
                 if (state.isLoadingMore && state.currentPage > 0)
                   const Padding(
@@ -357,7 +372,6 @@ class _GeneralLedgerSectionState extends State<GeneralLedgerSection> {
                     child: Center(child: PrimaryCircularLoader()),
                   ),
               ],
-
             ],
           );
         },

@@ -29,10 +29,10 @@ class ActivityTile extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: const Color(0xff573353).withValues(alpha: 0.1),
+              color: AppColors.primaryColor.withValues(alpha: 0.1),
               width: 1,
             ),
           ),

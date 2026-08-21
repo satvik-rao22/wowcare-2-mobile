@@ -31,7 +31,7 @@ class CustomAddNoteButton extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(4),
               // decoration: BoxDecoration(
-              //   color: Colors.white,
+              //   color: AppColors.white,
               //   shape: BoxShape.circle,
               //   border: Border.all(color: const Color(0xFFD1C4E9)),
               // ),

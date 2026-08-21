@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/student/entities/student_important_dates.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_important_dates_usecase.dart';
@@ -207,7 +207,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                 padding: const EdgeInsets.all(8),
                 // Match the Family/Pickup cards: themeColor outline, square top-left.
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.only(
                     topRight: Radius.circular(8),
                     bottomLeft: Radius.circular(8),
@@ -238,7 +238,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                               child: const Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: Colors.white,
+                                color: AppColors.white,
                               ),
                             ),
                           ),
@@ -253,7 +253,7 @@ class _StudentImportantDatesTabState extends State<StudentImportantDatesTab> {
                         child: Text(
                           _errorMessage!,
                           style: const TextStyle(
-                            color: Colors.redAccent,
+                            color: AppColors.redAccent,
                             fontSize: 14,
                           ),
                         ),

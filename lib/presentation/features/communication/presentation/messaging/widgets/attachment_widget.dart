@@ -45,7 +45,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       isScrollControlled: true,
       builder: (context) => DraggableScrollableSheet(
         expand: false,
@@ -64,7 +64,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: AppColors.grey[300],
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -225,7 +225,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(12),
@@ -251,13 +251,13 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                         text: title,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        fontColor: Colors.black87,
+                        fontColor: AppColors.black87,
                       ),
                       const SizedBox(height: 4),
                       CustomTextWidget(
                         text: subtitle,
                         fontSize: 12,
-                        fontColor: Colors.grey[600],
+                        fontColor: AppColors.grey[600],
                       ),
                     ],
                   ),

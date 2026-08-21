@@ -2,7 +2,7 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
@@ -184,7 +184,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
       },
       child: Scaffold(
         key: _scaffoldKey,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
@@ -229,13 +229,13 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -251,19 +251,24 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                               vertical: 10,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              border: Border.all(color: Colors.orange.shade100),
+                              color: AppColors.orange.shade100,
+                              border: Border.all(
+                                color: AppColors.orange.shade100,
+                              ),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Row(
                               children: [
-                                const Icon(Icons.warning, color: Colors.orange),
+                                const Icon(
+                                  Icons.warning,
+                                  color: AppColors.orange,
+                                ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
                                     _warningMessage!,
                                     style: const TextStyle(
-                                      color: Colors.orange,
+                                      color: AppColors.orange,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
@@ -276,7 +281,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                                   },
                                   child: const Icon(
                                     Icons.close,
-                                    color: Colors.orange,
+                                    color: AppColors.orange,
                                     size: 20,
                                   ),
                                 ),
@@ -357,10 +362,10 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -374,7 +379,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             height: responsive.buttonHeight,
             decoration: BoxDecoration(
               gradient: _isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: _isSubmitting ? Colors.grey[300] : null,
+              color: _isSubmitting ? AppColors.grey[300] : null,
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 16.0 : 8.0,
               ),
@@ -387,7 +392,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
                   fontFamily: 'Manrope',
                   fontSize: responsive.buttonFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
               ),
             ),
@@ -455,7 +460,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
               TextSpan(text: label),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.red),
               ),
             ],
           ),
@@ -464,7 +469,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -483,7 +488,7 @@ class _AddStudentScreenState extends State<AddStudentScreen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

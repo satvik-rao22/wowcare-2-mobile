@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -13,11 +13,7 @@ import 'notification_category_style.dart';
 /// Stateless and dumb: it renders the [notification] and forwards taps to
 /// [onTap]. All read-state logic lives in the cubit.
 class NotificationCard extends StatelessWidget {
-  const NotificationCard({
-    super.key,
-    required this.notification,
-    this.onTap,
-  });
+  const NotificationCard({super.key, required this.notification, this.onTap});
 
   final AppNotification notification;
   final VoidCallback? onTap;
@@ -37,7 +33,7 @@ class NotificationCard extends StatelessWidget {
     final isUnread = !notification.isRead;
 
     return Material(
-      color: Colors.white,
+      color: AppColors.white,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         onTap: onTap,
@@ -45,7 +41,7 @@ class NotificationCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(color: AppColors.cardBorderColor),
           ),
@@ -103,14 +99,13 @@ class NotificationCard extends StatelessWidget {
                             fontFamily: 'Manrope',
                             fontSize: 12,
                             fontWeight: FontWeight.w400,
-                            color: AppColors.primaryColor.withValues(alpha: 0.5),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.5,
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
-                        _CategoryChip(
-                          label: chipLabel,
-                          style: style,
-                        ),
+                        _CategoryChip(label: chipLabel, style: style),
                       ],
                     ),
                   ],

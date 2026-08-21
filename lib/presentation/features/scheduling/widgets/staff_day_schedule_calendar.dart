@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/scheduling/model/shift_models.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/classroom_name_resolver.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
@@ -67,7 +67,8 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
     super.didUpdateWidget(oldWidget);
     final scheduleChanged =
         oldWidget.dailyRoomSchedule != widget.dailyRoomSchedule;
-    final hoursChanged = oldWidget.schoolStartTime != widget.schoolStartTime ||
+    final hoursChanged =
+        oldWidget.schoolStartTime != widget.schoolStartTime ||
         oldWidget.schoolEndTime != widget.schoolEndTime;
     if (scheduleChanged) {
       _shifts = List<Shift>.of(widget.dailyRoomSchedule.shifts)
@@ -155,8 +156,12 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
 
     if (endTime.minute > 0 || endTime.second > 0) {
       endTime = endTime.add(const Duration(hours: 1));
-      endTime =
-          DateTime(endTime.year, endTime.month, endTime.day, endTime.hour);
+      endTime = DateTime(
+        endTime.year,
+        endTime.month,
+        endTime.day,
+        endTime.hour,
+      );
     }
 
     final slots = <String>[];
@@ -173,7 +178,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       decoration: BoxDecoration(
         color: AppColors.primaryColor.withValues(alpha: 0.07),
         border: const Border(
-          bottom: BorderSide(width: 1, color: Colors.grey),
+          bottom: BorderSide(width: 1, color: AppColors.grey),
         ),
       ),
       padding: const EdgeInsets.symmetric(vertical: 6),
@@ -218,8 +223,8 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         border: Border(
-          bottom: BorderSide(width: 1, color: Colors.grey.shade300),
-          right: BorderSide(width: 1, color: Colors.grey.shade300),
+          bottom: BorderSide(width: 1, color: AppColors.grey.shade300),
+          right: BorderSide(width: 1, color: AppColors.grey.shade300),
         ),
       ),
       child: Center(
@@ -246,8 +251,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
 
   String _displayRoom(Shift shift) {
     if (shift.isBreakShift) return shift.room;
-    return widget.classroomResolver?.resolveShiftRoom(shift.room) ??
-        shift.room;
+    return widget.classroomResolver?.resolveShiftRoom(shift.room) ?? shift.room;
   }
 
   /// Returns the unobstructed vertical space at the top of a work-shift block,
@@ -310,7 +314,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
                 fontFamily: 'Manrope',
                 fontSize: 11,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: AppColors.black87,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
@@ -350,7 +354,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.black87,
+              color: AppColors.black87,
             ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
@@ -374,7 +378,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
                 fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
-                color: Colors.black87,
+                color: AppColors.black87,
                 height: 1.2,
               ),
             ),
@@ -385,7 +389,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
                 fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Colors.black87,
+                color: AppColors.black87,
                 height: 1.2,
               ),
             ),
@@ -401,10 +405,8 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
   Widget _buildTimeContainer(Shift shift) {
     final double height =
         _getTimeDifferenceInHours(shift.start, shift.end) * cellHeightRow;
-    final double topSpace = _getTimeDifferenceInHours(
-          _slotGridStartLabel(),
-          shift.start,
-        ) *
+    final double topSpace =
+        _getTimeDifferenceInHours(_slotGridStartLabel(), shift.start) *
         cellHeightRow;
 
     if (shift.isBreakShift) {
@@ -429,9 +431,7 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       decoration: BoxDecoration(
         color: const Color.fromRGBO(234, 244, 255, 1),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.themeColor.withValues(alpha: 0.15),
-        ),
+        border: Border.all(color: AppColors.themeColor.withValues(alpha: 0.15)),
       ),
       alignment: Alignment.topLeft,
       child: _buildSingleShift(shift, contentHeight),
@@ -468,18 +468,20 @@ class _StaffDayScheduleCalendarState extends State<StaffDayScheduleCalendar> {
       widget.schoolStartTime,
       widget.schoolEndTime,
     ).length;
-    final workShifts =
-        _shifts.where((s) => !s.isBreakShift).toList(growable: false);
-    final breakShifts =
-        _shifts.where((s) => s.isBreakShift).toList(growable: false);
+    final workShifts = _shifts
+        .where((s) => !s.isBreakShift)
+        .toList(growable: false);
+    final breakShifts = _shifts
+        .where((s) => s.isBreakShift)
+        .toList(growable: false);
 
     return SizedBox(
       height: cellHeightRow * slotCount,
       child: Container(
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade300),
+          border: Border.all(color: AppColors.grey.shade300),
         ),
         clipBehavior: Clip.antiAlias,
         child: GestureDetector(

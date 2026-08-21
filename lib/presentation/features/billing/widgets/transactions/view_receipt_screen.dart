@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class ViewReceiptScreen extends StatefulWidget {
   const ViewReceiptScreen({
@@ -378,7 +379,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 4,
               child: Text(
                 'Description',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 15, color: AppColors.grey.shade500),
                 textAlign: TextAlign.start,
               ),
             ),
@@ -386,13 +387,13 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
               flex: 2,
               child: Text(
                 'Amount',
-                style: TextStyle(fontSize: 15, color: Colors.grey.shade500),
+                style: TextStyle(fontSize: 15, color: AppColors.grey.shade500),
                 textAlign: TextAlign.end,
               ),
             ),
           ],
         ),
-        Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
+        Divider(thickness: 0.5, color: AppColors.grey.withValues(alpha: 0.3)),
         // Invoice items
         ..._invoiceItems!.map((item) {
           final type = item['type']?.toString() ?? '';
@@ -556,7 +557,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   'Payment Date : ',
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade500,
+                    color: AppColors.grey.shade500,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
@@ -564,7 +565,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
                   DateUtilsNew.formatToReadableDate(date),
                   style: TextStyle(
                     fontSize: 15,
-                    color: Colors.grey.shade700,
+                    color: AppColors.grey.shade700,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -573,7 +574,7 @@ class _ViewReceiptScreenState extends State<ViewReceiptScreen> {
             const SizedBox(height: 10),
           ],
           _buildInvoiceItemsTable(),
-          Divider(thickness: 0.5, color: Colors.grey.withValues(alpha: 0.3)),
+          Divider(thickness: 0.5, color: AppColors.grey.withValues(alpha: 0.3)),
           Row(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [

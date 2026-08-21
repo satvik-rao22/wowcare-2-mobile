@@ -111,7 +111,7 @@ class _DateWidgetState extends State<DateWidget> {
               if (widget.isRequired)
                 TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),

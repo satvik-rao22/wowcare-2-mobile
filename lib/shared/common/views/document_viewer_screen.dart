@@ -11,7 +11,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:photo_view/photo_view.dart';
 import 'package:video_player/video_player.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
@@ -57,7 +57,15 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   _DocKind _resolveKind() {
     final mime = widget.mimeType.trim().toLowerCase();
     final ext = p.extension(Uri.parse(widget.url).path).trim().toLowerCase();
-    const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.heic'];
+    const imageExts = [
+      '.jpg',
+      '.jpeg',
+      '.png',
+      '.gif',
+      '.webp',
+      '.bmp',
+      '.heic',
+    ];
     const videoExts = ['.mp4', '.mov', '.m4v', '.avi', '.mkv', '.webm'];
 
     if (mime.startsWith('image/') || imageExts.contains(ext)) {
@@ -96,7 +104,8 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
           break;
         case _DocKind.pdf:
           final tempDir = await getTemporaryDirectory();
-          final fileName = 'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
+          final fileName =
+              'doc_preview_${AppTime.nowUtc().millisecondsSinceEpoch}.pdf';
           final path = p.join(tempDir.path, fileName);
           await Dio().download(widget.url, path);
           if (!mounted) return;
@@ -167,15 +176,15 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.black,
       appBar: AppBar(
         title: Text(
           widget.documentName,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.transparent,
+        foregroundColor: AppColors.white,
         elevation: 0,
         flexibleSpace: Container(
           decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
@@ -189,7 +198,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
                 ),
               ),
             )
@@ -217,7 +226,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
       case _DocKind.image:
         return PhotoView(
           imageProvider: NetworkImage(widget.url),
-          backgroundDecoration: const BoxDecoration(color: Colors.black),
+          backgroundDecoration: const BoxDecoration(color: AppColors.black),
           loadingBuilder: (context, event) =>
               const Center(child: PrimaryCircularLoader()),
           errorBuilder: (context, error, stackTrace) {
@@ -263,7 +272,7 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
         final viewerUrl =
             'https://docs.google.com/viewer?embedded=true&url=${Uri.encodeComponent(widget.url)}';
         return Container(
-          color: Colors.white,
+          color: AppColors.white,
           child: InAppWebView(
             initialUrlRequest: URLRequest(url: WebUri(viewerUrl)),
             onReceivedError: (controller, request, error) {
@@ -293,13 +302,13 @@ class _DocumentViewerScreenState extends State<DocumentViewerScreen> {
             const Icon(
               Icons.insert_drive_file_outlined,
               size: 64,
-              color: Colors.white70,
+              color: AppColors.white70,
             ),
             const SizedBox(height: 16),
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.white70, fontSize: 15),
+              style: const TextStyle(color: AppColors.white70, fontSize: 15),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
@@ -337,8 +346,8 @@ class _InlineVideoPlayerState extends State<_InlineVideoPlayer> {
       materialProgressColors: ChewieProgressColors(
         playedColor: AppColors.primaryColor,
         handleColor: AppColors.primaryColor,
-        bufferedColor: Colors.white38,
-        backgroundColor: Colors.white24,
+        bufferedColor: AppColors.white38,
+        backgroundColor: AppColors.white24,
       ),
     );
   }

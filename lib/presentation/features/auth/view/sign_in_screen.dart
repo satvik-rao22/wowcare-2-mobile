@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:lottie/lottie.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/auth/secure_credential_store.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -213,7 +213,9 @@ class _SignInScreenState extends State<SignInScreen>
       _saveCredentials();
 
       // KIOSK: detect from login response roles — no API call, no RoleCubit needed.
-      AppLogger.d('[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}');
+      AppLogger.d(
+        '[SignIn] AuthLoaded - checking roles: ${state.loginResponse.roles.map((r) => r.role).toList()}',
+      );
       if (loginResponseIsKioskUser(state.loginResponse.roles)) {
         AppLogger.d('[SignIn] Kiosk user detected - redirecting to /kiosk');
         if (context.mounted) {
@@ -334,7 +336,7 @@ class _SignInScreenState extends State<SignInScreen>
             width: MediaQuery.of(context).size.width,
             height: height,
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(30.0),
                 topRight: Radius.circular(30.0),
@@ -400,9 +402,9 @@ class _SignInScreenState extends State<SignInScreen>
                                 shape: BoxShape.circle,
                               ),
                               child: const RefreshProgressIndicator(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 elevation: 0,
-                                backgroundColor: Colors.transparent,
+                                backgroundColor: AppColors.transparent,
                                 strokeWidth: 3,
                               ),
                             ),
@@ -414,7 +416,7 @@ class _SignInScreenState extends State<SignInScreen>
                             enabled: _canSubmit,
                             onPressed: () => _handleSignIn(context),
                             gradient: AppColors.buildPrimaryGradient(),
-                            lableColor: Colors.white,
+                            lableColor: AppColors.white,
                           ),
                   ),
                   const SizedBox(height: 10),
@@ -475,7 +477,7 @@ class RoundedButtonNew extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: isLoading
-              ? const CircularProgressIndicator(color: Colors.white)
+              ? const CircularProgressIndicator(color: AppColors.white)
               : Text(
                   label,
                   style: TextStyle(

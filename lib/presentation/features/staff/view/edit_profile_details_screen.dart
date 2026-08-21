@@ -8,7 +8,7 @@ import 'package:wowcare/presentation/features/staff/util/staff_photo_background.
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -469,7 +469,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             height: 120,
             width: 120,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: AppColors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0x66573353)),
             ),
@@ -483,7 +483,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                     children: [
                       Icon(
                         Icons.camera_alt,
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey.shade600,
                         size: 32,
                       ),
                       const SizedBox(height: 8),
@@ -491,7 +491,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                         'Upload Photo',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: AppColors.grey.shade600,
                         ),
                       ),
                     ],
@@ -503,7 +503,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           'JPG, PNG, max 10MB (Optional)',
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
+            color: AppColors.grey.shade600,
             fontFamily: 'Manrope',
           ),
         ),
@@ -1058,7 +1058,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
             child: Scaffold(
               key: _scaffoldKey,
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.white,
               appBar: const CustomAppBar(hasBackButton: true),
               body: Stack(
                 children: [
@@ -1105,7 +1105,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                             responsive.isTablet ? 32.0 : 16.0,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.white,
                             borderRadius: BorderRadius.all(
                               Radius.circular(
                                 responsive.isTablet ? 40.0 : 24.0,
@@ -1113,7 +1113,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: AppColors.black.withValues(alpha: 0.05),
                                 blurRadius: 8,
                                 offset: const Offset(0, 2),
                               ),
@@ -1407,7 +1407,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                     fontFamily: 'Manrope',
                                     fontSize: responsive.inputFontSize,
                                     fontWeight: FontWeight.w600,
-                                    color: Colors.grey.shade700,
+                                    color: AppColors.grey.shade700,
                                     height: 19 / 14,
                                   ),
                                   popupItemTextStyle: TextStyle(
@@ -1462,10 +1462,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                   top: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: AppColors.black.withValues(alpha: 0.05),
                       offset: const Offset(0, -4),
                       blurRadius: 16,
                     ),
@@ -1520,7 +1520,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),
@@ -1529,7 +1529,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -1542,7 +1542,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             textCapitalization: textCapitalization,
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1626,7 +1626,7 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               border: Border.all(color: const Color(0x66573353)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,

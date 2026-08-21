@@ -10,8 +10,51 @@ class AppColors {
 
   static const cardColor = Colors.white;
   static final cardBorderColor = AppColors.primaryColor.withValues(alpha: 0.15);
-
   static const fieldBackgroundColor = Color.fromRGBO(177, 175, 233, 0.1);
+  static const white = Colors.white;
+  static const white70 = Colors.white70;
+  static const white24 = Colors.white24;
+  static const white38 = Colors.white38;
+  static const white54 = Colors.white54;
+  static const black = Colors.black;
+  static const black12 = Colors.black12;
+  static const black54 = Colors.black54;
+  static const black45 = Colors.black45;
+  static const black87 = Colors.black87;
+  static const black45Color = Colors.black45;
+  static const redColor = Colors.red;
+  static const transparent = Colors.transparent;
+  static const greenAccentColor = Colors.greenAccent;
+  static const grey = Colors.grey;
+  static const green = Colors.green;
+  // Colors.orange, Colors.deepOrange
+  static const orangeColor = Colors.orange;
+  static const deepOrangeColor = Colors.deepOrange;
+  static const orange = Colors.orangeAccent;
+  var orangeShade = Colors.orange.shade800;
+  static const black26 = Colors.black26;
+  static const amber = Colors.amber;
+
+  // Colors.purple, Colors.deepPurpleAccent
+  static const purpleColor = Colors.purple;
+  static const deepPurpleAccentColor = Colors.deepPurpleAccent;
+  static const purple = Colors.purpleAccent;
+  static const blueGrey = Colors.blueGrey;
+
+  static const blue = Colors.blue;
+  static const red = Colors.red;
+
+  // Colors.teal, Colors.cyanAccent
+  static const teal = Colors.teal;
+  static const cyanAccent = Colors.cyanAccent;
+  // Colors.yellow, Colors.redAccent, Colors.pinkAccent
+  static const yellow = Colors.yellow;
+  static const redAccent = Colors.redAccent;
+  static const greenAccent = Colors.greenAccent;
+  static const pinkAccent = Colors.pinkAccent;
+  static const pink = Colors.pink;
+
+  static const fieldbackgroundColor = Color.fromRGBO(177, 175, 233, 0.1);
 
   static const accentColor = Color.fromRGBO(220, 156, 19, 1);
   static const errorColor = Color.fromRGBO(211, 47, 47, 1);
@@ -172,13 +215,13 @@ class AppColors {
   );
 
   // Divider colors
-  static final Color billingDividerColor = primaryColor.withValues(alpha: 0.1);
+  static final Color billingdividerColor = primaryColor.withValues(alpha: 0.1);
 
   // Button colors
   static const Color billingButtonTextColor = Colors.white;
 
   // Error/Alert colors for billing
-  static final Color billingErrorBackgroundColor = Colors.red.shade50;
+  static final Color billingErrorbackgroundColor = Colors.red.shade50;
   static final Color billingErrorBorderColor = Colors.red.shade200;
   static final Color billingErrorIconColor = Colors.red.shade600;
   static final Color billingErrorTextColor = Colors.red.shade700;
@@ -196,7 +239,7 @@ class AppColors {
   static const Color billingSuccessColor = Colors.green;
 
   // Background colors
-  static const Color billingBackgroundColor = Colors.white;
+  static const Color billingbackgroundColor = Colors.white;
   static const Color billingTransparentColor = Colors.transparent;
 
   // Shadow colors

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/theme/colors.dart';
 import 'custom_confirm_button.dart';
 
 class ReusablePasswordActionButtons extends StatelessWidget {
@@ -6,9 +7,9 @@ class ReusablePasswordActionButtons extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey[200]!),
+        border: Border.all(color: AppColors.grey[200]!),
       ),
       child: Padding(
         padding: const EdgeInsets.all(16.0),

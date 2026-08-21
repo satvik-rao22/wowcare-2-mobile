@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -356,10 +356,11 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
     if (studentCodes.isEmpty) return maps;
 
     try {
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
-      );
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
       final today = SchoolZoneDateTime.schoolCalendarTodayOnly(schoolTimeZone);
       final attendanceDate =
           '${today.year.toString().padLeft(4, '0')}-'
@@ -556,14 +557,14 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                   color: const Color.fromRGBO(156, 132, 255, 1),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.2),
+                      color: AppColors.black.withValues(alpha: 0.2),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
                   ],
                 ),
                 child: Material(
-                  color: Colors.transparent,
+                  color: AppColors.transparent,
                   child: InkWell(
                     onTap: () {
                       setState(() => _currentPanel = StudentPanelType.none);
@@ -572,7 +573,11 @@ class _StudentActionPanelState extends State<StudentActionPanel> {
                     customBorder: const CircleBorder(),
                     child: const Padding(
                       padding: EdgeInsets.all(10.0),
-                      child: Icon(Icons.close, color: Colors.white, size: 20),
+                      child: Icon(
+                        Icons.close,
+                        color: AppColors.white,
+                        size: 20,
+                      ),
                     ),
                   ),
                 ),
@@ -613,7 +618,7 @@ class AttendanceQuickActionsPanel extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
         ),
@@ -737,11 +742,11 @@ class _StudentSidePanel extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 4),
         decoration: BoxDecoration(
           border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(10),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.1),
+              color: AppColors.black.withValues(alpha: 0.1),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -757,7 +762,7 @@ class _StudentSidePanel extends StatelessWidget {
         constraints: const BoxConstraints(maxHeight: 400, maxWidth: 120),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: const Color.fromRGBO(200, 191, 255, 0.7)),
         ),
@@ -915,7 +920,7 @@ class _StudentAttendanceActionItem extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(vertical: 5),
                 decoration: BoxDecoration(
-                  color: Colors.blue.withValues(alpha: 0.1),
+                  color: AppColors.blue.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: SvgPicture.asset(svgPath, height: 24, width: 24),
@@ -1065,14 +1070,14 @@ class _ActionButton extends StatelessWidget {
                 height: 24,
                 width: 24,
                 colorFilter: const ColorFilter.mode(
-                  Colors.white,
+                  AppColors.white,
                   BlendMode.srcIn,
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 label,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: const TextStyle(color: AppColors.white, fontSize: 12),
               ),
             ],
           ),

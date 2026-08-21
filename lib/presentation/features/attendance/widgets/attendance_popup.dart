@@ -5,7 +5,7 @@ import 'package:wowcare/presentation/features/attendance/util/attendance_permiss
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/src/app_router.dart' show dashboardBranchKey;
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -70,7 +70,7 @@ class AttendancePopupManager {
 
     showDialog(
       context: context,
-      barrierColor: Colors.black54,
+      barrierColor: AppColors.black54,
       barrierDismissible: true,
       builder: (dialogContext) => MultiBlocProvider(
         providers: [
@@ -184,20 +184,22 @@ class AttendancePopupManager {
       // slide-from-right made it visibly stand out as "a different page was
       // pushed" instead of feeling like just another tab. A quick fade reads
       // much closer to a tab swap than a slide does.
-      navigatorState.push(_fadeRoute(
-        settings: const RouteSettings(
-          name: StudentAttendanceProfile.routeName,
+      navigatorState.push(
+        _fadeRoute(
+          settings: const RouteSettings(
+            name: StudentAttendanceProfile.routeName,
+          ),
+          builder: (_) => StudentAttendanceProfile(
+            studentCode: selectedChild.code.trim(),
+            studentId: 0,
+            studentName: selectedChild.name,
+            studentPhotoUuid: null,
+            roomName: roomName,
+            isSignedIn: isSignedIn,
+            syncWithParentChildSelection: true,
+          ),
         ),
-        builder: (_) => StudentAttendanceProfile(
-          studentCode: selectedChild.code.trim(),
-          studentId: 0,
-          studentName: selectedChild.name,
-          studentPhotoUuid: null,
-          roomName: roomName,
-          isSignedIn: isSignedIn,
-          syncWithParentChildSelection: true,
-        ),
-      ));
+      );
     } catch (_) {
       if (!context.mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
@@ -224,8 +226,7 @@ PageRouteBuilder<T> _fadeRoute<T>({
     settings: settings,
     transitionDuration: const Duration(milliseconds: 150),
     reverseTransitionDuration: const Duration(milliseconds: 150),
-    pageBuilder: (context, animation, secondaryAnimation) =>
-        builder(context),
+    pageBuilder: (context, animation, secondaryAnimation) => builder(context),
     transitionsBuilder: (context, animation, secondaryAnimation, child) =>
         FadeTransition(opacity: animation, child: child),
   );
@@ -474,7 +475,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
     final maxPopupHeight = (screenHeight * 0.45).clamp(140.0, 350.0);
 
     return Dialog(
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       elevation: 0,
       alignment: Alignment.bottomCenter,
       insetPadding: EdgeInsets.only(
@@ -483,7 +484,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         bottom: bottomPadding,
       ),
       child: Material(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(16),
         elevation: 4,
         child: ConstrainedBox(
@@ -511,7 +512,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
                   labelPadding: EdgeInsets.zero,
                   padding: EdgeInsets.symmetric(horizontal: isTablet ? 16 : 8),
                   labelStyle: TextStyle(
-                    color: Colors.black,
+                    color: AppColors.black,
                     fontFamily: Fonts.manrope,
                     fontSize: isTablet ? 18 : 16,
                     fontWeight: FontWeight.w500,
@@ -1414,7 +1415,7 @@ class _AttendancePopupOverlayState extends State<AttendancePopupOverlay>
         padding: const EdgeInsets.all(1),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(7),
           ),
           child: Center(

@@ -8,6 +8,8 @@ import 'package:wowcare/domain/features/communication/usecases/get_or_create_cla
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/chat_thread_shimmer.dart';
 
+import '../../../../../app/theme/colors.dart';
+
 /// Re-exported for backwards compatibility: reusable_modal_bottom_sheet.dart imports DataMap
 /// from this file.
 typedef DataMap = Map<String, dynamic>;
@@ -121,8 +123,10 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
   Future<ConversationEntity?> _resolveConversation() async {
     final code = widget.selectedRoom?.code;
     if (code == null || code.isEmpty) return null;
-    final result = await serviceLocator<GetOrCreateClassroomChatUseCase>()
-        .call(code, classroomName: widget.selectedRoom?.name);
+    final result = await serviceLocator<GetOrCreateClassroomChatUseCase>().call(
+      code,
+      classroomName: widget.selectedRoom?.name,
+    );
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation != null && mounted) {
       // Keep our own reference in sync so a later rebuild embeds the real thread.
@@ -146,12 +150,12 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.forum_outlined, size: 40, color: Colors.grey),
+              const Icon(Icons.forum_outlined, size: 40, color: AppColors.grey),
               const SizedBox(height: 12),
               Text(
                 _error ?? 'Classroom chat is not available',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.grey),
               ),
               const SizedBox(height: 12),
               OutlinedButton.icon(
@@ -170,7 +174,9 @@ class _ClassroomNotesTabCardState extends State<ClassroomNotesTabCard> {
     return ConversationThreadScreen(
       // Rebuild the thread when a draft becomes a real conversation so the
       // cubit binds to the real conversationCode from the start.
-      key: ValueKey(_isDraft ? 'draft:${widget.selectedRoom?.code}' : _conversation!.code),
+      key: ValueKey(
+        _isDraft ? 'draft:${widget.selectedRoom?.code}' : _conversation!.code,
+      ),
       conversation: _conversation!,
       showOwnScaffold: false,
       isDraft: _isDraft,

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -55,14 +55,17 @@ class BillingStudentCard extends StatefulWidget {
 }
 
 class _BillingStudentCardState extends State<BillingStudentCard> {
-  late final BoolToggleCubit _cubit = BoolToggleCubit(initial: widget.isSelected);
+  late final BoolToggleCubit _cubit = BoolToggleCubit(
+    initial: widget.isSelected,
+  );
   bool get _localSelected => _cubit.state;
 
   bool isExpanded = false;
 
   bool get _isSelectionControlled => widget.onSelected != null;
 
-  bool get _checkboxValue => _isSelectionControlled ? widget.isSelected : _localSelected;
+  bool get _checkboxValue =>
+      _isSelectionControlled ? widget.isSelected : _localSelected;
 
   @override
   void didUpdateWidget(covariant BillingStudentCard oldWidget) {
@@ -137,7 +140,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
               statusColor = AppColors.successColor;
               break;
             case 'Pending':
-              statusColor = Colors.orange;
+              statusColor = AppColors.orange;
               break;
             case 'Failed':
               statusColor = AppColors.errorColor;
@@ -152,9 +155,10 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
           final bool hasPaymentMethod = widget.paymentMethod.trim().isNotEmpty;
           final String paymentStatusText =
               widget.lastPaymentStatus.trim().isNotEmpty
-                  ? widget.lastPaymentStatus
-                  : 'NOT PAID';
-          final bool hasInvoice = widget.lastInvoiceAmount > 0 ||
+              ? widget.lastPaymentStatus
+              : 'NOT PAID';
+          final bool hasInvoice =
+              widget.lastInvoiceAmount > 0 ||
               widget.lastInvoiceSent.trim() != '-';
 
           return LayoutBuilder(
@@ -164,7 +168,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                   width: constraints.maxWidth,
                   height: isExpanded ? null : 64.0,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: AppColors.cardBorderColor,
@@ -173,7 +177,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                   ),
                   clipBehavior: Clip.antiAlias,
                   child: Material(
-                    color: Colors.transparent,
+                    color: AppColors.transparent,
                     child: InkWell(
                       onTap: () {
                         setState(() {
@@ -186,7 +190,8 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                           Container(
                             height: 60,
                             padding: EdgeInsets.symmetric(
-                                horizontal: isTablet ? 24 : 16),
+                              horizontal: isTablet ? 24 : 16,
+                            ),
                             alignment: Alignment.center,
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.start,
@@ -198,7 +203,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                       value: _checkboxValue,
                                       onChanged: (value) =>
                                           _handleSelectionChanged(
-                                              context, value),
+                                            context,
+                                            value,
+                                          ),
                                       scale: 1.2,
                                       borderColor: null,
                                       label: null,
@@ -248,74 +255,74 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                                   fontFamily: 'Manrope',
                                                   fontSize: isTablet ? 16 : 14,
                                                   fontWeight: FontWeight.w500,
-                                                  color: const Color(0xff573353),
+                                                  color: const Color(
+                                                    0xff573353,
+                                                  ),
                                                   height: 19 / 14,
                                                 ),
                                                 overflow: TextOverflow.ellipsis,
                                                 textAlign: TextAlign.right,
                                               )
                                             : hasPaymentMethod
-                                                ? Column(
-                                                    crossAxisAlignment:
-                                                        CrossAxisAlignment.end,
-                                                    mainAxisAlignment:
-                                                        MainAxisAlignment.center,
-                                                    mainAxisSize:
-                                                        MainAxisSize.min,
-                                                    children: [
-                                                      Text(
-                                                        'Payment',
-                                                        style: TextStyle(
-                                                          fontFamily: 'Manrope',
-                                                          fontSize:
-                                                              isTablet ? 14 : 12,
-                                                          fontWeight:
-                                                              FontWeight.w700,
-                                                          color: const Color(
-                                                              0xff573353),
-                                                          height: 16 / 12,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        textAlign:
-                                                            TextAlign.right,
-                                                      ),
-                                                      const SizedBox(height: 2),
-                                                      Text(
-                                                        widget.paymentMethod,
-                                                        style: TextStyle(
-                                                          fontFamily: 'Manrope',
-                                                          fontSize:
-                                                              isTablet ? 14 : 12,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          color: AppColors
-                                                              .billingTextColor,
-                                                          height: 16 / 12,
-                                                        ),
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        textAlign:
-                                                            TextAlign.right,
-                                                      ),
-                                                    ],
-                                                  )
-                                                : Text(
-                                                    'Not setup',
+                                            ? Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.end,
+                                                mainAxisAlignment:
+                                                    MainAxisAlignment.center,
+                                                mainAxisSize: MainAxisSize.min,
+                                                children: [
+                                                  Text(
+                                                    'Payment',
                                                     style: TextStyle(
                                                       fontFamily: 'Manrope',
-                                                      fontSize:
-                                                          isTablet ? 16 : 14,
+                                                      fontSize: isTablet
+                                                          ? 14
+                                                          : 12,
                                                       fontWeight:
-                                                          FontWeight.w500,
+                                                          FontWeight.w700,
                                                       color: const Color(
-                                                          0xff573353),
-                                                      height: 19 / 14,
+                                                        0xff573353,
+                                                      ),
+                                                      height: 16 / 12,
                                                     ),
                                                     overflow:
                                                         TextOverflow.ellipsis,
                                                     textAlign: TextAlign.right,
                                                   ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    widget.paymentMethod,
+                                                    style: TextStyle(
+                                                      fontFamily: 'Manrope',
+                                                      fontSize: isTablet
+                                                          ? 14
+                                                          : 12,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                      color: AppColors
+                                                          .billingTextColor,
+                                                      height: 16 / 12,
+                                                    ),
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    textAlign: TextAlign.right,
+                                                  ),
+                                                ],
+                                              )
+                                            : Text(
+                                                'Not setup',
+                                                style: TextStyle(
+                                                  fontFamily: 'Manrope',
+                                                  fontSize: isTablet ? 16 : 14,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: const Color(
+                                                    0xff573353,
+                                                  ),
+                                                  height: 19 / 14,
+                                                ),
+                                                overflow: TextOverflow.ellipsis,
+                                                textAlign: TextAlign.right,
+                                              ),
                                       ),
                                     ],
                                   ),
@@ -332,7 +339,12 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                               color: Color(0xFFE9ECEF),
                             ),
                             Padding(
-                              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                              padding: const EdgeInsets.fromLTRB(
+                                16,
+                                16,
+                                16,
+                                16,
+                              ),
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
@@ -370,8 +382,9 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                       height: 40,
                                       child: DecoratedBox(
                                         decoration: BoxDecoration(
-                                          borderRadius:
-                                              BorderRadius.circular(8),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                           gradient:
                                               AppColors.buildPrimaryGradient(),
                                         ),
@@ -386,7 +399,7 @@ class _BillingStudentCardState extends State<BillingStudentCard> {
                                               fontFamily: 'Manrope',
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
-                                              color: Colors.white,
+                                              color: AppColors.white,
                                               height: 16 / 16,
                                             ),
                                           ),

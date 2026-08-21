@@ -9,6 +9,8 @@ import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 
+import '../../../app/theme/colors.dart';
+
 class SimpleTimePickerField extends StatelessWidget {
   const SimpleTimePickerField({
     super.key,
@@ -38,11 +40,14 @@ class SimpleTimePickerField extends StatelessWidget {
   Future<TimeOfDay> _defaultPickerTime() async {
     if (time != null) return time!;
     try {
-      final schoolTimeZone = await SchoolTimezoneResolver.resolveForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-        apiClient: serviceLocator<ApiClient>(),
+      final schoolTimeZone =
+          await SchoolTimezoneResolver.resolveForCurrentSchool(
+            storage: serviceLocator<StorageService>(),
+            apiClient: serviceLocator<ApiClient>(),
+          );
+      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(
+        schoolTimeZone,
       );
-      final dt = SchoolZoneDateTime.schoolCalendarDateAndTimeNow(schoolTimeZone);
       return dt.$2;
     } catch (_) {
       return ServerTimeService.instance.timeOfDayNow();
@@ -72,14 +77,9 @@ class SimpleTimePickerField extends StatelessWidget {
     return InkWell(
       onTap: () => _pickTime(context),
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 8,
-          vertical: 12,
-        ),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
         decoration: BoxDecoration(
-          border: Border.all(
-            color: Colors.grey.shade300,
-          ),
+          border: Border.all(color: AppColors.grey.shade300),
           borderRadius: BorderRadius.circular(8),
           color: const Color.fromRGBO(249, 245, 250, 1),
         ),
@@ -98,4 +98,3 @@ class SimpleTimePickerField extends StatelessWidget {
     );
   }
 }
-

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 
 class CreateInvoiceDialog extends StatelessWidget {
@@ -17,7 +17,7 @@ class CreateInvoiceDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
@@ -124,13 +124,13 @@ class BillingActionCardState extends State<BillingActionCard> {
               ? AppColors.billingButtonTextColor
               : AppColors.billingTextColor;
           final Color secondaryText = _isHighlighted
-              ? Colors.white70
+              ? AppColors.white70
               : const Color(0x99573353);
           final Color iconBg = _isHighlighted
-              ? Colors.white24
+              ? AppColors.white24
               : AppColors.themeColor.withValues(alpha: 0.1);
           final Color iconColor = _isHighlighted
-              ? Colors.white
+              ? AppColors.white
               : AppColors.themeColor;
 
           return InkWell(

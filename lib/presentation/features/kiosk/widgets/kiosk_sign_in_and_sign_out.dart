@@ -120,8 +120,8 @@ class _KioskStudentSignInAndSignOutPageState
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
+                  backgroundColor: AppColors.transparent,
+                  shadowColor: AppColors.transparent,
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -133,7 +133,7 @@ class _KioskStudentSignInAndSignOutPageState
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: AppColors.primaryGradientColors,
+                      AppColors: AppColors.primaryGradientAppColors,
                     ),
                   ),
                   child: const Padding(
@@ -144,7 +144,7 @@ class _KioskStudentSignInAndSignOutPageState
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       ),
                     ),
@@ -163,8 +163,8 @@ class _KioskStudentSignInAndSignOutPageState
                   });
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
+                  backgroundColor: AppColors.transparent,
+                  shadowColor: AppColors.transparent,
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
@@ -176,7 +176,7 @@ class _KioskStudentSignInAndSignOutPageState
                     gradient: const LinearGradient(
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
-                      colors: AppColors.primaryGradientColors,
+                      AppColors: AppColors.primaryGradientAppColors,
                     ),
                   ),
                   child: const Padding(
@@ -187,7 +187,7 @@ class _KioskStudentSignInAndSignOutPageState
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       ),
                     ),

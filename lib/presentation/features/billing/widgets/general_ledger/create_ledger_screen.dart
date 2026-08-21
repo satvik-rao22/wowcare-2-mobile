@@ -1,9 +1,7 @@
 import 'dart:async' show unawaited;
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/usecases/create_ledger_usecase.dart';
@@ -15,13 +13,9 @@ import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
-const _kCategories = [
-  'Income',
-  'Expense',
-  'Asset',
-  'Liability',
-  'Equity',
-];
+import '../../../../../app/theme/colors.dart';
+
+const _kCategories = ['Income', 'Expense', 'Asset', 'Liability', 'Equity'];
 
 class CreateLedgerScreen extends StatefulWidget {
   const CreateLedgerScreen({super.key});
@@ -86,7 +80,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
           final ResponsiveHelper responsive = ResponsiveHelper(context);
           final double verticalSpacing = responsive.isTablet ? 24.0 : 16.0;
           final double bottomPadding = MediaQuery.of(context).padding.bottom;
-          final double safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
+          final double safeAreaBottom = bottomPadding > 0
+              ? bottomPadding
+              : 16.0;
           final TextStyle labelStyle = AppTextStyles.label.copyWith(
             fontSize: responsive.labelFontSize,
             color: AppColors.billingTextColor,
@@ -125,8 +121,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                     padding: const EdgeInsets.only(left: 2),
                     child: Text(
                       '*This field is required.',
-                      style: AppTextStyles.small
-                          .copyWith(color: AppColors.errorColor),
+                      style: AppTextStyles.small.copyWith(
+                        color: AppColors.errorColor,
+                      ),
                     ),
                   ),
                 ],
@@ -152,10 +149,10 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
                 top: 8,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: AppColors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
@@ -200,7 +197,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
               if (required)
                 TextSpan(
                   text: ' *',
-                  style: AppTextStyles.small.copyWith(color: AppColors.errorColor),
+                  style: AppTextStyles.small.copyWith(
+                    color: AppColors.errorColor,
+                  ),
                 ),
             ],
           ),
@@ -211,8 +210,9 @@ class _CreateLedgerScreenState extends State<CreateLedgerScreen> {
           decoration: BoxDecoration(
             color: AppColors.billingCardColor,
             border: Border.all(color: AppColors.billingBorderHeavy),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,

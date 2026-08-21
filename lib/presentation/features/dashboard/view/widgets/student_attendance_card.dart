@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_attendance_profile_cubit.dart';
@@ -15,6 +14,8 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class StudentAttendanceCard extends StatefulWidget {
   const StudentAttendanceCard({super.key});
@@ -159,7 +160,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
                 color: AppColors.primaryColor,
               ),
               borderRadius: BorderRadius.circular(12),
-              dropdownColor: Colors.white,
+              dropdownColor: AppColors.white,
               onChanged: (next) {
                 if (next == null) return;
                 context.read<ParentChildCubit>().selectByCode(next.code);
@@ -249,7 +250,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: AppColors.black12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -340,7 +341,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
           icon: MediaRes.calenderClockIcon,
           label: 'Absent Days',
           value: '${state.absentDays}',
-          valueColor: Colors.red,
+          valueColor: AppColors.red,
         ),
       ],
     );
@@ -378,7 +379,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12),
+        border: Border.all(color: AppColors.black12),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -435,7 +436,7 @@ class _StudentAttendanceCardState extends State<StudentAttendanceCard>
       child: Card(
         margin: EdgeInsets.zero,
         elevation: 0,
-        color: Colors.white,
+        color: AppColors.white,
         shape: RoundedRectangleBorder(
           side: BorderSide(
             color: AppColors.primaryColor.withValues(alpha: 0.2),

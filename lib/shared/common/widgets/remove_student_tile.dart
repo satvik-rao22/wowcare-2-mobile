@@ -1,7 +1,7 @@
 // import 'package:flutter/material.dart';
 // import 'package:flutter_bloc/flutter_bloc.dart';
 // import 'package:flutter_svg/svg.dart';
-// import '../../../app/theme/colors.dart';
+// import '../../../app/theme/AppColors.dart';
 // import '../../../app/theme/media_res.dart';
 // import '../../../presentation/features/attendance/forms/student_attendance_forms/student_sign_in_form.dart';
 // import 'profile_show_widget.dart';

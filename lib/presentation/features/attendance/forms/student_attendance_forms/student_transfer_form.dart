@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -494,7 +494,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -529,7 +531,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.red,
+                color: AppColors.red,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -646,7 +648,9 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                                 vertical: 14,
                               ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(
+                                  color: AppColors.grey.shade300,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                                 color: const Color.fromRGBO(177, 175, 233, 0.1),
                               ),
@@ -678,7 +682,7 @@ class _StudentTransferFormState extends State<StudentTransferForm> {
                           vertical: 0,
                         ),
                         decoration: BoxDecoration(
-                          border: Border.all(color: Colors.grey.shade300),
+                          border: Border.all(color: AppColors.grey.shade300),
                           borderRadius: BorderRadius.circular(8),
                           color: const Color.fromRGBO(177, 175, 233, 0.1),
                         ),

@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/ledger_transaction_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/ledger_detail_cubit.dart';
@@ -79,7 +79,10 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
     if (!mounted) return;
     if (result == true) {
       CoreUtils.showTopSnackBar(
-          context: context, message: 'Transaction added.', isSuccess: true);
+        context: context,
+        message: 'Transaction added.',
+        isSuccess: true,
+      );
     }
   }
 
@@ -121,7 +124,8 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                               children: [
                                 Expanded(
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Text(
                                         ledger.name,
@@ -158,13 +162,18 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
                                 fetchInitialTime: false,
                                 label: 'Date Range',
                                 onRangeSelected: (start, end) {
-                                  final fromStr =
-                                      DateFormat('yyyy-MM-dd').format(start);
+                                  final fromStr = DateFormat(
+                                    'yyyy-MM-dd',
+                                  ).format(start);
                                   final toStr = end != null
                                       ? DateFormat('yyyy-MM-dd').format(end)
                                       : fromStr;
-                                  unawaited(_cubit.setDateRange(
-                                      from: fromStr, to: toStr));
+                                  unawaited(
+                                    _cubit.setDateRange(
+                                      from: fromStr,
+                                      to: toStr,
+                                    ),
+                                  );
                                 },
                               ),
                             ),
@@ -196,9 +205,11 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.cloud_off_outlined,
-                size: 52,
-                color: AppColors.primaryColor.withValues(alpha: 0.3)),
+            Icon(
+              Icons.cloud_off_outlined,
+              size: 52,
+              color: AppColors.primaryColor.withValues(alpha: 0.3),
+            ),
             const SizedBox(height: 12),
             Text(
               state.errorMessage ?? 'Error loading transactions.',
@@ -228,9 +239,11 @@ class _LedgerDetailScreenState extends State<LedgerDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(Icons.receipt_long_outlined,
-                  size: 52,
-                  color: AppColors.primaryColor.withValues(alpha: 0.3)),
+              Icon(
+                Icons.receipt_long_outlined,
+                size: 52,
+                color: AppColors.primaryColor.withValues(alpha: 0.3),
+              ),
               const SizedBox(height: 12),
               const Text(
                 'No transactions found.',
@@ -278,13 +291,19 @@ class _LedgerSubtitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final category = ledger.category?.isNotEmpty == true ? ledger.category! : null;
+    final category = ledger.category?.isNotEmpty == true
+        ? ledger.category!
+        : null;
     final nature = ledger.nature?.isNotEmpty == true ? ledger.nature! : null;
-    final label = category ?? nature ?? (ledger.type.isNotEmpty ? ledger.type : null);
+    final label =
+        category ?? nature ?? (ledger.type.isNotEmpty ? ledger.type : null);
 
     final currentBal = ledger.currentBalance ?? ledger.openBalance;
-    final balType = ledger.balanceType?.isNotEmpty == true ? ledger.balanceType! : null;
-    final balText = '\$${currentBal.toStringAsFixed(2)}'
+    final balType = ledger.balanceType?.isNotEmpty == true
+        ? ledger.balanceType!
+        : null;
+    final balText =
+        '\$${currentBal.toStringAsFixed(2)}'
         '${balType != null ? ' $balType' : ''}';
 
     const style = TextStyle(
@@ -320,28 +339,31 @@ class _LedgerEntryCard extends StatelessWidget {
     final isTablet = MediaQuery.of(context).size.width > 600;
     final bool hasDebit = tx.debit != null && tx.debit! != 0;
     final bool hasCredit = tx.credit != null && tx.credit! != 0;
-    final double amount =
-        hasDebit ? tx.debit! : hasCredit ? tx.credit! : 0.0;
+    final double amount = hasDebit
+        ? tx.debit!
+        : hasCredit
+        ? tx.credit!
+        : 0.0;
     final Color amountColor = hasDebit
         ? const Color(0xFFF85A5A)
         : hasCredit
-            ? const Color(0xFF4CAF50)
-            : kBillingCardTextColor;
-    final String amountPrefix = hasDebit ? '-' : hasCredit ? '+' : '';
+        ? const Color(0xFF4CAF50)
+        : kBillingCardTextColor;
+    final String amountPrefix = hasDebit
+        ? '-'
+        : hasCredit
+        ? '+'
+        : '';
 
     return StaffStyleCard(
       header: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          Text(
-            _formatDate(tx.date),
-            style: BillingCardText.name(isTablet),
-          ),
+          Text(_formatDate(tx.date), style: BillingCardText.name(isTablet)),
           if (tx.type != null && tx.type!.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: const Color(0xFF1565C0).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
@@ -378,16 +400,12 @@ class _LedgerEntryCard extends StatelessWidget {
         ],
       ),
       expandedChildren: [
-        if (tx.contraAccount != null &&
-            tx.contraAccount!.isNotEmpty) ...[
-          StaffCardDetailRow(
-              label: 'Contra Ledger', value: tx.contraAccount!),
+        if (tx.contraAccount != null && tx.contraAccount!.isNotEmpty) ...[
+          StaffCardDetailRow(label: 'Contra Ledger', value: tx.contraAccount!),
           const SizedBox(height: 10),
         ],
-        if (tx.description != null &&
-            tx.description!.isNotEmpty) ...[
-          StaffCardDetailRow(
-              label: 'Narration', value: tx.description!),
+        if (tx.description != null && tx.description!.isNotEmpty) ...[
+          StaffCardDetailRow(label: 'Narration', value: tx.description!),
           const SizedBox(height: 10),
         ],
         if (hasDebit) ...[
@@ -408,7 +426,8 @@ class _LedgerEntryCard extends StatelessWidget {
         ],
         StaffCardDetailRow(
           label: 'Running Balance',
-          value: '\$${tx.balance.toStringAsFixed(2)}'
+          value:
+              '\$${tx.balance.toStringAsFixed(2)}'
               '${tx.balanceType != null ? ' ${tx.balanceType}' : ''}',
         ),
       ],

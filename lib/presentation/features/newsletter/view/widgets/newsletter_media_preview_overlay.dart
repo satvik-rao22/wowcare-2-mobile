@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 
 /// Themed floating overlay for newsletter image preview (replaces full-screen black viewer).
 Future<void> showNewsletterImagePreview(
@@ -75,7 +75,7 @@ class _NewsletterImagePreviewOverlay extends StatelessWidget {
                     children: [
                       Positioned.fill(
                         child: ColoredBox(
-                          color: AppColors.fieldBackgroundColor,
+                          color: AppColors.fieldbackgroundColor,
                         ),
                       ),
                       Padding(
@@ -154,7 +154,7 @@ class _ClosePreviewButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white.withValues(alpha: 0.95),
+      color: AppColors.white.withValues(alpha: 0.95),
       shape: const CircleBorder(),
       elevation: 2,
       shadowColor: AppColors.primaryColor.withValues(alpha: 0.2),

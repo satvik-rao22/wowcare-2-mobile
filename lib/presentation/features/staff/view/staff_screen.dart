@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -826,7 +826,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                       showModalBottomSheet(
                                         context: context,
                                         isScrollControlled: true,
-                                        backgroundColor: Colors.white,
+                                        backgroundColor: AppColors.white,
                                         shape: const RoundedRectangleBorder(
                                           borderRadius: BorderRadius.only(
                                             topLeft: Radius.circular(24),
@@ -1045,7 +1045,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Material(
-                                    color: Colors.transparent,
+                                    color: AppColors.transparent,
                                     child: InkWell(
                                       onTap: () async {
                                         final classroomCubit = context
@@ -1263,7 +1263,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                                         ? '99+'
                                                         : '$badgeCount',
                                                     style: const TextStyle(
-                                                      color: Colors.white,
+                                                      color: AppColors.white,
                                                       fontSize: 10,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -1451,7 +1451,9 @@ class _StaffScreenState extends State<StaffScreen> {
                                 child: Center(
                                   child: Text(
                                     'Unable to load staff. Please try again.',
-                                    style: TextStyle(color: Colors.redAccent),
+                                    style: TextStyle(
+                                      color: AppColors.redAccent,
+                                    ),
                                   ),
                                 ),
                               );

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -95,7 +95,9 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
           Navigator.of(context).pop();
         } else {
           redirectToAttendanceDaily(
-              context, StudentAttendanceTabbedView.routeName);
+            context,
+            StudentAttendanceTabbedView.routeName,
+          );
         }
       case false:
         final message = outcome.error != null
@@ -141,7 +143,7 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.red,
+                color: AppColors.red,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -225,7 +227,8 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                              color: Color.fromRGBO(87, 51, 83, 0.4)),
+                            color: Color.fromRGBO(87, 51, 83, 0.4),
+                          ),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
@@ -244,14 +247,14 @@ class _StudentMarkAbsentFormState extends State<StudentMarkAbsentForm> {
                         errorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                            color: Colors.red,
+                            color: AppColors.red,
                             width: 1,
                           ),
                         ),
                         focusedErrorBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(10),
                           borderSide: const BorderSide(
-                            color: Colors.red,
+                            color: AppColors.red,
                             width: 2,
                           ),
                         ),
@@ -290,14 +293,9 @@ class RemoveStudentTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 8,
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: AppColors.themeColor,
-        ),
+        border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(10),
         color: const Color.fromRGBO(249, 245, 250, 1),
       ),
@@ -333,7 +331,7 @@ class RemoveStudentTile extends StatelessWidget {
           GestureDetector(
             onTap: onRemove,
             child: SvgPicture.asset(MediaRes.delete_icon),
-          )
+          ),
         ],
       ),
     );

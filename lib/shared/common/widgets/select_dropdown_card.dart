@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class SelectDropdownCard extends StatelessWidget {
   const SelectDropdownCard({
@@ -23,7 +23,7 @@ class SelectDropdownCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.fieldBackgroundColor,
+        color: AppColors.fieldbackgroundColor,
         borderRadius: borderRadius,
         border: Border.all(color: AppColors.cardBorderColor),
         boxShadow: const [
@@ -45,7 +45,7 @@ class SelectDropdownCard extends StatelessWidget {
           prefixIcon: Icon(icon, color: AppColors.primaryColor),
           hintText: placeholder,
           hintStyle: TextStyle(
-            color: Colors.grey.shade700,
+            color: AppColors.grey.shade700,
             fontSize: 14,
             fontWeight: FontWeight.w600,
           ),
@@ -65,7 +65,7 @@ class SelectDropdownCard extends StatelessWidget {
             ),
           ),
           filled: true,
-          fillColor: Colors.transparent,
+          fillColor: AppColors.transparent,
           contentPadding: const EdgeInsets.symmetric(horizontal: 12),
         ),
         items: items
@@ -77,7 +77,7 @@ class SelectDropdownCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
-                    color: Colors.black87,
+                    color: AppColors.black87,
                   ),
                 ),
               ),

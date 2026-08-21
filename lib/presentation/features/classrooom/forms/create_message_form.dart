@@ -111,14 +111,14 @@
 //                     errorBorder: OutlineInputBorder(
 //                       borderRadius: BorderRadius.circular(10),
 //                       borderSide: const BorderSide(
-//                         color: Colors.red,
+//                         color: AppColors.red,
 //                         width: 1,
 //                       ),
 //                     ),
 //                     focusedErrorBorder: OutlineInputBorder(
 //                       borderRadius: BorderRadius.circular(10),
 //                       borderSide: const BorderSide(
-//                         color: Colors.red,
+//                         color: AppColors.red,
 //                         width: 2,
 //                       ),
 //                     ),

@@ -4,7 +4,7 @@ import 'package:emoji_picker_flutter/emoji_picker_flutter.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:thumbnailer/thumbnailer.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
@@ -286,7 +286,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     emojiSizeMax: 28,
                   ),
                   categoryViewConfig: const CategoryViewConfig(
-                    backgroundColor: Colors.white,
+                    backgroundColor: AppColors.white,
                     indicatorColor: AppColors.primaryColor,
                     iconColorSelected: AppColors.primaryColor,
                     recentTabBehavior: RecentTabBehavior.RECENT,
@@ -295,7 +295,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
                     enabled: false,
                   ),
                   searchViewConfig: const SearchViewConfig(
-                    backgroundColor: Colors.white,
+                    backgroundColor: AppColors.white,
                   ),
                 ),
               ),
@@ -386,7 +386,7 @@ class _EditPreview extends StatelessWidget {
         color: AppColors.primaryColor.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
         border: Border(
-          left: BorderSide(color: Colors.amber.shade600, width: 3),
+          left: BorderSide(color: AppColors.amber.shade600, width: 3),
         ),
       ),
       child: Row(
@@ -499,10 +499,10 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                                   File(att.localPath!).readAsBytes(),
                               widgetSize: 76,
                               decoration: WidgetDecoration(
-                                backgroundColor: Colors.white,
+                                backgroundColor: AppColors.white,
                                 iconColor: AppColors.primaryColor,
                                 textColor: AppColors.primaryColor,
-                                wrapperBgColor: Colors.transparent,
+                                wrapperBgColor: AppColors.transparent,
                                 wrapperSize: 80,
                               ),
                             ),
@@ -513,12 +513,12 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                         width: 28,
                         height: 28,
                         decoration: const BoxDecoration(
-                          color: Colors.black54,
+                          color: AppColors.black54,
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(
                           Icons.play_arrow_rounded,
-                          color: Colors.white,
+                          color: AppColors.white,
                           size: 20,
                         ),
                       ),
@@ -536,7 +536,7 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.black54,
+                      color: AppColors.black54,
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
@@ -544,7 +544,7 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                           ? '${att.name.substring(0, 10)}…'
                           : att.name,
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
                       ),
@@ -562,14 +562,14 @@ class _AttachmentPreviewStrip extends StatelessWidget {
                     width: 20,
                     height: 20,
                     decoration: BoxDecoration(
-                      color: Colors.red.shade500,
+                      color: AppColors.red.shade500,
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 1.5),
+                      border: Border.all(color: AppColors.white, width: 1.5),
                     ),
                     child: const Icon(
                       Icons.close_rounded,
                       size: 12,
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                   ),
                 ),
@@ -861,12 +861,12 @@ class _InputRow extends StatelessWidget {
             child: Container(
               constraints: const BoxConstraints(minHeight: 48),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(26),
                 border: Border.all(color: const Color(0xFFE2E8F0), width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
+                    color: AppColors.black.withValues(alpha: 0.04),
                     blurRadius: 6,
                     offset: const Offset(0, 1),
                   ),
@@ -947,13 +947,13 @@ class _InputRow extends StatelessWidget {
                         child: PrimaryCircularLoader(
                           size: 22,
                           strokeWidth: 2,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       )
                     : Icon(
                         Icons.send_rounded,
                         color: hasText
-                            ? Colors.white
+                            ? AppColors.white
                             : AppColors.primaryColor.withValues(alpha: 0.35),
                         size: 22,
                       ),

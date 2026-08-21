@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class DuplicateStudentBottomSheet extends StatefulWidget {
@@ -74,7 +74,7 @@ class _DuplicateStudentBottomSheetState
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),

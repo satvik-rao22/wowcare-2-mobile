@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
@@ -57,7 +57,7 @@ class MessageAttachmentBottomSheet extends StatefulWidget {
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (_) => MessageAttachmentBottomSheet(
         onAttachmentsSelected: onAttachmentsSelected,
         onEmojiSelected: onEmojiSelected,
@@ -133,7 +133,10 @@ class _MessageAttachmentBottomSheetState
   Future<void> _notImplemented(String feature) async {
     Navigator.of(context).pop();
     if (!mounted) return;
-    CoreUtils.showTopSnackBar(context: context, message: '$feature coming soon');
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: '$feature coming soon',
+    );
   }
 
   /// Classifies each file by its own extension (image / video / document)
@@ -174,8 +177,8 @@ class _MessageAttachmentBottomSheetState
         continue;
       }
 
-      final mime = lookupMimeType(file.path) ??
-          FilePickerUtils.getMimeType(ext);
+      final mime =
+          lookupMimeType(file.path) ?? FilePickerUtils.getMimeType(ext);
       valid.add(
         ChatAttachment(
           localPath: file.path,
@@ -249,7 +252,7 @@ class _MessageAttachmentBottomSheetState
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       child: Column(

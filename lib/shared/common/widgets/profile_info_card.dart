@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 /// Profile card shell aligned with [StaffProfileTab]: white card, theme border,
 /// vertical radii 12/12, scroll padding 8×16, inner padding 16, title + gradient edit row.
@@ -50,7 +50,7 @@ class ProfileInfoCard extends StatelessWidget {
         width: double.infinity,
         clipBehavior: Clip.antiAlias,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border.all(color: AppColors.themeColor),
           borderRadius: borderRadius,
         ),
@@ -84,7 +84,7 @@ class ProfileInfoCard extends StatelessWidget {
                         child: const Icon(
                           Icons.edit,
                           size: 22,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       ),
                     ),
@@ -105,10 +105,12 @@ class ProfileInfoCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ...children.map((child) => Padding(
-                          padding: const EdgeInsets.only(bottom: 16),
-                          child: child,
-                        )),
+                    ...children.map(
+                      (child) => Padding(
+                        padding: const EdgeInsets.only(bottom: 16),
+                        child: child,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -162,11 +164,7 @@ class ProfileField extends StatelessWidget {
       children: [
         Text(label, style: _labelStaff),
         const SizedBox(height: 6),
-        valueWidget ??
-            Text(
-              resolved,
-              style: _valueStaff,
-            ),
+        valueWidget ?? Text(resolved, style: _valueStaff),
       ],
     );
   }

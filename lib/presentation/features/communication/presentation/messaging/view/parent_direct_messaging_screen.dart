@@ -1,10 +1,8 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
@@ -30,6 +28,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import '../../../../../../app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 
 /// Parent/Guardian messaging entry point.
@@ -389,7 +388,7 @@ class _ParentDirectMessagingScreenState
     return Align(
       alignment: Alignment.centerRight,
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () {
@@ -472,19 +471,19 @@ class _ParentDirectMessagingScreenState
               Icon(
                 Icons.wifi_off_rounded,
                 size: 56,
-                color: Colors.grey.withValues(alpha: 0.35),
+                color: AppColors.grey.withValues(alpha: 0.35),
               ),
               const SizedBox(height: 12),
               const CustomTextWidget(
                 text: 'Could not load conversations',
                 fontSize: 15,
-                fontColor: Colors.grey,
+                fontColor: AppColors.grey,
               ),
               const SizedBox(height: 8),
               const CustomTextWidget(
                 text: 'Pull down to try again',
                 fontSize: 13,
-                fontColor: Colors.grey,
+                fontColor: AppColors.grey,
               ),
             ],
           ),
@@ -555,7 +554,11 @@ class _ParentDirectMessagingScreenState
       onViewParticipants: null,
       onAttachmentError: (message) {
         if (!mounted) return;
-        CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
       },
     );
   }
@@ -687,7 +690,7 @@ class _ParentDirectMessagingScreenState
                 // Header — mirrors _buildParticipantHeader in the thread
                 Container(
                   decoration: const BoxDecoration(
-                    color: Colors.transparent,
+                    color: AppColors.transparent,
                     border: Border(
                       bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1),
                     ),
@@ -743,13 +746,13 @@ class _ParentDirectMessagingScreenState
                         Icon(
                           Icons.chat_bubble_outline_rounded,
                           size: 56,
-                          color: Colors.grey.withValues(alpha: 0.35),
+                          color: AppColors.grey.withValues(alpha: 0.35),
                         ),
                         const SizedBox(height: 12),
                         CustomTextWidget(
                           text: widget.notCreatedLabel,
                           fontSize: 15,
-                          fontColor: Colors.grey,
+                          fontColor: AppColors.grey,
                         ),
                       ],
                     ),
@@ -765,10 +768,10 @@ class _ParentDirectMessagingScreenState
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
+              color: AppColors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.black.withValues(alpha: 0.05),
                   blurRadius: 6,
                   offset: const Offset(0, -2),
                 ),

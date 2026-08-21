@@ -3,7 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -102,10 +102,10 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     final String currentRoute = ModalRoute.of(context)?.settings.name ?? '';
 
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       elevation: 0,
       scrolledUnderElevation: 0,
-      foregroundColor: Colors.black,
+      foregroundColor: AppColors.black,
       titleSpacing: 0,
       title: isParent
           ? BlocBuilder<ParentChildCubit, ParentChildState>(
@@ -229,7 +229,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                             child: Text(
                               unreadCount > 99 ? '99+' : '$unreadCount',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -297,7 +297,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                               child: Text(
                                 unreadCount > 99 ? '99+' : '$unreadCount',
                                 style: const TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.white,
                                   fontSize: 10,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -346,9 +346,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
                     indicatorPadding:
                         tabBarStyle?.indicatorPadding ?? EdgeInsets.zero,
                     isScrollable: tabBarStyle?.isScrollable ?? false,
-                    labelColor: tabBarStyle?.labelColor ?? Colors.black87,
+                    labelColor: tabBarStyle?.labelColor ?? AppColors.black87,
                     unselectedLabelColor:
-                        tabBarStyle?.unselectedLabelColor ?? Colors.black54,
+                        tabBarStyle?.unselectedLabelColor ?? AppColors.black54,
                     indicatorWeight: tabBarStyle?.indicatorWeight ?? 2,
                     indicatorSize: tabBarStyle?.indicatorSize,
                     splashFactory: NoSplash.splashFactory,
@@ -451,7 +451,7 @@ class _AppBarKebabMenuState extends State<_AppBarKebabMenu> {
       constraints: const BoxConstraints(maxWidth: 240),
       icon: SvgPicture.asset(MediaRes.kebabMenu, width: 22, height: 22),
       offset: const Offset(0, 48),
-      color: Colors.white,
+      color: AppColors.white,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       itemBuilder: (context) => [
         PopupMenuItem<int>(
@@ -779,7 +779,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
   showModalBottomSheet(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (BuildContext bottomSheetContext) {
       final screenWidth = MediaQuery.of(context).size.width;
       final isTablet = screenWidth > 600;
@@ -842,7 +842,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                 bottom: verticalPadding + bottomSafe,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(borderRadius),
                   topRight: Radius.circular(borderRadius),
@@ -881,7 +881,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                         fontFamily: "Manrope",
                         fontSize: buttonFontSize,
                         fontWeight: FontWeight.w400,
-                        color: Colors.grey,
+                        color: AppColors.grey,
                         height: 1.2,
                       ),
                       textAlign: TextAlign.center,
@@ -905,7 +905,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                                   borderRadius / 2,
                                 ),
                               ),
-                              backgroundColor: Colors.white,
+                              backgroundColor: AppColors.white,
                             ),
                             child: Text(
                               "Cancel",
@@ -955,7 +955,7 @@ void _showChangePasswordBottomSheet(BuildContext context) {
                                 fontFamily: "Manrope",
                                 fontSize: buttonFontSize,
                                 fontWeight: FontWeight.w700,
-                                color: Colors.white,
+                                color: AppColors.white,
                                 height: 1.0,
                               ),
                               textAlign: TextAlign.center,

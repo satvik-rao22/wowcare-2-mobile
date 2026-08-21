@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 /// Bottom sheet shown to ALL roles (parent, staff, admin) when they enter
 /// the school geofence zone.
@@ -37,7 +37,7 @@ class GeofenceSignInSheet extends StatelessWidget {
   }) {
     return showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       isScrollControlled: true,
       builder: (_) => GeofenceSignInSheet(
         role: role,
@@ -60,7 +60,7 @@ class GeofenceSignInSheet extends StatelessWidget {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(24, 20, 24, 20 + bottomPadding),
@@ -72,7 +72,7 @@ class GeofenceSignInSheet extends StatelessWidget {
             width: 40,
             height: 4,
             decoration: BoxDecoration(
-              color: Colors.grey[300],
+              color: AppColors.grey[300],
               borderRadius: BorderRadius.circular(2),
             ),
           ),
@@ -100,7 +100,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                   ),
               child: const Icon(
                 Icons.location_on_rounded,
-                color: Colors.white, // painted over by the gradient
+                color: AppColors.white, // painted over by the gradient
                 size: 36,
               ),
             ),
@@ -127,7 +127,7 @@ class GeofenceSignInSheet extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 14,
               fontWeight: FontWeight.w400,
-              color: Colors.grey[600],
+              color: AppColors.grey[600],
               height: 1.4,
             ),
             textAlign: TextAlign.center,
@@ -181,9 +181,9 @@ class GeofenceSignInSheet extends StatelessWidget {
               ),
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.transparent,
+                  shadowColor: AppColors.transparent,
+                  foregroundColor: AppColors.white,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14),
                   ),
@@ -200,7 +200,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                     fontFamily: 'Manrope',
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.white,
                   ),
                 ),
               ),
@@ -225,7 +225,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                 child: TextButton(
                   onPressed: () => Navigator.of(context).pop(),
                   style: TextButton.styleFrom(
-                    backgroundColor: Colors.white,
+                    backgroundColor: AppColors.white,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(13),
                     ),
@@ -242,7 +242,7 @@ class GeofenceSignInSheet extends StatelessWidget {
                         fontFamily: 'Manrope',
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white, // painted over by the gradient
+                        color: AppColors.white, // painted over by the gradient
                       ),
                     ),
                   ),
@@ -273,7 +273,9 @@ class GeofenceSignInSheet extends StatelessWidget {
           : '/dashboard/student-selection-sign-in-form';
       // Pass the currently-viewed child so the form pre-selects them.
       final code = (studentCode ?? '').trim();
-      return code.isNotEmpty ? '$base?studentCode=${Uri.encodeComponent(code)}' : base;
+      return code.isNotEmpty
+          ? '$base?studentCode=${Uri.encodeComponent(code)}'
+          : base;
     } else {
       // staff or admin: gps=1 tells the form to always self-fill (incl. admin).
       return isSignedIn

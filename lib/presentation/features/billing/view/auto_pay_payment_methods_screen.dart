@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -73,8 +72,7 @@ class _AutoPayPaymentMethodsScreenState
       value: _cubit,
       child: BlocConsumer<AutoPayMethodsCubit, AutoPayMethodsState>(
         listenWhen: (prev, curr) =>
-            prev.errorMessage != curr.errorMessage &&
-            curr.errorMessage != null,
+            prev.errorMessage != curr.errorMessage && curr.errorMessage != null,
         listener: (context, state) {
           CoreUtils.showTopSnackBar(
             context: context,
@@ -199,7 +197,9 @@ class _AutoPayPaymentMethodsScreenState
                     const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 2),
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: enabled
                             ? const Color(0xFFE8FFF1)
@@ -211,8 +211,7 @@ class _AutoPayPaymentMethodsScreenState
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w800,
-                          color:
-                              enabled ? AppColors.successColor : Colors.grey,
+                          color: enabled ? AppColors.successColor : Colors.grey,
                         ),
                       ),
                     ),
@@ -258,8 +257,11 @@ class _AutoPayPaymentMethodsScreenState
                           'You can save up to $maxMethods payment methods.',
                       triggerMode: TooltipTriggerMode.tap,
                       showDuration: const Duration(seconds: 3),
-                      child: Icon(Icons.info_outline,
-                          size: 16, color: Colors.grey.shade500),
+                      child: Icon(
+                        Icons.info_outline,
+                        size: 16,
+                        color: Colors.grey.shade500,
+                      ),
                     ),
                   ),
                 ),
@@ -288,8 +290,11 @@ class _AutoPayPaymentMethodsScreenState
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.verified_user_outlined,
-              size: 14, color: AppColors.successColor),
+          Icon(
+            Icons.verified_user_outlined,
+            size: 14,
+            color: AppColors.successColor,
+          ),
           const SizedBox(width: 6),
           Text(
             'Secure & Encrypted',
@@ -337,27 +342,32 @@ class _AutoPayPaymentMethodsScreenState
                 // as b. 3+ cards keep the centered both-side peek (distinct).
                 padEnds: count != 2,
                 onPageChanged: (i) => setState(() => _currentPage = i % count),
-                itemBuilder: (_, i) => _buildMethodCard(state, methods[i % count]),
+                itemBuilder: (_, i) =>
+                    _buildMethodCard(state, methods[i % count]),
               ),
               if (loop) ...[
                 Align(
                   alignment: Alignment.centerLeft,
                   child: _arrowButton(
                     Icons.chevron_left,
-                    () => unawaited(_pageController!.previousPage(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOut,
-                    )),
+                    () => unawaited(
+                      _pageController!.previousPage(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOut,
+                      ),
+                    ),
                   ),
                 ),
                 Align(
                   alignment: Alignment.centerRight,
                   child: _arrowButton(
                     Icons.chevron_right,
-                    () => unawaited(_pageController!.nextPage(
-                      duration: const Duration(milliseconds: 280),
-                      curve: Curves.easeOut,
-                    )),
+                    () => unawaited(
+                      _pageController!.nextPage(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeOut,
+                      ),
+                    ),
                   ),
                 ),
               ],
@@ -432,8 +442,10 @@ class _AutoPayPaymentMethodsScreenState
     final initialPage = methods.length > 1
         ? _loopBase - (_loopBase % methods.length) + target
         : target;
-    _pageController =
-        PageController(viewportFraction: 0.88, initialPage: initialPage);
+    _pageController = PageController(
+      viewportFraction: 0.88,
+      initialPage: initialPage,
+    );
   }
 
   // ── Method card (rich visual) ────────────────────────────────────────────
@@ -474,8 +486,11 @@ class _AutoPayPaymentMethodsScreenState
               if (m.autopay) _tag('AutoPay', _autopayTagBg, _autopayTagFg),
               if (m.primary) ...[
                 if (m.autopay) const SizedBox(width: 6),
-                _tag('Primary', const Color(0xFFE8FFF1),
-                    AppColors.successColor),
+                _tag(
+                  'Primary',
+                  const Color(0xFFE8FFF1),
+                  AppColors.successColor,
+                ),
               ],
               const Spacer(),
               _cardActions(state, m),
@@ -695,11 +710,7 @@ class _AutoPayPaymentMethodsScreenState
             ],
           ),
           const SizedBox(height: 12),
-          _detailGroup(
-            'Last Four',
-            e?.last4 ?? m.last4 ?? '—',
-            isDark: false,
-          ),
+          _detailGroup('Last Four', e?.last4 ?? m.last4 ?? '—', isDark: false),
         ],
       ),
     );
@@ -852,8 +863,11 @@ class _AutoPayPaymentMethodsScreenState
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.add_circle_outline,
-                  size: 20, color: _autopayTagFg),
+              const Icon(
+                Icons.add_circle_outline,
+                size: 20,
+                color: _autopayTagFg,
+              ),
               const SizedBox(width: 8),
               Text(
                 state.canAddMore
@@ -925,8 +939,9 @@ class _AutoPayPaymentMethodsScreenState
                           width: 22,
                           child: CircularProgressIndicator(
                             strokeWidth: 2.5,
-                            valueColor:
-                                AlwaysStoppedAnimation<Color>(Colors.white),
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.white,
+                            ),
                           ),
                         )
                       : Text(
@@ -1026,13 +1041,17 @@ class _AutoPayPaymentMethodsScreenState
       final error = result['error'];
       final message = error is Map
           ? (error['response_description'] ??
-                  error['response_text'] ??
-                  error['error_message'] ??
-                  'Unable to add payment method. Please try again.')
-              .toString()
+                    error['response_text'] ??
+                    error['error_message'] ??
+                    'Unable to add payment method. Please try again.')
+                .toString()
           : (error?.toString() ??
-              'Unable to add payment method. Please try again.');
-      CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+                'Unable to add payment method. Please try again.');
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isError: true,
+      );
       return;
     }
 
@@ -1094,20 +1113,20 @@ class _AutoPayPaymentMethodsScreenState
 /// UPPERCASE letters only, max 4 words, a single space between words and no
 /// leading space — shared by the account-holder fields.
 List<TextInputFormatter> _holderFormatters() => [
-      FilteringTextInputFormatter.allow(RegExp('[A-Za-z ]')),
-      TextInputFormatter.withFunction((old, value) {
-        var v = value.text
-            .toUpperCase()
-            .replaceAll(RegExp(' {2,}'), ' ') // single space between words
-            .replaceFirst(RegExp(r'^\s+'), ''); // no leading space
-        final parts = v.split(' ');
-        if (parts.length > 4) v = parts.sublist(0, 4).join(' '); // max 4 words
-        return value.copyWith(
-          text: v,
-          selection: TextSelection.collapsed(offset: v.length),
-        );
-      }),
-    ];
+  FilteringTextInputFormatter.allow(RegExp('[A-Za-z ]')),
+  TextInputFormatter.withFunction((old, value) {
+    var v = value.text
+        .toUpperCase()
+        .replaceAll(RegExp(' {2,}'), ' ') // single space between words
+        .replaceFirst(RegExp(r'^\s+'), ''); // no leading space
+    final parts = v.split(' ');
+    if (parts.length > 4) v = parts.sublist(0, 4).join(' '); // max 4 words
+    return value.copyWith(
+      text: v,
+      selection: TextSelection.collapsed(offset: v.length),
+    );
+  }),
+];
 
 /// Bottom-sheet editor for a saved method: editable fields per type (card:
 /// name + expiry; eCheck: holder, routing, type) plus Make Primary / Use for
@@ -1141,7 +1160,8 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     super.initState();
     final m = widget.method;
     _holder = TextEditingController(
-      text: (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard ?? '')
+      text:
+          (_isEcheck ? m.echeck?.accountHolder : m.card?.nameOnCard ?? '')
               ?.toUpperCase() ??
           '',
     );
@@ -1199,7 +1219,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
     final years = List<String>.generate(20, (i) => '${currentYear + i}');
 
     return Padding(
-      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.of(context).viewInsets.bottom,
+      ),
       child: Container(
         padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
         decoration: const BoxDecoration(
@@ -1255,15 +1277,20 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                   label: 'Account Type',
                   hintText: 'Select Account Type',
                   items: const ['Checking', 'Savings'],
-                  selectedItem: _accountType == 'savings' ? 'Savings' : 'Checking',
+                  selectedItem: _accountType == 'savings'
+                      ? 'Savings'
+                      : 'Checking',
                   labelStyle: _ddLabel,
                   showAsterisk: false,
                   labelBottomSpacing: 6,
                   fieldHeight: 52,
                   onSelect: (v) {
                     if (v == null) return;
-                    setState(() =>
-                        _accountType = v == 'Savings' ? 'savings' : 'checking');
+                    setState(
+                      () => _accountType = v == 'Savings'
+                          ? 'savings'
+                          : 'checking',
+                    );
                   },
                 ),
               ] else ...[
@@ -1276,8 +1303,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         label: 'Expiry Month',
                         hintText: 'MM',
                         items: months,
-                        selectedItem:
-                            months.contains(_expMonth) ? _expMonth : null,
+                        selectedItem: months.contains(_expMonth)
+                            ? _expMonth
+                            : null,
                         labelStyle: _ddLabel,
                         showAsterisk: false,
                         labelBottomSpacing: 6,
@@ -1293,8 +1321,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                         label: 'Expiry Year',
                         hintText: 'YYYY',
                         items: years,
-                        selectedItem:
-                            years.contains(_expYear) ? _expYear : null,
+                        selectedItem: years.contains(_expYear)
+                            ? _expYear
+                            : null,
                         labelStyle: _ddLabel,
                         showAsterisk: false,
                         labelBottomSpacing: 6,
@@ -1348,8 +1377,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
                             width: 20,
                             child: CircularProgressIndicator(
                               strokeWidth: 2.5,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
                             ),
                           )
                         : const Text(
@@ -1379,17 +1409,17 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
   );
 
   Widget _label(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 6),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 13,
-            fontWeight: FontWeight.w400,
-            color: _primary,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontFamily: 'Manrope',
+        fontSize: 13,
+        fontWeight: FontWeight.w400,
+        color: _primary,
+      ),
+    ),
+  );
 
   Widget _field({
     required TextEditingController controller,
@@ -1408,8 +1438,9 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
         controller: controller,
         keyboardType: keyboardType,
         inputFormatters: formatters,
-        textCapitalization:
-            capsAll ? TextCapitalization.characters : TextCapitalization.none,
+        textCapitalization: capsAll
+            ? TextCapitalization.characters
+            : TextCapitalization.none,
         style: const TextStyle(
           fontFamily: 'Manrope',
           fontSize: 14,
@@ -1426,8 +1457,10 @@ class _EditMethodSheetState extends State<_EditMethodSheet> {
             color: Colors.grey,
           ),
           border: InputBorder.none,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 14,
+          ),
         ),
       ),
     );

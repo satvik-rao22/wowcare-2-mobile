@@ -13,7 +13,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -746,10 +746,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           final signOutByText = rawSignedOutBy.isNotEmpty
               ? rawSignedOutBy
               : (isTransferSignOut && transferredBy.isNotEmpty
-                  ? transferredBy
-                  : (signOutMethodEnum == StaffProfileAbsentMarkMethod.system
-                      ? 'System'
-                      : ''));
+                    ? transferredBy
+                    : (signOutMethodEnum == StaffProfileAbsentMarkMethod.system
+                          ? 'System'
+                          : ''));
 
           return _AttendanceModel(
             date: parsedDate,
@@ -1119,7 +1119,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparent,
           elevation: 0,
           // Pin the menu flush below the + button (top-right) and give it the
           // full height beneath the button. A large `bottom` inset here used to
@@ -1285,7 +1285,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
               iconColor: const Color(0xFF4285F4),
               label: 'Absent Days',
               value: '',
-              valueColor: Colors.red,
+              valueColor: AppColors.red,
             ),
           ),
         ],
@@ -1328,7 +1328,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
             iconColor: const Color(0xFF4285F4),
             label: 'Absent Days',
             value: '${attendanceReport!.absentDays}',
-            valueColor: Colors.red,
+            valueColor: AppColors.red,
           ),
         ),
       ],
@@ -1351,7 +1351,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(color: AppColors.black12, width: 1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1419,7 +1419,7 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(color: AppColors.black12, width: 1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1557,14 +1557,20 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
         method == StaffProfileAbsentMarkMethod.pin;
   }
 
-  String _resolveSignInByDisplay(String signInBy, StaffProfileAbsentMarkMethod? method) {
+  String _resolveSignInByDisplay(
+    String signInBy,
+    StaffProfileAbsentMarkMethod? method,
+  ) {
     final name = signInBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
     return '';
   }
 
-  String _resolveSignOutByDisplay(String signOutBy, StaffProfileAbsentMarkMethod? method) {
+  String _resolveSignOutByDisplay(
+    String signOutBy,
+    StaffProfileAbsentMarkMethod? method,
+  ) {
     final name = signOutBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
@@ -1619,7 +1625,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign In By',
-            text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
+            text: _resolveSignInByDisplay(
+              attendance.signInBy,
+              attendance.signInMethod,
+            ),
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1631,7 +1640,10 @@ class _StaffAttendanceProfileState extends State<StaffAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign Out By',
-            text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
+            text: _resolveSignOutByDisplay(
+              attendance.signOutBy,
+              attendance.signOutMethod,
+            ),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: 16),

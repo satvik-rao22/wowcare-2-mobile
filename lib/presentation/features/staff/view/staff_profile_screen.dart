@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -480,13 +480,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
             child: TabBar(
               isScrollable: true,
               controller: _tabController,
-              dividerColor: Colors.transparent,
+              dividerColor: AppColors.transparent,
               indicator: const UnderlineTabIndicator(
                 borderSide: BorderSide(color: AppColors.themeColor),
               ),
               indicatorPadding: const EdgeInsets.only(bottom: 8),
               labelStyle: const TextStyle(
-                color: Colors.black,
+                color: AppColors.black,
                 fontFamily: 'Manrope',
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
@@ -496,7 +496,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                 fontFamily: 'Manrope',
                 fontSize: 16,
               ),
-              labelColor: Colors.black,
+              labelColor: AppColors.black,
               unselectedLabelColor: AppColors.primaryColor.withValues(
                 alpha: 0.5,
               ),
@@ -545,7 +545,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   Widget _buildStaffProfileCard(BuildContext context) {
     return Card(
       margin: EdgeInsets.zero,
-      color: Colors.white,
+      color: AppColors.white,
       child: Column(
         children: [
           Padding(
@@ -592,7 +592,9 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                   ),
                                   borderRadius: BorderRadius.circular(14),
                                   border: Border.all(
-                                    color: Colors.white.withValues(alpha: 0.22),
+                                    color: AppColors.white.withValues(
+                                      alpha: 0.22,
+                                    ),
                                   ),
                                 ),
                                 child: Column(
@@ -601,7 +603,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                     Text(
                                       '${_profilePhotoUploadPercent.clamp(0, 100)}%',
                                       style: const TextStyle(
-                                        color: Colors.white,
+                                        color: AppColors.white,
                                         fontSize: 14,
                                         fontWeight: FontWeight.w700,
                                       ),
@@ -614,7 +616,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                             (_profilePhotoUploadPercent / 100)
                                                 .clamp(0.0, 1.0),
                                         minHeight: 4,
-                                        backgroundColor: Colors.white
+                                        backgroundColor: AppColors.white
                                             .withValues(alpha: 0.22),
                                         valueColor:
                                             const AlwaysStoppedAnimation<Color>(
@@ -632,7 +634,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                           height: 10,
                                           width: 10,
                                           colorFilter: ColorFilter.mode(
-                                            Colors.white.withValues(
+                                            AppColors.white.withValues(
                                               alpha: 0.92,
                                             ),
                                             BlendMode.srcIn,
@@ -644,7 +646,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                                               ? 'Finalizing'
                                               : 'Uploading',
                                           style: TextStyle(
-                                            color: Colors.white.withValues(
+                                            color: AppColors.white.withValues(
                                               alpha: 0.92,
                                             ),
                                             fontSize: 10,
@@ -666,11 +668,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                           width: 32,
                           height: 32,
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.white,
                             borderRadius: BorderRadius.circular(16),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.08),
+                                color: AppColors.black.withValues(alpha: 0.08),
                                 blurRadius: 6,
                                 offset: const Offset(0, 2),
                               ),
@@ -684,7 +686,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                             ),
                             child: const Icon(
                               Icons.camera_alt,
-                              color: Colors.white,
+                              color: AppColors.white,
                               size: 16,
                             ),
                           ),
@@ -727,13 +729,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                           vertical: 4,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.blue[50],
+                          color: AppColors.blue[50],
                           borderRadius: BorderRadius.circular(4),
                         ),
                         child: Text(
                           _displayClassroom,
                           style: const TextStyle(
-                            color: Colors.blue,
+                            color: AppColors.blue,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -848,11 +850,11 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
                   asset,
                   height: 28,
                   colorFilter: const ColorFilter.mode(
-                    Colors.white,
+                    AppColors.white,
                     BlendMode.srcIn,
                   ),
                 )
-              : Image.asset(asset, height: 28, color: Colors.white),
+              : Image.asset(asset, height: 28, color: AppColors.white),
         ),
       ),
     );

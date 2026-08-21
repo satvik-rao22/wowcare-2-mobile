@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomCheckbox extends StatelessWidget {
   const CustomCheckbox({
@@ -34,7 +34,7 @@ class CustomCheckbox extends StatelessWidget {
                 scale: scale ?? 1.2,
                 child: Checkbox(
                   activeColor: AppColors.themeColor,
-                  checkColor: Colors.white,
+                  checkColor: AppColors.white,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   side: BorderSide(
                     color:
@@ -49,12 +49,14 @@ class CustomCheckbox extends StatelessWidget {
                   // Override disabled state to prevent grey overlay
                   fillColor: WidgetStateProperty.resolveWith<Color>((states) {
                     if (states.contains(WidgetState.disabled)) {
-                      return value ? AppColors.themeColor : Colors.transparent;
+                      return value
+                          ? AppColors.themeColor
+                          : AppColors.transparent;
                     }
-                    return value ? AppColors.themeColor : Colors.transparent;
+                    return value ? AppColors.themeColor : AppColors.transparent;
                   }),
                   // Optional: remove ripple when disabled
-                  overlayColor: WidgetStateProperty.all(Colors.transparent),
+                  overlayColor: WidgetStateProperty.all(AppColors.transparent),
                   onChanged: isInteractive ? onChanged : null,
                 ),
               ),

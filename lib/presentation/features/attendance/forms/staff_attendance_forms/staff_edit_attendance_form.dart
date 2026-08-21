@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
@@ -25,7 +25,8 @@ class StaffEditAttendanceForm extends StatefulWidget {
   final DateTime attendanceDate;
 
   @override
-  State<StaffEditAttendanceForm> createState() => _StaffEditAttendanceFormState();
+  State<StaffEditAttendanceForm> createState() =>
+      _StaffEditAttendanceFormState();
 }
 
 class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
@@ -75,8 +76,9 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       if (message == null) return; // noop (already submitting)
       // A future sign-in/out time is a correctable user mistake, not a system
       // failure — surface it as a yellow warning rather than a red error.
-      final isFutureTimeWarning =
-          message.toLowerCase().contains('cannot be in the future');
+      final isFutureTimeWarning = message.toLowerCase().contains(
+        'cannot be in the future',
+      );
       CoreUtils.showTopSnackBarFromSnackBar(
         context: context,
         snackBar: SnackBar(
@@ -93,9 +95,10 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
   Widget build(BuildContext context) {
     return BlocProvider<StaffEditAttendanceFormCubit>.value(
       value: _cubit,
-      child: BlocBuilder<StaffEditAttendanceFormCubit, StaffEditAttendanceState>(
-        builder: (context, state) => _buildForm(context, state),
-      ),
+      child:
+          BlocBuilder<StaffEditAttendanceFormCubit, StaffEditAttendanceState>(
+            builder: (context, state) => _buildForm(context, state),
+          ),
     );
   }
 
@@ -103,9 +106,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
     final isTablet = ResponsiveSizing.isTablet(context);
     final staff = widget.staffAttendance;
 
-    final titleName = staff.staffName.isNotEmpty
-        ? staff.staffName
-        : 'Staff';
+    final titleName = staff.staffName.isNotEmpty ? staff.staffName : 'Staff';
 
     return StaffFormLayout(
       title: "Edit $titleName's Attendance",
@@ -170,9 +171,7 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
                   const SizedBox(height: 4),
                   AppText.small(
                     staff.designationName!,
-                    style: const TextStyle(
-                      color: AppColors.secondaryColor,
-                    ),
+                    style: const TextStyle(color: AppColors.secondaryColor),
                   ),
                 ],
               ],
@@ -194,12 +193,8 @@ class _StaffEditAttendanceFormState extends State<StaffEditAttendanceForm> {
       children: [
         AppText.label(label),
         const SizedBox(height: 8),
-        GradientTimePickerField(
-          time: time,
-          onTimeSelected: onTimeChanged,
-        ),
+        GradientTimePickerField(time: time, onTimeSelected: onTimeChanged),
       ],
     );
   }
 }
-

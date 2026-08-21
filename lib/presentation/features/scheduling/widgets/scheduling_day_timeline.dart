@@ -47,10 +47,7 @@ class DayTimelineMetrics {
 double _maxHourLabelWidth(BuildContext context, List<int> ticks) {
   var maxWidth = 0.0;
   for (final tick in ticks) {
-    final width = _measureHourLabelWidth(
-      context,
-      _formatHourAxisLabel(tick),
-    );
+    final width = _measureHourLabelWidth(context, _formatHourAxisLabel(tick));
     if (width > maxWidth) maxWidth = width;
   }
   return maxWidth;
@@ -100,8 +97,7 @@ DayTimelineMetrics _computeDayTimelineMetrics({
 
   final gridWidthPx = layoutSlotCount * stride;
   final timeWidthPx = timeSpanMinutes * pixelsPerMinute;
-  final contentWidthPx =
-      gridWidthPx > timeWidthPx ? gridWidthPx : timeWidthPx;
+  final contentWidthPx = gridWidthPx > timeWidthPx ? gridWidthPx : timeWidthPx;
 
   final lastTick = ticks.isEmpty ? axisEndMinutes : ticks.last;
   final lastLabelWidth = _measureHourLabelWidth(
@@ -217,8 +213,9 @@ class SchedulingDayTimelineTrack extends StatelessWidget {
     final axisEnd = dayEndMinutes > anchor
         ? dayEndMinutes
         : anchor + slotCount * slot;
-    final layoutSlotCount =
-        slotCount > blocks.length ? slotCount : blocks.length;
+    final layoutSlotCount = slotCount > blocks.length
+        ? slotCount
+        : blocks.length;
     final metrics = _computeDayTimelineMetrics(
       context: context,
       anchorMinutes: anchor,
@@ -367,20 +364,12 @@ class SchedulingDayGanttRow extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          SizedBox(
-            width: kSchedulingDayLeftColumnWidth,
-            child: left,
-          ),
+          SizedBox(width: kSchedulingDayLeftColumnWidth, child: left),
           Container(width: 1, color: dividerColor),
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 12,
-                vertical: 12,
-              ),
-              child: ClipRect(
-                child: right,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+              child: ClipRect(child: right),
             ),
           ),
         ],
@@ -461,7 +450,7 @@ class _SchedulingClassroomDayTimelineState
   }) {
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.25),
+      barrierColor: AppColors.black.withValues(alpha: 0.25),
       builder: (_) => SchedulingSlotDetailsDialog(
         day: widget.day,
         slotIndex: slotIndex,
@@ -511,7 +500,8 @@ class SchedulingStaffDayTimeline extends StatefulWidget {
       _SchedulingStaffDayTimelineState();
 }
 
-class _SchedulingStaffDayTimelineState extends State<SchedulingStaffDayTimeline> {
+class _SchedulingStaffDayTimelineState
+    extends State<SchedulingStaffDayTimeline> {
   int? _selectedIndex;
 
   @override
@@ -536,18 +526,12 @@ class _SchedulingStaffDayTimelineState extends State<SchedulingStaffDayTimeline>
                   ? widget.slotDetails[i]
                   : null;
               final onShiftTap = widget.onShiftSlotTap;
-              if (onShiftTap != null &&
-                  detail != null &&
-                  detail.hasShiftData) {
+              if (onShiftTap != null && detail != null && detail.hasShiftData) {
                 onShiftTap(detail);
                 setState(() => _selectedIndex = null);
                 return;
               }
-              _showStaffSlotDetails(
-                context,
-                slotIndex: i,
-                detail: detail,
-              );
+              _showStaffSlotDetails(context, slotIndex: i, detail: detail);
             },
           ),
       ],
@@ -561,7 +545,7 @@ class _SchedulingStaffDayTimelineState extends State<SchedulingStaffDayTimeline>
   }) {
     showDialog<void>(
       context: context,
-      barrierColor: Colors.black.withValues(alpha: 0.25),
+      barrierColor: AppColors.black.withValues(alpha: 0.25),
       builder: (_) => SchedulingStaffSlotDetailsDialog(
         day: widget.day,
         slotIndex: slotIndex,
@@ -759,7 +743,7 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
     final label = SchedulingStaffShiftStyle.slotLabel(status);
 
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 32),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
@@ -790,7 +774,10 @@ class SchedulingStaffSlotDetailsDialog extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: SchedulingStaffShiftStyle.slotColor(status),
                   borderRadius: BorderRadius.circular(20),
@@ -893,8 +880,10 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
     final slot = slotMinutes > 0 ? slotMinutes : _kDefaultSlotMinutes;
     final anchor = dayStartMinutes;
     final startMin = anchor + slotIndex * slot;
-    final fallbackStart =
-        TimeOfDay(hour: startMin ~/ 60, minute: startMin % 60);
+    final fallbackStart = TimeOfDay(
+      hour: startMin ~/ 60,
+      minute: startMin % 60,
+    );
     final fallbackEndMin = startMin + slot;
     final fallbackEnd = TimeOfDay(
       hour: fallbackEndMin ~/ 60,
@@ -905,8 +894,9 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
     final start = hasForecast && detail!.blockStart != null
         ? detail!.blockStart!
         : fallbackStart;
-    final end =
-        hasForecast && detail!.blockEnd != null ? detail!.blockEnd! : fallbackEnd;
+    final end = hasForecast && detail!.blockEnd != null
+        ? detail!.blockEnd!
+        : fallbackEnd;
 
     final kind = hasForecast
         ? detail!.statusKind
@@ -919,7 +909,7 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
     final monitoringMessage = _monitoringMessage(detail, hasForecast);
 
     return Dialog(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       insetPadding: const EdgeInsets.symmetric(horizontal: 32),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: ConstrainedBox(
@@ -953,8 +943,9 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                             fontFamily: 'Manrope',
                             fontSize: 13,
                             fontWeight: FontWeight.w500,
-                            color:
-                                AppColors.primaryColor.withValues(alpha: 0.6),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.6,
+                            ),
                           ),
                         ),
                       ],
@@ -974,7 +965,8 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                         ),
                         textAlign: TextAlign.end,
                       ),
-                      if (staffName != null && staffName!.trim().isNotEmpty) ...[
+                      if (staffName != null &&
+                          staffName!.trim().isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
                           staffName!,
@@ -982,8 +974,9 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                             fontFamily: 'Manrope',
                             fontSize: 12,
                             fontWeight: FontWeight.w500,
-                            color:
-                                AppColors.primaryColor.withValues(alpha: 0.65),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.65,
+                            ),
                           ),
                           textAlign: TextAlign.end,
                         ),
@@ -1004,7 +997,7 @@ class SchedulingSlotDetailsDialog extends StatelessWidget {
                             fontFamily: 'Manrope',
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                         ),
                       ),
@@ -1133,7 +1126,7 @@ class _CountRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
           decoration: BoxDecoration(
-            color: AppColors.fieldBackgroundColor,
+            color: AppColors.fieldbackgroundColor,
             borderRadius: BorderRadius.circular(4),
           ),
           child: Text(

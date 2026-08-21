@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
 import '../../../../app/theme/colors.dart';
 import '../../../../core/util/core_utils.dart';
 import '../view/activity_daily_tab.dart';
@@ -136,7 +135,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
           child: Container(
             width: widget.width,
             height: widget.height ?? 200,
-            color: Colors.black12.withValues(alpha: 0.15),
+            color: AppColors.black12.withValues(alpha: 0.15),
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -150,7 +149,9 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                   _videoInitFailed
                       ? _buildVideoUnsupportedPlaceholder()
                       : const Center(
-                          child: CircularProgressIndicator(color: Colors.white),
+                          child: CircularProgressIndicator(
+                            color: AppColors.white,
+                          ),
                         )
                 else if (hasPhoto)
                   Image.network(
@@ -161,7 +162,7 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                         ? child
                         : const Center(
                             child: CircularProgressIndicator(
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           ),
                     errorBuilder: (context, error, _) =>
@@ -184,13 +185,13 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                           width: 80,
                           height: 80,
                           decoration: const BoxDecoration(
-                            color: Colors.black54,
+                            color: AppColors.black54,
                             shape: BoxShape.circle,
                           ),
                           child: Icon(
                             _isPlaying ? Icons.pause : Icons.play_arrow,
                             size: 50,
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                         ),
                       ),
@@ -206,9 +207,9 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
                       _controller!,
                       allowScrubbing: true,
                       colors: const VideoProgressColors(
-                        playedColor: Colors.white,
-                        backgroundColor: Colors.white24,
-                        bufferedColor: Colors.white38,
+                        playedColor: AppColors.white,
+                        backgroundColor: AppColors.white24,
+                        bufferedColor: AppColors.white38,
                       ),
                       padding: const EdgeInsets.symmetric(
                         vertical: 8,
@@ -226,25 +227,29 @@ class _ActivityMediaViewerState extends State<ActivityMediaViewer> {
 
   Widget _buildErrorPlaceholder() {
     return Container(
-      color: Colors.black12.withValues(alpha: 0.3),
+      color: AppColors.black12.withValues(alpha: 0.3),
       child: const Center(
-        child: Icon(Icons.broken_image, size: 60, color: Colors.white70),
+        child: Icon(Icons.broken_image, size: 60, color: AppColors.white70),
       ),
     );
   }
 
   Widget _buildVideoUnsupportedPlaceholder() {
     return Container(
-      color: Colors.black12.withValues(alpha: 0.25),
+      color: AppColors.black12.withValues(alpha: 0.25),
       child: const Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.videocam_off_outlined, size: 42, color: Colors.white70),
+            Icon(
+              Icons.videocam_off_outlined,
+              size: 42,
+              color: AppColors.white70,
+            ),
             SizedBox(height: 8),
             Text(
               'Video preview unavailable',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AppColors.white70),
             ),
           ],
         ),

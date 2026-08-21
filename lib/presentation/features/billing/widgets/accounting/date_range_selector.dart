@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/date_range_cubit.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class AccountingDateRangeSelector extends StatefulWidget {
   const AccountingDateRangeSelector({
@@ -110,7 +111,7 @@ class _AccountingDateRangeSelectorState
         builder: (context, _) {
           return Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.white,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
               side: BorderSide(

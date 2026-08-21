@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transaction_card_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_vertical_popup.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class BillingTransactionCard extends StatefulWidget {
   const BillingTransactionCard({
@@ -264,7 +265,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
           final String type = widget.transaction.transactionType.toLowerCase();
           return Container(
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorderColor),
             ),
@@ -530,7 +531,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
   }
 
   Color _badgeColor(String type, String status) {
-    // Check status first for special colors
+    // Check status first for special AppColors
     final String statusLower = status.toLowerCase();
     if (statusLower.contains('in progress') ||
         statusLower.contains('in_process') ||
@@ -542,7 +543,7 @@ class _BillingTransactionCardState extends State<BillingTransactionCard> {
       return AppColors.billingStatusCancelledColor;
     }
 
-    // Fall back to type-based colors
+    // Fall back to type-based AppColors
     switch (type) {
       case 'invoice':
         return AppColors.billingInvoiceBadgeColor;

@@ -75,7 +75,7 @@ class _ParentNewsletterScreenState extends State<ParentNewsletterScreen>
           border: Border.all(
             color: _newsLetterTabController.index == index
                 ? AppColors.themeColor
-                : Colors.transparent,
+                : AppColors.transparent,
             width: 1.25,
           ),
         ),
@@ -107,10 +107,10 @@ class _ParentNewsletterScreenState extends State<ParentNewsletterScreen>
       ],
       controller: _newsLetterTabController,
       isScrollable: true,
-      labelColor: Colors.black,
+      labelColor: AppColors.black,
       unselectedLabelColor: const Color.fromARGB(50, 36, 22, 49),
       tabAlignment: TabAlignment.center,
-      indicatorColor: Colors.transparent,
+      indicatorColor: AppColors.transparent,
       labelPadding: const EdgeInsets.symmetric(horizontal: 0),
       dividerHeight: 0,
       indicator: const BoxDecoration(),

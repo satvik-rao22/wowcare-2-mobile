@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/active_school_switcher.dart';
 import 'package:wowcare/core/util/notification_events.dart';
@@ -57,7 +57,7 @@ class NotificationCenterScreen extends StatelessWidget {
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       appBar: const CustomAppBar(hasBackButton: true),
       // Same app-wide bottom nav as the shell. The bar handles being rendered
       // outside the shell: tapping a tab routes into that branch via
@@ -159,9 +159,9 @@ class _Header extends StatelessWidget {
                       final module = (label == null)
                           ? null
                           : labelToModule[label];
-                      context
-                          .read<NotificationCenterCubit>()
-                          .setModuleFilter(module);
+                      context.read<NotificationCenterCubit>().setModuleFilter(
+                        module,
+                      );
                     },
                   ),
                 ),
@@ -229,7 +229,7 @@ class _ActionsRow extends StatelessWidget {
                       fontFamily: 'Manrope',
                       fontSize: 13,
                       fontWeight: FontWeight.w700,
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                   ),
                 ),
@@ -363,10 +363,7 @@ class _NotificationsListState extends State<_NotificationsList> {
               ? ListView(
                   controller: _scrollController,
                   physics: const AlwaysScrollableScrollPhysics(),
-                  children: const [
-                    SizedBox(height: 120),
-                    _EmptyView(),
-                  ],
+                  children: const [SizedBox(height: 120), _EmptyView()],
                 )
               : ListView.separated(
                   controller: _scrollController,
@@ -461,10 +458,7 @@ class _ErrorView extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-            TextButton(
-              onPressed: onRetry,
-              child: const Text('Retry'),
-            ),
+            TextButton(onPressed: onRetry, child: const Text('Retry')),
           ],
         ),
       ),

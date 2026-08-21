@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_school_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
@@ -188,7 +188,7 @@ class _StudentSelectionTransferFormState
               'Access Denied: You must be inside geofence and signed in to manage student attendance.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.red,
+                color: AppColors.red,
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
               ),
@@ -223,19 +223,19 @@ class _StudentSelectionTransferFormState
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: Colors.grey),
+                  border: Border.all(color: AppColors.grey),
                 ),
                 child: TextField(
                   controller: _searchController,
                   decoration: InputDecoration(
                     hintText: 'Search Students',
                     hintStyle: AppTextStyles.body.copyWith(
-                      color: Colors.grey[700],
+                      color: AppColors.grey[700],
                     ),
                     border: InputBorder.none,
-                    icon: const Icon(Icons.search, color: Colors.grey),
+                    icon: const Icon(Icons.search, color: AppColors.grey),
                   ),
                 ),
               ),
@@ -300,7 +300,7 @@ class _StudentSelectionTransferFormState
                           children: [
                             AppText.body(
                               state.studentsError ?? 'Failed to load students',
-                              style: const TextStyle(color: Colors.red),
+                              style: const TextStyle(color: AppColors.red),
                               textAlign: TextAlign.center,
                             ),
                             const SizedBox(height: 8),
@@ -416,7 +416,7 @@ class StudentListItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
           color: isSelected
               ? const Color.fromARGB(255, 249, 245, 250)
-              : Colors.white,
+              : AppColors.white,
         ),
         child: Padding(
           padding: const EdgeInsets.only(right: 4),

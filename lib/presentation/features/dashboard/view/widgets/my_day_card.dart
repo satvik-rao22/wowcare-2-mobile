@@ -5,7 +5,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/staff/entities/school_regular_schedule_day.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_profile.dart';
@@ -42,6 +41,7 @@ import 'package:wowcare/domain/features/communication/usecases/get_cached_conver
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/src/app_router.dart';
+import '../../../../../app/theme/colors.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -1162,7 +1162,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                             child: Text(
                               'Your Sign-In Pin: ${_clockInPin.trim().isNotEmpty ? _clockInPin : '--'}',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontSize: 17,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 17 * (-3 / 100),
@@ -1302,11 +1302,11 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 style: OutlinedButton.styleFrom(
                                                   foregroundColor:
                                                       markAbsentDisabled
-                                                      ? Colors.grey[600]
+                                                      ? AppColors.grey[600]
                                                       : AppColors.themeColor,
                                                   side: BorderSide(
                                                     color: markAbsentDisabled
-                                                        ? Colors.grey[400]!
+                                                        ? AppColors.grey[400]!
                                                         : AppColors.themeColor,
                                                   ),
                                                   padding:
@@ -1347,8 +1347,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                 size: 18,
                                                 color: signButtonEnabled
                                                     ? AppColors
-                                                          .billingBackgroundColor
-                                                    : Colors.grey[600],
+                                                          .billingbackgroundColor
+                                                    : AppColors.grey[600],
                                               ),
                                               const SizedBox(width: 8),
                                               Flexible(
@@ -1363,8 +1363,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                                     fontWeight: FontWeight.w600,
                                                     color: signButtonEnabled
                                                         ? AppColors
-                                                              .billingBackgroundColor
-                                                        : Colors.grey[600],
+                                                              .billingbackgroundColor
+                                                        : AppColors.grey[600],
                                                   ),
                                                 ),
                                               ),
@@ -1538,8 +1538,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey[300]!,
-        highlightColor: Colors.grey[100]!,
+        baseColor: AppColors.grey[300]!,
+        highlightColor: AppColors.grey[100]!,
         child: Column(
           children: [
             // Timer placeholder
@@ -1553,7 +1553,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                         child: Container(
                           width: 10,
                           height: 48,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       )
                     : Container(
@@ -1561,7 +1561,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                         height: 56,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.circular(6),
                         ),
                       ),
@@ -1573,7 +1573,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
               height: 36,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(100),
               ),
             ),
@@ -1583,7 +1583,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
               height: 36,
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(100),
               ),
             ),
@@ -1593,7 +1593,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
               height: 20,
               width: 200,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -1617,13 +1617,13 @@ class _ShimmerLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: Colors.grey[300]!,
-      highlightColor: Colors.grey[100]!,
+      baseColor: AppColors.grey[300]!,
+      highlightColor: AppColors.grey[100]!,
       child: Container(
         width: width,
         height: height,
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(4),
         ),
       ),
@@ -1757,18 +1757,18 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
       serviceLocator<GetConversationsEntityUseCase>()
           .call(includeRestUnreadCounts: false)
           .then((result) {
-        if (!mounted) return;
-        result.fold((_) {}, (list) {
-          setState(() {
-            // If REST API found chats, merge them with current items to ensure
-            // we don't miss anything, and take the top 2 most recent.
-            if (list.isNotEmpty) {
-              _items = _buildDisplayItems([..._items, ...list]);
-              _loading = false;
-            }
-          });
-        });
-      }),
+            if (!mounted) return;
+            result.fold((_) {}, (list) {
+              setState(() {
+                // If REST API found chats, merge them with current items to ensure
+                // we don't miss anything, and take the top 2 most recent.
+                if (list.isNotEmpty) {
+                  _items = _buildDisplayItems([..._items, ...list]);
+                  _loading = false;
+                }
+              });
+            });
+          }),
     );
 
     _sub = serviceLocator<WatchConversationsUseCase>().call().listen(
@@ -2095,7 +2095,7 @@ class _RecentChatRow extends StatelessWidget {
                           child: Text(
                             unread > 99 ? '99+' : '$unread',
                             style: const TextStyle(
-                              color: Colors.white,
+                              color: AppColors.white,
                               fontSize: 10,
                               fontWeight: FontWeight.w600,
                             ),
@@ -2180,7 +2180,7 @@ class _ReminderToggleButtonState extends State<_ReminderToggleButton> {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: _toggleReminder,
         borderRadius: BorderRadius.circular(100),

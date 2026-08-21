@@ -7,6 +7,8 @@ import 'package:wowcare/domain/features/student/repositories/student_repository.
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
+import '../../../../app/theme/colors.dart';
+
 class EditStudentHealthScreen extends StatefulWidget {
   const EditStudentHealthScreen({
     super.key,
@@ -150,10 +152,10 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -193,7 +195,7 @@ class _EditStudentHealthScreenState extends State<EditStudentHealthScreen> {
         const SizedBox(height: 6),
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(8),
           ),

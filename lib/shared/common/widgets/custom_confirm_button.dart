@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomConfirmButton extends StatefulWidget {
   const CustomConfirmButton({
@@ -49,18 +49,16 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : Colors.grey[300],
+        color: isEnabled ? null : AppColors.grey[300],
       ),
       child: TextButton(
         onPressed: (isEnabled && !_isLoading) ? _handlePress : null,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: isEnabled ? Colors.white : Colors.grey[600],
-          disabledForegroundColor: Colors.grey[600],
+          backgroundColor: AppColors.transparent,
+          foregroundColor: isEnabled ? AppColors.white : AppColors.grey[600],
+          disabledForegroundColor: AppColors.grey[600],
           padding: const EdgeInsets.symmetric(vertical: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: _isLoading
             ? const SizedBox(
@@ -68,18 +66,18 @@ class _CustomConfirmButtonState extends State<CustomConfirmButton> {
                 width: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
                 ),
               )
             : widget.widget ??
-                Text(
-                  widget.label,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: isEnabled ? Colors.white : Colors.grey[600],
+                  Text(
+                    widget.label,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: isEnabled ? AppColors.white : AppColors.grey[600],
+                    ),
                   ),
-                ),
       ),
     );
   }

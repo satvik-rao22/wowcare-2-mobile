@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 
 class ChangePasswordScreen extends StatefulWidget {
   const ChangePasswordScreen({super.key});
-  
+
   static const routeName = '/change-password';
 
   static void show(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (context) => const ChangePasswordScreen(),
     );
   }
@@ -22,9 +22,11 @@ class ChangePasswordScreen extends StatefulWidget {
 }
 
 class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
-  final TextEditingController _currentPasswordController = TextEditingController();
+  final TextEditingController _currentPasswordController =
+      TextEditingController();
   final TextEditingController _newPasswordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _isCurrentPasswordVisible = false;
   bool _isNewPasswordVisible = false;
@@ -49,7 +51,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
   void _checkPasswordRequirements() {
     final password = _newPasswordController.text;
     setState(() {
-      _isPasswordValid = password.length >= 8 &&
+      _isPasswordValid =
+          password.length >= 8 &&
           RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password);
     });
   }
@@ -81,7 +84,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!_isPasswordValid) {
       CoreUtils.showTopSnackBar(
         context: context,
-        message: 'Password must contain at least 8 characters and one special character',
+        message:
+            'Password must contain at least 8 characters and one special character',
         isError: true,
       );
       return;
@@ -145,7 +149,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
     final content = Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Padding(
@@ -163,7 +167,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                   width: 40,
                   height: 4,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: AppColors.grey[300],
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
@@ -172,9 +176,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
             Flexible(
               child: SingleChildScrollView(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: screenWidth * 0.06,
-                  ),
+                  padding: EdgeInsets.symmetric(horizontal: screenWidth * 0.06),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
@@ -201,7 +203,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         color: const Color(0xFFFFF3E9),
                       ),
                       SizedBox(height: screenHeight * 0.02),
-                      
+
                       // Current Password
                       Text(
                         'Current Password',
@@ -218,7 +220,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         isVisible: _isCurrentPasswordVisible,
                         onVisibilityToggle: () {
                           setState(() {
-                            _isCurrentPasswordVisible = !_isCurrentPasswordVisible;
+                            _isCurrentPasswordVisible =
+                                !_isCurrentPasswordVisible;
                           });
                         },
                         hintText: 'Enter old password',
@@ -268,7 +271,8 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                         isVisible: _isConfirmPasswordVisible,
                         onVisibilityToggle: () {
                           setState(() {
-                            _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                            _isConfirmPasswordVisible =
+                                !_isConfirmPasswordVisible;
                           });
                         },
                         hintText: 'Repeat new password',
@@ -285,7 +289,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             _isPasswordValid
                                 ? Icons.check_circle
                                 : Icons.info_outline,
-                            color: Colors.green,
+                            color: AppColors.green,
                             size: 20,
                           ),
                           const SizedBox(width: 8),
@@ -303,7 +307,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                                 'Password must contain at least 8 characters, one special character',
                                 style: TextStyle(
                                   fontSize: screenHeight * 0.015,
-                                  color: Colors.green,
+                                  color: AppColors.green,
                                   fontFamily: 'Manrope',
                                 ),
                               ),
@@ -319,7 +323,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                             ),
                             child: const Icon(
                               Icons.check,
-                              color: Colors.white,
+                              color: AppColors.white,
                               size: 12,
                             ),
                           ),
@@ -349,14 +353,16 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                               width: 24,
                               height: 24,
                               child: CircularProgressIndicator(
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                valueColor: AlwaysStoppedAnimation<Color>(
+                                  AppColors.white,
+                                ),
                                 strokeWidth: 2.5,
                               ),
                             )
                           : Text(
                               'Save Password',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontSize: screenHeight * 0.022,
                                 fontWeight: FontWeight.w600,
                                 fontFamily: 'Manrope',
@@ -390,16 +396,12 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8F9FA),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: const Color(0xFFEEEEEE),
-        ),
+        border: Border.all(color: const Color(0xFFEEEEEE)),
       ),
       child: TextField(
         controller: controller,
         obscureText: !isVisible,
-        inputFormatters: [
-          FilteringTextInputFormatter.deny(RegExp(r'\s')),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: TextStyle(
@@ -423,7 +425,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
                 Container(
                   height: screenHeight * 0.06,
                   width: 2,
-                  color: Colors.white,
+                  color: AppColors.white,
                   margin: EdgeInsets.only(
                     left: screenWidth * 0.04,
                     right: screenWidth * 0.015,
@@ -448,9 +450,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: AppColors.themeColor,
-            ),
+            borderSide: BorderSide(color: AppColors.themeColor),
           ),
           contentPadding: EdgeInsets.symmetric(
             vertical: screenHeight * 0.018,

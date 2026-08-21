@@ -9,8 +9,8 @@ import 'package:wowcare/presentation/features/newsletter/view/newsletter_tab.dar
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/common/app/user_persona.dart';
-import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import '../../../../../../app/theme/colors.dart';
+import '../../../../../../shared/common/widgets/custom_scaffold.dart';
 
 class MessagingScreen extends StatefulWidget {
   const MessagingScreen({
@@ -147,7 +147,7 @@ class _MessagingScreenState extends State<MessagingScreen>
                 controller: _tabController,
                 isScrollable: true,
                 tabAlignment: TabAlignment.start,
-                dividerColor: Colors.transparent,
+                dividerColor: AppColors.transparent,
                 indicator: const UnderlineTabIndicator(
                   borderSide: BorderSide(color: AppColors.themeColor),
                 ),

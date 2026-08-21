@@ -126,7 +126,7 @@
 //             : Container(
 //                 width: widget.width,
 //                 height: widget.height,
-//                 color: Colors.grey[200],
+//                 color: AppColors.grey[200],
 //                 child: Center(
 //                   child: Image.asset(
 //                     MediaRes.userImageMale,
@@ -141,13 +141,13 @@
 
 //   Widget _buildShimmer() {
 //     return Shimmer.fromColors(
-//       baseColor: Colors.grey[300]!,
-//       highlightColor: Colors.grey[100]!,
+//       baseColor: AppColors.grey[300]!,
+//       highlightColor: AppColors.grey[100]!,
 //       child: Container(
 //         width: widget.width,
 //         height: widget.height,
 //         decoration: BoxDecoration(
-//           color: Colors.grey[300],
+//           color: AppColors.grey[300],
 //           borderRadius: widget.borderRadius ?? BorderRadius.circular(8),
 //         ),
 //       ),

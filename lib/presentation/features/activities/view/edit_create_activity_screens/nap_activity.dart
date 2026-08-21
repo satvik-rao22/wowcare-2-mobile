@@ -7,8 +7,8 @@ import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-
 import '../../../../../app/di/di.dart';
+import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
@@ -1203,7 +1203,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
                             },
                       label: 'Remind to check nap every 15 minutes',
                       labelStyle: TextStyle(
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey.shade600,
                         fontSize: 14,
                         fontWeight: FontWeight.w400,
                       ),

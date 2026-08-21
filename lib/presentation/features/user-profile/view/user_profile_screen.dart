@@ -470,7 +470,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                         vertical: 15,
                         horizontal: 4,
                       ),
-                      color: Colors.white,
+                      color: AppColors.white,
                       elevation: 2,
                       child: Column(
                         children: [
@@ -582,7 +582,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                               14,
                                                             ),
                                                         border: Border.all(
-                                                          color: Colors.white
+                                                          color: AppColors.white
                                                               .withValues(
                                                                 alpha: 0.22,
                                                               ),
@@ -596,8 +596,9 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                             '${_profilePhotoUploadPercent.clamp(0, 100)}%',
                                                             style:
                                                                 const TextStyle(
-                                                                  color: Colors
-                                                                      .white,
+                                                                  color:
+                                                                      AppColors
+                                                                          .white,
                                                                   fontSize: 14,
                                                                   fontWeight:
                                                                       FontWeight
@@ -622,7 +623,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                                       ),
                                                               minHeight: 4,
                                                               backgroundColor:
-                                                                  Colors.white
+                                                                  AppColors
+                                                                      .white
                                                                       .withValues(
                                                                         alpha:
                                                                             0.22,
@@ -650,7 +652,8 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                                 height: 10,
                                                                 width: 10,
                                                                 colorFilter: ColorFilter.mode(
-                                                                  Colors.white
+                                                                  AppColors
+                                                                      .white
                                                                       .withValues(
                                                                         alpha:
                                                                             0.92,
@@ -668,7 +671,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                                     ? 'Finalizing'
                                                                     : 'Uploading',
                                                                 style: TextStyle(
-                                                                  color: Colors
+                                                                  color: AppColors
                                                                       .white
                                                                       .withValues(
                                                                         alpha:
@@ -695,12 +698,12 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                 width: 32,
                                                 height: 32,
                                                 decoration: BoxDecoration(
-                                                  color: Colors.white,
+                                                  color: AppColors.white,
                                                   borderRadius:
                                                       BorderRadius.circular(16),
                                                   boxShadow: [
                                                     BoxShadow(
-                                                      color: Colors.black
+                                                      color: AppColors.black
                                                           .withValues(
                                                             alpha: 0.08,
                                                           ),
@@ -726,7 +729,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                   ),
                                                   child: const Icon(
                                                     Icons.camera_alt,
-                                                    color: Colors.white,
+                                                    color: AppColors.white,
                                                     size: 16,
                                                   ),
                                                 ),
@@ -861,7 +864,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                     valueColor:
                                                         AlwaysStoppedAnimation<
                                                           Color
-                                                        >(Colors.white),
+                                                        >(AppColors.white),
                                                   ),
                                                 )
                                               : CustomTextWidget(
@@ -872,7 +875,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                                     fontFamily: 'Manrope',
                                                     fontSize: 16,
                                                     fontWeight: FontWeight.w700,
-                                                    color: Colors.white,
+                                                    color: AppColors.white,
                                                     height: 16 / 16,
                                                   ),
                                                   maxLines: 1,
@@ -883,7 +886,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                           //     fontFamily: 'Manrope',
                                           //     fontSize: 16,
                                           //     fontWeight: FontWeight.w700,
-                                          //     color: Colors.white,
+                                          //     color: AppColors.white,
                                           //     height: 16 / 16,
                                           //   ),
                                           //   maxLines: 1,
@@ -911,11 +914,11 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                       child: Container(
                         margin: const EdgeInsets.all(1),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.circular(9),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.06),
+                              color: AppColors.black.withValues(alpha: 0.06),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
                             ),
@@ -1052,7 +1055,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                             child: const Icon(
                                               Icons.edit,
                                               size: 22,
-                                              color: Colors.white,
+                                              color: AppColors.white,
                                             ),
                                           ),
                                         ),

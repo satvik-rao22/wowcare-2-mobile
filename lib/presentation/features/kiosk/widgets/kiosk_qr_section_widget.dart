@@ -73,7 +73,7 @@ class KioskQrSectionWidget extends StatelessWidget {
           style: const TextStyle(
             fontSize: 28,
             fontWeight: FontWeight.w500,
-            color: Colors.white70,
+            color: AppColors.white70,
           ),
           textAlign: TextAlign.center,
         ),
@@ -124,8 +124,8 @@ class KioskQrSectionWidget extends StatelessWidget {
             height: 250,
             width: 250,
             decoration: BoxDecoration(
-              color: Colors.white,
-              border: Border.all(color: Colors.black, width: 2),
+              color: AppColors.white,
+              border: Border.all(color: AppColors.black, width: 2),
               borderRadius: BorderRadius.circular(8),
             ),
             padding: const EdgeInsets.all(12),
@@ -175,7 +175,7 @@ class KioskQrSectionWidget extends StatelessWidget {
             reason,
             textAlign: TextAlign.center,
             style: const TextStyle(
-              color: Colors.black,
+              color: AppColors.black,
               fontWeight: FontWeight.bold,
               fontSize: 14,
             ),
@@ -188,7 +188,7 @@ class KioskQrSectionWidget extends StatelessWidget {
                   BlocProvider.of<KioskDashboardCubit>(context).loadQrCode(),
                 );
               },
-              icon: const Icon(Icons.refresh, size: 32, color: Colors.grey),
+              icon: const Icon(Icons.refresh, size: 32, color: AppColors.grey),
             ),
         ],
       ),

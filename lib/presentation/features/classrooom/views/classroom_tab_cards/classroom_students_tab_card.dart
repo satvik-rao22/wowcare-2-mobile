@@ -3,7 +3,6 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -41,6 +40,8 @@ import 'package:wowcare/presentation/features/attendance/forms/student_attendanc
     as absent_form;
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class _AttendanceCacheEntry {
   const _AttendanceCacheEntry({
@@ -453,7 +454,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
       ),
       child: TextButton(
         style: TextButton.styleFrom(
-          foregroundColor: Colors.white,
+          foregroundColor: AppColors.white,
           padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
           minimumSize: Size.zero,
           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1350,7 +1351,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                   right: BorderSide(color: AppColors.themeColor),
                   bottom: BorderSide(color: AppColors.themeColor),
                 ),
-                color: Colors.white,
+                color: AppColors.white,
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: Column(
@@ -1363,11 +1364,11 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                               constraints: const BoxConstraints(minHeight: 36),
                               backgroundColor:
                                   const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
+                                    AppColors.white,
                                   ),
                               surfaceTintColor:
                                   const WidgetStatePropertyAll<Color>(
-                                    Colors.white,
+                                    AppColors.white,
                                   ),
                               hintText: 'Search',
                               hintStyle: const WidgetStatePropertyAll(
@@ -1454,7 +1455,7 @@ class _ClassroomStudentsTabCardState extends State<ClassroomStudentsTabCard> {
                                     ),
                                     child: TextButton(
                                       style: TextButton.styleFrom(
-                                        foregroundColor: Colors.white,
+                                        foregroundColor: AppColors.white,
                                         padding: const EdgeInsets.symmetric(
                                           horizontal: 4,
                                           vertical: 3,
@@ -1908,7 +1909,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
       child: DropdownButtonFormField<String>(
         decoration: InputDecoration(
           filled: true,
-          fillColor: Colors.white,
+          fillColor: AppColors.white,
           hintText: widget.hintText,
           contentPadding: const EdgeInsets.symmetric(horizontal: 5),
           border: OutlineInputBorder(
@@ -1938,7 +1939,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           color: Color(0xff573353),
           fontSize: 16,
         ),
-        dropdownColor: Colors.white,
+        dropdownColor: AppColors.white,
         items: widget.items.map((String item) {
           return DropdownMenuItem<String>(
             value: item,
@@ -2004,7 +2005,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
           style: TextStyle(
             fontFamily: 'Manrope',
             color: _localSelectedItems.isEmpty
-                ? Colors.grey[600]
+                ? AppColors.grey[600]
                 : const Color(0xff573353),
             fontSize: 14,
           ),

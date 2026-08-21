@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -39,9 +39,7 @@ class _EditStudentPhysicalExamScreenState
   String? _status;
   bool _isSaving = false;
 
-  static const List<String> _statusOptions = <String>[
-    'Completed',
-  ];
+  static const List<String> _statusOptions = <String>['Completed'];
 
   @override
   void initState() {
@@ -68,10 +66,8 @@ class _EditStudentPhysicalExamScreenState
     try {
       final result = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (context) => const CalendarDialog(
-          isRangePicker: false,
-          isTimePicker: false,
-        ),
+        builder: (context) =>
+            const CalendarDialog(isRangePicker: false, isTimePicker: false),
       );
 
       if (result != null && result['date'] != null) {
@@ -220,7 +216,10 @@ class _EditStudentPhysicalExamScreenState
                 color: Color(0xff573353),
               ),
               children: [
-                TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: AppColors.red),
+                ),
               ],
             ),
           ),
@@ -229,7 +228,7 @@ class _EditStudentPhysicalExamScreenState
             onTap: _pickDate,
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 border: Border.all(color: const Color(0x66573353)),
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -240,7 +239,9 @@ class _EditStudentPhysicalExamScreenState
                   Text(
                     selectedDateText,
                     style: TextStyle(
-                      color: _examDate == null ? Colors.grey : Colors.black,
+                      color: _examDate == null
+                          ? AppColors.grey
+                          : AppColors.black,
                       fontSize: 14,
                       fontFamily: 'Manrope',
                     ),
@@ -282,10 +283,10 @@ class _EditStudentPhysicalExamScreenState
           top: 8,
         ),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black26,
+              color: AppColors.black26,
               offset: Offset(0, -4),
               blurRadius: 16,
             ),
@@ -306,5 +307,3 @@ class _EditStudentPhysicalExamScreenState
     );
   }
 }
-
-

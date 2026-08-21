@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -472,10 +472,10 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -520,7 +520,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
               const TextSpan(text: 'Document'),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.red),
               ),
             ],
           ),
@@ -529,7 +529,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -541,7 +541,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             maxLength: _documentNameMaxLength,
             decoration: InputDecoration(
               hintText: 'E.g. Report Card',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               counterText: '',
               contentPadding: EdgeInsets.symmetric(
@@ -584,7 +584,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               border: Border.all(color: const Color(0x66573353)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
@@ -606,8 +606,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                           : 'Select Date',
                       style: TextStyle(
                         color: _selectedExpiryDate == null
-                            ? Colors.grey
-                            : Colors.black,
+                            ? AppColors.grey
+                            : AppColors.black,
                         fontSize: responsive.inputFontSize,
                         fontFamily: 'Manrope',
                       ),
@@ -647,7 +647,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
               const TextSpan(text: 'Upload Document'),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.red),
               ),
             ],
           ),
@@ -666,7 +666,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
               ),
-              color: Colors.white,
+              color: AppColors.white,
             ),
             child: Row(
               children: [
@@ -679,8 +679,8 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       color: (_selectedFilePath == null && !_isUploadingFile)
-                          ? Colors.grey
-                          : Colors.black,
+                          ? AppColors.grey
+                          : AppColors.black,
                       fontSize: responsive.inputFontSize,
                       fontFamily: 'Manrope',
                     ),
@@ -736,7 +736,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             maxHeight: responsive.inputFieldHeight * 4,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -749,7 +749,7 @@ class _AddDocumentScreenState extends State<AddDocumentScreen> {
             textCapitalization: TextCapitalization.sentences,
             decoration: InputDecoration(
               hintText: 'Add notes...',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

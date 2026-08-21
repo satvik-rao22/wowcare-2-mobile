@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+
+import '../../../../../../app/theme/colors.dart';
 
 /// Filter bottom sheet for STAFF_DIRECT conversations.
 ///
@@ -73,7 +74,7 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
           builder: (BuildContext context, ScrollController scrollController) {
             return Container(
               decoration: const BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               child: Column(
@@ -202,7 +203,7 @@ class _ConversationFilterSheetState extends State<ConversationFilterSheet> {
                             child: const Text(
                               'Apply',
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -276,14 +277,18 @@ class _FilterSection extends StatelessWidget {
               onSelected: (_) {
                 onChanged(isSelected ? null : option);
               },
-              backgroundColor: Colors.transparent,
+              backgroundColor: AppColors.transparent,
               selectedColor: AppColors.primaryColor.withValues(alpha: 0.2),
               side: BorderSide(
-                color: isSelected ? AppColors.primaryColor : Colors.grey[300]!,
+                color: isSelected
+                    ? AppColors.primaryColor
+                    : AppColors.grey[300]!,
                 width: isSelected ? 2 : 1,
               ),
               labelStyle: TextStyle(
-                color: isSelected ? AppColors.primaryColor : Colors.grey[700],
+                color: isSelected
+                    ? AppColors.primaryColor
+                    : AppColors.grey[700],
                 fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
               ),
             );
@@ -361,14 +366,14 @@ class _ClassroomFilterFieldState extends State<_ClassroomFilterField> {
           onChanged: widget.onChanged,
           decoration: InputDecoration(
             hintText: 'Enter classroom code (e.g., CLS_123)',
-            hintStyle: TextStyle(color: Colors.grey[400]),
+            hintStyle: TextStyle(color: AppColors.grey[400]),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(color: AppColors.grey[300]!),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(color: AppColors.grey[300]!),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),

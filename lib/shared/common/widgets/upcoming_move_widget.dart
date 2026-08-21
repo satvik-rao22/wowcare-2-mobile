@@ -12,7 +12,7 @@ class UpcomingMoveWidget extends StatelessWidget {
     required this.day,
     required this.currentClass,
     required this.nextClass,
-    this.dividerColor = const Color(0xFFA1DA79)
+    this.dividerColor = const Color(0xFFA1DA79),
   });
 
   @override
@@ -50,20 +50,14 @@ class UpcomingMoveWidget extends StatelessWidget {
                     fontSize: 15,
                     fontWeight: FontWeight.w500,
                     color: Color(0xFF41414E),
-                    fontFamily: 'Manrope'
+                    fontFamily: 'Manrope',
                   ),
-
-
-                )
+                ),
               ],
             ),
-            const SizedBox(width: 12,),
-            Container(
-              width: 2,
-              height: 25,
-              color: dividerColor,
-            ),
-            const SizedBox(width: 16,),
+            const SizedBox(width: 12),
+            Container(width: 2, height: 25, color: dividerColor),
+            const SizedBox(width: 16),
             Text(
               currentClass,
               style: TextStyle(
@@ -71,29 +65,24 @@ class UpcomingMoveWidget extends StatelessWidget {
                 fontWeight: FontWeight.w600,
                 fontSize: 16,
                 letterSpacing: -0.03 * 16,
-                color: Color(0xFF41414E)
+                color: Color(0xFF41414E),
               ),
             ),
-            const SizedBox(width: 16,),
-            Icon(
-              Icons.arrow_forward,
-              color: const Color(0xFF1D1B20),
-              size: 20,
-            ),
-            const SizedBox(width: 16,),
+            const SizedBox(width: 16),
+            Icon(Icons.arrow_forward, color: const Color(0xFF1D1B20), size: 20),
+            const SizedBox(width: 16),
             Text(
               nextClass,
               style: TextStyle(
-                  fontFamily: 'Manrope',
-                  fontWeight: FontWeight.w600,
-                  fontSize: 16,
-                  letterSpacing: -0.03 * 16,
-                  color: Color(0xFF41414E)
+                fontFamily: 'Manrope',
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                letterSpacing: -0.03 * 16,
+                color: Color(0xFF41414E),
               ),
             ),
           ],
-        )
-
+        ),
       ],
     );
   }

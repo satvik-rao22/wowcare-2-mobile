@@ -1,5 +1,5 @@
 // import 'package:flutter/material.dart';
-// import 'package:schoolerp/core/res/colors.dart';
+// import 'package:schoolerp/core/res/AppColors.dart';
 
 // class CustomDropdown extends StatefulWidget {
 //   const CustomDropdown({
@@ -124,7 +124,7 @@
 // }
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomDropdown extends StatefulWidget {
   const CustomDropdown({
@@ -222,7 +222,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                 if (widget.showAsterisk)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppColors.red),
                   ),
               ],
             ),
@@ -325,7 +325,7 @@ class _CustomDropdownState extends State<CustomDropdown> {
                                         : FontWeight.w500,
                                     color: selectedItem != null
                                         ? const Color(0xff573353)
-                                        : Colors.grey[600],
+                                        : AppColors.grey[600],
                                     height: 19 / 14,
                                   ),
                               overflow: TextOverflow.ellipsis,
@@ -427,7 +427,7 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                   hintStyle: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: 14,
-                    color: Colors.grey[600],
+                    color: AppColors.grey[600],
                   ),
                   prefixIcon: Icon(
                     Icons.search,

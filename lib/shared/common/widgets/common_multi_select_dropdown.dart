@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CommonMultiSelectDropdown extends StatefulWidget {
   const CommonMultiSelectDropdown({
@@ -18,7 +18,8 @@ class CommonMultiSelectDropdown extends StatefulWidget {
   final bool isRequired;
 
   @override
-  State<CommonMultiSelectDropdown> createState() => _CommonMultiSelectDropdownState();
+  State<CommonMultiSelectDropdown> createState() =>
+      _CommonMultiSelectDropdownState();
 }
 
 class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
@@ -93,7 +94,10 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
             children: [
               TextSpan(text: widget.label),
               if (widget.isRequired)
-                const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: AppColors.red),
+                ),
             ],
           ),
         ),
@@ -106,7 +110,7 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
             decoration: BoxDecoration(
               border: Border.all(color: const Color(0x66573353)),
               borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
+              color: AppColors.white,
             ),
             child: Row(
               children: [
@@ -117,7 +121,10 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.primaryColor),
+                const Icon(
+                  Icons.keyboard_arrow_down_rounded,
+                  color: AppColors.primaryColor,
+                ),
               ],
             ),
           ),
@@ -126,5 +133,3 @@ class _CommonMultiSelectDropdownState extends State<CommonMultiSelectDropdown> {
     );
   }
 }
-
-

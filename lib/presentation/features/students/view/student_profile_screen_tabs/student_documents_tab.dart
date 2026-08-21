@@ -11,7 +11,6 @@ import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
@@ -28,6 +27,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class StudentDocumentsTab extends StatefulWidget {
   const StudentDocumentsTab({
@@ -201,7 +202,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (ctx) {
         return DeleteConfirmationBottomSheet(
           name: doc.documentName,
@@ -502,7 +503,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                 ),
                               ),
                               borderRadius: BorderRadius.circular(14),
-                              color: Colors.white.withValues(alpha: 0.88),
+                              color: AppColors.white.withValues(alpha: 0.88),
                             ),
                             child: Column(
                               children: [
@@ -611,7 +612,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                       clipBehavior: Clip.antiAlias,
                                       // Match the Family/Pickup cards: themeColor outline, square top-left.
                                       decoration: const BoxDecoration(
-                                        color: Colors.white,
+                                        color: AppColors.white,
                                         borderRadius: BorderRadius.only(
                                           topRight: Radius.circular(8),
                                           bottomLeft: Radius.circular(8),
@@ -626,7 +627,7 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                       ),
                                       child: Theme(
                                         data: Theme.of(context).copyWith(
-                                          dividerColor: Colors.transparent,
+                                          dividerColor: AppColors.transparent,
                                         ),
                                         child: ExpansionTile(
                                           initiallyExpanded: isTarget,
@@ -734,7 +735,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color: Colors.white,
+                                                            color:
+                                                                AppColors.white,
                                                           ),
                                                         ),
                                                       ),
@@ -818,10 +820,12 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           ? const SizedBox(
                                                               width: 18,
                                                               height: 18,
-                                                              child: PrimaryCircularLoader(
-                                                                size: 18,
-                                                                strokeWidth: 2,
-                                                              ),
+                                                              child:
+                                                                  PrimaryCircularLoader(
+                                                                    size: 18,
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
                                                             )
                                                           : const Text(
                                                               'View',
@@ -870,7 +874,8 @@ class _StudentDocumentsTabState extends State<StudentDocumentsTab> {
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
-                                                          color: Colors.white,
+                                                          color:
+                                                              AppColors.white,
                                                         ),
                                                       ),
                                                     ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/newsletter/view/sent_newsletter_tab.dart';
 
 class NewsLatterTab extends StatefulWidget {
@@ -29,10 +29,7 @@ class _NewsLatterTabState extends State<NewsLatterTab>
     super.dispose();
   }
 
-  Tab _buildSingleMessagingTab({
-    required String label,
-    required int index,
-  }) {
+  Tab _buildSingleMessagingTab({required String label, required int index}) {
     return Tab(
       child: Container(
         height: 40,
@@ -48,7 +45,7 @@ class _NewsLatterTabState extends State<NewsLatterTab>
           border: Border.all(
             color: newsLetterTabController.index == index
                 ? AppColors.themeColor
-                : Colors.transparent,
+                : AppColors.transparent,
             width: 1.25,
           ),
         ),
@@ -71,10 +68,7 @@ class _NewsLatterTabState extends State<NewsLatterTab>
     final List<Widget> tabs = [
       Padding(
         padding: const EdgeInsets.only(right: 16),
-        child: _buildSingleMessagingTab(
-          label: 'Sent',
-          index: 0,
-        ),
+        child: _buildSingleMessagingTab(label: 'Sent', index: 0),
       ),
     ];
 
@@ -82,10 +76,10 @@ class _NewsLatterTabState extends State<NewsLatterTab>
       tabs: tabs,
       controller: newsLetterTabController,
       isScrollable: true,
-      labelColor: Colors.black,
+      labelColor: AppColors.black,
       unselectedLabelColor: const Color.fromARGB(50, 36, 22, 49),
       tabAlignment: TabAlignment.center,
-      indicatorColor: Colors.transparent,
+      indicatorColor: AppColors.transparent,
       labelPadding: const EdgeInsets.symmetric(horizontal: 0),
       dividerHeight: 0,
       indicator: const BoxDecoration(),
@@ -112,9 +106,7 @@ class _NewsLatterTabState extends State<NewsLatterTab>
           child: TabBarView(
             controller: newsLetterTabController,
             physics: const NeverScrollableScrollPhysics(),
-            children: const [
-              SentNewsLetterTab(),
-            ],
+            children: const [SentNewsLetterTab()],
           ),
         ),
       ],

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -20,7 +20,7 @@ class _EventsCardState extends State<EventsCard> {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -38,7 +38,7 @@ class _EventsCardState extends State<EventsCard> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Icon(Icons.chevron_left, color: Colors.grey[500]),
+                Icon(Icons.chevron_left, color: AppColors.grey[500]),
                 Column(
                   children: [
                     Row(
@@ -49,7 +49,7 @@ class _EventsCardState extends State<EventsCard> {
                           child: Center(
                             child: Text(
                               ['S', 'M', 'T', 'W', 'T', 'F', 'S'][index],
-                              style: TextStyle(color: Colors.grey[600]),
+                              style: TextStyle(color: AppColors.grey[600]),
                             ),
                           ),
                         );
@@ -76,8 +76,8 @@ class _EventsCardState extends State<EventsCard> {
                               (13 + index).toString(),
                               style: TextStyle(
                                 color: isSelected
-                                    ? Colors.white
-                                    : Colors.grey[600],
+                                    ? AppColors.white
+                                    : AppColors.grey[600],
                               ),
                             ),
                           ),
@@ -86,7 +86,7 @@ class _EventsCardState extends State<EventsCard> {
                     ),
                   ],
                 ),
-                Icon(Icons.chevron_right, color: Colors.grey[500]),
+                Icon(Icons.chevron_right, color: AppColors.grey[500]),
               ],
             ),
             const SizedBox(height: 8),
@@ -94,19 +94,19 @@ class _EventsCardState extends State<EventsCard> {
               date: '17',
               month: 'Nov',
               title: 'Erica’s Birthday',
-              borderColor: Colors.orange,
+              borderColor: AppColors.orange,
             ),
             EventItem(
               date: '26',
               month: 'Nov',
               title: 'Thanksgiving Party',
-              borderColor: Colors.yellow,
+              borderColor: AppColors.yellow,
             ),
             EventItem(
               date: '30',
               month: 'Nov',
               title: 'Parent Teacher Conference',
-              borderColor: Colors.pink,
+              borderColor: AppColors.pink,
             ),
           ],
         ],
@@ -141,7 +141,7 @@ class EventItem extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.center,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(month, style: TextStyle(color: Colors.grey[500])),
+                Text(month, style: TextStyle(color: AppColors.grey[500])),
                 Text(
                   date,
                   style: const TextStyle(

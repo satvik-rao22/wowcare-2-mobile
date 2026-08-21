@@ -1,7 +1,7 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
 class MultiSelectWidget extends StatefulWidget {
@@ -45,7 +45,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
   final GlobalKey _fieldKey = GlobalKey();
   final LayerLink _layerLink = LayerLink();
 
-  Color _getTagBackgroundColor(String tag) {
+  Color _getTagbackgroundColor(String tag) {
     if (tag.isEmpty) return AppColors.tagColors[0];
     if (tag == '5 Days') return AppColors.tagColors[1];
     if (tag == 'Full Day') return AppColors.tagColors[2];
@@ -101,7 +101,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                 child: Container(
                   constraints: const BoxConstraints(maxHeight: 320),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: StatefulBuilder(
@@ -126,7 +126,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(10),
                                   borderSide: BorderSide(
-                                    color: Colors.grey.shade300,
+                                    color: AppColors.grey.shade300,
                                   ),
                                 ),
                                 contentPadding: const EdgeInsets.symmetric(
@@ -168,7 +168,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                           ),
                                           color: hasSelections
                                               ? Color(0xFFF8F7FA)
-                                              : Colors.transparent,
+                                              : AppColors.transparent,
                                           child: Row(
                                             children: [
                                               const SizedBox(width: 34),
@@ -182,7 +182,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                                                     fontWeight: FontWeight.w500,
                                                     color: hasSelections
                                                         ? Color(0xff573353)
-                                                        : Colors.grey.shade400,
+                                                        : AppColors
+                                                              .grey
+                                                              .shade400,
                                                   ),
                                                 ),
                                               ),
@@ -296,7 +298,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                 if (widget.isRequired)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppColors.red),
                   ),
               ],
             ),
@@ -317,9 +319,9 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                       vertical: responsive.isTablet ? 16 : 12,
                     ),
               // decoration: BoxDecoration(
-              //   color: Colors.white,
+              //   color: AppColors.white,
               //   border: Border.all(
-              //     color: widget.errorText != null ? Colors.red : const Color(0x66573353),
+              //     color: widget.errorText != null ? AppColors.red : const Color(0x66573353),
               //   ),
               //   borderRadius: BorderRadius.circular(responsive.isTablet ? 12 : 10),
               // ),
@@ -337,8 +339,8 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                         displayText,
                         style: TextStyle(
                           color: widget.selectedOptions.isEmpty
-                              ? Colors.grey[600]
-                              : Colors.black87,
+                              ? AppColors.grey[600]
+                              : AppColors.black87,
                           fontSize: 15,
                         ),
                         overflow: TextOverflow.ellipsis,
@@ -369,8 +371,8 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
                           ),
                           decoration: BoxDecoration(
                             color: widget.colorfulSelection
-                                ? _getTagBackgroundColor(tag)
-                                : Colors.white,
+                                ? _getTagbackgroundColor(tag)
+                                : AppColors.white,
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Row(
@@ -430,7 +432,7 @@ class _MultiSelectWidgetState extends State<MultiSelectWidget> {
               padding: const EdgeInsets.only(top: 6),
               child: Text(
                 widget.errorText!,
-                style: const TextStyle(color: Colors.red, fontSize: 12),
+                style: const TextStyle(color: AppColors.red, fontSize: 12),
               ),
             ),
         ],
@@ -451,13 +453,13 @@ class GradientCheckbox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: value ? Colors.transparent : Colors.grey,
+          color: value ? AppColors.transparent : AppColors.grey,
           width: 2,
         ),
         gradient: value ? AppColors.buildPrimaryGradient() : null,
       ),
       child: value
-          ? const Icon(Icons.check, size: 16, color: Colors.white)
+          ? const Icon(Icons.check, size: 16, color: AppColors.white)
           : null,
     );
   }

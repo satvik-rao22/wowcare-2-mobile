@@ -9,7 +9,7 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/widgets/student_attendance_vertical_pop_up.dart';
@@ -174,7 +174,7 @@ class _StudentAttendanceTabbedViewState
                   indicator: const UnderlineTabIndicator(
                     borderSide: BorderSide(color: AppColors.themeColor),
                   ),
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparent,
                   indicatorPadding: EdgeInsets.only(
                     bottom: responsive.isTablet ? 10 : 8,
                   ),
@@ -182,7 +182,7 @@ class _StudentAttendanceTabbedViewState
                   isScrollable: true,
                   labelStyle: TextStyle(
                     fontFamily: Fonts.manrope,
-                    color: Colors.black,
+                    color: AppColors.black,
                     fontSize: responsive.isTablet ? 18 : 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -301,7 +301,7 @@ class _StudentAttendanceTabbedViewState
                 decoration: BoxDecoration(
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: AppColors.black.withValues(alpha: 0.1),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),

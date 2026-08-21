@@ -5,13 +5,13 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_tab_cards/student_about_tab_card.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/data/features/student/datasources/student_remote_datasource.dart';
 import 'package:wowcare/data/features/student/models/student_models.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
+import '../../../../../app/theme/colors.dart';
 import '../student_profile_tab_cards/student_family_tab_card.dart';
 import '../student_profile_tab_cards/student_pickup_tab_card.dart';
 
@@ -336,7 +336,7 @@ class _StudentProfileTabState extends State<StudentProfileTab>
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         children: [
-          const Icon(Icons.error_outline, size: 48, color: Colors.red),
+          const Icon(Icons.error_outline, size: 48, color: AppColors.red),
           const SizedBox(height: 16),
           Text(
             'Failed to load student profile',

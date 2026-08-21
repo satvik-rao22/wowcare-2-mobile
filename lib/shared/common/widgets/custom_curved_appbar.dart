@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/colors.dart';
+
 class CustomCurvedAppBar extends StatelessWidget
     implements PreferredSizeWidget {
   final String title;
@@ -43,7 +45,7 @@ class CustomCurvedAppBar extends StatelessWidget
             ),
           ),
           backgroundColor:
-              Colors.transparent, // Keep transparent for curved effect
+              AppColors.transparent, // Keep transparent for curved effect
           elevation: 0,
           actions: actions,
         ),
@@ -73,7 +75,11 @@ class CurvedAppBarClipper extends CustomClipper<Path> {
     path.quadraticBezierTo(0, size.height, size.width * 0.2, size.height);
     path.lineTo(size.width * 0.8, size.height);
     path.quadraticBezierTo(
-        size.width, size.height, size.width, size.height * 0.8);
+      size.width,
+      size.height,
+      size.width,
+      size.height * 0.8,
+    );
     path.lineTo(size.width, 0);
     path.close();
 

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
@@ -45,9 +45,9 @@ class _ClassroomSelectionWidgetExactState
   final GlobalKey _primaryDropdownKey = GlobalKey();
   final GlobalKey _allowedDropdownKey = GlobalKey();
 
-  // Function to generate different colors for each classroom
+  // Function to generate different AppColors for each classroom
   Color _getClassroomColor(String classroom) {
-    // Use profile avatar colors for chips with transparency
+    // Use profile avatar AppColors for chips with transparency
     final hash = classroom.hashCode;
     final baseColor = AppColors
         .profileAvatarColors[hash.abs() % AppColors.profileAvatarColors.length];
@@ -114,7 +114,7 @@ class _ClassroomSelectionWidgetExactState
           child: Container(
             constraints: const BoxConstraints(maxHeight: 200),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(8),
             ),
             child: ListView.builder(
@@ -135,7 +135,7 @@ class _ClassroomSelectionWidgetExactState
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0x1A573353)
-                          : Colors.white,
+                          : AppColors.white,
                     ),
                     child: Row(
                       children: [
@@ -212,7 +212,7 @@ class _ClassroomSelectionWidgetExactState
             children: [
               ModalBarrier(
                 dismissible: true,
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 onDismiss: () {
                   setState(() {
                     _allowedOverlayEntry?.remove();
@@ -260,7 +260,7 @@ class _ClassroomSelectionWidgetExactState
                       return Container(
                         height: updatedHeight,
                         decoration: const BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.all(Radius.circular(8)),
                         ),
                         child: Column(
@@ -337,7 +337,7 @@ class _ClassroomSelectionWidgetExactState
                                                     horizontal: 16,
                                                   ),
                                               decoration: const BoxDecoration(
-                                                color: Colors.white,
+                                                color: AppColors.white,
                                               ),
                                               child: Row(
                                                 children: [
@@ -415,7 +415,7 @@ class _ClassroomSelectionWidgetExactState
                 if (widget.isRequired)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppColors.red),
                   ),
               ],
             ),
@@ -433,13 +433,15 @@ class _ClassroomSelectionWidgetExactState
               decoration: BoxDecoration(
                 border: Border.all(
                   color: widget.primaryClassroomError != null
-                      ? Colors.red
+                      ? AppColors.red
                       : const Color(0x66573353),
                 ),
                 borderRadius: BorderRadius.circular(
                   responsive.isTablet ? 12.0 : 8.0,
                 ),
-                color: widget.isEnabled ? Colors.white : Colors.grey.shade200,
+                color: widget.isEnabled
+                    ? AppColors.white
+                    : AppColors.grey.shade200,
               ),
               child: Row(
                 children: [
@@ -449,7 +451,7 @@ class _ClassroomSelectionWidgetExactState
                       style: TextStyle(
                         color: widget.primaryClassroom == null
                             ? const Color(0xff573353)
-                            : Colors.black,
+                            : AppColors.black,
                         fontSize: inputFontSize,
                         fontFamily: 'Manrope',
                         fontWeight: FontWeight.w500,
@@ -473,7 +475,7 @@ class _ClassroomSelectionWidgetExactState
             Text(
               widget.primaryClassroomError!,
               style: const TextStyle(
-                color: Colors.red,
+                color: AppColors.red,
                 fontSize: 12,
                 fontFamily: 'Manrope',
               ),
@@ -495,7 +497,7 @@ class _ClassroomSelectionWidgetExactState
               TextSpan(text: "Allowed Classrooms"),
               TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.red),
               ),
             ],
           ),
@@ -549,15 +551,15 @@ class _ClassroomSelectionWidgetExactState
                   decoration: BoxDecoration(
                     border: Border.all(
                       color: widget.allowedClassroomsError != null
-                          ? Colors.red
+                          ? AppColors.red
                           : const Color(0x66573353),
                     ),
                     borderRadius: BorderRadius.circular(
                       responsive.isTablet ? 12.0 : 8.0,
                     ),
                     color: widget.isEnabled
-                        ? Colors.white
-                        : Colors.grey.shade200,
+                        ? AppColors.white
+                        : AppColors.grey.shade200,
                   ),
                   child: Stack(
                     children: [
@@ -654,7 +656,7 @@ class _ClassroomSelectionWidgetExactState
           Text(
             widget.allowedClassroomsError!,
             style: const TextStyle(
-              color: Colors.red,
+              color: AppColors.red,
               fontSize: 12,
               fontFamily: 'Manrope',
             ),
@@ -685,14 +687,14 @@ class GradientCheckbox extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(6),
         border: Border.all(
-          color: value ? Colors.transparent : Colors.grey,
+          color: value ? AppColors.transparent : AppColors.grey,
           width: 2,
         ),
         gradient: value ? AppColors.buildPrimaryGradient() : null,
-        color: value ? null : Colors.transparent,
+        color: value ? null : AppColors.transparent,
       ),
       child: value
-          ? const Icon(Icons.check, size: 18, color: Colors.white)
+          ? const Icon(Icons.check, size: 18, color: AppColors.white)
           : null,
     );
   }

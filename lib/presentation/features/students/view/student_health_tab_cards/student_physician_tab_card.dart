@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -11,6 +10,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import '../../../../../app/theme/colors.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/students/view/add_physician_screen.dart';
 
@@ -138,7 +138,7 @@ class _StudentPhysicianTabCardState extends State<StudentPhysicianTabCard> {
                         'Failed to load physicians',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.redAccent,
                         ),
                       ),
                     );
@@ -241,7 +241,7 @@ class _PhysicianCard extends StatelessWidget {
         width: double.infinity,
         // Match the Family/Pickup cards: themeColor outline, square top-left.
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -459,7 +459,7 @@ class _PhysicianCard extends StatelessWidget {
                         showModalBottomSheet(
                           context: context,
                           isScrollControlled: true,
-                          backgroundColor: Colors.transparent,
+                          backgroundColor: AppColors.transparent,
                           builder: (ctx) {
                             return DeleteConfirmationBottomSheet(
                               name: name,

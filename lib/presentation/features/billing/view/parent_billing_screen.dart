@@ -128,9 +128,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       color: AppColors.cardColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.primaryColor.withValues(alpha: 0.1),
-        ),
+        side: BorderSide(color: AppColors.primaryColor.withValues(alpha: 0.1)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,9 +177,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
       onPayNow: () async {
         if (state.isPaymentLoading) return;
         final paid = await Navigator.of(context).push<bool>(
-          MaterialPageRoute(
-            builder: (_) => const PayNowAmountScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const PayNowAmountScreen()),
         );
         // Reload the ledger so the just-made payment appears (In Process →
         // Success/Failed once settled).
@@ -220,11 +216,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
             const SizedBox(height: 8),
             const Padding(
               padding: EdgeInsets.all(8.0),
-              child: Row(
-                children: [
-                  AppText.title('Billing'),
-                ],
-              ),
+              child: Row(children: [AppText.title('Billing')]),
             ),
             Column(
               children: [
@@ -303,38 +295,40 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 ),
               )
             else
-              Builder(builder: (context) {
-                // After list renders, check if we should load more
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (mounted) _maybeLoadNextBillingPage();
-                });
-                return Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8.0),
-                  child: Column(
-                    children: state.visibleTransactions.map((txn) {
-                      return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: HighlightableCard(
-                          // Match on invoiceCode — `id` is a display/numeric key.
-                          code: txn.invoiceCode,
-                          highlightCode: _highlightCode,
-                          scrollOnHighlight: true,
-                          // StaffStyleCard (under ParentTransactionCard) paints an
-                          // opaque, full-bleed white background, which would hide a
-                          // behind-painted flash entirely — draw it on top instead,
-                          // at StaffStyleCard's own 12px radius so the border aligns.
-                          foreground: true,
-                          borderRadius: 12,
-                          child: ParentTransactionCard(
-                            transaction: txn,
-                            familyName: state.ledger?.familyName ?? '',
+              Builder(
+                builder: (context) {
+                  // After list renders, check if we should load more
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted) _maybeLoadNextBillingPage();
+                  });
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: Column(
+                      children: state.visibleTransactions.map((txn) {
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: HighlightableCard(
+                            // Match on invoiceCode — `id` is a display/numeric key.
+                            code: txn.invoiceCode,
+                            highlightCode: _highlightCode,
+                            scrollOnHighlight: true,
+                            // StaffStyleCard (under ParentTransactionCard) paints an
+                            // opaque, full-bleed white background, which would hide a
+                            // behind-painted flash entirely — draw it on top instead,
+                            // at StaffStyleCard's own 12px radius so the border aligns.
+                            foreground: true,
+                            borderRadius: 12,
+                            child: ParentTransactionCard(
+                              transaction: txn,
+                              familyName: state.ledger?.familyName ?? '',
+                            ),
                           ),
-                        ),
-                      );
-                    }).toList(),
-                  ),
-                );
-              }),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                },
+              ),
             // Load-more indicator at bottom
             if (state.hasMoreTransactions && !state.isLoading)
               const Padding(
@@ -379,10 +373,11 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
                 color: AppColors.cardColor,
                 child: TabBar(
                   labelColor: AppColors.themeColor,
-                  unselectedLabelColor:
-                      AppColors.primaryColor.withValues(alpha: 0.6),
+                  unselectedLabelColor: AppColors.primaryColor.withValues(
+                    alpha: 0.6,
+                  ),
                   controller: _tabController,
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparent,
                   indicatorSize: TabBarIndicatorSize.label,
                   indicator: _GradientTabIndicator(
                     gradient: AppColors.buildPrimaryGradient(),
@@ -414,10 +409,7 @@ class _ParentBillingScreenState extends State<ParentBillingScreen>
 // ─── Gradient tab indicator ───────────────────────────────────────────────────
 
 class _GradientTabIndicator extends Decoration {
-  const _GradientTabIndicator({
-    required this.gradient,
-    this.height = 2.5,
-  });
+  const _GradientTabIndicator({required this.gradient, this.height = 2.5});
 
   final Gradient gradient;
   final double height;

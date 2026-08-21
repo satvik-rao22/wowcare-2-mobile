@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -1485,7 +1485,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,
-                                      backgroundColor: Colors.white,
+                                      backgroundColor: AppColors.white,
                                       shape: const RoundedRectangleBorder(
                                         borderRadius: BorderRadius.only(
                                           topLeft: Radius.circular(24),
@@ -1533,7 +1533,7 @@ class _StudentScreenState extends State<StudentScreen> {
                           //       width: 22,
                           //       height: 22,
                           //       fit: BoxFit.contain,
-                          //       colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+                          //       colorFilter: const ColorFilter.mode(AppColors.white, BlendMode.srcIn),
                           //     ),
                           //   ),
                           // ),
@@ -1694,7 +1694,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                 ),
                                 const SizedBox(width: 8),
                                 Material(
-                                  color: Colors.transparent,
+                                  color: AppColors.transparent,
                                   child: InkWell(
                                     onTap: () async {
                                       final result = await Navigator.push(
@@ -1815,7 +1815,7 @@ class _StudentScreenState extends State<StudentScreen> {
                                                       ? '99+'
                                                       : '$badgeCount',
                                                   style: const TextStyle(
-                                                    color: Colors.white,
+                                                    color: AppColors.white,
                                                     fontSize: 10,
                                                     fontWeight: FontWeight.w700,
                                                   ),
@@ -1946,7 +1946,7 @@ class _StudentScreenState extends State<StudentScreen> {
                               children: [
                                 Text(
                                   'Error loading students',
-                                  style: TextStyle(color: Colors.red),
+                                  style: TextStyle(color: AppColors.red),
                                 ),
                                 const SizedBox(height: 8),
                                 ElevatedButton(

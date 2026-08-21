@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -56,7 +56,7 @@ class MessageInfoDialog extends StatelessWidget {
   }) {
     return showDialog(
       context: context,
-      barrierColor: Colors.black45,
+      barrierColor: AppColors.black45,
       builder: (_) => MessageInfoDialog(
         messageText: messageText,
         recipientsFuture: recipientsFuture,

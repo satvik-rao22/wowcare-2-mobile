@@ -427,7 +427,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   void _showEmojiPicker(BuildContext context, Message message) {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       isScrollControlled: true,
       builder: (context) {
         final sheetHeight =
@@ -436,7 +436,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         return Container(
           height: sheetHeight,
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: EmojiPicker(
@@ -498,7 +498,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         titlePadding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
 
         title: Container(
           width: double.infinity,
@@ -559,13 +559,16 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
               errorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(
-                  color: Colors.redAccent,
+                  color: AppColors.redAccent,
                   width: 1.5,
                 ),
               ),
               focusedErrorBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Colors.redAccent, width: 2),
+                borderSide: const BorderSide(
+                  color: AppColors.redAccent,
+                  width: 2,
+                ),
               ),
               //border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               contentPadding: const EdgeInsets.symmetric(
@@ -603,14 +606,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                 }
                 Navigator.pop(dialogContext);
               },
-              style: TextButton.styleFrom(overlayColor: Colors.transparent),
+              style: TextButton.styleFrom(overlayColor: AppColors.transparent),
               child: Text(
                 'Save',
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
               ),
             ),
@@ -763,7 +766,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           key: ValueKey(messageId),
                                           controller: _scrollController,
                                           index: index,
-                                          highlightColor: Colors.green
+                                          highlightColor: AppColors.green
                                               .withValues(alpha: 0.7),
                                           child: Column(
                                             mainAxisSize: MainAxisSize.min,
@@ -963,7 +966,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                               child: Container(
                                 decoration: BoxDecoration(
                                   borderRadius: BorderRadius.circular(12),
-                                  color: Colors.white,
+                                  color: AppColors.white,
                                 ),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(
@@ -1064,7 +1067,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                                 key: ValueKey(messageId),
                                                 controller: _scrollController,
                                                 index: index,
-                                                highlightColor: Colors.green
+                                                highlightColor: AppColors.green
                                                     .withValues(alpha: 0.7),
                                                 child: Column(
                                                   mainAxisSize:
@@ -1255,7 +1258,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                           Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
@@ -1309,7 +1312,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                     CustomTextWidget(
                       text: 'Say hello to start the conversation',
                       fontSize: 13,
-                      fontColor: Colors.grey[600],
+                      fontColor: AppColors.grey[600],
                     ),
                   ],
                 ),
@@ -1318,7 +1321,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(12),
-                color: Colors.white,
+                color: AppColors.white,
               ),
               child: Padding(
                 padding: const EdgeInsets.symmetric(
@@ -1354,7 +1357,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
   Widget _buildThreadHeader(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       child: Padding(
@@ -1397,12 +1400,12 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                     decoration: BoxDecoration(
                       color: (widget.staffInfo['isSigned'] ?? false)
                           ? const Color.fromRGBO(0, 177, 21, 1)
-                          : Colors.transparent,
+                          : AppColors.transparent,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: (widget.staffInfo['isSigned'] ?? false)
-                            ? Colors.white
-                            : Colors.transparent,
+                            ? AppColors.white
+                            : AppColors.transparent,
                         width: 2,
                       ),
                     ),
@@ -1448,14 +1451,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           text: 'Designation: ',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
+                                            color: AppColors.black87,
                                           ),
                                         ),
                                         TextSpan(
                                           text: widget.staffInfo['designation']
                                               .toString(),
                                           style: const TextStyle(
-                                            color: Colors.black54,
+                                            color: AppColors.black54,
                                           ),
                                         ),
                                       ],
@@ -1474,14 +1477,14 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                                           text: 'Email: ',
                                           style: TextStyle(
                                             fontWeight: FontWeight.w600,
-                                            color: Colors.black87,
+                                            color: AppColors.black87,
                                           ),
                                         ),
                                         TextSpan(
                                           text: widget.staffInfo['email']
                                               .toString(),
                                           style: const TextStyle(
-                                            color: Colors.black54,
+                                            color: AppColors.black54,
                                           ),
                                         ),
                                       ],
@@ -1539,7 +1542,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                   ? Icons.chat_bubble_outline_rounded
                   : Icons.error_outline_rounded,
               size: 48,
-              color: isUnauthorized ? Colors.grey : Colors.redAccent,
+              color: isUnauthorized ? AppColors.grey : AppColors.redAccent,
             ),
             const SizedBox(height: 12),
             CustomTextWidget(
@@ -1555,7 +1558,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                   ? 'Go back and start a new conversation with this person.'
                   : message,
               fontSize: 13,
-              fontColor: Colors.grey[600],
+              fontColor: AppColors.grey[600],
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -1582,7 +1585,7 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
                 ),
                 child: CustomTextWidget(
                   text: isUnauthorized ? 'Go back' : 'Retry',
-                  fontColor: Colors.white,
+                  fontColor: AppColors.white,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -1645,7 +1648,11 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
         },
         onAttachmentError: (message) {
           if (!mounted) return;
-          CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+          CoreUtils.showTopSnackBar(
+            context: context,
+            message: message,
+            isError: true,
+          );
         },
       ),
     );
@@ -1677,8 +1684,18 @@ class _StaffMessagingThreadState extends State<StaffMessagingThread>
       label = 'Yesterday';
     } else {
       const monthNames = [
-        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+        'Jan',
+        'Feb',
+        'Mar',
+        'Apr',
+        'May',
+        'Jun',
+        'Jul',
+        'Aug',
+        'Sep',
+        'Oct',
+        'Nov',
+        'Dec',
       ];
       label =
           "${schoolDate.day} ${monthNames[schoolDate.month - 1]} ${schoolDate.year}";

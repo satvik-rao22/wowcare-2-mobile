@@ -311,15 +311,15 @@
 //                           width: double.infinity,
 //                           padding: const EdgeInsets.all(16),
 //                           decoration: BoxDecoration(
-//                             color: Colors.orange.shade50,
-//                             border: Border.all(color: Colors.orange.shade200),
+//                             color: AppColors.orange.shade50,
+//                             border: Border.all(color: AppColors.orange.shade200),
 //                             borderRadius: BorderRadius.circular(8),
 //                           ),
 //                           child: Row(
 //                             children: [
 //                               Icon(
 //                                 Icons.warning_amber_rounded,
-//                                 color: Colors.orange.shade600,
+//                                 color: AppColors.orange.shade600,
 //                                 size: 24,
 //                               ),
 //                               const SizedBox(width: 12),
@@ -331,7 +331,7 @@
 //                                       'Override Sign In',
 //                                       style: TextStyle(
 //                                         fontWeight: FontWeight.w600,
-//                                         color: Colors.orange.shade800,
+//                                         color: AppColors.orange.shade800,
 //                                         fontSize: 14,
 //                                       ),
 //                                     ),
@@ -339,7 +339,7 @@
 //                                     Text(
 //                                       'This will delete the absent record and sign in the student for today.',
 //                                       style: TextStyle(
-//                                         color: Colors.orange.shade700,
+//                                         color: AppColors.orange.shade700,
 //                                         fontSize: 12,
 //                                       ),
 //                                     ),
@@ -389,10 +389,10 @@
 //                                     ),
 //                                     decoration: BoxDecoration(
 //                                       border: Border.all(
-//                                         color: Colors.grey.shade300,
+//                                         color: AppColors.grey.shade300,
 //                                       ),
 //                                       borderRadius: BorderRadius.circular(8),
-//                                       color: Colors.grey.shade100,
+//                                       color: AppColors.grey.shade100,
 //                                     ),
 //                                     child: Row(
 //                                       mainAxisAlignment:
@@ -405,13 +405,13 @@
 //                                           style: TextStyle(
 //                                             fontSize: 15,
 //                                             fontWeight: FontWeight.w500,
-//                                             color: Colors.grey.shade600,
+//                                             color: AppColors.grey.shade600,
 //                                           ),
 //                                         ),
 //                                         SvgPicture.asset(
 //                                           MediaRes.calender_icon,
 //                                           colorFilter: ColorFilter.mode(
-//                                             Colors.grey.shade600,
+//                                             AppColors.grey.shade600,
 //                                             BlendMode.srcIn,
 //                                           ),
 //                                         ),
@@ -445,7 +445,7 @@
 //                                       ),
 //                                       decoration: BoxDecoration(
 //                                         border: Border.all(
-//                                           color: Colors.grey.shade300,
+//                                           color: AppColors.grey.shade300,
 //                                         ),
 //                                         borderRadius: BorderRadius.circular(8),
 //                                         color: const Color.fromRGBO(
@@ -464,7 +464,7 @@
 //                                             style: const TextStyle(
 //                                               fontSize: 15,
 //                                               fontWeight: FontWeight.w500,
-//                                               color: Colors.black,
+//                                               color: AppColors.black,
 //                                             ),
 //                                           ),
 //                                           SvgPicture.asset(MediaRes.clock_icon),
@@ -484,7 +484,7 @@
 //                             child: Text(
 //                               _formatTimeForValidation(),
 //                               style: const TextStyle(
-//                                 color: Colors.red,
+//                                 color: AppColors.red,
 //                                 fontSize: 12,
 //                               ),
 //                             ),

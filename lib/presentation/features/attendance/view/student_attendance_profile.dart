@@ -11,7 +11,7 @@ import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/simmer_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -728,8 +728,8 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
 
     final allowedClassroomCodes =
         await resolveStudentAttendanceAllowedClassroomCodes(
-      storage: serviceLocator<StorageService>(),
-    );
+          storage: serviceLocator<StorageService>(),
+        );
     queryParameters['allowedClassroomCodes'] = List<String>.from(
       allowedClassroomCodes,
     );
@@ -820,10 +820,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           final signOutByText = rawSignedOutBy.isNotEmpty
               ? rawSignedOutBy
               : (isTransferSignOut && transferredBy.isNotEmpty
-                  ? transferredBy
-                  : (signOutMethodEnum == ProfileAbsentMarkMethod.system
-                      ? 'System'
-                      : ''));
+                    ? transferredBy
+                    : (signOutMethodEnum == ProfileAbsentMarkMethod.system
+                          ? 'System'
+                          : ''));
 
           loadedAttendances.add(
             _AttendanceModel(
@@ -1162,8 +1162,9 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
       hasBackButton: true,
       showCustomNavigationBar: true,
       // Highlight the Attendance tab while a parent views their child's profile.
-      activeItemOverride:
-          isParentPersona ? BottomNavigationItem.attendance : null,
+      activeItemOverride: isParentPersona
+          ? BottomNavigationItem.attendance
+          : null,
       body: CustomRefreshIndicator(
         onRefresh: () async => refreshData(),
         child: SingleChildScrollView(
@@ -1427,7 +1428,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           Expanded(
             child: AppText.body(
               detail,
-              style: const TextStyle(fontSize: 14, color: Colors.black87),
+              style: const TextStyle(fontSize: 14, color: AppColors.black87),
             ),
           ),
         ],
@@ -1476,7 +1477,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
               iconColor: const Color(0xFF4285F4),
               label: 'Absent Days',
               value: '',
-              valueColor: Colors.red,
+              valueColor: AppColors.red,
             ),
           ),
         ],
@@ -1519,7 +1520,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
             iconColor: const Color(0xFF4285F4),
             label: 'Absent Days',
             value: '${report.absentDays}',
-            valueColor: Colors.red,
+            valueColor: AppColors.red,
           ),
         ),
       ],
@@ -1536,7 +1537,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(color: AppColors.black12, width: 1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1591,7 +1592,7 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 15),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.black12, width: 1),
+        border: Border.all(color: AppColors.black12, width: 1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -1747,14 +1748,20 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
     return method == ProfileAbsentMarkMethod.kiosk;
   }
 
-  String _resolveSignInByDisplay(String signInBy, ProfileAbsentMarkMethod? method) {
+  String _resolveSignInByDisplay(
+    String signInBy,
+    ProfileAbsentMarkMethod? method,
+  ) {
     final name = signInBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
     return '';
   }
 
-  String _resolveSignOutByDisplay(String signOutBy, ProfileAbsentMarkMethod? method) {
+  String _resolveSignOutByDisplay(
+    String signOutBy,
+    ProfileAbsentMarkMethod? method,
+  ) {
     final name = signOutBy.trim();
     if (name.isNotEmpty) return name;
     if (_isKioskOrPinMethodEnum(method)) return 'Kiosk';
@@ -1810,7 +1817,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign In By',
-            text: _resolveSignInByDisplay(attendance.signInBy, attendance.signInMethod),
+            text: _resolveSignInByDisplay(
+              attendance.signInBy,
+              attendance.signInMethod,
+            ),
           ),
           const SizedBox(height: 16),
           _AttendanceField(
@@ -1822,7 +1832,10 @@ class _StudentAttendanceProfileState extends State<StudentAttendanceProfile> {
           const SizedBox(height: 16),
           _AttendanceField(
             label: 'Sign Out By',
-            text: _resolveSignOutByDisplay(attendance.signOutBy, attendance.signOutMethod),
+            text: _resolveSignOutByDisplay(
+              attendance.signOutBy,
+              attendance.signOutMethod,
+            ),
           ),
           if (_formatAttendedTimeForCard(attendance).trim().isNotEmpty) ...[
             const SizedBox(height: 16),

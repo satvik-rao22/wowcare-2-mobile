@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-
 import '../../../../../../shared/common/widgets/custom_button_layout.dart';
 
 /// Normalized participant data — works for both ConversationParticipant
@@ -54,7 +53,7 @@ class ParticipantInfoDialog extends StatelessWidget {
   }) {
     return showDialog(
       context: context,
-      barrierColor: Colors.black45,
+      barrierColor: AppColors.black45,
       builder: (_) => ParticipantInfoDialog(
         participants: participants,
         studentName: studentName,
@@ -72,7 +71,7 @@ class ParticipantInfoDialog extends StatelessWidget {
     return result;
   }
 
-  // ── Colors per role ────────────────────────────────────────────────────────
+  // ── AppColors per role ────────────────────────────────────────────────────────
 
   static Color _badgeBg(String role) {
     switch (role.toUpperCase()) {
@@ -220,7 +219,7 @@ class _DialogHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Row(
@@ -268,11 +267,11 @@ class _StudentCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: AppColors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),

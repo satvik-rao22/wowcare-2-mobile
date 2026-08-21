@@ -1,7 +1,7 @@
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -527,10 +527,10 @@ class _EditImportantDatesScreenState extends State<EditImportantDatesScreen> {
                   top: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: AppColors.black.withValues(alpha: 0.05),
                       offset: const Offset(0, -4),
                       blurRadius: 16,
                     ),

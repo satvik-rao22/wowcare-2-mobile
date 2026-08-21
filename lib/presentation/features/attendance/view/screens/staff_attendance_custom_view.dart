@@ -526,12 +526,12 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
                                 Icon(
                                   Icons.people_outline,
                                   size: 48,
-                                  color: Colors.grey[400],
+                                  color: AppColors.grey[400],
                                 ),
                                 const SizedBox(height: 16),
                                 AppText.body(
                                   'No staff attendance found',
-                                  style: TextStyle(color: Colors.grey[600]),
+                                  style: TextStyle(color: AppColors.grey[600]),
                                   textAlign: TextAlign.center,
                                 ),
                               ],
@@ -606,7 +606,7 @@ class _StaffAttendanceCustomViewState extends State<StaffAttendanceCustomView>
           border: Border.all(color: AppColors.cardBorderColor),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.03),
+              color: AppColors.black.withValues(alpha: 0.03),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),

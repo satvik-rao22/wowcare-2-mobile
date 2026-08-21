@@ -4,7 +4,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -31,6 +30,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+import '../../../../../../../app/theme/colors.dart';
 import '../../../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../../../shared/common/widgets/custom_toggle.dart';
 import '../../../../../../../shared/common/widgets/gradient_add_button.dart';
@@ -514,9 +514,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                   controller: _searchController,
                                   hintText: 'Search conversations…',
                                   searchBarColor: const WidgetStatePropertyAll(
-                                    Colors.transparent,
+                                    AppColors.transparent,
                                   ),
-                                  borderColor: Colors.transparent,
+                                  borderColor: AppColors.transparent,
                                 ),
                               ),
                             ),
@@ -527,7 +527,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                             // triggered on a short/empty list. Matches Staff/Parent
                             // Messaging's search bar.
                             Material(
-                              color: Colors.transparent,
+                              color: AppColors.transparent,
                               child: InkWell(
                                 borderRadius: BorderRadius.circular(12),
                                 onTap: () {
@@ -563,7 +563,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                             // generic Icons.tune, which didn't match the rest of the
                             // messaging tabs.
                             Material(
-                              color: Colors.transparent,
+                              color: AppColors.transparent,
                               child: InkWell(
                                 onTap: _showFilterSheet,
                                 borderRadius: BorderRadius.circular(100),
@@ -584,7 +584,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
                                             width: 8,
                                             height: 8,
                                             decoration: const BoxDecoration(
-                                              color: Colors.red,
+                                              color: AppColors.red,
                                               shape: BoxShape.circle,
                                             ),
                                           ),
@@ -785,7 +785,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen>
               opacity: isDisabled ? 0.5 : 1,
               child: Container(
                 decoration: const BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   border: Border(
                     bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
                   ),
@@ -905,7 +905,7 @@ class _PageHeader extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 16, 12),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1)),
       ),
       child: Row(
@@ -934,7 +934,7 @@ class _PageHeader extends StatelessWidget {
                     child: Text(
                       totalUnread > 99 ? '99+' : '$totalUnread',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                       ),
@@ -993,10 +993,10 @@ class _ConversationTileContent extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A0984E3),
-      highlightColor: Colors.transparent,
+      highlightColor: AppColors.transparent,
       child: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
           ),
@@ -1134,7 +1134,7 @@ class _ConversationTileContent extends StatelessWidget {
                           ? '99+'
                           : '${conversation.unreadCount}',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),

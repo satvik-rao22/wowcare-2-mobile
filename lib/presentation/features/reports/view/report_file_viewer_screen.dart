@@ -6,6 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 
+import '../../../../app/theme/colors.dart';
+
 class ReportFileViewerScreen extends StatefulWidget {
   final Uint8List fileData;
   final String fileName;
@@ -102,7 +104,7 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  valueColor: AlwaysStoppedAnimation<Color>(AppColors.white),
                 ),
               ),
             )
@@ -131,11 +133,7 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.table_chart,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.table_chart, size: 64, color: AppColors.grey[400]),
             const SizedBox(height: 16),
             Text(
               'Excel File Preview',
@@ -161,16 +159,9 @@ class _ReportFileViewerScreenState extends State<ReportFileViewerScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.description,
-              size: 64,
-              color: Colors.grey[400],
-            ),
+            Icon(Icons.description, size: 64, color: AppColors.grey[400]),
             const SizedBox(height: 16),
-            Text(
-              'File Preview',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
+            Text('File Preview', style: Theme.of(context).textTheme.titleLarge),
             const SizedBox(height: 8),
             Text(
               'File type not supported for preview',

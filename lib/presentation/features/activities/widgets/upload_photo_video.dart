@@ -268,14 +268,14 @@
 // //                     Image.file(
 // //                       _mediaFile!,
 // //                       fit: BoxFit.cover,
-// //                       errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
+// //                       errorBuilder: (_, __, ___) => Container(color: AppColors.grey[300]),
 // //                     ),
 // //                     const Center(
 // //                       child: Icon(
 // //                         Icons.play_circle_fill,
 // //                         size: 80,
-// //                         color: Colors.white,
-// //                         shadows: [Shadow(blurRadius: 10, color: Colors.black)],
+// //                         color: AppColors.white,
+// //                         shadows: [Shadow(blurRadius: 10, color: AppColors.black)],
 // //                       ),
 // //                     ),
 // //                   ],
@@ -293,12 +293,12 @@
 // //                   child: Container(
 // //                     padding: const EdgeInsets.all(6),
 // //                     decoration: const BoxDecoration(
-// //                       color: Colors.black54,
+// //                       color: AppColors.black54,
 // //                       shape: BoxShape.circle,
 // //                     ),
 // //                     child: const Icon(
 // //                       Icons.close,
-// //                       color: Colors.white,
+// //                       color: AppColors.white,
 // //                       size: 20,
 // //                     ),
 // //                   ),
@@ -499,24 +499,24 @@
 //     final snackBar = SnackBar(
 //       content: Row(
 //         children: [
-//           const Icon(Icons.warning, color: Colors.orange),
+//           const Icon(Icons.warning, color: AppColors.orange),
 //           const SizedBox(width: 8),
 //           Expanded(
 //             child: Text(
 //               message,
 //               style: const TextStyle(
-//                 color: Colors.orange,
+//                 color: AppColors.orange,
 //                 fontWeight: FontWeight.w600,
 //               ),
 //             ),
 //           ),
 //         ],
 //       ),
-//       backgroundColor: Colors.orange.shade50,
+//       backgroundColor: AppColors.orange.shade50,
 //       duration: const Duration(seconds: 2),
 //       shape: RoundedRectangleBorder(
 //         borderRadius: BorderRadius.circular(10),
-//         side: BorderSide(color: Colors.orange.shade100),
+//         side: BorderSide(color: AppColors.orange.shade100),
 //       ),
 //     );
 //     ScaffoldMessenger.of(context).showSnackBar(snackBar);
@@ -641,7 +641,7 @@
 //           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
 //           TextButton(
 //             onPressed: () => Navigator.pop(ctx, true),
-//             child: const Text('Replace', style: TextStyle(color: Colors.red)),
+//             child: const Text('Replace', style: TextStyle(color: AppColors.red)),
 //           ),
 //         ],
 //       ),
@@ -770,7 +770,7 @@
 //                 ),
 //                 children: [
 //                   TextSpan(text: widget.label),
-//                   if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+//                   if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: AppColors.red)),
 //                 ],
 //                 ),
 //               ),
@@ -780,7 +780,7 @@
 //                 child: Container(
 //                   constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
 //                   decoration: BoxDecoration(
-//                     color: Colors.white,
+//                     color: AppColors.white,
 //                     border: Border.all(color: const Color(0x66573353)),
 //                     borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
 //                   ),
@@ -832,7 +832,7 @@
 //                   if(widget.allowPhoto && !widget.allowVideo)TextSpan(text: 'Please upload at least one photo'),
 //                   if(!widget.allowPhoto && widget.allowVideo)TextSpan(text: 'Please upload at least one video'),
 //                   if(widget.allowPhoto && widget.allowVideo)TextSpan(text: 'Please upload at least one photo or a video'),
-//                   const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+//                   const TextSpan(text: ' *', style: TextStyle(color: AppColors.red)),
 //                 ],
 //               ),
 //             ),
@@ -885,7 +885,7 @@
 //         //       label: const Text('Add More'),
 //         //       style: ElevatedButton.styleFrom(
 //         //         backgroundColor: const Color(0xff573353),
-//         //         foregroundColor: Colors.white,
+//         //         foregroundColor: AppColors.white,
 //         //         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
 //         //       ),
 //         //     ),
@@ -904,14 +904,14 @@
 //             child: Container(
 //               width: 120,
 //               height: 120,
-//               color: Colors.grey[300],
+//               color: AppColors.grey[300],
 //               child: file != null
 //                   ? Image.file(file, fit: BoxFit.cover)
 //                   : const Center(
 //                 child: Icon(
 //                   Icons.play_circle_fill,
 //                   size: 60,
-//                   color: Colors.white70,
+//                   color: AppColors.white70,
 //                 ),
 //               ),
 //             ),
@@ -930,10 +930,10 @@
 //               child: Container(
 //                 padding: const EdgeInsets.all(4),
 //                 decoration: const BoxDecoration(
-//                   color: Colors.black54,
+//                   color: AppColors.black54,
 //                   shape: BoxShape.circle,
 //                 ),
-//                 child: const Icon(Icons.close, color: Colors.white, size: 16),
+//                 child: const Icon(Icons.close, color: AppColors.white, size: 16),
 //               ),
 //             ),
 //           ),
@@ -1375,7 +1375,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                 onPressed: () => Navigator.pop(context, true),
                 child: const Text(
                   'Replace',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
               ),
             ],
@@ -1533,7 +1533,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                     blendMode: BlendMode.srcIn,
                     shaderCallback: (bounds) =>
                         AppColors.buildPrimaryGradient().createShader(bounds),
-                    child: Icon(icon, size: 26, color: Colors.white),
+                    child: Icon(icon, size: 26, color: AppColors.white),
                   ),
                 ),
                 const SizedBox(width: 16),
@@ -1586,19 +1586,19 @@ class _MediaUploaderState extends State<MediaUploader> {
               !_remoteThumbnailReady &&
               !_remoteThumbnailError)
             Container(
-              color: Colors.grey[800],
+              color: AppColors.grey[800],
               child: const Center(
-                child: CircularProgressIndicator(color: Colors.white),
+                child: CircularProgressIndicator(color: AppColors.white),
               ),
             )
           else
             Container(
-              color: Colors.grey[800],
+              color: AppColors.grey[800],
               child: const Center(
                 child: Icon(
                   Icons.play_circle_fill,
                   size: 60,
-                  color: Colors.white70,
+                  color: AppColors.white70,
                 ),
               ),
             ),
@@ -1607,8 +1607,8 @@ class _MediaUploaderState extends State<MediaUploader> {
             child: Icon(
               Icons.play_circle_fill,
               size: 60,
-              color: Colors.white.withValues(alpha: 0.9),
-              shadows: const [Shadow(blurRadius: 10, color: Colors.black54)],
+              color: AppColors.white.withValues(alpha: 0.9),
+              shadows: const [Shadow(blurRadius: 10, color: AppColors.black54)],
             ),
           ),
 
@@ -1620,7 +1620,7 @@ class _MediaUploaderState extends State<MediaUploader> {
           //       padding: EdgeInsets.all(8),
           //       child: Text(
           //         'Video',
-          //         style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold),
+          //         style: TextStyle(color: AppColors.white, fontSize: 12, fontWeight: FontWeight.bold),
           //       ),
           //     ),
           //   ),
@@ -1637,7 +1637,7 @@ class _MediaUploaderState extends State<MediaUploader> {
   //   return _previewItem(
   //     child: hasThumbnail
   //         ? Image.file(_videoThumbnailFile!, fit: BoxFit.cover)
-  //         : const Center(child: Icon(Icons.play_circle_fill, size: 60, color: Colors.white70)),
+  //         : const Center(child: Icon(Icons.play_circle_fill, size: 60, color: AppColors.white70)),
   //     isVideo: true,
   //     onRemove: _removeVideo,
   //   );
@@ -1650,7 +1650,7 @@ class _MediaUploaderState extends State<MediaUploader> {
         fit: BoxFit.cover,
         loadingBuilder: (_, child, progress) =>
             progress == null ? child : const CircularProgressIndicator(),
-        errorBuilder: (_, __, ___) => Container(color: Colors.grey[300]),
+        errorBuilder: (_, __, ___) => Container(color: AppColors.grey[300]),
       ),
       onRemove: () => _removeExistingPhoto(url),
       // Open the shared full-screen viewer so a saved (network) photo gets the
@@ -1673,7 +1673,7 @@ class _MediaUploaderState extends State<MediaUploader> {
           file,
           fit: BoxFit.contain,
           errorBuilder: (_, __, ___) => const Center(
-            child: Icon(Icons.broken_image, color: Colors.white70, size: 60),
+            child: Icon(Icons.broken_image, color: AppColors.white70, size: 60),
           ),
         ),
       ),
@@ -1685,7 +1685,7 @@ class _MediaUploaderState extends State<MediaUploader> {
     showDialog(
       context: context,
       builder: (dialogContext) => Dialog(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.black,
         insetPadding: const EdgeInsets.all(0),
         child: Stack(
           children: [
@@ -1701,7 +1701,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               right: 8,
               child: IconButton(
                 onPressed: () => Navigator.of(dialogContext).pop(),
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: const Icon(Icons.close, color: AppColors.white),
               ),
             ),
           ],
@@ -1727,7 +1727,7 @@ class _MediaUploaderState extends State<MediaUploader> {
               child: Container(
                 width: 120,
                 height: 120,
-                color: Colors.grey[300],
+                color: AppColors.grey[300],
                 child: child,
               ),
             ),
@@ -1741,10 +1741,14 @@ class _MediaUploaderState extends State<MediaUploader> {
                 child: Container(
                   padding: const EdgeInsets.all(4),
                   decoration: const BoxDecoration(
-                    color: Colors.black54,
+                    color: AppColors.black54,
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.close, color: Colors.white, size: 16),
+                  child: const Icon(
+                    Icons.close,
+                    color: AppColors.white,
+                    size: 16,
+                  ),
                 ),
               ),
             ),
@@ -1824,7 +1828,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                       ? [
                           const TextSpan(
                             text: ' *',
-                            style: TextStyle(color: Colors.red),
+                            style: TextStyle(color: AppColors.red),
                           ),
                         ]
                       : null,
@@ -1838,7 +1842,7 @@ class _MediaUploaderState extends State<MediaUploader> {
                   decoration: BoxDecoration(
                     border: Border.all(color: const Color(0x66573353)),
                     borderRadius: BorderRadius.circular(12),
-                    color: Colors.white,
+                    color: AppColors.white,
                   ),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1863,7 +1867,7 @@ class _MediaUploaderState extends State<MediaUploader> {
             padding: EdgeInsets.only(top: 8),
             child: Text(
               'Please upload at least one media *',
-              style: TextStyle(color: Colors.red, fontSize: 13),
+              style: TextStyle(color: AppColors.red, fontSize: 13),
             ),
           ),
 
@@ -1931,19 +1935,19 @@ class _FullscreenLocalVideoPlayerPageState
     final c = _controller;
     final ready = c != null && c.value.isInitialized;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.black,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparent,
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+          icon: const Icon(Icons.arrow_back, color: AppColors.white, size: 28),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
       body: Center(
         child: !ready
-            ? const CircularProgressIndicator(color: Colors.white)
+            ? const CircularProgressIndicator(color: AppColors.white)
             : GestureDetector(
                 onTap: () {
                   if (c.value.isPlaying) {
@@ -1963,7 +1967,7 @@ class _FullscreenLocalVideoPlayerPageState
                         duration: const Duration(milliseconds: 300),
                         child: const Icon(
                           Icons.play_circle_fill,
-                          color: Colors.white70,
+                          color: AppColors.white70,
                           size: 72,
                         ),
                       ),

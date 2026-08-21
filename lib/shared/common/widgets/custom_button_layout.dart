@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomButtonLayout extends StatelessWidget {
   const CustomButtonLayout({
@@ -28,6 +28,7 @@ class CustomButtonLayout extends StatelessWidget {
   final String? disabledConfirmTooltip;
   final bool showCancelButton;
   final bool isForm;
+
   /// When true, shows a white loader on top of the confirm button
   /// and disables all button interactions.
   final bool isLoading;
@@ -66,7 +67,8 @@ class CustomButtonLayout extends StatelessWidget {
                   Opacity(
                     opacity: isLoading ? 0.6 : 1,
                     child: Tooltip(
-                      message: (onPressedConfirm == null &&
+                      message:
+                          (onPressedConfirm == null &&
                               disabledConfirmTooltip != null)
                           ? disabledConfirmTooltip!
                           : '',
@@ -91,7 +93,9 @@ class CustomButtonLayout extends StatelessWidget {
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          AppColors.white,
+                        ),
                       ),
                     ),
                 ],

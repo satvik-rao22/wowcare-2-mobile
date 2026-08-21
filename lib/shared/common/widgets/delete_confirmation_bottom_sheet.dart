@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
+import '../../../app/theme/colors.dart';
+
 class DeleteConfirmationBottomSheet extends StatefulWidget {
   final String name; // student name or generic subject name
   final String type;
@@ -200,7 +202,7 @@ class _DeleteConfirmationBottomSheetState
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -246,7 +248,7 @@ class _DeleteConfirmationBottomSheetState
                               child: SvgPicture.asset(
                                 MediaRes.formDeleteIcon,
                                 colorFilter: const ColorFilter.mode(
-                                  Colors.white,
+                                  AppColors.white,
                                   BlendMode.srcIn,
                                 ),
                                 width: isLargeTablet

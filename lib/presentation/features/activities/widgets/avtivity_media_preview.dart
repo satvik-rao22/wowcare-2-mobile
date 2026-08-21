@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/view_activity_screens/show_full_screen_media.dart';
-
+import '../../../../app/theme/colors.dart';
 import '../../../../app/theme/media_res.dart';
 
 class ActivityMediaPreview extends StatefulWidget {
@@ -177,7 +177,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
                       child: const Center(
                         child: Icon(
                           Icons.videocam_outlined,
-                          color: Colors.white70,
+                          color: AppColors.white70,
                           size: 38,
                         ),
                       ),
@@ -188,7 +188,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
                     child: const Center(
                       child: Icon(
                         Icons.videocam_outlined,
-                        color: Colors.white70,
+                        color: AppColors.white70,
                         size: 38,
                       ),
                     ),
@@ -213,7 +213,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
             const Center(
               child: Icon(
                 Icons.play_circle_outline,
-                color: Colors.white,
+                color: AppColors.white,
                 size: 50,
               ),
             ),

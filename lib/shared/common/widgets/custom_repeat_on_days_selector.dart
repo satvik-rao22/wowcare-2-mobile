@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomRepeatOnDaysSelector extends StatefulWidget {
   final List<String> selectedDays;
@@ -88,7 +88,7 @@ class _CustomRepeatOnDaysSelectorState
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                   ),
                 ),
@@ -137,10 +137,10 @@ class _CustomRepeatOnDaysSelectorState
                     : const Color(0xFFDDD6DD),
                 width: 2,
               ),
-              color: isSelected ? AppColors.themeColor : Colors.transparent,
+              color: isSelected ? AppColors.themeColor : AppColors.transparent,
             ),
             child: isSelected
-                ? const Icon(Icons.check, size: 18, color: Colors.white)
+                ? const Icon(Icons.check, size: 18, color: AppColors.white)
                 : null,
           ),
           const SizedBox(width: 10),

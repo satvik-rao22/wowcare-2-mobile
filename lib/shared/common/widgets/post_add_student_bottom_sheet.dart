@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
-
+import '../../../../app/theme/colors.dart';
 
 class PostAddStudentBottomSheet extends StatelessWidget {
   final String studentName;
@@ -43,7 +42,7 @@ class PostAddStudentBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -63,14 +62,16 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.school,
-                    color: Colors.white,
+                    color: AppColors.white,
                     size: 36,
                   ),
                 ),
               ),
               SizedBox(height: verticalPadding),
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'Do you want to add additional details for this student now?',
                   style: TextStyle(
@@ -108,14 +109,18 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                         padding: const EdgeInsets.all(1),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                            color: AppColors.white,
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2 - 1,
+                            ),
                           ),
                           child: TextButton(
                             onPressed: onLater,
                             style: TextButton.styleFrom(
                               shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(borderRadius / 2 - 1),
+                                borderRadius: BorderRadius.circular(
+                                  borderRadius / 2 - 1,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -145,7 +150,9 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                         onPressed: onYes,
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                           ),
                         ),
                         child: Text(
@@ -154,7 +161,7 @@ class PostAddStudentBottomSheet extends StatelessWidget {
                             fontFamily: 'Manrope',
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppColors.white,
                             height: 1.0,
                           ),
                         ),
@@ -170,5 +177,3 @@ class PostAddStudentBottomSheet extends StatelessWidget {
     );
   }
 }
-
-

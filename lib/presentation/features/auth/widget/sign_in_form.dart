@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:iconly/iconly.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/text_field.dart';
 
 class SignInForm extends StatefulWidget {
@@ -68,7 +68,7 @@ class _SignInFormState extends State<SignInForm> {
             textFontSize: 16,
             textFontWeight: FontWeight.w400,
             suffixIcon: IconButton(
-              color: Colors.black,
+              color: AppColors.black,
               onPressed: () => setState(() {
                 isObscure = !isObscure;
               }),

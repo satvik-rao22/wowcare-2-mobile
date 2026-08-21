@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-
 import '../../../app/theme/colors.dart';
 import '../../../app/theme/media_res.dart';
 import 'ellipsis_tooltip_text.dart';
@@ -35,7 +34,7 @@ class SelectedStudentTile extends StatelessWidget {
       height: 19 / 14,
     );
 
-    final useViewColors = isViewActivityScreen || fillWidth;
+    final useViewAppColors = isViewActivityScreen || fillWidth;
     final showRemove = onTap != null && !isViewActivityScreen;
     final preferLongPressTooltip = onTap != null;
 
@@ -63,7 +62,7 @@ class SelectedStudentTile extends StatelessWidget {
           name: name,
           size: 35,
         ),
-        SizedBox(width: useViewColors ? 8 : 4),
+        SizedBox(width: useViewAppColors ? 8 : 4),
         if (fillWidth)
           Expanded(
             child: EllipsisTooltipText(
@@ -102,14 +101,14 @@ class SelectedStudentTile extends StatelessWidget {
     final decorated = Container(
       width: fillWidth ? double.infinity : null,
       padding: EdgeInsets.symmetric(
-        horizontal: useViewColors ? 14 : 12,
-        vertical: useViewColors ? 6 : 4,
+        horizontal: useViewAppColors ? 14 : 12,
+        vertical: useViewAppColors ? 6 : 4,
       ),
       decoration: BoxDecoration(
-        color: useViewColors
-            ? Colors.white
+        color: useViewAppColors
+            ? AppColors.white
             : const Color(0xFFB1AFE9).withValues(alpha: 0.102),
-        borderRadius: BorderRadius.circular(useViewColors ? 24 : 12),
+        borderRadius: BorderRadius.circular(useViewAppColors ? 24 : 12),
         border: Border.all(color: AppColors.themeColor, width: 1),
       ),
       child: row,

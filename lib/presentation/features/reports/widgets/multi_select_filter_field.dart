@@ -462,7 +462,7 @@ class _MultiSelectFilterFieldState<T> extends State<MultiSelectFilterField<T>> {
               constraints: BoxConstraints(minHeight: 44),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
-                color: AppColors.fieldBackgroundColor,
+                color: AppColors.fieldbackgroundColor,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Row(
@@ -541,6 +541,7 @@ class _SelectAllButton extends StatelessWidget {
 class _ClearAllButton extends StatelessWidget {
   final bool isEmpty;
   final VoidCallback onClearAll;
+
   const _ClearAllButton({required this.isEmpty, required this.onClearAll});
 
   @override

@@ -4,7 +4,7 @@ import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart'
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
@@ -262,7 +262,12 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
       // Designation options (backend codes; UI shows human-readable labels).
       _designationList = List<String>.from(_designationCodes);
 
-      _attendanceStatusList = ['Signed-In', 'Signed-Out', 'Not-Marked', 'Absent'];
+      _attendanceStatusList = [
+        'Signed-In',
+        'Signed-Out',
+        'Not-Marked',
+        'Absent',
+      ];
     });
   }
 
@@ -507,9 +512,9 @@ class _StaffFilterScreenState extends State<StaffFilterScreen> {
             // toggle) and Sort by is single, so they don't get Select All.
             final showSelectAll =
                 section == StaffFilterSection.primaryClassroom ||
-                    section == StaffFilterSection.allowedClassroom ||
-                    section == StaffFilterSection.classroom ||
-                    section == StaffFilterSection.attendanceStatus;
+                section == StaffFilterSection.allowedClassroom ||
+                section == StaffFilterSection.classroom ||
+                section == StaffFilterSection.attendanceStatus;
 
             return CustomMultiSelectDropdown(
               label: label,

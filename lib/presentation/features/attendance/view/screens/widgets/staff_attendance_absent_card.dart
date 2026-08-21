@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -92,7 +92,7 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
@@ -111,7 +111,8 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
                         : staff.id,
                     size: avatarSize,
                     fontSize: isTablet ? 18 : 16,
-                    disableAttendanceStatusLookup: widget.disableAttendanceStatusLookup,
+                    disableAttendanceStatusLookup:
+                        widget.disableAttendanceStatusLookup,
                   ),
                   SizedBox(width: spacing),
                   Expanded(
@@ -275,11 +276,9 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
       ),
       child: Text(
         label,
@@ -294,15 +293,21 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
     );
   }
 
-  Widget _buildMethodIcon(
-    StaffAbsentMarkMethod method,
-  ) {
+  Widget _buildMethodIcon(StaffAbsentMarkMethod method) {
     const size = 18.0;
     switch (method) {
       case StaffAbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+        );
       case StaffAbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+        );
       case StaffAbsentMarkMethod.kiosk:
         return Icon(
           Icons.point_of_sale_outlined,
@@ -314,14 +319,20 @@ class _StaffAbsentCardState extends State<StaffAbsentCard> {
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
       case StaffAbsentMarkMethod.web:
         return SvgPicture.asset(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
     }
   }

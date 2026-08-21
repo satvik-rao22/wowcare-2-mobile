@@ -16,8 +16,8 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
     final spacing = responsive.isTablet ? 16.0 : 9.0;
 
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.grey.shade300,
+      highlightColor: AppColors.grey.shade100,
       child: Container(
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
@@ -70,7 +70,7 @@ class StudentAttendanceCardShimmer extends StatelessWidget {
                 height: responsive.isTablet ? 18 : 16,
                 width: responsive.isTablet ? 90 : 80,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -95,8 +95,8 @@ class StudentAbsentCardShimmer extends StatelessWidget {
     final spacing = responsive.isTablet ? 16.0 : 9.0;
 
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.grey.shade300,
+      highlightColor: AppColors.grey.shade100,
       child: Container(
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         padding: cardPadding,
@@ -158,7 +158,7 @@ class StudentAbsentCardShimmer extends StatelessWidget {
                 height: responsive.isTablet ? 28 : 24,
                 width: responsive.isTablet ? 70 : 60,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(12),
                 ),
               ),

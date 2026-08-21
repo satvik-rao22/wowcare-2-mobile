@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 /// Gradient switch used across the app for compact toggles.
 class GradientToggleButton extends StatelessWidget {
@@ -40,7 +40,7 @@ class GradientToggleButton extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             gradient: disabled ? null : trackGradient,
-            color: disabled ? Colors.grey.withValues(alpha: 0.25) : null,
+            color: disabled ? AppColors.grey.withValues(alpha: 0.25) : null,
           ),
           alignment: value ? Alignment.centerRight : Alignment.centerLeft,
           child: Container(

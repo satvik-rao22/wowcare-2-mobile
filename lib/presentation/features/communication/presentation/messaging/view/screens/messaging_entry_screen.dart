@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
@@ -12,6 +11,8 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/src/app_router.dart';
+
+import '../../../../../../../app/theme/colors.dart';
 
 /// Communication Launcher — opened from the message icon in [CustomAppBar].
 ///
@@ -31,7 +32,7 @@ class MessagingEntryScreen {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

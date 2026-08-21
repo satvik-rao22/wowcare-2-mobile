@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_metadata_entity.dart';
@@ -35,7 +35,9 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    AppLogger.d('[REPORTS-UI] GeneratedReportsScreen: initState - starting initial load');
+    AppLogger.d(
+      '[REPORTS-UI] GeneratedReportsScreen: initState - starting initial load',
+    );
     _loadData();
   }
 
@@ -65,12 +67,18 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
 
   void _loadData({bool isRefresh = false}) {
     final cubit = context.read<ReportsCubit>();
-    AppLogger.d('[REPORTS-UI] GeneratedReportsScreen: Loading data [isRefresh=$isRefresh]');
+    AppLogger.d(
+      '[REPORTS-UI] GeneratedReportsScreen: Loading data [isRefresh=$isRefresh]',
+    );
     // Load in sequence: first reports, then tags (chained with .then() to ensure order)
-    unawaited(cubit.loadRecentReports(isRefresh: isRefresh).then((_) {
-      AppLogger.d('[REPORTS-UI] GeneratedReportsScreen: Reports loaded, now loading tags');
-      cubit.loadDynamicTags();
-    }));
+    unawaited(
+      cubit.loadRecentReports(isRefresh: isRefresh).then((_) {
+        AppLogger.d(
+          '[REPORTS-UI] GeneratedReportsScreen: Reports loaded, now loading tags',
+        );
+        cubit.loadDynamicTags();
+      }),
+    );
   }
 
   Future<void> _handleDownload(BuildContext context, String? assetCode) async {
@@ -149,7 +157,9 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         return;
       }
 
-      AppLogger.d('[REPORTS-UI-DOWN] Downloaded: bytesLength=${fileData.length}');
+      AppLogger.d(
+        '[REPORTS-UI-DOWN] Downloaded: bytesLength=${fileData.length}',
+      );
 
       // Show saving dialog
       if (mounted) {
@@ -264,7 +274,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
     final responsive = ResponsiveHelper(context);
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -374,14 +384,14 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
     required VoidCallback onTap,
   }) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(20),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? AppColors.primaryColor : Colors.white,
+            color: isSelected ? AppColors.primaryColor : AppColors.white,
             border: Border.all(
               color: isSelected
                   ? AppColors.primaryColor
@@ -395,7 +405,7 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: isSelected ? Colors.white : const Color(0xff573353),
+              color: isSelected ? AppColors.white : const Color(0xff573353),
             ),
           ),
         ),
@@ -413,7 +423,9 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         if (state.generationSuccess != null &&
             state.generationSuccess!.isNotEmpty &&
             state.generatedReport != null) {
-          AppLogger.d('[RECENT_REPORTS_BACKGROUND_REFRESH] New report generated, refreshing list silently');
+          AppLogger.d(
+            '[RECENT_REPORTS_BACKGROUND_REFRESH] New report generated, refreshing list silently',
+          );
           _loadData(isRefresh: true);
 
           // Clear the success signal so future generations trigger this listener again
@@ -429,7 +441,9 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
         // Show error snackbar when loading fails
         if (state.generatedReportsState == GeneratedReportsLoadingState.error &&
             state.generatedReportsError != null) {
-          AppLogger.e('[REPORTS-UI] Failed to load reports - ${state.generatedReportsError}');
+          AppLogger.e(
+            '[REPORTS-UI] Failed to load reports - ${state.generatedReportsError}',
+          );
           CoreUtils.showTopSnackBar(
             context: context,
             message: state.generatedReportsError ?? 'Failed to load reports',
@@ -439,11 +453,15 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
       },
       child: BlocBuilder<ReportsCubit, ReportsState>(
         builder: (context, state) {
-          AppLogger.d('[REPORTS-UI] Build: state=${state.generatedReportsState}, count=${state.recentReports.length}');
+          AppLogger.d(
+            '[REPORTS-UI] Build: state=${state.generatedReportsState}, count=${state.recentReports.length}',
+          );
 
           // Show shimmer placeholders while loading initial data
-          if (state.generatedReportsState == GeneratedReportsLoadingState.initial ||
-              state.generatedReportsState == GeneratedReportsLoadingState.loading) {
+          if (state.generatedReportsState ==
+                  GeneratedReportsLoadingState.initial ||
+              state.generatedReportsState ==
+                  GeneratedReportsLoadingState.loading) {
             return const Padding(
               padding: EdgeInsets.all(16),
               child: GeneratedReportsListShimmer(),
@@ -451,14 +469,19 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
           }
 
           // Show error state with retry button
-          if (state.generatedReportsState == GeneratedReportsLoadingState.error) {
+          if (state.generatedReportsState ==
+              GeneratedReportsLoadingState.error) {
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const Icon(
+                      Icons.error_outline,
+                      size: 48,
+                      color: AppColors.red,
+                    ),
                     const SizedBox(height: 16),
                     Text(
                       'Failed to load reports',
@@ -498,7 +521,9 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
           );
 
           if (filtered.isEmpty) {
-            AppLogger.d('[REPORTS-UI] Showing empty state: ${state.recentReports.length} total, ${filtered.length} filtered');
+            AppLogger.d(
+              '[REPORTS-UI] Showing empty state: ${state.recentReports.length} total, ${filtered.length} filtered',
+            );
             return Center(
               child: Padding(
                 padding: const EdgeInsets.all(32),
@@ -537,17 +562,21 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
             );
           }
 
-          AppLogger.d('[REPORTS-UI] Showing ${filtered.length} reports in list');
+          AppLogger.d(
+            '[REPORTS-UI] Showing ${filtered.length} reports in list',
+          );
 
           // Show reports list with pull-to-refresh
           return RefreshIndicator(
             onRefresh: () async {
               AppLogger.d('[REPORTS-UI] Pull-to-refresh triggered');
-              await context.read<ReportsCubit>().loadRecentReports(isRefresh: true);
+              await context.read<ReportsCubit>().loadRecentReports(
+                isRefresh: true,
+              );
               AppLogger.d('[REPORTS-UI] Refresh completed');
             },
             backgroundColor: AppColors.primaryColor,
-            color: Colors.white,
+            color: AppColors.white,
             strokeWidth: 2.0,
             displacement: 40,
             child: ListView(
@@ -567,7 +596,8 @@ class _GeneratedReportsScreenState extends State<GeneratedReportsScreen>
                       )
                       .toList(),
                   onView: null,
-                  onDownload: (assetCode) => _handleDownload(context, assetCode),
+                  onDownload: (assetCode) =>
+                      _handleDownload(context, assetCode),
                 ),
                 // Add padding at bottom to allow pull-to-refresh on short lists
                 if (filtered.isEmpty)

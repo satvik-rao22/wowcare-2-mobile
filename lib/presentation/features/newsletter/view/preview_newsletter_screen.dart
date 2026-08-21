@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/presentation/features/newsletter/cubit/preview_newsletter_cubit.dart';
 import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_preview_content.dart';
@@ -20,7 +20,8 @@ class PreviewNewsletterScreen extends StatefulWidget {
   final Newsletter? initialNewsletter;
 
   @override
-  State<PreviewNewsletterScreen> createState() => _PreviewNewsletterScreenState();
+  State<PreviewNewsletterScreen> createState() =>
+      _PreviewNewsletterScreenState();
 }
 
 class _PreviewNewsletterScreenState extends State<PreviewNewsletterScreen> {
@@ -74,18 +75,21 @@ class _PreviewNewsletterScreenState extends State<PreviewNewsletterScreen> {
 
             return Column(
               children: [
-                if (state.errorMessage != null && state.errorMessage!.isNotEmpty)
+                if (state.errorMessage != null &&
+                    state.errorMessage!.isNotEmpty)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 8),
                     child: Material(
-                      color: Colors.orange.shade50,
+                      color: AppColors.orange.shade100,
                       borderRadius: BorderRadius.circular(8),
                       child: Padding(
                         padding: const EdgeInsets.all(10),
                         child: Text(
                           state.errorMessage!,
                           style: TextStyle(
-                            color: AppColors.primaryColor.withValues(alpha: 0.9),
+                            color: AppColors.primaryColor.withValues(
+                              alpha: 0.9,
+                            ),
                             fontSize: 13,
                           ),
                         ),

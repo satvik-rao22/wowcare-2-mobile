@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/classroom/repositories/classroom_repository.dart';
 import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
@@ -150,7 +150,7 @@ class _ClassroomOverviewScreenState extends State<ClassroomOverviewScreen> {
                       minHeight: constraints.maxHeight,
                     ),
                     child: Container(
-                      color: Colors.white,
+                      color: AppColors.white,
                       padding: const EdgeInsets.all(8),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -197,7 +197,7 @@ class _EnrollmentOverviewCard extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       child: Column(
         children: [
@@ -232,15 +232,10 @@ class _EnrollmentOverviewCard extends StatelessWidget {
             leftValue: activeCount.toDouble(),
             rightValue: upcomingCount.toDouble(),
             onTitleTap: () {
-              context.go(
-                StudentScreen.routeName,
-              );
+              context.go(StudentScreen.routeName);
             },
             onLeftTap: () {
-              context.go(
-                StudentScreen.routeName,
-                extra: {'filter': 'ACTIVE'},
-              );
+              context.go(StudentScreen.routeName, extra: {'filter': 'ACTIVE'});
             },
             onRightTap: () {
               context.go(
@@ -478,7 +473,7 @@ class _RatioMonitoringPlaceholder extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -590,7 +585,7 @@ class _RatioHeaderCell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: AppColors.grey.shade800,
                 fontFamily: 'Manrope',
               ),
             ),
@@ -603,7 +598,7 @@ class _RatioHeaderCell extends StatelessWidget {
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
-                color: Colors.grey.shade800,
+                color: AppColors.grey.shade800,
                 fontFamily: 'Manrope',
               ),
             ),

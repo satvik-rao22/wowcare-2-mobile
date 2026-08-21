@@ -154,7 +154,11 @@ class _MessageCompositionBulkMessagingState
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      CoreUtils.showTopSnackBar(context: context, message: message, isWarning: true);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
+      );
     });
   }
 
@@ -166,7 +170,7 @@ class _MessageCompositionBulkMessagingState
       child: BlocBuilder<BulkMessagingCompositionCubit, BulkMessagingCompositionState>(
         builder: (context, compositionState) {
           return Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             resizeToAvoidBottomInset: true,
             appBar: const CustomAppBar(hasBackButton: true),
             body: GestureDetector(
@@ -241,7 +245,7 @@ class _MessageCompositionBulkMessagingState
                                     responsive.isTablet ? 32.0 : 16.0,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppColors.white,
                                     borderRadius: BorderRadius.all(
                                       Radius.circular(
                                         responsive.isTablet ? 30.0 : 20.0,
@@ -249,7 +253,7 @@ class _MessageCompositionBulkMessagingState
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(
+                                        color: AppColors.black.withValues(
                                           alpha: 0.05,
                                         ),
                                         blurRadius: 8,
@@ -283,13 +287,14 @@ class _MessageCompositionBulkMessagingState
                                         itemBuilder: (context, index) {
                                           final String name = compositionState
                                               .selectedRecipientNames[index];
-                                          final avatar = index <
+                                          final avatar =
+                                              index <
                                                   compositionState
                                                       .selectedRecipients
                                                       .length
                                               ? compositionState
-                                                      .selectedRecipients[index]['avatar']
-                                                  as String?
+                                                        .selectedRecipients[index]['avatar']
+                                                    as String?
                                               : null;
 
                                           return SelectedStudentTile(
@@ -311,7 +316,7 @@ class _MessageCompositionBulkMessagingState
                                           borderRadius: BorderRadius.circular(
                                             12,
                                           ),
-                                          color: Colors.white,
+                                          color: AppColors.white,
                                         ),
                                         child: Column(
                                           children: [
@@ -349,9 +354,11 @@ class _MessageCompositionBulkMessagingState
                                               // (tags stripped), matching the
                                               // 1:1 chat composer.
                                               contextMenuBuilder:
-                                                  (context, editableTextState) =>
-                                                      HtmlAwareTextSelectionControls
-                                                          .buildContextMenu(
+                                                  (
+                                                    context,
+                                                    editableTextState,
+                                                  ) =>
+                                                      HtmlAwareTextSelectionControls.buildContextMenu(
                                                         context,
                                                         editableTextState,
                                                         _controller,
@@ -380,8 +387,8 @@ class _MessageCompositionBulkMessagingState
                                             color:
                                                 compositionState.charCount >
                                                     maxChars
-                                                ? Colors.red
-                                                : Colors.grey[700],
+                                                ? AppColors.red
+                                                : AppColors.grey[700],
                                           ),
                                         ),
                                       ),
@@ -470,10 +477,10 @@ class _MessageCompositionBulkMessagingState
         top: 16,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -499,7 +506,7 @@ class _MessageCompositionBulkMessagingState
                 padding: EdgeInsets.all(1),
                 child: Container(
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(
                       responsive.isTablet ? 16.0 : 8.0,
                     ),
@@ -507,7 +514,7 @@ class _MessageCompositionBulkMessagingState
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      overlayColor: Colors.transparent,
+                      overlayColor: AppColors.transparent,
                     ),
                     child: ShaderMask(
                       shaderCallback: (bounds) {
@@ -521,7 +528,7 @@ class _MessageCompositionBulkMessagingState
                           fontFamily: 'Manrope',
                           fontSize: responsive.buttonFontSize,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       ),
                     ),
@@ -552,14 +559,16 @@ class _MessageCompositionBulkMessagingState
                     );
                   }
                 },
-                style: TextButton.styleFrom(overlayColor: Colors.transparent),
+                style: TextButton.styleFrom(
+                  overlayColor: AppColors.transparent,
+                ),
                 child: Text(
                   'Send',
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.white,
                   ),
                 ),
               ),
@@ -579,7 +588,7 @@ class _MessageCompositionBulkMessagingState
           width: previewSize,
           height: previewSize,
           decoration: BoxDecoration(
-            //border: Border.all(color: Colors.grey.shade300),
+            //border: Border.all(color: AppColors.grey.shade300),
             borderRadius: BorderRadius.circular(12),
           ),
           child: ClipRRect(
@@ -592,14 +601,14 @@ class _MessageCompositionBulkMessagingState
               },
               widgetSize: previewSize,
               decoration: WidgetDecoration(
-                backgroundColor: Colors.white,
+                backgroundColor: AppColors.white,
                 iconColor: AppColors.primaryColor,
                 textColor: AppColors.primaryColor,
-                wrapperBgColor: Colors.transparent,
+                wrapperBgColor: AppColors.transparent,
                 //wrapperSize: 84,
               ),
               errorBuilder: (context, error) => Container(
-                color: Colors.grey[200],
+                color: AppColors.grey[200],
                 child: Center(
                   child: Icon(
                     att.isImage ? Icons.image : Icons.picture_as_pdf,
@@ -619,7 +628,7 @@ class _MessageCompositionBulkMessagingState
           //   child: Column(
           //     mainAxisSize: MainAxisSize.min,
           //     children: [
-          //       const Icon(Icons.picture_as_pdf, size: 40, color: Colors.red),
+          //       const Icon(Icons.picture_as_pdf, size: 40, color: AppColors.red),
           //       const SizedBox(height: 4),
           //       Padding(
           //         padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -644,8 +653,8 @@ class _MessageCompositionBulkMessagingState
             onTap: () => _removeAttachment(index),
             child: CircleAvatar(
               radius: 12,
-              backgroundColor: Colors.red,
-              child: const Icon(Icons.close, size: 14, color: Colors.white),
+              backgroundColor: AppColors.red,
+              child: const Icon(Icons.close, size: 14, color: AppColors.white),
             ),
           ),
         ),

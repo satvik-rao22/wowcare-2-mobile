@@ -17,7 +17,6 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
-import 'package:wowcare/presentation/features/communication/shared/utils/html_aware_text_controller.dart';
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
@@ -38,6 +37,7 @@ import 'package:wowcare/presentation/features/communication/shared/widgets/messa
 import 'package:wowcare/presentation/features/communication/shared/widgets/reaction_info_dialog.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/new_messages_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
+import '../../../shared/utils/html_aware_text_controller.dart';
 import '../widgets/thread_message_tile.dart';
 import '../../../cubit/private_mode_toggle_cubit.dart';
 import '../../../cubit/private_mode_toggle_state.dart';
@@ -688,7 +688,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       isScrollControlled: true,
       builder: (sheetContext) {
         final sheetHeight =
@@ -700,7 +700,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
         return Container(
           height: sheetHeight,
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: EmojiPicker(
@@ -865,7 +865,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 key: ValueKey(messageId),
                 controller: controller,
                 index: index,
-                highlightColor: Colors.green.withValues(alpha: 0.7),
+                highlightColor: AppColors.green.withValues(alpha: 0.7),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -1175,7 +1175,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     controller:
                                                         _parent1Controller,
                                                     index: index,
-                                                    highlightColor: Colors.green
+                                                    highlightColor: AppColors
+                                                        .green
                                                         .withValues(alpha: 0.7),
                                                     child: Column(
                                                       mainAxisSize:
@@ -1500,7 +1501,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     controller:
                                                         _parent2Controller,
                                                     index: index,
-                                                    highlightColor: Colors.green
+                                                    highlightColor: AppColors
+                                                        .green
                                                         .withValues(alpha: 0.7),
                                                     child: Column(
                                                       mainAxisSize:
@@ -1834,7 +1836,8 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                     controller:
                                                         _getActiveScrollController(),
                                                     index: index,
-                                                    highlightColor: Colors.green
+                                                    highlightColor: AppColors
+                                                        .green
                                                         .withValues(alpha: 0.7),
                                                     child: Column(
                                                       mainAxisSize:
@@ -2103,10 +2106,12 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                           child: Container(
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(12),
-                              color: Colors.white,
+                              color: AppColors.white,
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withValues(alpha: 0.05),
+                                  color: AppColors.black.withValues(
+                                    alpha: 0.05,
+                                  ),
                                   blurRadius: 6,
                                   offset: const Offset(0, -2),
                                 ),
@@ -2156,7 +2161,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                       //   child: Container(
                       //     decoration: BoxDecoration(
                       //       borderRadius: BorderRadius.circular(12),
-                      //       color: Colors.white,
+                      //       color: AppColors.white,
                       //     ),
                       //     child: Padding(
                       //       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
@@ -2291,11 +2296,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         controller:
                                                             _parent1Controller,
                                                         index: index,
-                                                        highlightColor: Colors
-                                                            .green
-                                                            .withValues(
-                                                              alpha: 0.7,
-                                                            ),
+                                                        highlightColor:
+                                                            AppColors.green
+                                                                .withValues(
+                                                                  alpha: 0.7,
+                                                                ),
                                                         child: Column(
                                                           mainAxisSize:
                                                               MainAxisSize.min,
@@ -2626,11 +2631,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         controller:
                                                             _parent2Controller,
                                                         index: index,
-                                                        highlightColor: Colors
-                                                            .green
-                                                            .withValues(
-                                                              alpha: 0.7,
-                                                            ),
+                                                        highlightColor:
+                                                            AppColors.green
+                                                                .withValues(
+                                                                  alpha: 0.7,
+                                                                ),
                                                         child: Column(
                                                           mainAxisSize:
                                                               MainAxisSize.min,
@@ -2971,11 +2976,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                                         controller:
                                                             _getActiveScrollController(),
                                                         index: index,
-                                                        highlightColor: Colors
-                                                            .green
-                                                            .withValues(
-                                                              alpha: 0.7,
-                                                            ),
+                                                        highlightColor:
+                                                            AppColors.green
+                                                                .withValues(
+                                                                  alpha: 0.7,
+                                                                ),
                                                         child: Column(
                                                           mainAxisSize:
                                                               MainAxisSize.min,
@@ -3234,10 +3239,10 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
+                            color: AppColors.white,
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: AppColors.black.withValues(alpha: 0.05),
                                 blurRadius: 6,
                                 offset: const Offset(0, -2),
                               ),
@@ -3341,7 +3346,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                             CustomTextWidget(
                               text: 'Say hello to start the conversation',
                               fontSize: 13,
-                              fontColor: Colors.grey[600],
+                              fontColor: AppColors.grey[600],
                             ),
                           ],
                         ),
@@ -3392,7 +3397,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   ? Icons.chat_bubble_outline_rounded
                   : Icons.error_outline_rounded,
               size: 48,
-              color: isUnauthorized ? Colors.grey : Colors.redAccent,
+              color: isUnauthorized ? AppColors.grey : AppColors.redAccent,
             ),
             const SizedBox(height: 12),
             CustomTextWidget(
@@ -3408,7 +3413,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                   ? 'Go back and start a new conversation.'
                   : message,
               fontSize: 13,
-              fontColor: Colors.grey[600],
+              fontColor: AppColors.grey[600],
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 20),
@@ -3435,7 +3440,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 ),
                 child: CustomTextWidget(
                   text: isUnauthorized ? 'Go back' : 'Retry',
-                  fontColor: Colors.white,
+                  fontColor: AppColors.white,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -3665,7 +3670,11 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
       onViewParticipants: _showParticipantsDialog,
       onAttachmentError: (message) {
         if (!mounted) return;
-        CoreUtils.showTopSnackBar(context: context, message: message, isError: true);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: message,
+          isError: true,
+        );
       },
     );
   }
@@ -3681,7 +3690,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
 
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       child: Column(
@@ -3810,7 +3819,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                                 labelStyle: TextStyle(
                                   color: toggleState.isEnabled
                                       ? const Color(0xFFE63946)
-                                      : Colors.grey.shade600,
+                                      : AppColors.grey.shade600,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 12,
                                 ),
@@ -3981,8 +3990,18 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
     );
 
     const monthNames = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
     ];
 
     // Matches web's groupMessagesByDate (ChatMessageArea.tsx): "Today" /
@@ -4052,7 +4071,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
                 fontSize: 11,
                 fontFamily: 'Manrope',
                 fontWeight: FontWeight.w600,
-                color: isSelected ? Colors.white : color,
+                color: isSelected ? AppColors.white : color,
               ),
             ),
             if (isPrivate) ...[
@@ -4060,7 +4079,7 @@ class _ParentMessagingThreadState extends State<ParentMessagingThread>
               Icon(
                 Icons.visibility_off,
                 size: 12,
-                color: isSelected ? Colors.white : Colors.red,
+                color: isSelected ? AppColors.white : AppColors.red,
               ),
             ],
           ],

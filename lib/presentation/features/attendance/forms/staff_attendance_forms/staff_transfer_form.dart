@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
@@ -63,6 +63,7 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     return _selectedStaff.length == 1 &&
         (_selectedStaff.first.staffCode ?? '').trim() == code;
   }
+
   // The staff member's latest/current classroom code. Seeded from the
   // entity (transfer-list API) for an instant first paint, then overridden
   // by the staff's attendance/transfer history (the `isLastSequenceEntry`
@@ -108,16 +109,17 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
     } catch (_) {}
 
     final isAdmin = await _resolveIsStaffAdminPersona();
-    final currentStaffCode = (await serviceLocator<StorageService>()
-                .getString(StorageKeys.staffCode) ??
-            '')
-        .trim();
+    final currentStaffCode =
+        (await serviceLocator<StorageService>().getString(
+                  StorageKeys.staffCode,
+                ) ??
+                '')
+            .trim();
     if (!mounted) return;
     setState(() {
       _schoolIana = schoolIana;
       _isStaffAdminPersona = isAdmin;
-      _currentStaffCode =
-          currentStaffCode.isNotEmpty ? currentStaffCode : null;
+      _currentStaffCode = currentStaffCode.isNotEmpty ? currentStaffCode : null;
       final now = ServerTimeService.instance.now();
       _selectedTransferDate = now;
       _selectedTransferTime = TimeOfDay(hour: now.hour, minute: now.minute);
@@ -502,7 +504,10 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
           // whatever screen this action was started from.
           Navigator.of(context).pop();
         } else {
-          redirectToAttendanceDaily(context, StaffAttendanceTabbedView.routeName);
+          redirectToAttendanceDaily(
+            context,
+            StaffAttendanceTabbedView.routeName,
+          );
         }
       }
     } catch (e) {
@@ -614,7 +619,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                               isTime: false,
                               fetchInitialTime: false,
                               initialDate: _selectedTransferDate,
-                              isDisabled: _isStaffAdminPersona != true || _isSelfTarget,
+                              isDisabled:
+                                  _isStaffAdminPersona != true || _isSelfTarget,
                               onDateSelected: (date) {
                                 setState(() {
                                   final iana = _schoolIana;
@@ -624,7 +630,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                         )
                                       : DateTime(
                                           ServerTimeService.instance.now().year,
-                                          ServerTimeService.instance.now().month,
+                                          ServerTimeService.instance
+                                              .now()
+                                              .month,
                                           ServerTimeService.instance.now().day,
                                         );
                                   final picked = DateTime(
@@ -649,7 +657,8 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                             const AppText.label('Time'),
                             const SizedBox(height: 8),
                             IgnorePointer(
-                              ignoring: _isStaffAdminPersona != true || _isSelfTarget,
+                              ignoring:
+                                  _isStaffAdminPersona != true || _isSelfTarget,
                               child: GradientTimePickerField(
                                 time: _selectedTransferTime,
                                 onTimeSelected: (t) {
@@ -680,7 +689,9 @@ class _StaffTransferFormState extends State<StaffTransferForm> {
                                 vertical: 14,
                               ),
                               decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
+                                border: Border.all(
+                                  color: AppColors.grey.shade300,
+                                ),
                                 borderRadius: BorderRadius.circular(8),
                                 color: const Color.fromRGBO(177, 175, 233, 0.1),
                               ),

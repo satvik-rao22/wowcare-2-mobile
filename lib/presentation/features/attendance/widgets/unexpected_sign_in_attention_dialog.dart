@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
@@ -16,10 +16,7 @@ class UnexpectedSignInAttentionResult {
 }
 
 /// Joins display names for the unexpected sign-in banner; truncates after [maxShown].
-String formatUnexpectedSignInNames(
-  List<String> names, {
-  int maxShown = 3,
-}) {
+String formatUnexpectedSignInNames(List<String> names, {int maxShown = 3}) {
   final trimmed = names
       .map((e) => e.trim())
       .where((e) => e.isNotEmpty)
@@ -40,7 +37,7 @@ Future<UnexpectedSignInAttentionResult?> showUnexpectedSignInAttentionDialog(
   return showDialog<UnexpectedSignInAttentionResult>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.black.withValues(alpha: 0.45),
     builder: (ctx) {
       return _UnexpectedSignInAttentionDialogBody(
         unexpectedFullNames: unexpectedFullNames,
@@ -77,20 +74,19 @@ class _UnexpectedSignInAttentionDialogBodyState
   @override
   Widget build(BuildContext context) {
     final namesText = formatUnexpectedSignInNames(widget.unexpectedFullNames);
-    final target =
-        widget.forStaff ? 'staff' : 'students';
+    final target = widget.forStaff ? 'staff' : 'students';
     const headerBg = Color.fromRGBO(243, 238, 250, 1);
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       elevation: 0,
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -105,8 +101,10 @@ class _UnexpectedSignInAttentionDialogBodyState
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: const BoxDecoration(
                   color: headerBg,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -131,10 +129,8 @@ class _UnexpectedSignInAttentionDialogBodyState
                         minHeight: 36,
                       ),
                       onPressed: () => Navigator.of(context).pop(
-                            const UnexpectedSignInAttentionResult(
-                              confirmed: false,
-                            ),
-                          ),
+                        const UnexpectedSignInAttentionResult(confirmed: false),
+                      ),
                       icon: Icon(
                         Icons.close,
                         color: AppColors.primaryColor.withValues(alpha: 0.85),
@@ -182,7 +178,7 @@ class _UnexpectedSignInAttentionDialogBodyState
                   decoration: InputDecoration(
                     hintText: 'Add a Comment',
                     hintStyle: AppTextStyles.body.copyWith(
-                      color: Colors.grey[600],
+                      color: AppColors.grey[600],
                     ),
                     contentPadding: const EdgeInsets.symmetric(
                       horizontal: 14,
@@ -190,11 +186,11 @@ class _UnexpectedSignInAttentionDialogBodyState
                     ),
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: AppColors.grey.shade300),
                     ),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: BorderSide(color: AppColors.grey.shade300),
                     ),
                   ),
                 ),
@@ -206,12 +202,11 @@ class _UnexpectedSignInAttentionDialogBodyState
                     Expanded(
                       child: CustomCancelButton(
                         cancelButtonLabel: 'Back',
-                        onPressedCancel: () =>
-                            Navigator.of(context).pop(
-                              const UnexpectedSignInAttentionResult(
-                                confirmed: false,
-                              ),
-                            ),
+                        onPressedCancel: () => Navigator.of(context).pop(
+                          const UnexpectedSignInAttentionResult(
+                            confirmed: false,
+                          ),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -219,11 +214,11 @@ class _UnexpectedSignInAttentionDialogBodyState
                       child: CustomConfirmButton(
                         label: 'Confirm',
                         onPressed: () => Navigator.of(context).pop(
-                              UnexpectedSignInAttentionResult(
-                                confirmed: true,
-                                comment: _commentController.text.trim(),
-                              ),
-                            ),
+                          UnexpectedSignInAttentionResult(
+                            confirmed: true,
+                            comment: _commentController.text.trim(),
+                          ),
+                        ),
                       ),
                     ),
                   ],

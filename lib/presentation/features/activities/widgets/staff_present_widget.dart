@@ -108,8 +108,8 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
     // attributing the activity to. Picking themselves must never show the
     // "not signed in" warning (or fire the status check at all).
     final storage = serviceLocator<StorageService>();
-    final ownStaffCode =
-        (await storage.getString(StorageKeys.staffCode) ?? '').trim();
+    final ownStaffCode = (await storage.getString(StorageKeys.staffCode) ?? '')
+        .trim();
     if (ownStaffCode.isNotEmpty &&
         code.toUpperCase() == ownStaffCode.toUpperCase()) {
       if (!mounted) return;
@@ -158,6 +158,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
       });
     }
   }
+
   @override
   void initState() {
     super.initState();
@@ -344,7 +345,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                   TextSpan(text: widget.fieldLabel),
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppColors.red),
                   ),
                 ],
               ),
@@ -450,7 +451,7 @@ class _StaffPresentWidgetState extends State<StaffPresentWidget> {
                 fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
-                color: Colors.red,
+                color: AppColors.red,
               ),
             ),
           ),

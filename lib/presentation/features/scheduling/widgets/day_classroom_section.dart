@@ -55,9 +55,7 @@ class SchedulingTableRow extends StatelessWidget {
         ],
       ),
     );
-    final tapped = onTap != null
-        ? InkWell(onTap: onTap, child: row)
-        : row;
+    final tapped = onTap != null ? InkWell(onTap: onTap, child: row) : row;
     final filled = backgroundColor != null
         ? ColoredBox(color: backgroundColor!, child: tapped)
         : tapped;
@@ -87,9 +85,7 @@ class DailyClassroomScheduleHeader extends StatelessWidget {
     return Container(
       decoration: const BoxDecoration(
         color: kSchedulingHeaderBackground,
-        border: Border(
-          bottom: BorderSide(color: kSchedulingHeaderBorderColor),
-        ),
+        border: Border(bottom: BorderSide(color: kSchedulingHeaderBorderColor)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
@@ -168,7 +164,7 @@ class DayClassroomSection extends StatefulWidget {
 
   /// Day view — tap on a staff Gantt work/break block.
   final void Function(StaffScheduleEntry entry, StaffShiftSlotDetail detail)?
-      onStaffSlotTap;
+  onStaffSlotTap;
 
   /// Today's sign-in status keyed by staffCode, resolved at the screen level
   /// via the bulk `/staff-attendance/sign-in/status` POST. Used to color the
@@ -224,8 +220,9 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
           borderRadius: 8,
           child: SchedulingDayGanttRow(
             left: InkWell(
-              onTap:
-                  hasStaff ? () => setState(() => _expanded = !_expanded) : null,
+              onTap: hasStaff
+                  ? () => setState(() => _expanded = !_expanded)
+                  : null,
               child: Row(
                 children: [
                   Expanded(
@@ -263,8 +260,9 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
             SchedulingDayGanttRow(
               left: StaffRowLeft(
                 entry: entry,
-                attendanceStatus:
-                    widget._attendanceStatusForStaff(entry.staffCode),
+                attendanceStatus: widget._attendanceStatusForStaff(
+                  entry.staffCode,
+                ),
               ),
               right: SchedulingStaffDayTimeline(
                 slots: entry.staffDaySlots,
@@ -294,9 +292,7 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SchedulingTableRow(
-          onTap: hasStaff
-              ? () => setState(() => _expanded = !_expanded)
-              : null,
+          onTap: hasStaff ? () => setState(() => _expanded = !_expanded) : null,
           isLast: widget.isLast && headerIsLastInSection,
           left: Row(
             children: [
@@ -334,8 +330,9 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
                 isLast: widget.isLast && i == staff.length - 1,
                 left: StaffRowLeft(
                   entry: staff[i],
-                  attendanceStatus:
-                      widget._attendanceStatusForStaff(staff[i].staffCode),
+                  attendanceStatus: widget._attendanceStatusForStaff(
+                    staff[i].staffCode,
+                  ),
                 ),
                 right: StaffTimeRangePill(
                   startTime: staff[i].startTime,
@@ -363,10 +360,7 @@ class _DayClassroomSectionState extends State<DayClassroomSection> {
     return InkWell(
       customBorder: const CircleBorder(),
       onTap: widget.onClassroomStatusTap,
-      child: Padding(
-        padding: const EdgeInsets.all(8),
-        child: icon,
-      ),
+      child: Padding(padding: const EdgeInsets.all(8), child: icon),
     );
   }
 }

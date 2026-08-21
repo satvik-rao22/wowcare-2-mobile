@@ -1,9 +1,7 @@
-
 import 'package:flutter/material.dart';
+import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
-import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 
 class ActivityDropdownWidget extends StatefulWidget {
@@ -17,8 +15,7 @@ class ActivityDropdownWidget extends StatefulWidget {
     this.isEnabled = true,
     this.isMultiSelect = false,
     this.onSelect,
-    this.onMultiSelect
-
+    this.onMultiSelect,
   });
   final List<String> options;
   final String dropDownName;
@@ -39,13 +36,13 @@ class _ActivityDropdownWidgetState extends State<ActivityDropdownWidget> {
   late List<String> _internalMultiSelected;
   String? get _effectiveSelected => widget.selectedValue ?? _internalSelected;
 
-
   @override
   void initState() {
     super.initState();
     _internalSelected = widget.selectedValue; // Sync initial value
     _internalMultiSelected = widget.selectedOptions?.toList() ?? [];
   }
+
   @override
   void didUpdateWidget(covariant ActivityDropdownWidget oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -77,51 +74,45 @@ class _ActivityDropdownWidgetState extends State<ActivityDropdownWidget> {
               if (widget.isRequired)
                 TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
 
-        if(!widget.isMultiSelect)
+        if (!widget.isMultiSelect)
           CustomDropdown(
-              hintText: 'Select',
-              items: widget.options,
-              selectedItem: _effectiveSelected,
-              isEnabled: widget.isEnabled,
-              onSelect: (String? value) {
-                if (widget.selectedValue == null) {
-                  setState(() {
-                    _internalSelected = value;
-                  });
-                }
-                widget.onSelect?.call(value);
+            hintText: 'Select',
+            items: widget.options,
+            selectedItem: _effectiveSelected,
+            isEnabled: widget.isEnabled,
+            onSelect: (String? value) {
+              if (widget.selectedValue == null) {
+                setState(() {
+                  _internalSelected = value;
+                });
               }
-
+              widget.onSelect?.call(value);
+            },
           )
         else
           CustomMultiSelectDropdown(
-              hintText: 'Select',
-              items: widget.options,
-              selectedItems: widget.selectedOptions ?? _internalMultiSelected,
-              onChanged: (List<String> newSelectedOptions){
-                if(widget.selectedOptions == null){
-                  setState(() {
-                    _internalMultiSelected = newSelectedOptions;
-                  });
-                }
-                widget.onMultiSelect?.call(newSelectedOptions);
-              },
-              label: null,
-              suffix: 'Category',
-              gapHeight: 30,
-
-          )
-
-
-
-
+            hintText: 'Select',
+            items: widget.options,
+            selectedItems: widget.selectedOptions ?? _internalMultiSelected,
+            onChanged: (List<String> newSelectedOptions) {
+              if (widget.selectedOptions == null) {
+                setState(() {
+                  _internalMultiSelected = newSelectedOptions;
+                });
+              }
+              widget.onMultiSelect?.call(newSelectedOptions);
+            },
+            label: null,
+            suffix: 'Category',
+            gapHeight: 30,
+          ),
       ],
     );
   }

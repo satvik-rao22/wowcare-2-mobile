@@ -9,7 +9,7 @@ import 'package:dio/dio.dart';
 import 'package:gal/gal.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
@@ -152,7 +152,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (ctx) {
         return DeleteConfirmationBottomSheet(
           name: doc.documentName,
@@ -434,7 +434,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                 ),
                               ),
                               borderRadius: BorderRadius.circular(14),
-                              color: Colors.white.withValues(alpha: 0.88),
+                              color: AppColors.white.withValues(alpha: 0.88),
                             ),
                             child: Column(
                               children: [
@@ -537,7 +537,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                     highlightCode: widget.highlightCode,
                                     child: Container(
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
+                                        color: AppColors.white.withValues(
                                           alpha: 0.88,
                                         ),
                                         borderRadius: BorderRadius.circular(14),
@@ -548,7 +548,7 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                       ),
                                       child: Theme(
                                         data: Theme.of(context).copyWith(
-                                          dividerColor: Colors.transparent,
+                                          dividerColor: AppColors.transparent,
                                         ),
                                         child: ExpansionTile(
                                           initiallyExpanded: isTarget,
@@ -656,7 +656,8 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                             fontSize: 16,
                                                             fontWeight:
                                                                 FontWeight.w700,
-                                                            color: Colors.white,
+                                                            color:
+                                                                AppColors.white,
                                                           ),
                                                         ),
                                                       ),
@@ -673,11 +674,12 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                               doc,
                                                             ),
                                                         style: OutlinedButton.styleFrom(
-                                                          side: const BorderSide(
-                                                            color: Color(
-                                                              0xFF6C7FD8,
-                                                            ),
-                                                          ),
+                                                          side:
+                                                              const BorderSide(
+                                                                color: Color(
+                                                                  0xFF6C7FD8,
+                                                                ),
+                                                              ),
                                                           shape: RoundedRectangleBorder(
                                                             borderRadius:
                                                                 BorderRadius.circular(
@@ -739,7 +741,8 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                           ? const SizedBox(
                                                               width: 18,
                                                               height: 18,
-                                                              child: PrimaryCircularLoader(),
+                                                              child:
+                                                                  PrimaryCircularLoader(),
                                                             )
                                                           : const Text(
                                                               'View',
@@ -788,7 +791,8 @@ class _StaffDocumentsTabState extends State<StaffDocumentsTab> {
                                                           fontSize: 16,
                                                           fontWeight:
                                                               FontWeight.w700,
-                                                          color: Colors.white,
+                                                          color:
+                                                              AppColors.white,
                                                         ),
                                                       ),
                                                     ),

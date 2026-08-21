@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class GradientAddButton extends StatelessWidget {
   final VoidCallback? onTap;
@@ -66,13 +66,17 @@ class GradientAddButton extends StatelessWidget {
                   : null,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: AppColors.black.withValues(alpha: 0.1),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
-            child: Icon(Icons.add, color: Colors.white, size: buttonIconSize),
+            child: Icon(
+              Icons.add,
+              color: AppColors.white,
+              size: buttonIconSize,
+            ),
           )
         : GestureDetector(
             onTap: onTap,
@@ -81,7 +85,7 @@ class GradientAddButton extends StatelessWidget {
               height: wantedButtonSize ?? buttonSize,
               decoration: BoxDecoration(
                 shape: isRectangle ? BoxShape.rectangle : BoxShape.circle,
-                color: isDisabled ? Colors.grey.shade300 : null,
+                color: isDisabled ? AppColors.grey.shade300 : null,
                 gradient: isDisabled
                     ? null
                     : AppColors.buildPrimaryGradient(), // Use your app's gradient
@@ -92,7 +96,7 @@ class GradientAddButton extends StatelessWidget {
                     ? null
                     : [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.1),
+                          color: AppColors.black.withValues(alpha: 0.1),
                           blurRadius: 4,
                           offset: const Offset(0, 2),
                         ),
@@ -100,7 +104,7 @@ class GradientAddButton extends StatelessWidget {
               ),
               child: Icon(
                 Icons.add,
-                color: isDisabled ? Colors.grey.shade600 : Colors.white,
+                color: isDisabled ? AppColors.grey.shade600 : AppColors.white,
                 size: buttonIconSize,
               ),
             ),

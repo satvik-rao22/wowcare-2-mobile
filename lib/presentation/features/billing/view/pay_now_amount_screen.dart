@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:uuid/uuid.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/auto_pay_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
@@ -85,8 +85,9 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
           // Seed the family-balance field once after load.
           if (!state.isLoading && !_seededCurrent) {
             _seededCurrent = true;
-            _currentController.text =
-                state.currentAmount > 0 ? _money(state.currentAmount) : '';
+            _currentController.text = state.currentAmount > 0
+                ? _money(state.currentAmount)
+                : '';
           }
           return StaffFormLayout(
             title: 'Pay Now',
@@ -120,15 +121,27 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
   }
 
   Widget _buildLoading() => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShimmerLoader(height: 22, width: 160, borderRadius: BorderRadius.circular(6)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-          const SizedBox(height: 16),
-          ShimmerLoader(height: 56, width: double.infinity, borderRadius: BorderRadius.circular(10)),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      ShimmerLoader(
+        height: 22,
+        width: 160,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      const SizedBox(height: 16),
+      ShimmerLoader(
+        height: 56,
+        width: double.infinity,
+        borderRadius: BorderRadius.circular(10),
+      ),
+    ],
+  );
 
   Widget _buildCurrentOption(PayNowState state) {
     final selected = state.mode == PayNowAmountMode.currentOutstanding;
@@ -180,7 +193,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             padding: const EdgeInsets.only(top: 6, left: 2),
             child: Text(
               '*Amount exceeds unpaid balance (\$${_money(state.unpaid)}).',
-              style: const TextStyle(color: Colors.red, fontSize: 12),
+              style: const TextStyle(color: AppColors.red, fontSize: 12),
             ),
           ),
       ],
@@ -224,7 +237,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
             decoration: BoxDecoration(
               color: const Color(0xFFF8F9FA),
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.grey.shade200),
+              border: Border.all(color: AppColors.grey.shade200),
             ),
             child: Column(
               children: [
@@ -270,10 +283,10 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: over ? AppColors.errorColor : Colors.grey.shade200,
+          color: over ? AppColors.errorColor : AppColors.grey.shade200,
         ),
       ),
       child: Column(
@@ -297,7 +310,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
                     fontFamily: 'Manrope',
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
-                    color: Colors.grey.shade600,
+                    color: AppColors.grey.shade600,
                   ),
                 ),
               ],
@@ -314,7 +327,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               padding: EdgeInsets.only(top: 6, left: 2),
               child: Text(
                 '*Amount exceeds outstanding.',
-                style: TextStyle(color: Colors.red, fontSize: 12),
+                style: TextStyle(color: AppColors.red, fontSize: 12),
               ),
             ),
         ],
@@ -341,7 +354,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     return Container(
       constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(
           color: hasError ? AppColors.errorColor : const Color(0x66573353),
         ),
@@ -350,16 +363,14 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
       child: TextField(
         controller: controller,
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
-        inputFormatters: [
-          FilteringTextInputFormatter.allow(RegExp(r'[0-9.]')),
-        ],
+        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
         onChanged: onChanged,
         style: textStyle,
         decoration: InputDecoration(
           prefixText: '\$ ',
           prefixStyle: textStyle,
           hintText: '0',
-          hintStyle: textStyle.copyWith(color: Colors.grey),
+          hintStyle: textStyle.copyWith(color: AppColors.grey),
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(
             horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -382,7 +393,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
         top: 10,
       ),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.only(
           topLeft: Radius.circular(24),
           topRight: Radius.circular(24),
@@ -404,7 +415,7 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
               child: Text(
                 'Confirm',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
                 ),
@@ -429,7 +440,8 @@ class _PayNowAmountScreenState extends State<PayNowAmountScreen> {
     // Idempotency key: MOBILE-<uuid>-<guardianCode>. The uuid makes it unique
     // per attempt; the guardian code is appended at the end.
     final String guardian = state.guardianCode.trim();
-    final String idempotencyKey = 'MOBILE-${const Uuid().v4()}'
+    final String idempotencyKey =
+        'MOBILE-${const Uuid().v4()}'
         '${guardian.isNotEmpty ? '-$guardian' : ''}';
     final charge = PayNowCharge(
       ownerType: state.ownerType,

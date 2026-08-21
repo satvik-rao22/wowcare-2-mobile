@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 /// Accepts nested vertical scrollables (e.g. [Column] + [ListView]) so pull-to-refresh
 /// works when the scrollable is not the direct child of [RefreshIndicator].
@@ -28,7 +28,7 @@ class CustomRefreshIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       backgroundColor: AppColors.themeColor,
-      color: Colors.white,
+      color: AppColors.white,
       displacement: displacement ?? 24,
       onRefresh: onRefresh,
       notificationPredicate:

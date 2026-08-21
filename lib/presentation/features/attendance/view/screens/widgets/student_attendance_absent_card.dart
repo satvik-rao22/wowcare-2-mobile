@@ -90,7 +90,7 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
@@ -265,11 +265,9 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
       onPressed: onPressed,
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: Color(0xFF6C7FD8)),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
       ),
       child: Text(
         label,
@@ -288,9 +286,17 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
     const size = 18.0;
     switch (method) {
       case AbsentMarkMethod.gps:
-        return SvgPicture.asset(MediaRes.gpsMethodIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.gpsMethodIcon,
+          width: size,
+          height: size,
+        );
       case AbsentMarkMethod.qr:
-        return SvgPicture.asset(MediaRes.qrAttendanceIcon, width: size, height: size);
+        return SvgPicture.asset(
+          MediaRes.qrAttendanceIcon,
+          width: size,
+          height: size,
+        );
       case AbsentMarkMethod.kiosk:
         return Icon(
           Icons.point_of_sale_outlined,
@@ -302,14 +308,20 @@ class _StudentAbsentCardState extends State<StudentAbsentCard> {
           MediaRes.appMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
       case AbsentMarkMethod.web:
         return SvgPicture.asset(
           MediaRes.webMethodIcon,
           width: size,
           height: size,
-          colorFilter: const ColorFilter.mode(AppColors.themeColor, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(
+            AppColors.themeColor,
+            BlendMode.srcIn,
+          ),
         );
     }
   }

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 /// Confirmation sheet shown when the user tries to add a shift on a day the
@@ -9,7 +9,8 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 class NoScheduleBottomSheet extends StatelessWidget {
   const NoScheduleBottomSheet({
     super.key,
-    this.title = 'This staff has no schedule defined for the selected day. '
+    this.title =
+        'This staff has no schedule defined for the selected day. '
         'Do you still want to add this shift?',
   });
 
@@ -21,7 +22,7 @@ class NoScheduleBottomSheet extends StatelessWidget {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (_) => const NoScheduleBottomSheet(),
     );
     return result ?? false;
@@ -54,7 +55,7 @@ class NoScheduleBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),

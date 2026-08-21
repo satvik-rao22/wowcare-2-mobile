@@ -19,6 +19,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/shared/constants/location_constants.dart';
 
+import '../../../../../app/theme/colors.dart';
 import '../../../../../shared/common/widgets/profile_info_card.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 import '../edit_student_profile_details_screen.dart';
@@ -929,7 +930,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                                                   126,
                                                   1,
                                                 )
-                                              : Colors.grey.shade700,
+                                              : AppColors.grey.shade700,
                                           color: isAvailable
                                               ? const Color(0x4DB1AFE9)
                                               : const Color(0xFFF3F4FB),
@@ -945,7 +946,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
                                               126,
                                               1,
                                             ),
-                                            color: Colors.transparent,
+                                            color: AppColors.transparent,
                                             isTimeChip: true,
                                           ),
                                         ],
@@ -978,7 +979,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //         bottomLeft: Radius.circular(8),
     //         bottomRight: Radius.circular(8)
     //       ),
-    //       color: Colors.white,
+    //       color: AppColors.white,
     //     ),
     //     child: Column(
     //       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1021,7 +1022,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //                 child: const Icon(
     //                   Icons.edit,
     //                   size: 22,
-    //                   color: Colors.white,
+    //                   color: AppColors.white,
     //                 ),
     //               ),
     //             ),
@@ -1071,7 +1072,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //                       ? const Color.fromRGBO(0, 177, 21, 1)
     //                           : status == 'isAbsent'
     //                       ? const Color.fromRGBO(200, 32, 32, 1)
-    //                           : Colors.white;
+    //                           : AppColors.white;
     //
     //                 return Padding(
     //                     padding: EdgeInsets.only(bottom: 12),
@@ -1093,7 +1094,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //                                 decoration: BoxDecoration(
     //                                   color: color,
     //                                   shape: BoxShape.circle,
-    //                                   border: Border.all(color: Colors.white, width: 2),
+    //                                   border: Border.all(color: AppColors.white, width: 2),
     //                                 ),
     //                               ),
     //                             ),
@@ -1161,7 +1162,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //                           label: fullDay,
     //                           labelColor: isAvailable
     //                               ? const Color.fromRGBO(27, 35, 126, 1)
-    //                               : Colors.grey.shade700,
+    //                               : AppColors.grey.shade700,
     //                           color: isAvailable
     //                               ? const Color(0x4DB1AFE9)
     //                               : const Color(0xFFF3F4FB),
@@ -1172,7 +1173,7 @@ class _StudentAboutTabCardState extends State<StudentAboutTabCard> {
     //                             width: 110,
     //                             label: timeText,
     //                             labelColor: const Color.fromRGBO(27, 35, 126, 1),
-    //                             color: Colors.transparent,
+    //                             color: AppColors.transparent,
     //                             isTimeChip: true,
     //                           ),
     //                         ],
@@ -1253,7 +1254,7 @@ class _tags extends StatelessWidget {
   const _tags({required this.tags});
   final List<String> tags;
 
-  static const List<Color> _chipColors = [
+  static const List<Color> _chipAppColors = [
     Color.fromRGBO(177, 175, 233, 0.3),
     Color.fromRGBO(203, 246, 255, 0.4),
     Color.fromRGBO(217, 255, 203, 0.4),
@@ -1268,7 +1269,7 @@ class _tags extends StatelessWidget {
       children: List.generate(tagList.length, (index) {
         return _ProfileTagChip(
           label: tagList[index],
-          color: _chipColors[index % _chipColors.length],
+          color: _chipAppColors[index % _chipAppColors.length],
         );
       }),
     );

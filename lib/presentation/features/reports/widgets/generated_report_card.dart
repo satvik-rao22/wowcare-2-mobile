@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart'
@@ -37,13 +37,13 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
           child: Container(
             width: constraints.maxWidth,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparent,
               child: InkWell(
                 onTap: () => setState(() => _isExpanded = !_isExpanded),
                 child: Column(
@@ -105,8 +105,8 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
                                     gradient: LinearGradient(
                                       colors: _isDownloading
                                           ? [
-                                              Colors.grey.shade400,
-                                              Colors.grey.shade600,
+                                              AppColors.grey.shade400,
+                                              AppColors.grey.shade600,
                                             ]
                                           : AppColors.primaryGradientColors,
                                     ),
@@ -132,8 +132,8 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
                                             }
                                           },
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.transparent,
-                                      shadowColor: Colors.transparent,
+                                      backgroundColor: AppColors.transparent,
+                                      shadowColor: AppColors.transparent,
                                       elevation: 0,
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 12,
@@ -147,14 +147,14 @@ class _GeneratedReportCardState extends State<GeneratedReportCard> {
                                               strokeWidth: 2,
                                               valueColor:
                                                   AlwaysStoppedAnimation<Color>(
-                                                    Colors.white,
+                                                    AppColors.white,
                                                   ),
                                             ),
                                           )
                                         : const Text(
                                             'Download',
                                             style: TextStyle(
-                                              color: Colors.white,
+                                              color: AppColors.white,
                                               fontWeight: FontWeight.w600,
                                             ),
                                           ),

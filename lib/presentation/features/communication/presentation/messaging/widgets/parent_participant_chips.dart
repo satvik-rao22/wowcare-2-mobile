@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../../app/theme/colors.dart';
 
 /// Legacy-compatible participant chips for ParentMessagingThread.
 ///

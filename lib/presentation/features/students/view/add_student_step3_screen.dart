@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -430,7 +430,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
     return GestureDetector(
       onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         appBar: const CustomAppBar(hasBackButton: true),
         body: Stack(
           children: [
@@ -475,13 +475,13 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                     ),
                     padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -508,7 +508,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                                 'Select days and times for this student. Default times are school open and close hours.',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.grey.shade600,
+                                  color: AppColors.grey.shade600,
                                   fontFamily: 'Manrope',
                                 ),
                               ),
@@ -561,10 +561,10 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -619,7 +619,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                         fontFamily: 'Manrope',
                         fontSize: responsive.buttonFontSize,
                         fontWeight: FontWeight.w600,
-                        color: Colors.white,
+                        color: AppColors.white,
                       ),
                     ),
                   ),
@@ -642,12 +642,12 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       decoration: BoxDecoration(
         color: hasSchedule
             ? AppColors.primaryColor.withValues(alpha: 0.05)
-            : Colors.grey.shade50,
+            : AppColors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: hasSchedule
               ? AppColors.primaryColor.withValues(alpha: 0.3)
-              : Colors.grey.shade300,
+              : AppColors.grey.shade300,
         ),
       ),
       child: Column(
@@ -668,7 +668,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
               if (hasSchedule)
                 IconButton(
                   icon: const Icon(Icons.close, size: 20),
-                  color: Colors.red,
+                  color: AppColors.red,
                   onPressed: () => _removeDay(day),
                 ),
             ],
@@ -681,7 +681,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   child: GradientTimePickerField(
                     label: 'Start Time',
                     minuteInterval: 15,
-                    time: schedule!['start'] ??
+                    time:
+                        schedule!['start'] ??
                         (_schoolBoundsForDay(day) != null
                             ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$1)
                             : _schoolStartTime),
@@ -694,7 +695,8 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                   child: GradientTimePickerField(
                     label: 'End Time',
                     minuteInterval: 15,
-                    time: schedule['end'] ??
+                    time:
+                        schedule['end'] ??
                         (_schoolBoundsForDay(day) != null
                             ? _minutesToTimeOfDay(_schoolBoundsForDay(day)!.$2)
                             : _schoolEndTime),
@@ -716,7 +718,7 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
                       fontFamily: 'Manrope',
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
-                      color: Colors.grey.shade600,
+                      color: AppColors.grey.shade600,
                     ),
                   ),
                   TextButton(
@@ -738,5 +740,4 @@ class _AddStudentStep3ScreenState extends State<AddStudentStep3Screen> {
       ),
     );
   }
-
 }

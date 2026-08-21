@@ -41,19 +41,23 @@ class _NotificationSettingsScreenState
   Widget build(BuildContext context) {
     return BlocProvider<NotificationPreferenceGroupsCubit>.value(
       value: _cubit,
-      child: BlocConsumer<NotificationPreferenceGroupsCubit,
-          NotificationPreferenceGroupsState>(
-        listenWhen: (prev, curr) =>
-            prev.errorMessage != curr.errorMessage && curr.errorMessage != null,
-        listener: (context, state) {
-          CoreUtils.showTopSnackBar(
-            context: context,
-            message: state.errorMessage ?? 'Something went wrong',
-            isError: true,
-          );
-        },
-        builder: (context, state) => _buildContent(context, state),
-      ),
+      child:
+          BlocConsumer<
+            NotificationPreferenceGroupsCubit,
+            NotificationPreferenceGroupsState
+          >(
+            listenWhen: (prev, curr) =>
+                prev.errorMessage != curr.errorMessage &&
+                curr.errorMessage != null,
+            listener: (context, state) {
+              CoreUtils.showTopSnackBar(
+                context: context,
+                message: state.errorMessage ?? 'Something went wrong',
+                isError: true,
+              );
+            },
+            builder: (context, state) => _buildContent(context, state),
+          ),
     );
   }
 
@@ -63,7 +67,7 @@ class _NotificationSettingsScreenState
   ) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       appBar: const CustomAppBar(hasBackButton: true),
       body: Stack(
         children: [
@@ -114,13 +118,13 @@ class _NotificationSettingsScreenState
                           responsive.isTablet ? 32.0 : 16.0,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.all(
                             Radius.circular(responsive.isTablet ? 30.0 : 20.0),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: AppColors.black.withValues(alpha: 0.05),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -181,7 +185,9 @@ class _NotificationSettingsScreenState
     for (final group in state.groups) {
       if (group.categoryName != lastCategory) {
         rows.add(
-          NotificationPreferenceCategoryHeader(categoryName: group.categoryName),
+          NotificationPreferenceCategoryHeader(
+            categoryName: group.categoryName,
+          ),
         );
         lastCategory = group.categoryName;
       }

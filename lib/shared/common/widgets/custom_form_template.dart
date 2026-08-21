@@ -1,9 +1,9 @@
 // import 'package:flutter/material.dart';
 // import 'package:schoolerp/core/common/widgets/custom_button_layout.dart';
 // import 'package:schoolerp/core/common/widgets/custom_scaffold.dart';
-// import 'package:schoolerp/core/res/colors.dart';
+// import 'package:schoolerp/core/res/AppColors.dart';
 
-// import '../../../app/theme/colors.dart';
+// import '../../../app/theme/AppColors.dart';
 // import 'custom_scaffold.dart';
 
 // class CustomFormTemplate extends StatelessWidget {

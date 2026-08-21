@@ -828,7 +828,7 @@ class _StaffAttendanceDailyViewScreenState
               ),
               const SizedBox(width: 8),
               Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: _navigateToFilterScreen,
                   borderRadius: BorderRadius.circular(100),

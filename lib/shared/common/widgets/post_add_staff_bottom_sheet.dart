@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class PostAddStaffBottomSheet extends StatelessWidget {
   final String staffName;
@@ -42,7 +42,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -62,7 +62,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                   ),
                   child: const Icon(
                     Icons.person_add_alt_1,
-                    color: Colors.white,
+                    color: AppColors.white,
                     size: 36,
                   ),
                 ),
@@ -109,7 +109,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                         padding: const EdgeInsets.all(1),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.white,
                             borderRadius: BorderRadius.circular(
                               borderRadius / 2 - 1,
                             ),
@@ -161,7 +161,7 @@ class PostAddStaffBottomSheet extends StatelessWidget {
                             fontFamily: 'Manrope',
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppColors.white,
                             height: 1.0,
                           ),
                         ),

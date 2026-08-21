@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 
 /// Loading placeholder that mirrors [NewsletterSentListCard] so the list
 /// keeps its shape while the first page is fetched.
@@ -30,8 +30,8 @@ class _NewsletterCardShimmer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.grey.shade300,
+      highlightColor: AppColors.grey.shade100,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
         decoration: BoxDecoration(
@@ -48,7 +48,7 @@ class _NewsletterCardShimmer extends StatelessWidget {
               width: 84,
               height: 56,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),
@@ -95,7 +95,7 @@ class _NewsletterCardShimmer extends StatelessWidget {
       width: width,
       height: height,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(4),
       ),
     );

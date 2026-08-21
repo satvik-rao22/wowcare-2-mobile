@@ -265,13 +265,13 @@ class _AnalyticsShimmer extends StatelessWidget {
         Align(
           alignment: Alignment.centerRight,
           child: Shimmer.fromColors(
-            baseColor: Colors.grey.shade300,
-            highlightColor: Colors.grey.shade100,
+            baseColor: AppColors.grey.shade300,
+            highlightColor: AppColors.grey.shade100,
             child: Container(
               height: 32,
               width: 110,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -299,16 +299,16 @@ class _AnalyticsCardShimmer extends StatelessWidget {
   Widget build(BuildContext context) {
     final bool isTablet = ResponsiveSizing.isTablet(context);
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.grey.shade300,
+      highlightColor: AppColors.grey.shade100,
       child: Container(
         padding: EdgeInsets.all(isTablet ? 16 : 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.04),
+              color: AppColors.black.withValues(alpha: 0.04),
               blurRadius: 8,
               offset: const Offset(0, 2),
             ),
@@ -325,7 +325,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                     height: isTablet ? 16 : 14,
                     width: 120,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.circular(4),
                     ),
                   ),
@@ -338,7 +338,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                       height: 12,
                       width: 80,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -347,7 +347,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                       height: isTablet ? 24 : 20,
                       width: 90,
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.white,
                         borderRadius: BorderRadius.circular(4),
                       ),
                     ),
@@ -359,7 +359,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
             Container(
               height: chartHeight,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(8),
               ),
             ),
@@ -369,7 +369,7 @@ class _AnalyticsCardShimmer extends StatelessWidget {
                 height: 12,
                 width: 70,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),

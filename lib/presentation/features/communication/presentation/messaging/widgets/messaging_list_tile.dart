@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
@@ -62,10 +62,10 @@ class MessagingListTile extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7), // Subtle theme splash
-      highlightColor: Colors.transparent,
+      highlightColor: AppColors.transparent,
       child: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
           ),
@@ -88,7 +88,7 @@ class MessagingListTile extends StatelessWidget {
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.05),
+                  color: AppColors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -179,7 +179,7 @@ class MessagingListTile extends StatelessWidget {
                           ? '99+'
                           : '${conversation.unreadCount}',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),

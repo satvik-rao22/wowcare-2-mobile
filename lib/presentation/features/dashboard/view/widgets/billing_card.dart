@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_analytics_entity.dart';
 import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart';
@@ -13,6 +12,8 @@ import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 // ---------------------------------------------------------------------------
 // BillingCard widget (admin dashboard)
@@ -34,8 +35,9 @@ class BillingCard extends StatelessWidget {
     return MultiBlocProvider(
       providers: [
         BlocProvider<TransactionsCubit>(
-          create: (_) => serviceLocator<TransactionsCubit>()
-            ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
+          create: (_) =>
+              serviceLocator<TransactionsCubit>()
+                ..loadOverview(dateFrom: monthStart, dateTo: monthEnd),
         ),
         BlocProvider<AnalyticsCubit>(
           create: (_) => serviceLocator<AnalyticsCubit>()..load(),
@@ -97,9 +99,10 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
     final year = AppTime.now().year;
     final from = DateTime(year, _monthIndex, 1);
     final to = DateTime(year, _monthIndex + 1, 0, 23, 59, 59);
-    return context
-        .read<TransactionsCubit>()
-        .loadOverview(dateFrom: from, dateTo: to);
+    return context.read<TransactionsCubit>().loadOverview(
+      dateFrom: from,
+      dateTo: to,
+    );
   }
 
   // ---------------------------------------------------------------------------
@@ -123,10 +126,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       final key = e.name.trim().toLowerCase();
       if (key.length >= 3) byMonth[key.substring(0, 3)] = e.value;
     }
-    return List<double>.generate(
-      12,
-      (i) => byMonth[_monthAbbr[i]] ?? 0.0,
-    );
+    return List<double>.generate(12, (i) => byMonth[_monthAbbr[i]] ?? 0.0);
   }
 
   // ---------------------------------------------------------------------------
@@ -140,7 +140,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,9 +239,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           onSelect: (value) {
                             if (value != null) {
                               setState(() => _selectedYear = int.parse(value));
-                              context
-                                  .read<AnalyticsCubit>()
-                                  .setYear(_selectedYear);
+                              context.read<AnalyticsCubit>().setYear(
+                                _selectedYear,
+                              );
                             }
                           },
                         ),
@@ -267,8 +267,9 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                           child: ShimmerLoader(height: 220),
                         );
                       }
-                      final revenue =
-                          _toMonthlyValues(state.analytics?.revenue ?? const []);
+                      final revenue = _toMonthlyValues(
+                        state.analytics?.revenue ?? const [],
+                      );
                       return _buildYearlySection(revenue);
                     },
                   ),
@@ -322,7 +323,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                 amount: '\$${overview.netPaid.toStringAsFixed(2)}',
                 percentage: _getPercentage(overview.netPaid, totalAllAmounts),
                 label: 'Net Paid',
-                percentageColor: Colors.green,
+                percentageColor: AppColors.green,
               ),
             ),
             Expanded(
@@ -330,16 +331,18 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                 amount: '\$${overview.inProcess.toStringAsFixed(2)}',
                 percentage: _getPercentage(overview.inProcess, totalAllAmounts),
                 label: 'In-Process',
-                percentageColor: Colors.yellow,
+                percentageColor: AppColors.yellow,
               ),
             ),
             Expanded(
               child: _buildBillingStatus(
                 amount: '\$${overview.outstanding.toStringAsFixed(2)}',
-                percentage:
-                    _getPercentage(overview.outstanding, totalAllAmounts),
+                percentage: _getPercentage(
+                  overview.outstanding,
+                  totalAllAmounts,
+                ),
                 label: 'Outstanding',
-                percentageColor: Colors.red,
+                percentageColor: AppColors.red,
               ),
             ),
           ],
@@ -395,7 +398,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                     return BarTooltipItem(
                       rod.toY.toStringAsFixed(0),
                       const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontWeight: FontWeight.bold,
                       ),
                     );
@@ -429,7 +432,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                       return Text(
                         months[i],
                         style: const TextStyle(
-                          color: Colors.grey,
+                          color: AppColors.grey,
                           fontSize: 12,
                         ),
                       );
@@ -444,7 +447,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                       return Text(
                         '${(value / 1000).round()}k',
                         style: const TextStyle(
-                          color: Colors.grey,
+                          color: AppColors.grey,
                           fontSize: 12,
                         ),
                       );
@@ -467,12 +470,12 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                   // Solid line at the base of the bars; faint elsewhere
                   if (value == minY) {
                     return FlLine(
-                      color: Colors.grey.withValues(alpha: 0.5),
+                      color: AppColors.grey.withValues(alpha: 0.5),
                       strokeWidth: 1,
                     );
                   }
                   return FlLine(
-                    color: Colors.grey.withValues(alpha: 0.2),
+                    color: AppColors.grey.withValues(alpha: 0.2),
                     strokeWidth: 1,
                   );
                 },
@@ -509,7 +512,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w500,
-              color: Colors.grey.shade600,
+              color: AppColors.grey.shade600,
             ),
           ),
         ),

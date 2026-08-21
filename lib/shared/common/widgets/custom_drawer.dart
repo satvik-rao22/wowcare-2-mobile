@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/src/app_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_out_screen.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -198,7 +198,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const CircleAvatar(
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.white,
               radius: 28,
               backgroundImage: AssetImage(MediaRes.logo_wow),
             ),
@@ -211,7 +211,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   const Text(
                     'WowCare',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.white,
                       fontSize: 19,
                       fontWeight: FontWeight.w900,
                     ),
@@ -284,7 +284,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -294,7 +294,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                 _isSchoolDropdownOpen
                     ? Icons.keyboard_arrow_up
                     : Icons.keyboard_arrow_down,
-                color: Colors.white,
+                color: AppColors.white,
                 size: 18,
               ),
             ],
@@ -304,10 +304,10 @@ class _CustomDrawerState extends State<CustomDrawer> {
           const SizedBox(height: 8),
           Container(
             decoration: BoxDecoration(
-              color: Colors.white.withValues(alpha: 0.06),
+              color: AppColors.white.withValues(alpha: 0.06),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: AppColors.white.withValues(alpha: 0.2),
                 width: 1,
               ),
             ),
@@ -330,8 +330,8 @@ class _CustomDrawerState extends State<CustomDrawer> {
                     ),
                     decoration: BoxDecoration(
                       color: isSelected
-                          ? Colors.white.withValues(alpha: 0.15)
-                          : Colors.transparent,
+                          ? AppColors.white.withValues(alpha: 0.15)
+                          : AppColors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -342,7 +342,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.white,
                               fontSize: 12,
                               fontWeight: isSelected
                                   ? FontWeight.w600
@@ -354,7 +354,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           const Icon(
                             Icons.check,
                             size: 16,
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                       ],
                     ),
@@ -804,7 +804,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
           children: [
             _header(),
             const Divider(
-              color: Colors.white,
+              color: AppColors.white,
               thickness: 0.3,
               indent: 8,
               endIndent: 8,
@@ -943,9 +943,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   ),
                                   onTap: () {
                                     Navigator.pop(context);
-                                    context.go(
-                                      AdminChatHostScreen.routeName,
-                                    );
+                                    context.go(AdminChatHostScreen.routeName);
                                   },
                                 ),
                               if (showParentNewsletterDrawer)
@@ -1286,7 +1284,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           _CustomExpansionTile(
                             title: 'Reports',
                             icon: MediaRes.documents_drawer_Icon,
-                            preserveIconColors: true,
+                            preserveIconAppColors: true,
                             isCurrentRoute:
                                 _currentRoute == ReportsScreen.routeName,
                             suppressRouteHighlight:
@@ -1349,7 +1347,7 @@ class _CustomDrawerState extends State<CustomDrawer> {
                           return Text(
                             version.isNotEmpty ? "Version : $version" : "",
                             textAlign: TextAlign.center,
-                            style: const TextStyle(color: Colors.white),
+                            style: const TextStyle(color: AppColors.white),
                           );
                         },
                       ),
@@ -1374,11 +1372,11 @@ class _CustomExpansionTile extends StatefulWidget {
   final VoidCallback? onTap;
   final bool isDashboard;
 
-  /// When true, the icon's native colors (e.g. gradient fills, multi-color
+  /// When true, the icon's native AppColors (e.g. gradient fills, multi-color
   /// strokes) are preserved instead of being flattened by a single
   /// [ColorFilter]. Use for SVGs that ship their own gradient like the
   /// Reports/Documents drawer icon.
-  final bool preserveIconColors;
+  final bool preserveIconAppColors;
 
   /// When non-null, this tile's expanded/collapsed state is driven by the
   /// parent (accordion behavior — only one top-level drawer section open at
@@ -1406,7 +1404,7 @@ class _CustomExpansionTile extends StatefulWidget {
     this.isCurrentRoute = false,
     this.onTap,
     this.isDashboard = false,
-    this.preserveIconColors = false,
+    this.preserveIconAppColors = false,
     this.expandedOverride,
     this.onExpansionChanged,
     this.suppressRouteHighlight = false,
@@ -1465,14 +1463,14 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
     if (_effectiveIsCurrentRoute) {
       return AppColors.themeColor;
     }
-    return _isExpanded ? AppColors.themeColor : Colors.white;
+    return _isExpanded ? AppColors.themeColor : AppColors.white;
   }
 
   Color _getTextColor() {
     if (_effectiveIsCurrentRoute) {
       return AppColors.themeColor;
     }
-    return _isExpanded ? AppColors.themeColor : Colors.white;
+    return _isExpanded ? AppColors.themeColor : AppColors.white;
   }
 
   @override
@@ -1483,14 +1481,14 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
         margin: const EdgeInsets.symmetric(vertical: 2),
         decoration: BoxDecoration(
           color: _effectiveIsCurrentRoute || _isExpanded
-              ? Colors.white
-              : Colors.transparent,
+              ? AppColors.white
+              : AppColors.transparent,
           borderRadius: BorderRadius.circular(12),
           boxShadow: [
             if (_effectiveIsCurrentRoute || _isExpanded)
               const BoxShadow(
                 blurRadius: 4,
-                color: Colors.black26,
+                color: AppColors.black26,
                 offset: Offset(0, 4),
               ),
           ],
@@ -1498,8 +1496,8 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
         child: widget.isExpansionEnabled
             ? ExpansionTile(
                 controller: _expansionController,
-                backgroundColor: Colors.white,
-                collapsedBackgroundColor: Colors.transparent,
+                backgroundColor: AppColors.white,
+                collapsedBackgroundColor: AppColors.transparent,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
@@ -1515,12 +1513,12 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                 },
                 leading: SvgPicture.asset(
                   widget.icon,
-                  colorFilter: widget.preserveIconColors
+                  colorFilter: widget.preserveIconAppColors
                       ? null
                       : ColorFilter.mode(_getIconColor(), BlendMode.srcIn),
                 ),
                 iconColor: AppColors.themeColor,
-                collapsedIconColor: Colors.white,
+                collapsedIconColor: AppColors.white,
                 title: Text(
                   widget.title,
                   maxLines: 1,
@@ -1532,12 +1530,12 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
             : ListTile(
                 leading: SvgPicture.asset(
                   widget.icon,
-                  colorFilter: widget.preserveIconColors
+                  colorFilter: widget.preserveIconAppColors
                       ? null
                       : ColorFilter.mode(
                           _effectiveIsCurrentRoute
                               ? AppColors.themeColor
-                              : Colors.white,
+                              : AppColors.white,
                           BlendMode.srcIn,
                         ),
                 ),
@@ -1547,14 +1545,14 @@ class _CustomExpansionTileState extends State<_CustomExpansionTile> {
                   style: TextStyle(
                     color: _effectiveIsCurrentRoute
                         ? AppColors.themeColor
-                        : Colors.white,
+                        : AppColors.white,
                   ),
                 ),
                 tileColor: _effectiveIsCurrentRoute
-                    ? Colors.white
-                    : Colors.transparent,
+                    ? AppColors.white
+                    : AppColors.transparent,
                 selected: _effectiveIsCurrentRoute,
-                selectedTileColor: Colors.white,
+                selectedTileColor: AppColors.white,
               ),
       ),
     );
@@ -1577,7 +1575,7 @@ class _UnreadBadge extends StatelessWidget {
       child: Text(
         count > 99 ? '99+' : '$count',
         style: const TextStyle(
-          color: Colors.white,
+          color: AppColors.white,
           fontSize: 11,
           fontWeight: FontWeight.w700,
         ),
@@ -1638,8 +1636,8 @@ class _NestedExpansionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     return ExpansionTile(
       tilePadding: const EdgeInsets.symmetric(horizontal: 16),
-      backgroundColor: Colors.white,
-      collapsedBackgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
+      collapsedBackgroundColor: AppColors.white,
       // Suppresses Flutter's default top/bottom divider border that
       // ExpansionTile draws while expanded.
       shape: const Border(),

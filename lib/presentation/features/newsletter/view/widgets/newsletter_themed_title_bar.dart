@@ -10,7 +10,7 @@ class NewsletterThemedTitleBar extends StatelessWidget {
   });
 
   final String title;
-  final NewsletterThemeColors theme;
+  final NewsletterThemeAppColors theme;
 
   @override
   Widget build(BuildContext context) {

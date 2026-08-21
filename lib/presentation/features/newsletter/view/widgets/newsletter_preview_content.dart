@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_color_theme.dart';
@@ -7,6 +7,8 @@ import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter
 import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_component_view.dart';
 import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_rich_html_text.dart';
 import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_themed_title_bar.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class NewsletterPreviewContent extends StatelessWidget {
   const NewsletterPreviewContent({super.key, required this.newsletter});
@@ -27,8 +29,9 @@ class NewsletterPreviewContent extends StatelessWidget {
   }
 
   List<NewsletterAttachment> _sortedAttachments() {
-    final List<NewsletterAttachment> items =
-        List<NewsletterAttachment>.from(newsletter.attachments);
+    final List<NewsletterAttachment> items = List<NewsletterAttachment>.from(
+      newsletter.attachments,
+    );
     items.sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
     return items
         .where(
@@ -40,11 +43,13 @@ class NewsletterPreviewContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final NewsletterThemeColors theme =
-        NewsletterThemeColors.fromKey(newsletter.colorTheme);
+    final NewsletterThemeAppColors theme = NewsletterThemeAppColors.fromKey(
+      newsletter.colorTheme,
+    );
     final String rawSubtitle = newsletter.subtitle.trim();
-    final String subtitle =
-        _looksLikeStructuredPayload(rawSubtitle) ? '' : rawSubtitle;
+    final String subtitle = _looksLikeStructuredPayload(rawSubtitle)
+        ? ''
+        : rawSubtitle;
     final List<NewsletterAttachment> attachments = _sortedAttachments();
     final bool hasComponents = newsletter.components.isNotEmpty;
 
@@ -53,29 +58,21 @@ class NewsletterPreviewContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          NewsletterThemedTitleBar(
-            title: newsletter.title,
-            theme: theme,
-          ),
+          NewsletterThemedTitleBar(title: newsletter.title, theme: theme),
           const SizedBox(height: 10),
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 18),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: theme.divider.withValues(alpha: 0.55),
-              ),
+              border: Border.all(color: theme.divider.withValues(alpha: 0.55)),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (subtitle.isNotEmpty) ...[
-                  NewsletterRichHtmlText(
-                    htmlData: subtitle,
-                    theme: theme,
-                  ),
+                  NewsletterRichHtmlText(htmlData: subtitle, theme: theme),
                   const SizedBox(height: 14),
                 ],
                 if (hasComponents)

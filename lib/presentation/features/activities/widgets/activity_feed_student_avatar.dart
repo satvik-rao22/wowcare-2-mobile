@@ -29,7 +29,7 @@ Future<void> showActivityStudentListSheet(
   await showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (ctx) {
       return SafeArea(
         child: Padding(
@@ -39,7 +39,7 @@ Future<void> showActivityStudentListSheet(
               maxHeight: MediaQuery.sizeOf(ctx).height * 0.55,
             ),
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Column(
@@ -50,8 +50,9 @@ Future<void> showActivityStudentListSheet(
                   padding: const EdgeInsets.fromLTRB(16, 14, 4, 12),
                   decoration: BoxDecoration(
                     color: AppColors.themeColor.withValues(alpha: 0.08),
-                    borderRadius:
-                        const BorderRadius.vertical(top: Radius.circular(16)),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(16),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -76,8 +77,10 @@ Future<void> showActivityStudentListSheet(
                 Flexible(
                   child: ListView.separated(
                     shrinkWrap: true,
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: names.length,
                     separatorBuilder: (_, __) => const Divider(height: 1),
                     itemBuilder: (_, i) {
@@ -117,7 +120,7 @@ Future<void> showActivityStudentListSheet(
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.themeColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.white,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -159,6 +162,7 @@ Widget activityFeedStudentAvatarStack(
     final c = (studentCodes[i] ?? '').trim();
     return c.isEmpty ? null : c;
   }
+
   const size = 28.0;
 
   // Single-student activity: show the name beside the avatar instead of a
@@ -230,7 +234,7 @@ Widget activityFeedStudentAvatarStack(
   );
   if (onOpenStudentList == null) return stack;
   return Material(
-    color: Colors.transparent,
+    color: AppColors.transparent,
     child: InkWell(
       onTap: onOpenStudentList,
       borderRadius: BorderRadius.circular(24),

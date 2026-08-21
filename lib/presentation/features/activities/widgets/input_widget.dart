@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../../app/theme/colors.dart';
+
 class InputWidget extends StatefulWidget {
   const InputWidget({
     super.key,
@@ -18,6 +20,7 @@ class InputWidget extends StatefulWidget {
   final bool isRequired;
   final double? height;
   final bool readOnly;
+
   /// When set, enforces character limit and shows a counter (e.g. 500 for activities).
   final int? maxLength;
 
@@ -43,17 +46,25 @@ class _InputWidgetState extends State<InputWidget> {
             style: labelStyle,
             children: [
               TextSpan(text: widget.label),
-              if (widget.isRequired) const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              if (widget.isRequired)
+                const TextSpan(
+                  text: ' *',
+                  style: TextStyle(color: AppColors.red),
+                ),
             ],
           ),
         ),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints: BoxConstraints(minHeight: widget.height ?? responsive.inputFieldHeight),
+          constraints: BoxConstraints(
+            minHeight: widget.height ?? responsive.inputFieldHeight,
+          ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius: BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: widget.controller,
@@ -86,14 +97,16 @@ class _InputWidgetState extends State<InputWidget> {
                         '$currentLength / $maxLength',
                         style: labelStyle.copyWith(
                           fontSize: 11,
-                          color: const Color(0xff573353).withValues(alpha: 0.55),
+                          color: const Color(
+                            0xff573353,
+                          ).withValues(alpha: 0.55),
                         ),
                       ),
                     );
                   },
             decoration: InputDecoration(
               hintText: widget.hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

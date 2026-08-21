@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -148,7 +148,7 @@ class _StudentHealthTabCardState extends State<StudentHealthTabCard> {
                             child: const Icon(
                               Icons.edit,
                               size: 22,
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           ),
                         ],
@@ -235,7 +235,7 @@ class _HealthCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),

@@ -33,7 +33,7 @@ class StudentAttendanceSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
-    
+
     if (isLoading) {
       return Column(
         children: [
@@ -123,7 +123,10 @@ class StudentAttendanceSummary extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCardShimmer(BuildContext context, ResponsiveHelper responsive) {
+  Widget _buildSummaryCardShimmer(
+    BuildContext context,
+    ResponsiveHelper responsive,
+  ) {
     return CustomSectionCard(
       padding: EdgeInsets.symmetric(
         horizontal: responsive.horizontalSpacing,
@@ -137,7 +140,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                 width: 40,
                 height: 24,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.grey[300],
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -146,7 +149,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                 width: 80,
                 height: 16,
                 decoration: BoxDecoration(
-                  color: Colors.grey[300],
+                  color: AppColors.grey[300],
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -159,7 +162,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                 Container(
                   height: responsive.isTablet ? 24 : 20,
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: AppColors.grey[300],
                     borderRadius: BorderRadius.circular(100),
                   ),
                 ),
@@ -170,7 +173,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                       child: Container(
                         height: responsive.isTablet ? 18 : 16,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: AppColors.grey[300],
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -180,7 +183,7 @@ class StudentAttendanceSummary extends StatelessWidget {
                       child: Container(
                         height: responsive.isTablet ? 18 : 16,
                         decoration: BoxDecoration(
-                          color: Colors.grey[300],
+                          color: AppColors.grey[300],
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),

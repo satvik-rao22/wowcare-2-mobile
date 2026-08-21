@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/gradient_time_picker_field.dart';
@@ -495,7 +495,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 style: TextStyle(
                   fontFamily: 'Manrope',
                   fontSize: 12,
-                  color: Colors.orange.shade800,
+                  color: AppColors.orange.shade100,
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -568,10 +568,10 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha:0.05),
+              color: AppColors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -597,7 +597,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 fontFamily: 'Manrope',
                 fontSize: responsive.buttonFontSize,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppColors.white,
               ),
             ),
           ),
@@ -618,13 +618,13 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: isEnabled
-            ? AppColors.primaryColor.withValues(alpha:0.05)
-            : Colors.grey.shade50,
+            ? AppColors.primaryColor.withValues(alpha: 0.05)
+            : AppColors.grey.shade50,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: isEnabled
-              ? AppColors.primaryColor.withValues(alpha:0.3)
-              : Colors.grey.shade300,
+              ? AppColors.primaryColor.withValues(alpha: 0.3)
+              : AppColors.grey.shade300,
         ),
       ),
       child: Column(
@@ -648,7 +648,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
               isEnabled
                   ? IconButton(
                       icon: const Icon(Icons.close, size: 20),
-                      color: Colors.redAccent,
+                      color: AppColors.redAccent,
                       onPressed: () {
                         setState(() {
                           final curr = _schedules[day]!;
@@ -688,7 +688,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                 fontFamily: 'Manrope',
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: Colors.grey.shade600,
+                color: AppColors.grey.shade600,
               ),
             ),
           if (isEnabled) ...[
@@ -700,7 +700,7 @@ class _EditScheduleScreenState extends State<EditScheduleScreen> {
                   fontFamily: 'Manrope',
                   fontSize: 11,
                   fontWeight: FontWeight.w500,
-                  color: Colors.blueGrey.shade700,
+                  color: AppColors.blueGrey.shade700,
                 ),
               ),
             ],

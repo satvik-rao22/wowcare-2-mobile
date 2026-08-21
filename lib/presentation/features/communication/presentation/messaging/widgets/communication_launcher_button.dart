@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+
+import '../../../../../../app/theme/colors.dart';
 
 /// Gradient pill button used by [MessagingEntryScreen] to launch a
 /// communication module (Staff Messaging / Admin Chat / Room Chat).
@@ -82,7 +83,7 @@ class _CommunicationLauncherButtonState
                     width: widget.iconSize,
                     height: widget.iconSize,
                     colorFilter: const ColorFilter.mode(
-                      Colors.white,
+                      AppColors.white,
                       BlendMode.srcIn,
                     ),
                   ),
@@ -93,7 +94,7 @@ class _CommunicationLauncherButtonState
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: widget.fontSize,
                         fontWeight: FontWeight.w700,
                         fontFamily: 'Manrope',
@@ -115,12 +116,12 @@ class _CommunicationLauncherButtonState
                   decoration: BoxDecoration(
                     color: AppColors.successColor,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white, width: 1.5),
+                    border: Border.all(color: AppColors.white, width: 1.5),
                   ),
                   child: Text(
                     widget.unreadCount > 99 ? '99+' : '${widget.unreadCount}',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.white,
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),

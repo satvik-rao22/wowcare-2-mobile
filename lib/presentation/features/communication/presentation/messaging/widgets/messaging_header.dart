@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../../../app/theme/colors.dart';
 import '../../../../../../shared/common/widgets/custom_text_widget.dart';
 import '../../../../../../shared/common/widgets/profile_show_widget.dart';
 
@@ -11,7 +12,7 @@ class MessagingHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: const BoxDecoration(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         border: Border(bottom: BorderSide(color: Color(0xFFE9ECEF), width: 1)),
       ),
       child: Padding(
@@ -47,12 +48,12 @@ class MessagingHeader extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: staffInfo['isSigned']
                           ? const Color.fromRGBO(0, 177, 21, 1)
-                          : Colors.transparent,
+                          : AppColors.transparent,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: staffInfo['isSigned']
-                            ? Colors.white
-                            : Colors.transparent,
+                            ? AppColors.white
+                            : AppColors.transparent,
                         width: 2,
                       ),
                     ),

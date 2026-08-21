@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 import '../../../../app/di/di.dart';
 import '../../../../app/theme/media_res.dart';
@@ -159,11 +159,11 @@ class _ChooseActivityState extends State<ChooseActivity> {
         top: position.dy - 60,
         left: left,
         child: Material(
-          color: Colors.transparent,
+          color: AppColors.transparent,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.black87,
+              color: AppColors.black87,
               borderRadius: BorderRadius.circular(6),
             ),
             child: ConstrainedBox(
@@ -171,7 +171,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
               child: Text(
                 _getDisabledActivityTooltip(activityName),
                 softWrap: true,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: const TextStyle(color: AppColors.white, fontSize: 12),
               ),
             ),
           ),
@@ -325,7 +325,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                               decoration: BoxDecoration(
                                 border: Border.all(
                                   color: isDisabled
-                                      ? Colors.grey.withValues(alpha: 0.3)
+                                      ? AppColors.grey.withValues(alpha: 0.3)
                                       : AppColors.primaryColor.withValues(
                                           alpha: 0.1,
                                         ),
@@ -333,10 +333,10 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                 ),
                                 borderRadius: BorderRadius.circular(8),
                                 color: isDisabled
-                                    ? Colors.grey.withValues(alpha: 0.1)
+                                    ? AppColors.grey.withValues(alpha: 0.1)
                                     : isSelected
                                     ? const Color.fromARGB(255, 249, 245, 250)
-                                    : Colors.transparent,
+                                    : AppColors.transparent,
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
@@ -364,7 +364,7 @@ class _ChooseActivityState extends State<ChooseActivity> {
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
                                         color: isDisabled
-                                            ? Colors.grey
+                                            ? AppColors.grey
                                             : AppColors.primaryColor,
                                       ),
                                     ),

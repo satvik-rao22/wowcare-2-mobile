@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 
 class LedgerCard extends StatelessWidget {
@@ -44,7 +44,7 @@ class LedgerCard extends StatelessWidget {
             child: Text(
               type,
               textAlign: TextAlign.right,
-              style: BillingCardText.value.copyWith(color: Colors.white),
+              style: BillingCardText.value.copyWith(color: AppColors.white),
             ),
           ),
         ),
@@ -63,7 +63,10 @@ class LedgerCard extends StatelessWidget {
             Expanded(
               child: isActive
                   ? _FilledActionButton(label: 'Edit', onTap: onEdit)
-                  : _OutlineActionButton(label: 'Reactivate', onTap: onReactivate),
+                  : _OutlineActionButton(
+                      label: 'Reactivate',
+                      onTap: onReactivate,
+                    ),
             ),
           ],
         ),
@@ -111,7 +114,7 @@ class _FilledActionButton extends StatelessWidget {
               fontFamily: 'Manrope',
               fontSize: 13,
               fontWeight: FontWeight.w700,
-              color: Colors.white,
+              color: AppColors.white,
             ),
           ),
         ),
@@ -137,9 +140,7 @@ class _OutlineActionButton extends StatelessWidget {
         onPressed: onTap,
         style: OutlinedButton.styleFrom(
           side: const BorderSide(color: _accent),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Text(
           label,
@@ -154,4 +155,3 @@ class _OutlineActionButton extends StatelessWidget {
     );
   }
 }
-

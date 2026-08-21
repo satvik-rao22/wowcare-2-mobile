@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/classroom_visibility.dart';
 
 class ClassroomDropdown extends StatefulWidget {
@@ -86,9 +86,7 @@ class _ClassroomDropdownState extends State<ClassroomDropdown> {
           GestureDetector(
             onTap: _toggleDropdown,
             behavior: HitTestBehavior.opaque,
-            child: Container(
-              color: Colors.transparent,
-            ),
+            child: Container(color: AppColors.transparent),
           ),
           Positioned(
             left: offset.dx,

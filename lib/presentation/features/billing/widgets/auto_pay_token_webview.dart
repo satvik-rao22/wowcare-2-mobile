@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// Hosts `assets/forte_auto_pay.html` to collect card / ACH details and
@@ -75,13 +75,11 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Add Payment Method'),
-        backgroundColor: Colors.transparent,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.transparent,
+        foregroundColor: AppColors.white,
         elevation: 0,
         flexibleSpace: Container(
-          decoration: BoxDecoration(
-            gradient: AppColors.buildPrimaryGradient(),
-          ),
+          decoration: BoxDecoration(gradient: AppColors.buildPrimaryGradient()),
         ),
         leading: IconButton(
           icon: const Icon(Icons.close),
@@ -93,8 +91,11 @@ class _AutoPayTokenWebViewState extends State<AutoPayTokenWebView> {
           : InAppWebView(
               initialData: InAppWebViewInitialData(
                 data: _html!,
-                baseUrl: WebUri.uri(Uri.parse(
-                    'https://forte-autopay.${widget.payload['env'] ?? 'sandbox'}')),
+                baseUrl: WebUri.uri(
+                  Uri.parse(
+                    'https://forte-autopay.${widget.payload['env'] ?? 'sandbox'}',
+                  ),
+                ),
               ),
               onWebViewCreated: (controller) {
                 _controller = controller;

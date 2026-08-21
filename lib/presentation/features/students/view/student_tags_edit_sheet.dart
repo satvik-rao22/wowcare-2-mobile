@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -28,7 +28,7 @@ Future<void> showStudentTagsEditSheet({
   return showModalBottomSheet<void>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     builder: (_) => _StudentTagsEditSheet(
       studentCode: studentCode,
       schoolCode: schoolCode,
@@ -74,10 +74,12 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
     try {
       var school = (widget.schoolCode ?? '').trim();
       if (school.isEmpty) {
-        school = (await serviceLocator<StorageService>()
-                    .getString(StorageKeys.schoolCode) ??
-                '')
-            .trim();
+        school =
+            (await serviceLocator<StorageService>().getString(
+                      StorageKeys.schoolCode,
+                    ) ??
+                    '')
+                .trim();
       }
       _schoolCode = school;
 
@@ -92,8 +94,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
         _availableTagNames = names;
         _tagNameToCode = map;
         // Drop any preselected tags that no longer exist for the school.
-        _selectedTags =
-            _selectedTags.where((t) => names.contains(t)).toList();
+        _selectedTags = _selectedTags.where((t) => names.contains(t)).toList();
         _loading = false;
       });
     } catch (e) {
@@ -162,7 +163,7 @@ class _StudentTagsEditSheetState extends State<_StudentTagsEditSheet> {
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: SafeArea(

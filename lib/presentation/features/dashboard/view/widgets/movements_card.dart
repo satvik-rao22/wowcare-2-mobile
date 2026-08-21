@@ -3,7 +3,6 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement.dart';
 import 'package:wowcare/domain/features/availability/entities/individual_movement_board.dart';
 import 'package:wowcare/presentation/features/availability/cubit/individual_movements_cubit.dart';
@@ -12,6 +11,8 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_error_chip.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer student model
@@ -218,30 +219,30 @@ class _MovementsCardState extends State<MovementsCard> {
   Color _statusColor(String status) {
     switch (status) {
       case 'Overdue':
-        return Colors.red;
+        return AppColors.red;
       case 'Upcoming':
-        return Colors.yellow.shade700;
+        return AppColors.yellow.shade700;
       case 'Confirmed':
-        return Colors.green;
+        return AppColors.green;
       case 'Rejected':
-        return Colors.red.shade300;
+        return AppColors.red.shade300;
       default:
-        return Colors.grey;
+        return AppColors.grey;
     }
   }
 
   Color _statusBackground(String status) {
     switch (status) {
       case 'Overdue':
-        return Colors.red.withValues(alpha: 0.25);
+        return AppColors.red.withValues(alpha: 0.25);
       case 'Upcoming':
-        return Colors.yellow.withValues(alpha: 0.25);
+        return AppColors.yellow.withValues(alpha: 0.25);
       case 'Confirmed':
-        return Colors.green.withValues(alpha: 0.25);
+        return AppColors.green.withValues(alpha: 0.25);
       case 'Rejected':
-        return Colors.red.shade300.withValues(alpha: 0.20);
+        return AppColors.red.shade300.withValues(alpha: 0.20);
       default:
-        return Colors.grey.withValues(alpha: 0.25);
+        return AppColors.grey.withValues(alpha: 0.25);
     }
   }
 
@@ -326,8 +327,11 @@ class _MovementsCardState extends State<MovementsCard> {
                           width: 45,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.grey.shade400,
-                            border: Border.all(color: Colors.white, width: 2),
+                            color: AppColors.grey.shade400,
+                            border: Border.all(
+                              color: AppColors.white,
+                              width: 2,
+                            ),
                           ),
                           alignment: Alignment.center,
                           child: Text(
@@ -335,7 +339,7 @@ class _MovementsCardState extends State<MovementsCard> {
                             style: const TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           ),
                         )
@@ -345,7 +349,10 @@ class _MovementsCardState extends State<MovementsCard> {
                           alignment: Alignment.center,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 2),
+                            border: Border.all(
+                              color: AppColors.white,
+                              width: 2,
+                            ),
                           ),
                           child: DocumentImageWidget(
                             fileUuid: '',
@@ -410,7 +417,7 @@ class _MovementsCardState extends State<MovementsCard> {
                 children: [
                   Text(
                     month,
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 14, color: AppColors.grey[600]),
                   ),
                   Text(
                     day,
@@ -513,11 +520,15 @@ class _MovementsCardState extends State<MovementsCard> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.swap_horiz_rounded, size: 36, color: Colors.grey[400]),
+            Icon(
+              Icons.swap_horiz_rounded,
+              size: 36,
+              color: AppColors.grey[400],
+            ),
             const SizedBox(height: 8),
             Text(
               'No movements scheduled',
-              style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+              style: TextStyle(fontSize: 14, color: AppColors.grey[500]),
             ),
           ],
         ),
@@ -542,7 +553,7 @@ class _MovementsCardState extends State<MovementsCard> {
             decoration: BoxDecoration(
               border: Border.all(color: AppColors.cardBorderColor),
               borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
+              color: AppColors.white,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

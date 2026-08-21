@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController? controller;
@@ -75,14 +75,15 @@ class CustomTextField extends StatelessWidget {
         suffixIcon: suffixIcon,
         filled: useGradientBorder ? true : isFilled,
         fillColor: useGradientBorder
-            ? (fillColor ?? Colors.white)
-            : (fillColor ?? Colors.grey.shade100),
-        border: _border(useGradientBorder ? null : Colors.grey.shade300),
-        enabledBorder: _border(useGradientBorder ? null : Colors.grey.shade300),
-        focusedBorder:
-            _border(useGradientBorder ? null : AppColors.themeColor),
-        errorBorder: _border(useGradientBorder ? null : Colors.red),
-        focusedErrorBorder: _border(useGradientBorder ? null : Colors.red),
+            ? (fillColor ?? AppColors.white)
+            : (fillColor ?? AppColors.grey.shade100),
+        border: _border(useGradientBorder ? null : AppColors.grey.shade300),
+        enabledBorder: _border(
+          useGradientBorder ? null : AppColors.grey.shade300,
+        ),
+        focusedBorder: _border(useGradientBorder ? null : AppColors.themeColor),
+        errorBorder: _border(useGradientBorder ? null : AppColors.red),
+        focusedErrorBorder: _border(useGradientBorder ? null : AppColors.red),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,
           vertical: 12,
@@ -100,19 +101,14 @@ class CustomTextField extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       padding: const EdgeInsets.all(1.5),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(7),
-        child: field,
-      ),
+      child: ClipRRect(borderRadius: BorderRadius.circular(7), child: field),
     );
   }
 
   OutlineInputBorder _border(Color? color) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(8),
-        borderSide: color == null
-            ? BorderSide.none
-            : BorderSide(color: color),
-      );
+    borderRadius: BorderRadius.circular(8),
+    borderSide: color == null ? BorderSide.none : BorderSide(color: color),
+  );
 
   TextStyle _buildGradientTextStyle() {
     final baseSize = textFontSize ?? 14.0;

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -10,6 +9,7 @@ import 'package:wowcare/domain/features/kiosk/usecases/verify_kiosk_pin_usecase.
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/cubit/kiosk_logout_cubit.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
+import '../../../../../app/theme/colors.dart';
 import '../../../../../core/util/api_error_handler.dart';
 
 class KioskLogoutPage extends StatefulWidget {
@@ -80,9 +80,9 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
             }
           },
           child: Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             appBar: AppBar(
-              backgroundColor: Colors.white,
+              backgroundColor: AppColors.white,
               elevation: 0,
               scrolledUnderElevation: 0,
               leading: IconButton(
@@ -244,7 +244,7 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                                             context.go('/kiosk');
                                           },
                                     style: TextButton.styleFrom(
-                                      backgroundColor: Colors.white,
+                                      backgroundColor: AppColors.white,
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 10,
                                       ),
@@ -285,11 +285,11 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                                         ? null
                                         : () => _submitPin(ctx),
                                     style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.transparent,
+                                      backgroundColor: AppColors.transparent,
                                       padding: const EdgeInsets.symmetric(
                                         vertical: 10,
                                       ),
-                                      shadowColor: Colors.transparent,
+                                      shadowColor: AppColors.transparent,
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -302,14 +302,14 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                                               strokeWidth: 2,
                                               valueColor:
                                                   AlwaysStoppedAnimation<Color>(
-                                                    Colors.white,
+                                                    AppColors.white,
                                                   ),
                                             ),
                                           )
                                         : const Text(
                                             'Next',
                                             style: TextStyle(
-                                              color: Colors.white,
+                                              color: AppColors.white,
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
                                               letterSpacing: 16 * (-3 / 100),
@@ -459,8 +459,8 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
                 child: ElevatedButton(
                   onPressed: _removeDigit,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.grey[200],
-                    foregroundColor: Colors.black,
+                    backgroundColor: AppColors.grey[200],
+                    foregroundColor: AppColors.black,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -484,8 +484,8 @@ class _KioskLogoutPageState extends State<KioskLogoutPage> {
       child: ElevatedButton(
         onPressed: () => _addDigit(number),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.grey[200],
-          foregroundColor: Colors.black,
+          backgroundColor: AppColors.grey[200],
+          foregroundColor: AppColors.black,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           elevation: 0,
         ),

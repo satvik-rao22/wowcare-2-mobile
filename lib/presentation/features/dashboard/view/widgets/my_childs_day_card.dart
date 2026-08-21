@@ -6,7 +6,6 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_childs_day_cubit.dart';
@@ -19,6 +18,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
+import '../../../../../app/theme/colors.dart';
 import '../../../../../core/util/storage_keys.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -760,7 +760,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
   //                 decoration: BoxDecoration(
   //                   color: statusColor,
   //                   borderRadius: BorderRadius.circular(8),
-  //                   border: Border.all(color: Colors.white, width: 2),
+  //                   border: Border.all(color: AppColors.white, width: 2),
   //                 ),
   //               ),
   //             ),
@@ -977,7 +977,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             const Icon(
               Icons.location_on_outlined,
               size: 18,
-              color: AppColors.billingBackgroundColor,
+              color: AppColors.billingbackgroundColor,
             ),
             const SizedBox(width: 8),
             Flexible(
@@ -987,7 +987,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
                 style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: AppColors.billingBackgroundColor,
+                  color: AppColors.billingbackgroundColor,
                 ),
               ),
             ),
@@ -1035,7 +1035,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
             ).createShader(Rect.fromLTWH(0, 0, bounds.width, bounds.height)),
             child: Text(
               _isReminder ? 'Turn off reminder' : 'Send reminder',
-              style: const TextStyle(color: Colors.white),
+              style: const TextStyle(color: AppColors.white),
             ),
           ),
         ],
@@ -1058,7 +1058,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
           child: const Text(
             'Your Sign-In Pin : ',
             style: TextStyle(
-              color: Colors.white,
+              color: AppColors.white,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
@@ -1078,7 +1078,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               child: Text(
                 pin.isEmpty ? '—' : pin,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
                 ),
@@ -1122,7 +1122,7 @@ class _MyChildsDayCardState extends State<MyChildsDayCard>
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               decoration: const BoxDecoration(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(12)),
-                color: Colors.white,
+                color: AppColors.white,
               ),
               child: BlocBuilder<ParentChildCubit, ParentChildState>(
                 builder: (context, state) {
@@ -1609,20 +1609,20 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
 
     // Fallback to REST concurrently in case Firestore/cache is empty.
     unawaited(
-      serviceLocator<GetConversationsEntityUseCase>()
-          .call(type: type)
-          .then((result) {
-            if (!mounted) return;
-            result.fold((_) {}, (list) {
-              final mine = _latest(list);
-              if (mine != null) {
-                setState(() {
-                  _byType[type] = mine;
-                  _loading = false;
-                });
-              }
+      serviceLocator<GetConversationsEntityUseCase>().call(type: type).then((
+        result,
+      ) {
+        if (!mounted) return;
+        result.fold((_) {}, (list) {
+          final mine = _latest(list);
+          if (mine != null) {
+            setState(() {
+              _byType[type] = mine;
+              _loading = false;
             });
-          }),
+          }
+        });
+      }),
     );
 
     _subs[type] = serviceLocator<WatchConversationsUseCase>()
@@ -1808,7 +1808,7 @@ class _ChatActionButton extends StatelessWidget {
           MediaRes.communicationIcon,
           width: 24,
           height: 24,
-          colorFilter: const ColorFilter.mode(Colors.white, BlendMode.srcIn),
+          colorFilter: const ColorFilter.mode(AppColors.white, BlendMode.srcIn),
         ),
       ),
     );

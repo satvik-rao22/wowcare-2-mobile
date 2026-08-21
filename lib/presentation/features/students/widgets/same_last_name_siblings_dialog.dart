@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
@@ -14,14 +14,12 @@ Future<List<String>?> showSameLastNameSiblingsDialog({
   return showModalBottomSheet<List<String>?>(
     context: context,
     isScrollControlled: true,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     isDismissible: true,
     enableDrag: true,
     builder: (ctx) {
       return Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-        ),
+        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
         child: _SameLastNameSiblingsBody(candidates: candidates),
       );
     },
@@ -63,18 +61,12 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
     final isLargeTablet = screenWidth > 900;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
-    final horizontalPadding =
-        isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-    final verticalPadding =
-        isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
-    final titleFontSize =
-        isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
-    final buttonHeight =
-        isLargeTablet ? 56.0 : (isTablet ? 48.0 : 40.0);
-    final buttonFontSize =
-        isLargeTablet ? 18.0 : (isTablet ? 16.0 : 14.0);
-    final borderRadius =
-        isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
+    final horizontalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+    final verticalPadding = isLargeTablet ? 32.0 : (isTablet ? 24.0 : 16.0);
+    final titleFontSize = isLargeTablet ? 20.0 : (isTablet ? 18.0 : 16.0);
+    final buttonHeight = isLargeTablet ? 56.0 : (isTablet ? 48.0 : 40.0);
+    final buttonFontSize = isLargeTablet ? 18.0 : (isTablet ? 16.0 : 14.0);
+    final borderRadius = isLargeTablet ? 24.0 : (isTablet ? 20.0 : 16.0);
     final count = widget.candidates.length;
 
     return SafeArea(
@@ -92,7 +84,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -112,15 +104,16 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                   ),
                   child: Icon(
                     Icons.groups_outlined,
-                    color: Colors.white,
+                    color: AppColors.white,
                     size: isLargeTablet ? 40 : 36,
                   ),
                 ),
               ),
               SizedBox(height: verticalPadding),
               Padding(
-                padding:
-                    EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'We found $count student${count == 1 ? '' : 's'} with the same last name',
                   style: TextStyle(
@@ -135,8 +128,9 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
               ),
               const SizedBox(height: 8),
               Padding(
-                padding:
-                    EdgeInsets.symmetric(horizontal: horizontalPadding / 2),
+                padding: EdgeInsets.symmetric(
+                  horizontal: horizontalPadding / 2,
+                ),
                 child: Text(
                   'Would you like to add any of them as siblings?',
                   style: TextStyle(
@@ -157,21 +151,21 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: widget.candidates.length,
-                  separatorBuilder: (_, __) => SizedBox(height: verticalPadding / 3),
+                  separatorBuilder: (_, __) =>
+                      SizedBox(height: verticalPadding / 3),
                   itemBuilder: (context, index) {
                     final s = widget.candidates[index];
                     final code = s.code.trim();
-                    final name =
-                        s.fullName.isNotEmpty ? s.fullName : 'Student';
+                    final name = s.fullName.isNotEmpty ? s.fullName : 'Student';
                     final status = s.status.trim().toUpperCase();
-                    final classroom =
-                        s.classroom.trim().isEmpty ? '—' : s.classroom;
+                    final classroom = s.classroom.trim().isEmpty
+                        ? '—'
+                        : s.classroom;
 
                     return Material(
-                      color: Colors.transparent,
+                      color: AppColors.transparent,
                       child: InkWell(
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
+                        borderRadius: BorderRadius.circular(borderRadius / 2),
                         onTap: () {
                           setState(() {
                             _selectSingle(code);
@@ -183,8 +177,9 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             vertical: isTablet ? 12 : 10,
                           ),
                           decoration: BoxDecoration(
-                            borderRadius:
-                                BorderRadius.circular(borderRadius / 2),
+                            borderRadius: BorderRadius.circular(
+                              borderRadius / 2,
+                            ),
                             border: Border.all(
                               color: AppColors.cardBorderColor,
                             ),
@@ -264,16 +259,16 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                       height: buttonHeight,
                       decoration: BoxDecoration(
                         gradient: AppColors.buildPrimaryGradient(),
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
+                        borderRadius: BorderRadius.circular(borderRadius / 2),
                       ),
                       child: Padding(
                         padding: const EdgeInsets.all(1),
                         child: Container(
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: AppColors.white,
                             borderRadius: BorderRadius.circular(
-                                borderRadius / 2 - 1),
+                              borderRadius / 2 - 1,
+                            ),
                           ),
                           child: TextButton(
                             onPressed: () =>
@@ -281,7 +276,8 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             style: TextButton.styleFrom(
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(
-                                    borderRadius / 2 - 1),
+                                  borderRadius / 2 - 1,
+                                ),
                               ),
                             ),
                             child: Text(
@@ -304,17 +300,17 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                     child: Container(
                       height: buttonHeight,
                       decoration: BoxDecoration(
-                        borderRadius:
-                            BorderRadius.circular(borderRadius / 2),
+                        borderRadius: BorderRadius.circular(borderRadius / 2),
                         gradient: AppColors.buildPrimaryGradient(),
                       ),
                       child: TextButton(
-                        onPressed: () => Navigator.of(context)
-                            .pop(_selectedCodes.toList()),
+                        onPressed: () =>
+                            Navigator.of(context).pop(_selectedCodes.toList()),
                         style: TextButton.styleFrom(
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(
-                                borderRadius / 2),
+                              borderRadius / 2,
+                            ),
                           ),
                         ),
                         child: Text(
@@ -325,7 +321,7 @@ class _SameLastNameSiblingsBodyState extends State<_SameLastNameSiblingsBody> {
                             fontFamily: 'Manrope',
                             fontSize: buttonFontSize,
                             fontWeight: FontWeight.w700,
-                            color: Colors.white,
+                            color: AppColors.white,
                             height: 1.0,
                           ),
                         ),

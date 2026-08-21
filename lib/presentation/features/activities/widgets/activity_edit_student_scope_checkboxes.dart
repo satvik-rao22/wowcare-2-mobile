@@ -135,8 +135,11 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: AppColors.themeColor, width: 1),
-                        color: Colors.white,
+                        border: Border.all(
+                          color: AppColors.themeColor,
+                          width: 1,
+                        ),
+                        color: AppColors.white,
                       ),
                       child: Row(
                         children: [
@@ -152,7 +155,7 @@ class ActivityEditStudentScopeCheckboxes extends StatelessWidget {
                             child: Text(
                               initials.isEmpty ? 'S' : initials,
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),

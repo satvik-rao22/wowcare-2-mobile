@@ -8,7 +8,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
@@ -1111,7 +1111,7 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No absent students found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: TextStyle(color: AppColors.grey),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -1185,7 +1185,7 @@ class _StudentAttendanceDailyViewScreenState
                                 ),
                                 child: AppText.body(
                                   'No attendance records found for the selected date',
-                                  style: TextStyle(color: Colors.grey),
+                                  style: TextStyle(color: AppColors.grey),
                                   textAlign: TextAlign.center,
                                 ),
                               ),
@@ -1279,7 +1279,7 @@ class _StudentAttendanceDailyViewScreenState
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
+                                      backgroundColor: AppColors.transparent,
                                       builder: (ctx) {
                                         return DeleteConfirmationBottomSheet(
                                           name: student.studentName,
@@ -1527,7 +1527,7 @@ class _StudentAttendanceDailyViewScreenState
               ),
               const SizedBox(width: 8),
               Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: InkWell(
                   onTap: _navigateToFilterScreen,
                   borderRadius: BorderRadius.circular(100),

@@ -146,7 +146,7 @@ class StudentAttendanceFilters extends StatelessWidget {
         ),
       ),
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(10),
           onTap: onFilterTap,

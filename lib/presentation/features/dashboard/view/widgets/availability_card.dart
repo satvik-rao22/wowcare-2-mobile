@@ -4,7 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/availability/entities/future_availability.dart';
 import 'package:wowcare/presentation/features/availability/cubit/future_availability_cubit.dart';
@@ -287,7 +287,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
           padding: EdgeInsets.symmetric(vertical: 16),
           child: Text(
             'No classroom data available',
-            style: TextStyle(fontSize: 16, color: Colors.grey),
+            style: TextStyle(fontSize: 16, color: AppColors.grey),
           ),
         ),
       );
@@ -305,7 +305,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
       children: [
         Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Table(
@@ -443,7 +443,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
           ),
           child: Container(
             height: cellHeightRow,
-            color: Colors.white,
+            color: AppColors.white,
             child: Padding(
               padding: const EdgeInsets.all(8.0),
               child: Row(
@@ -564,7 +564,7 @@ class _AvailabilityCardState extends State<AvailabilityCard> {
   // -------------------------------------------------------------------------
 
   Color _getCountColor(int count) {
-    if (count < 0) return Colors.red;
-    return Colors.teal;
+    if (count < 0) return AppColors.red;
+    return AppColors.teal;
   }
 }

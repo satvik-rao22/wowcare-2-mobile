@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// One person's reaction, resolved for display — stack-agnostic so both the
 /// legacy (Room Chat / Staff Direct) and v2 (Admin Chat) message models can
@@ -36,7 +37,7 @@ class ReactionInfoDialog extends StatelessWidget {
   }) {
     return showDialog(
       context: context,
-      barrierColor: Colors.black45,
+      barrierColor: AppColors.black45,
       builder: (_) => ReactionInfoDialog(reactions: reactions),
     );
   }

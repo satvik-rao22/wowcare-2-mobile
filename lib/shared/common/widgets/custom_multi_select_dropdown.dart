@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomMultiSelectDropdown extends StatefulWidget {
   final String? label;
@@ -117,14 +117,14 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
       height: 20,
       decoration: BoxDecoration(
         border: Border.all(
-          color: isSelected ? AppColors.themeColor : Colors.grey.shade400,
+          color: isSelected ? AppColors.themeColor : AppColors.grey.shade400,
           width: 2,
         ),
         borderRadius: BorderRadius.circular(4),
-        color: isSelected ? AppColors.themeColor : Colors.transparent,
+        color: isSelected ? AppColors.themeColor : AppColors.transparent,
       ),
       child: isSelected
-          ? const Icon(Icons.check, size: 14, color: Colors.white)
+          ? const Icon(Icons.check, size: 14, color: AppColors.white)
           : null,
     );
   }
@@ -167,7 +167,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 }
                 _closeDropdown();
               },
-              child: Container(color: Colors.transparent),
+              child: Container(color: AppColors.transparent),
             ),
           ),
           Positioned(
@@ -191,9 +191,9 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 child: Container(
                   constraints: const BoxConstraints(minWidth: 120),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: AppColors.grey.shade300),
                   ),
                   child: StatefulBuilder(
                     builder: (context, setOverlayState) {
@@ -397,7 +397,7 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                 if (widget.isRequired)
                   const TextSpan(
                     text: ' *',
-                    style: TextStyle(color: Colors.red),
+                    style: TextStyle(color: AppColors.red),
                   ),
               ],
             ),
@@ -432,8 +432,8 @@ class _CustomMultiSelectDropdownState extends State<CustomMultiSelectDropdown> {
                       softWrap: false,
                       style: TextStyle(
                         color: _localSelectedItems.isEmpty
-                            ? Colors.grey[600]
-                            : Colors.black87,
+                            ? AppColors.grey[600]
+                            : AppColors.black87,
                         fontSize: 15,
                       ),
                     ),

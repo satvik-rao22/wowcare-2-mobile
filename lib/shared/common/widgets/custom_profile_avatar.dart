@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+
+import '../../../app/theme/colors.dart';
 // import 'package:provider/provider.dart';
 // import 'package:wowcare/core/common/app/providers/profile_photo_provider.dart';
 // import 'package:wowcare/core/common/widgets/simmer_loader.dart';
@@ -77,24 +79,24 @@ class CustomProfileAvatar extends StatelessWidget {
           //           },
           //         ),
           //       )
-          //     : 
+          //     :
           CircleAvatar(
-            backgroundColor: Colors.blue, // ColorUtils.getColorFromName(
-              // context.isPersonnel
-              //     ? context.currentStaff!.name
-              //     : context.currentGuardian!.fullName,
+            backgroundColor: AppColors.blue, // ColorUtils.getColorFromName(
+            // context.isPersonnel
+            //     ? context.currentStaff!.name
+            //     : context.currentGuardian!.fullName,
             // ),
             radius: radius,
             child: Text(
               'U', // StringUtils.getInitials(
-                // context.isPersonnel
-                //     ? context.currentStaff!.name
-                //     : context.currentGuardian!.fullName,
+              // context.isPersonnel
+              //     ? context.currentStaff!.name
+              //     : context.currentGuardian!.fullName,
               // ),
               style: TextStyle(
                 fontWeight: FontWeight.w600,
                 fontSize: fontSize,
-                color: Colors.white,
+                color: AppColors.white,
               ),
             ),
           ),
@@ -116,7 +118,7 @@ class CustomProfileAvatar extends StatelessWidget {
           //                     : null,
           //         borderRadius: BorderRadius.circular(100),
           //         border: Border.all(
-          //           color: Colors.white,
+          //           color: AppColors.white,
           //           width: statusBorder,
           //         ),
           //       ),

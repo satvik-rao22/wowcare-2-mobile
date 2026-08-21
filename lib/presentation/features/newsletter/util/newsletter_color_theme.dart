@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 /// Visual palette for a newsletter [colorTheme] value from the API.
-class NewsletterThemeColors {
-  const NewsletterThemeColors({
+class NewsletterThemeAppColors {
+  const NewsletterThemeAppColors({
     required this.heading,
     required this.body,
     required this.accent,
     required this.divider,
     required this.titleGradientStart,
     required this.titleGradientEnd,
-    this.titleTextColor = Colors.white,
+    this.titleTextColor = AppColors.white,
   });
 
   final Color heading;
@@ -22,15 +22,15 @@ class NewsletterThemeColors {
   final Color titleTextColor;
 
   LinearGradient get titleBarGradient => LinearGradient(
-        colors: <Color>[titleGradientStart, titleGradientEnd],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-      );
+    colors: <Color>[titleGradientStart, titleGradientEnd],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+  );
 
-  static NewsletterThemeColors fromKey(String themeKey) {
+  static NewsletterThemeAppColors fromKey(String themeKey) {
     switch (themeKey.trim().toLowerCase()) {
       case 'vibrant':
-        return const NewsletterThemeColors(
+        return const NewsletterThemeAppColors(
           heading: Color(0xFFE65100),
           body: Color(0xFFBF360C),
           accent: Color(0xFFFF9800),
@@ -39,7 +39,7 @@ class NewsletterThemeColors {
           titleGradientEnd: Color(0xFFE89264),
         );
       case 'ocean':
-        return const NewsletterThemeColors(
+        return const NewsletterThemeAppColors(
           heading: Color(0xFF0277BD),
           body: Color(0xFF01579B),
           accent: Color(0xFF29B6F6),
@@ -48,7 +48,7 @@ class NewsletterThemeColors {
           titleGradientEnd: Color(0xFF64B5F6),
         );
       case 'forest':
-        return const NewsletterThemeColors(
+        return const NewsletterThemeAppColors(
           heading: Color(0xFF2E7D32),
           body: Color(0xFF1B5E20),
           accent: Color(0xFF66BB6A),
@@ -57,7 +57,7 @@ class NewsletterThemeColors {
           titleGradientEnd: Color(0xFF81C784),
         );
       case 'sunset':
-        return const NewsletterThemeColors(
+        return const NewsletterThemeAppColors(
           heading: Color(0xFFC62828),
           body: Color(0xFF880E4F),
           accent: Color(0xFFEF5350),
@@ -66,7 +66,7 @@ class NewsletterThemeColors {
           titleGradientEnd: Color(0xFFFF8A65),
         );
       case 'professional':
-        return const NewsletterThemeColors(
+        return const NewsletterThemeAppColors(
           heading: Color(0xFF263238),
           body: Color(0xFF37474F),
           accent: Color(0xFF546E7A),
@@ -75,7 +75,7 @@ class NewsletterThemeColors {
           titleGradientEnd: Color(0xFF78909C),
         );
       default:
-        return NewsletterThemeColors(
+        return NewsletterThemeAppColors(
           heading: AppColors.themeColor,
           body: AppColors.primaryColor.withValues(alpha: 0.88),
           accent: AppColors.themeColor.withValues(alpha: 0.75),

@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/edit_shift_cubit.dart';
@@ -147,8 +147,9 @@ class _EditShiftView extends StatefulWidget {
 }
 
 class _EditShiftViewState extends State<_EditShiftView> {
-  late final TextEditingController _noteController =
-      TextEditingController(text: widget.note ?? '');
+  late final TextEditingController _noteController = TextEditingController(
+    text: widget.note ?? '',
+  );
 
   bool get _isSeriesMode => widget.mode == EditShiftMode.entireSeries;
 
@@ -167,7 +168,11 @@ class _EditShiftViewState extends State<_EditShiftView> {
     if (!cubit.validate()) {
       final err = cubit.state.schoolHoursError;
       if (err != null) {
-        CoreUtils.showTopSnackBar(context: context, message: err, isError: true);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: err,
+          isError: true,
+        );
       }
       return;
     }
@@ -225,21 +230,25 @@ class _EditShiftViewState extends State<_EditShiftView> {
         return BlocBuilder<ClassroomCubit, ClassroomState>(
           builder: (context, classroomState) {
             final cubit = context.read<EditShiftCubit>();
-            final staffList =
-                context.watch<SchedulingStaffListCubit>().state.staff;
+            final staffList = context
+                .watch<SchedulingStaffListCubit>()
+                .state
+                .staff;
 
             final classroomCodeToName = cubit.classroomOptions(
               classrooms: classroomState.classrooms,
               staff: staffList,
             );
-            final classroomNames =
-                classroomCodeToName.values.toList(growable: false);
+            final classroomNames = classroomCodeToName.values.toList(
+              growable: false,
+            );
             final selectedClassroomName =
                 classroomCodeToName[state.selectedClassroomCode] ??
-                    widget.classroomFallbackName;
+                widget.classroomFallbackName;
 
-            final staffAvailabilityError =
-                cubit.staffAvailabilityError(staffList);
+            final staffAvailabilityError = cubit.staffAvailabilityError(
+              staffList,
+            );
 
             return StaffFormLayout(
               title: title,
@@ -251,23 +260,26 @@ class _EditShiftViewState extends State<_EditShiftView> {
                   top: 8,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.05),
+                      color: AppColors.black.withValues(alpha: 0.05),
                       offset: const Offset(0, -4),
                       blurRadius: 16,
                     ),
                   ],
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                    topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                    topRight: Radius.circular(
+                      responsive.isTablet ? 40.0 : 24.0,
+                    ),
                   ),
                 ),
                 child: CustomButtonLayout(
                   confirmButtonLabel: state.saving ? 'Saving…' : 'Save',
-                  onPressedConfirm:
-                      (cubit.isFormValid && !state.saving) ? _onSave : null,
+                  onPressedConfirm: (cubit.isFormValid && !state.saving)
+                      ? _onSave
+                      : null,
                   showCancelButton: false,
                   isForm: false,
                 ),
@@ -397,7 +409,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
                       Text(
                         state.daysError!,
                         style: const TextStyle(
-                          color: Colors.red,
+                          color: AppColors.red,
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                           fontFamily: 'Manrope',
@@ -478,7 +490,10 @@ class _EditShiftViewState extends State<_EditShiftView> {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppColors.red),
+              ),
             ],
           ),
         ),
@@ -496,7 +511,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
           Text(
             errorText,
             style: const TextStyle(
-              color: Colors.red,
+              color: AppColors.red,
               fontSize: 12,
               fontWeight: FontWeight.w500,
               fontFamily: 'Manrope',
@@ -535,7 +550,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
                 fontSize: responsive.labelFontSize,
                 fontFamily: 'Manrope',
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: AppColors.white,
               ),
             ),
           ),
@@ -564,7 +579,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
           decoration: BoxDecoration(
             color: isSelected
                 ? AppColors.themeColor.withValues(alpha: 0.12)
-                : AppColors.fieldBackgroundColor,
+                : AppColors.fieldbackgroundColor,
             borderRadius: BorderRadius.circular(8),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 8),
@@ -617,11 +632,9 @@ class _EditShiftViewState extends State<_EditShiftView> {
         Text('Add Note', style: labelStyle),
         SizedBox(height: responsive.isTablet ? 8.0 : 6.0),
         Container(
-          constraints: BoxConstraints(
-            minHeight: responsive.inputFieldHeight,
-          ),
+          constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -640,7 +653,7 @@ class _EditShiftViewState extends State<_EditShiftView> {
             ),
             decoration: InputDecoration(
               hintText: 'Eg. Please note the change in classroom location',
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

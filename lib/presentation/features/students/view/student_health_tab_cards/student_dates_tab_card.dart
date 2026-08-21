@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/entities/student_physical_exam.dart';
@@ -15,6 +14,8 @@ import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class StudentDatesTabCard extends StatefulWidget {
   const StudentDatesTabCard({
@@ -153,7 +154,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isTablet = screenWidth > 600;
@@ -188,7 +189,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                     bottom: verticalPadding + bottomSafe,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(borderRadius),
                       topRight: Radius.circular(borderRadius),
@@ -540,7 +541,7 @@ class _StudentDatesTabCardState extends State<StudentDatesTabCard> {
                               child: const Icon(
                                 Icons.edit,
                                 size: 22,
-                                color: Colors.white,
+                                color: AppColors.white,
                               ),
                             ),
                           ],
@@ -625,7 +626,7 @@ class _PhysicalExamCard extends StatelessWidget {
       child: Container(
         width: double.infinity,
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),
@@ -766,7 +767,7 @@ class _DialogField extends StatelessWidget {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),
@@ -839,7 +840,7 @@ class _DialogDropdown extends StatelessWidget {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),

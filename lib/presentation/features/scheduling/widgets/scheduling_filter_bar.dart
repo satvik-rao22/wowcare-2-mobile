@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../../app/theme/colors.dart';
 import '../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../shared/common/widgets/custom_dropdown.dart';
 import 'scheduling_legend.dart';
@@ -21,7 +22,7 @@ class SchedulingFilterBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: const Color(0x19162831)),
         borderRadius: BorderRadius.circular(10),
       ),

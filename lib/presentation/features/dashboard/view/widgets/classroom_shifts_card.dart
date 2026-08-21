@@ -6,7 +6,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/school_timezone_resolver.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
@@ -158,7 +158,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
             decoration: BoxDecoration(
               border: Border.all(color: AppColors.cardBorderColor),
               borderRadius: BorderRadius.circular(12),
-              color: Colors.white,
+              color: AppColors.white,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -243,7 +243,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                             // ── Scheduling-screen identical inner container ─────
                             DecoratedBox(
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 border: Border.all(
                                   color: const Color(0x33162831),
                                 ),
@@ -303,7 +303,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                             'No classrooms found',
                                             style: TextStyle(
                                               fontSize: _bodyFontSize,
-                                              color: Colors.grey[500],
+                                              color: AppColors.grey[500],
                                             ),
                                           ),
                                         ),
@@ -326,8 +326,7 @@ class _ClassroomShiftsCardState extends State<ClassroomShiftsCard> {
                                           isLast:
                                               i == displayEntries.length - 1 &&
                                               !hasMoreToShow,
-                                          onClassroomNameTap: () =>
-                                              context.go(
+                                          onClassroomNameTap: () => context.go(
                                             '${SchedulingScreen.routeName}'
                                             '?view=day'
                                             '&highlightCode=${displayEntries[i].classroomCode}'
@@ -549,7 +548,7 @@ class _NavArrow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(100),
@@ -579,11 +578,11 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
+        baseColor: AppColors.grey.shade300,
+        highlightColor: AppColors.grey.shade100,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -595,7 +594,7 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                   height: 20,
                   width: 160,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -603,7 +602,7 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                   height: 20,
                   width: 24,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -618,7 +617,7 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                   height: 14,
                   width: 90,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -627,7 +626,7 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                   height: 14,
                   width: 70,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -637,7 +636,9 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
             // Inner table
             Container(
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.white.withValues(alpha: 0.6)),
+                border: Border.all(
+                  color: AppColors.white.withValues(alpha: 0.6),
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Column(
@@ -645,7 +646,7 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                   Container(
                     height: 48,
                     decoration: BoxDecoration(
-                      color: Colors.white.withValues(alpha: 0.8),
+                      color: AppColors.white.withValues(alpha: 0.8),
                       borderRadius: const BorderRadius.vertical(
                         top: Radius.circular(8),
                       ),
@@ -656,7 +657,7 @@ class _ClassroomShiftsCardShimmer extends StatelessWidget {
                     (_) => Container(
                       height: 80,
                       margin: const EdgeInsets.only(top: 1),
-                      color: Colors.white.withValues(alpha: 0.5),
+                      color: AppColors.white.withValues(alpha: 0.5),
                     ),
                   ),
                 ],

@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class NewsletterListItemModel {
   const NewsletterListItemModel({
@@ -52,7 +53,7 @@ class NewsletterSentListCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.white,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -80,7 +81,8 @@ class NewsletterSentListCard extends StatelessWidget {
                     assetCode: newsLetter.primaryAttachmentAssetCode,
                     directUrl: newsLetter.primaryAttachmentDirectUrl,
                     mimeType: newsLetter.primaryAttachmentMimeType,
-                    additionalAttachmentCount: newsLetter.additionalAttachmentCount,
+                    additionalAttachmentCount:
+                        newsLetter.additionalAttachmentCount,
                   ),
                 ),
               ),
@@ -191,19 +193,19 @@ class _RecipientCountBadge extends StatelessWidget {
   List<NewsletterRecipientSummary> _recipientItems() {
     if (recipients.isNotEmpty) {
       final seen = <String>{};
-      final items = recipients.where((NewsletterRecipientSummary recipient) {
-        final displayName = recipient.displayName.trim();
-        if (displayName.isEmpty) return false;
-        final code = recipient.userCode.trim();
-        final key = code.isNotEmpty ? code : displayName.toLowerCase();
-        return seen.add(key);
-      }).toList()
-        ..sort(
-          (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-              a.displayName.toLowerCase().compareTo(
-                    b.displayName.toLowerCase(),
-                  ),
-        );
+      final items =
+          recipients.where((NewsletterRecipientSummary recipient) {
+            final displayName = recipient.displayName.trim();
+            if (displayName.isEmpty) return false;
+            final code = recipient.userCode.trim();
+            final key = code.isNotEmpty ? code : displayName.toLowerCase();
+            return seen.add(key);
+          }).toList()..sort(
+            (NewsletterRecipientSummary a, NewsletterRecipientSummary b) => a
+                .displayName
+                .toLowerCase()
+                .compareTo(b.displayName.toLowerCase()),
+          );
       return items;
     }
 
@@ -212,17 +214,13 @@ class _RecipientCountBadge extends StatelessWidget {
         .where((String name) => name.isNotEmpty)
         .toSet()
         .map(
-          (String name) => NewsletterRecipientSummary(
-            displayName: name,
-            userCode: '',
-          ),
+          (String name) =>
+              NewsletterRecipientSummary(displayName: name, userCode: ''),
         )
         .toList()
       ..sort(
         (NewsletterRecipientSummary a, NewsletterRecipientSummary b) =>
-            a.displayName.toLowerCase().compareTo(
-                  b.displayName.toLowerCase(),
-                ),
+            a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase()),
       );
   }
 
@@ -231,7 +229,7 @@ class _RecipientCountBadge extends StatelessWidget {
 
     showModalBottomSheet<void>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -240,7 +238,7 @@ class _RecipientCountBadge extends StatelessWidget {
         return SafeArea(
           child: Container(
             decoration: const BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
             ),
             child: Column(
@@ -288,7 +286,7 @@ class _RecipientCountBadge extends StatelessWidget {
                             width: 38,
                             height: 38,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: AppColors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: AppColors.primaryColor.withValues(
@@ -394,7 +392,7 @@ class _RecipientCountBadge extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(left: 8),
       child: Material(
-        color: AppColors.fieldBackgroundColor,
+        color: AppColors.fieldbackgroundColor,
         borderRadius: BorderRadius.circular(999),
         child: InkWell(
           borderRadius: BorderRadius.circular(999),
@@ -469,10 +467,7 @@ class _RecipientListTile extends StatelessWidget {
 }
 
 class _AlignedMetaRow extends StatelessWidget {
-  const _AlignedMetaRow({
-    required this.label,
-    required this.value,
-  });
+  const _AlignedMetaRow({required this.label, required this.value});
 
   final String label;
   final String value;
@@ -573,7 +568,8 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     if (_isHttpUrl(code)) return code;
 
     try {
-      final ImageUploadService uploadService = serviceLocator<ImageUploadService>();
+      final ImageUploadService uploadService =
+          serviceLocator<ImageUploadService>();
       return await uploadService.getMediaAssetUrlByCode(assetCode: code);
     } catch (_) {
       return '';
@@ -630,8 +626,7 @@ class _CardThumbnailState extends State<_CardThumbnail> {
         final String url = (snapshot.data ?? '').trim();
         final bool hasUrl = url.isNotEmpty;
         final bool isLoading =
-            snapshot.connectionState == ConnectionState.waiting &&
-                !hasUrl;
+            snapshot.connectionState == ConnectionState.waiting && !hasUrl;
 
         return Stack(
           children: [
@@ -642,25 +637,25 @@ class _CardThumbnailState extends State<_CardThumbnail> {
                       hasUrl: hasUrl,
                       isLoading: isLoading,
                     )
-                  : _buildDocumentPreview(
-                      hasUrl: hasUrl,
-                      isLoading: isLoading,
-                    ),
+                  : _buildDocumentPreview(hasUrl: hasUrl, isLoading: isLoading),
             ),
             if (widget.additionalAttachmentCount > 0)
               Positioned(
                 top: 4,
                 right: 4,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: Colors.black.withValues(alpha: 0.65),
+                    color: AppColors.black.withValues(alpha: 0.65),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Text(
                     '+${widget.additionalAttachmentCount}',
                     style: const TextStyle(
-                      color: Colors.white,
+                      color: AppColors.white,
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
                     ),
@@ -699,7 +694,7 @@ class _CardThumbnailState extends State<_CardThumbnail> {
   }) {
     if (isLoading) return _loadingPreview();
     return Container(
-      color: hasUrl ? const Color(0xFFEAF2FF) : Colors.grey.shade200,
+      color: hasUrl ? const Color(0xFFEAF2FF) : AppColors.grey.shade200,
       alignment: Alignment.center,
       child: Icon(
         _documentIconForMimeType(widget.mimeType ?? ''),
@@ -714,7 +709,7 @@ class _CardThumbnailState extends State<_CardThumbnail> {
       MediaRes.deafultNewsletterImage,
       fit: BoxFit.cover,
       errorBuilder: (_, __, ___) => Container(
-        color: Colors.grey.shade200,
+        color: AppColors.grey.shade200,
         alignment: Alignment.center,
         child: Icon(
           Icons.image_outlined,
@@ -735,10 +730,11 @@ class _CardThumbnailState extends State<_CardThumbnail> {
     if (mime.contains('word') || mime.contains('document')) {
       return Icons.description_outlined;
     }
-    if (mime.contains('sheet') || mime.contains('excel') || mime.contains('csv')) {
+    if (mime.contains('sheet') ||
+        mime.contains('excel') ||
+        mime.contains('csv')) {
       return Icons.table_chart_outlined;
     }
     return Icons.insert_drive_file_outlined;
   }
 }
-

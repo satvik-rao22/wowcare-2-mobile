@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
@@ -287,7 +287,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (context) {
         final screenWidth = MediaQuery.of(context).size.width;
         final isTablet = screenWidth > 600;
@@ -318,7 +318,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                     bottom: verticalPadding + bottomSafe,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.only(
                       topLeft: Radius.circular(borderRadius),
                       topRight: Radius.circular(borderRadius),
@@ -659,7 +659,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                                 Text(
                                   validationMessage,
                                   style: const TextStyle(
-                                    color: Colors.redAccent,
+                                    color: AppColors.redAccent,
                                     fontSize: 12,
                                     fontWeight: FontWeight.w600,
                                   ),
@@ -784,7 +784,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                 top: Radius.circular(12),
                 bottom: Radius.circular(16),
               ),
-              color: Colors.white,
+              color: AppColors.white,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -843,7 +843,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                         child: const Icon(
                           Icons.edit,
                           size: 22,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       ),
                     ),
@@ -856,7 +856,7 @@ class _StaffDatesTabState extends State<StaffDatesTab> {
                   Text(
                     _errorMessage!,
                     style: const TextStyle(
-                      color: Colors.redAccent,
+                      color: AppColors.redAccent,
                       fontSize: 14,
                     ),
                   )
@@ -941,7 +941,7 @@ class _DateRow extends StatelessWidget {
                   borderRadius: BorderRadius.circular(8),
                 ),
                 textStyle: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 12,
                   fontFamily: 'Manrope',
                   fontWeight: FontWeight.w600,

@@ -54,7 +54,8 @@ class EditUserProfileScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return BlocProvider(
       create: (_) =>
-          serviceLocator<EditUserProfileCubit>()..loadProfile(isParent: isParent),
+          serviceLocator<EditUserProfileCubit>()
+            ..loadProfile(isParent: isParent),
       child: _EditUserProfileForm(
         initialFirstName: initialFirstName,
         initialLastName: initialLastName,
@@ -352,7 +353,8 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
       return;
     }
     final zipDigits = zip.replaceAll(RegExp(r'\D'), '');
-    if (zipDigits.isNotEmpty && !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
+    if (zipDigits.isNotEmpty &&
+        !RegExp(r'^\d{5}(\d{4})?$').hasMatch(zipDigits)) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Zip Code must be 5 digits (12345) or ZIP+4 (12345-6789)',
@@ -416,8 +418,9 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
         // instead of celebrating.
         CoreUtils.showTopSnackBar(
           context: context,
-          message:
-              message.isNotEmpty ? message : 'Profile updated successfully',
+          message: message.isNotEmpty
+              ? message
+              : 'Profile updated successfully',
           isSuccess: !cubit.emailChangeFailed,
           isWarning: cubit.emailChangeFailed,
         );
@@ -557,7 +560,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                     fontFamily: 'Manrope',
                     fontSize: responsive.inputFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.grey.shade700,
+                    color: AppColors.grey.shade700,
                     height: 19 / 14,
                   ),
                   popupItemTextStyle: TextStyle(
@@ -591,10 +594,10 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
             top: 8,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: AppColors.black.withValues(alpha: 0.05),
                 offset: const Offset(0, -4),
                 blurRadius: 16,
               ),
@@ -608,7 +611,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
             height: responsive.buttonHeight,
             decoration: BoxDecoration(
               gradient: isSubmitting ? null : AppColors.buildPrimaryGradient(),
-              color: isSubmitting ? Colors.grey[300] : null,
+              color: isSubmitting ? AppColors.grey[300] : null,
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 16.0 : 8.0,
               ),
@@ -621,7 +624,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                   fontFamily: 'Manrope',
                   fontSize: responsive.buttonFontSize,
                   fontWeight: FontWeight.w600,
-                  color: Colors.white,
+                  color: AppColors.white,
                 ),
               ),
             ),
@@ -656,7 +659,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),
@@ -665,7 +668,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -693,7 +696,7 @@ class _EditUserProfileFormState extends State<_EditUserProfileForm> {
                       : const <TextInputFormatter>[]),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

@@ -3,7 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -152,18 +152,18 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
   Future<void> _applyPersonaScope() async {
     final isStaff = context.read<RoleCubit>().isStaff;
     final loggedInStaffCode = isStaff
-        ? (await serviceLocator<StorageService>()
-                    .getString(StorageKeys.staffCode) ??
-                '')
-            .trim()
+        ? (await serviceLocator<StorageService>().getString(
+                    StorageKeys.staffCode,
+                  ) ??
+                  '')
+              .trim()
         : '';
     if (!mounted) return;
     // ignore: discarded_futures
     context.read<StaffSchedulingCubit>().applyPersonaScope(
-          isStaffPersona: isStaff,
-          loggedInStaffCode:
-              loggedInStaffCode.isEmpty ? null : loggedInStaffCode,
-        );
+      isStaffPersona: isStaff,
+      loggedInStaffCode: loggedInStaffCode.isEmpty ? null : loggedInStaffCode,
+    );
   }
 
   Future<void> _bootstrapSchoolZone() async {
@@ -174,7 +174,8 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
       final cubit = context.read<StaffSchedulingCubit>();
       final selected = cubit.state.selectedDay;
       final initialToday = _initialDeviceToday;
-      final stillOnInitialToday = initialToday != null &&
+      final stillOnInitialToday =
+          initialToday != null &&
           selected.year == initialToday.year &&
           selected.month == initialToday.month &&
           selected.day == initialToday.day;
@@ -257,8 +258,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
     }
     _lastRequestedStaffCodes = codes;
     try {
-      final map =
-          await serviceLocator<GetStaffTodaySignInStatusMapUseCase>()(
+      final map = await serviceLocator<GetStaffTodaySignInStatusMapUseCase>()(
         staffCodes: codes.toList(growable: false),
       );
       if (!mounted) return;
@@ -277,8 +277,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
     TimeOfDay? initialShiftEnd,
   }) async {
     final classroomCubit = context.read<ClassroomCubit>();
-    final schedulingStaffListCubit =
-        context.read<SchedulingStaffListCubit>();
+    final schedulingStaffListCubit = context.read<SchedulingStaffListCubit>();
     final schedulingCubit = context.read<StaffSchedulingCubit>();
     final saved = await Navigator.of(context).push<bool>(
       MaterialPageRoute<bool>(
@@ -357,7 +356,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
 
     final shouldAdd = await showModalBottomSheet<bool>(
       context: context,
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
@@ -404,7 +403,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                         'Add Shift',
                         style: TextStyle(
                           fontFamily: 'Manrope',
-                          color: Colors.white,
+                          color: AppColors.white,
                           fontSize: 14,
                           fontWeight: FontWeight.w700,
                         ),
@@ -483,13 +482,14 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
     }
 
     try {
-      final shift =
-          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      final shift = await serviceLocator<GetStaffShiftByCodeUseCase>()(
+        shiftCode,
+      );
       if (!context.mounted) return;
       final classroomName = shift.classroomName.trim().isNotEmpty
           ? shift.classroomName
           : (state.classroomNamesByCode[shift.classroomCode] ??
-              shift.classroomCode);
+                shift.classroomCode);
       final staffName = shift.staffName.trim().isNotEmpty
           ? shift.staffName
           : (state.selectedStaff?.name ?? '');
@@ -518,36 +518,36 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
             onEditThis: isReadOnly
                 ? null
                 : () => _openEditShiftScreen(
-                      context,
-                      state,
-                      shiftCode,
-                      EditShiftMode.thisShift,
-                    ),
+                    context,
+                    state,
+                    shiftCode,
+                    EditShiftMode.thisShift,
+                  ),
             onEditSeries: isReadOnly
                 ? null
                 : () => _openEditShiftScreen(
-                      context,
-                      state,
-                      shiftCode,
-                      EditShiftMode.entireSeries,
-                    ),
+                    context,
+                    state,
+                    shiftCode,
+                    EditShiftMode.entireSeries,
+                  ),
             onDeleteThis: isReadOnly
                 ? null
                 : () => _deleteStaffShift(
-                      context,
-                      shiftCode: shift.shiftCode,
-                      staffCode: shift.staffCode,
-                      isSeries: false,
-                    ),
+                    context,
+                    shiftCode: shift.shiftCode,
+                    staffCode: shift.staffCode,
+                    isSeries: false,
+                  ),
             onDeleteSeries: isReadOnly
                 ? null
                 : () => _deleteStaffShift(
-                      context,
-                      shiftCode: shift.shiftCode,
-                      staffCode: shift.staffCode,
-                      seriesCode: shift.seriesCode,
-                      isSeries: true,
-                    ),
+                    context,
+                    shiftCode: shift.shiftCode,
+                    staffCode: shift.staffCode,
+                    seriesCode: shift.seriesCode,
+                    isSeries: true,
+                  ),
           ),
         ),
       );
@@ -585,13 +585,14 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
     final schedulingStaffListCubit = context.read<SchedulingStaffListCubit>();
     final navigator = Navigator.of(context);
     try {
-      final shift =
-          await serviceLocator<GetStaffShiftByCodeUseCase>()(shiftCode);
+      final shift = await serviceLocator<GetStaffShiftByCodeUseCase>()(
+        shiftCode,
+      );
       if (!context.mounted) return false;
       final classroomName = shift.classroomName.trim().isNotEmpty
           ? shift.classroomName
           : (state.classroomNamesByCode[shift.classroomCode] ??
-              shift.classroomCode);
+                shift.classroomCode);
       final staffName = shift.staffName.trim().isNotEmpty
           ? shift.staffName
           : (state.selectedStaff?.name ?? '');
@@ -626,7 +627,8 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
         for (final d in shift.seriesRecurrenceDays)
           if (dayNameByIndex[d] != null) dayNameByIndex[d]!,
       };
-      final selectedDays = (actualDay != null && decodedDays.contains(actualDay))
+      final selectedDays =
+          (actualDay != null && decodedDays.contains(actualDay))
           ? decodedDays
           : <String>{if (actualDay != null) actualDay};
       final saved = await navigator.push<bool>(
@@ -782,8 +784,9 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
       builder: (context, state) {
         final cubit = context.read<StaffSchedulingCubit>();
         final staff = state.selectedStaff;
-        final dayColumnLabel =
-            DateFormat('EEE, MMM d').format(state.selectedDay);
+        final dayColumnLabel = DateFormat(
+          'EEE, MMM d',
+        ).format(state.selectedDay);
         final calendarShifts = _shiftsFromSummary(state.shiftSummary);
         // Kick off the bulk sign-in status fetch whenever the roster shape
         // changes — the method itself short-circuits when the staff-code set
@@ -797,9 +800,11 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
         // OR while the staff list is being (re)loaded with nothing to show.
         // This avoids briefly flashing the "Select a staff" empty state before
         // `loadInitial()` flips the loading flag on.
-        final isInitialLoad = !state.hasAttemptedInitialLoad ||
+        final isInitialLoad =
+            !state.hasAttemptedInitialLoad ||
             (state.isLoadingStaff && state.staffList.isEmpty);
-        final isProfileLoading = state.isLoadingStaff ||
+        final isProfileLoading =
+            state.isLoadingStaff ||
             state.isLoadingShifts ||
             state.isLoadingSchoolHours;
 
@@ -826,10 +831,9 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                   _DateHeaderRow(
                     selectedDay: state.selectedDay,
                     staff: state.staffList,
-                    initialPublishStaffCodes:
-                        state.selectedStaffCode == null
-                            ? const <String>[]
-                            : <String>[state.selectedStaffCode!],
+                    initialPublishStaffCodes: state.selectedStaffCode == null
+                        ? const <String>[]
+                        : <String>[state.selectedStaffCode!],
                     onDatePicked: cubit.selectDay,
                     onAddTap: () {
                       // ignore: discarded_futures
@@ -853,7 +857,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       border: Border.all(color: const Color(0x19162831)),
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -875,7 +879,7 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                       width: double.infinity,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: AppColors.white,
                         border: Border.all(
                           color: AppColors.primaryColor.withValues(alpha: 0.1),
                         ),
@@ -890,8 +894,9 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                             designation: formatDesignationForDisplay(
                               staff.designation,
                             ),
-                            classroom:
-                                state.classroomResolver.resolveForStaff(staff),
+                            classroom: state.classroomResolver.resolveForStaff(
+                              staff,
+                            ),
                             profilePhotoAssetCode: staff.profilePhotoAssetCode,
                             status: staff.status,
                             attendanceStatus:
@@ -957,20 +962,18 @@ class _StaffSchedulingViewState extends State<_StaffSchedulingView> {
                                 schoolEndTime: state.schoolEndTime!,
                                 classroomResolver: state.classroomResolver,
                                 highlightShiftCode: widget.highlightShiftCode,
-                                dailyRoomSchedule:
-                                    DailyShifts(shifts: calendarShifts),
-                                onShiftTap: (shift) => _openViewShiftScreen(
-                                  context,
-                                  state,
-                                  shift,
+                                dailyRoomSchedule: DailyShifts(
+                                  shifts: calendarShifts,
                                 ),
+                                onShiftTap: (shift) =>
+                                    _openViewShiftScreen(context, state, shift),
                                 onEmptySlotTap: state.isStaffPersonaScope
                                     ? null
                                     : (time) => _openAddShiftForEmptySlot(
-                                          context,
-                                          state,
-                                          time,
-                                        ),
+                                        context,
+                                        state,
+                                        time,
+                                      ),
                               ),
                           ],
                         ],
@@ -1086,7 +1089,7 @@ class _GradientPublishButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(borderRadius),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppColors.black.withValues(alpha: 0.1),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -1097,7 +1100,7 @@ class _GradientPublishButton extends StatelessWidget {
         'Publish',
         style: TextStyle(
           fontFamily: 'Manrope',
-          color: Colors.white,
+          color: AppColors.white,
           fontSize: 14,
           fontWeight: FontWeight.w600,
         ),
@@ -1156,7 +1159,8 @@ class _StaffProfileHeader extends StatelessWidget {
           statusTooltip: attendanceTooltip,
           size: 80,
           fontSize: 28,
-          disableProfileLookupFallback: profilePhotoAssetCode != null &&
+          disableProfileLookupFallback:
+              profilePhotoAssetCode != null &&
               profilePhotoAssetCode!.isNotEmpty,
           disableAttendanceStatusLookup: true,
         ),

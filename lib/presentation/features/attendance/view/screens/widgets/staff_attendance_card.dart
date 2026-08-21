@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -143,7 +143,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         duration: const Duration(milliseconds: 200),
         margin: EdgeInsets.only(bottom: responsive.verticalSpacing / 2),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: AppColors.cardBorderColor, width: 1),
         ),
@@ -562,7 +562,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         side: const BorderSide(color: Color(0xFF6C7FD8)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         padding: EdgeInsets.zero,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
       ),
       child: Text(
         label,
@@ -587,7 +587,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
         onPressed: onPressed,
         style: TextButton.styleFrom(
           padding: EdgeInsets.zero,
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparent,
         ),
         child: Text(
           label,
@@ -595,7 +595,7 @@ class _StaffAttendanceCardState extends State<StaffAttendanceCard> {
             fontFamily: 'Manrope',
             fontSize: 16,
             fontWeight: FontWeight.w700,
-            color: Colors.white,
+            color: AppColors.white,
             height: 16 / 16,
           ),
         ),

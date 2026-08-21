@@ -5,7 +5,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
@@ -364,7 +364,7 @@ class _AssignStudentToClassroomFormState
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
@@ -408,15 +408,19 @@ class _AssignStudentToClassroomFormState
             constraints: const BoxConstraints(minHeight: 44),
             hintText: 'Search Students',
             hintStyle: WidgetStatePropertyAll(
-              TextStyle(fontFamily: 'Manrope', color: Colors.grey[700]),
+              TextStyle(fontFamily: 'Manrope', color: AppColors.grey[700]),
             ),
-            backgroundColor: const WidgetStatePropertyAll<Color>(Colors.white),
-            surfaceTintColor: const WidgetStatePropertyAll<Color>(Colors.white),
+            backgroundColor: const WidgetStatePropertyAll<Color>(
+              AppColors.white,
+            ),
+            surfaceTintColor: const WidgetStatePropertyAll<Color>(
+              AppColors.white,
+            ),
             elevation: const WidgetStatePropertyAll<double>(0),
             side: const WidgetStatePropertyAll(
               BorderSide(width: 1, color: Color.fromARGB(255, 188, 173, 186)),
             ),
-            leading: const Icon(Icons.search, color: Colors.grey),
+            leading: const Icon(Icons.search, color: AppColors.grey),
           ),
           const SizedBox(height: 12),
           Row(
@@ -484,7 +488,7 @@ class _AssignStudentToClassroomFormState
                           textAlign: TextAlign.center,
                           style: const TextStyle(
                             fontFamily: 'Manrope',
-                            color: Colors.red,
+                            color: AppColors.red,
                           ),
                         ),
                         const SizedBox(height: 10),
@@ -536,7 +540,7 @@ class _AssignStudentToClassroomFormState
                 showModalBottomSheet(
                   context: context,
                   isScrollControlled: true,
-                  backgroundColor: Colors.transparent,
+                  backgroundColor: AppColors.transparent,
                   builder: (context) => DraggableScrollableSheet(
                     maxChildSize: 0.95,
                     builder: (_, controller) => StudentConfirmationForm(
@@ -641,7 +645,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
@@ -672,7 +676,7 @@ class _StudentConfirmationFormState extends State<StudentConfirmationForm> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
       child: Column(
@@ -888,7 +892,7 @@ class StudentListItem extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             color: isSelected
                 ? const Color.fromARGB(255, 249, 245, 250)
-                : Colors.white,
+                : AppColors.white,
           ),
           child: Padding(
             padding: const EdgeInsets.only(right: 4),

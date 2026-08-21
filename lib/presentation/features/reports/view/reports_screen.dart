@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'dart:async';
@@ -527,7 +527,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                       const SizedBox(height: 12),
                       Container(
                         decoration: BoxDecoration(
-                          color: Colors.transparent,
+                          color: AppColors.transparent,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 8),
@@ -563,7 +563,7 @@ class _ReportsScreenState extends State<ReportsScreen>
                                 tabAlignment: TabAlignment.start,
                                 labelColor: AppColors.themeColor,
                                 unselectedLabelColor: const Color(0xff573353),
-                                dividerColor: Colors.transparent,
+                                dividerColor: AppColors.transparent,
                                 indicatorSize: TabBarIndicatorSize.label,
                                 indicator: UnderlineTabIndicator(
                                   borderSide: BorderSide(
@@ -936,7 +936,7 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
                       right: 0,
                       child: LinearProgressIndicator(
                         minHeight: 2,
-                        backgroundColor: Colors.transparent,
+                        backgroundColor: AppColors.transparent,
                         valueColor: AlwaysStoppedAnimation<Color>(
                           AppColors.primaryColor,
                         ),
@@ -966,7 +966,11 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: AppColors.red,
+                  ),
                   const SizedBox(height: 16),
                   Text(
                     'Failed to load reports',
@@ -1014,7 +1018,7 @@ class _GeneratedReportsTabState extends State<_GeneratedReportsTab>
                   Icon(
                     Icons.description_outlined,
                     size: 48,
-                    color: Colors.grey[400],
+                    color: AppColors.grey[400],
                   ),
                   const SizedBox(height: 16),
                   Text(

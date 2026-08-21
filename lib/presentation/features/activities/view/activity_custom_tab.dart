@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
@@ -13,6 +12,7 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
+import '../../../../app/theme/colors.dart';
 import '../../../../core/util/core_utils.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/network/api_client.dart';
@@ -2483,7 +2483,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (ctx) {
         return DeleteConfirmationBottomSheet(
           name: activity.name,
@@ -2929,7 +2929,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                     decoration: BoxDecoration(
                       border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                     child: widget.fromStudentProfile && !isNotParent
                         ? Column(
@@ -3056,7 +3056,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                   ),
                                   const SizedBox(width: 8),
                                   Material(
-                                    color: Colors.transparent,
+                                    color: AppColors.transparent,
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(100),
                                       onTap: _openActivityFilter,
@@ -3103,7 +3103,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                         ? '99+'
                                                         : '$badgeCount',
                                                     style: const TextStyle(
-                                                      color: Colors.white,
+                                                      color: AppColors.white,
                                                       fontSize: 10,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -3178,7 +3178,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.dividerColor),
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                           alignment: Alignment.center,
                           child: const PrimaryCircularLoader(
@@ -3199,7 +3199,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.dividerColor),
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                           child: Center(
                             child: Text(
@@ -3426,7 +3426,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                               //               null)
                                                               //             return child;
                                                               //           return Container(
-                                                              //             color: Colors
+                                                              //             color: AppColors
                                                               //                 .transparent,
                                                               //             child: const Center(
                                                               //               child: CircularProgressIndicator(
@@ -3464,8 +3464,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                               : Container(
                                                                   width: 122,
                                                                   height: 76,
-                                                                  color: Colors
-                                                                      .white,
+                                                                  color:
+                                                                      AppColors
+                                                                          .white,
                                                                   // color: activityColor
                                                                   //     .withValues(alpha:0.25),
                                                                   child: Center(
@@ -3760,7 +3761,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                                                             showModalBottomSheet(
                                                                               context: context,
                                                                               isScrollControlled: true,
-                                                                              backgroundColor: Colors.transparent,
+                                                                              backgroundColor: AppColors.transparent,
                                                                               builder:
                                                                                   (
                                                                                     ctx,
@@ -3992,7 +3993,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   //                         ),
   //                         const SizedBox(width: 8),
   //                         Material(
-  //                           color: Colors.transparent,
+  //                           color: AppColors.transparent,
   //                           child: InkWell(
   //                             borderRadius: BorderRadius.circular(100),
   //                             onTap: () async {
@@ -4144,7 +4145,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   //                 child: Text(
   //                   'No Activities found',
   //                   style: TextStyle(
-  //                     color: Colors.black,
+  //                     color: AppColors.black,
   //                     fontFamily: 'Manrope',
   //                     fontSize: 16,
   //                     fontWeight: FontWeight.w500,
@@ -4281,7 +4282,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   //                                                   //               null)
   //                                                   //             return child;
   //                                                   //           return Container(
-  //                                                   //             color: Colors
+  //                                                   //             color: AppColors
   //                                                   //                 .transparent,
   //                                                   //             child: const Center(
   //                                                   //               child: CircularProgressIndicator(
@@ -4319,7 +4320,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   //                                                   : Container(
   //                                                       width: 122,
   //                                                       height: 76,
-  //                                                       color: Colors.white,
+  //                                                       color: AppColors.white,
   //                                                       // color: activityColor
   //                                                       //     .withValues(alpha:0.25),
   //                                                       child: Center(
@@ -4364,7 +4365,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   //                                                         activity.name,
   //                                                         style:
   //                                                             const TextStyle(
-  //                                                               color: Colors
+  //                                                               color: AppColors
   //                                                                   .white,
   //                                                               fontSize: 11,
   //                                                               fontWeight:
@@ -4588,8 +4589,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     color: selectedStartDate == null
-                        ? Colors.grey[600]
-                        : Colors.black87,
+                        ? AppColors.grey[600]
+                        : AppColors.black87,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -4647,14 +4648,14 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         fontSize: 15,
         fontWeight: FontWeight.w400,
         color: selectedItem != null && selectedItem.trim().isNotEmpty
-            ? Colors.black87
-            : Colors.grey[600],
+            ? AppColors.black87
+            : AppColors.grey[600],
       ),
       popupItemTextStyle: const TextStyle(
         fontFamily: 'Manrope',
         fontSize: 14,
         fontWeight: FontWeight.w400,
-        color: Colors.black87,
+        color: AppColors.black87,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
@@ -4699,7 +4700,7 @@ class PopupItem extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Colors.black,
+            color: AppColors.black,
           ),
         ),
       ],

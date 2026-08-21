@@ -10,7 +10,8 @@ class HlsWebPlayer extends StatefulWidget {
   State<HlsWebPlayer> createState() => _HlsWebPlayerState();
 }
 
-class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver {
+class _HlsWebPlayerState extends State<HlsWebPlayer>
+    with WidgetsBindingObserver {
   BetterPlayerController? _controller;
   final GlobalKey _playerKey = GlobalKey();
   bool _isEnteringPip = false;

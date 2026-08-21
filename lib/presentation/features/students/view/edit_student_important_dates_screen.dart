@@ -3,7 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
@@ -185,10 +185,10 @@ class _EditStudentImportantDatesScreenState
                           top: 8,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: AppColors.black.withValues(alpha: 0.05),
                               offset: const Offset(0, -4),
                               blurRadius: 16,
                             ),
@@ -240,7 +240,7 @@ class _EditStudentImportantDatesScreenState
           child: Container(
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               border: Border.all(color: const Color(0x66573353)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
@@ -260,8 +260,8 @@ class _EditStudentImportantDatesScreenState
                           : 'Select Date',
                       style: TextStyle(
                         color: selectedDate == null
-                            ? Colors.grey
-                            : Colors.black,
+                            ? AppColors.grey
+                            : AppColors.black,
                         fontSize: responsive.inputFontSize,
                         fontFamily: 'Manrope',
                       ),

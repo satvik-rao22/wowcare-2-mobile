@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/my_shifts_cubit.dart';
@@ -18,6 +17,8 @@ import 'package:wowcare/presentation/features/scheduling/widgets/staff_day_sched
 import 'package:wowcare/presentation/features/scheduling/widgets/staff_schedule_tile.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// "My Shifts" card for dashboard. Shows staff profile, hour summary tiles, and full calendar.
 /// Matches the visual style of StaffSchedulingScreen exactly.
@@ -174,7 +175,7 @@ class _MyShiftsCardState extends State<MyShiftsCard> {
               context.read<MyShiftsCubit>().load(date: state.selectedDate),
           child: Card(
             elevation: 0,
-            color: Colors.white,
+            color: AppColors.white,
             margin: EdgeInsets.zero,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),

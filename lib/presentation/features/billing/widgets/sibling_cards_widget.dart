@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -100,9 +100,7 @@ class SiblingCardsWidget extends StatelessWidget {
         color: AppColors.cardColor,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color: AppColors.cardBorderColor,
-          ),
+          side: BorderSide(color: AppColors.cardBorderColor),
         ),
         child: Padding(
           padding: const EdgeInsets.all(24.0),

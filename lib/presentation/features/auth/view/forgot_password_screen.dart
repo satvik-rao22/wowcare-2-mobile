@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
@@ -8,7 +8,7 @@ import 'package:wowcare/domain/features/auth/usecases/forgot_password_usecase.da
 
 class ForgotPasswordScreen extends StatefulWidget {
   const ForgotPasswordScreen({super.key});
-  
+
   static const routeName = '/forgot-password';
 
   @override
@@ -21,7 +21,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
   Future<void> _handleSubmit() async {
     final email = _emailController.text.trim();
-    
+
     // Basic email validation
     if (email.isEmpty || !email.contains('@')) {
       CoreUtils.showTopSnackBar(
@@ -88,7 +88,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     return Scaffold(
       body: Container(
-        color: Colors.white,
+        color: AppColors.white,
         child: SafeArea(
           child: Column(
             children: [
@@ -124,7 +124,8 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                         SizedBox(height: screenHeight * 0.01),
                         ShaderMask(
                           shaderCallback: (Rect bounds) {
-                            return AppColors.buildPrimaryGradient().createShader(bounds);
+                            return AppColors.buildPrimaryGradient()
+                                .createShader(bounds);
                           },
                           blendMode: BlendMode.srcIn,
                           child: Text(
@@ -132,7 +133,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             style: TextStyle(
                               fontSize: screenHeight * 0.03,
                               fontWeight: FontWeight.w500,
-                              color: Colors.white,
+                              color: AppColors.white,
                             ),
                           ),
                         ),
@@ -201,7 +202,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                   Container(
                                     height: screenHeight * 0.06,
                                     width: 2,
-                                    color: Colors.white,
+                                    color: AppColors.white,
                                     margin: EdgeInsets.only(
                                       left: screenWidth * 0.04,
                                       right: screenWidth * 0.015,
@@ -214,7 +215,9 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                             fillColor: const Color(0xFFF8F9FA),
                             border: const OutlineInputBorder(
                               borderSide: BorderSide.none,
-                              borderRadius: BorderRadius.all(Radius.circular(12)),
+                              borderRadius: BorderRadius.all(
+                                Radius.circular(12),
+                              ),
                             ),
                             focusedBorder: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -262,16 +265,19 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    AppColors.white,
+                                  ),
                                   strokeWidth: 2.5,
                                 ),
                               )
                             : Text(
-                                _emailController.text.contains('@') && _emailController.text.isNotEmpty
+                                _emailController.text.contains('@') &&
+                                        _emailController.text.isNotEmpty
                                     ? 'Submit'
                                     : 'Continue',
                                 style: TextStyle(
-                                  color: Colors.white,
+                                  color: AppColors.white,
                                   fontSize: screenHeight * 0.022,
                                   fontWeight: FontWeight.w600,
                                   fontFamily: 'Manrope',

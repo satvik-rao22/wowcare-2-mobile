@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
@@ -83,19 +83,17 @@ class ViewShiftScreen extends StatelessWidget {
                 top: 8,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: AppColors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
                 ],
                 borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
               child: CustomButtonLayout(
@@ -125,11 +123,7 @@ class ViewShiftScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildDateField(
-                  responsive,
-                  label: 'Date',
-                  date: date,
-                ),
+                child: _buildDateField(responsive, label: 'Date', date: date),
               ),
               SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
               Expanded(
@@ -173,17 +167,11 @@ class ViewShiftScreen extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildTimeField(
-                  label: 'Break Start',
-                  time: breakStart,
-                ),
+                child: _buildTimeField(label: 'Break Start', time: breakStart),
               ),
               SizedBox(width: responsive.isTablet ? 24.0 : 16.0),
               Expanded(
-                child: _buildTimeField(
-                  label: 'Break End',
-                  time: breakEnd,
-                ),
+                child: _buildTimeField(label: 'Break End', time: breakEnd),
               ),
             ],
           ),
@@ -234,7 +222,10 @@ class ViewShiftScreen extends StatelessWidget {
             style: labelStyle,
             children: [
               TextSpan(text: label),
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppColors.red),
+              ),
             ],
           ),
         ),
@@ -305,7 +296,7 @@ class ViewShiftScreen extends StatelessWidget {
           width: double.infinity,
           padding: EdgeInsets.all(responsive.isTablet ? 16.0 : 12.0),
           decoration: BoxDecoration(
-            color: AppColors.fieldBackgroundColor,
+            color: AppColors.fieldbackgroundColor,
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
             ),
@@ -339,7 +330,7 @@ class ViewShiftScreen extends StatelessWidget {
     final scope = await showModalBottomSheet<_SeriesScope>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (_) => _ShiftScopeBottomSheet(
         title: '$actionLabel shift',
         subtitle: 'Choose what to $lower.',
@@ -347,8 +338,7 @@ class ViewShiftScreen extends StatelessWidget {
           _SeriesOption(
             scope: _SeriesScope.thisShift,
             label: '$actionLabel this shift',
-            description:
-                'Only the occurrence on this day will be ${lower}d.',
+            description: 'Only the occurrence on this day will be ${lower}d.',
           ),
           _SeriesOption(
             scope: _SeriesScope.entireSeries,
@@ -377,7 +367,7 @@ class ViewShiftScreen extends StatelessWidget {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (sheetCtx) => DeleteConfirmationBottomSheet(
         name: '',
         type: chosen == _SeriesScope.thisShift ? 'shift' : 'shift_series',
@@ -450,7 +440,7 @@ class _ShiftScopeBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),
@@ -500,10 +490,7 @@ class _ShiftScopeBottomSheet extends StatelessWidget {
 }
 
 class _ScopeRadioTile extends StatelessWidget {
-  const _ScopeRadioTile({
-    required this.option,
-    required this.onTap,
-  });
+  const _ScopeRadioTile({required this.option, required this.onTap});
 
   final _SeriesOption option;
   final VoidCallback onTap;
@@ -516,7 +503,7 @@ class _ScopeRadioTile extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: AppColors.fieldBackgroundColor,
+          color: AppColors.fieldbackgroundColor,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: AppColors.themeColor.withValues(alpha: 0.18),
@@ -525,10 +512,7 @@ class _ScopeRadioTile extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Padding(
-              padding: EdgeInsets.only(top: 2),
-              child: _RadioDot(),
-            ),
+            const Padding(padding: EdgeInsets.only(top: 2), child: _RadioDot()),
             const SizedBox(width: 12),
             Expanded(
               child: Column(
@@ -580,10 +564,7 @@ class _RadioDot extends StatelessWidget {
       height: 20,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        border: Border.all(
-          color: AppColors.themeColor,
-          width: 2,
-        ),
+        border: Border.all(color: AppColors.themeColor, width: 2),
       ),
     );
   }
@@ -596,4 +577,3 @@ enum ShiftStatus {
   const ShiftStatus(this.label);
   final String label;
 }
-

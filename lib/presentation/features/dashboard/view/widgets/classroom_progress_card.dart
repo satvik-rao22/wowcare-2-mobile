@@ -1,6 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 
@@ -47,7 +47,7 @@ class _ClassroomProgressCardState extends State<ClassroomProgressCard> {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,12 +106,15 @@ class _ClassroomProgressCardState extends State<ClassroomProgressCard> {
           color: AppColors.primaryColor,
           fontSize: 12,
         ),
-        tickBorderData: const BorderSide(width: 1, color: Colors.grey),
+        tickBorderData: const BorderSide(width: 1, color: AppColors.grey),
         // Hide the numeric tick labels.
-        ticksTextStyle: const TextStyle(color: Colors.transparent, fontSize: 0),
-        radarBackgroundColor: Colors.transparent,
-        gridBorderData: BorderSide(color: Colors.grey.shade300),
-        radarBorderData: BorderSide(color: Colors.grey.shade400),
+        ticksTextStyle: const TextStyle(
+          color: AppColors.transparent,
+          fontSize: 0,
+        ),
+        radarBackgroundColor: AppColors.transparent,
+        gridBorderData: BorderSide(color: AppColors.grey.shade300),
+        radarBorderData: BorderSide(color: AppColors.grey.shade400),
         dataSets: [
           RadarDataSet(
             dataEntries: _lastMonthValues

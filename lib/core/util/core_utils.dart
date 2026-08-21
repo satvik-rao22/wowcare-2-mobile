@@ -5,6 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+
+import '../../app/theme/colors.dart';
 // import 'package:schoolerp/core/extentions/context_extentions.dart'; // backend/context extensions not available
 // import 'package:schoolerp/core/res/colors.dart'; // backend colors not available
 
@@ -223,7 +225,7 @@ class CoreUtils {
                 maxHeight: bannerMaxHeight,
               ),
               child: Material(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -235,7 +237,7 @@ class CoreUtils {
                     border: Border.all(color: borderColor),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
+                        color: AppColors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -340,14 +342,14 @@ class CoreUtils {
     if (context is Element && !context.mounted) return;
 
     const Color successColor = Color.fromRGBO(21, 133, 49, 1);
-    const Color successBackgroundColor = Color.fromRGBO(235, 249, 238, 1);
+    const Color successbackgroundColor = Color.fromRGBO(235, 249, 238, 1);
 
     final backgroundColor = isError
         ? Colors.red.shade50
         : isWarning
         ? Colors.orange.shade50
         : isSuccess
-        ? successBackgroundColor
+        ? successbackgroundColor
         : Colors.grey.shade200;
     final contentColor = isError
         ? Colors.red
@@ -361,7 +363,7 @@ class CoreUtils {
         : isWarning
         ? Colors.orange.shade100
         : isSuccess
-        ? successBackgroundColor
+        ? successbackgroundColor
         : Colors.grey.shade400;
     final icon = isError || isWarning
         ? Icons.error_outline_rounded
@@ -408,7 +410,7 @@ class CoreUtils {
         message,
         style: const TextStyle(
           fontFamily: 'Manrope',
-          color: Colors.red,
+          color: AppColors.red,
           fontSize: 12,
           fontWeight: FontWeight.w500,
         ),

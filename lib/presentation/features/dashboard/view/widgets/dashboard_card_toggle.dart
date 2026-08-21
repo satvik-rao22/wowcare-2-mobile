@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// Compact gradient-bordered `+ / -` button used by dashboard cards to
 /// collapse or expand their body.
@@ -44,7 +45,7 @@ class DashboardCardToggle extends StatelessWidget {
               width: 21,
               height: 21,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(6),
               ),
             ),

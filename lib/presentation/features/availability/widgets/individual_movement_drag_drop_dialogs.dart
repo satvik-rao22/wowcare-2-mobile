@@ -2,12 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';
+
+import '../../../../app/theme/colors.dart';
 
 class MovementDragDropDecision {
   const MovementDragDropDecision({
@@ -28,11 +29,12 @@ Future<MovementDragDropDecision?> showMovementConfirmDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.black.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Confirm Movement',
-        message: 'Are you sure you want to confirm this movement for $movementTitle?',
+        message:
+            'Are you sure you want to confirm this movement for $movementTitle?',
         confirmLabel: 'Confirm',
       );
     },
@@ -46,11 +48,12 @@ Future<MovementDragDropDecision?> showMovementRejectDropDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.black.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Reject Movement',
-        message: 'Are you sure you want to reject this movement for $movementTitle?',
+        message:
+            'Are you sure you want to reject this movement for $movementTitle?',
         confirmLabel: 'Reject',
         showComment: true,
         commentLabel: 'Comment (Optional)',
@@ -89,7 +92,7 @@ Future<MovementDragDropDecision?> showMovementDeleteNotAllowedDialog(
   return showDialog<MovementDragDropDecision>(
     context: context,
     barrierDismissible: false,
-    barrierColor: Colors.black.withValues(alpha: 0.45),
+    barrierColor: AppColors.black.withValues(alpha: 0.45),
     builder: (ctx) {
       return _MovementDragDropDialogBody(
         title: 'Delete Not Allowed',
@@ -128,7 +131,8 @@ class _MovementDragDropDialogBody extends StatefulWidget {
       _MovementDragDropDialogBodyState();
 }
 
-class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody> {
+class _MovementDragDropDialogBodyState
+    extends State<_MovementDragDropDialogBody> {
   final TextEditingController _commentController = TextEditingController();
   DateTime? _selectedDate;
   String? _error;
@@ -188,14 +192,14 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
 
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       elevation: 0,
       child: Material(
-        color: Colors.transparent,
+        color: AppColors.transparent,
         child: Container(
           constraints: const BoxConstraints(maxWidth: 400),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
@@ -210,7 +214,10 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 14,
+                ),
                 decoration: const BoxDecoration(
                   color: headerBg,
                   borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -230,10 +237,13 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                     IconButton(
                       visualDensity: VisualDensity.compact,
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
-                      onPressed: () => Navigator.of(context).pop(
-                        const MovementDragDropDecision(confirmed: false),
+                      constraints: const BoxConstraints(
+                        minWidth: 36,
+                        minHeight: 36,
                       ),
+                      onPressed: () => Navigator.of(
+                        context,
+                      ).pop(const MovementDragDropDecision(confirmed: false)),
                       icon: Icon(
                         Icons.close,
                         color: AppColors.primaryColor.withValues(alpha: 0.85),
@@ -260,10 +270,13 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                     onTap: _pickDate,
                     borderRadius: BorderRadius.circular(10),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: Colors.grey.shade300),
+                        border: Border.all(color: AppColors.grey.shade300),
                       ),
                       child: Row(
                         children: [
@@ -279,10 +292,12 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                           Text(
                             _selectedDate == null
                                 ? 'Select date'
-                                : DateFormat('MMM dd, yyyy').format(_selectedDate!),
+                                : DateFormat(
+                                    'MMM dd, yyyy',
+                                  ).format(_selectedDate!),
                             style: AppTextStyles.body.copyWith(
                               color: _selectedDate == null
-                                  ? Colors.grey[600]
+                                  ? AppColors.grey[600]
                                   : AppColors.primaryColor,
                             ),
                           ),
@@ -312,7 +327,7 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                         decoration: InputDecoration(
                           hintText: widget.commentHint,
                           hintStyle: AppTextStyles.body.copyWith(
-                            color: Colors.grey[600],
+                            color: AppColors.grey[600],
                           ),
                           contentPadding: const EdgeInsets.symmetric(
                             horizontal: 14,
@@ -320,11 +335,15 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                           ),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(
+                              color: AppColors.grey.shade300,
+                            ),
                           ),
                           enabledBorder: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(10),
-                            borderSide: BorderSide(color: Colors.grey.shade300),
+                            borderSide: BorderSide(
+                              color: AppColors.grey.shade300,
+                            ),
                           ),
                         ),
                       ),
@@ -349,9 +368,9 @@ class _MovementDragDropDialogBodyState extends State<_MovementDragDropDialogBody
                     Expanded(
                       child: CustomCancelButton(
                         cancelButtonLabel: 'Back',
-                        onPressedCancel: () => Navigator.of(context).pop(
-                          const MovementDragDropDecision(confirmed: false),
-                        ),
+                        onPressedCancel: () => Navigator.of(
+                          context,
+                        ).pop(const MovementDragDropDecision(confirmed: false)),
                       ),
                     ),
                     const SizedBox(width: 16),

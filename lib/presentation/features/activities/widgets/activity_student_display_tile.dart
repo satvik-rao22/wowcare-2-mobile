@@ -36,7 +36,7 @@ class ActivityStudentDisplayTile extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.themeColor),
         borderRadius: BorderRadius.circular(8),
-        color: backgroundColor ?? Colors.white,
+        color: backgroundColor ?? AppColors.white,
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),

@@ -36,7 +36,7 @@ class NonEditableInfoWidget extends StatelessWidget {
               if (isRequired)
                 TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),

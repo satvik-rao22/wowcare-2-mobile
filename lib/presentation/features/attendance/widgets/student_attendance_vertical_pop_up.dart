@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_out_form.dart';
@@ -106,7 +106,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparent,
           elevation: 0,
           // Pin to the top-right so the menu sits flush below the + button
           // instead of being vertically centered in the inset band.
@@ -123,7 +123,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: AppColors.black.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -141,44 +141,44 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
               ),
               padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_in,
-                    'Sign-in',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: 5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Sign_out,
-                    'Sign-Out',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: 5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.transfer,
-                    'Transfer',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
-                  const SizedBox(height: 5),
-                  _buildMenuItem(
-                    context,
-                    MediaRes.Mark_absent,
-                    'Absent',
-                    activeDisabledActions,
-                    activeReasons,
-                  ),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Sign_in,
+                      'Sign-in',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: 5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Sign_out,
+                      'Sign-Out',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: 5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.transfer,
+                      'Transfer',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
+                    const SizedBox(height: 5),
+                    _buildMenuItem(
+                      context,
+                      MediaRes.Mark_absent,
+                      'Absent',
+                      activeDisabledActions,
+                      activeReasons,
+                    ),
                   ],
                 ),
               ),
@@ -217,7 +217,7 @@ class StudentAttendanceVerticalPopUp extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
+                color: AppColors.blue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: SvgPicture.asset(svgPath, height: 24, width: 24),

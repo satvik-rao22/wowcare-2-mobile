@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../../../../../app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../../../../shared/common/widgets/custom_text_widget.dart';
-import '../../../../../../app/theme/colors.dart';
 import 'attachment_widget.dart';
 import 'package:thumbnailer/thumbnailer.dart';
 import 'dart:io';
@@ -112,14 +112,14 @@ class MessagingInputArea extends StatelessWidget {
                               onTap: () => onRemoveAttachment(index),
                               child: Container(
                                 decoration: const BoxDecoration(
-                                  color: Colors.black54,
+                                  color: AppColors.black54,
                                   shape: BoxShape.circle,
                                 ),
                                 padding: const EdgeInsets.all(4),
                                 child: const Icon(
                                   Icons.close,
                                   size: 14,
-                                  color: Colors.white,
+                                  color: AppColors.white,
                                 ),
                               ),
                             ),
@@ -195,7 +195,7 @@ class MessagingInputArea extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     child: const Icon(
                       Icons.send,
-                      color: Colors.white,
+                      color: AppColors.white,
                       size: 24,
                     ),
                   ),

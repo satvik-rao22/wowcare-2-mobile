@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 import 'custom_checkbox.dart';
 import 'profile_show_widget.dart';
@@ -31,13 +31,13 @@ class StudentTile extends StatelessWidget {
         //height: 60,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
-          //color: isSelected ? const Color(0xFFF8F7FA) : Colors.white,
+          //color: isSelected ? const Color(0xFFF8F7FA) : AppColors.white,
           color: isSelected
               ? const Color(0xFFB1AFE9).withValues(alpha: 0.102)
-              : Colors.white,
+              : AppColors.white,
           borderRadius: BorderRadius.circular(3),
           border: Border.all(
-            color: isSelected ? Colors.transparent : AppColors.themeColor,
+            color: isSelected ? AppColors.transparent : AppColors.themeColor,
             width: 1,
           ),
         ),

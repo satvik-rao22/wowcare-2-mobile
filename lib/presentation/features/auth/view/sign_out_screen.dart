@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/auth/view/sign_in_screen.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
@@ -21,7 +21,7 @@ class SignOutScreen extends StatefulWidget {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (context) => const LogOutModelBottomSheet(),
     );
   }
@@ -76,10 +76,8 @@ class _SignOutScreenState extends State<SignOutScreen> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(
-            top: Radius.circular(16),
-          ),
+          color: AppColors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -87,10 +85,7 @@ class _SignOutScreenState extends State<SignOutScreen> {
           children: [
             SizedBox(
               height: 160,
-              child: Image.asset(
-                MediaRes.logout_image,
-                fit: BoxFit.contain,
-              ),
+              child: Image.asset(MediaRes.logout_image, fit: BoxFit.contain),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -113,8 +108,8 @@ class _SignOutScreenState extends State<SignOutScreen> {
                         Expanded(
                           child: RoundedButton(
                             lable: 'Cancel',
-                            lableColor: Colors.white,
-                            buttonColor: Colors.grey,
+                            lableColor: AppColors.white,
+                            buttonColor: AppColors.grey,
                             onPressed: () {
                               Navigator.pop(context);
                             },

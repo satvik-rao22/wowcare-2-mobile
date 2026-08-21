@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_settings/discounts_section.dart';
 
 class BillingSettingsSection extends StatefulWidget {
@@ -13,8 +13,7 @@ class BillingSettingsSection extends StatefulWidget {
   final VoidCallback? onLoadMoreNeeded;
 
   @override
-  State<BillingSettingsSection> createState() =>
-      _BillingSettingsSectionState();
+  State<BillingSettingsSection> createState() => _BillingSettingsSectionState();
 }
 
 class _BillingSettingsSectionState extends State<BillingSettingsSection> {
@@ -41,7 +40,7 @@ class _BillingSettingsSectionState extends State<BillingSettingsSection> {
                       bottom: BorderSide(
                         color: isSelected
                             ? AppColors.themeColor
-                            : Colors.transparent,
+                            : AppColors.transparent,
                         width: 2,
                       ),
                     ),

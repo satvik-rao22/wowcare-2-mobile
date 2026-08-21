@@ -9,12 +9,13 @@ import 'package:wowcare/presentation/features/communication/cubit/communication_
 import 'package:wowcare/presentation/features/communication/shared/utils/conversation_display.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_messaging_thread.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
-import 'package:wowcare/app/theme/colors.dart';
+
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
+import '../../../../../../app/theme/colors.dart';
 import '../../../../../../app/theme/media_res.dart';
 import '../../../../../../domain/features/communication/entities/conversation.dart';
 import '../../../../../../domain/features/communication/repositories/communication_repository.dart';
@@ -758,9 +759,9 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                               ? 'Search Staff'
                               : 'Search student',
                           searchBarColor: WidgetStatePropertyAll(
-                            Colors.transparent,
+                            AppColors.transparent,
                           ),
-                          borderColor: Colors.transparent,
+                          borderColor: AppColors.transparent,
                         ),
                       ),
                     ),
@@ -769,7 +770,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                     // (loadConversations) so users aren't limited to the pull gesture,
                     // which isn't obvious and can't be triggered on a short/empty list.
                     Material(
-                      color: Colors.transparent,
+                      color: AppColors.transparent,
                       child: InkWell(
                         borderRadius: BorderRadius.circular(12),
                         onTap: () {
@@ -796,7 +797,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                     ),
                     const SizedBox(width: 8),
                     Material(
-                      color: Colors.transparent,
+                      color: AppColors.transparent,
                       child: InkWell(
                         onTap: () async {
                           final classroomNames = context
@@ -1004,7 +1005,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                                     width: 8,
                                     height: 8,
                                     decoration: const BoxDecoration(
-                                      color: Colors.red,
+                                      color: AppColors.red,
                                       shape: BoxShape.circle,
                                     ),
                                   ),
@@ -1553,7 +1554,7 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
             Icon(
               Icons.chat_bubble_outline_rounded,
               size: 56,
-              color: Colors.grey.withValues(alpha: 0.35),
+              color: AppColors.grey.withValues(alpha: 0.35),
             ),
             const SizedBox(height: 12),
             Text(
@@ -1564,13 +1565,13 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
                   : (widget.isStaffMessaging
                         ? 'No staff conversations yet'
                         : 'No conversations yet'),
-              style: const TextStyle(fontSize: 15, color: Colors.grey),
+              style: const TextStyle(fontSize: 15, color: AppColors.grey),
             ),
             if (!noMatches) ...[
               const SizedBox(height: 6),
               const Text(
                 'Use the + button to start one',
-                style: TextStyle(fontSize: 13, color: Colors.grey),
+                style: TextStyle(fontSize: 13, color: AppColors.grey),
               ),
             ],
           ],
@@ -1666,12 +1667,12 @@ class _StaffMessagingTabState extends State<StaffMessagingTab>
               classroomCode: contact.classroomCode,
             ),
       splashColor: const Color(0x1A6C5CE7),
-      highlightColor: Colors.transparent,
+      highlightColor: AppColors.transparent,
       child: Opacity(
         opacity: isDisabled ? 0.5 : 1,
         child: Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border(
               bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
             ),

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
@@ -36,13 +36,12 @@ class StaffSchedulingStaffDropdown extends StatelessWidget {
     if (isLoading) {
       return const SizedBox(
         height: 44,
-        child: Center(
-          child: PrimaryCircularLoader(size: 22, strokeWidth: 2),
-        ),
+        child: Center(child: PrimaryCircularLoader(size: 22, strokeWidth: 2)),
       );
     }
 
-    final hasSelection = selectedStaffCode != null &&
+    final hasSelection =
+        selectedStaffCode != null &&
         selectedStaffCode!.isNotEmpty &&
         staff.any((s) => s.code == selectedStaffCode);
 

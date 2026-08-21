@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/api_paths.dart';
@@ -9,7 +9,11 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
 /// Resolved school header values (name + optional tagline + address).
 class _SchoolHeaderData {
-  const _SchoolHeaderData({required this.name, this.tagline = '', this.address = ''});
+  const _SchoolHeaderData({
+    required this.name,
+    this.tagline = '',
+    this.address = '',
+  });
   final String name;
   final String tagline;
   final String address;
@@ -43,10 +47,10 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
 
   Future<void> _load() async {
     final storage = serviceLocator<StorageService>();
-    final name =
-        (await storage.getString(StorageKeys.selectedSchoolName) ?? '').trim();
-    final schoolCode =
-        (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+    final name = (await storage.getString(StorageKeys.selectedSchoolName) ?? '')
+        .trim();
+    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
+        .trim();
 
     if (mounted && name.isNotEmpty) {
       setState(() => _data = _SchoolHeaderData(name: name));
@@ -110,7 +114,9 @@ class _BillingSchoolHeaderState extends State<BillingSchoolHeader> {
       ].where((p) => p.isNotEmpty).toList();
 
       return _SchoolHeaderData(
-        name: name.isNotEmpty ? name : (fallbackName.isNotEmpty ? fallbackName : 'School'),
+        name: name.isNotEmpty
+            ? name
+            : (fallbackName.isNotEmpty ? fallbackName : 'School'),
         tagline: tagline,
         address: addressParts.join(', '),
       );

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/student/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/di/di.dart';
@@ -17,6 +16,7 @@ import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/presentation/features/students/view/add_student_step2_screen.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
+import '../../../../../app/theme/colors.dart';
 import '../../../../../shared/common/widgets/profile_show_widget.dart';
 
 class StudentFamilyTabCard extends StatefulWidget {
@@ -213,7 +213,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (sheetContext) {
         return DeleteConfirmationBottomSheet(
           name: guardianName.isEmpty ? 'this guardian' : guardianName,
@@ -320,7 +320,7 @@ class _StudentFamilyTabCardState extends State<StudentFamilyTabCard> {
                         'Failed to load parents',
                         style: AppTextStyles.value.copyWith(
                           fontSize: 14,
-                          color: Colors.redAccent,
+                          color: AppColors.redAccent,
                         ),
                       ),
                     );
@@ -404,7 +404,7 @@ class _FamilyCard extends StatelessWidget {
         width: double.infinity,
         // Match the Health tab cards: themeColor outline, square top-left.
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           borderRadius: BorderRadius.only(
             topRight: Radius.circular(8),
             bottomLeft: Radius.circular(8),

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// One actionable item in the [TodoCard] checklist.
 class _TodoTask {
@@ -64,7 +65,7 @@ class _TodoCardState extends State<TodoCard> {
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -105,7 +106,7 @@ class _TodoCardState extends State<TodoCard> {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w600,
-                  color: Colors.grey.shade800,
+                  color: AppColors.grey.shade800,
                   decoration: task.done
                       ? TextDecoration.lineThrough
                       : TextDecoration.none,
@@ -115,11 +116,11 @@ class _TodoCardState extends State<TodoCard> {
             ),
           ),
           const SizedBox(width: 8),
-          Icon(Icons.access_time, color: Colors.grey.shade600, size: 16),
+          Icon(Icons.access_time, color: AppColors.grey.shade600, size: 16),
           const SizedBox(width: 4),
           Text(
             task.dueDate,
-            style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+            style: TextStyle(fontSize: 14, color: AppColors.grey.shade600),
           ),
           const SizedBox(width: 8),
           DocumentImageWidget(

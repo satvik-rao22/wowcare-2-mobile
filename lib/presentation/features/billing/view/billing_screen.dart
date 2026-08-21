@@ -197,293 +197,325 @@ class _BillingScreenState extends State<BillingScreen>
                       }
                     },
                     child: SingleChildScrollView(
-                    controller: _scrollController,
-                    physics: const AlwaysScrollableScrollPhysics(),
-                    child: Padding(
-                      padding: contentPadding,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'Billing',
-                                  style: TextStyle(
-                                    fontFamily: 'Manrope',
-                                    fontSize: titleFontSize,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xff573353),
-                                    height: titleLineHeight,
+                      controller: _scrollController,
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      child: Padding(
+                        padding: contentPadding,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'Billing',
+                                    style: TextStyle(
+                                      fontFamily: 'Manrope',
+                                      fontSize: titleFontSize,
+                                      fontWeight: FontWeight.w600,
+                                      color: const Color(0xff573353),
+                                      height: titleLineHeight,
+                                    ),
+                                    textAlign: TextAlign.left,
                                   ),
-                                  textAlign: TextAlign.left,
                                 ),
-                              ),
-                              AnimatedBuilder(
-                                animation: controller,
-                                builder: (_, __) {
-                                  final int idx = controller.index;
-                                  if (idx == 3 || idx == 4) {
-                                    return const SizedBox.shrink();
-                                  }
-                                  return GradientAddButton(
-                                    onTap: () async {
-                                      final bool isGeneralLedgerTab =
-                                          controller.index ==
-                                              _tabs.indexOf('General Ledger');
-                                      if (isGeneralLedgerTab) {
-                                        final result =
-                                            await Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (_) =>
-                                                const CreateLedgerScreen(),
-                                          ),
-                                        );
-                                        if (result is LedgerAccountModel) {
-                                          _ledgerCreationNotifier.value =
-                                              result;
+                                AnimatedBuilder(
+                                  animation: controller,
+                                  builder: (_, __) {
+                                    final int idx = controller.index;
+                                    if (idx == 3 || idx == 4) {
+                                      return const SizedBox.shrink();
+                                    }
+                                    return GradientAddButton(
+                                      onTap: () async {
+                                        final bool isGeneralLedgerTab =
+                                            controller.index ==
+                                            _tabs.indexOf('General Ledger');
+                                        if (isGeneralLedgerTab) {
+                                          final result =
+                                              await Navigator.of(context).push(
+                                                MaterialPageRoute(
+                                                  builder: (_) =>
+                                                      const CreateLedgerScreen(),
+                                                ),
+                                              );
+                                          if (result is LedgerAccountModel) {
+                                            _ledgerCreationNotifier.value =
+                                                result;
+                                          }
+                                          return;
                                         }
-                                        return;
-                                      }
-                                      final bool isTransactionsTab =
-                                          controller.index ==
-                                              _tabs.indexOf('Transactions');
-                                      if (isTransactionsTab) {
+                                        final bool isTransactionsTab =
+                                            controller.index ==
+                                            _tabs.indexOf('Transactions');
+                                        if (isTransactionsTab) {
+                                          showDialog<void>(
+                                            context: context,
+                                            builder: (ctx) => TransactionActionDialog(
+                                              onSelectCreateInvoice: () {
+                                                unawaited(
+                                                  Navigator.of(ctx).maybePop(),
+                                                );
+                                                unawaited(
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(
+                                                      builder: (_) =>
+                                                          const SelectStudentsScreen(),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                              onSelectReceivePayment: () {
+                                                unawaited(
+                                                  Navigator.of(ctx).maybePop(),
+                                                );
+                                                unawaited(
+                                                  Navigator.of(context).push(
+                                                    MaterialPageRoute(
+                                                      builder: (_) => SelectStudentsScreen(
+                                                        onNext: (selCtx, students) {
+                                                          Navigator.of(
+                                                            selCtx,
+                                                          ).pushReplacement(
+                                                            MaterialPageRoute(
+                                                              builder: (_) =>
+                                                                  ReceivePaymentIssueRefundScreen(
+                                                                    transaction:
+                                                                        _buildReceivePaymentTransaction(
+                                                                          students,
+                                                                        ),
+                                                                    studentCode:
+                                                                        students
+                                                                            .first
+                                                                            .code,
+                                                                  ),
+                                                            ),
+                                                          );
+                                                        },
+                                                      ),
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          );
+                                          return;
+                                        }
                                         showDialog<void>(
                                           context: context,
-                                          builder: (ctx) =>
-                                              TransactionActionDialog(
-                                            onSelectCreateInvoice: () {
-                                              unawaited(Navigator.of(ctx)
-                                                  .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    const SelectStudentsScreen(),
-                                              )));
-                                            },
-                                            onSelectReceivePayment: () {
-                                              unawaited(Navigator.of(ctx)
-                                                  .maybePop());
-                                              unawaited(Navigator.of(context)
-                                                  .push(MaterialPageRoute(
-                                                builder: (_) =>
-                                                    SelectStudentsScreen(
-                                                  onNext: (selCtx, students) {
-                                                    Navigator.of(selCtx)
-                                                        .pushReplacement(
-                                                      MaterialPageRoute(
-                                                        builder: (_) =>
-                                                            ReceivePaymentIssueRefundScreen(
-                                                          transaction:
-                                                              _buildReceivePaymentTransaction(
-                                                                  students),
-                                                          studentCode: students
-                                                              .first.code,
-                                                        ),
-                                                      ),
-                                                    );
-                                                  },
+                                          builder: (ctx) => CreateInvoiceDialog(
+                                            onSelectOneTime: () {
+                                              unawaited(
+                                                Navigator.of(ctx).maybePop(),
+                                              );
+                                              unawaited(
+                                                Navigator.of(context).push(
+                                                  MaterialPageRoute(
+                                                    builder: (_) =>
+                                                        const SelectStudentsScreen(),
+                                                  ),
                                                 ),
-                                              )));
+                                              );
+                                            },
+                                            onSelectRecurring: () {
+                                              unawaited(
+                                                Navigator.of(ctx).maybePop(),
+                                              );
                                             },
                                           ),
                                         );
-                                        return;
-                                      }
-                                      showDialog<void>(
-                                        context: context,
-                                        builder: (ctx) => CreateInvoiceDialog(
-                                          onSelectOneTime: () {
-                                            unawaited(
-                                                Navigator.of(ctx).maybePop());
-                                            unawaited(Navigator.of(context)
-                                                .push(MaterialPageRoute(
-                                              builder: (_) =>
-                                                  const SelectStudentsScreen(),
-                                            )));
-                                          },
-                                          onSelectRecurring: () {
-                                            unawaited(
-                                                Navigator.of(ctx).maybePop());
-                                          },
-                                        ),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          // Scrollable TabBar (horizontal only)
-                          Container(
-                            decoration: BoxDecoration(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 0,
-                              vertical: 8,
-                            ),
-                            child: Row(
-                              children: [
-                                IconButton(
-                                  tooltip: 'Scroll tabs',
-                                  padding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  constraints: const BoxConstraints.tightFor(width: 26, height: 32),
-                                  splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_left, color: Color(0xff573353), size: 25),
-                                  onPressed: () {
-                                    final int current = controller.index;
-                                    if (current > 0) {
-                                      controller.animateTo(current - 1);
-                                    }
-                                  },
-                                ),
-                                Expanded(
-                                  child: TabBar(
-                                    isScrollable: true,
-                                    padding: EdgeInsets.zero,
-                                    labelPadding: EdgeInsets.zero,
-                                    tabAlignment: TabAlignment.start,
-                                    labelColor: AppColors.themeColor,
-                                    unselectedLabelColor: const Color(0xff573353),
-                                    dividerColor: Colors.transparent,
-                                    indicatorSize: TabBarIndicatorSize.label,
-                                    indicator: UnderlineTabIndicator(
-                                      borderSide: BorderSide(
-                                        color: AppColors.themeColor,
-                                        width: 2,
-                                      ),
-                                    ),
-                                    tabs: List<Widget>.generate(
-                                      _tabs.length,
-                                      (int index) => Padding(
-                                        padding: EdgeInsets.fromLTRB(
-                                          index == 0 ? 4 : 12,
-                                          6,
-                                          12,
-                                          6,
-                                        ),
-                                        child: Text(
-                                          _tabs[index],
-                                          style: const TextStyle(
-                                            fontFamily: 'Manrope',
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Scroll tabs',
-                                  padding: EdgeInsets.zero,
-                                  visualDensity: VisualDensity.compact,
-                                  constraints: const BoxConstraints.tightFor(width: 26, height: 32),
-                                  splashRadius: 14,
-                                  icon: const Icon(Icons.chevron_right, color: Color(0xff573353), size: 25),
-                                  onPressed: () {
-                                    final int current = controller.index;
-                                    if (current < _tabs.length - 1) {
-                                      controller.animateTo(current + 1);
-                                    }
+                                      },
+                                    );
                                   },
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Inline tab content so the entire page scrolls together
-                          AnimatedBuilder(
-                            animation: controller,
-                            builder: (context, _) {
-                              final int current = controller.index;
-                              Widget content;
-                              if (current == 0) {
-                                // Consume the one-shot Outstanding hand-off so
-                                // it only applies on the triggering switch.
-                                final bool showOutstanding =
-                                    _pendingStudentOutstanding;
-                                _pendingStudentOutstanding = false;
-                                content = StudentsAccountingSection(
-                                  onRegisterRefresh: (fn) {
-                                    _studentsRefreshFn = fn;
-                                  },
-                                  initialShowOutstanding: showOutstanding,
-                                  onNavigateToTransactions:
-                                      _openTransactionsWithFilter,
-                                );
-                              } else if (current == 1) {
-                                // Consume the one-shot filter hand-off.
-                                final BillingSummaryFilter? pendingFilter =
-                                    _pendingTransactionFilter;
-                                _pendingTransactionFilter = null;
-                                content = TransactionsSection(
-                                  onRegisterRefresh: (fn) {
-                                    _transactionsRefreshFn = fn;
-                                  },
-                                  onRegisterLoadNextPage: (fn) {
-                                    _transactionsLoadNextFn = fn;
-                                  },
-                                  onLoadMoreNeeded: _maybeLoadNextPage,
-                                  initialFilter: pendingFilter,
-                                  onNavigateToOutstanding:
-                                      _openStudentsOutstanding,
-                                );
-                              } else if (current == 2) {
-                                content = GeneralLedgerSection(
-                                  ledgerCreationNotifier:
-                                      _ledgerCreationNotifier,
-                                  onRegisterRefresh: (fn) {
-                                    _ledgerRefreshFn = fn;
-                                  },
-                                  onRegisterLoadNextPage: (fn) {
-                                    _ledgerLoadNextFn = fn;
-                                  },
-                                  onLoadMoreNeeded: _maybeLoadNextPage,
-                                );
-                              } else if (current == 3) {
-                                // 'Subsidies' tab is not implemented yet; the
-                                // tab entry above is disabled so this index
-                                // now maps to Analytics instead.
-                                content = AnalyticsSection(
-                                  onRegisterRefresh: (fn) {
-                                    _analyticsRefreshFn = fn;
-                                  },
-                                );
-                              } else if (current == 4) {
-                                content = BillingSettingsSection(
-                                  onRegisterLoadNextPage: (fn) {
-                                    _discountLoadNextFn = fn;
-                                  },
-                                  onLoadMoreNeeded: _maybeLoadNextPage,
-                                );
-                              } else {
-                                final String t = _tabs[current];
-                                content = Align(
-                                  alignment: Alignment.topLeft,
-                                  child: Text(
-                                    '$t content goes here.',
-                                    style: AppTextStyles.body.copyWith(
-                                      color: AppColors.billingTextColor,
+                            const SizedBox(height: 12),
+                            // Scrollable TabBar (horizontal only)
+                            Container(
+                              decoration: BoxDecoration(
+                                color: Colors.transparent,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 0,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Scroll tabs',
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 26,
+                                      height: 32,
+                                    ),
+                                    splashRadius: 14,
+                                    icon: const Icon(
+                                      Icons.chevron_left,
+                                      color: Color(0xff573353),
+                                      size: 25,
+                                    ),
+                                    onPressed: () {
+                                      final int current = controller.index;
+                                      if (current > 0) {
+                                        controller.animateTo(current - 1);
+                                      }
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: TabBar(
+                                      isScrollable: true,
+                                      padding: EdgeInsets.zero,
+                                      labelPadding: EdgeInsets.zero,
+                                      tabAlignment: TabAlignment.start,
+                                      labelColor: AppColors.themeColor,
+                                      unselectedLabelColor: const Color(
+                                        0xff573353,
+                                      ),
+                                      dividerColor: Colors.transparent,
+                                      indicatorSize: TabBarIndicatorSize.label,
+                                      indicator: UnderlineTabIndicator(
+                                        borderSide: BorderSide(
+                                          color: AppColors.themeColor,
+                                          width: 2,
+                                        ),
+                                      ),
+                                      tabs: List<Widget>.generate(
+                                        _tabs.length,
+                                        (int index) => Padding(
+                                          padding: EdgeInsets.fromLTRB(
+                                            index == 0 ? 4 : 12,
+                                            6,
+                                            12,
+                                            6,
+                                          ),
+                                          child: Text(
+                                            _tabs[index],
+                                            style: const TextStyle(
+                                              fontFamily: 'Manrope',
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                );
-                              }
-                              return content;
-                            },
-                          ),
-                          SizedBox(
-                            height: MediaQuery.of(context).padding.bottom + 12,
-                          ),
-                        ],
+                                  IconButton(
+                                    tooltip: 'Scroll tabs',
+                                    padding: EdgeInsets.zero,
+                                    visualDensity: VisualDensity.compact,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 26,
+                                      height: 32,
+                                    ),
+                                    splashRadius: 14,
+                                    icon: const Icon(
+                                      Icons.chevron_right,
+                                      color: Color(0xff573353),
+                                      size: 25,
+                                    ),
+                                    onPressed: () {
+                                      final int current = controller.index;
+                                      if (current < _tabs.length - 1) {
+                                        controller.animateTo(current + 1);
+                                      }
+                                    },
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            // Inline tab content so the entire page scrolls together
+                            AnimatedBuilder(
+                              animation: controller,
+                              builder: (context, _) {
+                                final int current = controller.index;
+                                Widget content;
+                                if (current == 0) {
+                                  // Consume the one-shot Outstanding hand-off so
+                                  // it only applies on the triggering switch.
+                                  final bool showOutstanding =
+                                      _pendingStudentOutstanding;
+                                  _pendingStudentOutstanding = false;
+                                  content = StudentsAccountingSection(
+                                    onRegisterRefresh: (fn) {
+                                      _studentsRefreshFn = fn;
+                                    },
+                                    initialShowOutstanding: showOutstanding,
+                                    onNavigateToTransactions:
+                                        _openTransactionsWithFilter,
+                                  );
+                                } else if (current == 1) {
+                                  // Consume the one-shot filter hand-off.
+                                  final BillingSummaryFilter? pendingFilter =
+                                      _pendingTransactionFilter;
+                                  _pendingTransactionFilter = null;
+                                  content = TransactionsSection(
+                                    onRegisterRefresh: (fn) {
+                                      _transactionsRefreshFn = fn;
+                                    },
+                                    onRegisterLoadNextPage: (fn) {
+                                      _transactionsLoadNextFn = fn;
+                                    },
+                                    onLoadMoreNeeded: _maybeLoadNextPage,
+                                    initialFilter: pendingFilter,
+                                    onNavigateToOutstanding:
+                                        _openStudentsOutstanding,
+                                  );
+                                } else if (current == 2) {
+                                  content = GeneralLedgerSection(
+                                    ledgerCreationNotifier:
+                                        _ledgerCreationNotifier,
+                                    onRegisterRefresh: (fn) {
+                                      _ledgerRefreshFn = fn;
+                                    },
+                                    onRegisterLoadNextPage: (fn) {
+                                      _ledgerLoadNextFn = fn;
+                                    },
+                                    onLoadMoreNeeded: _maybeLoadNextPage,
+                                  );
+                                } else if (current == 3) {
+                                  // 'Subsidies' tab is not implemented yet; the
+                                  // tab entry above is disabled so this index
+                                  // now maps to Analytics instead.
+                                  content = AnalyticsSection(
+                                    onRegisterRefresh: (fn) {
+                                      _analyticsRefreshFn = fn;
+                                    },
+                                  );
+                                } else if (current == 4) {
+                                  content = BillingSettingsSection(
+                                    onRegisterLoadNextPage: (fn) {
+                                      _discountLoadNextFn = fn;
+                                    },
+                                    onLoadMoreNeeded: _maybeLoadNextPage,
+                                  );
+                                } else {
+                                  final String t = _tabs[current];
+                                  content = Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Text(
+                                      '$t content goes here.',
+                                      style: AppTextStyles.body.copyWith(
+                                        color: AppColors.billingTextColor,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return content;
+                              },
+                            ),
+                            SizedBox(
+                              height:
+                                  MediaQuery.of(context).padding.bottom + 12,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  ),
                   ),
                 ),
               ],
@@ -495,5 +527,3 @@ class _BillingScreenState extends State<BillingScreen>
     );
   }
 }
-
-

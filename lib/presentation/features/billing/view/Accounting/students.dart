@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/family_summary_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
@@ -63,8 +63,9 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
   /// (we're already on this tab); the four list filters route to Transactions.
   void _onFilterTap(BillingSummaryFilter filter) {
     if (filter == BillingSummaryFilter.outstanding) {
-      _familyCubit
-          .setShowOutstandingOnly(!_familyCubit.state.showOutstandingOnly);
+      _familyCubit.setShowOutstandingOnly(
+        !_familyCubit.state.showOutstandingOnly,
+      );
       return;
     }
     widget.onNavigateToTransactions?.call(filter);
@@ -114,135 +115,136 @@ class _StudentsAccountingSectionState extends State<StudentsAccountingSection> {
         ],
         child: BlocBuilder<TransactionsCubit, TransactionsState>(
           builder: (context, overview) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AccountingDateRangeSelector(
-                initialStartDate: overview.dateFrom,
-                initialEndDate: overview.dateTo,
-                onRangeChanged: (start, end) =>
-                    _overviewCubit.setDateRange(start, end),
-              ),
-              const SizedBox(height: 8),
-              BlocBuilder<FamilySummaryCubit, FamilySummaryState>(
-                buildWhen: (p, c) =>
-                    p.showOutstandingOnly != c.showOutstandingOnly,
-                builder: (context, familyState) => AmountInvoicedStatBar(
-                  totalAmount: overview.totalInvoiced,
-                  netPaidAmount: overview.netPaidAmount,
-                  paidAmount: overview.paidAmount,
-                  inProcessAmount: overview.inProcessAmount,
-                  outstandingAmount: overview.outstandingAmount,
-                  refundedAmount: overview.refundedAmount,
-                  selectedFilter: familyState.showOutstandingOnly
-                      ? BillingSummaryFilter.outstanding
-                      : null,
-                  onFilterTap: _onFilterTap,
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AccountingDateRangeSelector(
+                  initialStartDate: overview.dateFrom,
+                  initialEndDate: overview.dateTo,
+                  onRangeChanged: (start, end) =>
+                      _overviewCubit.setDateRange(start, end),
                 ),
-              ),
-              const SizedBox(height: 8),
-              CustomSectionCard(
-                margin: const EdgeInsets.only(bottom: 4),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: CustomSearchBar(
-                        controller: _searchController,
-                        hintText: 'Search',
-                        onChanged: (value) =>
-                            _familyCubit.setSearchQuery(value),
+                const SizedBox(height: 8),
+                BlocBuilder<FamilySummaryCubit, FamilySummaryState>(
+                  buildWhen: (p, c) =>
+                      p.showOutstandingOnly != c.showOutstandingOnly,
+                  builder: (context, familyState) => AmountInvoicedStatBar(
+                    totalAmount: overview.totalInvoiced,
+                    netPaidAmount: overview.netPaidAmount,
+                    paidAmount: overview.paidAmount,
+                    inProcessAmount: overview.inProcessAmount,
+                    outstandingAmount: overview.outstandingAmount,
+                    refundedAmount: overview.refundedAmount,
+                    selectedFilter: familyState.showOutstandingOnly
+                        ? BillingSummaryFilter.outstanding
+                        : null,
+                    onFilterTap: _onFilterTap,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                CustomSectionCard(
+                  margin: const EdgeInsets.only(bottom: 4),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: CustomSearchBar(
+                          controller: _searchController,
+                          hintText: 'Search',
+                          onChanged: (value) =>
+                              _familyCubit.setSearchQuery(value),
+                        ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        SizedBox(
-                          width: 40,
-                          height: 40,
-                          child: Material(
-                            color: AppColors.billingCardColor,
-                            borderRadius: BorderRadius.circular(12),
-                            child: InkWell(
+                      const SizedBox(width: 8),
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: Material(
+                              color: AppColors.billingCardColor,
                               borderRadius: BorderRadius.circular(12),
-                              onTap: () {},
-                              child: Center(
-                                child: SvgPicture.asset(
-                                  MediaRes.filterIcon,
-                                  width: 20,
-                                  height: 20,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () {},
+                                child: Center(
+                                  child: SvgPicture.asset(
+                                    MediaRes.filterIcon,
+                                    width: 20,
+                                    height: 20,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        CustomClearAllChip(
-                          onTap: () {
-                            _searchController.clear();
-                            _familyCubit.clearSearch();
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 8),
-              BlocBuilder<FamilySummaryCubit, FamilySummaryState>(
-                builder: (context, familyState) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
-                        child: Row(
-                          children: [
-                            CustomToggle(
-                              key: ValueKey(familyState.showOutstandingOnly),
-                              label: 'Show Total Outstanding',
-                              labelStyle: AppTextStyles.title.copyWith(
-                                fontSize: 15,
-                                color: AppColors.billingTextColor,
-                              ),
-                              isToggled: familyState.showOutstandingOnly,
-                              onToggle: (val) =>
-                                  _familyCubit.setShowOutstandingOnly(val),
-                            ),
-                            const Spacer(),
-                            Text(
-                              '\$${familyState.totalOutstanding.toStringAsFixed(0)}',
-                              style: AppTextStyles.body.copyWith(
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.themeColor,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      FamilySummaryList(
-                        families: familyState.filteredFamilies,
-                        isLoading: familyState.isLoading,
-                        errorMessage: familyState.errorMessage,
-                        onBillingProfile: (family) => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => TransactionDetailsScreen(
-                              ownerType: family.ownerType,
-                              ownerCode: family.ownerCode,
-                              familyName: family.familyName,
-                            ),
+                          const SizedBox(height: 4),
+                          CustomClearAllChip(
+                            onTap: () {
+                              _searchController.clear();
+                              _familyCubit.clearSearch();
+                            },
                           ),
-                        ),
+                        ],
                       ),
                     ],
-                  );
-                },
-              ),
-            ],
-          );
-        },
+                  ),
+                ),
+                const SizedBox(height: 8),
+                BlocBuilder<FamilySummaryCubit, FamilySummaryState>(
+                  builder: (context, familyState) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 0, 16, 0),
+                          child: Row(
+                            children: [
+                              CustomToggle(
+                                key: ValueKey(familyState.showOutstandingOnly),
+                                label: 'Show Total Outstanding',
+                                labelStyle: AppTextStyles.title.copyWith(
+                                  fontSize: 15,
+                                  color: AppColors.billingTextColor,
+                                ),
+                                isToggled: familyState.showOutstandingOnly,
+                                onToggle: (val) =>
+                                    _familyCubit.setShowOutstandingOnly(val),
+                              ),
+                              const Spacer(),
+                              Text(
+                                '\$${familyState.totalOutstanding.toStringAsFixed(0)}',
+                                style: AppTextStyles.body.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.themeColor,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        FamilySummaryList(
+                          families: familyState.filteredFamilies,
+                          isLoading: familyState.isLoading,
+                          errorMessage: familyState.errorMessage,
+                          onBillingProfile: (family) =>
+                              Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => TransactionDetailsScreen(
+                                    ownerType: family.ownerType,
+                                    ownerCode: family.ownerCode,
+                                    familyName: family.familyName,
+                                  ),
+                                ),
+                              ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+              ],
+            );
+          },
         ),
       ),
     );

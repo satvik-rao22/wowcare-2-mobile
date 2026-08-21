@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/create_invoice_dialog.dart'
     show BillingActionCard;
 
@@ -24,10 +24,8 @@ class TransactionActionDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     return Dialog(
       insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      backgroundColor: Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      backgroundColor: AppColors.white,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 420),
         child: Padding(
@@ -54,8 +52,11 @@ class TransactionActionDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(16),
                     child: const Padding(
                       padding: EdgeInsets.all(6.0),
-                      child:
-                          Icon(Icons.close, size: 18, color: Color(0x99573353)),
+                      child: Icon(
+                        Icons.close,
+                        size: 18,
+                        color: Color(0x99573353),
+                      ),
                     ),
                   ),
                 ],
@@ -101,8 +102,7 @@ class TransactionActionDialog extends StatelessWidget {
                     Expanded(
                       child: BillingActionCard(
                         title: 'Add\nCredit',
-                        subtitle:
-                            'Add account credit for this family',
+                        subtitle: 'Add account credit for this family',
                         icon: Icons.account_balance_wallet_outlined,
                         onTap: onSelectAddCredit,
                       ),

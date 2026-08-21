@@ -492,7 +492,7 @@ class _StaffOrStudentSelectionBulkMessagingState
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       resizeToAvoidBottomInset: true,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
@@ -573,7 +573,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                                     responsive.isTablet ? 32.0 : 16.0,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white,
+                                    color: AppColors.white,
                                     borderRadius: BorderRadius.all(
                                       Radius.circular(
                                         responsive.isTablet ? 30.0 : 20.0,
@@ -581,7 +581,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withValues(
+                                        color: AppColors.black.withValues(
                                           alpha: 0.05,
                                         ),
                                         blurRadius: 8,
@@ -833,7 +833,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                       ? 'No staff match the selected filters'
                                                       : 'No student match the selected filters',
                                                   style: TextStyle(
-                                                    color: Colors.grey[600],
+                                                    color: AppColors.grey[600],
                                                     fontSize: 14,
                                                   ),
                                                 ),
@@ -945,10 +945,10 @@ class _StaffOrStudentSelectionBulkMessagingState
         top: 16,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -975,7 +975,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                 child: Container(
                   //alignment: Alignment.center,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(
                       responsive.isTablet ? 16.0 : 8.0,
                     ),
@@ -983,7 +983,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                   child: TextButton(
                     onPressed: () => Navigator.of(context).pop(),
                     style: TextButton.styleFrom(
-                      overlayColor: Colors.transparent,
+                      overlayColor: AppColors.transparent,
                     ),
                     child: ShaderMask(
                       shaderCallback: (bounds) {
@@ -997,7 +997,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                           fontFamily: 'Manrope',
                           fontSize: responsive.buttonFontSize,
                           fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                       ),
                     ),
@@ -1056,14 +1056,16 @@ class _StaffOrStudentSelectionBulkMessagingState
                     }
                   }
                 },
-                style: TextButton.styleFrom(overlayColor: Colors.transparent),
+                style: TextButton.styleFrom(
+                  overlayColor: AppColors.transparent,
+                ),
                 child: Text(
                   'Next',
                   style: TextStyle(
                     fontFamily: 'Manrope',
                     fontSize: responsive.buttonFontSize,
                     fontWeight: FontWeight.w600,
-                    color: Colors.white,
+                    color: AppColors.white,
                   ),
                 ),
               ),

@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/student/usecases/get_student_profile_usecase.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_school_header.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 
+import '../../../../../app/theme/colors.dart';
+
 class ViewInvoiceScreen extends StatefulWidget {
-  const ViewInvoiceScreen({
-    super.key,
-    required this.transaction,
-  });
+  const ViewInvoiceScreen({super.key, required this.transaction});
 
   final TransactionItem transaction;
 

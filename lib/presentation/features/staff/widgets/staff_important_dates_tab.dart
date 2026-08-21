@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_important_dates_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -203,7 +203,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
         padding: const EdgeInsets.all(8),
         child: Text(
           _errorMessage!,
-          style: const TextStyle(color: Colors.redAccent, fontSize: 14),
+          style: const TextStyle(color: AppColors.redAccent, fontSize: 14),
         ),
       );
     }
@@ -241,7 +241,7 @@ class _StaffImportantDatesTabState extends State<StaffImportantDatesTab> {
           margin: EdgeInsets.only(top: isFirst ? 16 : 12, bottom: 0),
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: Colors.transparent,
+            color: AppColors.transparent,
             border: Border.all(
               color: AppColors.primaryColor.withValues(alpha: 0.2),
             ),
@@ -329,20 +329,20 @@ class _DateRow extends StatelessWidget {
                         left: offset.dx - 8,
                         top: offset.dy - 44,
                         child: Material(
-                          color: Colors.transparent,
+                          color: AppColors.transparent,
                           child: Container(
                             padding: const EdgeInsets.symmetric(
                               horizontal: 10,
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.9),
+                              color: AppColors.black.withValues(alpha: 0.9),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text(
                               infoText ?? 'CDA - Child Development Associate',
                               style: const TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontSize: 12,
                                 fontFamily: 'Manrope',
                               ),

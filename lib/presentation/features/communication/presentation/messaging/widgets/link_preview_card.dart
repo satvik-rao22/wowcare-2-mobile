@@ -1,7 +1,8 @@
 import 'package:any_link_preview/any_link_preview.dart';
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+
+import '../../../../../../app/theme/colors.dart';
 
 /// Extracts the first HTTP/HTTPS URL from [text] and returns it, or null if
 /// none is found.
@@ -43,7 +44,7 @@ class LinkPreviewCard extends StatelessWidget {
         child: Text(
           url,
           style: TextStyle(
-            color: isMe ? Colors.white : AppColors.primaryColor,
+            color: isMe ? AppColors.white : AppColors.primaryColor,
             fontSize: 13,
             fontFamily: 'Manrope',
             decoration: TextDecoration.underline,
@@ -93,12 +94,12 @@ class PreviewCard extends StatelessWidget {
     required String launchHref,
     required bool isMe,
   }) {
-    final textColor = isMe ? Colors.white : const Color(0xFF1E293B);
+    final textColor = isMe ? AppColors.white : const Color(0xFF1E293B);
     final subColor = isMe
-        ? Colors.white.withValues(alpha: 0.75)
+        ? AppColors.white.withValues(alpha: 0.75)
         : const Color(0xFF64748B);
     final chipColor = isMe
-        ? Colors.white.withValues(alpha: 0.15)
+        ? AppColors.white.withValues(alpha: 0.15)
         : const Color(0xFFF0F4FF);
 
     return Padding(
@@ -118,14 +119,14 @@ class PreviewCard extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: isMe
-                      ? Colors.white.withValues(alpha: 0.18)
+                      ? AppColors.white.withValues(alpha: 0.18)
                       : AppColors.primaryColor.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
                   icon,
                   size: 16,
-                  color: isMe ? Colors.white : AppColors.primaryColor,
+                  color: isMe ? AppColors.white : AppColors.primaryColor,
                 ),
               ),
               const SizedBox(width: 10),
@@ -195,7 +196,7 @@ class ComposerLinkPreview extends StatelessWidget {
           fontFamily: 'Manrope',
         ),
         cache: const Duration(days: 1),
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparent,
         borderRadius: 8,
         removeElevation: true,
         errorWidget: Text(

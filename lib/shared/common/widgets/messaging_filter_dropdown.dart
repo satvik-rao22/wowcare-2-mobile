@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../app/theme/colors.dart';
 import 'custom_dropdown.dart';
 
 class MessagingFilterDropdown extends StatelessWidget {
@@ -45,7 +46,7 @@ class MessagingFilterDropdown extends StatelessWidget {
         fontWeight: selectedItem != null ? FontWeight.w600 : FontWeight.w500,
         color: selectedItem != null
             ? const Color(0xff573353)
-            : Colors.grey[600],
+            : AppColors.grey[600],
         height: 19 / 14,
       ),
       popupItemTextStyle: TextStyle(

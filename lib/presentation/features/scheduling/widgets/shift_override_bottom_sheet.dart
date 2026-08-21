@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 /// Confirmation sheet shown after `GET /api/v1/staff/staff-shifts` returns
@@ -32,7 +32,7 @@ class ShiftOverrideBottomSheet extends StatelessWidget {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (_) => ShiftOverrideBottomSheet(conflictDates: conflictDates),
     );
     return result ?? false;
@@ -67,7 +67,7 @@ class ShiftOverrideBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),

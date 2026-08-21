@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class CustomCancelButton extends StatelessWidget {
   const CustomCancelButton({
@@ -35,7 +35,7 @@ class CustomCancelButton extends StatelessWidget {
       child: TextButton(
         onPressed: onPressedCancel ?? () => Navigator.pop(context),
         style: TextButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.white,
           padding: const EdgeInsets.symmetric(vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
@@ -48,7 +48,7 @@ class CustomCancelButton extends StatelessWidget {
                     ),
                 child: Text(
                   cancelButtonLabel ?? 'Cancel',
-                  style: labelStyle.copyWith(color: Colors.white),
+                  style: labelStyle.copyWith(color: AppColors.white),
                 ),
               )
             : label,

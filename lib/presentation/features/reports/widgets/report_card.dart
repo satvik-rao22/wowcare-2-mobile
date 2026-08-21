@@ -1,12 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 class ReportItem {
-  const ReportItem({
-    required this.name,
-    required this.description,
-  });
+  const ReportItem({required this.name, required this.description});
 
   final String name;
   final String description;
@@ -50,19 +47,15 @@ class _ReportCardState extends State<ReportCard> {
           child: Container(
             width: constraints.maxWidth,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: AppColors.cardBorderColor,
-                width: 1,
-              ),
+              border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparent,
               child: InkWell(
-                onTap: () =>
-                    setState(() => _isExpanded = !_isExpanded),
+                onTap: () => setState(() => _isExpanded = !_isExpanded),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
@@ -129,21 +122,23 @@ class _ReportCardState extends State<ReportCard> {
                             const SizedBox(height: 16),
                             Row(
                               children: [
-                                for (int j = 0;
-                                    j < widget.formats.length;
-                                    j++) ...[
+                                for (
+                                  int j = 0;
+                                  j < widget.formats.length;
+                                  j++
+                                ) ...[
                                   Expanded(
                                     child: _GenerateButton(
                                       format: widget.formats[j],
                                       // When there are multiple buttons, the
                                       // last one is solid (primary) and the
                                       // rest are outlined (secondary).
-                                      isPrimary:
-                                          j == widget.formats.length - 1,
+                                      isPrimary: j == widget.formats.length - 1,
                                       onPressed: widget.onGenerate == null
                                           ? null
                                           : () => widget.onGenerate!(
-                                              widget.formats[j]),
+                                              widget.formats[j],
+                                            ),
                                     ),
                                   ),
                                   if (j != widget.formats.length - 1)
@@ -202,15 +197,14 @@ class _GenerateButton extends StatelessWidget {
         height: 44,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
-          gradient:
-              isEnabled ? AppColors.buildPrimaryGradient() : null,
-          color: isEnabled ? null : Colors.grey[300],
+          gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
+          color: isEnabled ? null : AppColors.grey[300],
         ),
         padding: const EdgeInsets.all(1),
         child: TextButton(
           onPressed: onPressed,
           style: TextButton.styleFrom(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             padding: const EdgeInsets.symmetric(horizontal: 12),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
@@ -223,13 +217,11 @@ class _GenerateButton extends StatelessWidget {
               isEnabled
                   ? ShaderMask(
                       shaderCallback: (bounds) =>
-                          AppColors.buildPrimaryGradient()
-                              .createShader(bounds),
+                          AppColors.buildPrimaryGradient().createShader(bounds),
                       blendMode: BlendMode.srcIn,
-                      child:
-                          _buildIcon(color: Colors.white, size: 18),
+                      child: _buildIcon(color: AppColors.white, size: 18),
                     )
-                  : _buildIcon(color: Colors.grey[600]!, size: 18),
+                  : _buildIcon(color: AppColors.grey[600]!, size: 18),
               const SizedBox(width: 8),
               Text(
                 'Generate',
@@ -239,7 +231,7 @@ class _GenerateButton extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                   color: isEnabled
                       ? AppColors.primaryColor
-                      : Colors.grey[600],
+                      : AppColors.grey[600],
                 ),
               ),
             ],
@@ -253,25 +245,23 @@ class _GenerateButton extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(8),
         gradient: isEnabled ? AppColors.buildPrimaryGradient() : null,
-        color: isEnabled ? null : Colors.grey[300],
+        color: isEnabled ? null : AppColors.grey[300],
       ),
       child: TextButton(
         onPressed: onPressed,
         style: TextButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          foregroundColor: isEnabled ? Colors.white : Colors.grey[600],
-          disabledForegroundColor: Colors.grey[600],
+          backgroundColor: AppColors.transparent,
+          foregroundColor: isEnabled ? AppColors.white : AppColors.grey[600],
+          disabledForegroundColor: AppColors.grey[600],
           padding: const EdgeInsets.symmetric(horizontal: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildIcon(
-              color: isEnabled ? Colors.white : Colors.grey[600]!,
+              color: isEnabled ? AppColors.white : AppColors.grey[600]!,
               size: 18,
             ),
             const SizedBox(width: 8),
@@ -281,7 +271,7 @@ class _GenerateButton extends StatelessWidget {
                 fontFamily: 'Manrope',
                 fontSize: 15,
                 fontWeight: FontWeight.w600,
-                color: isEnabled ? Colors.white : Colors.grey[600],
+                color: isEnabled ? AppColors.white : AppColors.grey[600],
               ),
             ),
           ],

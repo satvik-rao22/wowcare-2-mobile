@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/billing/cubit/receive_payment_refund_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
@@ -305,7 +305,7 @@ class _ReceivePaymentIssueRefundScreenState
         ),
         decoration: InputDecoration(
           hintText: hint,
-          hintStyle: _labelStyle(responsive).copyWith(color: Colors.grey),
+          hintStyle: _labelStyle(responsive).copyWith(color: AppColors.grey),
           border: InputBorder.none,
           contentPadding: _fieldPadding(responsive),
         ),
@@ -409,7 +409,7 @@ class _ReceivePaymentIssueRefundScreenState
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               '*Please enter an amount.',
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(color: AppColors.red, fontSize: 12),
             ),
           ),
       ],
@@ -496,7 +496,7 @@ class _ReceivePaymentIssueRefundScreenState
             padding: EdgeInsets.only(top: 4.0, left: 2.0),
             child: Text(
               '*Please enter an amount.',
-              style: TextStyle(color: Colors.red, fontSize: 12),
+              style: TextStyle(color: AppColors.red, fontSize: 12),
             ),
           ),
       ],
@@ -576,7 +576,7 @@ class _ReceivePaymentIssueRefundScreenState
               padding: EdgeInsets.only(top: 6.0, left: 2.0),
               child: Text(
                 '*Amount exceeds outstanding.',
-                style: TextStyle(color: Colors.red, fontSize: 12),
+                style: TextStyle(color: AppColors.red, fontSize: 12),
               ),
             ),
         ],
@@ -602,7 +602,7 @@ class _ReceivePaymentIssueRefundScreenState
         child: Text(
           _initials(name),
           style: const TextStyle(
-            color: Colors.white,
+            color: AppColors.white,
             fontSize: 16,
             fontWeight: FontWeight.bold,
             fontFamily: 'Manrope',
@@ -747,7 +747,7 @@ class _ReceivePaymentIssueRefundScreenState
                 enabled: !_isSubmitting,
                 padding: EdgeInsets.zero,
                 position: PopupMenuPosition.under,
-                color: Colors.white,
+                color: AppColors.white,
                 // Make the menu span the full width of the field.
                 constraints: BoxConstraints(
                   minWidth: constraints.maxWidth,
@@ -783,7 +783,7 @@ class _ReceivePaymentIssueRefundScreenState
                               ? valueStyle
                               : _labelStyle(
                                   responsive,
-                                ).copyWith(color: Colors.grey),
+                                ).copyWith(color: AppColors.grey),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -815,10 +815,10 @@ class _ReceivePaymentIssueRefundScreenState
         top: 8,
       ),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         boxShadow: <BoxShadow>[
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: AppColors.black.withValues(alpha: 0.05),
             offset: const Offset(0, -4),
             blurRadius: 16,
           ),
@@ -890,14 +890,14 @@ class _ReceivePaymentIssueRefundScreenState
               width: 50,
               height: 50,
               decoration: const BoxDecoration(
-                color: Colors.orange,
+                color: AppColors.orange,
                 shape: BoxShape.circle,
               ),
               child: Center(
                 child: Text(
                   _getUserInitials(),
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: AppColors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'Manrope',

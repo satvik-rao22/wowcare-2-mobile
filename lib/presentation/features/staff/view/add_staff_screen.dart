@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'dart:async';
@@ -160,10 +160,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
 
     try {
       final storage = serviceLocator<StorageService>();
-      final org =
-          (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
-      final school =
-          (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      final org = (await storage.getString(StorageKeys.organizationCode) ?? '')
+          .trim();
+      final school = (await storage.getString(StorageKeys.schoolCode) ?? '')
+          .trim();
       if (org.isEmpty || school.isEmpty) return true;
 
       String norm(String s) =>
@@ -194,7 +194,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (ctx) {
         return ConfirmationBottomSheet(
           icon: Icons.info_outline_rounded,
@@ -758,7 +758,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                 },
                 child: Scaffold(
                   key: _scaffoldKey,
-                  backgroundColor: Colors.white,
+                  backgroundColor: AppColors.white,
                   appBar: const CustomAppBar(hasBackButton: true),
                   body: Stack(
                     children: [
@@ -805,7 +805,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                 responsive.isTablet ? 32.0 : 16.0,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 borderRadius: BorderRadius.all(
                                   Radius.circular(
                                     responsive.isTablet ? 40.0 : 24.0,
@@ -813,7 +813,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                 ),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.05),
+                                    color: AppColors.black.withValues(
+                                      alpha: 0.05,
+                                    ),
                                     blurRadius: 8,
                                     offset: const Offset(0, 2),
                                   ),
@@ -829,9 +831,9 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                         vertical: 10,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.orange.shade50,
+                                        color: AppColors.orange.shade100,
                                         border: Border.all(
-                                          color: Colors.orange.shade100,
+                                          color: AppColors.orange.shade100,
                                         ),
                                         borderRadius: BorderRadius.circular(8),
                                       ),
@@ -839,14 +841,14 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                         children: [
                                           const Icon(
                                             Icons.warning,
-                                            color: Colors.orange,
+                                            color: AppColors.orange,
                                           ),
                                           const SizedBox(width: 8),
                                           Expanded(
                                             child: Text(
                                               _warningMessage!,
                                               style: const TextStyle(
-                                                color: Colors.orange,
+                                                color: AppColors.orange,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                             ),
@@ -859,7 +861,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                                             },
                                             child: const Icon(
                                               Icons.close,
-                                              color: Colors.orange,
+                                              color: AppColors.orange,
                                               size: 20,
                                             ),
                                           ),
@@ -1193,10 +1195,10 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
                       top: 8,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.black.withValues(alpha: 0.05),
                           offset: const Offset(0, -4),
                           blurRadius: 16,
                         ),
@@ -1300,7 +1302,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
               TextSpan(text: label),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.red),
               ),
             ],
           ),
@@ -1309,7 +1311,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -1330,7 +1332,7 @@ class _AddStaffScreenState extends State<AddStaffScreen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,

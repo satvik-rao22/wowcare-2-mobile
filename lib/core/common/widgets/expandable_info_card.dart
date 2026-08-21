@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../app/theme/colors.dart';
 
 class InfoRowItem {
   final String label;
@@ -59,7 +60,7 @@ class ExpandableInfoCard extends StatefulWidget {
     this.onTap,
     required this.rows,
     this.actions,
-    this.cardColor = Colors.white,
+    this.cardColor = AppColors.white,
     this.borderRadius = const BorderRadius.all(Radius.circular(12)),
     this.border,
     this.boxShadow,
@@ -109,7 +110,7 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
                   widget.boxShadow ??
                   [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.03),
+                      color: AppColors.black.withValues(alpha: 0.03),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -117,7 +118,7 @@ class _ExpandableInfoCardState extends State<ExpandableInfoCard> {
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparent,
               child: InkWell(
                 onTap: _handleTap,
                 onLongPress: widget.onLongPress,

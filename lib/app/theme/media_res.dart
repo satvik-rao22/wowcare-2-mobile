@@ -239,7 +239,7 @@ class MediaRes {
   static const String addImageNewsletterIcon =
       '$_baseIcons/image-drag-drop-icon.svg';
   static const String addColorNewsletterIcon =
-      '$_baseIcons/colors-drag-drop-icon.svg';
+      '$_baseIcons/AppColors-drag-drop-icon.svg';
   static const String emptyStack = '$_baseIcons/drag-drop-empty-icon.svg';
 
   static const String bathroomActivityIcon =

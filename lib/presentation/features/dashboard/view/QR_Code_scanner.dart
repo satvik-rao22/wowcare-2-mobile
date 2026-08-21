@@ -6,7 +6,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:qr_code_scanner_plus/qr_code_scanner_plus.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_out_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/student_attendance_forms/student_selection_sign_in_form.dart';
@@ -201,7 +201,7 @@ class _QrScanViewState extends State<_QrScanView>
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.black,
+        backgroundColor: AppColors.black,
         body: BlocBuilder<QrValidationCubit, QrValidationState>(
           builder: (context, state) {
             return Stack(
@@ -235,7 +235,7 @@ class _QrScanViewState extends State<_QrScanView>
                           IconButton(
                             icon: const Icon(
                               Icons.arrow_back_ios_new,
-                              color: Colors.white,
+                              color: AppColors.white,
                               size: 22,
                             ),
                             onPressed: () => Navigator.pop(context),
@@ -245,7 +245,7 @@ class _QrScanViewState extends State<_QrScanView>
                               'Scan QR Code',
                               textAlign: TextAlign.center,
                               style: TextStyle(
-                                color: Colors.white,
+                                color: AppColors.white,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                                 letterSpacing: 0.3,
@@ -271,7 +271,7 @@ class _QrScanViewState extends State<_QrScanView>
                             ? 'Validating...'
                             : 'Point camera at a QR code',
                         style: const TextStyle(
-                          color: Colors.white70,
+                          color: AppColors.white70,
                           fontSize: 14,
                           fontWeight: FontWeight.w400,
                           letterSpacing: 0.2,
@@ -325,17 +325,17 @@ class _QrScanViewState extends State<_QrScanView>
                 // ── Loading overlay ───────────────────────────────────────
                 if (state is QrValidationLoading)
                   Container(
-                    color: Colors.black.withValues(alpha: 0.65),
+                    color: AppColors.black.withValues(alpha: 0.65),
                     child: const Center(
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(color: Colors.white),
+                          CircularProgressIndicator(color: AppColors.white),
                           SizedBox(height: 16),
                           Text(
                             'Validating QR code...',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: AppColors.white,
                               fontSize: 16,
                               fontWeight: FontWeight.w500,
                             ),
@@ -565,17 +565,17 @@ class _ControlButton extends StatelessWidget {
               shape: BoxShape.circle,
               color: active
                   ? AppColors.primaryColor.withValues(alpha: 0.25)
-                  : Colors.white.withValues(alpha: 0.15),
+                  : AppColors.white.withValues(alpha: 0.15),
               border: Border.all(
                 color: active
                     ? AppColors.primaryColor
-                    : Colors.white.withValues(alpha: 0.4),
+                    : AppColors.white.withValues(alpha: 0.4),
                 width: 1.5,
               ),
             ),
             child: Icon(
               icon,
-              color: active ? AppColors.primaryColor : Colors.white,
+              color: active ? AppColors.primaryColor : AppColors.white,
               size: 26,
             ),
           ),
@@ -583,7 +583,7 @@ class _ControlButton extends StatelessWidget {
           Text(
             label,
             style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.85),
+              color: AppColors.white.withValues(alpha: 0.85),
               fontSize: 12,
               fontWeight: FontWeight.w400,
             ),

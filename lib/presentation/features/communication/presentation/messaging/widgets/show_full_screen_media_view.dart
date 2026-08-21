@@ -15,6 +15,8 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/shared/common/widgets/hls_web_player.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
+import '../../../../../../app/theme/colors.dart';
+
 class ShowFullScreenMediaView extends StatefulWidget {
   final String? imageUrl;
   final File? imageFile;
@@ -318,18 +320,18 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
 
   Widget _brokenImagePlaceholder() {
     return Container(
-      color: Colors.black,
+      color: AppColors.black,
       child: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.broken_image, color: Colors.white54, size: 80),
+            const Icon(Icons.broken_image, color: AppColors.white54, size: 80),
             const SizedBox(height: 16),
             Text(
               'Failed to load image',
               style: Theme.of(
                 context,
-              ).textTheme.bodyMedium?.copyWith(color: Colors.white54),
+              ).textTheme.bodyMedium?.copyWith(color: AppColors.white54),
             ),
           ],
         ),
@@ -339,19 +341,23 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
 
   Widget _buildMediaWidget() {
     if (!hasImage) {
-      return const Icon(Icons.broken_image, color: Colors.white54, size: 100);
+      return const Icon(
+        Icons.broken_image,
+        color: AppColors.white54,
+        size: 100,
+      );
     }
     return FutureBuilder<Uint8List>(
       future: _imageBytesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return Container(
-            color: Colors.black,
+            color: AppColors.black,
             child: const Center(
               child: PrimaryCircularLoader(
                 size: 28,
                 strokeWidth: 2,
-                color: Colors.white70,
+                color: AppColors.white70,
               ),
             ),
           );
@@ -373,9 +379,9 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: AppColors.black,
       appBar: AppBar(
-        backgroundColor: Colors.black87,
+        backgroundColor: AppColors.black87,
         elevation: 0,
         automaticallyImplyLeading: false,
         leading: Padding(
@@ -384,12 +390,12 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
             onTap: () => Navigator.of(context).pop(),
             child: Container(
               decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: AppColors.white.withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
                 Icons.arrow_back,
-                color: Colors.white,
+                color: AppColors.white,
                 size: 24,
               ),
             ),
@@ -399,7 +405,7 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
             ? Text(
                 widget.title!,
                 style: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -413,11 +419,11 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                   ? const PrimaryCircularLoader(
                       size: 18,
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AppColors.white,
                     )
                   : const Icon(
                       Icons.download_rounded,
-                      color: Colors.white,
+                      color: AppColors.white,
                       size: 24,
                     ),
               onPressed: _downloadCurrentMedia,
@@ -446,10 +452,10 @@ class _ShowFullScreenMediaViewState extends State<ShowFullScreenMediaView>
                       ),
                     )
                   : Container(
-                      color: Colors.black,
+                      color: AppColors.black,
                       child: const Icon(
                         Icons.broken_image,
-                        color: Colors.white,
+                        color: AppColors.white,
                         size: 100,
                       ),
                     ),
@@ -499,10 +505,10 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
               ? 16 / 9
               : controller.value.aspectRatio,
           materialProgressColors: ChewieProgressColors(
-            playedColor: Colors.white,
-            handleColor: Colors.white,
-            bufferedColor: Colors.white54,
-            backgroundColor: Colors.white24,
+            playedColor: AppColors.white,
+            handleColor: AppColors.white,
+            bufferedColor: AppColors.white54,
+            backgroundColor: AppColors.white24,
           ),
         );
       });
@@ -522,7 +528,7 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
   Widget build(BuildContext context) {
     if (_initError) {
       return const Center(
-        child: Icon(Icons.error_outline, color: Colors.white54, size: 80),
+        child: Icon(Icons.error_outline, color: AppColors.white54, size: 80),
       );
     }
     if (_chewieController == null) {
@@ -530,7 +536,7 @@ class _LocalVideoPlayerState extends State<_LocalVideoPlayer> {
         child: PrimaryCircularLoader(
           size: 28,
           strokeWidth: 2,
-          color: Colors.white70,
+          color: AppColors.white70,
         ),
       );
     }

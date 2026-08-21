@@ -6,6 +6,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../../app/theme/colors.dart';
 
 class AddTransactionScreen extends StatefulWidget {
   const AddTransactionScreen({
@@ -119,7 +120,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               style: TextStyle(
                 fontFamily: 'Manrope',
                 fontSize: 12,
-                color: Colors.red,
+                color: AppColors.red,
               ),
             ),
           ],
@@ -146,10 +147,10 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
           top: 8,
         ),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
+              color: AppColors.black.withValues(alpha: 0.05),
               offset: const Offset(0, -4),
               blurRadius: 16,
             ),
@@ -193,7 +194,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
               if (required)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),
@@ -202,10 +203,11 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
-            borderRadius:
-                BorderRadius.circular(responsive.isTablet ? 12.0 : 8.0),
+            borderRadius: BorderRadius.circular(
+              responsive.isTablet ? 12.0 : 8.0,
+            ),
           ),
           child: TextField(
             controller: controller,
@@ -221,7 +223,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -237,7 +239,7 @@ class _AddTransactionScreenState extends State<AddTransactionScreen> {
             style: const TextStyle(
               fontFamily: 'Manrope',
               fontSize: 12,
-              color: Colors.red,
+              color: AppColors.red,
             ),
           ),
         ],

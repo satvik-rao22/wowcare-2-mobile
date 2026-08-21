@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 /// Shared visual language for every billing card, inherited from
 /// [staff_card.dart] (`lib/presentation/features/staff/widgets/staff_card.dart`).
@@ -8,7 +8,7 @@ import 'package:wowcare/app/theme/colors.dart';
 /// bordered, tap-to-expand container, the same `#573353` text colour and the
 /// same Manrope font sizes/weights so they match the staff card exactly.
 const Color kBillingCardTextColor = Color(0xff573353);
-const Color kBillingCardDividerColor = Color(0xFFE9ECEF);
+const Color kBillingCarddividerColor = Color(0xFFE9ECEF);
 
 /// Text styles lifted verbatim from the staff card.
 class BillingCardText {
@@ -16,12 +16,12 @@ class BillingCardText {
 
   /// Header name/title — Manrope 14 (16 on tablet), w500.
   static TextStyle name(bool isTablet) => TextStyle(
-        fontFamily: 'Manrope',
-        fontSize: isTablet ? 16 : 14,
-        fontWeight: FontWeight.w500,
-        color: kBillingCardTextColor,
-        height: 19 / 14,
-      );
+    fontFamily: 'Manrope',
+    fontSize: isTablet ? 16 : 14,
+    fontWeight: FontWeight.w500,
+    color: kBillingCardTextColor,
+    height: 19 / 14,
+  );
 
   /// Detail-row label — Manrope 13, w400.
   static const TextStyle label = TextStyle(
@@ -116,13 +116,13 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
           child: Container(
             width: constraints.maxWidth,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.cardBorderColor, width: 1),
             ),
             clipBehavior: Clip.antiAlias,
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparent,
               child: InkWell(
                 onTap: _toggle,
                 onLongPress: widget.onLongPress,
@@ -156,7 +156,7 @@ class _StaffStyleCardState extends State<StaffStyleCard> {
                         thickness: 1,
                         indent: 16,
                         endIndent: 16,
-                        color: kBillingCardDividerColor,
+                        color: kBillingCarddividerColor,
                       ),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
@@ -221,7 +221,11 @@ class StaffCardDetailRow extends StatelessWidget {
                 ),
               if (note != null && note!.isNotEmpty) ...[
                 const SizedBox(height: 2),
-                Text(note!, textAlign: TextAlign.right, style: BillingCardText.note),
+                Text(
+                  note!,
+                  textAlign: TextAlign.right,
+                  style: BillingCardText.note,
+                ),
               ],
             ],
           ),
@@ -297,7 +301,7 @@ class StaffCardActions extends StatelessWidget {
                   fontFamily: 'Manrope',
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: AppColors.white,
                   height: 16 / 16,
                 ),
               ),

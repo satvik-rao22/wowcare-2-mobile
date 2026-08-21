@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/nap_activity.dart';
@@ -2958,7 +2958,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
     await showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (ctx) {
         return DeleteConfirmationBottomSheet(
           name: activity.name,
@@ -3019,7 +3019,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
       decoration: BoxDecoration(
         border: Border.all(color: AppColors.dividerColor),
         borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
+        color: AppColors.white,
       ),
       alignment: Alignment.center,
       child: const PrimaryCircularLoader(size: 40, strokeWidth: 3.5),
@@ -3079,7 +3079,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                       decoration: BoxDecoration(
                         border: Border.all(color: AppColors.dividerColor),
                         borderRadius: BorderRadius.circular(12),
-                        color: Colors.white,
+                        color: AppColors.white,
                       ),
                       child: widget.fromStudentProfile && !isNotParent
                           ? Column(
@@ -3187,7 +3187,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                     ),
                                     const SizedBox(width: 8),
                                     Material(
-                                      color: Colors.transparent,
+                                      color: AppColors.transparent,
                                       child: InkWell(
                                         borderRadius: BorderRadius.circular(
                                           100,
@@ -3237,7 +3237,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                           ? '99+'
                                                           : '$badgeCount',
                                                       style: const TextStyle(
-                                                        color: Colors.white,
+                                                        color: AppColors.white,
                                                         fontSize: 10,
                                                         fontWeight:
                                                             FontWeight.w700,
@@ -3329,7 +3329,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.dividerColor),
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                           alignment: Alignment.center,
                           child: const PrimaryCircularLoader(
@@ -3351,7 +3351,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.dividerColor),
                           borderRadius: BorderRadius.circular(12),
-                          color: Colors.white,
+                          color: AppColors.white,
                         ),
                         child: Center(
                           child: AppText.title(
@@ -3376,7 +3376,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                 //             (context, index) => Container(
                 //           height: 100,
                 //           margin: EdgeInsets.only(bottom: 16),
-                //           color: Colors.blue[100 * (index % 9 + 1)],
+                //           color: AppColors.blue[100 * (index % 9 + 1)],
                 //           child: Center(child: Text('Test Item $index')),
                 //         ),
                 //         childCount: _activities.length,
@@ -3584,7 +3584,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                           //               null)
                                                           //             return child;
                                                           //           return Container(
-                                                          //             color: Colors
+                                                          //             color: AppColors
                                                           //                 .transparent,
                                                           //             child: const Center(
                                                           //               child: CircularProgressIndicator(
@@ -3623,8 +3623,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                           : Container(
                                                               width: 122,
                                                               height: 76,
-                                                              color:
-                                                                  Colors.white,
+                                                              color: AppColors
+                                                                  .white,
                                                               // color: activityColor
                                                               //     .withValues(alpha:0.25),
                                                               child: Center(
@@ -3905,7 +3905,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                           isScrollControlled:
                                                                               true,
                                                                           backgroundColor:
-                                                                              Colors.transparent,
+                                                                              AppColors.transparent,
                                                                           builder: (ctx) {
                                                                             return DeleteConfirmationBottomSheet(
                                                                               name: activity.name,
@@ -4119,7 +4119,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                   ),
           //                   const SizedBox(width: 8),
           //                   Material(
-          //                     color: Colors.transparent,
+          //                     color: AppColors.transparent,
           //                     child: InkWell(
           //                       borderRadius: BorderRadius.circular(100),
           //                       onTap: () async {
@@ -4281,7 +4281,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //               child: Text(
           //                 'No Activities found',
           //                 style: TextStyle(
-          //                   color: Colors.black,
+          //                   color: AppColors.black,
           //                   fontFamily: 'Manrope',
           //                   fontSize: 16,
           //                   fontWeight: FontWeight.w500,
@@ -4447,7 +4447,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                                           //               null)
           //                                           //             return child;
           //                                           //           return Container(
-          //                                           //             color: Colors
+          //                                           //             color: AppColors
           //                                           //                 .transparent,
           //                                           //             child: const Center(
           //                                           //               child: CircularProgressIndicator(
@@ -4486,7 +4486,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                                               : Container(
           //                                             width: 122,
           //                                             height: 76,
-          //                                             color: Colors.white,
+          //                                             color: AppColors.white,
           //                                             // color: activityColor
           //                                             //     .withValues(alpha:0.25),
           //                                             child: Center(
@@ -4531,7 +4531,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
           //                                                     activity.name,
           //                                                     style:
           //                                                     const TextStyle(
-          //                                                       color: Colors
+          //                                                       color: AppColors
           //                                                           .white,
           //                                                       fontSize: 11,
           //                                                       fontWeight:
@@ -4735,7 +4735,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                     decoration: BoxDecoration(
                       border: Border.all(color: AppColors.dividerColor),
                       borderRadius: BorderRadius.circular(12),
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                     child: widget.fromStudentProfile && !isNotParent
                         ? Column(
@@ -4832,7 +4832,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                   ),
                                   const SizedBox(width: 8),
                                   Material(
-                                    color: Colors.transparent,
+                                    color: AppColors.transparent,
                                     child: InkWell(
                                       borderRadius: BorderRadius.circular(100),
                                       onTap: _openActivityFilter,
@@ -4879,7 +4879,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                         ? '99+'
                                                         : '$badgeCount',
                                                     style: const TextStyle(
-                                                      color: Colors.white,
+                                                      color: AppColors.white,
                                                       fontSize: 10,
                                                       fontWeight:
                                                           FontWeight.w700,
@@ -4975,7 +4975,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                           decoration: BoxDecoration(
                             border: Border.all(color: AppColors.dividerColor),
                             borderRadius: BorderRadius.circular(12),
-                            color: Colors.white,
+                            color: AppColors.white,
                           ),
                           child: Center(
                             child: AppText.title(
@@ -5223,7 +5223,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                 //               null)
                                                                 //             return child;
                                                                 //           return Container(
-                                                                //             color: Colors
+                                                                //             color: AppColors
                                                                 //                 .transparent,
                                                                 //             child: const Center(
                                                                 //               child: CircularProgressIndicator(
@@ -5262,7 +5262,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                 : Container(
                                                                     width: 122,
                                                                     height: 76,
-                                                                    color: Colors
+                                                                    color: AppColors
                                                                         .white,
                                                                     // color: activityColor
                                                                     //     .withValues(alpha:0.25),
@@ -5537,7 +5537,7 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                                                                               showModalBottomSheet(
                                                                                 context: context,
                                                                                 isScrollControlled: true,
-                                                                                backgroundColor: Colors.transparent,
+                                                                                backgroundColor: AppColors.transparent,
                                                                                 builder:
                                                                                     (
                                                                                       ctx,
@@ -5721,8 +5721,8 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
                     fontSize: 15,
                     fontWeight: FontWeight.w400,
                     color: selectedDate == null
-                        ? Colors.grey[600]
-                        : Colors.black87,
+                        ? AppColors.grey[600]
+                        : AppColors.black87,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -5764,14 +5764,14 @@ class _ActivityDailyTabState extends State<ActivityDailyTab>
         fontSize: 15,
         fontWeight: FontWeight.w400,
         color: selectedItem != null && selectedItem.trim().isNotEmpty
-            ? Colors.black87
-            : Colors.grey[600],
+            ? AppColors.black87
+            : AppColors.grey[600],
       ),
       popupItemTextStyle: const TextStyle(
         fontFamily: 'Manrope',
         fontSize: 14,
         fontWeight: FontWeight.w400,
-        color: Colors.black87,
+        color: AppColors.black87,
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
     );
@@ -5816,7 +5816,7 @@ class PopupItem extends StatelessWidget {
             fontFamily: 'Manrope',
             fontSize: 14,
             fontWeight: FontWeight.w500,
-            color: Colors.black,
+            color: AppColors.black,
           ),
         ),
       ],

@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../../app/theme/colors.dart';
 
 /// Student-oriented filter bottom sheet for the Admin Chats list (Classroom +
 /// Tag + Status), mirroring the web Admin Chats filter. Options are derived from
@@ -27,7 +27,7 @@ class AdminChatFilterSheet extends StatefulWidget {
   final Set<String> selectedTags;
   final String? selectedStatus;
   final void Function(Set<String> classrooms, Set<String> tags, String? status)
-      onApply;
+  onApply;
   final VoidCallback onClear;
 
   @override
@@ -64,8 +64,10 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Filter',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+                const Text(
+                  'Filter',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
                 IconButton(
                   icon: const Icon(Icons.close_rounded),
                   onPressed: () => Navigator.of(context).pop(),
@@ -106,7 +108,9 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
                   return ChoiceChip(
                     label: Text(_titleCase(s)),
                     selected: on,
-                    selectedColor: AppColors.primaryColor.withValues(alpha: 0.15),
+                    selectedColor: AppColors.primaryColor.withValues(
+                      alpha: 0.15,
+                    ),
                     onSelected: (_) => setState(() => _status = on ? null : s),
                   );
                 }).toList(),
@@ -135,7 +139,7 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.white,
                     ),
                     onPressed: () {
                       widget.onApply(_classrooms, _tags, _status);
@@ -159,8 +163,10 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
     required String emptyText,
   }) {
     if (options.isEmpty) {
-      return Text(emptyText,
-          style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13));
+      return Text(
+        emptyText,
+        style: const TextStyle(color: Color(0xFFB2BEC3), fontSize: 13),
+      );
     }
     return Wrap(
       spacing: 8,
@@ -178,9 +184,8 @@ class _AdminChatFilterSheetState extends State<AdminChatFilterSheet> {
     );
   }
 
-  static String _titleCase(String s) => s.isEmpty
-      ? s
-      : s[0].toUpperCase() + s.substring(1).toLowerCase();
+  static String _titleCase(String s) =>
+      s.isEmpty ? s : s[0].toUpperCase() + s.substring(1).toLowerCase();
 }
 
 class _Section extends StatelessWidget {
@@ -195,12 +200,14 @@ class _Section extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label,
-              style: TextStyle(
-                fontSize: 13,
-                fontWeight: FontWeight.w700,
-                color: AppColors.primaryColor.withValues(alpha: 0.7),
-              )),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: AppColors.primaryColor.withValues(alpha: 0.7),
+            ),
+          ),
           const SizedBox(height: 8),
           child,
         ],

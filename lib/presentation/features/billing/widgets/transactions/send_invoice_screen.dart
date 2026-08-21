@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/billing/usecases/issue_invoice_usecase.dart';
@@ -12,6 +11,8 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class SendInvoiceScreen extends StatefulWidget {
   const SendInvoiceScreen({super.key, required this.transaction});
@@ -495,7 +496,7 @@ class _SendInvoiceScreenState extends State<SendInvoiceScreen> {
                     height: 22,
                     child: CircularProgressIndicator(
                       strokeWidth: 2.5,
-                      color: Colors.white,
+                      color: AppColors.white,
                     ),
                   )
                 : Text(

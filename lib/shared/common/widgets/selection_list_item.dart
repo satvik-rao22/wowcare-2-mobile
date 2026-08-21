@@ -35,8 +35,10 @@ class CommonSelectionItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isEnabled ? AppColors.themeColor : Colors.grey.shade300;
-    final nameColor = isEnabled ? AppColors.primaryColor : Colors.grey[500];
+    final borderColor = isEnabled
+        ? AppColors.themeColor
+        : AppColors.grey.shade300;
+    final nameColor = isEnabled ? AppColors.primaryColor : AppColors.grey[500];
 
     return InkWell(
       onTap: isEnabled ? () => onSelectionChanged(!isSelected) : null,
@@ -45,10 +47,10 @@ class CommonSelectionItem extends StatelessWidget {
           border: Border.all(color: borderColor),
           borderRadius: BorderRadius.circular(8),
           color: !isEnabled
-              ? Colors.grey.shade100
+              ? AppColors.grey.shade100
               : (isSelected
                     ? const Color.fromARGB(255, 249, 245, 250)
-                    : Colors.white),
+                    : AppColors.white),
         ),
         child: Padding(
           padding: const EdgeInsets.only(right: 4),
@@ -108,7 +110,7 @@ class CommonSelectionItem extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontFamily: 'Manrope',
-                            color: Colors.grey[500],
+                            color: AppColors.grey[500],
                             fontSize: fontSize - 2,
                             fontWeight: FontWeight.w400,
                           ),

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/family_ledger_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
@@ -10,6 +9,8 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_c
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 // ---------------------------------------------------------------------------
 // StudentBillingCard (parent dashboard)
@@ -37,9 +38,9 @@ void _openBillingScreen(BuildContext context) {
 /// refreshes the card's ledger if a payment was made.
 Future<void> _openPayNow(BuildContext context) async {
   final cubit = context.read<ParentBillingCubit>();
-  final paid = await Navigator.of(context).push<bool>(
-    MaterialPageRoute(builder: (_) => const PayNowAmountScreen()),
-  );
+  final paid = await Navigator.of(
+    context,
+  ).push<bool>(MaterialPageRoute(builder: (_) => const PayNowAmountScreen()));
   if (paid == true) cubit.refresh();
 }
 
@@ -182,7 +183,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
-        Divider(color: AppColors.billingDividerColor),
+        Divider(color: AppColors.billingdividerColor),
         const SizedBox(height: 5),
         _detailRow('Payment Method', transaction.method),
         const SizedBox(height: 10),
@@ -267,7 +268,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
-        Divider(color: AppColors.billingDividerColor),
+        Divider(color: AppColors.billingdividerColor),
         const SizedBox(height: 5),
         if (invoice.studentName.trim().isNotEmpty) ...[
           Row(
@@ -289,10 +290,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
         ],
         _detailRow('Description', invoice.description, expand: true),
         const SizedBox(height: 10),
-        _detailRow(
-          'Open balance',
-          '\$${invoice.balance.toStringAsFixed(2)}',
-        ),
+        _detailRow('Open balance', '\$${invoice.balance.toStringAsFixed(2)}'),
         const SizedBox(height: 10),
         CustomButtonLayout(
           isForm: false,
@@ -368,7 +366,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
       ),
       childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       children: [
-        Divider(color: AppColors.billingDividerColor),
+        Divider(color: AppColors.billingdividerColor),
         const SizedBox(height: 5),
         _detailRow('Payment Method', transaction.method),
         const SizedBox(height: 10),
@@ -460,7 +458,7 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
   Widget build(BuildContext context) {
     return Card(
       elevation: 0,
-      color: Colors.white,
+      color: AppColors.white,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
@@ -501,8 +499,9 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,
-                              color:
-                                  AppColors.primaryColor.withValues(alpha: 0.7),
+                              color: AppColors.primaryColor.withValues(
+                                alpha: 0.7,
+                              ),
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -528,11 +527,11 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                         GridView.builder(
                           gridDelegate:
                               const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 0,
-                            childAspectRatio: 2,
-                            crossAxisSpacing: 10,
-                          ),
+                                crossAxisCount: 2,
+                                mainAxisSpacing: 0,
+                                childAspectRatio: 2,
+                                crossAxisSpacing: 10,
+                              ),
                           physics: const NeverScrollableScrollPhysics(),
                           itemCount: students.length,
                           shrinkWrap: true,
@@ -582,8 +581,9 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                           Expanded(
                             flex: 3,
                             child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20.0),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20.0,
+                              ),
                               child: CustomButtonLayout(
                                 isForm: false,
                                 showCancelButton: false,
@@ -602,8 +602,9 @@ class _StudentBillingCardBodyState extends State<_StudentBillingCardBody> {
                       // ----------------------------------------------------
                       Column(
                         mainAxisSize: MainAxisSize.min,
-                        children:
-                            _buildTransactionList(state.visibleTransactions),
+                        children: _buildTransactionList(
+                          state.visibleTransactions,
+                        ),
                       ),
                     ],
                   );

@@ -126,11 +126,12 @@ class _SvgIcon extends StatelessWidget {
 
 /// Week-view classroom column icon for forecast `blockStatus`.
 class RatioStatusIcon extends StatelessWidget {
-  const RatioStatusIcon.inRatio({super.key}) : status = ClassroomRatioStatus.inRatio;
+  const RatioStatusIcon.inRatio({super.key})
+    : status = ClassroomRatioStatus.inRatio;
   const RatioStatusIcon.underRatio({super.key})
-      : status = ClassroomRatioStatus.underRatio;
+    : status = ClassroomRatioStatus.underRatio;
   const RatioStatusIcon.overRatio({super.key})
-      : status = ClassroomRatioStatus.overRatio;
+    : status = ClassroomRatioStatus.overRatio;
 
   final ClassroomRatioStatus status;
 

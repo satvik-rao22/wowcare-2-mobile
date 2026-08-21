@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
@@ -52,9 +52,15 @@ class ConfirmIndividualMovementScreen extends StatelessWidget {
           _infoRow('Student', item.name),
           const Divider(height: 18),
           _infoRow('Movement Type', item.movementTypeLabel),
-          _infoRow('From', item.fromClassroom.isEmpty ? '-' : item.fromClassroom),
+          _infoRow(
+            'From',
+            item.fromClassroom.isEmpty ? '-' : item.fromClassroom,
+          ),
           _infoRow('To', item.toClassroom.isEmpty ? '-' : item.toClassroom),
-          _infoRow('Movement Date', DateFormat('MMM dd, yyyy').format(item.movementDate)),
+          _infoRow(
+            'Movement Date',
+            DateFormat('MMM dd, yyyy').format(item.movementDate),
+          ),
           _infoRow('Comment', item.comment.isEmpty ? '-' : item.comment),
         ],
       ),

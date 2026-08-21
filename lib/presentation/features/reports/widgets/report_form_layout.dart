@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/calendar_responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
@@ -34,7 +34,7 @@ class ReportFormLayout extends StatelessWidget {
     final safeAreaBottom = bottomPadding > 0 ? bottomPadding : 16.0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.white,
       appBar: const CustomAppBar(hasBackButton: true),
       body: GestureDetector(
         behavior: HitTestBehavior.translucent,
@@ -80,17 +80,15 @@ class ReportFormLayout extends StatelessWidget {
                     margin: EdgeInsets.symmetric(
                       horizontal: responsive.horizontalSpacing,
                     ),
-                    padding: EdgeInsets.all(
-                      responsive.isTablet ? 32.0 : 16.0,
-                    ),
+                    padding: EdgeInsets.all(responsive.isTablet ? 32.0 : 16.0),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: AppColors.white,
                       borderRadius: BorderRadius.all(
                         Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: AppColors.black.withValues(alpha: 0.05),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -118,10 +116,10 @@ class ReportFormLayout extends StatelessWidget {
                 top: 8,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: AppColors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
@@ -170,7 +168,10 @@ class ReportFieldLabel extends StatelessWidget {
           children: [
             TextSpan(text: label),
             if (isRequired)
-              const TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              const TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppColors.red),
+              ),
           ],
         ),
       ),
@@ -246,7 +247,7 @@ class _ReportMonthYearFieldState extends State<ReportMonthYearField> {
         padding: EdgeInsets.symmetric(horizontal: calHelper.calendarPadding),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(10),
-          color: AppColors.fieldBackgroundColor,
+          color: AppColors.fieldbackgroundColor,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -295,10 +296,18 @@ class _MonthYearPickerDialog extends StatefulWidget {
 
 class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
   static const List<String> _monthNames = <String>[
-    'Jan', 'Feb', 'Mar',
-    'Apr', 'May', 'Jun',
-    'Jul', 'Aug', 'Sep',
-    'Oct', 'Nov', 'Dec',
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
   ];
 
   late int _year;
@@ -322,8 +331,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
     final selectedYear = widget.initialMonth.year;
 
     return Dialog(
-      shape:
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
         child: Column(
@@ -333,8 +341,10 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.chevron_left,
-                      color: Color(0xff573353)),
+                  icon: const Icon(
+                    Icons.chevron_left,
+                    color: Color(0xff573353),
+                  ),
                   onPressed: _year > _minYear
                       ? () => setState(() => _year--)
                       : null,
@@ -349,8 +359,10 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.chevron_right,
-                      color: Color(0xff573353)),
+                  icon: const Icon(
+                    Icons.chevron_right,
+                    color: Color(0xff573353),
+                  ),
                   onPressed: _year < _maxYear
                       ? () => setState(() => _year++)
                       : null,
@@ -381,7 +393,7 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                     decoration: BoxDecoration(
                       color: isSelected
                           ? const Color(0xffEEEDF0)
-                          : Colors.transparent,
+                          : AppColors.transparent,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -389,8 +401,9 @@ class _MonthYearPickerDialogState extends State<_MonthYearPickerDialog> {
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 16,
-                        fontWeight:
-                            isSelected ? FontWeight.w600 : FontWeight.w500,
+                        fontWeight: isSelected
+                            ? FontWeight.w600
+                            : FontWeight.w500,
                         color: const Color(0xff573353),
                       ),
                     ),
@@ -449,7 +462,7 @@ class ReportFormatSelector extends StatelessWidget {
       decoration: InputDecoration(
         labelText: showLabel ? 'Export Format *' : null,
         filled: true,
-        fillColor: AppColors.fieldBackgroundColor,
+        fillColor: AppColors.fieldbackgroundColor,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
           borderSide: BorderSide.none,
@@ -479,4 +492,3 @@ class ReportFormatSelector extends StatelessWidget {
     );
   }
 }
-

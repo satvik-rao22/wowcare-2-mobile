@@ -3,7 +3,7 @@
 // import 'package:flutter/services.dart';
 // import 'package:flutter_svg/svg.dart';
 // import 'package:schoolerp/core/common/widgets/custom_button_layout.dart';
-// import 'package:schoolerp/core/res/colors.dart';
+// import 'package:schoolerp/core/res/AppColors.dart';
 // import 'package:schoolerp/core/res/media_res.dart';
 // import 'package:schoolerp/core/util/date_utils.dart';
 // import 'package:schoolerp/core/common/widgets/calendar_responsive_helper.dart';
@@ -207,14 +207,14 @@ Future<DateTime?> pickNormalDate({
 //                       child: CalendarDatePicker2(
 //                         config: CalendarDatePicker2Config(
 //                           calendarType: CalendarDatePicker2Type.range,
-//                           selectedDayHighlightColor: const Color(0xFF6F8CFF),
+//                           selectedDayhighlightColor: const Color(0xFF6F8CFF),
 //                           centerAlignModePicker: true,
 //                           firstDate: DateTime(2000),
 //                           lastDate: DateTime(2100),
 //                           controlsHeight: controlsHeight,
 //                           controlsTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: controlsFontSize, fontWeight: FontWeight.w400),
 //                           dayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400),
-//                           selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
+//                           selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: AppColors.white),
 //                           yearTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: yearFontSize, fontWeight: FontWeight.w400),
 //                         ),
 //                         value: rangeEndDate != null ? [rangeStartDate, rangeEndDate] : [rangeStartDate],
@@ -235,14 +235,14 @@ Future<DateTime?> pickNormalDate({
 //                       child: CalendarDatePicker2(
 //                         config: CalendarDatePicker2Config(
 //                           calendarType: CalendarDatePicker2Type.single,
-//                           selectedDayHighlightColor: const Color(0xFF6F8CFF),
+//                           selectedDayhighlightColor: const Color(0xFF6F8CFF),
 //                           centerAlignModePicker: true,
 //                           firstDate: DateTime(2000),
 //                           lastDate: DateTime(2100),
 //                           controlsHeight: controlsHeight,
 //                           controlsTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: controlsFontSize, fontWeight: FontWeight.w400),
 //                           dayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400),
-//                           selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
+//                           selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: AppColors.white),
 //                           yearTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: yearFontSize, fontWeight: FontWeight.w400),
 //                           currentDate: null,
 //                         ),

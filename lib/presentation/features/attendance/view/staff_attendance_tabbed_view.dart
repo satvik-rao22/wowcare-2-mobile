@@ -10,7 +10,7 @@ import 'package:wowcare/shared/common/widgets/custom_drawer.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/shared/common/widgets/gradient_background.dart';
 import 'package:wowcare/shared/common/widgets/gradient_add_button.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/attendance/view/screens/staff_attendance_daily_view.dart';
@@ -256,7 +256,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   indicator: const UnderlineTabIndicator(
                     borderSide: BorderSide(color: AppColors.themeColor),
                   ),
-                  dividerColor: Colors.transparent,
+                  dividerColor: AppColors.transparent,
                   indicatorPadding: EdgeInsets.only(
                     bottom: responsive.isTablet ? 10 : 8,
                   ),
@@ -264,7 +264,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
                   isScrollable: true,
                   labelStyle: TextStyle(
                     fontFamily: Fonts.manrope,
-                    color: Colors.black,
+                    color: AppColors.black,
                     fontSize: responsive.isTablet ? 18 : 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -428,7 +428,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparent,
           elevation: 0,
           // Pin to the top-right so the menu sits flush below the + button
           // instead of being vertically centered in the inset band.
@@ -445,7 +445,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               gradient: AppColors.buildPrimaryGradient(),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.1),
+                  color: AppColors.black.withValues(alpha: 0.1),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 ),
@@ -456,7 +456,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
               constraints: const BoxConstraints(maxHeight: 400),
               padding: const EdgeInsets.symmetric(vertical: 4),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Column(
@@ -490,7 +490,7 @@ class _StaffAttendanceTabbedViewState extends State<StaffAttendanceTabbedView>
           Container(
             padding: const EdgeInsets.symmetric(vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: AppColors.blue.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: SvgPicture.asset(svgPath, height: 24, width: 24),

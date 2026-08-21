@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
@@ -9,6 +8,8 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// Result applied to [GetStudentClassroomListUseCase] / student-classroom API.
 class ClassroomStudentFilterResult {
@@ -141,10 +142,7 @@ class _ClassroomStudentFilterScreenState
     }
 
     Navigator.of(context).pop<ClassroomStudentFilterResult>(
-      ClassroomStudentFilterResult(
-        status: statusApi,
-        tagCodes: tagCodes,
-      ),
+      ClassroomStudentFilterResult(status: statusApi, tagCodes: tagCodes),
     );
   }
 

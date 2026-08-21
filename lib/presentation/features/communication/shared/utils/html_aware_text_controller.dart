@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 
+import '../../../../../app/theme/colors.dart';
+
 /// A [TextEditingController] that renders supported inline HTML formatting
 /// tags visually while hiding the raw markup from the user.
 ///
@@ -174,7 +176,7 @@ class HtmlAwareTextController extends TextEditingController {
   // Tag characters are drawn invisible but still exist at their cursor offsets.
   static const TextStyle _hidden = TextStyle(
     fontSize: 0.001,
-    color: Colors.transparent,
+    color: AppColors.transparent,
     height: 0.0,
   );
 

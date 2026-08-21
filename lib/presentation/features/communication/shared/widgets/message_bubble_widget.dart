@@ -17,12 +17,13 @@ import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/full_attachment_viewer.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 class MessageBubble extends StatefulWidget {
   final Message message;
@@ -510,7 +511,7 @@ class _MessageBubbleState extends State<MessageBubble>
                   child: const Text(
                     'Delete',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: AppColors.white,
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
                     ),
@@ -523,7 +524,7 @@ class _MessageBubbleState extends State<MessageBubble>
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   decoration: BoxDecoration(
-                    color: Colors.grey.shade200,
+                    color: AppColors.grey.shade200,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   alignment: Alignment.center,
@@ -931,11 +932,11 @@ class _MessageBubbleState extends State<MessageBubble>
     } else if (isOppositeRoleGuardian) {
       bubbleGradient = AppColors.buildPinkGradient();
     } else {
-      bubbleColor = Colors.white;
+      bubbleColor = AppColors.white;
     }
 
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: IntrinsicWidth(
         child: Container(
           decoration: BoxDecoration(
@@ -944,7 +945,7 @@ class _MessageBubbleState extends State<MessageBubble>
             borderRadius: _buildBubbleBorderRadius(alignRight),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.08),
+                color: AppColors.black.withValues(alpha: 0.08),
                 blurRadius: 4,
                 offset: const Offset(0, 1),
               ),
@@ -959,7 +960,7 @@ class _MessageBubbleState extends State<MessageBubble>
                     'This message has been deleted.',
                     style: TextStyle(
                       color: useLightText
-                          ? Colors.white.withValues(alpha: 0.75)
+                          ? AppColors.white.withValues(alpha: 0.75)
                           : const Color.fromRGBO(87, 51, 83, 0.6),
                       fontSize: 14,
                       fontStyle: FontStyle.italic,
@@ -1029,8 +1030,8 @@ class _MessageBubbleState extends State<MessageBubble>
                           'Edited',
                           style: TextStyle(
                             color: useLightText
-                                ? Colors.white.withValues(alpha: 0.7)
-                                : Colors.grey,
+                                ? AppColors.white.withValues(alpha: 0.7)
+                                : AppColors.grey,
                             fontSize: 12,
                             decoration: TextDecoration.none,
                           ),
@@ -1049,8 +1050,8 @@ class _MessageBubbleState extends State<MessageBubble>
                             _formatTime(widget.message.time),
                             style: TextStyle(
                               color: useLightText
-                                  ? Colors.white.withValues(alpha: 0.7)
-                                  : Colors.grey[600],
+                                  ? AppColors.white.withValues(alpha: 0.7)
+                                  : AppColors.grey[600],
                               fontSize: 12.0,
                               fontWeight: FontWeight.w400,
                             ),
@@ -1064,7 +1065,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                 Icons.lock_outline_rounded,
                                 size: 12,
                                 color: useLightText
-                                    ? Colors.white.withValues(alpha: 0.85)
+                                    ? AppColors.white.withValues(alpha: 0.85)
                                     : const Color(0xFFD63031),
                               ),
                             ),
@@ -1088,8 +1089,8 @@ class _MessageBubbleState extends State<MessageBubble>
                               label: 'Processing',
                               icon: Icons.sync,
                               color: useLightText
-                                  ? Colors.white.withValues(alpha: 0.8)
-                                  : Colors.grey[600]!,
+                                  ? AppColors.white.withValues(alpha: 0.8)
+                                  : AppColors.grey[600]!,
                               onTap: widget.onRetry,
                             ),
                           ] else if (isMe && widget.message.isSending) ...[
@@ -1104,8 +1105,8 @@ class _MessageBubbleState extends State<MessageBubble>
                               Icons.access_time_rounded,
                               size: 13,
                               color: useLightText
-                                  ? Colors.white.withValues(alpha: 0.7)
-                                  : Colors.grey[600],
+                                  ? AppColors.white.withValues(alpha: 0.7)
+                                  : AppColors.grey[600],
                             ),
                           ] else if (isMe) ...[
                             const SizedBox(width: 4),
@@ -1118,7 +1119,7 @@ class _MessageBubbleState extends State<MessageBubble>
                               size: 14,
                               color: widget.message.isRead
                                   ? AppColors.primaryColor
-                                  : Colors.white.withValues(alpha: 0.7),
+                                  : AppColors.white.withValues(alpha: 0.7),
                             ),
                           ],
                         ],
@@ -1165,7 +1166,7 @@ class _MessageBubbleState extends State<MessageBubble>
           height: 1.15,
           // Explicit colour + decoration prevent DefaultTextStyle leakage
           // from dialog or Overlay contexts (same issue _StableHtml solves).
-          color: Colors.black,
+          color: AppColors.black,
           decoration: TextDecoration.none,
         ),
         textAlign: alignRight ? TextAlign.right : TextAlign.left,
@@ -1173,7 +1174,7 @@ class _MessageBubbleState extends State<MessageBubble>
     );
 
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: Column(
         crossAxisAlignment: alignRight
             ? CrossAxisAlignment.end
@@ -1189,7 +1190,7 @@ class _MessageBubbleState extends State<MessageBubble>
               Text(
                 _formatTime(widget.message.time),
                 style: TextStyle(
-                  color: Colors.grey[600],
+                  color: AppColors.grey[600],
                   fontSize: 11.0,
                   fontWeight: FontWeight.w400,
                   decoration: TextDecoration.none,
@@ -1211,7 +1212,7 @@ class _MessageBubbleState extends State<MessageBubble>
                 Icon(
                   Icons.access_time_rounded,
                   size: 12,
-                  color: Colors.grey.withValues(alpha: 0.7),
+                  color: AppColors.grey.withValues(alpha: 0.7),
                 ),
               ] else if (isMe) ...[
                 const SizedBox(width: 4),
@@ -1224,7 +1225,7 @@ class _MessageBubbleState extends State<MessageBubble>
                   size: 13,
                   color: widget.message.isRead
                       ? AppColors.primaryColor
-                      : Colors.grey.withValues(alpha: 0.6),
+                      : AppColors.grey.withValues(alpha: 0.6),
                 ),
               ],
             ],
@@ -1238,7 +1239,7 @@ class _MessageBubbleState extends State<MessageBubble>
 
   Widget _buildMessageText(String rawText, bool useLightText) {
     final plain = rawText.trim();
-    final textColor = useLightText ? Colors.white : AppColors.primaryColor;
+    final textColor = useLightText ? AppColors.white : AppColors.primaryColor;
 
     final isHtml = plain.contains('<');
 
@@ -1276,7 +1277,7 @@ class _MessageBubbleState extends State<MessageBubble>
       // than recreated/reparented mid-frame — the source of the semantics assertions.
       key: ValueKey('html_${widget.message.code}'),
       data: MessageContentProcessor.enrich(rawText),
-      linkColor: useLightText ? const Color(0xFF64B5F6) : Colors.blue,
+      linkColor: useLightText ? const Color(0xFF64B5F6) : AppColors.blue,
       onLinkTap: MessageContentProcessor.launchLink,
       style: {
         'body': html.Style(
@@ -1329,12 +1330,12 @@ class _MessageBubbleState extends State<MessageBubble>
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         decoration: BoxDecoration(
-          color: Colors.white.withValues(alpha: isMe ? 0.15 : 0.60),
+          color: AppColors.white.withValues(alpha: isMe ? 0.15 : 0.60),
           borderRadius: BorderRadius.circular(8),
           border: Border(
             left: BorderSide(
               color: isMe
-                  ? Colors.white.withValues(alpha: 0.85)
+                  ? AppColors.white.withValues(alpha: 0.85)
                   : AppColors.primaryColor,
               width: 3,
             ),
@@ -1344,7 +1345,7 @@ class _MessageBubbleState extends State<MessageBubble>
           data: quoted.text.length > 120
               ? '${quoted.text.substring(0, 120)}…'
               : quoted.text,
-          linkColor: isMe ? const Color(0xFF64B5F6) : Colors.blue,
+          linkColor: isMe ? const Color(0xFF64B5F6) : AppColors.blue,
           style: {
             'body': html.Style(
               margin: html.Margins.zero,
@@ -1352,7 +1353,7 @@ class _MessageBubbleState extends State<MessageBubble>
               fontSize: html.FontSize(13.5),
               fontFamily: 'Manrope',
               color: isMe
-                  ? Colors.white.withValues(alpha: 0.92)
+                  ? AppColors.white.withValues(alpha: 0.92)
                   : AppColors.primaryColor,
             ),
             'p': html.Style(
@@ -1466,9 +1467,9 @@ class _MessageBubbleState extends State<MessageBubble>
                 child: Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade300),
+                    border: Border.all(color: AppColors.grey.shade300),
                   ),
                   child: Row(
                     children: [
@@ -1484,7 +1485,7 @@ class _MessageBubbleState extends State<MessageBubble>
                             child: FaIcon(
                               iconData,
                               size: 32,
-                              color: Colors.redAccent,
+                              color: AppColors.redAccent,
                             ),
                           ),
                         ),
@@ -1506,7 +1507,7 @@ class _MessageBubbleState extends State<MessageBubble>
                               text:
                                   '${(att.sizeBytes / 1024 / 1024).toStringAsFixed(1)} MB • ${att.type.toUpperCase()}',
                               fontSize: 13,
-                              fontColor: Colors.grey[700],
+                              fontColor: AppColors.grey[700],
                             ),
                           ],
                         ),
@@ -1580,7 +1581,7 @@ class _MessageBubbleState extends State<MessageBubble>
                               )
                             : Container(
                                 height: singleImageWidth * 0.6,
-                                color: Colors.grey[300],
+                                color: AppColors.grey[300],
                                 child: Center(
                                   child: isLoading
                                       ? const PrimaryCircularLoader(
@@ -1592,7 +1593,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                       : const Icon(
                                           Icons.broken_image,
                                           size: 80,
-                                          color: Colors.grey,
+                                          color: AppColors.grey,
                                         ),
                                 ),
                               ),
@@ -1684,7 +1685,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                       errorIconSize: 50,
                                     )
                                   : Container(
-                                      color: Colors.grey[300],
+                                      color: AppColors.grey[300],
                                       child: Center(
                                         child: isLoading
                                             ? const PrimaryCircularLoader(
@@ -1698,7 +1699,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                             : const Icon(
                                                 Icons.broken_image,
                                                 size: 50,
-                                                color: Colors.grey,
+                                                color: AppColors.grey,
                                               ),
                                       ),
                                     ),
@@ -1706,7 +1707,9 @@ class _MessageBubbleState extends State<MessageBubble>
                             if (hasMoreImages && isLast)
                               Container(
                                 decoration: BoxDecoration(
-                                  color: Colors.black.withValues(alpha: 0.55),
+                                  color: AppColors.black.withValues(
+                                    alpha: 0.55,
+                                  ),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Center(
@@ -1714,7 +1717,7 @@ class _MessageBubbleState extends State<MessageBubble>
                                     text: '+$remaining',
                                     fontSize: 28,
                                     fontWeight: FontWeight.bold,
-                                    fontColor: Colors.white,
+                                    fontColor: AppColors.white,
                                   ),
                                 ),
                               )
@@ -1768,8 +1771,8 @@ class _BubbleImageThumbnailState extends State<_BubbleImageThumbnail> {
   late final Future<Uint8List> _bytesFuture = widget.bytesResolver();
 
   Widget _broken() => Container(
-    color: Colors.grey[300],
-    child: Icon(Icons.image, size: widget.errorIconSize, color: Colors.grey),
+    color: AppColors.grey[300],
+    child: Icon(Icons.image, size: widget.errorIconSize, color: AppColors.grey),
   );
 
   @override
@@ -1779,7 +1782,7 @@ class _BubbleImageThumbnailState extends State<_BubbleImageThumbnail> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return Container(
-            color: Colors.white,
+            color: AppColors.white,
             child: Center(
               child: PrimaryCircularLoader(
                 size: widget.size < 60 ? 22 : 28,
@@ -1822,14 +1825,14 @@ class _UploadingOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.35),
+        color: AppColors.black.withValues(alpha: 0.35),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Center(
         child: PrimaryCircularLoader(
           size: compact ? 20 : 26,
           strokeWidth: 2.5,
-          color: Colors.white,
+          color: AppColors.white,
         ),
       ),
     );
@@ -1853,7 +1856,7 @@ class _AttachmentProcessingPlaceholder extends StatelessWidget {
           'Processing…',
           style: TextStyle(
             fontSize: compact ? 11 : 13,
-            color: Colors.grey[700],
+            color: AppColors.grey[700],
           ),
         ),
       ],
@@ -2159,11 +2162,11 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.12),
+            color: AppColors.black.withValues(alpha: 0.12),
             blurRadius: 5,
             offset: const Offset(0, 1),
           ),

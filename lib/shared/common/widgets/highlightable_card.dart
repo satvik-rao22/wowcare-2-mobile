@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 
 /// Wraps any list/card child and briefly flashes a highlight when it is the
 /// target of a notification deep-link.
@@ -91,10 +91,7 @@ class _HighlightableCardState extends State<HighlightableCard>
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: widget.duration,
-    );
+    _controller = AnimationController(vsync: this, duration: widget.duration);
     if (widget._matches) _trigger();
   }
 

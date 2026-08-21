@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 
+import '../../../app/theme/colors.dart';
+
 /// Standardized "Relation" picker: a dropdown of common relation types plus
 /// an "Other" option that reveals a free-text field for anything not
 /// covered. Replaces raw free-text Relation inputs (e.g. Add/Edit Pickup)
@@ -233,7 +235,7 @@ class RelationSelectorState extends State<RelationSelector> {
               if (widget.isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),
@@ -247,7 +249,7 @@ class RelationSelectorState extends State<RelationSelector> {
             minHeight: widget.fieldHeight ?? responsive.inputFieldHeight,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -266,7 +268,7 @@ class RelationSelectorState extends State<RelationSelector> {
             },
             decoration: InputDecoration(
               hintText: widget.customFieldHint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding:
                   widget.contentPadding ??

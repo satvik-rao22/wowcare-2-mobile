@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/app_tooltip.dart';
 
@@ -45,7 +45,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: () => _showActionMenu(context),
-          child: const Icon(Icons.more_vert, color: Colors.white),
+          child: const Icon(Icons.more_vert, color: AppColors.white),
         ),
       ),
     );
@@ -57,7 +57,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
       barrierDismissible: true,
       builder: (BuildContext context) {
         return Dialog(
-          backgroundColor: Colors.transparent,
+          backgroundColor: AppColors.transparent,
           elevation: 0,
           insetPadding: EdgeInsets.only(
             top: topPosition ?? 100,
@@ -87,7 +87,7 @@ class StaffAttendanceVerticalPopUp extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(vertical: 5),
             decoration: BoxDecoration(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: AppColors.blue.withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: SvgPicture.asset(svgPath, height: 24, width: 24),
@@ -149,12 +149,12 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
       ),
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: AppColors.classroomStudentTabColor, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppColors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -195,7 +195,7 @@ class StaffAttendanceVerticalPopupOnly extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(vertical: 5),
               decoration: BoxDecoration(
-                color: Colors.blue.withValues(alpha: 0.1),
+                color: AppColors.blue.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: SvgPicture.asset(svgPath, height: 24, width: 24),

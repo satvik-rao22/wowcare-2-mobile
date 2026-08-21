@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 import 'package:thumbnailer/thumbnailer.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../../app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 import '../../../shared/utils/attachment_open_helper.dart';
 import '../../../shared/utils/attachment_url_resolver.dart';
@@ -54,7 +54,9 @@ class FullAttachmentViewer extends StatelessWidget {
   }
 
   Widget _buildTwoImageLayout(
-      BuildContext context, List<ChatAttachment> images) {
+    BuildContext context,
+    List<ChatAttachment> images,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Row(
@@ -81,7 +83,9 @@ class FullAttachmentViewer extends StatelessWidget {
   }
 
   Widget _buildThreeImageLayout(
-      BuildContext context, List<ChatAttachment> images) {
+    BuildContext context,
+    List<ChatAttachment> images,
+  ) {
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -158,7 +162,7 @@ class FullAttachmentViewer extends StatelessWidget {
         final source = resolved.displaySource;
         if (source == null) {
           return Container(
-            color: Colors.grey[200],
+            color: AppColors.grey[200],
             child: Center(
               child: isLoading
                   ? const PrimaryCircularLoader(size: 28, strokeWidth: 2.5)
@@ -166,21 +170,18 @@ class FullAttachmentViewer extends StatelessWidget {
                   ? Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        const PrimaryCircularLoader(
-                          size: 28,
-                          strokeWidth: 2.5,
-                        ),
+                        const PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
                         const SizedBox(height: 8),
                         Text(
                           'Processing…',
-                          style: TextStyle(color: Colors.grey[700]),
+                          style: TextStyle(color: AppColors.grey[700]),
                         ),
                       ],
                     )
                   : const Icon(
                       Icons.image_not_supported_outlined,
                       size: 48,
-                      color: Colors.grey,
+                      color: AppColors.grey,
                     ),
             ),
           );
@@ -219,23 +220,23 @@ class FullAttachmentViewer extends StatelessWidget {
     );
   }
 
-  Widget _buildDocumentCard(
-      BuildContext context, ChatAttachment document) {
-    final iconData = Thumbnailer.getIconDataForMimeType(document.mimeType) ??
+  Widget _buildDocumentCard(BuildContext context, ChatAttachment document) {
+    final iconData =
+        Thumbnailer.getIconDataForMimeType(document.mimeType) ??
         FontAwesomeIcons.file;
-    final isPdf = document.mimeType.contains('pdf') ||
+    final isPdf =
+        document.mimeType.contains('pdf') ||
         document.name.toLowerCase().endsWith('.pdf');
     final iconColor = isPdf
-        ? Colors.red
+        ? AppColors.red
         : iconData == FontAwesomeIcons.fileExcel
-            ? Colors.green.shade700
-            : iconData == FontAwesomeIcons.filePowerpoint
-                ? Colors.orange.shade800
-                : iconData == FontAwesomeIcons.fileWord
-                    ? Colors.blue.shade700
-                    : AppColors.primaryColor;
-    final fileSize =
-        (document.sizeBytes / 1024 / 1024).toStringAsFixed(1);
+        ? AppColors.green.shade700
+        : iconData == FontAwesomeIcons.filePowerpoint
+        ? AppColors.orange.shade700
+        : iconData == FontAwesomeIcons.fileWord
+        ? AppColors.blue.shade700
+        : AppColors.primaryColor;
+    final fileSize = (document.sizeBytes / 1024 / 1024).toStringAsFixed(1);
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -244,15 +245,12 @@ class FullAttachmentViewer extends StatelessWidget {
         onTap: () => AttachmentOpenHelper.open(context, document),
         child: Container(
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: Colors.grey.shade200,
-              width: 1,
-            ),
+            border: Border.all(color: AppColors.grey.shade200, width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.04),
+                color: AppColors.black.withValues(alpha: 0.04),
                 blurRadius: 4,
                 offset: const Offset(0, 1),
               ),
@@ -270,11 +268,7 @@ class FullAttachmentViewer extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Center(
-                    child: FaIcon(
-                      iconData,
-                      color: iconColor,
-                      size: 24,
-                    ),
+                    child: FaIcon(iconData, color: iconColor, size: 24),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -292,7 +286,7 @@ class FullAttachmentViewer extends StatelessWidget {
                       CustomTextWidget(
                         text: '$fileSize MB • ${document.type.toUpperCase()}',
                         fontSize: 12,
-                        fontColor: Colors.grey[600],
+                        fontColor: AppColors.grey[600],
                       ),
                     ],
                   ),
@@ -300,10 +294,7 @@ class FullAttachmentViewer extends StatelessWidget {
                 const SizedBox(width: 8),
                 IconButton(
                   onPressed: () => AttachmentOpenHelper.open(context, document),
-                  icon: const Icon(
-                    Icons.download_outlined,
-                    size: 20,
-                  ),
+                  icon: const Icon(Icons.download_outlined, size: 20),
                   color: AppColors.primaryColor,
                 ),
               ],
@@ -340,7 +331,7 @@ class FullAttachmentViewer extends StatelessWidget {
       appBar: AppBar(
         title: const CustomTextWidget(text: 'Attachments'),
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.white,
         foregroundColor: AppColors.primaryColor,
       ),
       body: SingleChildScrollView(
@@ -349,7 +340,7 @@ class FullAttachmentViewer extends StatelessWidget {
           children: [
             if (hasImages) _buildImageGrid(context),
             if (hasImages && hasDocuments)
-              Divider(color: Colors.grey[300], height: 1),
+              Divider(color: AppColors.grey[300], height: 1),
             if (hasDocuments) _buildDocumentCards(context),
             if (!hasImages && !hasDocuments)
               Padding(
@@ -360,13 +351,13 @@ class FullAttachmentViewer extends StatelessWidget {
                       Icon(
                         Icons.folder_open_outlined,
                         size: 80,
-                        color: Colors.grey[300],
+                        color: AppColors.grey[300],
                       ),
                       const SizedBox(height: 16),
                       CustomTextWidget(
                         text: 'No attachments',
                         fontSize: 16,
-                        fontColor: Colors.grey[600],
+                        fontColor: AppColors.grey[600],
                       ),
                     ],
                   ),
@@ -434,15 +425,11 @@ class _ResilientImageState extends State<_ResilientImage> {
   }
 
   Widget _broken() => Container(
-        color: Colors.grey[200],
-        child: const Center(
-          child: Icon(
-            Icons.broken_image_outlined,
-            size: 48,
-            color: Colors.grey,
-          ),
-        ),
-      );
+    color: AppColors.grey[200],
+    child: const Center(
+      child: Icon(Icons.broken_image_outlined, size: 48, color: AppColors.grey),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -451,7 +438,7 @@ class _ResilientImageState extends State<_ResilientImage> {
       builder: (context, snapshot) {
         if (snapshot.connectionState != ConnectionState.done) {
           return Container(
-            color: Colors.grey[200],
+            color: AppColors.grey[200],
             child: const Center(
               child: PrimaryCircularLoader(size: 28, strokeWidth: 2.5),
             ),

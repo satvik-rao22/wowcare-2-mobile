@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
@@ -415,7 +415,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (ctx) => ConfirmationBottomSheet(
         icon: Icons.warning_amber_rounded,
         title: message,
@@ -482,7 +482,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final result = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparent,
         builder: (ctx) {
           return DuplicateStudentBottomSheet(
             enteredName: enteredName,
@@ -596,7 +596,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
       final addAnother = await showModalBottomSheet<bool>(
         context: context,
         isScrollControlled: true,
-        backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.transparent,
         builder: (context) => ConfirmationBottomSheet(
           title: 'Do you want to add another parent?',
           confirmText: 'Yes',
@@ -631,7 +631,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
     final addSchedule = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (context) => ConfirmationBottomSheet(
         title: 'Do you want to add schedule?',
         confirmText: 'Yes',
@@ -991,7 +991,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         return GestureDetector(
           onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
           child: Scaffold(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.white,
             appBar: const CustomAppBar(hasBackButton: true),
             body: Stack(
               children: [
@@ -1038,13 +1038,13 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                           responsive.isTablet ? 32.0 : 16.0,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.all(
                             Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
+                              color: AppColors.black.withValues(alpha: 0.05),
                               blurRadius: 8,
                               offset: const Offset(0, 2),
                             ),
@@ -1146,10 +1146,10 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                 top: 8,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: AppColors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
@@ -1232,7 +1232,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               TextSpan(text: label),
               const TextSpan(
                 text: ' *',
-                style: TextStyle(color: Colors.red),
+                style: TextStyle(color: AppColors.red),
               ),
             ],
           ),
@@ -1241,7 +1241,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
         Container(
           constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             border: Border.all(color: const Color(0x66573353)),
             borderRadius: BorderRadius.circular(
               responsive.isTablet ? 12.0 : 8.0,
@@ -1259,7 +1259,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             ),
             decoration: InputDecoration(
               hintText: hint,
-              hintStyle: labelStyle.copyWith(color: Colors.grey),
+              hintStyle: labelStyle.copyWith(color: AppColors.grey),
               border: InputBorder.none,
               contentPadding: EdgeInsets.symmetric(
                 horizontal: responsive.isTablet ? 16.0 : 12.0,
@@ -1292,7 +1292,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             height: 120,
             width: 120,
             decoration: BoxDecoration(
-              color: Colors.grey.shade100,
+              color: AppColors.grey.shade100,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0x66573353)),
             ),
@@ -1306,7 +1306,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                     children: [
                       Icon(
                         Icons.camera_alt,
-                        color: Colors.grey.shade600,
+                        color: AppColors.grey.shade600,
                         size: 32,
                       ),
                       const SizedBox(height: 8),
@@ -1314,7 +1314,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                         'Upload Photo',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.grey.shade600,
+                          color: AppColors.grey.shade600,
                         ),
                       ),
                     ],
@@ -1326,7 +1326,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
           'JPG, PNG, max 10MB (Optional)',
           style: TextStyle(
             fontSize: 12,
-            color: Colors.grey.shade600,
+            color: AppColors.grey.shade600,
             fontFamily: 'Manrope',
           ),
         ),
@@ -1360,7 +1360,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
               if (isRequired)
                 const TextSpan(
                   text: ' *',
-                  style: TextStyle(color: Colors.red),
+                  style: TextStyle(color: AppColors.red),
                 ),
             ],
           ),
@@ -1372,7 +1372,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
             constraints: BoxConstraints(minHeight: responsive.inputFieldHeight),
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               border: Border.all(color: const Color(0x66573353)),
               borderRadius: BorderRadius.circular(
                 responsive.isTablet ? 12.0 : 8.0,
@@ -1412,7 +1412,7 @@ class _AddStudentStep1ScreenState extends State<AddStudentStep1Screen> {
                               'Age: $ageLabel',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: Colors.grey.shade600,
+                                color: AppColors.grey.shade600,
                                 fontFamily: 'Manrope',
                               ),
                             ),

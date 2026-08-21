@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/cubit/bool_toggle_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_section_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// The five tappable summary-card filters. Four scope the Transactions list
 /// (see [TransactionFilter]); [outstanding] routes to the Student(s) tab and
@@ -124,21 +125,21 @@ class _AmountInvoicedStatBarState extends State<AmountInvoicedStatBar> {
           final netPaidItem = ProgressItemHelper(
             label: labelFor('Net Paid', widget.netPaidAmount),
             value: barValue(widget.netPaidAmount),
-            color: Colors.greenAccent.shade100,
+            color: AppColors.greenAccent.shade100,
             filterValue: BillingSummaryFilter.netPaid.name,
           );
 
           final outstandingItem = ProgressItemHelper(
             label: labelFor('Outstanding', widget.outstandingAmount),
             value: barValue(widget.outstandingAmount),
-            color: Colors.redAccent.shade100,
+            color: AppColors.redAccent.shade100,
             filterValue: BillingSummaryFilter.outstanding.name,
           );
 
           final inProcessItem = ProgressItemHelper(
             label: labelFor('In Process', widget.inProcessAmount),
             value: barValue(widget.inProcessAmount),
-            color: Colors.yellow,
+            color: AppColors.yellow,
             filterValue: BillingSummaryFilter.inProcess.name,
           );
 

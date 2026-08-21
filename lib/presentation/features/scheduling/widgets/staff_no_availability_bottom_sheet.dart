@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 /// Hard-block notice shown when a recurring shift is being created on a day
@@ -13,7 +13,7 @@ class StaffNoAvailabilityBottomSheet extends StatelessWidget {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent,
+      backgroundColor: AppColors.transparent,
       builder: (_) => const StaffNoAvailabilityBottomSheet(),
     );
   }
@@ -45,7 +45,7 @@ class StaffNoAvailabilityBottomSheet extends StatelessWidget {
             bottom: verticalPadding + bottomSafe,
           ),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.only(
               topLeft: Radius.circular(borderRadius),
               topRight: Radius.circular(borderRadius),

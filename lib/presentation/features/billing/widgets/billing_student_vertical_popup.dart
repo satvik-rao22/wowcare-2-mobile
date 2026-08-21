@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_item.dart';
@@ -99,20 +99,20 @@ class BillingStudentVerticalPopUp extends StatelessWidget {
               color: const Color.fromRGBO(156, 132, 255, 1),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: AppColors.black.withValues(alpha: 0.2),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
               ],
             ),
             child: Material(
-              color: Colors.transparent,
+              color: AppColors.transparent,
               child: InkWell(
                 onTap: onClose,
                 customBorder: const CircleBorder(),
                 child: const Padding(
                   padding: EdgeInsets.all(10.0),
-                  child: Icon(Icons.close, color: Colors.white, size: 20),
+                  child: Icon(Icons.close, color: AppColors.white, size: 20),
                 ),
               ),
             ),
@@ -327,11 +327,11 @@ class _PopupActionButton extends StatelessWidget {
                           width: iconSize,
                           fit: BoxFit.contain,
                           colorFilter: const ColorFilter.mode(
-                            Colors.white,
+                            AppColors.white,
                             BlendMode.srcIn,
                           ),
                         )
-                      : Icon(iconData, color: Colors.white, size: iconSize),
+                      : Icon(iconData, color: AppColors.white, size: iconSize),
                 ),
               ),
               const SizedBox(height: 4),
@@ -340,7 +340,7 @@ class _PopupActionButton extends StatelessWidget {
                 maxLines: 2,
                 textAlign: TextAlign.center,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(color: Colors.white, fontSize: 12),
+                style: const TextStyle(color: AppColors.white, fontSize: 12),
               ),
             ],
           ),
@@ -449,11 +449,11 @@ class BillingMoreOptionsPopup extends StatelessWidget {
       padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         border: Border.all(color: const Color.fromRGBO(111, 140, 255, 1)),
-        color: Colors.white,
+        color: AppColors.white,
         borderRadius: BorderRadius.circular(10),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: AppColors.black.withValues(alpha: 0.1),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -497,7 +497,7 @@ class _MoreOptionItem extends StatelessWidget {
     final VoidCallback effectiveOnTap = onTap ?? () {};
     final String displayLabel = label.replaceAll(' ', '\n');
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: effectiveOnTap,
         child: Column(
@@ -548,11 +548,11 @@ class _GradientIcon extends StatelessWidget {
               height: size,
               width: size,
               colorFilter: const ColorFilter.mode(
-                Colors.white,
+                AppColors.white,
                 BlendMode.srcIn,
               ),
             )
-          : Icon(iconData, size: size, color: Colors.white),
+          : Icon(iconData, size: size, color: AppColors.white),
     );
   }
 }

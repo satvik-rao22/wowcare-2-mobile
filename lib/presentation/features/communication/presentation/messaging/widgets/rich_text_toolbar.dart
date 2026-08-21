@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+
+import '../../../../../../app/theme/colors.dart';
 
 /// WhatsApp-style rich text formatting toolbar.
 ///
@@ -232,7 +233,7 @@ class _RichTextToolbarState extends State<RichTextToolbar> {
     return Container(
       height: 48, // Slightly taller for larger touch targets
       decoration: const BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border(top: BorderSide(color: Color(0xFFE2E8F0), width: 1)),
       ),
       child: SingleChildScrollView(
@@ -306,7 +307,7 @@ class _ToolbarBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: isActive
               ? AppColors.primaryColor.withValues(alpha: 0.15)
-              : Colors.transparent,
+              : AppColors.transparent,
           borderRadius: BorderRadius.circular(6),
         ),
         clipBehavior: Clip.antiAlias,

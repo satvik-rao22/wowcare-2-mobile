@@ -42,7 +42,7 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
 
   return showModalBottomSheet<IndividualMovementAction>(
     context: context,
-    backgroundColor: Colors.transparent,
+    backgroundColor: AppColors.transparent,
     isScrollControlled: false,
     shape: const RoundedRectangleBorder(
       borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
@@ -52,7 +52,7 @@ Future<IndividualMovementAction?> showIndividualMovementOptionsBottomSheet(
         top: false,
         child: Container(
           decoration: const BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
           child: Column(
@@ -128,10 +128,7 @@ String _actionLabel(IndividualMovementAction a) {
 }
 
 class _ActionTile extends StatelessWidget {
-  const _ActionTile({
-    required this.action,
-    required this.onTap,
-  });
+  const _ActionTile({required this.action, required this.onTap});
 
   final IndividualMovementAction action;
   final VoidCallback onTap;
@@ -155,9 +152,11 @@ class _ActionTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _isDestructive ? AppColors.errorColor : AppColors.primaryColor;
+    final color = _isDestructive
+        ? AppColors.errorColor
+        : AppColors.primaryColor;
     return Material(
-      color: Colors.transparent,
+      color: AppColors.transparent,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(12),

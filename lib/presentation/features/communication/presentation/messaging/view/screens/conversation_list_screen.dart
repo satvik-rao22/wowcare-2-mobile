@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
@@ -188,9 +188,9 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                               controller: _searchController,
                               hintText: 'Search conversations',
                               searchBarColor: const WidgetStatePropertyAll(
-                                Colors.transparent,
+                                AppColors.transparent,
                               ),
-                              borderColor: Colors.transparent,
+                              borderColor: AppColors.transparent,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -370,7 +370,10 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                     onPressed: widget.onCreateTap,
                     backgroundColor: AppColors.primaryColor,
                     tooltip: 'New conversation',
-                    child: const Icon(Icons.edit_outlined, color: Colors.white),
+                    child: const Icon(
+                      Icons.edit_outlined,
+                      color: AppColors.white,
+                    ),
                   )
                 : null,
           );
@@ -450,7 +453,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                   label: const Text('Retry'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFC62828),
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.white,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 8,
@@ -555,7 +558,7 @@ class _StaffDirectoryTile extends StatelessWidget {
     return InkWell(
       onTap: isCreating ? null : onTap,
       splashColor: const Color(0x1A6C5CE7),
-      highlightColor: Colors.transparent,
+      highlightColor: AppColors.transparent,
       child: Container(
         decoration: const BoxDecoration(
           color: Color(0xFFFAFAFF),
@@ -633,10 +636,10 @@ class _ConversationTileContent extends StatelessWidget {
     return InkWell(
       onTap: onTap,
       splashColor: const Color(0x1A6C5CE7),
-      highlightColor: Colors.transparent,
+      highlightColor: AppColors.transparent,
       child: Container(
         decoration: const BoxDecoration(
-          color: Colors.white,
+          color: AppColors.white,
           border: Border(
             bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
           ),
@@ -673,7 +676,7 @@ class _ConversationTileContent extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: const Color(0xFF00B115),
                       shape: BoxShape.circle,
-                      border: Border.all(color: Colors.white, width: 2.5),
+                      border: Border.all(color: AppColors.white, width: 2.5),
                     ),
                   ),
                 ),
@@ -776,7 +779,7 @@ class _ConversationTileContent extends StatelessWidget {
                           ? '99+'
                           : '${conversation.unreadCount}',
                       style: const TextStyle(
-                        color: Colors.white,
+                        color: AppColors.white,
                         fontSize: 11,
                         fontWeight: FontWeight.w900,
                       ),

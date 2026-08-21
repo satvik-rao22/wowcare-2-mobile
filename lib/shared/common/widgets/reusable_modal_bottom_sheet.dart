@@ -1,11 +1,9 @@
 import 'dart:io';
 import 'package:wowcare/core/util/app_time.dart';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-
 import '../../../app/theme/colors.dart';
 import '../../../presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
 
@@ -100,7 +98,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
   File? selectedFile;
   final OutlineInputBorder border = OutlineInputBorder(
     borderRadius: BorderRadius.circular(5),
-    borderSide: const BorderSide(color: Colors.grey),
+    borderSide: const BorderSide(color: AppColors.grey),
   );
 
   @override
@@ -167,7 +165,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w500,
-        color: Colors.black87,
+        color: AppColors.black87,
       ),
     );
   }
@@ -189,7 +187,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
-              borderSide: const BorderSide(color: Colors.blue),
+              borderSide: const BorderSide(color: AppColors.blue),
             ),
             label: _createLabel(field), // Only using label, removed labelText
           ),
@@ -203,7 +201,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
             border: border,
             enabledBorder: border,
             focusedBorder: border.copyWith(
-              borderSide: const BorderSide(color: Colors.blue),
+              borderSide: const BorderSide(color: AppColors.blue),
             ),
             label: _createLabel(field), // Only using label, removed labelText
           ),
@@ -212,7 +210,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
               value: '',
               child: Text(
                 'Select ${field.label}',
-                style: const TextStyle(color: Colors.grey),
+                style: const TextStyle(color: AppColors.grey),
               ),
             ),
             ...?field.dropdownOptions?.map((option) {
@@ -244,7 +242,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 border: border,
                 enabledBorder: border,
                 focusedBorder: border.copyWith(
-                  borderSide: const BorderSide(color: Colors.blue),
+                  borderSide: const BorderSide(color: AppColors.blue),
                 ),
                 suffixIcon: const Icon(Icons.calendar_today),
                 label: _createLabel(
@@ -267,14 +265,14 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
               child: Container(
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(5),
-                  border: Border.all(color: Colors.grey),
+                  border: Border.all(color: AppColors.grey),
                 ),
                 child: Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(12),
                       margin: const EdgeInsets.only(right: 10),
-                      color: Colors.grey.shade300,
+                      color: AppColors.grey.shade300,
                       child: const Text(
                         'Choose File',
                         style: TextStyle(fontWeight: FontWeight.w500),
@@ -295,7 +293,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   '${field.label} is required',
-                  style: const TextStyle(color: Colors.red, fontSize: 12),
+                  style: const TextStyle(color: AppColors.red, fontSize: 12),
                 ),
               ),
           ],
@@ -359,7 +357,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
                     },
                     style: TextButton.styleFrom(
                       backgroundColor: AppColors.themeColor,
-                      foregroundColor: Colors.white,
+                      foregroundColor: AppColors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(100),
                       ),
@@ -394,7 +392,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 // import 'package:file_picker/file_picker.dart';
 // import 'package:flutter/material.dart';
 // import 'package:intl/intl.dart';
-// import 'package:schoolerp/core/res/colors.dart';
+// import 'package:schoolerp/core/res/AppColors.dart';
 
 // // Enum to define different field types
 // enum FieldType {
@@ -492,7 +490,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //   final OutlineInputBorder border = OutlineInputBorder(
 //     borderRadius: BorderRadius.circular(5),
 //     borderSide: const BorderSide(
-//       color: Colors.grey,
+//       color: AppColors.grey,
 //     ),
 //   );
 //   @override
@@ -555,7 +553,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //             border: border,
 //             enabledBorder: border,
 //             focusedBorder: border.copyWith(
-//               borderSide: const BorderSide(color: Colors.blue),
+//               borderSide: const BorderSide(color: AppColors.blue),
 //             ),
 //           ),
 //           validator: field.validator,
@@ -569,7 +567,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //       border: border,
 //       enabledBorder: border,
 //       focusedBorder: border.copyWith(
-//         borderSide: const BorderSide(color: Colors.blue),
+//         borderSide: const BorderSide(color: AppColors.blue),
 //       ),
 //     ),
 //     items: [
@@ -577,7 +575,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //         value: '',
 //         child: Text(
 //           'Select ${field.label}', // Placeholder text for empty state
-//           style:const TextStyle(color: Colors.grey),
+//           style:const TextStyle(color: AppColors.grey),
 //         ),
 //       ),
 //       ...?field.dropdownOptions?.map((option) {
@@ -612,7 +610,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //                 border: border,
 //                 enabledBorder: border,
 //                 focusedBorder: border.copyWith(
-//                   borderSide: const BorderSide(color: Colors.blue),
+//                   borderSide: const BorderSide(color: AppColors.blue),
 //                 ),
 //                 suffixIcon: const Icon(Icons.calendar_today),
 //               ),
@@ -628,7 +626,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //             const Text(
 //               'Select File to Upload (only PDF)',
 //               style: TextStyle(
-//                 color: Colors.black,
+//                 color: AppColors.black,
 //                 fontSize: 16,
 //                 fontWeight: FontWeight.bold,
 //               ),
@@ -639,14 +637,14 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //               child: Container(
 //                 decoration: BoxDecoration(
 //                   borderRadius: BorderRadius.circular(5),
-//                   border: Border.all(color: Colors.grey),
+//                   border: Border.all(color: AppColors.grey),
 //                 ),
 //                 child: Row(
 //                   children: [
 //                     Container(
 //                       padding: const EdgeInsets.all(12),
 //                       margin: const EdgeInsets.only(right: 10),
-//                       color: Colors.grey.shade300,
+//                       color: AppColors.grey.shade300,
 //                       child: const Text(
 //                         'Choose File',
 //                         style: TextStyle(fontWeight: FontWeight.w500),
@@ -729,7 +727,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //                     },
 //                     style: TextButton.styleFrom(
 //                       backgroundColor: AppColors.themeColor,
-//                       foregroundColor: Colors.white,
+//                       foregroundColor: AppColors.white,
 //                       shape: RoundedRectangleBorder(
 //                         borderRadius: BorderRadius.circular(100),
 //                       ),
@@ -763,7 +761,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 // import 'package:file_picker/file_picker.dart';
 // import 'package:intl/intl.dart';
 // import 'package:permission_handler/permission_handler.dart';
-// import 'package:schoolerp/core/res/colors.dart';
+// import 'package:schoolerp/core/res/AppColors.dart';
 
 // // Enum to define different field types
 // enum FieldType {
@@ -839,7 +837,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //   final OutlineInputBorder border = OutlineInputBorder(
 //     borderRadius: BorderRadius.circular(5),
 //     borderSide: const BorderSide(
-//       color: Colors.grey,
+//       color: AppColors.grey,
 //     ),
 //   );
 
@@ -884,7 +882,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //             ScaffoldMessenger.of(context).showSnackBar(
 //               const SnackBar(
 //                 content: Text('Storage permission is required to pick files'),
-//                 backgroundColor: Colors.red,
+//                 backgroundColor: AppColors.red,
 //               ),
 //             );
 //           }
@@ -917,7 +915,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //         ScaffoldMessenger.of(context).showSnackBar(
 //           SnackBar(
 //             content: Text('Error picking file: ${e.toString()}'),
-//             backgroundColor: Colors.red,
+//             backgroundColor: AppColors.red,
 //           ),
 //         );
 //       }
@@ -934,7 +932,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //             border: border,
 //             enabledBorder: border,
 //             focusedBorder: border.copyWith(
-//               borderSide: const BorderSide(color: Colors.blue),
+//               borderSide: const BorderSide(color: AppColors.blue),
 //             ),
 //           ),
 //           validator: field.validator,
@@ -948,7 +946,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //             border: border,
 //             enabledBorder: border,
 //             focusedBorder: border.copyWith(
-//               borderSide: const BorderSide(color: Colors.blue),
+//               borderSide: const BorderSide(color: AppColors.blue),
 //             ),
 //           ),
 //           items: field.dropdownOptions?.map((option) {
@@ -978,7 +976,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //                 border: border,
 //                 enabledBorder: border,
 //                 focusedBorder: border.copyWith(
-//                   borderSide: const BorderSide(color: Colors.blue),
+//                   borderSide: const BorderSide(color: AppColors.blue),
 //                 ),
 //                 suffixIcon: const Icon(Icons.calendar_today),
 //               ),
@@ -994,7 +992,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //             Text(
 //               field.label,
 //               style: const TextStyle(
-//                 color: Colors.black,
+//                 color: AppColors.black,
 //                 fontSize: 16,
 //                 fontWeight: FontWeight.bold,
 //               ),
@@ -1005,14 +1003,14 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //               child: Container(
 //                 decoration: BoxDecoration(
 //                   borderRadius: BorderRadius.circular(5),
-//                   border: Border.all(color: Colors.grey),
+//                   border: Border.all(color: AppColors.grey),
 //                 ),
 //                 child: Row(
 //                   children: [
 //                     Container(
 //                       padding: const EdgeInsets.all(12),
 //                       margin: const EdgeInsets.only(right: 10),
-//                       color: Colors.grey.shade300,
+//                       color: AppColors.grey.shade300,
 //                       child: const Text(
 //                         'Choose File',
 //                         style: TextStyle(fontWeight: FontWeight.w500),
@@ -1044,7 +1042,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //                 child: Text(
 //                   'Size: ${(selectedFiles[field.label]!.size / 1024).toStringAsFixed(2)} KB',
 //                   style: const TextStyle(
-//                     color: Colors.grey,
+//                     color: AppColors.grey,
 //                     fontSize: 12,
 //                   ),
 //                 ),
@@ -1111,7 +1109,7 @@ class _DynamicModalBottomSheetState extends State<DynamicModalBottomSheet> {
 //                     },
 //                     style: TextButton.styleFrom(
 //                       backgroundColor: AppColors.themeColor,
-//                       foregroundColor: Colors.white,
+//                       foregroundColor: AppColors.white,
 //                       shape: RoundedRectangleBorder(
 //                         borderRadius: BorderRadius.circular(100),
 //                       ),

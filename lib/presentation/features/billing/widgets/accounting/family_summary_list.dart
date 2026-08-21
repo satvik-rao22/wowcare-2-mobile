@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/presentation/features/billing/widgets/billing_student_card.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// Renders the per-family billing summary rows (used by both the Student(s)
 /// overview list and the Transactions list) as [BillingStudentCard]s.
@@ -34,10 +35,7 @@ class FamilySummaryList extends StatelessWidget {
       // Card-shaped skeletons (matching BillingStudentCard / staff card) so the
       // list area shows structure while the family summary loads.
       return Column(
-        children: List.generate(
-          5,
-          (_) => const BillingTransactionShimmer(),
-        ),
+        children: List.generate(5, (_) => const BillingTransactionShimmer()),
       );
     }
     if (errorMessage != null && families.isEmpty) {

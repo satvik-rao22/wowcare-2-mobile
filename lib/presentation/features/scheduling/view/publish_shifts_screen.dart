@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/staff/entities/staff_member.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/publish_shifts_cubit.dart';
@@ -139,8 +139,7 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
         .toList(growable: true);
   }
 
-  List<String> get _staffNames =>
-      _codeByName.keys.toList(growable: false);
+  List<String> get _staffNames => _codeByName.keys.toList(growable: false);
 
   // Publish stays disabled until at least one staff is picked, a mode is
   // chosen, and (for "Until Date") a date is set.
@@ -162,8 +161,8 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
     ];
     if (selectedCodes.isEmpty) return;
 
-    final isAllStaff = _staffNames.isNotEmpty &&
-        selectedCodes.length == _staffNames.length;
+    final isAllStaff =
+        _staffNames.isNotEmpty && selectedCodes.length == _staffNames.length;
 
     await cubit.publish(
       dateRangeStart: widget.dateRangeStart,
@@ -232,25 +231,24 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
                 top: 8,
               ),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.05),
+                    color: AppColors.black.withValues(alpha: 0.05),
                     offset: const Offset(0, -4),
                     blurRadius: 16,
                   ),
                 ],
                 borderRadius: BorderRadius.only(
-                  topLeft:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
-                  topRight:
-                      Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topLeft: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
+                  topRight: Radius.circular(responsive.isTablet ? 40.0 : 24.0),
                 ),
               ),
               child: CustomButtonLayout(
                 confirmButtonLabel: isSubmitting ? 'Publishing…' : 'Publish',
-                onPressedConfirm:
-                    (_isFormValid && !isSubmitting) ? _onPublish : null,
+                onPressedConfirm: (_isFormValid && !isSubmitting)
+                    ? _onPublish
+                    : null,
                 onPressedCancel: isSubmitting
                     ? null
                     : () => Navigator.of(context).pop(),
@@ -269,8 +267,7 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
                   _PublishOptionRow(
                     label: 'Publish Until Date',
                     selected: _mode == PublishMode.untilDate,
-                    onTap: () =>
-                        setState(() => _mode = PublishMode.untilDate),
+                    onTap: () => setState(() => _mode = PublishMode.untilDate),
                   ),
                   if (_mode == PublishMode.untilDate) ...[
                     const SizedBox(height: 12),
@@ -326,7 +323,10 @@ class _PublishShiftsViewState extends State<_PublishShiftsView> {
             style: labelStyle,
             children: const [
               TextSpan(text: 'Until Date'),
-              TextSpan(text: ' *', style: TextStyle(color: Colors.red)),
+              TextSpan(
+                text: ' *',
+                style: TextStyle(color: AppColors.red),
+              ),
             ],
           ),
         ),

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/shared/common/widgets/custom_navigation_bar.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/presentation/features/staff/view/edit_profile_details_screen.dart';
@@ -222,7 +222,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
   }
 
   Color _getStatusColor(String? status) {
-    if (status == null || status.isEmpty) return Colors.grey;
+    if (status == null || status.isEmpty) return AppColors.grey;
     final upperStatus = status.trim().toUpperCase();
     if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
       return const Color.fromRGBO(56, 200, 32, 1);
@@ -241,7 +241,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
   Color _getStatusBgColor(String? status) {
     if (status == null || status.isEmpty)
-      return Colors.grey.withValues(alpha: 0.1);
+      return AppColors.grey.withValues(alpha: 0.1);
     final upperStatus = status.trim().toUpperCase();
     if (upperStatus == 'ACTIVE' || upperStatus == 'A') {
       return const Color.fromRGBO(56, 200, 32, 0.1);
@@ -285,7 +285,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    final chipColors = <Color>[
+    final chipAppColors = <Color>[
       const Color.fromRGBO(177, 175, 233, 0.3),
       const Color.fromRGBO(203, 246, 255, 0.4),
       const Color.fromRGBO(217, 255, 203, 0.4),
@@ -318,7 +318,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
               return Center(
                 child: Text(
                   state.errorMessage ?? 'Failed to load profile',
-                  style: const TextStyle(color: Colors.redAccent),
+                  style: const TextStyle(color: AppColors.redAccent),
                 ),
               );
             }
@@ -390,7 +390,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                       top: Radius.circular(12),
                       bottom: Radius.circular(16),
                     ),
-                    color: Colors.white,
+                    color: AppColors.white,
                   ),
                   child: SingleChildScrollView(
                     physics: const AlwaysScrollableScrollPhysics(),
@@ -489,7 +489,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                 child: const Icon(
                                   Icons.edit,
                                   size: 22,
-                                  color: Colors.white,
+                                  color: AppColors.white,
                                 ),
                               ),
                             ),
@@ -586,8 +586,8 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                           1,
                                         ),
                                         color:
-                                            chipColors[index %
-                                                chipColors.length],
+                                            chipAppColors[index %
+                                                chipAppColors.length],
                                       );
                                     },
                                   ),
@@ -617,7 +617,7 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                     126,
                                     1,
                                   ),
-                                  color: chipColors.first,
+                                  color: chipAppColors.first,
                                 ),
                         ),
                         // Schedule section – layout aligned with student profile schedule card
@@ -760,14 +760,14 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                               126,
                                                               1,
                                                             )
-                                                          : Colors
+                                                          : AppColors
                                                                 .grey
                                                                 .shade700,
                                                       color: isAvailable
                                                           ? const Color(
                                                               0x4DB1AFE9,
                                                             )
-                                                          : Colors
+                                                          : AppColors
                                                                 .grey
                                                                 .shade200,
                                                     ),
@@ -786,8 +786,8 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                               126,
                                                               1,
                                                             ),
-                                                        color:
-                                                            Colors.transparent,
+                                                        color: AppColors
+                                                            .transparent,
                                                         isTimeChip: true,
                                                       ),
                                                     ],
@@ -806,8 +806,8 @@ class _StaffProfileTabState extends State<StaffProfileTab> {
                                                               126,
                                                               1,
                                                             ),
-                                                        color:
-                                                            Colors.transparent,
+                                                        color: AppColors
+                                                            .transparent,
                                                         isTimeChip: true,
                                                       ),
                                                     ],

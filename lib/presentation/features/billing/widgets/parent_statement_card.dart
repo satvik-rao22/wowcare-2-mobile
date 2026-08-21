@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:wowcare/app/theme/colors.dart';
+import '../../../../app/theme/colors.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/core/util/date_utils.dart';
@@ -29,10 +29,7 @@ class DemoStatement {
 class ParentStatementCard extends StatelessWidget {
   final DemoStatement statement;
 
-  const ParentStatementCard({
-    super.key,
-    required this.statement,
-  });
+  const ParentStatementCard({super.key, required this.statement});
 
   @override
   Widget build(BuildContext context) {
@@ -54,10 +51,7 @@ class ParentStatementCard extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 8),
-          _Badge(
-            label: 'Statement',
-            color: AppColors.billingPaymentBadgeColor,
-          ),
+          _Badge(label: 'Statement', color: AppColors.billingPaymentBadgeColor),
         ],
       ),
       expandedChildren: [

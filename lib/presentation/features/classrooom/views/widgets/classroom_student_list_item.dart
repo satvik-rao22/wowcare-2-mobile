@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/app_time.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/student/entities/student_health.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
@@ -11,6 +10,8 @@ import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 // The following imports depend on backend/bloc not available now. Keeping commented.
 // import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
+
+import '../../../../../app/theme/colors.dart';
 // import 'package:wowcare/src/documents/presentation/bloc/document_bloc.dart';
 // import 'package:wowcare/core/services/injection_container.dart';
 // import 'package:wowcare/core/util/typedefs.dart';
@@ -76,11 +77,13 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedAttendance =
-        (widget.todayAttendanceStatusRaw ?? '').trim().toUpperCase();
+    final normalizedAttendance = (widget.todayAttendanceStatusRaw ?? '')
+        .trim()
+        .toUpperCase();
     final hasAttendanceStatus =
         normalizedAttendance == 'SIGNED_IN' || normalizedAttendance == 'ABSENT';
-    final shouldGreyOut = !widget.isExpectedToday &&
+    final shouldGreyOut =
+        !widget.isExpectedToday &&
         !widget.isSignedIn &&
         !widget.isAbsent &&
         !hasAttendanceStatus;
@@ -88,8 +91,8 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
         ? 'UPCOMING'
         : widget.studentStatus.trim();
     final Color? attendanceDotColor = normalizedAttendance == 'SIGNED_IN'
-        ? Colors.green
-        : (normalizedAttendance == 'ABSENT' ? Colors.red : null);
+        ? AppColors.green
+        : (normalizedAttendance == 'ABSENT' ? AppColors.red : null);
     final String? attendanceTooltip = normalizedAttendance == 'SIGNED_IN'
         ? 'Student is signed in'
         : (normalizedAttendance == 'ABSENT' ? 'Student is absent' : null);
@@ -97,16 +100,17 @@ class _ClassroomStudentListItemState extends State<ClassroomStudentListItem> {
     final bool looksLikeUrl =
         rawPhoto.startsWith('http://') || rawPhoto.startsWith('https://');
     final String? directUrl = looksLikeUrl ? rawPhoto : null;
-    final String? assetCode =
-        (!looksLikeUrl && rawPhoto.isNotEmpty) ? rawPhoto : null;
+    final String? assetCode = (!looksLikeUrl && rawPhoto.isNotEmpty)
+        ? rawPhoto
+        : null;
 
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey[300]!),
+        border: Border.all(color: AppColors.grey[300]!),
         borderRadius: BorderRadius.circular(12),
-        color: shouldGreyOut ? Colors.grey[100] : null,
+        color: shouldGreyOut ? AppColors.grey[100] : null,
       ),
       child: Row(
         children: [
@@ -301,8 +305,9 @@ class _StudentDetailsDialogState extends State<_StudentDetailsDialog> {
   Future<void> _fetchHealth() async {
     final code = widget.studentCode.trim();
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<StudentRepository>().getStudentHealth(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,
@@ -491,8 +496,9 @@ Future<void> prefetchStudentDetailsHealth(String studentCode) async {
 
   final future = () async {
     try {
-      final result = await serviceLocator<StudentRepository>()
-          .getStudentHealth(studentCode: code);
+      final result = await serviceLocator<StudentRepository>().getStudentHealth(
+        studentCode: code,
+      );
       _healthCache[code] = _HealthCacheEntry(
         fetchedAt: AppTime.nowUtc(),
         health: result,

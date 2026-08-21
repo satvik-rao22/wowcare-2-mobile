@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:mime/mime.dart';
@@ -12,7 +11,6 @@ import 'package:wowcare/presentation/features/activities/widgets/time_widget.dar
 import 'package:wowcare/presentation/features/activities/widgets/upload_photo_video.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
-
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
@@ -3138,7 +3136,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
         _uploadProgressPercent == 100) {
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(Icons.check_circle, size: 16, color: AppColors.green),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -3146,7 +3144,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.green,
+                color: AppColors.green,
               ),
             ),
           ),
@@ -3166,7 +3164,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       final label = parts.isEmpty ? 'Ready' : parts.join(', ');
       return Row(
         children: [
-          const Icon(Icons.check_circle, size: 16, color: Colors.green),
+          const Icon(Icons.check_circle, size: 16, color: AppColors.green),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -3174,7 +3172,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
               style: const TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
-                color: Colors.green,
+                color: AppColors.green,
               ),
             ),
           ),
@@ -3186,7 +3184,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       ..write('Photos $_uploadedPhotoCount/${_newPhotos.length}');
     return Row(
       children: [
-        const Icon(Icons.error_outline, size: 16, color: Colors.orange),
+        const Icon(Icons.error_outline, size: 16, color: AppColors.orange),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -3194,7 +3192,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w500,
-              color: Colors.orange,
+              color: AppColors.orange,
             ),
           ),
         ),

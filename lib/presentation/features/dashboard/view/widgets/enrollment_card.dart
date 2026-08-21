@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/di/di.dart';
-import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/school_status_cubit.dart';
@@ -12,6 +11,8 @@ import 'package:wowcare/shared/common/widgets/custom_stat_bar_card.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/attendance/view/staff_attendance_tabbed_view.dart';
+
+import '../../../../../app/theme/colors.dart';
 
 /// Colours for the breakdown bar segments that have no exact theme constant.
 const Color _signedOutColor = Color(0xFF8BB4EF);
@@ -102,7 +103,7 @@ class _EnrollmentCardState extends State<EnrollmentCard> {
           child: Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white,
+              color: AppColors.white,
               border: Border.all(color: AppColors.cardBorderColor),
               borderRadius: BorderRadius.circular(12),
             ),
@@ -394,13 +395,13 @@ class _EnrollmentCardShimmer extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.white,
         border: Border.all(color: AppColors.cardBorderColor),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Shimmer.fromColors(
-        baseColor: Colors.grey.shade300,
-        highlightColor: Colors.grey.shade100,
+        baseColor: AppColors.grey.shade300,
+        highlightColor: AppColors.grey.shade100,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -412,7 +413,7 @@ class _EnrollmentCardShimmer extends StatelessWidget {
                   height: 20,
                   width: 160,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     borderRadius: BorderRadius.circular(4),
                   ),
                 ),
@@ -420,7 +421,7 @@ class _EnrollmentCardShimmer extends StatelessWidget {
                   height: 20,
                   width: 20,
                   decoration: const BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.white,
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -480,7 +481,7 @@ class _StatColumnShimmer extends StatelessWidget {
           height: 24,
           width: 40,
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: AppColors.white,
             borderRadius: BorderRadius.circular(4),
           ),
         ),
@@ -489,7 +490,7 @@ class _StatColumnShimmer extends StatelessWidget {
           label,
           textAlign: TextAlign.center,
           style: const TextStyle(
-            color: Colors.transparent, // Layout identical to real text
+            color: AppColors.transparent, // Layout identical to real text
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -504,7 +505,7 @@ class _StatColumnShimmer extends StatelessWidget {
                 height: 12,
                 width: 70,
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.white,
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -535,7 +536,7 @@ class _StatBarShimmer extends StatelessWidget {
             Text(
               title,
               style: const TextStyle(
-                color: Colors.transparent,
+                color: AppColors.transparent,
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -544,7 +545,7 @@ class _StatBarShimmer extends StatelessWidget {
               height: 22,
               width: 38,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.white,
                 borderRadius: BorderRadius.circular(4),
               ),
             ),
@@ -556,7 +557,7 @@ class _StatBarShimmer extends StatelessWidget {
           child: Container(
             height: 20,
             width: double.infinity,
-            color: Colors.white,
+            color: AppColors.white,
           ),
         ),
         const SizedBox(height: 12),
@@ -574,7 +575,7 @@ class _StatBarShimmer extends StatelessWidget {
                         width: 10,
                         height: 10,
                         decoration: const BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -583,7 +584,7 @@ class _StatBarShimmer extends StatelessWidget {
                         height: 14,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),
@@ -595,7 +596,7 @@ class _StatBarShimmer extends StatelessWidget {
                         width: 10,
                         height: 10,
                         decoration: const BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -604,7 +605,7 @@ class _StatBarShimmer extends StatelessWidget {
                         height: 14,
                         width: 80,
                         decoration: BoxDecoration(
-                          color: Colors.white,
+                          color: AppColors.white,
                           borderRadius: BorderRadius.circular(3),
                         ),
                       ),

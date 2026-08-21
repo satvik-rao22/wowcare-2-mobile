@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shimmer/shimmer.dart';
 
+import '../../../app/theme/colors.dart';
+
 class ShimmerLoaderBox extends StatelessWidget {
   final Widget child;
   final double? height;
@@ -16,18 +18,12 @@ class ShimmerLoaderBox extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
-      child: SizedBox(
-        height: height,
-        width: width,
-        child: child,
-      ),
+      baseColor: AppColors.grey.shade300,
+      highlightColor: AppColors.grey.shade100,
+      child: SizedBox(height: height, width: width, child: child),
     );
   }
 }
-
-
 
 class ShimmerLoaderCard extends StatelessWidget {
   final Widget child;
@@ -50,21 +46,16 @@ class ShimmerLoaderCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Shimmer.fromColors(
-      baseColor: Colors.grey.shade300,
-      highlightColor: Colors.grey.shade100,
+      baseColor: AppColors.grey.shade300,
+      highlightColor: AppColors.grey.shade100,
       child: Card(
         margin: margin ?? const EdgeInsets.all(8.0),
-        color: cardColor ?? Colors.white,
+        color: cardColor ?? AppColors.white,
         shape: RoundedRectangleBorder(
           borderRadius: borderRadius ?? BorderRadius.circular(8.0),
         ),
-        child: SizedBox(
-          height: height,
-          width: width,
-          child: child,
-        ),
+        child: SizedBox(height: height, width: width, child: child),
       ),
     );
   }
 }
-

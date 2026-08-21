@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
@@ -12,7 +11,6 @@ import 'package:wowcare/presentation/features/activities/widgets/upload_photo_vi
 import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../core/storage/storage_service.dart';
@@ -1586,7 +1584,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                       const Icon(
                         Icons.check_circle,
                         size: 16,
-                        color: Colors.green,
+                        color: AppColors.green,
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -1594,7 +1592,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
                         style: const TextStyle(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
-                          color: Colors.green,
+                          color: AppColors.green,
                         ),
                       ),
                     ],
