@@ -3,9 +3,9 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -29,24 +29,12 @@ import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../core/util/school_zone_datetime.dart';
 import '../../../../domain/features/activity/entities/activity_feed_row.dart';
 import '../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../domain/features/activity/usecases/delete_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/approve_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/reject_activity_usecase.dart';
-import '../../../../domain/features/activity/usecases/get_active_activity_types_for_school_usecase.dart';
-import '../../../../domain/features/activity/usecases/get_range_activity_feed_usecase.dart';
-import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
-import '../../../../domain/features/staff/repositories/staff_repository.dart';
-import '../../../../domain/features/student/usecases/get_student_codes_for_activity_tag_filter_usecase.dart';
-import '../../../../domain/features/student/usecases/get_student_page_usecase.dart';
-import '../../../../domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import '../../../../domain/features/student_classroom/usecases/get_student_classroom_list_usecase.dart';
+import '../cubit/activity_feed_scope_cubit.dart';
+import '../cubit/activity_moderation_cubit.dart';
 import '../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_daily.dart';
 import '../../../../domain/features/attendance/entities/student_attendance_absent_form.dart'
     hide StudentAttendanceTime;
-import '../../../../domain/features/attendance/usecases/get_student_attendance_daily_usecase.dart';
-import '../../../../domain/features/attendance/usecases/get_student_absent_records_activity_usecase.dart';
-import '../utils/activity_filter_metadata_cache.dart';
 import '../utils/activity_parent_feed_merge.dart';
 import '../widgets/activity_feed_student_avatar.dart';
 import 'activity_filter_screen.dart';
@@ -70,7 +58,7 @@ import 'edit_create_activity_screens/notes_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
-class ActivityCustomTab extends StatefulWidget {
+class ActivityCustomTab extends StatelessWidget {
   const ActivityCustomTab({
     super.key,
     this.fromStudentProfile = false,
@@ -113,10 +101,60 @@ class ActivityCustomTab extends StatefulWidget {
   static const String routeName = '/activityCustomTab';
 
   @override
-  State<ActivityCustomTab> createState() => _ActivityCustomTabState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ActivityFeedScopeCubit>(
+          create: (_) => serviceLocator<ActivityFeedScopeCubit>(),
+        ),
+        BlocProvider<ActivityModerationCubit>(
+          create: (_) => serviceLocator<ActivityModerationCubit>(),
+        ),
+      ],
+      child: _ActivityCustomTabView(
+        fromStudentProfile: fromStudentProfile,
+        studentName: studentName,
+        studentProfile: studentProfile,
+        isNotParent: isNotParent,
+        allowActivityWrite: allowActivityWrite,
+        onRefreshStaffSignInStatus: onRefreshStaffSignInStatus,
+        initialActivityTypes: initialActivityTypes,
+        initialClassrooms: initialClassrooms,
+        resetKey: resetKey,
+      ),
+    );
+  }
 }
 
-class _ActivityCustomTabState extends State<ActivityCustomTab>
+class _ActivityCustomTabView extends StatefulWidget {
+  const _ActivityCustomTabView({
+    this.fromStudentProfile = false,
+    this.studentName,
+    this.studentProfile,
+    this.isNotParent = true,
+    this.allowActivityWrite = true,
+    this.onRefreshStaffSignInStatus,
+    this.initialActivityTypes,
+    this.initialClassrooms,
+    this.resetKey,
+  });
+
+  final bool fromStudentProfile;
+  final String? studentName;
+  final Map<String, dynamic>? studentProfile;
+  final bool isNotParent;
+  final bool allowActivityWrite;
+  final Future<void> Function()? onRefreshStaffSignInStatus;
+  final List<String>? initialActivityTypes;
+  final List<String>? initialClassrooms;
+  final String? resetKey;
+
+  @override
+  State<_ActivityCustomTabView> createState() =>
+      _ActivityCustomTabViewState();
+}
+
+class _ActivityCustomTabViewState extends State<_ActivityCustomTabView>
     with AutomaticKeepAliveClientMixin {
   @override
   bool get wantKeepAlive => true;
@@ -177,22 +215,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   List<String> _allowedClassroomCodes = const [];
   String? _primaryClassroomCode;
 
-  late final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
-  late final GetActiveActivityTypesForSchoolUseCase
-  _getActiveActivityTypesForSchoolUseCase;
-  late final GetStudentClassroomListUseCase _getStudentClassroomListUseCase;
-  late final GetTagNameCodeMapForSchoolUseCase
-  _getTagNameCodeMapForSchoolUseCase;
-  late final GetStudentCodesForActivityTagFilterUseCase
-  _getStudentCodesForActivityTagFilterUseCase;
-  late final GetStudentPageUseCase _getStudentPageUseCase;
-  late final GetStudentAttendanceDailyUseCase _getStudentAttendanceDailyUseCase;
-  late final GetStudentAbsentRecordsActivityUseCase
-  _getStudentAbsentRecordsActivityUseCase;
-  late final GetRangeActivityFeedUseCase _getRangeActivityFeedUseCase;
-  late final DeleteActivityUseCase _deleteActivityUseCase;
-  late final ApproveActivityUseCase _approveActivityUseCase;
-  late final RejectActivityUseCase _rejectActivityUseCase;
+  ActivityFeedScopeCubit get _feedScope =>
+      context.read<ActivityFeedScopeCubit>();
+  ActivityModerationCubit get _moderationCubit =>
+      context.read<ActivityModerationCubit>();
+  StreamSubscription<ActivityModerationState>? _moderationSub;
   late final StorageService _storageService;
   late final CacheManager _cacheManager;
   StreamSubscription<void>? _feedInvalidationSub;
@@ -341,7 +368,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   };
 
   @override
-  void didUpdateWidget(covariant ActivityCustomTab oldWidget) {
+  void didUpdateWidget(covariant _ActivityCustomTabView oldWidget) {
     super.didUpdateWidget(oldWidget);
     bool changed = false;
 
@@ -386,27 +413,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   @override
   void initState() {
     super.initState();
-    _getActiveClassroomsUseCase = serviceLocator<GetActiveClassroomsUseCase>();
-    _getActiveActivityTypesForSchoolUseCase =
-        serviceLocator<GetActiveActivityTypesForSchoolUseCase>();
-    _getStudentClassroomListUseCase =
-        serviceLocator<GetStudentClassroomListUseCase>();
-    _getTagNameCodeMapForSchoolUseCase =
-        serviceLocator<GetTagNameCodeMapForSchoolUseCase>();
-    _getStudentCodesForActivityTagFilterUseCase =
-        serviceLocator<GetStudentCodesForActivityTagFilterUseCase>();
-    _getStudentPageUseCase = serviceLocator<GetStudentPageUseCase>();
-    _getStudentAttendanceDailyUseCase =
-        serviceLocator<GetStudentAttendanceDailyUseCase>();
-    _getStudentAbsentRecordsActivityUseCase =
-        serviceLocator<GetStudentAbsentRecordsActivityUseCase>();
-    _getRangeActivityFeedUseCase =
-        serviceLocator<GetRangeActivityFeedUseCase>();
-    _deleteActivityUseCase = serviceLocator<DeleteActivityUseCase>();
-    _approveActivityUseCase = serviceLocator<ApproveActivityUseCase>();
-    _rejectActivityUseCase = serviceLocator<RejectActivityUseCase>();
     _storageService = serviceLocator<StorageService>();
     _cacheManager = CacheManager(_storageService);
+    _moderationSub = _moderationCubit.stream.listen(_onModerationState);
 
     isNotParent = widget.isNotParent;
     // Opened from a student profile: pre-select that student (and their
@@ -479,9 +488,32 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   @override
   void dispose() {
     _feedInvalidationSub?.cancel();
+    _moderationSub?.cancel();
     _feedScrollController.removeListener(_onFeedScroll);
     _feedScrollController.dispose();
     super.dispose();
+  }
+
+  /// Reacts to moderation results emitted by [ActivityModerationCubit].
+  void _onModerationState(ActivityModerationState state) {
+    if (!mounted) return;
+    if (state is ActivityModerationSuccess) {
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: state.message,
+        isSuccess: true,
+      );
+      // Approve/reject change the feed; delete does not refresh (matches prior).
+      if (state.action != ActivityModerationAction.delete) {
+        _loadRangeFeed(refresh: true);
+      }
+    } else if (state is ActivityModerationFailure) {
+      CoreUtils.logApiError(
+        state.message,
+        showOnScreen: true,
+        context: context,
+      );
+    }
   }
 
   void _onFeedScroll() {
@@ -1038,7 +1070,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       final includeAttendance =
           _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
-      final activityFeedPage = await _getRangeActivityFeedUseCase(
+      final activityFeedPage = await _feedScope.getRangeActivityFeed(
         classroomCode: classroomCode,
         startDate: _dateQueryParam(start),
         endDate: _dateQueryParam(end),
@@ -1055,7 +1087,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       StudentAttendanceAbsentFormPage? absentPage;
       if (includeAttendance) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             classroomCodes: classroomCodes,
@@ -1067,7 +1099,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           final startStr = _dateQueryParam(start);
           final endStr = _dateQueryParam(end);
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: startStr,
               fromAttendanceDate: startStr,
               toAttendanceDate: endStr,
@@ -1078,7 +1110,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               page: pageIndex,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               classroomCodes: classroomCodes,
@@ -1090,7 +1122,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: _dateQueryParam(start),
             fromAttendanceDate: _dateQueryParam(start),
             toAttendanceDate: _dateQueryParam(end),
@@ -1213,7 +1245,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (_filterApprovalStatuses.isEmpty &&
           _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             studentCodes: codes,
@@ -1224,7 +1256,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           final startStr = _dateQueryParam(start);
           final endStr = _dateQueryParam(end);
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: startStr,
               fromAttendanceDate: startStr,
               toAttendanceDate: endStr,
@@ -1234,7 +1266,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               page: 0,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               studentCodes: codes,
@@ -1245,7 +1277,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: _dateQueryParam(start),
             fromAttendanceDate: _dateQueryParam(start),
             toAttendanceDate: _dateQueryParam(end),
@@ -1271,7 +1303,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               last: true,
             );
           }
-          return _getRangeActivityFeedUseCase(
+          return _feedScope.getRangeActivityFeed(
             classroomCode: cc,
             startDate: _dateQueryParam(start),
             endDate: _dateQueryParam(end),
@@ -1376,7 +1408,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (_filterApprovalStatuses.isEmpty &&
           _shouldIncludeAttendanceEntries()) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             studentCodes: _parentAllowedStudentCodes.toList(),
@@ -1387,7 +1419,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           final startStr = _dateQueryParam(start);
           final endStr = _dateQueryParam(end);
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: startStr,
               fromAttendanceDate: startStr,
               toAttendanceDate: endStr,
@@ -1397,7 +1429,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               page: pageIndex,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               studentCodes: _parentAllowedStudentCodes.toList(),
@@ -1408,7 +1440,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: _dateQueryParam(start),
             fromAttendanceDate: _dateQueryParam(start),
             toAttendanceDate: _dateQueryParam(end),
@@ -1434,7 +1466,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               last: true,
             );
           }
-          return _getRangeActivityFeedUseCase(
+          return _feedScope.getRangeActivityFeed(
             classroomCode: cc,
             startDate: _dateQueryParam(start),
             endDate: _dateQueryParam(end),
@@ -1625,7 +1657,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final classroomCode = _classroomCodeByName[classroomName];
       if (classroomCode == null || classroomCode.trim().isEmpty) continue;
       try {
-        final students = await _getStudentClassroomListUseCase(
+        final students = await _feedScope.getStudentClassroomList(
           schoolCode: school,
           classroomCode: classroomCode,
           status: const ['ACTIVE'],
@@ -1674,7 +1706,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       final classroomCode = _classroomCodeByName[classroomName];
       if (classroomCode == null || classroomCode.trim().isEmpty) continue;
       try {
-        final students = await _getStudentClassroomListUseCase(
+        final students = await _feedScope.getStudentClassroomList(
           schoolCode: school,
           classroomCode: classroomCode,
           status: const ['ACTIVE'],
@@ -1718,9 +1750,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     final school = _schoolCode;
     if (school == null || school.isEmpty) return;
     try {
-      final map = await ActivityFilterMetadataCache.loadTagNameCodeMap(
-        cacheManager: _cacheManager,
-        useCase: _getTagNameCodeMapForSchoolUseCase,
+      final map = await _feedScope.loadTagNameCodeMap(
         schoolCode: school,
         forceRefresh: forceRefresh,
       );
@@ -1886,20 +1916,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
     }
     if (missingCodes.isEmpty) return;
-    final repo = serviceLocator<StaffRepository>();
-    await Future.wait(
-      missingCodes.map((code) async {
-        try {
-          final profile = await repo.getStaffProfile(staffCode: code);
-          final full = profile.fullName.trim();
-          final composed = '${profile.firstName} ${profile.lastName}'.trim();
-          final resolved = full.isNotEmpty ? full : composed;
-          if (resolved.isNotEmpty) {
-            _staffDisplayNameByCode[code] = resolved;
-          }
-        } catch (_) {}
-      }),
-    );
+    final resolved = await _feedScope.resolveStaffDisplayNames(missingCodes);
+    _staffDisplayNameByCode.addAll(resolved);
   }
 
   List<ActivityItem> _withClientFilters(List<ActivityItem> items) {
@@ -1973,7 +1991,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       for (final cc in classroomCodes) {
         if (cc.trim().isEmpty) continue;
-        final students = await _getStudentCodesForActivityTagFilterUseCase(
+        final students = await _feedScope.getStudentCodesForActivityTagFilter(
           schoolCode: school,
           classroomCode: cc,
           tagCodes: tagCodes,
@@ -2129,7 +2147,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     }
 
     try {
-      final classrooms = await _getActiveClassroomsUseCase(
+      final classrooms = await _feedScope.getActiveClassrooms(
         schoolCode: school,
         onlyTypeClassroom: true,
       );
@@ -2255,10 +2273,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     try {
       final staffCode = (await resolveStaffCodeForLoggedInUser()).trim();
       if (staffCode.isNotEmpty) {
-        final repo = serviceLocator<StaffRepository>();
-        final profile = await repo.getStaffProfile(
+        final profile = await _feedScope.getOwnStaffProfileForClassroomScope(
           staffCode: staffCode,
-          forEditStaff: true,
         );
         final primary = profile.primaryClassroomCode.trim();
         final profileAllowed = profile.allowedClassroomCodes
@@ -2309,7 +2325,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
         return;
       }
 
-      final page = await _getStudentPageUseCase(
+      final page = await _feedScope.getStudentPage(
         schoolCode: school,
         guardianCodes: [guardianCode],
         page: 0,
@@ -2397,24 +2413,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
       return;
     }
-    try {
-      final message = await _deleteActivityUseCase(code: code);
-      if (!mounted) return;
-      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-    } catch (e) {
-      if (!mounted) return;
-      if (sheetContext.mounted) Navigator.of(sheetContext).pop();
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    if (sheetContext.mounted) Navigator.of(sheetContext).pop();
+    _moderationCubit.delete(code);
   }
 
   Future<void> _approveActivityFromMenu(ActivityItem activity) async {
@@ -2428,23 +2428,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
       return;
     }
-    try {
-      final message = await _approveActivityUseCase(code: code);
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-      await _loadRangeFeed(refresh: true);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    _moderationCubit.approve(code);
   }
 
   Future<void> _rejectActivityFromMenu(ActivityItem activity) async {
@@ -2458,23 +2442,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       );
       return;
     }
-    try {
-      final message = await _rejectActivityUseCase(code: code);
-      if (!mounted) return;
-      CoreUtils.showTopSnackBar(
-        context: context,
-        message: message,
-        isSuccess: true,
-      );
-      await _loadRangeFeed(refresh: true);
-    } catch (e) {
-      if (!mounted) return;
-      CoreUtils.logApiError(
-        ApiErrorHandler.extractErrorMessage(e),
-        showOnScreen: true,
-        context: context,
-      );
-    }
+    _moderationCubit.reject(code);
   }
 
   Future<void> _showApprovalActionBottomSheet({
@@ -2588,7 +2556,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
 
       final includeAttendance =
           _filterApprovalStatuses.isEmpty && _shouldIncludeAttendanceEntries();
-      final activityFeedPage = await _getRangeActivityFeedUseCase(
+      final activityFeedPage = await _feedScope.getRangeActivityFeed(
         classroomCode: classroomCode,
         startDate: _dateQueryParam(start),
         endDate: _dateQueryParam(end),
@@ -2605,7 +2573,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       StudentAttendanceAbsentFormPage? absentPage;
       if (includeAttendance) {
         if (_isMarkedAbsentEvent(selectedEvent)) {
-          absentPage = await _getStudentAbsentRecordsActivityUseCase(
+          absentPage = await _feedScope.getStudentAbsentRecordsActivity(
             fromAbsenceDate: _dateQueryParam(start),
             toAbsenceDate: _dateQueryParam(end),
             classroomCodes: classroomCodes,
@@ -2617,7 +2585,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           final startStr = _dateQueryParam(start);
           final endStr = _dateQueryParam(end);
           final dailyAbsent = await Future.wait([
-            _getStudentAttendanceDailyUseCase(
+            _feedScope.getStudentAttendanceDaily(
               attendanceDate: startStr,
               fromAttendanceDate: startStr,
               toAttendanceDate: endStr,
@@ -2628,7 +2596,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               page: 0,
               size: _feedPageSize,
             ),
-            _getStudentAbsentRecordsActivityUseCase(
+            _feedScope.getStudentAbsentRecordsActivity(
               fromAbsenceDate: startStr,
               toAbsenceDate: endStr,
               classroomCodes: classroomCodes,
@@ -2640,7 +2608,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
           attendancePage = dailyAbsent[0] as StudentAttendanceDailyPage;
           absentPage = dailyAbsent[1] as StudentAttendanceAbsentFormPage;
         } else {
-          attendancePage = await _getStudentAttendanceDailyUseCase(
+          attendancePage = await _feedScope.getStudentAttendanceDaily(
             attendanceDate: _dateQueryParam(start),
             fromAttendanceDate: _dateQueryParam(start),
             toAttendanceDate: _dateQueryParam(end),
@@ -2742,7 +2710,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
               } catch (_) {}
             }
 
-            final students = await _getStudentClassroomListUseCase(
+            final students = await _feedScope.getStudentClassroomList(
               schoolCode: school,
               classroomCode: classroomCode,
               status: const ['ACTIVE'],
@@ -2773,9 +2741,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                 school != null &&
                 school.isNotEmpty) {
               _classroomActivitySettings =
-                  await ActivityFilterMetadataCache.loadSchoolActivityTypeSettingsForFilters(
-                    cacheManager: _cacheManager,
-                    useCase: _getActiveActivityTypesForSchoolUseCase,
+                  await _feedScope.loadActivityTypeSettingsForFilters(
                     schoolCode: school,
                     forceRefresh: refresh,
                   );
@@ -4680,31 +4646,9 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
   }
 }
 
-class PopupItem extends StatelessWidget {
-  final String title;
-  final Icon icon;
-
-  const PopupItem({super.key, required this.title, required this.icon});
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        icon,
-        const SizedBox(width: 5),
-        Text(
-          title,
-          style: const TextStyle(
-            fontFamily: 'Manrope',
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: Colors.black,
-          ),
-        ),
-      ],
-    );
-  }
-}
+// PopupItem is defined in activity_daily_tab.dart (imported above) — both
+// screens shared a byte-identical copy of this widget; this file now reuses
+// that one instead of maintaining its own.
 
 //
 // class ActivityItem {

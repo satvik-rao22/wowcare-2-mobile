@@ -4,7 +4,7 @@ import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/availability/widgets/individual_movement_models.dart';
-import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart'
+import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart'
     show PopupItem;
 import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';

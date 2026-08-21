@@ -9,10 +9,12 @@ class GetStaffProfileUseCase {
   Future<StaffProfile> call({
     required String staffCode,
     bool forEditStaff = true,
+    bool forceRefresh = false,
   }) {
     return _repository.getStaffProfile(
       staffCode: staffCode,
       forEditStaff: forEditStaff,
+      forceRefresh: forceRefresh,
     );
   }
 }

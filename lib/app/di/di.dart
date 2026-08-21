@@ -230,9 +230,11 @@ import '../../presentation/features/attendance/forms/student_attendance_forms/cu
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_selection_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_moderation_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_daily_feed_cubit.dart';
 import '../../presentation/features/activities/cubit/medication_activity_cubit.dart';
 import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/nap_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/incident_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_feed_scope_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -1188,9 +1190,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       rejectActivityUseCase: serviceLocator<RejectActivityUseCase>(),
     ),
   );
-  serviceLocator.registerFactory<ActivityDailyFeedCubit>(
-    () => ActivityDailyFeedCubit(),
-  );
   serviceLocator.registerFactory<ActivityEditorCubit>(
     () => ActivityEditorCubit(
       getClassroomActivitySettingsUseCase:
@@ -1208,6 +1207,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GuardianParentSignatureUseCase>(),
       getGuardianNameCodeMapForSchoolUseCase:
           serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>(),
+      getStaffTodaySignInStatusUseCase:
+          serviceLocator<GetStaffTodaySignInStatusUseCase>(),
     ),
   );
   // Per-form ViewModel for the Medication activity screen. Factory so each
@@ -1222,6 +1223,39 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => BottleActivityCubit(
       editor: serviceLocator<ActivityEditorCubit>(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<NapActivityCubit>(
+    () => NapActivityCubit(
+      getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<IncidentActivityCubit>(
+    () => IncidentActivityCubit(
+      storageService: serviceLocator<StorageService>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityFeedScopeCubit>(
+    () => ActivityFeedScopeCubit(
+      getDailyActivityFeedUseCase: serviceLocator<GetDailyActivityFeedUseCase>(),
+      getRangeActivityFeedUseCase: serviceLocator<GetRangeActivityFeedUseCase>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getActiveActivityTypesForSchoolUseCase:
+          serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),
+      getStudentClassroomListUseCase:
+          serviceLocator<GetStudentClassroomListUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentCodesForActivityTagFilterUseCase:
+          serviceLocator<GetStudentCodesForActivityTagFilterUseCase>(),
+      getStudentPageUseCase: serviceLocator<GetStudentPageUseCase>(),
+      getStudentAttendanceDailyUseCase:
+          serviceLocator<GetStudentAttendanceDailyUseCase>(),
+      getStudentAbsentRecordsActivityUseCase:
+          serviceLocator<GetStudentAbsentRecordsActivityUseCase>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(

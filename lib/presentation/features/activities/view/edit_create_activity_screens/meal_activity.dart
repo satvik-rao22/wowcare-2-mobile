@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/activity_dropdown_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
@@ -14,7 +15,6 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -29,7 +29,7 @@ import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
-class MealActivityScreen extends StatefulWidget {
+class MealActivityScreen extends StatelessWidget {
   const MealActivityScreen({
     super.key,
     this.selectedStudents,
@@ -43,10 +43,36 @@ class MealActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<MealActivityScreen> createState() => _MealActivityScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ActivityEditorCubit>(
+      create: (_) => serviceLocator<ActivityEditorCubit>(),
+      child: _MealActivityView(
+        selectedStudents: selectedStudents,
+        isEdit: isEdit,
+        activityData: activityData,
+        readOnly: readOnly,
+      ),
+    );
+  }
 }
 
-class _MealActivityScreenState extends State<MealActivityScreen> {
+class _MealActivityView extends StatefulWidget {
+  const _MealActivityView({
+    this.selectedStudents,
+    this.isEdit = false,
+    this.activityData,
+    this.readOnly = false,
+  });
+  final List<Map<String, dynamic>>? selectedStudents;
+  final bool isEdit;
+  final ActivityItem? activityData;
+  final bool readOnly;
+
+  @override
+  State<_MealActivityView> createState() => _MealActivityViewState();
+}
+
+class _MealActivityViewState extends State<_MealActivityView> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
@@ -90,7 +116,7 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
 
-  late final ActivityEditorCubit _editor;
+  ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -117,8 +143,6 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     _activityDate = null;
     _activityTime = null;
     bootstrapActivitySchoolTimezone();
-
-    _editor = serviceLocator<ActivityEditorCubit>();
 
     if (widget.selectedStudents != null) {
       _selectedStudentsData = List.from(widget.selectedStudents!);
@@ -932,30 +956,21 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
     // that staff is signed in right now, same use case + true/false check the
     // staff persona's own + button is gated on. Admins are never gated on
     // their OWN sign-in — only on who they're attributing the activity to.
-    if (!widget.isEdit && _isAdminDesignation) {
-      final pickedStaffCode = (_staffPresentCode ?? '').trim();
-      final ownStaffCode = (_staffCode ?? '').trim();
-      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
-        try {
-          final status =
-              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-                staffCode: pickedStaffCode,
-              );
-          if (status?.toUpperCase() != 'SIGNED_IN') {
-            if (!mounted) return;
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message:
-                  'Staff is not signed in. You can only add an activity for '
-                  'staff who are signed in.',
-              isWarning: true,
-            );
-            return;
-          }
-        } catch (_) {
-          // Best-effort: a failed status check shouldn't block the admin.
-        }
-      }
+    if (!await _editor.verifyPickedStaffSignedIn(
+      isEdit: widget.isEdit,
+      isAdminDesignation: _isAdminDesignation,
+      pickedStaffCode: _staffPresentCode,
+      ownStaffCode: _staffCode,
+    )) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Staff is not signed in. You can only add an activity for '
+            'staff who are signed in.',
+        isWarning: true,
+      );
+      return;
     }
 
     if (widget.isEdit) {
@@ -980,7 +995,6 @@ class _MealActivityScreenState extends State<MealActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
-    _editor.close();
     super.dispose();
   }
 
