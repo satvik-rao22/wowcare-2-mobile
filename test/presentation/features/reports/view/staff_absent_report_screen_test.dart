@@ -16,6 +16,7 @@ import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecas
 import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
@@ -181,7 +182,9 @@ void main() {
       getStudentTagsUseCase: GetStudentTagsUseCase(fakeReportsRepo),
       downloadReportUseCase: DownloadReportUseCase(fakeReportsRepo),
       fileDownloadRepository: _FakeFileDownloadRepository(),
-      getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(),
+      getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(
+        mockStudentRepo,
+      ),
     );
 
     reportsCubit.setClassroomNames(classrooms, nameToCodeMap: classroomLookup);

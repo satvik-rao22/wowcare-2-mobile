@@ -47,14 +47,18 @@ class _FakeRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
   }) async => const Right([]);
-
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
     ConversationType? type,
@@ -156,6 +160,26 @@ class _FakeRepo implements ConversationEntityRepository {
     String? classroomName,
   }) {
     // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
     throw UnimplementedError();
   }
 }

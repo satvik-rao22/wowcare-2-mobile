@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
@@ -14,7 +13,6 @@ import 'package:wowcare/shared/common/widgets/custom_clear_all_chip.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
 import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
-
 import '../../../../core/util/core_utils.dart';
 import '../../../../app/di/di.dart';
 import '../../../../core/network/api_client.dart';
@@ -205,18 +203,6 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     'Marked Absent',
   ];
   final Map<String, List<String>> classroomStudents = {};
-  final List<Color> _colorPalette = [
-    const Color(0xFFB3E5FC),
-    const Color(0xFFFFCCBC),
-    const Color(0xFFC8E6C9),
-    const Color(0xFFFFE0B2),
-    //const Color(0xFFFFF9C4),
-    const Color(0xFFE1BEE7),
-    //const Color(0xFFCCFF90),
-    const Color(0xFF80DEEA),
-    const Color(0xFFD1C4E9),
-    const Color(0xFFFFAB91),
-  ];
   // final List<String> _allStudents = [
   //   'Raghave Gupta',
   //   'Rohan Gupta',
@@ -346,19 +332,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     bool changed = false;
 
     // If resetKey changes, we force apply the initial filters again
-    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+    final bool forceReset =
+        widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
 
-    if (forceReset || widget.initialActivityTypes != oldWidget.initialActivityTypes) {
-      if (widget.initialActivityTypes != null && widget.initialActivityTypes!.isNotEmpty) {
+    if (forceReset ||
+        widget.initialActivityTypes != oldWidget.initialActivityTypes) {
+      if (widget.initialActivityTypes != null &&
+          widget.initialActivityTypes!.isNotEmpty) {
         _filterActivityTypes = List.from(widget.initialActivityTypes!);
         changed = true;
       }
     }
 
     if (forceReset || widget.initialClassrooms != oldWidget.initialClassrooms) {
-      if (widget.initialClassrooms != null && widget.initialClassrooms!.isNotEmpty) {
+      if (widget.initialClassrooms != null &&
+          widget.initialClassrooms!.isNotEmpty) {
         _selectedClassrooms = List.from(widget.initialClassrooms!);
-        if (_selectedClassrooms.length == 1 && _selectedClassrooms.first.toLowerCase() == 'all') {
+        if (_selectedClassrooms.length == 1 &&
+            _selectedClassrooms.first.toLowerCase() == 'all') {
           _forceAllClassroomsOnLoad = true;
           _selectdClassroom = null;
           if (_classroomOptions.isNotEmpty) {
@@ -418,21 +409,24 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     //_selectedStudent = _allStudents[0];
 
     // Apply initial filters passed from the route
-    if (widget.initialActivityTypes != null && widget.initialActivityTypes!.isNotEmpty) {
+    if (widget.initialActivityTypes != null &&
+        widget.initialActivityTypes!.isNotEmpty) {
       _filterActivityTypes = List.from(widget.initialActivityTypes!);
     }
-    if (widget.initialClassrooms != null && widget.initialClassrooms!.isNotEmpty) {
+    if (widget.initialClassrooms != null &&
+        widget.initialClassrooms!.isNotEmpty) {
       _selectedClassrooms = List.from(widget.initialClassrooms!);
-      if (_selectedClassrooms.length == 1 && _selectedClassrooms.first.toLowerCase() == 'all') {
-         _forceAllClassroomsOnLoad = true;
-         _selectdClassroom = null;
-         if (_classroomOptions.isNotEmpty) {
-           _selectedClassrooms = List.from(_classroomOptions);
-         } else {
-           _selectedClassrooms = [];
-         }
+      if (_selectedClassrooms.length == 1 &&
+          _selectedClassrooms.first.toLowerCase() == 'all') {
+        _forceAllClassroomsOnLoad = true;
+        _selectdClassroom = null;
+        if (_classroomOptions.isNotEmpty) {
+          _selectedClassrooms = List.from(_classroomOptions);
+        } else {
+          _selectedClassrooms = [];
+        }
       } else {
-         _selectdClassroom = _selectedClassrooms.first;
+        _selectdClassroom = _selectedClassrooms.first;
       }
     }
 
@@ -1191,7 +1185,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       if (!_lastFeedCompletedWithError) return;
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
         return;
       }
     }
@@ -1581,9 +1576,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
     if (school == null || school.isEmpty) {
       return;
     }
-    
+
     final classroomName = _selectdClassroom;
-    final classroomCode = (classroomName != null && _classroomCodeByName.containsKey(classroomName))
+    final classroomCode =
+        (classroomName != null &&
+            _classroomCodeByName.containsKey(classroomName))
         ? _classroomCodeByName[classroomName]!
         : '';
 
@@ -2165,7 +2162,7 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       _classroomOptions
         ..clear()
         ..addAll(scoped.map((c) => c.name));
-      
+
       if (_forceAllClassroomsOnLoad) {
         _selectedClassrooms = List.from(_classroomOptions);
         _selectdClassroom = null;
@@ -2183,9 +2180,11 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
             ? primaryName
             : _classroomOptions.first;
       }
-      
+
       // Keep multi-select UI in sync with default classroom.
-      if (!_forceAllClassroomsOnLoad && _selectdClassroom != null && _selectdClassroom!.trim().isNotEmpty) {
+      if (!_forceAllClassroomsOnLoad &&
+          _selectdClassroom != null &&
+          _selectdClassroom!.trim().isNotEmpty) {
         _selectedClassrooms = <String>[_selectdClassroom!];
       }
       _forceAllClassroomsOnLoad = false;
@@ -2562,7 +2561,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
       }
       final completedAt = _lastFeedCompletedAt;
       if (completedAt != null &&
-          AppTime.nowUtc().difference(completedAt) < const Duration(seconds: 3)) {
+          AppTime.nowUtc().difference(completedAt) <
+              const Duration(seconds: 3)) {
         return;
       }
     }
@@ -3251,7 +3251,8 @@ class _ActivityCustomTabState extends State<ActivityCustomTab>
                                 final activity = _displayActivities[index];
                                 final students = activity.studentList;
                                 final Color activityColor =
-                                    _colorPalette[index % _colorPalette.length];
+                                    AppColors.colorPalette[index %
+                                        AppColors.colorPalette.length];
 
                                 return Column(
                                   children: [

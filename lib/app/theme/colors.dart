@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class AppColors {
-  const AppColors._();
+  AppColors._();
 
   static const themeColor = Color.fromRGBO(89, 120, 247, 1);
 
@@ -225,4 +225,18 @@ class AppColors {
   // Status indicator colors (for success/error states)
   static const Color billingStatusSuccess = Colors.green;
   static const Color billingStatusError = Color(0xFFFF3B30);
+
+  // Activity Custom tab
+  static final List<Color> colorPalette = [
+    const Color(0xFFB3E5FC),
+    const Color(0xFFFFCCBC),
+    const Color(0xFFC8E6C9),
+    const Color(0xFFFFE0B2),
+    // const Color(0xFFFFF9C4),
+    const Color(0xFFE1BEE7),
+    const Color(0xFFCCFF90),
+    const Color(0xFF80DEEA),
+    const Color(0xFFD1C4E9),
+    const Color(0xFFFFAB91),
+  ];
 }

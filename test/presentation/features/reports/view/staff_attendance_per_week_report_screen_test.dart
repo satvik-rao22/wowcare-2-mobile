@@ -16,6 +16,7 @@ import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecas
 import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
@@ -158,10 +159,7 @@ void main() {
   late ReportsCubit reportsCubit;
 
   final staff = ['Alice Smith', 'Bob Jones'];
-  final staffLookup = {
-    'Alice Smith': 'STF_1111',
-    'Bob Jones': 'STF_2222',
-  };
+  final staffLookup = {'Alice Smith': 'STF_1111', 'Bob Jones': 'STF_2222'};
   final classrooms = ['1-Class A', 'Office', 'Primary Room'];
   final classroomLookup = {
     '1-Class A': 'CLS_06C3AF97-6',
@@ -182,12 +180,14 @@ void main() {
 
     reportsCubit = ReportsCubit(
       storageService: fakeStorageService,
-      getTagNamesForSchoolUseCase: GetTagNamesForSchoolUseCase(mockStudentRepo),
       generateReportUseCase: GenerateReportUseCase(fakeReportsRepo),
       getRecentReportsUseCase: GetRecentReportsUseCase(fakeReportsRepo),
       getStudentTagsUseCase: GetStudentTagsUseCase(fakeReportsRepo),
       downloadReportUseCase: DownloadReportUseCase(fakeReportsRepo),
       fileDownloadRepository: _FakeFileDownloadRepository(),
+      getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(
+        mockStudentRepo,
+      ),
     );
 
     reportsCubit.setStaffNames(staff, nameToCodeMap: staffLookup);
@@ -240,8 +240,7 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
 
       expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
-      final params =
-          fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
+      final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
       expect(params.reportType, ReportType.staffAttendancePerStaff);
       expect(params.roomCodes, [
         'CLS_06C3AF97-6',
