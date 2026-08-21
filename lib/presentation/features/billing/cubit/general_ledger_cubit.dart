@@ -11,6 +11,8 @@ import 'package:wowcare/domain/features/billing/usecases/reactivate_ledger_useca
 import 'package:wowcare/domain/features/billing/usecases/get_ledgers_usecase.dart';
 import 'package:wowcare/presentation/features/billing/widgets/general_ledger/models/ledger_account_model.dart';
 
+import '../../../../core/util/api_error_handler.dart';
+
 part 'general_ledger_state.dart';
 
 class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
@@ -20,13 +22,13 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
     required DeactivateLedgerUseCase deactivateLedgerUseCase,
     required ReactivateLedgerUseCase reactivateLedgerUseCase,
     required StorageService storageService,
-  })  : _getLedgersUseCase = getLedgersUseCase,
-        _deleteLedgerUseCase = deleteLedgerUseCase,
-        _deactivateLedgerUseCase = deactivateLedgerUseCase,
-        _reactivateLedgerUseCase = reactivateLedgerUseCase,
-        _storageService = storageService,
-        _cacheManager = CacheManager(storageService),
-        super(GeneralLedgerState.initial());
+  }) : _getLedgersUseCase = getLedgersUseCase,
+       _deleteLedgerUseCase = deleteLedgerUseCase,
+       _deactivateLedgerUseCase = deactivateLedgerUseCase,
+       _reactivateLedgerUseCase = reactivateLedgerUseCase,
+       _storageService = storageService,
+       _cacheManager = CacheManager(storageService),
+       super(GeneralLedgerState.initial());
 
   final GetLedgersUseCase _getLedgersUseCase;
   final DeleteLedgerUseCase _deleteLedgerUseCase;
@@ -53,32 +55,34 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
   // ─── Cache helpers ────────────────────────────────────────────────────────
 
   String _cacheKey(String schoolCode) => CacheManager.buildCacheKey(
-        feature: 'ledger',
-        resource: 'list',
-        identifier:
-            '${schoolCode.trim()}|status=${state.statusFilter ?? "ALL"}|cat=${state.selectedCategory ?? "ALL"}',
-      );
+    feature: 'ledger',
+    resource: 'list',
+    identifier:
+        '${schoolCode.trim()}|status=${state.statusFilter ?? "ALL"}|cat=${state.selectedCategory ?? "ALL"}',
+  );
 
   Map<String, dynamic> _encodeList(List<LedgerAccountModel> items) => {
-        'items': items
-            .map((e) => <String, dynamic>{
-                  'id': e.id,
-                  'name': e.name,
-                  'type': e.type,
-                  'openBalance': e.openBalance,
-                  'description': e.description,
-                  'status': e.status,
-                  'isSubsidy': e.isSubsidy,
-                  'nature': e.nature,
-                  'currency': e.currency,
-                  'category': e.category,
-                  'openingBalanceType': e.openingBalanceType,
-                  'currentBalance': e.currentBalance,
-                  'balanceType': e.balanceType,
-                  'system': e.system,
-                })
-            .toList(),
-      };
+    'items': items
+        .map(
+          (e) => <String, dynamic>{
+            'id': e.id,
+            'name': e.name,
+            'type': e.type,
+            'openBalance': e.openBalance,
+            'description': e.description,
+            'status': e.status,
+            'isSubsidy': e.isSubsidy,
+            'nature': e.nature,
+            'currency': e.currency,
+            'category': e.category,
+            'openingBalanceType': e.openingBalanceType,
+            'currentBalance': e.currentBalance,
+            'balanceType': e.balanceType,
+            'system': e.system,
+          },
+        )
+        .toList(),
+  };
 
   List<LedgerAccountModel> _decodeList(Map<String, dynamic>? payload) {
     if (payload == null) return [];
@@ -126,11 +130,13 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
     final cached = await _cacheManager.loadCache(cacheKey);
     final cachedItems = _decodeList(cached);
     if (cachedItems.isNotEmpty && !isClosed) {
-      emit(state.copyWith(
-        allLedgers: cachedItems,
-        isLoading: false,
-        isRefreshing: true,
-      ));
+      emit(
+        state.copyWith(
+          allLedgers: cachedItems,
+          isLoading: false,
+          isRefreshing: true,
+        ),
+      );
     }
 
     await _fetchPage(page: 0, reset: true);
@@ -154,26 +160,31 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
       final result = await _getLedgersUseCase(
         organizationCode: org,
         school: school,
-        search: state.searchQuery.trim().isEmpty ? null : state.searchQuery.trim(),
+        search: state.searchQuery.trim().isEmpty
+            ? null
+            : state.searchQuery.trim(),
         category: state.selectedCategory,
         status: state.statusFilter,
         page: page,
       );
 
-      final newItems =
-          result.content.map(LedgerAccountModel.fromEntity).toList();
+      final newItems = result.content
+          .map(LedgerAccountModel.fromEntity)
+          .toList();
       final merged = reset ? newItems : [...state.allLedgers, ...newItems];
 
       if (isClosed) return;
-      emit(state.copyWith(
-        allLedgers: merged,
-        isLoading: false,
-        isRefreshing: false,
-        isLoadingMore: false,
-        hasMore: result.hasMore,
-        currentPage: result.number,
-        errorMessage: () => null,
-      ));
+      emit(
+        state.copyWith(
+          allLedgers: merged,
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          hasMore: result.hasMore,
+          currentPage: result.number,
+          errorMessage: () => null,
+        ),
+      );
 
       // Save to cache only for fresh first-page loads (no search query)
       if (reset && state.searchQuery.trim().isEmpty) {
@@ -182,12 +193,14 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
       }
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(
-        isLoading: false,
-        isRefreshing: false,
-        isLoadingMore: false,
-        errorMessage: () => e.toString(),
-      ));
+      emit(
+        state.copyWith(
+          isLoading: false,
+          isRefreshing: false,
+          isLoadingMore: false,
+          errorMessage: () => ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 
@@ -203,21 +216,25 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
   }
 
   void setCategory(String? category) {
-    emit(GeneralLedgerState.initial().copyWith(
-      searchQuery: state.searchQuery,
-      selectedCategory: () => category,
-      statusFilter: () => state.statusFilter,
-    ));
+    emit(
+      GeneralLedgerState.initial().copyWith(
+        searchQuery: state.searchQuery,
+        selectedCategory: () => category,
+        statusFilter: () => state.statusFilter,
+      ),
+    );
     loadInitial();
   }
 
   void setStatusFilter(String? status) {
     if (state.statusFilter == status) return;
-    emit(GeneralLedgerState.initial().copyWith(
-      searchQuery: state.searchQuery,
-      selectedCategory: () => state.selectedCategory,
-      statusFilter: () => status,
-    ));
+    emit(
+      GeneralLedgerState.initial().copyWith(
+        searchQuery: state.searchQuery,
+        selectedCategory: () => state.selectedCategory,
+        statusFilter: () => status,
+      ),
+    );
     loadInitial();
   }
 
@@ -232,9 +249,11 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
 
   void addLedger(LedgerAccountModel ledger) {
     unawaited(_invalidateAllLedgerCaches());
-    emit(state.copyWith(
-      allLedgers: <LedgerAccountModel>[ledger, ...state.allLedgers],
-    ));
+    emit(
+      state.copyWith(
+        allLedgers: <LedgerAccountModel>[ledger, ...state.allLedgers],
+      ),
+    );
   }
 
   void updateLedger(LedgerAccountModel ledger) {
@@ -250,9 +269,13 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
     try {
       await _deleteLedgerUseCase(ledgerCode);
       await _invalidateAllLedgerCaches();
-      emit(state.copyWith(
-        allLedgers: state.allLedgers.where((e) => e.id != ledgerCode).toList(),
-      ));
+      emit(
+        state.copyWith(
+          allLedgers: state.allLedgers
+              .where((e) => e.id != ledgerCode)
+              .toList(),
+        ),
+      );
       return true;
     } catch (_) {
       return false;
@@ -264,9 +287,13 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
       await _deactivateLedgerUseCase(ledgerCode);
       await _invalidateAllLedgerCaches();
       if (state.statusFilter == 'ACTIVE') {
-        emit(state.copyWith(
-          allLedgers: state.allLedgers.where((e) => e.id != ledgerCode).toList(),
-        ));
+        emit(
+          state.copyWith(
+            allLedgers: state.allLedgers
+                .where((e) => e.id != ledgerCode)
+                .toList(),
+          ),
+        );
       } else {
         final updated = state.allLedgers.map((e) {
           return e.id == ledgerCode ? e.copyWith(status: 'INACTIVE') : e;
@@ -284,9 +311,13 @@ class GeneralLedgerCubit extends Cubit<GeneralLedgerState> {
       await _reactivateLedgerUseCase(ledgerCode);
       await _invalidateAllLedgerCaches();
       if (state.statusFilter == 'INACTIVE') {
-        emit(state.copyWith(
-          allLedgers: state.allLedgers.where((e) => e.id != ledgerCode).toList(),
-        ));
+        emit(
+          state.copyWith(
+            allLedgers: state.allLedgers
+                .where((e) => e.id != ledgerCode)
+                .toList(),
+          ),
+        );
       } else {
         final updated = state.allLedgers.map((e) {
           return e.id == ledgerCode ? e.copyWith(status: 'ACTIVE') : e;

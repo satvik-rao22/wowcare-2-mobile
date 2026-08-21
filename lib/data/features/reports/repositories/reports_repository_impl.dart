@@ -1,5 +1,6 @@
 import '../../../../core/errors/failures.dart';
 import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/school_context_helper.dart';
@@ -150,7 +151,8 @@ class ReportsRepositoryImpl implements ReportsRepository {
     final failures = <String>[];
     for (final result in results) {
       if (result.error != null) {
-        failures.add('${result.label}: ${result.error}');
+        final sanitized = ApiErrorHandler.extractErrorMessage(result.error);
+        failures.add('${result.label}: $sanitized');
       } else {
         AppLogger.d(
           '[REPORTS] ${result.label} Reports Count: ${result.data.length}',

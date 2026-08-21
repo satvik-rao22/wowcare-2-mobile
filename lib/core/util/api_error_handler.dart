@@ -53,6 +53,11 @@ class ApiErrorHandler {
       }
 
       // No usable body message → map by HTTP status code (5xx → generic).
+      // We explicitly skip mapping 500+ errors to body messages unless it was an envelope message
+      if (status != null && status >= 500) {
+        return genericError;
+      }
+
       final byStatus = _messageForStatus(status);
       if (byStatus != null) return byStatus;
 
@@ -156,12 +161,14 @@ class ApiErrorHandler {
         lower.contains('rangeerror') ||
         lower.contains('nosuchmethod') ||
         lower.contains('stack trace') ||
+        lower.contains('exception') ||
+        lower.contains('typeerror') ||
+        lower.contains('null check') ||
         lower.startsWith('#0') ||
         s.contains('package:') ||
         s.length > 240) {
       return genericError;
     }
-
     return s;
   }
 

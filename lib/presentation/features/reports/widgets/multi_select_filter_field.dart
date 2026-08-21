@@ -541,7 +541,6 @@ class _SelectAllButton extends StatelessWidget {
 class _ClearAllButton extends StatelessWidget {
   final bool isEmpty;
   final VoidCallback onClearAll;
-
   const _ClearAllButton({required this.isEmpty, required this.onClearAll});
 
   @override

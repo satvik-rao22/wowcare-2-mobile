@@ -1,7 +1,6 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_error_handler.dart';
 import '../../../../core/util/storage_keys.dart';
@@ -15,7 +14,6 @@ import '../../../../domain/features/staff/entities/staff_member.dart';
 import '../../../../domain/features/staff/repositories/staff_repository.dart';
 import '../utils/scheduling_school_time.dart';
 import '../utils/school_hours_resolver.dart';
-
 part 'add_shift_state.dart';
 
 /// Backs [AddShiftScreen]. Owns every piece of form state (date, times,
@@ -36,13 +34,13 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     required GetStaffShiftsUseCase getStaffShiftsUseCase,
     required CreateStaffShiftUseCase createStaffShiftUseCase,
     required StorageService storageService,
-  })  : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
-        _staffRepository = staffRepository,
-        _staffShiftRepository = staffShiftRepository,
-        _getStaffShiftsUseCase = getStaffShiftsUseCase,
-        _createStaffShiftUseCase = createStaffShiftUseCase,
-        _storageService = storageService,
-        super(AddShiftState(date: schedulingSchoolToday()));
+  }) : _getActiveClassroomsUseCase = getActiveClassroomsUseCase,
+       _staffRepository = staffRepository,
+       _staffShiftRepository = staffShiftRepository,
+       _getStaffShiftsUseCase = getStaffShiftsUseCase,
+       _createStaffShiftUseCase = createStaffShiftUseCase,
+       _storageService = storageService,
+       super(AddShiftState(date: schedulingSchoolToday()));
 
   final GetActiveClassroomsUseCase _getActiveClassroomsUseCase;
   final StaffRepository _staffRepository;
@@ -105,7 +103,8 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   Future<void> _loadAdminClassrooms() async {
     try {
       final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       if (schoolCode.isEmpty) return;
       final classrooms = await _getActiveClassroomsUseCase(
         schoolCode: schoolCode,
@@ -134,10 +133,12 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   Future<void> _loadSchoolHours() async {
     try {
       final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       if (schoolCode.isEmpty) return;
-      final days =
-          await _staffRepository.getSchoolRegularSchedules(schoolCode: schoolCode);
+      final days = await _staffRepository.getSchoolRegularSchedules(
+        schoolCode: schoolCode,
+      );
       if (isClosed) return;
       emit(
         state.copyWith(schoolHoursResolver: SchoolHoursResolver.fromDays(days)),
@@ -161,35 +162,43 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   }
 
   void setShiftStart(TimeOfDay? time) {
-    emit(state.copyWith(
-      shiftStart: time,
-      shiftStartError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        shiftStart: time,
+        shiftStartError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setShiftEnd(TimeOfDay? time) {
-    emit(state.copyWith(
-      shiftEnd: time,
-      shiftEndError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        shiftEnd: time,
+        shiftEndError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setBreakStart(TimeOfDay? time) {
-    emit(state.copyWith(
-      breakStart: time,
-      breakStartError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        breakStart: time,
+        breakStartError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setBreakEnd(TimeOfDay? time) {
-    emit(state.copyWith(
-      breakEnd: time,
-      breakEndError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        breakEnd: time,
+        breakEndError: null,
+        schoolHoursError: null,
+      ),
+    );
   }
 
   void setUntilDate(DateTime date) {
@@ -202,13 +211,15 @@ class AddShiftCubit extends Cubit<AddShiftState> {
 
   void toggleRepeat(bool value) {
     if (!value) {
-      emit(state.copyWith(
-        repeatOn: false,
-        selectedDays: const <String>{},
-        untilDate: null,
-        daysError: null,
-        untilDateError: null,
-      ));
+      emit(
+        state.copyWith(
+          repeatOn: false,
+          selectedDays: const <String>{},
+          untilDate: null,
+          daysError: null,
+          untilDateError: null,
+        ),
+      );
       return;
     }
     // Pre-select the weekday of the currently chosen date so the user doesn't
@@ -267,10 +278,9 @@ class AddShiftCubit extends Cubit<AddShiftState> {
         !allowed.contains(state.selectedClassroomCode)) {
       classroom = null;
     }
-    emit(state.copyWith(
-      selectedStaffCode: code,
-      selectedClassroomCode: classroom,
-    ));
+    emit(
+      state.copyWith(selectedStaffCode: code, selectedClassroomCode: classroom),
+    );
     prefillTimesFromSchedule(code == null || code.isEmpty ? null : member);
   }
 
@@ -294,17 +304,19 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     final work = _parseTimeRange(staff.workScheduleByDay[dayKey]);
     final brk = _parseTimeRange(staff.breakScheduleByDay[dayKey]);
 
-    emit(state.copyWith(
-      shiftStartError: null,
-      shiftEndError: null,
-      breakStartError: null,
-      breakEndError: null,
-      noScheduleForSelectedDate: work == null,
-      shiftStart: work?.$1,
-      shiftEnd: work?.$2,
-      breakStart: brk?.$1,
-      breakEnd: brk?.$2,
-    ));
+    emit(
+      state.copyWith(
+        shiftStartError: null,
+        shiftEndError: null,
+        breakStartError: null,
+        breakEndError: null,
+        noScheduleForSelectedDate: work == null,
+        shiftStart: work?.$1,
+        shiftEnd: work?.$2,
+        breakStart: brk?.$1,
+        breakEnd: brk?.$2,
+      ),
+    );
   }
 
   /// Whether the build-time fallback prefill should fire for [staff] — true
@@ -321,14 +333,16 @@ class AddShiftCubit extends Cubit<AddShiftState> {
   /// whether the form is good to submit. The school-hours violation also lands
   /// in [AddShiftState.schoolHoursError] so the view can raise a snackbar.
   bool validate() {
-    emit(state.copyWith(
-      shiftStartError: null,
-      shiftEndError: null,
-      breakStartError: null,
-      breakEndError: null,
-      untilDateError: null,
-      schoolHoursError: null,
-    ));
+    emit(
+      state.copyWith(
+        shiftStartError: null,
+        shiftEndError: null,
+        breakStartError: null,
+        breakEndError: null,
+        untilDateError: null,
+        schoolHoursError: null,
+      ),
+    );
 
     final shiftStart = state.shiftStart;
     final shiftEnd = state.shiftEnd;
@@ -338,7 +352,9 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     final shiftEndMin = _minutesOf(shiftEnd);
 
     if (shiftEndMin <= shiftStartMin) {
-      emit(state.copyWith(shiftEndError: 'Shift end must be after shift start'));
+      emit(
+        state.copyWith(shiftEndError: 'Shift end must be after shift start'),
+      );
       return false;
     }
 
@@ -347,10 +363,12 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     final hasBreakStart = breakStart != null;
     final hasBreakEnd = breakEnd != null;
     if (hasBreakStart != hasBreakEnd) {
-      emit(state.copyWith(
-        breakStartError: !hasBreakStart ? 'Break start is required' : null,
-        breakEndError: !hasBreakEnd ? 'Break end is required' : null,
-      ));
+      emit(
+        state.copyWith(
+          breakStartError: !hasBreakStart ? 'Break start is required' : null,
+          breakEndError: !hasBreakEnd ? 'Break end is required' : null,
+        ),
+      );
       return false;
     }
 
@@ -358,16 +376,18 @@ class AddShiftCubit extends Cubit<AddShiftState> {
       final breakStartMin = _minutesOf(breakStart);
       final breakEndMin = _minutesOf(breakEnd);
       if (breakEndMin <= breakStartMin) {
-        emit(state.copyWith(
-          breakEndError: 'Break end must be after break start',
-        ));
+        emit(
+          state.copyWith(breakEndError: 'Break end must be after break start'),
+        );
         return false;
       }
       if (breakStartMin < shiftStartMin || breakEndMin > shiftEndMin) {
-        emit(state.copyWith(
-          breakStartError: 'Break must be within shift',
-          breakEndError: 'Break must be within shift',
-        ));
+        emit(
+          state.copyWith(
+            breakStartError: 'Break must be within shift',
+            breakEndError: 'Break must be within shift',
+          ),
+        );
         return false;
       }
     }
@@ -375,9 +395,9 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     if (state.repeatOn && state.untilDate != null) {
       if (state.untilDate!.isBefore(state.date) &&
           !_isSameDay(state.untilDate!, state.date)) {
-        emit(state.copyWith(
-          untilDateError: 'Must be on or after the shift date',
-        ));
+        emit(
+          state.copyWith(untilDateError: 'Must be on or after the shift date'),
+        );
         return false;
       }
     }
@@ -403,19 +423,24 @@ class AddShiftCubit extends Cubit<AddShiftState> {
       final windowLabel =
           '${_formatTime(window.$1)} – ${_formatTime(window.$2)}';
       if (shiftStartMin < schoolStartMin || shiftEndMin > schoolEndMin) {
-        emit(state.copyWith(
-          schoolHoursError: 'Shift must be within school hours ($windowLabel).',
-        ));
+        emit(
+          state.copyWith(
+            schoolHoursError:
+                'Shift must be within school hours ($windowLabel).',
+          ),
+        );
         return false;
       }
       if (hasBreakStart && hasBreakEnd) {
         final breakStartMin = _minutesOf(breakStart);
         final breakEndMin = _minutesOf(breakEnd);
         if (breakStartMin < schoolStartMin || breakEndMin > schoolEndMin) {
-          emit(state.copyWith(
-            schoolHoursError:
-                'Break must be within school hours ($windowLabel).',
-          ));
+          emit(
+            state.copyWith(
+              schoolHoursError:
+                  'Break must be within school hours ($windowLabel).',
+            ),
+          );
           return false;
         }
       }
@@ -519,10 +544,11 @@ class AddShiftCubit extends Cubit<AddShiftState> {
       for (final code in allowed) {
         final trimmed = code.trim();
         if (trimmed.isEmpty) continue;
-        final name = (fullList[trimmed] ??
-                selectedStaff.allowedClassroomNameByCode[trimmed] ??
-                '')
-            .trim();
+        final name =
+            (fullList[trimmed] ??
+                    selectedStaff.allowedClassroomNameByCode[trimmed] ??
+                    '')
+                .trim();
         result[trimmed] = name.isNotEmpty ? name : trimmed;
       }
       final primary = selectedStaff.primaryClassroomCode.trim();
@@ -603,14 +629,18 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     }
 
     // For recurring shifts, only absent dates on a selected weekday matter.
-    final selectedDayIndices =
-        state.selectedDays.map((d) => _weekDayIndex[d]).whereType<int>().toSet();
+    final selectedDayIndices = state.selectedDays
+        .map((d) => _weekDayIndex[d])
+        .whereType<int>()
+        .toSet();
     var seriesAbsentDates = const <DateTime>[];
     if (repeatOn) {
-      seriesAbsentDates = absentDates.where((d) {
-        if (selectedDayIndices.isEmpty) return true;
-        return selectedDayIndices.contains(d.weekday);
-      }).toList(growable: false);
+      seriesAbsentDates = absentDates
+          .where((d) {
+            if (selectedDayIndices.isEmpty) return true;
+            return selectedDayIndices.contains(d.weekday);
+          })
+          .toList(growable: false);
     }
 
     if (!isClosed) emit(state.copyWith(saving: false));
@@ -632,8 +662,9 @@ class AddShiftCubit extends Cubit<AddShiftState> {
 
     // Recurring shift: each selected weekday must fit the staff's window.
     if (repeatOn && selectedStaff != null) {
-      final anyOutside = selectedDayIndices
-          .any((wd) => !_shiftFitsStaffSchedule(selectedStaff, wd));
+      final anyOutside = selectedDayIndices.any(
+        (wd) => !_shiftFitsStaffSchedule(selectedStaff, wd),
+      );
       if (anyOutside) {
         await onNoAvailability();
         return const AddShiftSubmitOutcome.cancelled();
@@ -643,7 +674,8 @@ class AddShiftCubit extends Cubit<AddShiftState> {
     emit(state.copyWith(saving: true));
     try {
       final schoolCode =
-          (await _storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+          (await _storageService.getString(StorageKeys.schoolCode) ?? '')
+              .trim();
       final orgCode =
           (await _storageService.getString(StorageKeys.organizationCode) ?? '')
               .trim();
@@ -755,18 +787,18 @@ class AddShiftSubmitOutcome {
   });
 
   const AddShiftSubmitOutcome.success({required bool created})
-      : this._(success: true, created: created, cancelled: false);
+    : this._(success: true, created: created, cancelled: false);
 
   const AddShiftSubmitOutcome.cancelled()
-      : this._(success: false, created: false, cancelled: true);
+    : this._(success: false, created: false, cancelled: true);
 
   const AddShiftSubmitOutcome.error(String message)
-      : this._(
-          success: false,
-          created: false,
-          cancelled: false,
-          errorMessage: message,
-        );
+    : this._(
+        success: false,
+        created: false,
+        cancelled: false,
+        errorMessage: message,
+      );
 
   final bool success;
   final bool created;
