@@ -20,7 +20,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
-import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_staff_tab_card.dart'
+import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_staff_tab_card.dart'
     show notifyClassroomStaffChanged;
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -117,12 +117,33 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   /// Inactive transition, not on every save. See _saveProfileDetails.
   String _originalStatusApi = '';
 
+  /// Name/phone/address as loaded, before any edits — this form always
+  /// resubmits every field on save (no per-field dirty tracking), so the
+  /// /profile PATCH's generic success message can't by itself tell "only
+  /// email changed" apart from "other fields changed too". Compared against
+  /// the submitted values at save time; see _saveProfileDetails' message
+  /// composition.
+  String _originalFirstName = '';
+  String _originalLastName = '';
+  String _originalPhoneDigits = '';
+  String _originalAddressStreet = '';
+  String _originalAddressLine2 = '';
+  String _originalAddressCity = '';
+  String _originalAddressState = '';
+  String _originalAddressZipDigits = '';
+
   static const List<String> _staffStatusOptions = [
     'Active',
     'Inactive',
     'Upcoming',
   ];
   static const List<String> _adminStatusOptions = ['Active', 'Inactive'];
+
+  /// Shown on a successful email change instead of the raw email-change API
+  /// response text — matches the web app's "Verification Email Sent" banner
+  /// copy so both clients tell the user the same thing in the same words.
+  static const String _emailVerificationSentMessage =
+      'A verification email has been sent to your new email address.';
   // Full designation list (union of admin + staff) for mapping helpers.
   final List<String> _designationOptions = [
     'Director',
@@ -164,7 +185,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
-  static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
   /// Map from classroom display name -> classroom code (for API payload).
   final Map<String, String> _classroomCodeByName = {};
@@ -316,6 +336,12 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       setState(() {
         _firstNameController.text = profile.firstName;
         _lastNameController.text = profile.lastName;
+        _originalFirstName = profile.firstName.trim().toLowerCase();
+        _originalLastName = profile.lastName.trim().toLowerCase();
+        _originalPhoneDigits = profile.phoneNumber.replaceAll(
+          RegExp(r'\D'),
+          '',
+        );
         _emailController.text = profile.email;
         _originalEmail = profile.email.trim().toLowerCase();
         _profileUserCode = profile.userCode.trim();
@@ -387,6 +413,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _street2Controller.text = a.line2;
         _cityController.text = a.city;
         _zipCodeController.text = _formatUsZipForDisplay(a.zipCode);
+        _originalAddressStreet = a.street.trim().toLowerCase();
+        _originalAddressLine2 = a.line2.trim().toLowerCase();
+        _originalAddressCity = a.city.trim().toLowerCase();
+        _originalAddressZipDigits = a.zipCode.replaceAll(RegExp(r'\D'), '');
         if (a.state.isNotEmpty) {
           final match = US_STATES.firstWhere(
             (s) =>
@@ -395,6 +425,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             orElse: () => US_STATES.first,
           );
           _selectedState = match.name;
+          // Captured as the same display-name form _selectedState holds, so
+          // the save-time comparison isn't comparing a full name against an
+          // abbreviation (a.state's raw form can be either).
+          _originalAddressState = match.name.toLowerCase();
         }
 
         // Country is fixed to United States for this screen; ignore API value.
@@ -588,7 +622,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (phoneDigits.length != 10 || !_e164Regex.hasMatch('+' + phoneDigits)) {
+    // Only the 10-digit check matters here — the E.164 check this used to
+    // also run (requiring the first digit to be 1-9) rejected genuinely
+    // valid 10-digit numbers that start with 0 (see the matching fix in
+    // EditUserProfileScreen for the same bug on the "My Profile" screen).
+    if (phoneDigits.length != 10) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter a valid 10-digit phone number',
@@ -736,20 +774,39 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
       final repository = serviceLocator<StaffRepository>();
 
-      // If email changed, call email-change API first (same behavior as EditUserProfileScreen).
+      // If email changed, call email-change API first (same behavior as
+      // EditUserProfileScreen/EditUserProfileCubit). Its own response
+      // `message` (e.g. "verification email sent to the new address") is
+      // captured and preferred over the unrelated address/profile message
+      // below — and, unlike the rest of this save, a failure here is caught
+      // locally rather than aborting the whole save: an email failure alone
+      // must not also block the classroom/address/activation updates that
+      // follow, and the user must see the ACTUAL backend error for the
+      // email specifically, not a generic one from whatever step happened
+      // to fail next.
+      String? emailChangeMessage;
+      bool emailChangeFailed = false;
       final newEmail = email.trim().toLowerCase();
-      if (_profileUserCode.isNotEmpty &&
+      final emailChanged =
+          _profileUserCode.isNotEmpty &&
           _profileOrganizationCode.isNotEmpty &&
           _profileSchoolCode.isNotEmpty &&
           _originalEmail.isNotEmpty &&
-          _originalEmail != newEmail) {
-        await repository.changeUserEmail(
-          userCode: _profileUserCode,
-          oldEmail: _originalEmail,
-          newEmail: newEmail,
-          organizationCode: _profileOrganizationCode,
-          schoolCode: _profileSchoolCode,
-        );
+          _originalEmail != newEmail;
+      if (emailChanged) {
+        try {
+          await repository.changeUserEmail(
+            userCode: _profileUserCode,
+            oldEmail: _originalEmail,
+            newEmail: newEmail,
+            organizationCode: _profileOrganizationCode,
+            schoolCode: _profileSchoolCode,
+          );
+          emailChangeMessage = _emailVerificationSentMessage;
+        } catch (e) {
+          emailChangeFailed = true;
+          emailChangeMessage = ApiErrorHandler.extractErrorMessage(e);
+        }
       }
 
       // Update core profile fields
@@ -869,12 +926,65 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         );
       }
 
+      // updateStaffAddress runs unconditionally on every save, just like
+      // updateStaffProfile, regardless of whether the address itself
+      // changed — so addressMessage is always non-empty, and preferring it
+      // (as this used to) meant the banner said something address-specific
+      // (e.g. "Staff address updated successfully") on EVERY save, even one
+      // that only touched the name or phone number. The general profile
+      // message is the correct default; address-specific text has no
+      // reason to override it just because that endpoint also ran.
+      final profileOrAddressMessage =
+          profileMessage.isNotEmpty ? profileMessage : addressMessage;
+      // This form always resubmits every field on save (no per-field dirty
+      // tracking), so the /profile PATCH's generic success message can't by
+      // itself tell "only email changed" apart from "other fields changed
+      // too" — compare the submitted values against what was actually
+      // loaded (captured in _original* at prefill time) to tell them apart.
+      final otherFieldsChanged =
+          first.trim().toLowerCase() != _originalFirstName ||
+          last.trim().toLowerCase() != _originalLastName ||
+          phoneDigits != _originalPhoneDigits ||
+          _streetController.text.trim().toLowerCase() !=
+              _originalAddressStreet ||
+          _street2Controller.text.trim().toLowerCase() !=
+              _originalAddressLine2 ||
+          _cityController.text.trim().toLowerCase() != _originalAddressCity ||
+          (_selectedState ?? '').trim().toLowerCase() !=
+              _originalAddressState ||
+          zipDigits != _originalAddressZipDigits;
+      // The web app shows the profile-update confirmation and the
+      // email-change endpoint's own message (e.g. a verification notice) as
+      // two separate stacked notifications. This app's top banner only
+      // shows one at a time (replacing any prior one instantly), so when
+      // BOTH changed, both messages are combined into one instead of
+      // picking just one and silently dropping the other; when only the
+      // email changed, the email-change message alone is shown (matching
+      // the web app exactly).
+      final baseMessage = !emailChanged
+          ? profileOrAddressMessage
+          : emailChangeFailed
+          ? 'Profile updated, but the email change failed: '
+                '${(emailChangeMessage ?? '').trim().isNotEmpty ? emailChangeMessage : 'please try again.'}'
+          : (() {
+              final trimmedEmail = (emailChangeMessage ?? '').trim();
+              if (!otherFieldsChanged) {
+                return trimmedEmail.isNotEmpty
+                    ? trimmedEmail
+                    : profileOrAddressMessage.trim();
+              }
+              final trimmedProfile = profileOrAddressMessage.trim();
+              if (trimmedEmail.isEmpty) return trimmedProfile;
+              if (trimmedProfile.isEmpty) return trimmedEmail;
+              return '$trimmedProfile $trimmedEmail';
+            })();
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            (addressMessage.isNotEmpty ? addressMessage : profileMessage) +
+            baseMessage +
             (photo != null ? ' Photo is uploading in the background…' : ''),
-        isSuccess: true,
+        isSuccess: !emailChangeFailed,
+        isWarning: emailChangeFailed,
       );
       Navigator.pop(context, true);
     } catch (e) {

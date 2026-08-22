@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -16,7 +17,6 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -28,12 +28,13 @@ import '../utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
+import '../../utils/activity_photo_attachment_upload.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../../widgets/upload_photo_video.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
-class OutdoorActivityScreen extends StatefulWidget {
+class OutdoorActivityScreen extends StatelessWidget {
   const OutdoorActivityScreen({
     super.key,
     this.selectedStudents,
@@ -47,10 +48,36 @@ class OutdoorActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<OutdoorActivityScreen> createState() => _OutdoorActivityScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ActivityEditorCubit>(
+      create: (_) => serviceLocator<ActivityEditorCubit>(),
+      child: _OutdoorActivityView(
+        selectedStudents: selectedStudents,
+        isEdit: isEdit,
+        activityData: activityData,
+        readOnly: readOnly,
+      ),
+    );
+  }
 }
 
-class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
+class _OutdoorActivityView extends StatefulWidget {
+  const _OutdoorActivityView({
+    this.selectedStudents,
+    this.isEdit = false,
+    this.activityData,
+    this.readOnly = false,
+  });
+  final List<Map<String, dynamic>>? selectedStudents;
+  final bool isEdit;
+  final ActivityItem? activityData;
+  final bool readOnly;
+
+  @override
+  State<_OutdoorActivityView> createState() => _OutdoorActivityViewState();
+}
+
+class _OutdoorActivityViewState extends State<_OutdoorActivityView> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
@@ -90,15 +117,12 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   int _uploadCompletedCount = 0;
   int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
-  final Map<String, String> _uploadedAssetCodeByPath = {};
-  String? _lastUploadContextKey;
+  final _attachmentState = ActivityPhotoAttachmentState();
   List<String> _remainingExistingPhotoUrls = [];
 
-  int get _uploadedPhotoCount => _newPhotos
-      .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
-      .length;
+  int get _uploadedPhotoCount => _attachmentState.uploadedCount(_newPhotos);
 
-  late final ActivityEditorCubit _editor;
+  ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
@@ -125,7 +149,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     super.initState();
     bootstrapActivitySchoolTimezone();
 
-    _editor = serviceLocator<ActivityEditorCubit>();
     _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -608,125 +631,36 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
-    final normalizedStudentCodes =
-        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-          ..sort();
-    final uploadContextKey = [
-      organizationCode.trim(),
-      schoolCode.trim(),
-      classroomCode.trim(),
-      normalizedStudentCodes.join(','),
-    ].join('|');
-    if (_lastUploadContextKey != uploadContextKey) {
-      _uploadedAssetCodeByPath.clear();
-      _lastUploadContextKey = uploadContextKey;
-    }
-
-    final missing = _newPhotos
-        .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
-        .toList();
-
     // Single student → PER_STUDENT, multiple → SHARED. Owner follows suit so the
     // session, presign owner, and attachment payload all agree.
     final isShared = studentCodes.length > 1;
     final bindingMode = isShared ? 'SHARED' : 'PER_STUDENT';
-    final ownerType = isShared ? 'CLASSROOM' : 'STUDENT';
-    final ownerCode = isShared ? classroomCode : studentCodes.first;
 
-    if (missing.isNotEmpty) {
-      setState(() {
-        _isUploadingMedia = true;
-        _uploadProgressPercent = 0;
-        _uploadCompletedCount = 0;
-        _uploadTotalCount = missing.length;
-      });
-      try {
-        final uploadSession = await _imageUploadService
-            .createActivityUploadSession(
-              organizationCode: organizationCode,
-              schoolCode: schoolCode,
-              classroomCode: classroomCode,
-              activityTypeCode: activityTypeCode,
-              bindingMode: bindingMode,
-              studentCodes: studentCodes,
-            );
-
-        final sessionAssetCodes = <String>[];
-        for (var i = 0; i < missing.length; i++) {
-          final photo = missing[i];
-          final fileIndex = i + 1;
-          final totalFiles = missing.length;
-          final fileName = photo.uri.pathSegments.isNotEmpty
-              ? photo.uri.pathSegments.last
-              : 'photo.jpg';
-          final contentLengthBytes = await photo.length();
-          final checksumSha256 = await _imageUploadService
-              .computeFileChecksumSha256(photo);
-          final presign = await _imageUploadService.createAssetPresign(
-            sessionCode: uploadSession.sessionCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-            fileName: fileName,
-            contentType: 'image/jpeg',
-            contentLengthBytes: contentLengthBytes,
-            checksumSha256: checksumSha256,
-            mediaType: 'IMAGE',
-            ownerType: ownerType,
-            ownerCode: ownerCode,
-          );
-          await _imageUploadService.uploadFileToPresignedUrl(
-            file: photo,
-            presignedPutUrl: presign.presignedPutUrl,
-            requiredHeaders: presign.requiredHeaders,
-            fallbackContentType: 'image/jpeg',
-            onProgress: (_, __, percent) {
-              if (!mounted) return;
-              final overallFraction =
-                  ((fileIndex - 1) + (percent / 100)) / totalFiles;
-              final overallPercent = (overallFraction * 100)
-                  .clamp(0, 100)
-                  .round();
-              setState(() => _uploadProgressPercent = overallPercent);
-            },
-          );
-          await _imageUploadService.completeAssetUpload(
-            sessionCode: uploadSession.sessionCode,
-            assetCode: presign.assetCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-          );
-          if (mounted) {
-            setState(() => _uploadCompletedCount = fileIndex);
-          }
-          _uploadedAssetCodeByPath[photo.path] = presign.assetCode;
-          sessionAssetCodes.add(presign.assetCode);
+    return uploadActivityPhotoAttachments(
+      uploadService: _imageUploadService,
+      state: _attachmentState,
+      files: _newPhotos,
+      classroomCode: classroomCode,
+      activityTypeCode: activityTypeCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      studentCodes: studentCodes,
+      bindingMode: bindingMode,
+      setState: setState,
+      mounted: () => mounted,
+      setUploading: (uploading) {
+        _isUploadingMedia = uploading;
+        if (uploading) {
+          _uploadProgressPercent = 0;
+          _uploadCompletedCount = 0;
+          _uploadTotalCount = _newPhotos.length;
         }
-        await _imageUploadService.waitUntilAssetsReady(
-          sessionCode: uploadSession.sessionCode,
-          expectedAssetCodes: sessionAssetCodes,
-        );
-        if (mounted) {
-          setState(() => _uploadProgressPercent = 100);
-        }
-      } finally {
-        if (mounted) setState(() => _isUploadingMedia = false);
-      }
-    }
-
-    final attachments = <Map<String, dynamic>>[];
-    for (final photo in _newPhotos) {
-      final assetCode = _uploadedAssetCodeByPath[photo.path];
-      if (assetCode != null && assetCode.isNotEmpty) {
-        if (isShared) {
-          attachments.add({'assetCode': assetCode});
-        } else {
-          attachments.add({
-            'assetCode': assetCode,
-            'studentCode': ownerCode,
-            'bindingMode': bindingMode,
-          });
-        }
-      }
-    }
-    return attachments;
+      },
+      onOverallProgressPercent: (percent) =>
+          _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) =>
+          _uploadCompletedCount = completed,
+    );
   }
 
   void _onMediaChanged(
@@ -770,9 +704,7 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
           (widget.isEdit && normalizedPhotos.isNotEmpty)
           ? const []
           : List<String>.from(remainingExistingPhotoUrls);
-      _uploadedAssetCodeByPath.removeWhere(
-        (path, _) => !_newPhotos.any((f) => f.path == path),
-      );
+      _attachmentState.onSelectedFilesChanged(_newPhotos);
     });
     _uploadPhotosOnSelection();
   }
@@ -1176,30 +1108,21 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
     // that staff is signed in right now, same use case + true/false check the
     // staff persona's own + button is gated on. Admins are never gated on
     // their OWN sign-in — only on who they're attributing the activity to.
-    if (!widget.isEdit && _isAdminDesignation) {
-      final pickedStaffCode = (_staffPresentCode ?? '').trim();
-      final ownStaffCode = (_staffCode ?? '').trim();
-      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
-        try {
-          final status =
-              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-                staffCode: pickedStaffCode,
-              );
-          if (status?.toUpperCase() != 'SIGNED_IN') {
-            if (!mounted) return;
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message:
-                  'Staff is not signed in. You can only add an activity for '
-                  'staff who are signed in.',
-              isWarning: true,
-            );
-            return;
-          }
-        } catch (_) {
-          // Best-effort: a failed status check shouldn't block the admin.
-        }
-      }
+    if (!await _editor.verifyPickedStaffSignedIn(
+      isEdit: widget.isEdit,
+      isAdminDesignation: _isAdminDesignation,
+      pickedStaffCode: _staffPresentCode,
+      ownStaffCode: _staffCode,
+    )) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Staff is not signed in. You can only add an activity for '
+            'staff who are signed in.',
+        isWarning: true,
+      );
+      return;
     }
 
     if (widget.isEdit) {
@@ -1213,7 +1136,6 @@ class _OutdoorActivityScreenState extends State<OutdoorActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
-    _editor.close();
     super.dispose();
   }
 

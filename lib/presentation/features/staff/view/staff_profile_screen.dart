@@ -7,7 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';

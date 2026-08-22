@@ -5,7 +5,7 @@ import 'package:equatable/equatable.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_state.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 

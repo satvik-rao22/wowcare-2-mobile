@@ -20,7 +20,7 @@ import 'package:wowcare/presentation/features/attendance/view/staff_attendance_t
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 

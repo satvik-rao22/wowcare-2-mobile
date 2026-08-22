@@ -32,14 +32,12 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _percentageController =
       TextEditingController(text: '0');
-  final TextEditingController _descriptionController = TextEditingController();
 
   @override
   void dispose() {
     unawaited(_cubit.close());
     _nameController.dispose();
     _percentageController.dispose();
-    _descriptionController.dispose();
     super.dispose();
   }
 
@@ -47,7 +45,6 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
     final result = await _cubit.submit(
       name: _nameController.text,
       percentageStr: _percentageController.text,
-      description: _descriptionController.text,
     );
     if (!mounted) return;
     switch (result.status) {
@@ -111,16 +108,6 @@ class _AddDiscountScreenState extends State<AddDiscountScreen> {
                   error: state.percentageError
                       ? '*Enter a value between 0 and 100.'
                       : null,
-                  labelStyle: labelStyle,
-                  responsive: responsive,
-                ),
-                SizedBox(height: spacing),
-                _buildField(
-                  label: 'Description',
-                  hint: 'Optional description',
-                  controller: _descriptionController,
-                  maxLines: 3,
-                  required: false,
                   labelStyle: labelStyle,
                   responsive: responsive,
                 ),

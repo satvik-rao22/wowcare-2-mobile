@@ -5,6 +5,7 @@ import 'package:wowcare/core/util/date_utils.dart';
 import 'package:wowcare/domain/features/billing/entities/billing_statement_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/admin_statements_cubit.dart';
 import 'package:wowcare/presentation/features/billing/widgets/staff_style_card.dart';
+import 'package:wowcare/presentation/features/reports/view/report_file_viewer_screen.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
@@ -154,6 +155,7 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
                     studentNames: studentNames,
                     isDownloading: state.isDownloading(s.code),
                     onDownload: () => _handleDownload(s),
+                    onView: () => _handleView(s),
                   ),
                 ))
             .toList(),
@@ -179,6 +181,32 @@ class _AdminStatementsTabState extends State<AdminStatementsTab> {
         ),
       );
     }
+  }
+
+  /// Opens an in-app PDF preview instead of saving/handing off to an
+  /// external viewer (that's what Download is for).
+  Future<void> _handleView(BillingStatementEntity statement) async {
+    final result = await widget.cubit.fetchStatementForPreview(statement);
+    if (!mounted) return;
+    final bytes = result.bytes;
+    if (bytes == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.error ?? 'Unable to preview this statement.'),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+      return;
+    }
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => ReportFileViewerScreen(
+          fileData: bytes,
+          fileName: 'statement-${statement.code}.pdf',
+          fileType: 'pdf',
+        ),
+      ),
+    );
   }
 }
 
@@ -322,12 +350,14 @@ class _AdminStatementCard extends StatelessWidget {
     required this.studentNames,
     required this.isDownloading,
     required this.onDownload,
+    required this.onView,
   });
 
   final BillingStatementEntity statement;
   final String studentNames;
   final bool isDownloading;
   final VoidCallback onDownload;
+  final VoidCallback onView;
 
   String get _formattedType =>
       statement.statementType.isEmpty
@@ -391,9 +421,13 @@ class _AdminStatementCard extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         StaffCardActions(
-          secondaryLabel: 'View',
-          onSecondary: () {},
-          primaryLabel: isDownloading ? 'Downloading…' : 'Download',
+          // Both actions share the same fetch-in-flight flag (there's only
+          // ever one request per statement at a time), so the label stays
+          // generic rather than claiming "Downloading…" while a View fetch
+          // is actually what's in flight.
+          secondaryLabel: isDownloading ? 'Loading…' : 'View',
+          onSecondary: isDownloading ? null : onView,
+          primaryLabel: isDownloading ? 'Loading…' : 'Download',
           onPrimary: isDownloading ? null : onDownload,
         ),
       ],
@@ -409,6 +443,7 @@ class _StatusBadge extends StatelessWidget {
   Color get _color {
     switch (status.toUpperCase()) {
       case 'GENERATED':
+      case 'SENT':
         return AppColors.billingPaymentBadgeColor;
       default:
         return AppColors.billingGreyMedium;

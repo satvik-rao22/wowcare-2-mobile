@@ -230,9 +230,11 @@ import '../../presentation/features/attendance/forms/student_attendance_forms/cu
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_selection_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_editor_cubit.dart';
 import '../../presentation/features/activities/cubit/activity_moderation_cubit.dart';
-import '../../presentation/features/activities/cubit/activity_daily_feed_cubit.dart';
 import '../../presentation/features/activities/cubit/medication_activity_cubit.dart';
 import '../../presentation/features/activities/cubit/bottle_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/nap_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/incident_activity_cubit.dart';
+import '../../presentation/features/activities/cubit/activity_feed_scope_cubit.dart';
 import '../../domain/features/activity/usecases/get_activity_type_details_usecase.dart';
 import '../../domain/features/activity/usecases/create_activity_usecase.dart';
 import '../../domain/features/activity/usecases/create_shared_activities_usecase.dart';
@@ -252,15 +254,15 @@ import '../../data/features/activity/datasources/activity_remote_datasource.dart
 import '../../data/features/activity/repositories/activity_repository_impl.dart';
 import '../../presentation/features/auth/cubit/auth_cubit.dart';
 import '../../presentation/features/classroom/cubit/classroom_cubit.dart';
-import '../../presentation/features/classrooom/cubit/classroom_students_cubit.dart';
-import '../../presentation/features/classrooom/cubit/classroom_staff_cubit.dart';
+import '../../presentation/features/classroom/cubit/classroom_students_cubit.dart';
+import '../../presentation/features/classroom/cubit/classroom_staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_document_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_documents_list_cubit.dart';
 import '../../presentation/features/staff/cubit/staff_profile_cubit.dart';
 import '../../presentation/features/staff/cubit/important_dates_cubit.dart';
 import '../../presentation/features/staff/cubit/create_school_user_cubit.dart';
-import '../../presentation/features/student/cubit/student_cubit.dart';
+import '../../presentation/features/students/cubit/student_cubit.dart';
 import '../../presentation/features/attendance/cubit/student_attendance_daily_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_mark_absent_cubit.dart';
 import '../../presentation/features/attendance/forms/student_attendance_forms/cubit/student_edit_attendance_cubit.dart';
@@ -343,8 +345,8 @@ import '../../domain/features/communication/usecases/watch_messages_usecase.dart
 import '../../domain/features/communication/usecases/watch_unread_count_for_type_usecase.dart';
 import '../../domain/features/communication/usecases/register_firebase_token_usecase.dart';
 import '../../presentation/features/communication/cubit/unread_badge_cubit.dart';
-import '../../data/features/newsletters/datasources/student_newsletters_remote_datasource.dart';
-import '../../data/features/newsletters/repositories/student_newsletters_repository_impl.dart';
+import '../../data/features/newsletter/datasources/student_newsletters_remote_datasource.dart';
+import '../../data/features/newsletter/repositories/student_newsletters_repository_impl.dart';
 import '../../data/features/newsletter/datasources/newsletter_remote_datasource.dart';
 import '../../data/features/newsletter/repositories/newsletter_repository_impl.dart';
 import '../../domain/features/newsletter/repositories/newsletter_repository.dart';
@@ -358,8 +360,8 @@ import '../../presentation/features/communication/shared/utils/chat_attachment_u
 import '../../presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import '../../shared/services/image_upload/image_upload_service.dart';
 import '../../shared/services/image_upload/profile_photo_uploader.dart';
-import '../../domain/features/newsletters/repositories/student_newsletters_repository.dart';
-import '../../domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
+import '../../domain/features/newsletter/repositories/student_newsletters_repository.dart';
+import '../../domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 import '../../domain/features/student/usecases/get_student_profile_usecase.dart';
 import '../../data/features/geofencing/datasources/geofencing_local_datasource.dart';
 import '../../data/features/geofencing/repositories/geofencing_repository_impl.dart';
@@ -1188,9 +1190,6 @@ Future<void> configureDependencies({String? baseUrl}) async {
       rejectActivityUseCase: serviceLocator<RejectActivityUseCase>(),
     ),
   );
-  serviceLocator.registerFactory<ActivityDailyFeedCubit>(
-    () => ActivityDailyFeedCubit(),
-  );
   serviceLocator.registerFactory<ActivityEditorCubit>(
     () => ActivityEditorCubit(
       getClassroomActivitySettingsUseCase:
@@ -1208,6 +1207,8 @@ Future<void> configureDependencies({String? baseUrl}) async {
           serviceLocator<GuardianParentSignatureUseCase>(),
       getGuardianNameCodeMapForSchoolUseCase:
           serviceLocator<GetGuardianNameCodeMapForSchoolUseCase>(),
+      getStaffTodaySignInStatusUseCase:
+          serviceLocator<GetStaffTodaySignInStatusUseCase>(),
     ),
   );
   // Per-form ViewModel for the Medication activity screen. Factory so each
@@ -1222,6 +1223,39 @@ Future<void> configureDependencies({String? baseUrl}) async {
     () => BottleActivityCubit(
       editor: serviceLocator<ActivityEditorCubit>(),
       storageService: serviceLocator(),
+    ),
+  );
+  serviceLocator.registerFactory<NapActivityCubit>(
+    () => NapActivityCubit(
+      getNapStartStudentsUseCase: serviceLocator<GetNapStartStudentsUseCase>(),
+    ),
+  );
+  serviceLocator.registerFactory<IncidentActivityCubit>(
+    () => IncidentActivityCubit(
+      storageService: serviceLocator<StorageService>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+    ),
+  );
+  serviceLocator.registerFactory<ActivityFeedScopeCubit>(
+    () => ActivityFeedScopeCubit(
+      getDailyActivityFeedUseCase: serviceLocator<GetDailyActivityFeedUseCase>(),
+      getRangeActivityFeedUseCase: serviceLocator<GetRangeActivityFeedUseCase>(),
+      getActiveClassroomsUseCase: serviceLocator<GetActiveClassroomsUseCase>(),
+      getActiveActivityTypesForSchoolUseCase:
+          serviceLocator<GetActiveActivityTypesForSchoolUseCase>(),
+      getStudentClassroomListUseCase:
+          serviceLocator<GetStudentClassroomListUseCase>(),
+      getTagNameCodeMapForSchoolUseCase:
+          serviceLocator<GetTagNameCodeMapForSchoolUseCase>(),
+      getStudentCodesForActivityTagFilterUseCase:
+          serviceLocator<GetStudentCodesForActivityTagFilterUseCase>(),
+      getStudentPageUseCase: serviceLocator<GetStudentPageUseCase>(),
+      getStudentAttendanceDailyUseCase:
+          serviceLocator<GetStudentAttendanceDailyUseCase>(),
+      getStudentAbsentRecordsActivityUseCase:
+          serviceLocator<GetStudentAbsentRecordsActivityUseCase>(),
+      staffRepository: serviceLocator<StaffRepository>(),
+      storageService: serviceLocator<StorageService>(),
     ),
   );
   serviceLocator.registerFactory<GetActivityTypeDetailsUseCase>(

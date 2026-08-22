@@ -4,7 +4,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:intl/intl.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/classrooom/forms/date_picker_normal.dart';
+import 'package:wowcare/presentation/features/classroom/forms/date_picker_normal.dart';
 import 'package:wowcare/shared/common/widgets/app_text_styles.dart';
 import 'package:wowcare/shared/common/widgets/custom_cancel_button.dart';
 import 'package:wowcare/shared/common/widgets/custom_confirm_button.dart';

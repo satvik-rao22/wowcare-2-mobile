@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -20,7 +21,6 @@ import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -37,7 +37,7 @@ import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
-class PhotoVideoActivityScreen extends StatefulWidget {
+class PhotoVideoActivityScreen extends StatelessWidget {
   const PhotoVideoActivityScreen({
     super.key,
     this.selectedStudents,
@@ -54,11 +54,41 @@ class PhotoVideoActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<PhotoVideoActivityScreen> createState() =>
-      _PhotoVideoActivityScreenState();
+  Widget build(BuildContext context) {
+    return BlocProvider<ActivityEditorCubit>(
+      create: (_) => serviceLocator<ActivityEditorCubit>(),
+      child: _PhotoVideoActivityView(
+        selectedStudents: selectedStudents,
+        isEdit: isEdit,
+        isPhoto: isPhoto,
+        activityData: activityData,
+        readOnly: readOnly,
+      ),
+    );
+  }
 }
 
-class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
+class _PhotoVideoActivityView extends StatefulWidget {
+  const _PhotoVideoActivityView({
+    this.selectedStudents,
+    this.isEdit = false,
+    required this.isPhoto,
+    this.activityData,
+    this.readOnly = false,
+  });
+
+  final List<Map<String, dynamic>>? selectedStudents;
+  final bool isEdit;
+  final bool isPhoto;
+  final ActivityItem? activityData;
+  final bool readOnly;
+
+  @override
+  State<_PhotoVideoActivityView> createState() =>
+      _PhotoVideoActivityViewState();
+}
+
+class _PhotoVideoActivityViewState extends State<_PhotoVideoActivityView> {
   static const String _pendingUploadPollStorageKey =
       'activity_media_pending_upload_poll_v1';
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
@@ -122,7 +152,7 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
       _existingPhotoUrls.isNotEmpty ||
       _existingVideoUrl != null;
 
-  late final ActivityEditorCubit _editor;
+  ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
   late final ImageUploadService _uploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
@@ -173,7 +203,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _editor = serviceLocator<ActivityEditorCubit>();
     _uploadService = serviceLocator<ImageUploadService>();
 
     // Create flow: let [DateWidget]/[TimeWidget] apply school zone after
@@ -1335,30 +1364,21 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
     // that staff is signed in right now, same use case + true/false check the
     // staff persona's own + button is gated on. Admins are never gated on
     // their OWN sign-in — only on who they're attributing the activity to.
-    if (!widget.isEdit && _isAdminDesignation) {
-      final pickedStaffCode = (_staffPresentCode ?? '').trim();
-      final ownStaffCode = (_staffCode ?? '').trim();
-      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
-        try {
-          final status =
-              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-                staffCode: pickedStaffCode,
-              );
-          if (status?.toUpperCase() != 'SIGNED_IN') {
-            if (!mounted) return;
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message:
-                  'Staff is not signed in. You can only add an activity for '
-                  'staff who are signed in.',
-              isWarning: true,
-            );
-            return;
-          }
-        } catch (_) {
-          // Best-effort: a failed status check shouldn't block the admin.
-        }
-      }
+    if (!await _editor.verifyPickedStaffSignedIn(
+      isEdit: widget.isEdit,
+      isAdminDesignation: _isAdminDesignation,
+      pickedStaffCode: _staffPresentCode,
+      ownStaffCode: _staffCode,
+    )) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Staff is not signed in. You can only add an activity for '
+            'staff who are signed in.',
+        isWarning: true,
+      );
+      return;
     }
 
     if (widget.isEdit) {
@@ -1372,7 +1392,6 @@ class _PhotoVideoActivityScreenState extends State<PhotoVideoActivityScreen> {
   void dispose() {
     _mediaProcessingPollTimer?.cancel();
     _descriptionController.dispose();
-    _editor.close();
     super.dispose();
   }
 

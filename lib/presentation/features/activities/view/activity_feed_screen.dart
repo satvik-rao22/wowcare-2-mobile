@@ -11,7 +11,7 @@ import 'package:wowcare/presentation/features/activities/view/activity_custom_ta
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
 import 'package:wowcare/presentation/features/activities/widgets/school_cloud_image_uploader_dialog.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 import '../../../../app/theme/colors.dart';

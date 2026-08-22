@@ -16,7 +16,7 @@ import 'package:wowcare/domain/features/communication/entities/conversation_enti
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';

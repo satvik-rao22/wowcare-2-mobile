@@ -17,7 +17,7 @@ import 'package:wowcare/domain/features/attendance/entities/student_attendance_c
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
-import 'package:wowcare/presentation/features/activities/util/activity_filter_metadata_cache.dart';
+import 'package:wowcare/presentation/features/activities/utils/activity_filter_metadata_cache.dart';
 
 /// ViewModel (Cubit) for the activity student-selection screen. Owns ALL data
 /// access that previously lived in the View: staff classroom scope, classroom

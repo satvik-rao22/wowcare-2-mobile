@@ -3,7 +3,8 @@ description: "WowCare 2.O"
 
 publish_to: 'none'
 
-version: 2.2.6
+
+version: 2.2.7
 
 
 environment:

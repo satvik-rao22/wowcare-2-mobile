@@ -29,7 +29,7 @@ import 'package:wowcare/presentation/features/reports/view/students_and_family_r
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_card.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';

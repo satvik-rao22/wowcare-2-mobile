@@ -10,6 +10,7 @@ import 'package:wowcare/domain/features/billing/entities/invoice_entity.dart';
 import 'package:wowcare/presentation/features/billing/cubit/analytics_cubit.dart';
 import 'package:wowcare/presentation/features/billing/cubit/transactions_cubit.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
+import 'package:wowcare/presentation/features/billing/widgets/accounting/date_range_selector.dart';
 import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_card_header.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
@@ -54,21 +55,6 @@ class _BillingCardBody extends StatefulWidget {
 }
 
 class _BillingCardBodyState extends State<_BillingCardBody> {
-  static const _monthsList = [
-    'January',
-    'February',
-    'March',
-    'April',
-    'May',
-    'June',
-    'July',
-    'August',
-    'September',
-    'October',
-    'November',
-    'December',
-  ];
-
   static const _monthAbbr = [
     'jan',
     'feb',
@@ -86,20 +72,30 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
 
   bool _minimized = false;
   int _selectedYear = AppTime.now().year;
-  String _selectedMonth = _monthsList[AppTime.now().month - 1];
 
-  /// 1-based month number of the current monthly-section selection.
-  int get _monthIndex => _monthsList.indexOf(_selectedMonth) + 1;
+  /// The monthly section's active date range — defaults to the current
+  /// month, but can be narrowed to any custom range via
+  /// [AccountingDateRangeSelector] (matching web's custom-range support).
+  late DateTime _rangeStart;
+  late DateTime _rangeEnd;
 
-  Future<void> _reloadMonthlyOverview() {
-    // The monthly section is scoped to the selected month within the current
-    // calendar year (the year picker below only drives the revenue chart).
-    final year = AppTime.now().year;
-    final from = DateTime(year, _monthIndex, 1);
-    final to = DateTime(year, _monthIndex + 1, 0, 23, 59, 59);
-    return context
-        .read<TransactionsCubit>()
-        .loadOverview(dateFrom: from, dateTo: to);
+  @override
+  void initState() {
+    super.initState();
+    final now = AppTime.now();
+    _rangeStart = DateTime(now.year, now.month, 1);
+    _rangeEnd = DateTime(now.year, now.month + 1, 0, 23, 59, 59);
+  }
+
+  Future<void> _reloadOverviewForRange(DateTime start, DateTime end) {
+    setState(() {
+      _rangeStart = start;
+      _rangeEnd = end;
+    });
+    return context.read<TransactionsCubit>().loadOverview(
+          dateFrom: start,
+          dateTo: DateTime(end.year, end.month, end.day, 23, 59, 59),
+        );
   }
 
   // ---------------------------------------------------------------------------
@@ -160,30 +156,19 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
 
           const SizedBox(height: 16),
 
-          // ── Month picker ────────────────────────────────────────────────────
+          // ── Custom date range (primary) ───────────────────────────────────────
           AnimatedSize(
             duration: const Duration(milliseconds: 250),
             curve: Curves.easeInOut,
             child: _minimized
                 ? const SizedBox.shrink()
-                : Row(
-                    children: [
-                      Expanded(
-                        child: CustomDropdown(
-                          hintText: 'Month',
-                          items: _monthsList,
-                          selectedItem: _selectedMonth,
-                          isField: false,
-                          onSelect: (value) {
-                            if (value != null) {
-                              setState(() => _selectedMonth = value);
-                              _reloadMonthlyOverview();
-                            }
-                          },
-                        ),
-                      ),
-                      const Expanded(flex: 2, child: SizedBox()),
-                    ],
+                : AccountingDateRangeSelector(
+                    initialStartDate: _rangeStart,
+                    initialEndDate: _rangeEnd,
+                    onRangeChanged: (start, end) {
+                      if (start == null || end == null) return;
+                      _reloadOverviewForRange(start, end);
+                    },
                   ),
           ),
 
@@ -286,12 +271,12 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
     final totalAllAmounts = _getTotalAllAmounts(overview);
     return Column(
       children: [
-        // Amount Invoice row
+        // Amount Invoiced row
         Row(
           children: [
             Expanded(
               child: Text(
-                'Amount Invoice',
+                'Amount Invoiced',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w500,
@@ -313,7 +298,8 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
           ],
         ),
         const SizedBox(height: 18),
-        // Billing status columns
+        // Billing status columns — Net Paid / In Process / Outstanding, plus
+        // Paid / Refund (matches web's five-way breakdown).
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -329,7 +315,7 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
               child: _buildBillingStatus(
                 amount: '\$${overview.inProcess.toStringAsFixed(2)}',
                 percentage: _getPercentage(overview.inProcess, totalAllAmounts),
-                label: 'In-Process',
+                label: 'In Process',
                 percentageColor: Colors.yellow,
               ),
             ),
@@ -342,6 +328,29 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
                 percentageColor: Colors.red,
               ),
             ),
+          ],
+        ),
+        const SizedBox(height: 18),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: _buildBillingStatus(
+                amount: '\$${overview.paid.toStringAsFixed(2)}',
+                percentage: _getPercentage(overview.paid, totalAllAmounts),
+                label: 'Paid',
+                percentageColor: AppColors.paidLegendColor,
+              ),
+            ),
+            Expanded(
+              child: _buildBillingStatus(
+                amount: '\$${overview.refunded.toStringAsFixed(2)}',
+                percentage: _getPercentage(overview.refunded, totalAllAmounts),
+                label: 'Refund',
+                percentageColor: AppColors.refundLegendColor,
+              ),
+            ),
+            const Expanded(child: SizedBox()),
           ],
         ),
       ],
@@ -571,5 +580,5 @@ class _BillingCardBodyState extends State<_BillingCardBody> {
   }
 }
 
-// Month / year pickers use the shared `CustomDropdown`
+// The year picker uses the shared `CustomDropdown`
 // (lib/shared/common/widgets/custom_dropdown.dart).

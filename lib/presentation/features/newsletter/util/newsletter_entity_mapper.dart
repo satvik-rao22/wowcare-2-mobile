@@ -4,7 +4,7 @@ import 'package:wowcare/data/features/newsletter/models/newsletter_models.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_attachment.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
 import 'package:wowcare/data/features/newsletter/util/newsletter_content_parser.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_thumbnail_resolver.dart';
 

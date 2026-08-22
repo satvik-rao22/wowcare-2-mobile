@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:mime/mime.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -15,18 +14,14 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 
 import '../../../../../app/di/di.dart';
 import '../../../../../app/theme/colors.dart';
-import '../../../../../core/storage/storage_service.dart';
 import '../../../../../core/util/api_error_handler.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../../../../core/util/file_picker_utils.dart';
 import '../../../../../core/util/guardian_code_resolver.dart';
-import '../../../../../core/util/storage_keys.dart';
 import '../../../../../domain/features/activity/entities/activity_detail.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../domain/features/activity/repositories/activity_repository.dart';
-import '../../../../../domain/features/staff/repositories/staff_repository.dart';
+import '../../cubit/incident_activity_cubit.dart';
 import '../../../../../shared/common/app/cubit/role_cubit.dart';
 import '../../../../../shared/services/image_upload/image_upload_service.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
@@ -39,6 +34,7 @@ import '../utils/activity_attendance_window_validator.dart';
 import '../../utils/activity_school_time.dart';
 import '../../utils/activity_staff_display.dart';
 import '../../utils/activity_patch_attachments.dart';
+import '../../utils/activity_photo_attachment_upload.dart';
 import '../../utils/resolve_logged_in_staff_code.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
@@ -62,7 +58,7 @@ bool incidentRolesJsonIndicatesGuardianLogin(String rolesJson) {
   return u.contains('GUARDIAN') || u.contains('PARENT');
 }
 
-class IncidentActivityScreen extends StatefulWidget {
+class IncidentActivityScreen extends StatelessWidget {
   const IncidentActivityScreen({
     super.key,
     this.selectedStudents,
@@ -76,10 +72,43 @@ class IncidentActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<IncidentActivityScreen> createState() => _IncidentActivityScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+        ),
+        BlocProvider<IncidentActivityCubit>(
+          create: (_) => serviceLocator<IncidentActivityCubit>(),
+        ),
+      ],
+      child: _IncidentActivityView(
+        selectedStudents: selectedStudents,
+        isEdit: isEdit,
+        activityData: activityData,
+        readOnly: readOnly,
+      ),
+    );
+  }
 }
 
-class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
+class _IncidentActivityView extends StatefulWidget {
+  const _IncidentActivityView({
+    this.selectedStudents,
+    this.isEdit = false,
+    this.activityData,
+    this.readOnly = false,
+  });
+  final List<Map<String, dynamic>>? selectedStudents;
+  final bool isEdit;
+  final ActivityItem? activityData;
+  final bool readOnly;
+
+  @override
+  State<_IncidentActivityView> createState() => _IncidentActivityViewState();
+}
+
+class _IncidentActivityViewState extends State<_IncidentActivityView> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
@@ -143,8 +172,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   int _uploadCompletedCount = 0;
   int _uploadTotalCount = 0;
   List<File> _newPhotos = [];
-  final Map<String, String> _uploadedAssetCodeByPath = {};
-  String? _lastUploadContextKey;
+  final _attachmentState = ActivityPhotoAttachmentState();
   List<String> _remainingExistingPhotoUrls = [];
 
   bool? _pickFirstAidGivenFromActivityDetail(dynamic detail) {
@@ -188,11 +216,11 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     return null;
   }
 
-  int get _uploadedPhotoCount => _newPhotos
-      .where((f) => _uploadedAssetCodeByPath.containsKey(f.path))
-      .length;
+  int get _uploadedPhotoCount => _attachmentState.uploadedCount(_newPhotos);
 
-  late final ActivityEditorCubit _editor;
+  ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
+  IncidentActivityCubit get _incidentCubit =>
+      context.read<IncidentActivityCubit>();
   late final ImageUploadService _imageUploadService;
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
@@ -228,16 +256,14 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<String> _resolveParentSignerCode() async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    final rolesRaw = await _incidentCubit.readRoles();
     if (!_resolveIsGuardianPersona(rolesRaw)) {
       return '';
     }
     var guardianCode = (await refreshGuardianProfileSnapshotForLoggedInUser())
         .trim();
     if (guardianCode.isEmpty) {
-      guardianCode = (await storage.getString(StorageKeys.guardianCode) ?? '')
-          .trim();
+      guardianCode = await _incidentCubit.readGuardianCode();
     }
     return guardianCode;
   }
@@ -246,12 +272,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<String> _resolveGuardianCodeForIncidentPayload() async {
     var gc = _loggedInGuardianCode.trim();
     if (gc.isEmpty) {
-      gc =
-          (await serviceLocator<StorageService>().getString(
-                    StorageKeys.guardianCode,
-                  ) ??
-                  '')
-              .trim();
+      gc = await _incidentCubit.readGuardianCode();
     }
     if (gc.isEmpty) {
       gc = (await refreshGuardianProfileSnapshotForLoggedInUser()).trim();
@@ -283,20 +304,18 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   Future<ActivityDetail> _getActivityDetailRespectingPersona(
     String code,
   ) async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    final rolesRaw = await _incidentCubit.readRoles();
     final isGuardian = _resolveIsGuardianPersona(rolesRaw);
     if (mounted) {
       setState(() => _isGuardianPersona = isGuardian);
     }
-    return serviceLocator<ActivityRepository>().getActivity(code: code);
+    return _editor.getActivity(code: code);
   }
 
   Future<void> _resolveLoggedInGuardianPresentLabel() async {
-    final storage = serviceLocator<StorageService>();
     var school = (_schoolCode ?? '').trim();
     if (school.isEmpty) {
-      school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      school = await _incidentCubit.readSchoolCode();
     }
     if (school.isEmpty) {
       if (mounted) {
@@ -326,8 +345,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<void> _resolveLoggedInGuardianPresentIfNeeded() async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
+    final rolesRaw = await _incidentCubit.readRoles();
     if (!_resolveIsGuardianPersona(rolesRaw)) return;
     await _resolveLoggedInGuardianPresentLabel();
   }
@@ -514,25 +532,17 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   ) async {
     final codes = rawCodes
         .map((e) => _parseIncidentSignaturePayload(e).signerName)
-        .where((e) => e.isNotEmpty && _looksLikeStaffCode(e))
+        .where(
+          (e) =>
+              e.isNotEmpty &&
+              _looksLikeStaffCode(e) &&
+              !_staffDisplayNameByCode.containsKey(e),
+        )
         .toSet()
         .toList();
     if (codes.isEmpty) return;
-    final repo = serviceLocator<StaffRepository>();
-    await Future.wait(
-      codes.map((code) async {
-        if (_staffDisplayNameByCode.containsKey(code)) return;
-        try {
-          final profile = await repo.getStaffProfile(staffCode: code);
-          final full = profile.fullName.trim();
-          final composed = '${profile.firstName} ${profile.lastName}'.trim();
-          final resolved = full.isNotEmpty ? full : composed;
-          if (resolved.isNotEmpty) {
-            _staffDisplayNameByCode[code] = resolved;
-          }
-        } catch (_) {}
-      }),
-    );
+    final resolved = await _incidentCubit.resolveStaffDisplayNames(codes);
+    _staffDisplayNameByCode.addAll(resolved);
   }
 
   String _displayNameForSignerRaw(String raw, {String fallback = ''}) {
@@ -581,8 +591,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
     // (guardian/staff/admin). Do not gate this by _isGuardianPersona.
     var school = (_schoolCode ?? '').trim();
     if (school.isEmpty) {
-      final storage = serviceLocator<StorageService>();
-      school = (await storage.getString(StorageKeys.schoolCode) ?? '').trim();
+      school = await _incidentCubit.readSchoolCode();
     }
     if (school.isEmpty) return;
     final wanted = codes
@@ -819,7 +828,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-    _editor = serviceLocator<ActivityEditorCubit>();
     _imageUploadService = serviceLocator<ImageUploadService>();
 
     if (widget.selectedStudents != null) {
@@ -1086,12 +1094,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
       await _resolveLoggedInGuardianPresentIfNeeded();
       if (!mounted) return;
       final canonGc = await _resolveGuardianCodeForIncidentPayload();
-      final rolesPrefetch =
-          (await serviceLocator<StorageService>().getString(
-                    StorageKeys.roles,
-                  ) ??
-                  '')
-              .trim();
+      final rolesPrefetch = await _incidentCubit.readRoles();
       final guardianViewer = _resolveIsGuardianPersona(rolesPrefetch);
       final detail = await _getActivityDetailRespectingPersona(code);
       if (!mounted) return;
@@ -1298,14 +1301,10 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }
 
   Future<void> _loadStaffContext() async {
-    final storage = serviceLocator<StorageService>();
-    final rolesRaw = (await storage.getString(StorageKeys.roles) ?? '').trim();
-    final staffType = (await storage.getString(StorageKeys.staffType) ?? '')
-        .trim();
-    final schoolCode = (await storage.getString(StorageKeys.schoolCode) ?? '')
-        .trim();
-    final organizationCode =
-        (await storage.getString(StorageKeys.organizationCode) ?? '').trim();
+    final rolesRaw = await _incidentCubit.readRoles();
+    final staffType = await _incidentCubit.readStaffType();
+    final schoolCode = await _incidentCubit.readSchoolCode();
+    final organizationCode = await _incidentCubit.readOrganizationCode();
     final staffCode = await resolveLoggedInStaffCode();
     final resolvedDisplayName = await resolveLoggedInStaffDisplayNameFromApi(
       staffCode: staffCode,
@@ -2280,140 +2279,35 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   }) async {
     if (_newPhotos.isEmpty) return const [];
 
-    final normalizedStudentCodes =
-        studentCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList()
-          ..sort();
-    final uploadContextKey = [
-      organizationCode.trim(),
-      schoolCode.trim(),
-      classroomCode.trim(),
-      normalizedStudentCodes.join(','),
-    ].join('|');
-    if (_lastUploadContextKey != uploadContextKey) {
-      _uploadedAssetCodeByPath.clear();
-      _lastUploadContextKey = uploadContextKey;
-    }
-
     // Incident activity backend can reject SHARED attachments for some activity
     // type configs, so always upload as PER_STUDENT.
     const bindingMode = 'PER_STUDENT';
-    const ownerType = 'STUDENT';
-    final ownerCode = studentCodes.first;
-    final missingPhotos = _newPhotos
-        .where((f) => !_uploadedAssetCodeByPath.containsKey(f.path))
-        .toList();
 
-    if (missingPhotos.isNotEmpty) {
-      setState(() {
-        _isUploadingMedia = true;
-        _uploadProgressPercent = 0;
-        _uploadCompletedCount = 0;
-        _uploadTotalCount = missingPhotos.length;
-      });
-      try {
-        final uploadSession = await _imageUploadService
-            .createActivityUploadSession(
-              organizationCode: organizationCode,
-              schoolCode: schoolCode,
-              classroomCode: classroomCode,
-              activityTypeCode: activityTypeCode,
-              bindingMode: bindingMode,
-              studentCodes: studentCodes,
-            );
-
-        final sessionAssetCodes = <String>[];
-        // Keyed separately from _uploadedAssetCodeByPath so a photo is only
-        // considered "done" (and eligible for Save/attach) once
-        // waitUntilAssetsReady below actually confirms it — completing the
-        // S3 PUT/complete call is not the same as the backend reporting the
-        // asset ready to link, and writing straight into
-        // _uploadedAssetCodeByPath here let a subsequent ready-poll timeout
-        // pass through silently: the map already held the assetCode, so the
-        // screen believed upload had finished and let Save submit an asset
-        // the backend then rejected with 409 "not ready for linking".
-        final pendingAssetCodeByPath = <String, String>{};
-        for (var i = 0; i < missingPhotos.length; i++) {
-          final photo = missingPhotos[i];
-          final fileIndex = i + 1;
-          final totalFiles = missingPhotos.length;
-          final fileName = photo.uri.pathSegments.isNotEmpty
-              ? photo.uri.pathSegments.last
-              : 'photo.jpg';
-          // Declaring every picked photo as image/jpeg regardless of its
-          // real format (HEIC/PNG/WEBP/etc. are all pickable — see
-          // FilePickerUtils.allowedImageExtensions) told S3/the backend the
-          // wrong content type for anything that wasn't literally already a
-          // JPEG, which is a plausible reason a HEIC upload sat stuck at
-          // PROCESSING and never reached READY: the backend's decoder was
-          // told to parse non-JPEG bytes as JPEG.
-          final contentType =
-              lookupMimeType(photo.path) ??
-              FilePickerUtils.getMimeType(fileName.split('.').last);
-          final contentLengthBytes = await photo.length();
-          final checksumSha256 = await _imageUploadService
-              .computeFileChecksumSha256(photo);
-          final presign = await _imageUploadService.createAssetPresign(
-            sessionCode: uploadSession.sessionCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-            fileName: fileName,
-            contentType: contentType,
-            contentLengthBytes: contentLengthBytes,
-            checksumSha256: checksumSha256,
-            mediaType: 'IMAGE',
-            ownerType: ownerType,
-            ownerCode: ownerCode,
-          );
-          await _imageUploadService.uploadFileToPresignedUrl(
-            file: photo,
-            presignedPutUrl: presign.presignedPutUrl,
-            requiredHeaders: presign.requiredHeaders,
-            fallbackContentType: contentType,
-            onProgress: (_, __, percent) {
-              if (!mounted) return;
-              final overallFraction =
-                  ((fileIndex - 1) + (percent / 100)) / totalFiles;
-              final overallPercent = (overallFraction * 100)
-                  .clamp(0, 100)
-                  .round();
-              setState(() => _uploadProgressPercent = overallPercent);
-            },
-          );
-          await _imageUploadService.completeAssetUpload(
-            sessionCode: uploadSession.sessionCode,
-            assetCode: presign.assetCode,
-            documentApiBasePath: uploadSession.documentApiBasePath,
-          );
-          if (mounted) {
-            setState(() => _uploadCompletedCount = fileIndex);
-          }
-          pendingAssetCodeByPath[photo.path] = presign.assetCode;
-          sessionAssetCodes.add(presign.assetCode);
+    return uploadActivityPhotoAttachments(
+      uploadService: _imageUploadService,
+      state: _attachmentState,
+      files: _newPhotos,
+      classroomCode: classroomCode,
+      activityTypeCode: activityTypeCode,
+      organizationCode: organizationCode,
+      schoolCode: schoolCode,
+      studentCodes: studentCodes,
+      bindingMode: bindingMode,
+      setState: setState,
+      mounted: () => mounted,
+      setUploading: (uploading) {
+        _isUploadingMedia = uploading;
+        if (uploading) {
+          _uploadProgressPercent = 0;
+          _uploadCompletedCount = 0;
+          _uploadTotalCount = _newPhotos.length;
         }
-        await _imageUploadService.waitUntilAssetsReady(
-          sessionCode: uploadSession.sessionCode,
-          expectedAssetCodes: sessionAssetCodes,
-        );
-        _uploadedAssetCodeByPath.addAll(pendingAssetCodeByPath);
-        if (mounted) {
-          setState(() => _uploadProgressPercent = 100);
-        }
-      } finally {
-        if (mounted) setState(() => _isUploadingMedia = false);
-      }
-    }
-
-    final attachments = <Map<String, dynamic>>[];
-    for (final photo in _newPhotos) {
-      final assetCode = _uploadedAssetCodeByPath[photo.path];
-      if (assetCode != null && assetCode.isNotEmpty) {
-        attachments.add({
-          'assetCode': assetCode,
-          'studentCode': ownerCode,
-          'bindingMode': bindingMode,
-        });
-      }
-    }
-    return attachments;
+      },
+      onOverallProgressPercent: (percent) =>
+          _uploadProgressPercent = percent,
+      onFileCompleted: (completed, total) =>
+          _uploadCompletedCount = completed,
+    );
   }
 
   void _onMediaChanged(
@@ -2458,10 +2352,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
           (widget.isEdit && normalizedPhotos.isNotEmpty)
           ? const []
           : List<String>.from(remainingExistingPhotoUrls);
-      _uploadedAssetCodeByPath.removeWhere((path, _) {
-        final stillPhoto = _newPhotos.any((f) => f.path == path);
-        return !stillPhoto;
-      });
+      _attachmentState.onSelectedFilesChanged(_newPhotos);
     });
     _uploadMediaOnSelection();
   }
@@ -2538,7 +2429,6 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
   void dispose() {
     _descriptionController.dispose();
     _addNotesController.dispose();
-    _editor.close();
     super.dispose();
   }
 
@@ -2850,13 +2740,7 @@ class _IncidentActivityScreenState extends State<IncidentActivityScreen> {
                               () async {
                                 var gc = _loggedInGuardianCode.trim();
                                 if (gc.isEmpty) {
-                                  gc =
-                                      (await serviceLocator<StorageService>()
-                                                  .getString(
-                                                    StorageKeys.guardianCode,
-                                                  ) ??
-                                              '')
-                                          .trim();
+                                  gc = await _incidentCubit.readGuardianCode();
                                 }
                                 if (!mounted || !_isParentSigned) return;
                                 final label = _loggedInParentPresentLabel

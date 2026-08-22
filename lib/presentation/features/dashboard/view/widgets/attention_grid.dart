@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';

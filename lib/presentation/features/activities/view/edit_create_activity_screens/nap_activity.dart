@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/presentation/features/activities/widgets/date_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/input_widget.dart';
 import 'package:wowcare/presentation/features/activities/widgets/staff_present_widget.dart';
@@ -15,10 +16,9 @@ import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../core/util/user_details_school_roles.dart';
 import '../../../../../domain/features/activity/entities/activity_setting.dart';
-import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../../../../domain/features/activity/entities/activity_type_details.dart';
 import '../../cubit/activity_editor_cubit.dart';
-import '../../../../../domain/features/activity/usecases/get_nap_start_students_usecase.dart';
+import '../../cubit/nap_activity_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../utils/activity_description_limits.dart';
 import '../../utils/activity_selected_date_prefill.dart';
@@ -31,7 +31,7 @@ import '../../widgets/activity_student_display_tile.dart';
 import '../activity_daily_tab.dart';
 import '../widgets/activity_admin_approve_reject_bar.dart';
 
-class NapActivityScreen extends StatefulWidget {
+class NapActivityScreen extends StatelessWidget {
   const NapActivityScreen({
     super.key,
     this.selectedStudents,
@@ -45,10 +45,43 @@ class NapActivityScreen extends StatefulWidget {
   final bool readOnly;
 
   @override
-  State<NapActivityScreen> createState() => _NapActivityScreenState();
+  Widget build(BuildContext context) {
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider<ActivityEditorCubit>(
+          create: (_) => serviceLocator<ActivityEditorCubit>(),
+        ),
+        BlocProvider<NapActivityCubit>(
+          create: (_) => serviceLocator<NapActivityCubit>(),
+        ),
+      ],
+      child: _NapActivityView(
+        selectedStudents: selectedStudents,
+        isEdit: isEdit,
+        activityData: activityData,
+        readOnly: readOnly,
+      ),
+    );
+  }
 }
 
-class _NapActivityScreenState extends State<NapActivityScreen> {
+class _NapActivityView extends StatefulWidget {
+  const _NapActivityView({
+    this.selectedStudents,
+    this.activityData,
+    this.isEdit = false,
+    this.readOnly = false,
+  });
+  final List<Map<String, dynamic>>? selectedStudents;
+  final bool isEdit;
+  final ActivityItem? activityData;
+  final bool readOnly;
+
+  @override
+  State<_NapActivityView> createState() => _NapActivityViewState();
+}
+
+class _NapActivityViewState extends State<_NapActivityView> {
   bool get _layoutAsEdit => widget.isEdit || widget.readOnly;
   bool get _canInteract => !widget.readOnly;
   bool get _isAdminDesignation => const {
@@ -89,8 +122,8 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   ActivityItem? _liveActivity;
   final Set<int> _scopedEditStudentIndices = {};
 
-  late final ActivityEditorCubit _editor;
-  late final GetNapStartStudentsUseCase _getNapStartStudentsUseCase;
+  ActivityEditorCubit get _editor => context.read<ActivityEditorCubit>();
+  NapActivityCubit get _napCubit => context.read<NapActivityCubit>();
 
   ActivityItem get _effectiveActivity => _liveActivity ?? widget.activityData!;
   bool _isAdminApprovalRequired(ActivityItem activity) {
@@ -115,9 +148,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   void initState() {
     super.initState();
     bootstrapActivitySchoolTimezone();
-
-    _getNapStartStudentsUseCase = serviceLocator<GetNapStartStudentsUseCase>();
-    _editor = serviceLocator<ActivityEditorCubit>();
 
     if (_layoutAsEdit && widget.activityData != null) {
       final activity = widget.activityData!;
@@ -490,7 +520,7 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     required String classroomCode,
     required List<String> studentCodes,
   }) async {
-    final nappingCodes = await _getNapStartStudentsUseCase(
+    final nappingCodes = await _napCubit.getNapStartStudents(
       classroomCode: classroomCode,
     );
     final nappingSet = nappingCodes.map((e) => e.trim()).toSet();
@@ -981,30 +1011,21 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
     // that staff is signed in right now, same use case + true/false check the
     // staff persona's own + button is gated on. Admins are never gated on
     // their OWN sign-in — only on who they're attributing the activity to.
-    if (!widget.isEdit && _isAdminDesignation) {
-      final pickedStaffCode = (_staffPresentCode ?? '').trim();
-      final ownStaffCode = (_staffCode ?? '').trim();
-      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
-        try {
-          final status =
-              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-                staffCode: pickedStaffCode,
-              );
-          if (status?.toUpperCase() != 'SIGNED_IN') {
-            if (!mounted) return;
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message:
-                  'Staff is not signed in. You can only add an activity for '
-                  'staff who are signed in.',
-              isWarning: true,
-            );
-            return;
-          }
-        } catch (_) {
-          // Best-effort: a failed status check shouldn't block the admin.
-        }
-      }
+    if (!await _editor.verifyPickedStaffSignedIn(
+      isEdit: widget.isEdit,
+      isAdminDesignation: _isAdminDesignation,
+      pickedStaffCode: _staffPresentCode,
+      ownStaffCode: _staffCode,
+    )) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Staff is not signed in. You can only add an activity for '
+            'staff who are signed in.',
+        isWarning: true,
+      );
+      return;
     }
 
     if (widget.isEdit) {
@@ -1041,7 +1062,6 @@ class _NapActivityScreenState extends State<NapActivityScreen> {
   @override
   void dispose() {
     _descriptionController.dispose();
-    _editor.close();
     super.dispose();
   }
 

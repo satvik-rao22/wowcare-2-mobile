@@ -7,7 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/views/filters/designation_display_utils.dart';
+import 'package:wowcare/presentation/features/classroom/views/filters/designation_display_utils.dart';
 
 enum StaffFilterSection {
   /// Uses the "Allowed Classroom" list as the classroom multi-select.

@@ -10,7 +10,6 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_form_layout.da
 
 import '../../../../../app/di/di.dart';
 import '../../../../../core/util/core_utils.dart';
-import '../../../../../domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import '../../cubit/medication_activity_cubit.dart';
 import '../../../../../shared/common/widgets/custom_button_layout.dart';
 import '../../widgets/activity_edit_student_scope_checkboxes.dart';
@@ -109,30 +108,21 @@ class _MedicationActivityViewState extends State<_MedicationActivityView> {
     // that staff is signed in right now, same use case + true/false check the
     // staff persona's own + button is gated on. Admins are never gated on
     // their OWN sign-in — only on who they're attributing the activity to.
-    if (!widget.isEdit && _cubit.state.isAdminDesignation) {
-      final pickedStaffCode = (_cubit.staffPresentCode ?? '').trim();
-      final ownStaffCode = (_cubit.state.staffCode ?? '').trim();
-      if (pickedStaffCode.isNotEmpty && pickedStaffCode != ownStaffCode) {
-        try {
-          final status =
-              await serviceLocator<GetStaffTodaySignInStatusUseCase>()(
-                staffCode: pickedStaffCode,
-              );
-          if (status?.toUpperCase() != 'SIGNED_IN') {
-            if (!mounted) return;
-            CoreUtils.showTopSnackBar(
-              context: context,
-              message:
-                  'Staff is not signed in. You can only add an activity for '
-                  'staff who are signed in.',
-              isWarning: true,
-            );
-            return;
-          }
-        } catch (_) {
-          // Best-effort: a failed status check shouldn't block the admin.
-        }
-      }
+    if (!await _cubit.verifyPickedStaffSignedIn(
+      isEdit: widget.isEdit,
+      isAdminDesignation: _cubit.state.isAdminDesignation,
+      pickedStaffCode: _cubit.staffPresentCode,
+      ownStaffCode: _cubit.state.staffCode,
+    )) {
+      if (!mounted) return;
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message:
+            'Staff is not signed in. You can only add an activity for '
+            'staff who are signed in.',
+        isWarning: true,
+      );
+      return;
     }
 
     final outcome = widget.isEdit

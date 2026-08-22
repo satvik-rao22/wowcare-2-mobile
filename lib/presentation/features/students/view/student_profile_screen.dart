@@ -9,7 +9,7 @@ import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';

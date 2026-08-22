@@ -15,7 +15,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -46,7 +46,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 class CustomDrawer extends StatefulWidget {

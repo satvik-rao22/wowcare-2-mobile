@@ -332,8 +332,14 @@ class UserProfileCubit extends Cubit<UserProfileState> {
       }
 
       // 2) Prefetch latest profile in the background (no loader shown).
+      // forceRefresh: true — getStaffProfile() otherwise serves the same
+      // cache entry step 1 just read (5-minute TTL), so pull-to-refresh
+      // silently no-op'd instead of reflecting a just-changed API value.
       try {
-        final fresh = await repo.getStaffProfile(staffCode: staffCode);
+        final fresh = await repo.getStaffProfile(
+          staffCode: staffCode,
+          forceRefresh: true,
+        );
         if (isClosed) return;
         if (fresh.staffType.isNotEmpty) {
           await _storage.saveString(StorageKeys.staffType, fresh.staffType);

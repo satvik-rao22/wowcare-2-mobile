@@ -289,6 +289,19 @@ class BottleActivityCubit extends Cubit<BottleActivityState> {
     emit(state.copyWith(selectedStudents: next, selectedStudentsData: nextData));
   }
 
+  Future<bool> verifyPickedStaffSignedIn({
+    required bool isEdit,
+    required bool isAdminDesignation,
+    required String? pickedStaffCode,
+    required String? ownStaffCode,
+  }) =>
+      _editor.verifyPickedStaffSignedIn(
+        isEdit: isEdit,
+        isAdminDesignation: isAdminDesignation,
+        pickedStaffCode: pickedStaffCode,
+        ownStaffCode: ownStaffCode,
+      );
+
   // ─── Submit ──────────────────────────────────────────────────────────────
 
   Future<ActivityFormOutcome> submitCreate({

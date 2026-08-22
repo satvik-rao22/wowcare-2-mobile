@@ -14,7 +14,7 @@ import 'package:wowcare/presentation/features/dashboard/view/widgets/dashboard_e
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 
-import '../../../classrooom/views/screens/classroom_screen.dart';
+import '../../../classroom/views/screens/classroom_screen.dart';
 
 // ---------------------------------------------------------------------------
 // UI-layer model — one row in the classroom availability table.
