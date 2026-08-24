@@ -228,6 +228,7 @@ class ApiPaths {
         return ApiMicroservices.user;
       case 'conversations':
       case 'messages':
+      case 'firebase':
         return ApiMicroservices.communication;
       case 'newsletters':
         return ApiMicroservices.newsLatter;
@@ -262,8 +263,39 @@ class ApiPaths {
     if (ApiConstants.isUat) return ApiPathsUat.url(path);
     final p = path.startsWith('/') ? path : '/$path';
     final ms = microserviceKeyFromPath(p);
-    final localPath = _stripLocalMsPrefix(p, ms);
+    final localPath = ms == ApiMicroservices.communication
+        ? _ensureLocalCommunicationSegment(p)
+        : _stripLocalMsPrefix(p, ms);
     return '${ApiConstants.baseUrlForMicroservice(ms)}$localPath';
+  }
+
+  /// LOCAL communication/messaging traffic goes through the shared gateway
+  /// tunnel (devtunnel:gatewayPort, or ngrok when unset — see
+  /// [ApiConstants.communicationBaseUrl]), which — like the UAT gateway —
+  /// disambiguates by a `/messaging/` path segment rather than by a
+  /// dedicated port. Without this, `/api/v1/firebase/token` (and
+  /// conversations/messages) land on the gateway with no matching route and
+  /// 500 with "No static resource ...". Mirrors
+  /// [ApiPathsUat._ensureUatMicroserviceSegment]'s identical fix for the
+  /// exact same symptom.
+  static String _ensureLocalCommunicationSegment(String path) {
+    if (path == '/api/v1/firebase/token') {
+      return '/api/v1/messaging/firebase/token';
+    }
+    if (path.startsWith('/api/v1/messaging/')) return path;
+    if (path.startsWith('/api/v1/conversations')) {
+      return path.replaceFirst(
+        '/api/v1/conversations',
+        '/api/v1/messaging/conversations',
+      );
+    }
+    if (path.startsWith('/api/v1/messages')) {
+      return path.replaceFirst(
+        '/api/v1/messages',
+        '/api/v1/messaging/messages',
+      );
+    }
+    return path;
   }
 
   /// For LOCAL devtunnel builds the base URL already encodes the microservice
@@ -520,6 +552,11 @@ class ApiPaths {
   /// School-level student settings (health/documents edit permissions).
   static const String studentSettings = '/api/v1/student-settings';
 
+  /// GET /api/v1/student/settings/immunization?schoolCode={schoolCode}
+  /// Available immunizations (vaccines) for a school.
+  static const String studentImmunizationSettings =
+      '/api/v1/student/settings/immunization';
+
   /// PATCH the logged-in guardian's own profile (resolves to
   /// `/api/v1/student/guardian/my-profile`). Identified by schoolCode+userCode
   /// query params, like [guardianProfile].
@@ -688,6 +725,10 @@ class ApiPaths {
   /// GET /api/v1/attendance/student-attendance/reports/recent — Get recent student attendance reports.
   static const String studentAttendanceReportsRecent =
       '/api/v1/attendance/student-attendance/reports/recent';
+
+  /// POST /api/v1/student/student/reports/generate — Generate student incident reports.
+  static const String studentIncidentReportsGenerate =
+      '/api/v1/student/student/reports/generate';
 
   /// POST /api/v1/attendance/staff-attendance/reports/generate — Generate staff attendance reports.
   static const String staffAttendanceReportsGenerate =
@@ -874,6 +915,11 @@ class ApiPaths {
   static const String messagingCreateMessage = conversations;
   static const String messagingMessages = messages;
 
+  /// Server-side conversation search — GET /conversations/search?q=...&type=...
+  /// Searches ALL of the account's conversations of [type] matching the
+  /// query text, not just whatever page is already loaded client-side.
+  static const String messagingConversationsSearch = '$conversations/search';
+
   // POST /api/v1/messages/conversations/{code}/attachments/upload-session
   // (resolves to .../messaging/messages/conversations/{code}/attachments/
   // upload-session in UAT, confirmed against the working web-app request) —
@@ -910,6 +956,13 @@ class ApiPaths {
   /// Get-or-create the classroom's CLASSROOM_CHAT and reconcile its staff roster.
   static String messagingClassroomReconcile(String classroomCode) =>
       '$conversations/classroom/$classroomCode/reconcile';
+
+  /// Present-vs-missing staff roster for a classroom's Notes chat — `present`
+  /// are currently-assigned staff/admins who should show in the participant
+  /// chip row; `missing` are ones the conversation still lists but who are no
+  /// longer on the classroom (must NOT be shown).
+  static String messagingClassroomRosterStatus(String classroomCode) =>
+      '$conversations/classroom/$classroomCode/roster-status';
   static String messagingConversationParticipants(String code) =>
       '$conversations/$code/participants';
   // DELETE /api/v1/conversations/{code}/participants/{userCode}
@@ -937,6 +990,15 @@ class ApiPaths {
   // Per new contract: POST /api/v1/messages/{code}/receipts/read
   static String messagingMessageRead(String code) =>
       '$messages/$code/receipts/read';
+  // GET /api/v1/messaging/messages/{code}/receipts — full per-recipient-
+  // per-persona receipt rows (userCode, userName, userRole/role,
+  // deliveredAt, readAt). A dual-role account (e.g. staff who's also a
+  // guardian) gets one row per persona here; the message list endpoint's
+  // own embedded `receipts` field is a lighter shape that doesn't reliably
+  // carry userName/role, so the Message Info dialog fetches this endpoint
+  // directly instead of trusting the embedded data.
+  static String messagingMessageReceipts(String code) =>
+      '$messages/$code/receipts';
   // GET messages for a conversation
   static String messagesForConversation(String conversationCode) =>
       '$messages/conversation/$conversationCode';
@@ -984,6 +1046,12 @@ class ApiPaths {
   /// notification definition). Notification MS.
   static const String notificationPreferences =
       '/api/v1/notification/preferences';
+
+  /// GET/PATCH user notification preferences grouped by notification group
+  /// (each group lists only the channels it supports; a channel missing from
+  /// a group's `channels` means it isn't offered for that group). Notification MS.
+  static const String notificationPreferenceGroups =
+      '/api/v1/notification/preferences/groups';
 
   // —— Billing MS ——
   /// POST /api/v1/reports/billing/generate — generate a billing report (xlsx/pdf); returns the

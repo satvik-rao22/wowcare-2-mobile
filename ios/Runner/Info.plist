@@ -69,6 +69,8 @@
 	<string>WowCare uses your location to enable attendance within the school premises.</string>
 	<key>UIBackgroundModes</key>
 	<array>
+		<!-- Required for AVPictureInPictureController / media PiP playback. -->
+		<string>audio</string>
 		<string>location</string>
 		<string>fetch</string>
 		<string>remote-notification</string>

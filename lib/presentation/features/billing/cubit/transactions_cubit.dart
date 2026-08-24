@@ -286,6 +286,7 @@ class TransactionsCubit extends Cubit<TransactionsState> {
           studentName: name,
           familyCode: t.familyCode.isNotEmpty ? t.familyCode : null,
           classroom: '',
+          studentCode: t.studentCode.isNotEmpty ? t.studentCode : null,
           refTable: t.type,
           paymentMode: (t.method ?? '').isNotEmpty ? t.method : null,
         ),

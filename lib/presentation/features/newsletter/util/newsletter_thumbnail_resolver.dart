@@ -1,5 +1,5 @@
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_component_entity.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_component_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
 
 /// Thumbnail source for newsletter list cards.
 class NewsletterThumbnailInfo {

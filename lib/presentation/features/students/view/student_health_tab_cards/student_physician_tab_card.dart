@@ -292,7 +292,7 @@ class _PhysicianCard extends StatelessWidget {
                       phoneNumber!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Phone Number',
@@ -304,9 +304,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          _formatPhoneNumber(phoneNumber),
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _formatPhoneNumber(phoneNumber),
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),
@@ -315,7 +320,7 @@ class _PhysicianCard extends StatelessWidget {
                   if (email != null && email!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Email ID',
@@ -327,9 +332,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          email!,
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            email!,
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),
@@ -338,7 +348,7 @@ class _PhysicianCard extends StatelessWidget {
                   if (address != null && address!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Address',
@@ -350,9 +360,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          address!,
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            address!,
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),
@@ -361,7 +376,7 @@ class _PhysicianCard extends StatelessWidget {
                   if (specialty != null && specialty!.trim().isNotEmpty) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      crossAxisAlignment: CrossAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Specialty',
@@ -373,9 +388,14 @@ class _PhysicianCard extends StatelessWidget {
                             letterSpacing: 14 * (-3 / 100),
                           ),
                         ),
-                        Text(
-                          specialty!,
-                          style: AppTextStyles.value.copyWith(fontSize: 15),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            specialty!,
+                            textAlign: TextAlign.right,
+                            softWrap: true,
+                            style: AppTextStyles.value.copyWith(fontSize: 15),
+                          ),
                         ),
                       ],
                     ),

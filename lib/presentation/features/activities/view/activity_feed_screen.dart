@@ -3,13 +3,15 @@ import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_custom_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_daily_tab.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_student_selection.dart';
 import 'package:wowcare/presentation/features/activities/widgets/school_cloud_image_uploader_dialog.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 
 import '../../../../app/theme/colors.dart';
@@ -28,6 +30,10 @@ class ActivityFeedScreen extends StatefulWidget {
     this.highlightCode,
     this.highlightDate,
     this.highlightClassroomCode,
+    this.initialTab,
+    this.initialActivityTypes,
+    this.initialClassrooms,
+    this.resetKey,
   });
 
   final bool fromStudentProfile;
@@ -42,8 +48,21 @@ class ActivityFeedScreen extends StatefulWidget {
   /// Classroom of the deep-linked activity, forwarded so the Daily tab opens on
   /// the room containing the card (the feed loads one classroom at a time).
   final String? highlightClassroomCode;
+
   /// When false, hide add / edit / delete (from [DAILY_ACTIVITY] `write` permission).
   final bool allowActivityWrite;
+
+  /// The initial tab to show (0 for Daily, 1 for Custom).
+  final int? initialTab;
+
+  /// Pre-selected activity types to pass to the Custom tab.
+  final List<String>? initialActivityTypes;
+
+  /// Pre-selected classrooms to pass to the Custom tab (e.g., ['all']).
+  final List<String>? initialClassrooms;
+
+  /// Used to force state reset in didUpdateWidget when navigating repeatedly.
+  final String? resetKey;
 
   static const String routeName = '/activityFeed';
 
@@ -51,10 +70,25 @@ class ActivityFeedScreen extends StatefulWidget {
   State<ActivityFeedScreen> createState() => _ActivityFeedScreenState();
 }
 
-class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerProviderStateMixin{
+class _ActivityFeedScreenState extends State<ActivityFeedScreen>
+    with TickerProviderStateMixin, SchoolSwitchReloadMixin {
   late TabController _tabController;
   final ScrollController _dailyScrollController = ScrollController();
   final ScrollController _customScrollController = ScrollController();
+
+  // Bumped on a school OR persona switch to re-key (recreate) the tab
+  // content below — this branch screen is kept alive in the shell's
+  // IndexedStack across both switch kinds and never re-inits on its own, so
+  // without this the activity feed kept showing the previous school/
+  // persona's cached activities until the user manually navigated away and
+  // back.
+  int _contextReloadEpoch = 0;
+
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    setState(() => _contextReloadEpoch++);
+  }
 
   /// Whether the STAFF persona has signed in for today. Defaults to true so the
   /// add button is never blocked for other personas, nor while the status is
@@ -62,9 +96,22 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
   bool _staffSignedInToday = true;
 
   @override
+  void didUpdateWidget(covariant ActivityFeedScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final bool forceReset = widget.resetKey != oldWidget.resetKey && widget.resetKey != null;
+    if (forceReset || (widget.initialTab != oldWidget.initialTab && widget.initialTab != null)) {
+      final int initialIndex = widget.initialTab == 1 ? 1 : 0;
+      if (_tabController.index != initialIndex) {
+        _tabController.animateTo(initialIndex);
+      }
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2 , vsync: this);
+    final int initialIndex = widget.initialTab == 1 ? 1 : 0;
+    _tabController = TabController(initialIndex: initialIndex, length: 2, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
     });
@@ -72,6 +119,11 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) _loadStaffSignInStatus();
     });
+    // This screen is kept alive in the bottom nav's IndexedStack, so initState
+    // only runs once. Re-check the sign-in status whenever ANY attendance
+    // mutation fires (sign in/out from this or any other screen) so the add
+    // button reflects the latest status without needing an app restart.
+    AttendanceEvents.tick.addListener(_loadStaffSignInStatus);
   }
 
   /// Staff must be signed in before they can record activities. Resolves the
@@ -119,8 +171,10 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
     // directly under the + and grows leftward. Positioning by `left` would not
     // work: the box shrinks to fit its text, so a left offset computed from
     // maxWidth would leave it floating well to the left of the button.
-    final right = (screenWidth - (position.dx + renderObject.size.width))
-        .clamp(8.0, screenWidth - 8.0);
+    final right = (screenWidth - (position.dx + renderObject.size.width)).clamp(
+      8.0,
+      screenWidth - 8.0,
+    );
 
     late OverlayEntry overlayEntry;
     overlayEntry = OverlayEntry(
@@ -160,192 +214,217 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
 
   @override
   void dispose() {
+    AttendanceEvents.tick.removeListener(_loadStaffSignInStatus);
     _tabController.dispose();
     _dailyScrollController.dispose();
     _customScrollController.dispose();
     super.dispose();
   }
+
   @override
   Widget build(BuildContext context) {
     final role = context.watch<RoleCubit>();
     final staffLike = !role.isParent;
-    final allowWrite = widget.allowActivityWrite &&
+    final allowWrite =
+        widget.allowActivityWrite &&
         ModuleAccess.mayWrite(role, AppAccessModules.dailyActivity);
     // Staff persona ONLY (role.isStaff excludes admins): activity creation is
     // gated on having signed in for the day.
     final addBlockedForSignIn = role.isStaff && !_staffSignedInToday;
 
-    return GlobalScaffold(
-      //hasBackButton: true,
-      showCustomNavigationBar: true,
-      isParent: role.isParent,
-      body: staffLike
-          ? Column(
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Container(
-                      constraints: const BoxConstraints(maxWidth: 220),
-                      height: 50,
-                      child: Row(
-                        children: [
-                          _buildTabToggleButton(
-                            isSelected: _tabController.index == 0,
-                            onPressed: () => _tabController.animateTo(0),
-                            text: 'Daily',
-                          ),
-                          _buildTabToggleButton(
-                            isSelected: _tabController.index == 1,
-                            onPressed: () => _tabController.animateTo(1),
-                            text: 'Custom',
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (allowWrite)
-                      Row(
-                        children: [
-                          Builder(
-                            builder: (_) {
-                              final isTablet =
-                                  MediaQuery.of(context).size.width >= 600;
-                              final isLargeTablet =
-                                  MediaQuery.of(context).size.width >= 900;
-                              final iconSize = isLargeTablet
-                                  ? 46.0
-                                  : isTablet
-                                  ? 36.0
-                                  : 30.0;
-                              return GestureDetector(
-                                onTap: () =>
-                                    showSchoolCloudImageUploaderDialog(context),
-                                child: Padding(
-                                  padding: const EdgeInsets.all(8),
-                                  child: SvgPicture.asset(
-                                    MediaRes.uploadCloudIcon,
-                                    width: iconSize,
-                                    height: iconSize,
-                                  ),
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(width: 2),
-                          Builder(
-                            builder: (btnContext) => GradientAddButton(
-                            isDisabled: addBlockedForSignIn,
-                            onTap: () {
-                              // Staff who haven't signed in today: explain
-                              // instead of navigating.
-                              if (addBlockedForSignIn) {
-                                _showSignInRequiredTooltip(btnContext);
-                                return;
-                              }
-                              if (widget.fromStudentProfile) {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    settings: const RouteSettings(
-                                      name: CoreUtils.chooseActivityRouteName,
-                                    ),
-                                    builder: (_) => ChooseActivity(
-                                      selectedStudents: widget.studentName != null
-                                          ? [Map<String, dynamic>.from(widget.studentName!)]
-                                          : <Map<String, dynamic>>[],
-                                    ),
-                                  ),
-                                );
-                              } else {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    settings: const RouteSettings(
-                                      name: CoreUtils
-                                          .activityStudentSelectionRouteName,
-                                    ),
-                                    builder: (_) => ActivityStudentSelection(),
-                                  ),
-                                );
-                              }
-                            },
-                            isTablet: MediaQuery.of(context).size.width >= 600,
-                            isLargeTablet: MediaQuery.of(context).size.width >= 900,
+    return KeyedSubtree(
+      key: ValueKey('activity_feed_$_contextReloadEpoch'),
+      child: GlobalScaffold(
+        //hasBackButton: true,
+        showCustomNavigationBar: true,
+        isParent: role.isParent,
+        body: staffLike
+            ? Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Container(
+                        constraints: const BoxConstraints(maxWidth: 220),
+                        height: 50,
+                        child: Row(
+                          children: [
+                            _buildTabToggleButton(
+                              isSelected: _tabController.index == 0,
+                              onPressed: () => _tabController.animateTo(0),
+                              text: 'Daily',
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                        ],
+                            _buildTabToggleButton(
+                              isSelected: _tabController.index == 1,
+                              onPressed: () => _tabController.animateTo(1),
+                              text: 'Custom',
+                            ),
+                          ],
+                        ),
                       ),
-                  ],
-                ),
-                Flexible(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      ActivityDailyTab(
-                        fromStudentProfile: widget.fromStudentProfile,
-                        studentName: widget.studentName?['name']?.toString(),
-                        studentProfile: widget.fromStudentProfile
-                            ? widget.studentName
-                            : null,
-                        isNotParent: true,
-                        allowActivityWrite: allowWrite,
-                        highlightCode: widget.highlightCode,
-                        highlightDate: widget.highlightDate,
-                        highlightClassroomCode: widget.highlightClassroomCode,
-                      ),
-                      ActivityCustomTab(
-                        fromStudentProfile: widget.fromStudentProfile,
-                        studentName: widget.studentName?['name']?.toString(),
-                        studentProfile: widget.fromStudentProfile
-                            ? widget.studentName
-                            : null,
-                        isNotParent: true,
-                        allowActivityWrite: allowWrite,
-                      ),
+                      if (allowWrite)
+                        Row(
+                          children: [
+                            Builder(
+                              builder: (_) {
+                                final isTablet =
+                                    MediaQuery.of(context).size.width >= 600;
+                                final isLargeTablet =
+                                    MediaQuery.of(context).size.width >= 900;
+                                final iconSize = isLargeTablet
+                                    ? 46.0
+                                    : isTablet
+                                    ? 36.0
+                                    : 30.0;
+                                return GestureDetector(
+                                  onTap: () =>
+                                      showSchoolCloudImageUploaderDialog(
+                                        context,
+                                      ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(8),
+                                    child: SvgPicture.asset(
+                                      MediaRes.uploadCloudIcon,
+                                      width: iconSize,
+                                      height: iconSize,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                            const SizedBox(width: 2),
+                            Builder(
+                              builder: (btnContext) => GradientAddButton(
+                                isDisabled: addBlockedForSignIn,
+                                onTap: () {
+                                  // Staff who haven't signed in today: explain
+                                  // instead of navigating.
+                                  if (addBlockedForSignIn) {
+                                    _showSignInRequiredTooltip(btnContext);
+                                    return;
+                                  }
+                                  if (widget.fromStudentProfile) {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        settings: const RouteSettings(
+                                          name:
+                                              CoreUtils.chooseActivityRouteName,
+                                        ),
+                                        builder: (_) => ChooseActivity(
+                                          selectedStudents:
+                                              widget.studentName != null
+                                              ? [
+                                                  Map<String, dynamic>.from(
+                                                    widget.studentName!,
+                                                  ),
+                                                ]
+                                              : <Map<String, dynamic>>[],
+                                        ),
+                                      ),
+                                    );
+                                  } else {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        settings: const RouteSettings(
+                                          name: CoreUtils
+                                              .activityStudentSelectionRouteName,
+                                        ),
+                                        builder: (_) =>
+                                            ActivityStudentSelection(),
+                                      ),
+                                    );
+                                  }
+                                },
+                                isTablet:
+                                    MediaQuery.of(context).size.width >= 600,
+                                isLargeTablet:
+                                    MediaQuery.of(context).size.width >= 900,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                          ],
+                        ),
                     ],
                   ),
-                ),
-              ],
-            )
-          : Column(
-              children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: Row(
-                    children: [
-                      _buildTabToggleButton(
-                        isSelected: _tabController.index == 0,
-                        onPressed: () => _tabController.animateTo(0),
-                        text: 'Daily',
-                      ),
-                      _buildTabToggleButton(
-                        isSelected: _tabController.index == 1,
-                        onPressed: () => _tabController.animateTo(1),
-                        text: 'Custom',
-                      ),
-                    ],
+                  Flexible(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        ActivityDailyTab(
+                          fromStudentProfile: widget.fromStudentProfile,
+                          studentName: widget.studentName?['name']?.toString(),
+                          studentProfile: widget.fromStudentProfile
+                              ? widget.studentName
+                              : null,
+                          isNotParent: true,
+                          allowActivityWrite: allowWrite,
+                          highlightCode: widget.highlightCode,
+                          highlightDate: widget.highlightDate,
+                          highlightClassroomCode: widget.highlightClassroomCode,
+                          onRefreshStaffSignInStatus: _loadStaffSignInStatus,
+                        ),
+                        ActivityCustomTab(
+                          fromStudentProfile: widget.fromStudentProfile,
+                          studentName: widget.studentName?['name']?.toString(),
+                          studentProfile: widget.fromStudentProfile
+                              ? widget.studentName
+                              : null,
+                          isNotParent: true,
+                          allowActivityWrite: allowWrite,
+                          initialActivityTypes: widget.initialActivityTypes,
+                          initialClassrooms: widget.initialClassrooms,
+                          resetKey: widget.resetKey,
+                          onRefreshStaffSignInStatus: _loadStaffSignInStatus,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                Flexible(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      ActivityDailyTab(
-                        isNotParent: false,
-                        allowActivityWrite: allowWrite,
-                        highlightCode: widget.highlightCode,
-                        highlightDate: widget.highlightDate,
-                      ),
-                      ActivityCustomTab(
-                        isNotParent: false,
-                        allowActivityWrite: allowWrite,
-                      ),
-                    ],
+                ],
+              )
+            : Column(
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: Row(
+                      children: [
+                        _buildTabToggleButton(
+                          isSelected: _tabController.index == 0,
+                          onPressed: () => _tabController.animateTo(0),
+                          text: 'Daily',
+                        ),
+                        _buildTabToggleButton(
+                          isSelected: _tabController.index == 1,
+                          onPressed: () => _tabController.animateTo(1),
+                          text: 'Custom',
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
+                  Flexible(
+                    child: TabBarView(
+                      controller: _tabController,
+                      children: [
+                        ActivityDailyTab(
+                          isNotParent: false,
+                          allowActivityWrite: allowWrite,
+                          highlightCode: widget.highlightCode,
+                          highlightDate: widget.highlightDate,
+                        ),
+                        ActivityCustomTab(
+                          isNotParent: false,
+                          allowActivityWrite: allowWrite,
+                          initialActivityTypes: widget.initialActivityTypes,
+                          initialClassrooms: widget.initialClassrooms,
+                          resetKey: widget.resetKey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 
@@ -364,10 +443,7 @@ class _ActivityFeedScreenState extends State<ActivityFeedScreen>  with TickerPro
           decoration: BoxDecoration(
             border: isSelected
                 ? const Border(
-                    bottom: BorderSide(
-                      color: AppColors.themeColor,
-                      width: 2,
-                    ),
+                    bottom: BorderSide(color: AppColors.themeColor, width: 2),
                   )
                 : null,
           ),

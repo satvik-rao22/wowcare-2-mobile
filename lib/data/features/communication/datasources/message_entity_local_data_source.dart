@@ -65,8 +65,7 @@ abstract class MessageEntityLocalDataSource {
   });
 }
 
-class MessageEntityLocalDataSourceImpl
-    implements MessageEntityLocalDataSource {
+class MessageEntityLocalDataSourceImpl implements MessageEntityLocalDataSource {
   final CacheService cacheService;
 
   MessageEntityLocalDataSourceImpl({required this.cacheService});
@@ -81,15 +80,16 @@ class MessageEntityLocalDataSourceImpl
     String? currentUserCode,
   }) async {
     final all = await cacheService.getAll<MessageEntityCollection>();
-    final matching = all
-        .where(
-          (m) =>
-              m.conversationCode == conversationCode &&
-              m.organizationCode == organizationCode &&
-              m.schoolCode == schoolCode,
-        )
-        .toList()
-      ..sort((a, b) => b.sentAt.compareTo(a.sentAt)); // newest first
+    final matching =
+        all
+            .where(
+              (m) =>
+                  m.conversationCode == conversationCode &&
+                  m.organizationCode == organizationCode &&
+                  m.schoolCode == schoolCode,
+            )
+            .toList()
+          ..sort((a, b) => b.sentAt.compareTo(a.sentAt)); // newest first
 
     if (beforeMessageCode == null) {
       // `List.take()` returns a lazy Iterable — it must be materialised with
@@ -125,8 +125,9 @@ class MessageEntityLocalDataSourceImpl
     required List<MessageEntity> entities,
     required String conversationCode,
   }) async {
-    final collections =
-        entities.map(MessageEntityCollection.fromEntity).toList();
+    final collections = entities
+        .map(MessageEntityCollection.fromEntity)
+        .toList();
     await cacheService.putAll(collections);
   }
 
@@ -142,15 +143,26 @@ class MessageEntityLocalDataSourceImpl
     required String status,
   }) async {
     final all = await cacheService.getAll<MessageEntityCollection>();
-    final match = all
-        .where((m) => m.localTempCode == localTempCode)
-        .toList();
+    final match = all.where((m) => m.localTempCode == localTempCode).toList();
 
     for (final m in match) {
+      // `isarId` is hashed from `code` (see MessageEntityCollection), so
+      // mutating `code` below moves this row to a NEW Isar primary key —
+      // `put()` inserts rather than updates, leaving the old
+      // temp-code-keyed row behind forever (still `status: pending`). That
+      // orphan gets replayed into the UI on every reopen as a permanent
+      // duplicate of the now-confirmed message. Capture the stale key
+      // first and delete it after the write, mirroring
+      // CommunicationRepositoryImpl.sendMessage's equivalent cleanup for
+      // the legacy stack.
+      final staleIsarId = m.isarId;
       m.code = confirmedCode;
       m.status = status;
       m.localTempCode = null;
       await cacheService.put(m);
+      if (staleIsarId != m.isarId) {
+        await cacheService.delete<MessageEntityCollection>(staleIsarId);
+      }
     }
   }
 

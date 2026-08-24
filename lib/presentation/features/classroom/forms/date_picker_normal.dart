@@ -1,0 +1,457 @@
+// import 'package:calendar_date_picker2/calendar_date_picker2.dart';
+// import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart';
+// import 'package:flutter_svg/svg.dart';
+// import 'package:schoolerp/core/common/widgets/custom_button_layout.dart';
+// import 'package:schoolerp/core/res/colors.dart';
+// import 'package:schoolerp/core/res/media_res.dart';
+// import 'package:schoolerp/core/util/date_utils.dart';
+// import 'package:schoolerp/core/common/widgets/calendar_responsive_helper.dart';
+
+// class CalendarDialog extends StatefulWidget {
+//   final bool isRangePicker;
+//   final bool isTimePicker;
+//   final DateTime? initialDate;
+//   final DateTime? initialEndDate;
+//   final TimeOfDay? initialTime;
+
+//   const CalendarDialog({
+//     Key? key,
+//     this.isRangePicker = false,
+//     this.isTimePicker = true,
+//     this.initialDate,
+//     this.initialEndDate,
+//     this.initialTime,
+//   }) : super(key: key);
+
+//   @override
+//   State<CalendarDialog> createState() => _CalendarDialogState();
+// }
+
+import 'package:flutter/material.dart';
+import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/shared/common/widgets/calendar_dialog.dart';
+
+/// Normal (single) date picker used across the app.
+///
+/// This is intentionally implemented as a thin wrapper around the shared
+/// [CalendarDialog] so feature modules can standardize on a single import:
+/// `@lib/presentation/features/classroom/forms/date_picker_normal.dart`.
+Future<DateTime?> pickNormalDate({
+  required BuildContext context,
+  DateTime? initialDate,
+  DateTime? firstDate,
+  DateTime? lastDate,
+}) async {
+  final now = AppTime.now();
+  final result = await showDialog<Map<String, dynamic>>(
+    context: context,
+    builder: (_) => CalendarDialog(
+      isRangePicker: false,
+      isTimePicker: false,
+      initialDate: initialDate ?? now,
+      firstDate: firstDate,
+      lastDate: lastDate,
+      whiteBgColor: true,
+    ),
+  );
+
+  final date = result?['date'];
+  if (date is DateTime) {
+    return DateTime(date.year, date.month, date.day);
+  }
+  return null;
+}
+
+// class _CalendarDialogState extends State<CalendarDialog> {
+//   late DateTime? selectedDate;
+//   late DateTime? rangeStartDate;
+//   late DateTime? rangeEndDate;
+//   late TimeOfDay selectedTime;
+//   late TextEditingController _minuteController;
+//   late TextEditingController _hourController;
+
+//   @override
+//   void initState() {
+//     super.initState();
+
+//     // Use provided initialDate or null
+//     selectedDate = widget.initialDate;
+
+//     // For range picker, initialize with provided dates or defaults
+//     rangeStartDate = widget.initialDate ?? AppTime.now();
+//     rangeEndDate = widget.initialEndDate;
+
+//     // Use provided initialTime or default to current time
+//     selectedTime = widget.initialTime ?? TimeOfDay.now();
+
+//     // Initialize controllers with current time values
+//     _hourController = TextEditingController(
+//       text: selectedTime.hourOfPeriod == 0
+//           ? '12'
+//           : selectedTime.hourOfPeriod.toString(),
+//     );
+//     _minuteController = TextEditingController(
+//       text: selectedTime.minute.toString().padLeft(2, '0'),
+//     );
+//   }
+
+//   @override
+//   void dispose() {
+//     _minuteController.dispose();
+//     _hourController.dispose();
+//     super.dispose();
+//   }
+
+//   void _dismissKeyboard() {
+//     final focus = FocusScope.of(context);
+//     if (!focus.hasPrimaryFocus && focus.focusedChild != null) {
+//       focus.unfocus();
+//     } else {
+//       focus.unfocus();
+//     }
+//   }
+
+//   String _getHeaderText() {
+//     if (!widget.isRangePicker) {
+//       return selectedDate == null ? 'Select Date' : DateUtilsNew.formatToShortReadableDate(selectedDate!);
+//     }
+
+//     if (rangeEndDate == null) {
+//       return DateUtilsNew.formatToShortReadableDate(rangeStartDate!);
+//     }
+
+//     return "${DateUtilsNew.formatToShortReadableDate(rangeStartDate!)} -\n ${DateUtilsNew.formatToShortReadableDate(rangeEndDate!)}";
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     final calHelper = CalendarResponsiveHelper(context);
+//     final double dialogWidth = calHelper.isLargeTablet ? 600 : (calHelper.isTablet ? 400 : calHelper.calendarWidth);
+//     final double maxDialogHeight = MediaQuery.of(context).size.height * 0.95;
+//     final double controlsFontSize = calHelper.isLargeTablet ? 18 : (calHelper.isTablet ? 16 : 14);
+//     final double dayFontSize = calHelper.isLargeTablet ? 16 : (calHelper.isTablet ? 15 : 13);
+//     final double yearFontSize = calHelper.isLargeTablet ? 18 : (calHelper.isTablet ? 16 : 14);
+//     final double controlsHeight = calHelper.isTablet ? 50 : 44;
+//     final double hourMinuteFieldWidth = calHelper.isTablet ? 56 : 46;
+//     final double amPmMinWidth = calHelper.isTablet ? 80 : 64;
+//     return Dialog(
+//       insetPadding: EdgeInsets.symmetric(
+//         vertical: calHelper.calendarMargin * 0.5,
+//         horizontal: calHelper.calendarMargin,
+//       ),
+//       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+//       child: ConstrainedBox(
+//         constraints: BoxConstraints(
+//           maxWidth: dialogWidth,
+//           maxHeight: maxDialogHeight,
+//         ),
+//         child: GestureDetector(
+//           behavior: HitTestBehavior.opaque,
+//           onTap: _dismissKeyboard,
+//           onPanDown: (_) => _dismissKeyboard(),
+//         child: Padding(
+//           padding: EdgeInsets.symmetric(
+//             vertical: calHelper.calendarPadding,
+//             horizontal: calHelper.calendarPadding * 0.75,
+//           ),
+//             child: SingleChildScrollView(
+//               physics: const ClampingScrollPhysics(),
+//           child: Column(
+//             mainAxisSize: MainAxisSize.min,
+//                 children: [
+//                   Row(
+//                     mainAxisAlignment: MainAxisAlignment.start,
+//                     children: [
+//                       Text(
+//                         widget.isRangePicker
+//                             ? "Select date range"
+//                             : (widget.isTimePicker ? "Select date & time" : "Select date"),
+//                         style: TextStyle(
+//                           fontFamily: 'Manrope',
+//                           fontSize: calHelper.headerFontSize * 0.8,
+//                           fontWeight: FontWeight.w500,
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                   SizedBox(height: calHelper.calendarPadding * 0.5),
+//                   Row(
+//                     mainAxisAlignment: MainAxisAlignment.start,
+//                     children: [
+//                       Flexible(
+//                         child: Text(
+//                           _getHeaderText(),
+//                           style: TextStyle(
+//                             fontFamily: 'Manrope',
+//                             fontSize: calHelper.headerFontSize,
+//                             fontWeight: FontWeight.w600,
+//                           ),
+//                           overflow: TextOverflow.ellipsis,
+//                         ),
+//                       ),
+//                     ],
+//                   ),
+//                   SizedBox(height: calHelper.calendarPadding * 0.4),
+//                   const Divider(
+//                     indent: 0,
+//                     endIndent: 0,
+//                     color: Color(0xFFE0E0E0),
+//                     height: 2,
+//                   ),
+//                   SizedBox(height: calHelper.calendarPadding * 0.4),
+//                   if (widget.isRangePicker)
+//                     SizedBox(
+//                       height: calHelper.isTablet ? 320 : 280,
+//                       width: double.infinity,
+//                       child: CalendarDatePicker2(
+//                         config: CalendarDatePicker2Config(
+//                           calendarType: CalendarDatePicker2Type.range,
+//                           selectedDayHighlightColor: const Color(0xFF6F8CFF),
+//                           centerAlignModePicker: true,
+//                           firstDate: DateTime(2000),
+//                           lastDate: DateTime(2100),
+//                           controlsHeight: controlsHeight,
+//                           controlsTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: controlsFontSize, fontWeight: FontWeight.w400),
+//                           dayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400),
+//                           selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
+//                           yearTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: yearFontSize, fontWeight: FontWeight.w400),
+//                         ),
+//                         value: rangeEndDate != null ? [rangeStartDate, rangeEndDate] : [rangeStartDate],
+//                         onValueChanged: (dates) {
+//                           setState(() {
+//                             if (dates.isNotEmpty) {
+//                               rangeStartDate = dates.first;
+//                               rangeEndDate = dates.length > 1 ? dates[1] : null;
+//                             }
+//                           });
+//                         },
+//                       ),
+//                     )
+//                   else
+//                     SizedBox(
+//                       height: calHelper.isTablet ? 320 : 280,
+//                       width: double.infinity,
+//                       child: CalendarDatePicker2(
+//                         config: CalendarDatePicker2Config(
+//                           calendarType: CalendarDatePicker2Type.single,
+//                           selectedDayHighlightColor: const Color(0xFF6F8CFF),
+//                           centerAlignModePicker: true,
+//                           firstDate: DateTime(2000),
+//                           lastDate: DateTime(2100),
+//                           controlsHeight: controlsHeight,
+//                           controlsTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: controlsFontSize, fontWeight: FontWeight.w400),
+//                           dayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400),
+//                           selectedDayTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: dayFontSize, fontWeight: FontWeight.w400, color: Colors.white),
+//                           yearTextStyle: TextStyle(fontFamily: 'Manrope', fontSize: yearFontSize, fontWeight: FontWeight.w400),
+//                           currentDate: null,
+//                         ),
+//                         value: selectedDate == null ? [] : [selectedDate!],
+//                         onValueChanged: (dates) {
+//                           setState(() {
+//                             if (dates.isNotEmpty) {
+//                               selectedDate = dates.first;
+//                             } else {
+//                               selectedDate = null;
+//                             }
+//                           });
+//                         },
+//                       ),
+//                     ),
+//                   if (!widget.isRangePicker && widget.isTimePicker)
+//                     Padding(
+//                       padding: const EdgeInsets.symmetric(vertical: 12),
+//                       child: Row(
+//                         mainAxisAlignment: MainAxisAlignment.center,
+//                         children: [
+//                           Column(
+//                             children: [
+//                               Container(
+//                                 decoration: BoxDecoration(
+//                                   borderRadius: BorderRadius.circular(8),
+//                                   color: const Color.fromRGBO(87, 51, 83, 0.1),
+//                                 ),
+//                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+//                                 child: SizedBox(
+//                                   width: hourMinuteFieldWidth,
+//                                   child: TextField(
+//                                     textAlign: TextAlign.center,
+//                                     controller: _hourController,
+//                                     keyboardType: TextInputType.number,
+//                                     inputFormatters: [
+//                                       FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*$')),
+//                                       LengthLimitingTextInputFormatter(2),
+//                                       TextInputFormatter.withFunction((oldValue, newValue) {
+//                                         if (newValue.text.isEmpty) return newValue;
+//                                         final int? value = int.tryParse(newValue.text);
+//                                         if (value == null) return oldValue;
+//                                         if (value < 1) return const TextEditingValue(text: '1');
+//                                         if (value > 12) return const TextEditingValue(text: '12');
+//                                         return newValue;
+//                                       }),
+//                                     ],
+//                                     decoration: const InputDecoration(
+//                                       hintText: 'HH',
+//                                       border: InputBorder.none,
+//                                       contentPadding: EdgeInsets.symmetric(vertical: 12),
+//                                     ),
+//                                     style: TextStyle(fontFamily: 'Manrope', fontSize: calHelper.isTablet ? 20 : 18, fontWeight: FontWeight.w600),
+//                                     onChanged: (value) {
+//                                       if (value.isEmpty) return;
+//                                       final hour = int.tryParse(value);
+//                                       if (hour != null && hour >= 1 && hour <= 12) {
+//                                         setState(() {
+//                                           selectedTime = TimeOfDay(
+//                                             hour: hour % 12 + (selectedTime.period == DayPeriod.pm ? 12 : 0),
+//                                             minute: selectedTime.minute,
+//                                           );
+//                                         });
+//                                       }
+//                                     },
+//                                   ),
+//                                 ),
+//                               ),
+//                               const SizedBox(height: 10),
+//                               const Text(
+//                                 "Hours",
+//                                 style: TextStyle(fontFamily: 'Manrope', fontSize: 14, fontWeight: FontWeight.w500),
+//                               ),
+//                             ],
+//                           ),
+//                           const SizedBox(width: 10),
+//                           Column(
+//                             children: [
+//                               const SizedBox(height: 10),
+//                               SvgPicture.asset(MediaRes.saperator),
+//                             ],
+//                           ),
+//                           const SizedBox(width: 10),
+//                           Column(
+//                             children: [
+//                               Container(
+//                                 decoration: BoxDecoration(
+//                                   borderRadius: BorderRadius.circular(8),
+//                                   color: const Color.fromRGBO(87, 51, 83, 0.1),
+//                                 ),
+//                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+//                                 child: SizedBox(
+//                                   width: hourMinuteFieldWidth,
+//                                   child: TextField(
+//                                     textAlign: TextAlign.center,
+//                                     controller: _minuteController,
+//                                     keyboardType: TextInputType.number,
+//                                     inputFormatters: [
+//                                       FilteringTextInputFormatter.allow(RegExp(r'^[0-9]*$')),
+//                                       LengthLimitingTextInputFormatter(2),
+//                                       TextInputFormatter.withFunction((oldValue, newValue) {
+//                                         if (newValue.text.isEmpty) return newValue;
+//                                         final int? value = int.tryParse(newValue.text);
+//                                         if (value == null) return oldValue;
+//                                         if (value > 59) return const TextEditingValue(text: '59');
+//                                         return newValue;
+//                                       }),
+//                                     ],
+//                                     decoration: const InputDecoration(
+//                                       hintText: 'MM',
+//                                       border: InputBorder.none,
+//                                       contentPadding: EdgeInsets.symmetric(vertical: 12),
+//                                     ),
+//                                     style: TextStyle(fontFamily: 'Manrope', fontSize: calHelper.isTablet ? 20 : 18, fontWeight: FontWeight.w600),
+//                                     onChanged: (value) {
+//                                       if (value.isEmpty) return;
+//                                       final minute = int.tryParse(value);
+//                                       if (minute != null && minute >= 0 && minute <= 59) {
+//                                         setState(() {
+//                                           selectedTime = TimeOfDay(
+//                                             hour: selectedTime.hour,
+//                                             minute: minute,
+//                                           );
+//                                         });
+//                                       }
+//                                     },
+//                                   ),
+//                                 ),
+//                               ),
+//                               const SizedBox(height: 10),
+//                               const Text(
+//                                 "Minute",
+//                                 style: TextStyle(fontFamily: 'Manrope', fontSize: 14, fontWeight: FontWeight.w500),
+//                               ),
+//                             ],
+//                           ),
+//                           const SizedBox(width: 40),
+//                           Column(
+//                             children: [
+//                               SizedBox(
+//                                 width: amPmMinWidth,
+//                                 child: ToggleButtons(
+//                                   direction: Axis.vertical,
+//                                   borderRadius: BorderRadius.circular(8),
+//                                   constraints: BoxConstraints(
+//                                     minWidth: amPmMinWidth,
+//                                     minHeight: 40,
+//                                   ),
+//                                   isSelected: [
+//                                     selectedTime.period == DayPeriod.am,
+//                                     selectedTime.period == DayPeriod.pm,
+//                                   ],
+//                                   onPressed: (index) {
+//                                     setState(() {
+//                                       selectedTime = TimeOfDay(
+//                                         hour: selectedTime.hour % 12 + (index == 1 ? 12 : 0),
+//                                         minute: selectedTime.minute,
+//                                       );
+//                                     });
+//                                   },
+//                                   children: const [
+//                                     Text("AM", style: TextStyle(fontFamily: 'Manrope', fontWeight: FontWeight.bold)),
+//                                     Text("PM", style: TextStyle(fontFamily: 'Manrope', fontWeight: FontWeight.bold)),
+//                                   ],
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         ],
+//                       ),
+//                     ),
+//                   const SizedBox(height: 20),
+//                   CustomButtonLayout(
+//                     confirmButtonLabel: 'OK',
+//                     isForm: false,
+//                     onPressedConfirm: () {
+//                       if (widget.isRangePicker) {
+//                         final DateTime? formattedEndDate = rangeEndDate != null
+//                             ? DateTime(
+//                                 rangeEndDate!.year,
+//                                 rangeEndDate!.month,
+//                                 rangeEndDate!.day,
+//                                 23,
+//                                 59,
+//                                 59,
+//                               )
+//                             : null;
+//                         Navigator.pop(context, {
+//                           'startDate': rangeStartDate,
+//                           'endDate': formattedEndDate,
+//                         });
+//                       } else {
+//                         Navigator.pop(context, {
+//                           'date': selectedDate,
+//                           'time': selectedTime,
+//                         });
+//                       }
+//                     },
+//                     onPressedCancel: () {
+//                       Navigator.pop(context);
+//                     },
+//                     cancelButtonLabel: 'Cancel',
+//                   ),
+//                 ],
+//               ),
+//             ),
+//           ),
+//         ),
+//       ),
+//     );
+//   }
+// }

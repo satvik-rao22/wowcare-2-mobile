@@ -47,7 +47,7 @@ class NotificationCenterScreen extends StatelessWidget {
     'BILLING',
     'SCHEDULING',
     'AVAILABILITY',
-    'ACTIVITIES',
+    'ACTIVITY',
     'MESSAGING',
     'NEWSLETTER',
   ];
@@ -127,37 +127,68 @@ class _Header extends StatelessWidget {
           ),
         ),
         const SizedBox(width: 12),
-        SizedBox(
-          width: 150,
-          child: BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
-            buildWhen: (p, c) => p.moduleFilter != c.moduleFilter,
-            builder: (context, state) {
-              // Raw module string → display label. Selecting a label maps back
-              // to the raw module sent as the `module` query param.
-              // TODO(notifications): source this list from the modules API
-              // instead of the interim constant below.
-              final modules = NotificationCenterScreen._filterModules;
-              final labelToModule = <String, String>{
-                for (final m in modules)
-                  NotificationCategoryStyle.moduleLabel(m): m,
-              };
-              return CustomDropdown(
-                hintText: NotificationCenterScreen._allLabel,
-                showAsterisk: false,
-                items: labelToModule.keys.toList(),
-                selectedItem: state.moduleFilter == null
-                    ? null
-                    : NotificationCategoryStyle.moduleLabel(state.moduleFilter!),
-                onSelect: (label) {
-                  // Hint ("All") => null clears the filter (server returns all).
-                  final module = (label == null) ? null : labelToModule[label];
-                  context
-                      .read<NotificationCenterCubit>()
-                      .setModuleFilter(module);
-                },
-              );
-            },
-          ),
+        BlocBuilder<NotificationCenterCubit, NotificationCenterState>(
+          buildWhen: (p, c) => p.moduleFilter != c.moduleFilter,
+          builder: (context, state) {
+            // Raw module string → display label. Selecting a label maps back
+            // to the raw module sent as the `module` query param.
+            // TODO(notifications): source this list from the modules API
+            // instead of the interim constant below.
+            final modules = NotificationCenterScreen._filterModules;
+            final labelToModule = <String, String>{
+              for (final m in modules)
+                NotificationCategoryStyle.moduleLabel(m): m,
+            };
+            return Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(
+                  width: 150,
+                  child: CustomDropdown(
+                    hintText: NotificationCenterScreen._allLabel,
+                    showAsterisk: false,
+                    items: labelToModule.keys.toList(),
+                    selectedItem: state.moduleFilter == null
+                        ? null
+                        : NotificationCategoryStyle.moduleLabel(
+                            state.moduleFilter!,
+                          ),
+                    onSelect: (label) {
+                      // Hint ("All") => null clears the filter (server
+                      // returns all).
+                      final module = (label == null)
+                          ? null
+                          : labelToModule[label];
+                      context
+                          .read<NotificationCenterCubit>()
+                          .setModuleFilter(module);
+                    },
+                  ),
+                ),
+                // The dropdown itself has no way back to "All" once a
+                // module is picked — "All" is only its unselectable hint
+                // text, not an item in the list — so this was the only way
+                // to clear a filter short of leaving and reopening the
+                // notification center.
+                if (state.moduleFilter != null)
+                  Tooltip(
+                    message: 'Clear filter',
+                    child: IconButton(
+                      onPressed: () => context
+                          .read<NotificationCenterCubit>()
+                          .setModuleFilter(null),
+                      icon: const Icon(Icons.close_rounded, size: 20),
+                      color: const Color(0xff573353),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
         ),
       ],
     );

@@ -20,6 +20,8 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/domain/features/staff/usecases/get_staff_profile_usecase.dart';
 import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/presentation/features/classroom/views/classroom_tab_cards/classroom_staff_tab_card.dart'
+    show notifyClassroomStaffChanged;
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
@@ -107,6 +109,28 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   String _profileUserCode = '';
   String _profileOrganizationCode = '';
   String _profileSchoolCode = '';
+  String _profileStaffType = '';
+
+  /// Raw API status (`ACTIVE`/`INACTIVE`/`UPCOMING`) as loaded, before any
+  /// edits — compared against the newly-selected status at save time so the
+  /// activate/deactivate side-effect API only fires on a real Active<->
+  /// Inactive transition, not on every save. See _saveProfileDetails.
+  String _originalStatusApi = '';
+
+  /// Name/phone/address as loaded, before any edits — this form always
+  /// resubmits every field on save (no per-field dirty tracking), so the
+  /// /profile PATCH's generic success message can't by itself tell "only
+  /// email changed" apart from "other fields changed too". Compared against
+  /// the submitted values at save time; see _saveProfileDetails' message
+  /// composition.
+  String _originalFirstName = '';
+  String _originalLastName = '';
+  String _originalPhoneDigits = '';
+  String _originalAddressStreet = '';
+  String _originalAddressLine2 = '';
+  String _originalAddressCity = '';
+  String _originalAddressState = '';
+  String _originalAddressZipDigits = '';
 
   static const List<String> _staffStatusOptions = [
     'Active',
@@ -114,6 +138,12 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
     'Upcoming',
   ];
   static const List<String> _adminStatusOptions = ['Active', 'Inactive'];
+
+  /// Shown on a successful email change instead of the raw email-change API
+  /// response text — matches the web app's "Verification Email Sent" banner
+  /// copy so both clients tell the user the same thing in the same words.
+  static const String _emailVerificationSentMessage =
+      'A verification email has been sent to your new email address.';
   // Full designation list (union of admin + staff) for mapping helpers.
   final List<String> _designationOptions = [
     'Director',
@@ -155,7 +185,6 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
   // First character A–Z, then up to 49 characters (letters, space, hyphen, apostrophe).
   static final RegExp _nameRegex = RegExp(r"^[A-Za-z][A-Za-z\-'\s]{0,49}$");
   static final RegExp _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]{2,}$');
-  static final RegExp _e164Regex = RegExp(r'^\+?[1-9]\d{7,14}$');
 
   /// Map from classroom display name -> classroom code (for API payload).
   final Map<String, String> _classroomCodeByName = {};
@@ -307,11 +336,19 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       setState(() {
         _firstNameController.text = profile.firstName;
         _lastNameController.text = profile.lastName;
+        _originalFirstName = profile.firstName.trim().toLowerCase();
+        _originalLastName = profile.lastName.trim().toLowerCase();
+        _originalPhoneDigits = profile.phoneNumber.replaceAll(
+          RegExp(r'\D'),
+          '',
+        );
         _emailController.text = profile.email;
         _originalEmail = profile.email.trim().toLowerCase();
         _profileUserCode = profile.userCode.trim();
         _profileOrganizationCode = profile.organizationCode.trim();
         _profileSchoolCode = profile.schoolCode.trim();
+        _profileStaffType = profile.staffType.trim();
+        _originalStatusApi = profile.status.trim().toUpperCase();
         _phoneNumberController.text = _formatUsPhone(profile.phoneNumber);
         _selectedDesignation = _mapDesignationFromApiOrLabel(
           profile.designation,
@@ -376,6 +413,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         _street2Controller.text = a.line2;
         _cityController.text = a.city;
         _zipCodeController.text = _formatUsZipForDisplay(a.zipCode);
+        _originalAddressStreet = a.street.trim().toLowerCase();
+        _originalAddressLine2 = a.line2.trim().toLowerCase();
+        _originalAddressCity = a.city.trim().toLowerCase();
+        _originalAddressZipDigits = a.zipCode.replaceAll(RegExp(r'\D'), '');
         if (a.state.isNotEmpty) {
           final match = US_STATES.firstWhere(
             (s) =>
@@ -384,6 +425,10 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
             orElse: () => US_STATES.first,
           );
           _selectedState = match.name;
+          // Captured as the same display-name form _selectedState holds, so
+          // the save-time comparison isn't comparing a full name against an
+          // abbreviation (a.state's raw form can be either).
+          _originalAddressState = match.name.toLowerCase();
         }
 
         // Country is fixed to United States for this screen; ignore API value.
@@ -577,7 +622,11 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       );
       return;
     }
-    if (phoneDigits.length != 10 || !_e164Regex.hasMatch('+' + phoneDigits)) {
+    // Only the 10-digit check matters here — the E.164 check this used to
+    // also run (requiring the first digit to be 1-9) rejected genuinely
+    // valid 10-digit numbers that start with 0 (see the matching fix in
+    // EditUserProfileScreen for the same bug on the "My Profile" screen).
+    if (phoneDigits.length != 10) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Please enter a valid 10-digit phone number',
@@ -725,20 +774,39 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
 
       final repository = serviceLocator<StaffRepository>();
 
-      // If email changed, call email-change API first (same behavior as EditUserProfileScreen).
+      // If email changed, call email-change API first (same behavior as
+      // EditUserProfileScreen/EditUserProfileCubit). Its own response
+      // `message` (e.g. "verification email sent to the new address") is
+      // captured and preferred over the unrelated address/profile message
+      // below — and, unlike the rest of this save, a failure here is caught
+      // locally rather than aborting the whole save: an email failure alone
+      // must not also block the classroom/address/activation updates that
+      // follow, and the user must see the ACTUAL backend error for the
+      // email specifically, not a generic one from whatever step happened
+      // to fail next.
+      String? emailChangeMessage;
+      bool emailChangeFailed = false;
       final newEmail = email.trim().toLowerCase();
-      if (_profileUserCode.isNotEmpty &&
+      final emailChanged =
+          _profileUserCode.isNotEmpty &&
           _profileOrganizationCode.isNotEmpty &&
           _profileSchoolCode.isNotEmpty &&
           _originalEmail.isNotEmpty &&
-          _originalEmail != newEmail) {
-        await repository.changeUserEmail(
-          userCode: _profileUserCode,
-          oldEmail: _originalEmail,
-          newEmail: newEmail,
-          organizationCode: _profileOrganizationCode,
-          schoolCode: _profileSchoolCode,
-        );
+          _originalEmail != newEmail;
+      if (emailChanged) {
+        try {
+          await repository.changeUserEmail(
+            userCode: _profileUserCode,
+            oldEmail: _originalEmail,
+            newEmail: newEmail,
+            organizationCode: _profileOrganizationCode,
+            schoolCode: _profileSchoolCode,
+          );
+          emailChangeMessage = _emailVerificationSentMessage;
+        } catch (e) {
+          emailChangeFailed = true;
+          emailChangeMessage = ApiErrorHandler.extractErrorMessage(e);
+        }
       }
 
       // Update core profile fields
@@ -747,15 +815,74 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         fields: profilePayload,
       );
 
+      // Activate/deactivate is a SEPARATE backend action from the /profile
+      // PATCH above (it toggles system login access, not just the status
+      // field) — fire it only on an actual Active<->Inactive transition, not
+      // on every save (e.g. Upcoming->Active, or an unrelated field edit
+      // with status left unchanged must NOT call this). Mirrors
+      // StaffCubit.activateStaff/deactivateStaff's own org-admin-vs-school-
+      // user + role resolution exactly, since those hit the same endpoints.
+      final becameActive =
+          _originalStatusApi == 'INACTIVE' && statusApi == 'ACTIVE';
+      final becameInactive =
+          _originalStatusApi == 'ACTIVE' && statusApi == 'INACTIVE';
+      if ((becameActive || becameInactive) &&
+          _profileUserCode.isNotEmpty &&
+          _profileOrganizationCode.isNotEmpty) {
+        final staffTypeUpper = _profileStaffType.toUpperCase().trim();
+        final bool isOrganizationAdmin =
+            staffTypeUpper.contains('ORGANIZATION') &&
+            staffTypeUpper.contains('ADMIN');
+        final bool schoolCodeMissing =
+            _profileSchoolCode.isEmpty || _profileSchoolCode == '-';
+        if (isOrganizationAdmin || schoolCodeMissing) {
+          if (becameActive) {
+            await repository.activateOrganizationAdmin(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+            );
+          } else {
+            await repository.deactivateOrganizationAdmin(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+            );
+          }
+        } else {
+          final role =
+              (staffTypeUpper == 'ADMIN' || staffTypeUpper == 'SCHOOL_ADMIN')
+              ? 'SCHOOL_ADMIN'
+              : 'STAFF';
+          if (becameActive) {
+            await repository.activateSchoolUser(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+              schoolCode: _profileSchoolCode,
+              role: role,
+            );
+          } else {
+            await repository.deactivateSchoolUser(
+              userCode: _profileUserCode,
+              organizationCode: _profileOrganizationCode,
+              schoolCode: _profileSchoolCode,
+              role: role,
+            );
+          }
+        }
+      }
+
       // Classrooms have dedicated endpoints (the /profile PATCH ignores them).
       // Update allowed classrooms first so the primary is valid within the set,
-      // then update the primary classroom.
-      if (allowedClassroomCodes.isNotEmpty) {
-        await repository.updateStaffAllowedClassrooms(
-          staffCode: widget.staffCode,
-          classroomCodes: allowedClassroomCodes,
-        );
-      }
+      // then update the primary classroom. Always send the current selection,
+      // even when empty — `_selectedAllowedClassrooms` is the form's own live
+      // state (not an "untouched" sentinel), so an empty list is a genuine,
+      // intentional "remove every classroom assignment". Skipping the call
+      // when empty (the previous `isNotEmpty` guard) silently dropped that
+      // removal — the staff member stayed assigned server-side even after
+      // unchecking their only classroom and saving.
+      await repository.updateStaffAllowedClassrooms(
+        staffCode: widget.staffCode,
+        classroomCodes: allowedClassroomCodes,
+      );
       if (primaryClassroomCode != null && primaryClassroomCode.isNotEmpty) {
         await repository.updateStaffPrimaryClassroom(
           staffCode: widget.staffCode,
@@ -777,6 +904,13 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
       // Profile mutation — poke the scheduling screens so they silently
       // re-pull the staff list on the next visit.
       SchedulingCacheGate.invalidate();
+      // Same idea for the Classroom module's own Staff tab: allowed/primary
+      // classroom assignment may have just changed (including a full
+      // removal above), so its cached roster is stale the moment this
+      // returns — without this, a removed staff member kept showing in
+      // that classroom's list until some unrelated refresh happened to
+      // fire.
+      notifyClassroomStaffChanged();
 
       // Upload the picked photo in the BACKGROUND so saving returns instantly;
       // it keeps running even after this screen is popped.
@@ -792,12 +926,65 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
         );
       }
 
+      // updateStaffAddress runs unconditionally on every save, just like
+      // updateStaffProfile, regardless of whether the address itself
+      // changed — so addressMessage is always non-empty, and preferring it
+      // (as this used to) meant the banner said something address-specific
+      // (e.g. "Staff address updated successfully") on EVERY save, even one
+      // that only touched the name or phone number. The general profile
+      // message is the correct default; address-specific text has no
+      // reason to override it just because that endpoint also ran.
+      final profileOrAddressMessage =
+          profileMessage.isNotEmpty ? profileMessage : addressMessage;
+      // This form always resubmits every field on save (no per-field dirty
+      // tracking), so the /profile PATCH's generic success message can't by
+      // itself tell "only email changed" apart from "other fields changed
+      // too" — compare the submitted values against what was actually
+      // loaded (captured in _original* at prefill time) to tell them apart.
+      final otherFieldsChanged =
+          first.trim().toLowerCase() != _originalFirstName ||
+          last.trim().toLowerCase() != _originalLastName ||
+          phoneDigits != _originalPhoneDigits ||
+          _streetController.text.trim().toLowerCase() !=
+              _originalAddressStreet ||
+          _street2Controller.text.trim().toLowerCase() !=
+              _originalAddressLine2 ||
+          _cityController.text.trim().toLowerCase() != _originalAddressCity ||
+          (_selectedState ?? '').trim().toLowerCase() !=
+              _originalAddressState ||
+          zipDigits != _originalAddressZipDigits;
+      // The web app shows the profile-update confirmation and the
+      // email-change endpoint's own message (e.g. a verification notice) as
+      // two separate stacked notifications. This app's top banner only
+      // shows one at a time (replacing any prior one instantly), so when
+      // BOTH changed, both messages are combined into one instead of
+      // picking just one and silently dropping the other; when only the
+      // email changed, the email-change message alone is shown (matching
+      // the web app exactly).
+      final baseMessage = !emailChanged
+          ? profileOrAddressMessage
+          : emailChangeFailed
+          ? 'Profile updated, but the email change failed: '
+                '${(emailChangeMessage ?? '').trim().isNotEmpty ? emailChangeMessage : 'please try again.'}'
+          : (() {
+              final trimmedEmail = (emailChangeMessage ?? '').trim();
+              if (!otherFieldsChanged) {
+                return trimmedEmail.isNotEmpty
+                    ? trimmedEmail
+                    : profileOrAddressMessage.trim();
+              }
+              final trimmedProfile = profileOrAddressMessage.trim();
+              if (trimmedEmail.isEmpty) return trimmedProfile;
+              if (trimmedProfile.isEmpty) return trimmedEmail;
+              return '$trimmedProfile $trimmedEmail';
+            })();
       CoreUtils.showTopSnackBar(
         context: context,
         message:
-            (addressMessage.isNotEmpty ? addressMessage : profileMessage) +
+            baseMessage +
             (photo != null ? ' Photo is uploading in the background…' : ''),
-        isSuccess: true,
+        isSuccess: !emailChangeFailed,
+        isWarning: emailChangeFailed,
       );
       Navigator.pop(context, true);
     } catch (e) {
@@ -910,6 +1097,8 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
           isRangePicker: false,
           isTimePicker: false,
           initialDate: _selectedBirthDate,
+          firstDate: DateTime(1900),
+          lastDate: AppTime.now(),
         ),
       );
 
@@ -1140,7 +1329,28 @@ class _EditProfileDetailsScreenState extends State<EditProfileDetailsScreen> {
                                             !classrooms.contains(
                                               _selectedPrimaryClassroom,
                                             )) {
-                                          _selectedPrimaryClassroom = null;
+                                          // The removed classroom was this
+                                          // staff member's primary. Leaving
+                                          // this null meant _saveProfile's
+                                          // `primaryClassroomCode != null`
+                                          // guard skipped calling
+                                          // updateStaffPrimaryClassroom
+                                          // entirely on save — the backend's
+                                          // primaryClassroomCode (what the
+                                          // Classroom -> Staff list actually
+                                          // filters by, NOT allowedClassroomCodes)
+                                          // stayed pointed at the just-removed
+                                          // classroom, so the staff member kept
+                                          // showing in its roster no matter how
+                                          // many times that list refreshed.
+                                          // Auto-picking a remaining allowed
+                                          // classroom (when one exists) keeps
+                                          // this field non-null so the save
+                                          // actually persists a real change.
+                                          _selectedPrimaryClassroom =
+                                              classrooms.isNotEmpty
+                                              ? classrooms.first
+                                              : null;
                                         }
                                       });
                                     },

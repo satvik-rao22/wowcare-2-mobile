@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import AVFoundation
 
 @main
 @objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
@@ -18,6 +19,15 @@ import UserNotifications
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
+    // PiP requires a media-playback audio session in addition to the `audio`
+    // UIBackgroundMode declared in Info.plist. Better Player activates this
+    // session when playback starts; configuring it here makes the capability
+    // available to AVPictureInPictureController on physical iPhones.
+    do {
+      try AVAudioSession.sharedInstance().setCategory(.playback, mode: .moviePlayback)
+    } catch {
+      print("[iOS PiP] Failed to configure playback audio session: \(error)")
+    }
     if launchOptions?[.location] != nil {
       print("[iOS GEOFENCE] App relaunched by OS for location event — CLLocationManager delegate will handle the pending region transition")
     }

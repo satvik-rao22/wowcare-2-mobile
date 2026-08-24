@@ -103,6 +103,17 @@ class MessageEntity extends Equatable {
   bool get hasAttachments => attachments.isNotEmpty;
   bool get isThreaded => threadParentCode != null;
 
+  /// True when at least one attachment has uploaded and registered but the
+  /// document service hasn't resolved a real delivery URL for it yet — the
+  /// bubble should keep showing the local preview with a "Processing" badge.
+  bool get hasProcessingAttachments => attachments.any((a) => a.isProcessing);
+
+  /// True when at least one attachment was picked but never even finished
+  /// uploading (no asset code) — nothing to reconcile, only a retry (from
+  /// [AttachmentEntity.localFilePath]) can recover it.
+  bool get hasUnuploadedAttachments =>
+      attachments.any((a) => a.code.isEmpty && a.localFilePath != null);
+
   int get reactionCount => reactions.length;
 
   /// Emoji → count map for display.
@@ -179,45 +190,48 @@ class MessageEntity extends Equatable {
       reactions: reactions ?? this.reactions,
       readReceipts: readReceipts ?? this.readReceipts,
       threadParentCode: threadParentCode ?? this.threadParentCode,
-      threadParentSenderCode: threadParentSenderCode ?? this.threadParentSenderCode,
-      threadParentSenderName: threadParentSenderName ?? this.threadParentSenderName,
+      threadParentSenderCode:
+          threadParentSenderCode ?? this.threadParentSenderCode,
+      threadParentSenderName:
+          threadParentSenderName ?? this.threadParentSenderName,
       threadParentText: threadParentText ?? this.threadParentText,
       localTempCode: localTempCode ?? this.localTempCode,
-      privateParentUserCode: privateParentUserCode ?? this.privateParentUserCode,
+      privateParentUserCode:
+          privateParentUserCode ?? this.privateParentUserCode,
     );
   }
 
   @override
   List<Object?> get props => [
-        id,
-        code,
-        conversationCode,
-        senderCode,
-        senderName,
-        senderRole,
-        senderAvatarUrl,
-        text,
-        messageType,
-        status,
-        isPrivate,
-        isEdited,
-        isDeleted,
-        deletedPlaceholder,
-        attachments,
-        reactions,
-        readReceipts,
-        sentAt,
-        editedAt,
-        deletedAt,
-        threadParentCode,
-        threadParentSenderCode,
-        threadParentSenderName,
-        threadParentText,
-        organizationCode,
-        schoolCode,
-        localTempCode,
-        privateParentUserCode,
-      ];
+    id,
+    code,
+    conversationCode,
+    senderCode,
+    senderName,
+    senderRole,
+    senderAvatarUrl,
+    text,
+    messageType,
+    status,
+    isPrivate,
+    isEdited,
+    isDeleted,
+    deletedPlaceholder,
+    attachments,
+    reactions,
+    readReceipts,
+    sentAt,
+    editedAt,
+    deletedAt,
+    threadParentCode,
+    threadParentSenderCode,
+    threadParentSenderName,
+    threadParentText,
+    organizationCode,
+    schoolCode,
+    localTempCode,
+    privateParentUserCode,
+  ];
 }
 
 /// A file or media attachment on a message.
@@ -264,22 +278,50 @@ class AttachmentEntity extends Equatable {
   bool get isImage => attachmentType == AttachmentType.image;
   bool get isCached => localFilePath != null;
 
+  /// Uploaded and registered against the conversation (has a document-service
+  /// asset [code] and messaging-service [attachmentId]) but the document
+  /// service hasn't finished processing it into a real [fileUrl] yet.
+  bool get isProcessing =>
+      (code).isNotEmpty && attachmentId != null && fileUrl.isEmpty;
+
+  AttachmentEntity copyWith({
+    String? fileUrl,
+    String? thumbnailUrl,
+    bool clearLocalFilePath = false,
+  }) {
+    return AttachmentEntity(
+      code: code,
+      messageCode: messageCode,
+      conversationCode: conversationCode,
+      fileName: fileName,
+      fileUrl: fileUrl ?? this.fileUrl,
+      mimeType: mimeType,
+      fileSizeBytes: fileSizeBytes,
+      attachmentType: attachmentType,
+      thumbnailUrl: thumbnailUrl ?? this.thumbnailUrl,
+      localFilePath: clearLocalFilePath ? null : localFilePath,
+      uploadedBy: uploadedBy,
+      uploadedAt: uploadedAt,
+      attachmentId: attachmentId,
+    );
+  }
+
   @override
   List<Object?> get props => [
-        code,
-        messageCode,
-        conversationCode,
-        fileName,
-        fileUrl,
-        mimeType,
-        fileSizeBytes,
-        attachmentType,
-        thumbnailUrl,
-        localFilePath,
-        uploadedBy,
-        uploadedAt,
-        attachmentId,
-      ];
+    code,
+    messageCode,
+    conversationCode,
+    fileName,
+    fileUrl,
+    mimeType,
+    fileSizeBytes,
+    attachmentType,
+    thumbnailUrl,
+    localFilePath,
+    uploadedBy,
+    uploadedAt,
+    attachmentId,
+  ];
 }
 
 /// A read receipt for a single message from a single user.
@@ -290,6 +332,7 @@ class ReadReceiptEntity extends Equatable {
     required this.userName,
     this.deliveredAt,
     this.readAt,
+    this.role,
   });
 
   final String messageCode;
@@ -298,8 +341,21 @@ class ReadReceiptEntity extends Equatable {
   final DateTime? deliveredAt;
   final DateTime? readAt;
 
+  /// Raw backend role string (e.g. "STAFF", "GUARDIAN") the recipient was
+  /// acting AS for this delivery/read — the REST payload carries this per
+  /// receipt (`role`/`userRole`), so a dual-role account's receipt doesn't
+  /// need to be guessed from the participant list.
+  final String? role;
+
   bool get isRead => readAt != null;
 
   @override
-  List<Object?> get props => [messageCode, userCode, userName, deliveredAt, readAt];
+  List<Object?> get props => [
+    messageCode,
+    userCode,
+    userName,
+    deliveredAt,
+    readAt,
+    role,
+  ];
 }

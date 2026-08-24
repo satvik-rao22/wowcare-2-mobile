@@ -30,13 +30,16 @@ Message? _denormalizedQuote(MessageEntity reply, String currentUserCode) {
   );
 }
 
-/// Active recipients = participants still in the conversation (leftAt == null), excluding the
+/// Active recipients = participants still active in the conversation, excluding the
 /// sender/current user. Drives the group read/delivered tick: a group message is delivered/read
 /// only once ALL of these have delivered/read it.
-int _activeRecipientCount(ConversationEntity? conversation, String currentUserCode) {
+int _activeRecipientCount(
+  ConversationEntity? conversation,
+  String currentUserCode,
+) {
   if (conversation == null) return 0;
   return conversation.participants
-      .where((p) => p.leftAt == null && p.userCode != currentUserCode)
+      .where((p) => p.isActive && p.userCode != currentUserCode)
       .length;
 }
 
@@ -71,8 +74,11 @@ class EntityMessageTile extends StatelessWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onReactionsInfoTap,
     this.isParentMessaging = false,
     this.senderIsOrgSide,
+    this.viewerIsOrgSide,
+    this.participants,
   });
 
   final String messageCode;
@@ -91,10 +97,20 @@ class EntityMessageTile extends StatelessWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+  final VoidCallback? onReactionsInfoTap;
   final bool isParentMessaging;
 
   /// See [MessageBubble.senderIsOrgSide].
   final bool? senderIsOrgSide;
+
+  /// See [MessageBubble.viewerIsOrgSide].
+  final bool? viewerIsOrgSide;
+
+  /// Conversation participants, for [MessageBubble]'s sender-avatar lookup
+  /// (`_senderParticipant`) — mapped to the legacy [ConversationParticipant]
+  /// shape the shared widget expects. Null/empty just means no avatar
+  /// resolves, matching the widget's existing null-safe fallback.
+  final List<ParticipantEntity>? participants;
 
   @override
   Widget build(BuildContext context) {
@@ -121,10 +137,18 @@ class EntityMessageTile extends StatelessWidget {
           context.read<ConversationThreadCubit>().state.conversation,
           currentUserCode,
         );
+        // Reuse `viewerIsOrgSide` (already threaded through for alignment) as
+        // the "which persona is the viewer" signal `mapMessageEntityToMessage`
+        // needs to narrow a dual-role account's own-message ownership — see
+        // that function's `viewingAsGuardian` doc comment.
+        final viewingAsGuardian = viewerIsOrgSide == null
+            ? null
+            : !viewerIsOrgSide!;
         final message = mapMessageEntityToMessage(
           snapshot.message,
           currentUserCode,
           recipientCount: recipientCount,
+          viewingAsGuardian: viewingAsGuardian,
         );
         // Prefer the full quoted message (found in the loaded list); otherwise
         // fall back to the denormalized quote context carried on the reply
@@ -132,9 +156,20 @@ class EntityMessageTile extends StatelessWidget {
         // original message isn't currently loaded — or that just arrived live —
         // rendered with no quote bubble.
         final quotedMessage = snapshot.quoted != null
-            ? mapMessageEntityToMessage(snapshot.quoted!, currentUserCode)
+            ? mapMessageEntityToMessage(
+                snapshot.quoted!,
+                currentUserCode,
+                viewingAsGuardian: viewingAsGuardian,
+              )
             : _denormalizedQuote(snapshot.message, currentUserCode);
         return MessageBubble(
+          // Forces a fresh element (not an in-place patch) whenever which
+          // side this bubble renders on changes for the same message code —
+          // e.g. a cached message re-aligning once a corrected isMine value
+          // arrives. Patching a mounted bubble's Row(textDirection: …)/Align
+          // in place for a structural side flip is what was triggering
+          // Flutter's semantics `parentDataDirty` assertion.
+          key: ValueKey('${message.code}-${message.isSentByMe}'),
           message: message,
           isDeleted: snapshot.message.isDeleted,
           quotedMessage: quotedMessage,
@@ -151,9 +186,21 @@ class EntityMessageTile extends StatelessWidget {
           onReactionAdded: onReactionAdded,
           onRemoveReaction: onRemoveReaction,
           onReactionTap: onReactionTap,
+          onReactionsInfoTap: onReactionsInfoTap,
+          onRetry:
+              (snapshot.message.isFailed ||
+                  snapshot.message.hasProcessingAttachments)
+              ? () => context.read<ConversationThreadCubit>().retrySendMessage(
+                  snapshot.message,
+                )
+              : null,
           isParentMessaging: isParentMessaging,
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,
+          viewerIsOrgSide: viewerIsOrgSide,
+          participants: participants
+              ?.map(mapParticipantEntityToConversationParticipant)
+              .toList(),
         );
       },
     );

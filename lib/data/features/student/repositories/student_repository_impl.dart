@@ -15,6 +15,7 @@ import '../../../../domain/features/student/entities/student_physician.dart';
 import '../../../../domain/features/student/entities/student_pickup.dart';
 import '../../../../domain/features/student/entities/student_profile.dart';
 import '../../../../domain/features/student/entities/student_regular_schedule.dart';
+import '../../../../domain/features/student/entities/vaccine_item.dart';
 import '../../../../domain/features/student/repositories/student_repository.dart';
 import '../datasources/student_remote_datasource.dart';
 import '../mappers/student_guardian_mapper.dart';
@@ -110,17 +111,19 @@ class StudentRepositoryImpl
       return int.tryParse(v.toString()) ?? 0;
     }
 
-    return rawList.map((e) {
-      final startTime = e['startTime'];
-      final endTime = e['endTime'];
-      return StudentRegularScheduleEntry(
-        dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
-        startHour: _extractInt(startTime, 'hour'),
-        startMinute: _extractInt(startTime, 'minute'),
-        endHour: _extractInt(endTime, 'hour'),
-        endMinute: _extractInt(endTime, 'minute'),
-      );
-    }).toList(growable: false);
+    return rawList
+        .map((e) {
+          final startTime = e['startTime'];
+          final endTime = e['endTime'];
+          return StudentRegularScheduleEntry(
+            dayOfWeek: (e['dayOfWeek'] ?? '').toString().toUpperCase(),
+            startHour: _extractInt(startTime, 'hour'),
+            startMinute: _extractInt(startTime, 'minute'),
+            endHour: _extractInt(endTime, 'hour'),
+            endMinute: _extractInt(endTime, 'minute'),
+          );
+        })
+        .toList(growable: false);
   }
 
   @override
@@ -344,8 +347,14 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<({int expiredDocumentCount, int expiringWithinWeekCount, int totalDocumentsWithExpiry})>
-      getStudentDocumentExpiryCount({required String schoolCode}) async {
+  Future<
+    ({
+      int expiredDocumentCount,
+      int expiringWithinWeekCount,
+      int totalDocumentsWithExpiry,
+    })
+  >
+  getStudentDocumentExpiryCount({required String schoolCode}) async {
     return _remoteDataSource.getStudentDocumentExpiryCount(
       schoolCode: schoolCode,
     );
@@ -353,7 +362,7 @@ class StudentRepositoryImpl
 
   @override
   Future<({int overdueExamCount, int studentsWithoutActiveExamCount})>
-      getStudentPhysicalCheckupCount({required String schoolCode}) async {
+  getStudentPhysicalCheckupCount({required String schoolCode}) async {
     return _remoteDataSource.getStudentPhysicalCheckupCount(
       schoolCode: schoolCode,
     );
@@ -387,6 +396,7 @@ class StudentRepositoryImpl
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   }) async {
     // Backend expects upper-case enum values for StudentStatus (e.g. ACTIVE).
     final normalizedStatus = status?.trim().toUpperCase();
@@ -404,6 +414,7 @@ class StudentRepositoryImpl
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowedClassroomCodes,
     );
 
     // Cache only the first page for simplicity, keyed by filters.
@@ -772,9 +783,7 @@ class StudentRepositoryImpl
   }
 
   @override
-  Future<StudentHealth> getStudentHealth({
-    required String studentCode,
-  }) async {
+  Future<StudentHealth> getStudentHealth({required String studentCode}) async {
     final cached = await _cacheManager.loadCache(
       _studentHealthCacheKey(studentCode),
     );
@@ -1227,6 +1236,30 @@ class StudentRepositoryImpl
   }
 
   @override
+  Future<List<VaccineItem>> getImmunizationSettings({
+    required String schoolCode,
+  }) async {
+    final models = await _remoteDataSource.getImmunizationSettings(
+      schoolCode: schoolCode,
+    );
+    return models.map((m) => m.toEntity()).toList();
+  }
+
+  @override
+  Future<Map<String, String>> getVaccineNameToCodeMapForSchool({
+    required String schoolCode,
+  }) async {
+    final vaccines = await getImmunizationSettings(schoolCode: schoolCode);
+    final map = <String, String>{};
+    for (final v in vaccines) {
+      if (v.name.isNotEmpty && v.code.isNotEmpty) {
+        map[v.name] = v.code;
+      }
+    }
+    return map;
+  }
+
+  @override
   Future<String> linkExistingGuardian({
     required String guardianCode,
     required String studentCode,
@@ -1363,8 +1396,7 @@ class StudentRepositoryImpl
         if (list.isNotEmpty) {
           // Older cached payloads may not include the guardian code. If so,
           // bypass cache so the edit/delete flows can resolve a valid code.
-          final hasMissingCode =
-              list.any((g) => g.guardianCode.trim().isEmpty);
+          final hasMissingCode = list.any((g) => g.guardianCode.trim().isEmpty);
           if (!hasMissingCode) {
             return list.map((m) => m.toEntity()).toList(growable: false);
           }
@@ -1463,6 +1495,8 @@ class StudentRepositoryImpl
               profileImage: m.profilePhotoUrl,
               profilePhotoAssetCode: m.profilePhotoAssetCode,
               classroom: m.classroom,
+              classroomCode: m.classroomCode,
+              hasGuardian: m.hasGuardian,
               dob: m.dob,
               movementDate: m.movementDate,
               tags: m.tags,

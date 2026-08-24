@@ -17,6 +17,7 @@ class TransactionItem {
     this.familyCode,
     this.invoiceCode,
     this.studentId,
+    this.studentCode,
     this.studentPhotoUuid,
     this.refTable,
     this.refTableId,
@@ -63,6 +64,10 @@ class TransactionItem {
   final String? familyCode;
   final String classroom;
   final int? studentId;
+
+  /// Stable backend student code — used to look up the student's current
+  /// classroom for display (invoices carry no room field of their own).
+  final String? studentCode;
   final String? studentPhotoUuid;
   final String? refTable;
   final int? refTableId;
@@ -127,6 +132,7 @@ class TransactionItem {
           firstItemDesc.isNotEmpty ? firstItemDesc : 'Invoice ${invoice.code}',
       studentName: ownerLabel.isNotEmpty ? ownerLabel : 'Unknown',
       classroom: '',
+      studentCode: invoice.studentCode.isNotEmpty ? invoice.studentCode : null,
       refTable: 'Invoice',
       balance: invoice.balance,
       endDate: invoice.dueDate?.toIso8601String(),

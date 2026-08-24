@@ -1,12 +1,17 @@
+import 'package:dio/dio.dart';
+import '../../../../app/di/di.dart';
 import '../../../../core/network/api_client.dart';
 import '../models/create_conversation_request.dart';
 import '../models/conversation_model.dart';
 import '../models/create_conversation_response.dart';
 import '../models/get_conversations_response.dart';
 import '../models/message_model.dart';
+import '../../../../domain/features/communication/entities/message.dart';
+import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/api_constants.dart';
 import '../../../../core/util/api_paths.dart';
 import '../../../../core/util/logger_service.dart';
+import '../../../../core/util/user_details_school_roles.dart';
 
 abstract class CommunicationRemoteDataSource {
   Future<List<MessageModel>> getMessages(
@@ -22,16 +27,47 @@ abstract class CommunicationRemoteDataSource {
   Future<ConversationModel> createConversation(
     CreateConversationRequest request,
   );
+
+  /// Mirrors the backend's `getConversationsByType` filter contract
+  /// (`classroomCodes`, `tagCodes`, `designations`, `studentStatuses`,
+  /// `staffStatuses`, `search`) — the same shape the student/staff list
+  /// endpoints already use.
   Future<GetConversationsResponse> getConversations({
     String? type,
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+  });
+  Future<GetConversationsResponse> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
   });
   Future<void> addReaction(String messageCode, String emoji);
   Future<void> deleteMessage(String messageCode);
   Future<void> removeReaction(String messageCode, String emoji);
   Future<void> deleteAttachment(int attachmentId);
+
+  /// Per-conversation unread counts, keyed by conversation code. Backed by
+  /// `/messages/unread-per-conversation` — confirmed reliable (unlike the
+  /// conversation-list endpoint's own `unreadCount` field).
+  Future<Map<String, int>> getUnreadCountsPerConversation();
+
+  /// Full per-recipient-per-persona receipts for one message — see
+  /// [ApiPaths.messagingMessageReceipts]'s doc comment for why this is
+  /// fetched separately from the message list's own lighter `receipts`
+  /// field. One network call; [parseRecipientStatuses] splits the same raw
+  /// payload into delivered-only vs read.
+  Future<({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})>
+  getMessageReceipts(String messageCode);
 }
 
 class CommunicationRemoteDataSourceImpl
@@ -59,7 +95,9 @@ class CommunicationRemoteDataSourceImpl
       final List<dynamic> messagesJson =
           (dataMap?['messages'] as List<dynamic>?) ?? [];
       // ignore: avoid_print
-      print('[Messages] conversation=$threadId page=$page received=${messagesJson.length}');
+      print(
+        '[Messages] conversation=$threadId page=$page received=${messagesJson.length}',
+      );
       final messages = messagesJson
           .map(
             (json) => MessageModel.fromJson(
@@ -109,6 +147,17 @@ class CommunicationRemoteDataSourceImpl
         .whereType<int>()
         .toList();
 
+    // Belt-and-suspenders alongside the x-role header: the messaging service
+    // has been observed attributing a sent message to a dual-role account's
+    // OTHER persona (e.g. GUARDIAN) even when the request headers are
+    // unambiguously the active persona (e.g. ORGANIZATION_ADMIN) — mirrors
+    // why the notification inbox needed an explicit `role` param, not just
+    // the header, to get a correctly-scoped response. Uses the same active-
+    // persona resolution as the header itself, so the two can never disagree.
+    final activeRole = await resolveActiveBackendRole(
+      serviceLocator<StorageService>(),
+    );
+
     final body = {
       'conversationCode': threadId,
       'type': 'TEXT',
@@ -123,6 +172,7 @@ class CommunicationRemoteDataSourceImpl
       if (message.privateParentUserCode != null &&
           message.privateParentUserCode!.isNotEmpty)
         'privateParentUserCode': message.privateParentUserCode,
+      if (activeRole.isNotEmpty) 'role': activeRole,
     };
 
     final response = await apiClient.client.post(endpoint, data: body);
@@ -130,7 +180,9 @@ class CommunicationRemoteDataSourceImpl
     if (response.data != null && response.data['success'] == true) {
       final data = response.data['data'] as Map<String, dynamic>;
       final parsed = MessageModel.fromJson(data);
-      AppLogger.i('[CHAT ATTACHMENT] MESSAGE SENT — code=${parsed.code}, attachmentIds=$attachmentIds');
+      AppLogger.i(
+        '[CHAT ATTACHMENT] MESSAGE SENT — code=${parsed.code}, attachmentIds=$attachmentIds',
+      );
       // The create-message response doesn't echo back resolved attachment
       // objects (the document is still processing asynchronously at this
       // point), so trusting `parsed.attachments` here would make the
@@ -142,7 +194,12 @@ class CommunicationRemoteDataSourceImpl
       final attachments = message.attachments.isNotEmpty
           ? message.attachments
           : parsed.attachments;
-      // The sender is always the current user for outbound messages.
+      // The sender is always the current user for outbound messages. Prefer
+      // the response's own senderRole, but fall back to `activeRole` — the
+      // role this exact request was sent under (see `body['role']` above,
+      // and Message.senderRole's doc comment on why this can't just be
+      // "whichever role the account holds") — since that's known with
+      // certainty regardless of whether the backend echoes it back.
       return MessageModel(
         id: parsed.id,
         code: parsed.code,
@@ -155,6 +212,9 @@ class CommunicationRemoteDataSourceImpl
         attachments: attachments,
         reactions: parsed.reactions,
         senderName: parsed.senderName,
+        senderRole: (parsed.senderRole?.isNotEmpty ?? false)
+            ? parsed.senderRole
+            : (activeRole.isNotEmpty ? activeRole : null),
         isPrivate: parsed.isPrivate,
         privateParentUserCode: parsed.privateParentUserCode,
       );
@@ -252,13 +312,82 @@ class CommunicationRemoteDataSourceImpl
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     final path = type != null
         ? '${ApiPaths.messagingCreateMessage}/type/$type'
         : ApiPaths.messagingCreateMessage;
 
     final endpoint = ApiPaths.urlWithBase(
-      '$path?status=$status&page=$page&size=$size',
+      path,
+      ApiConstants.communicationBaseUrl,
+    );
+
+    final queryParameters = <String, dynamic>{
+      'status': status,
+      'page': page,
+      'size': size,
+    };
+
+    List<String>? clean(List<String>? values) {
+      final result = values?.where((v) => v.trim().isNotEmpty).toList();
+      return (result != null && result.isNotEmpty) ? result : null;
+    }
+
+    final cleanClassrooms = clean(classroomCodes);
+    if (cleanClassrooms != null) {
+      queryParameters['classroomCodes'] = cleanClassrooms;
+    }
+    final cleanTags = clean(tagCodes);
+    if (cleanTags != null) {
+      queryParameters['tagCodes'] = cleanTags;
+    }
+    final cleanDesignations = clean(designations);
+    if (cleanDesignations != null) {
+      queryParameters['designations'] = cleanDesignations;
+    }
+    final cleanStudentStatuses = clean(studentStatuses);
+    if (cleanStudentStatuses != null) {
+      queryParameters['studentStatuses'] = cleanStudentStatuses;
+    }
+    final cleanStaffStatuses = clean(staffStatuses);
+    if (cleanStaffStatuses != null) {
+      queryParameters['staffStatuses'] = cleanStaffStatuses;
+    }
+    if (search != null && search.trim().isNotEmpty) {
+      queryParameters['search'] = search.trim();
+    }
+
+    // Spring expects repeated query keys for collections, e.g.
+    // tagCodes=T1&tagCodes=T2 — not bracket or CSV serialization. Mirrors
+    // the student/staff list datasources' pattern.
+    final response = await apiClient.client.get(
+      endpoint,
+      queryParameters: queryParameters,
+      options: Options(listFormat: ListFormat.multi),
+    );
+
+    return GetConversationsResponse.fromJson(response.data);
+  }
+
+  @override
+  Future<GetConversationsResponse> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
+  }) async {
+    final typeParam = type != null ? '&type=$type' : '';
+    final endpoint = ApiPaths.urlWithBase(
+      '${ApiPaths.messagingConversationsSearch}'
+      '?q=${Uri.encodeQueryComponent(query)}$typeParam'
+      '&status=$status&page=$page&size=$size',
       ApiConstants.communicationBaseUrl,
     );
 
@@ -321,7 +450,69 @@ class CommunicationRemoteDataSourceImpl
     );
     final response = await apiClient.client.delete(endpoint);
     if (response.data != null && response.data['success'] != true) {
-      throw Exception(response.data['message'] ?? 'Failed to delete attachment');
+      throw Exception(
+        response.data['message'] ?? 'Failed to delete attachment',
+      );
     }
+  }
+
+  @override
+  Future<Map<String, int>> getUnreadCountsPerConversation() async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagesUnreadPerConversation,
+      ApiConstants.communicationBaseUrl,
+    );
+    final response = await apiClient.client.get(endpoint);
+    if (response.data == null || response.data['success'] != true) {
+      throw Exception(
+        response.data?['message'] ??
+            'Failed to load per-conversation unread counts',
+      );
+    }
+
+    final data = response.data['data'];
+    final result = <String, int>{};
+    // Shape hasn't been exercised in production yet (this endpoint was
+    // previously unused) — accept either a {conversationCode: count} map or
+    // a list of {conversationCode/code, unreadCount} objects.
+    if (data is Map) {
+      data.forEach((key, value) {
+        final count = value is num
+            ? value.toInt()
+            : int.tryParse('$value') ?? 0;
+        result[key as String] = count;
+      });
+    } else if (data is List) {
+      for (final item in data) {
+        if (item is! Map) continue;
+        final code = (item['conversationCode'] ?? item['code']) as String?;
+        if (code == null || code.isEmpty) continue;
+        final rawCount = item['unreadCount'];
+        result[code] = rawCount is num
+            ? rawCount.toInt()
+            : int.tryParse('$rawCount') ?? 0;
+      }
+    }
+    return result;
+  }
+
+  @override
+  Future<({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})>
+  getMessageReceipts(String messageCode) async {
+    final endpoint = ApiPaths.urlWithBase(
+      ApiPaths.messagingMessageReceipts(messageCode),
+      ApiConstants.communicationBaseUrl,
+    );
+    final response = await apiClient.client.get(endpoint);
+    if (response.data == null || response.data['success'] != true) {
+      throw Exception(
+        response.data?['message'] ?? 'Failed to load message receipts',
+      );
+    }
+    final receipts = response.data['data'];
+    return (
+      deliveredTo: parseRecipientStatuses(receipts, onlyRead: false),
+      readBy: parseRecipientStatuses(receipts, onlyRead: true),
+    );
   }
 }

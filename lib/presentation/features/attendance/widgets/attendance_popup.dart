@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/presentation/features/attendance/util/attendance_permission_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/src/app_router.dart' show dashboardBranchKey;
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -88,15 +89,42 @@ class AttendancePopupManager {
   /// Safe to call repeatedly: if the profile is already on top of the stack,
   /// it pops back to it instead of pushing a duplicate.
   static Future<void> openParentChildAttendance(BuildContext context) async {
-    // If the profile screen is already showing, pop everything above it
-    // instead of stacking a second copy.
-    final navigator = Navigator.of(context, rootNavigator: false);
+    // Push onto the Dashboard branch's OWN stable navigator
+    // (dashboardBranchKey), never `Navigator.of(context)`. BottomNavigationCubit
+    // is a single app-wide singleton, and StatefulShellRoute.indexedStack keeps
+    // EVERY visited branch's screens (and their own GlobalScaffold ->
+    // CustomNavigationBar -> BlocListener<BottomNavigationCubit>) alive even
+    // while hidden — so a single Attendance tap can fire this method more than
+    // once in the same frame, each time via a DIFFERENT branch's context. Using
+    // that ambient context's Navigator meant the profile could land on
+    // whichever branch's (possibly hidden) navigator happened to handle the
+    // event first — an essentially arbitrary choice from the user's
+    // perspective — which is what made it look like "a different screen" opened
+    // (it opened on the RIGHT branch some taps and a WRONG, invisible one on
+    // others). Targeting dashboardBranchKey directly makes the destination
+    // deterministic regardless of which context triggered this.
+    final navigatorState = dashboardBranchKey.currentState;
+    if (navigatorState == null) return;
+
+    // If the profile screen is already on the stack (possibly with a
+    // sign-in/out form or other sub-screen pushed on top of it), pop back
+    // down to it instead of stacking a second copy. The predicate used to
+    // unconditionally `return true`, which made popUntil stop at the very
+    // first route it inspected (whatever was already on top) without ever
+    // popping anything — so a form pushed on top of the profile hid it from
+    // this check, and every repeat tap on the Attendance nav item pushed
+    // ANOTHER fresh profile on top, stacking duplicates (each re-fetching
+    // isSignedIn/roomName, so they could show different values from one
+    // another).
     bool alreadyOnProfile = false;
-    navigator.popUntil((route) {
+    navigatorState.popUntil((route) {
       if (route.settings.name == StudentAttendanceProfile.routeName) {
         alreadyOnProfile = true;
+        return true; // found it — stop popping, leave it on top
       }
-      return true; // don't actually pop — just inspect
+      // Not the profile: keep popping through it, but never past the
+      // bottom of the stack (isFirst) if the profile isn't there at all.
+      return route.isFirst;
     });
     if (alreadyOnProfile) return;
 
@@ -148,23 +176,28 @@ class AttendancePopupManager {
       }
 
       if (!context.mounted) return;
-      Navigator.push(
-        context,
-        MaterialPageRoute<void>(
-          settings: const RouteSettings(
-            name: StudentAttendanceProfile.routeName,
-          ),
-          builder: (_) => StudentAttendanceProfile(
-            studentCode: selectedChild.code.trim(),
-            studentId: 0,
-            studentName: selectedChild.name,
-            studentPhotoUuid: null,
-            roomName: roomName,
-            isSignedIn: isSignedIn,
-            syncWithParentChildSelection: true,
-          ),
+      // Reached from the bottom nav — every OTHER nav item (Dashboard,
+      // Activities, Communication, Billing) switches via shell.goBranch(),
+      // an instant IndexedStack swap with no page-transition animation at
+      // all. Attendance can't be a real branch (it's a modal-style
+      // destination, not a persistent tab), but the default MaterialPageRoute
+      // slide-from-right made it visibly stand out as "a different page was
+      // pushed" instead of feeling like just another tab. A quick fade reads
+      // much closer to a tab swap than a slide does.
+      navigatorState.push(_fadeRoute(
+        settings: const RouteSettings(
+          name: StudentAttendanceProfile.routeName,
         ),
-      );
+        builder: (_) => StudentAttendanceProfile(
+          studentCode: selectedChild.code.trim(),
+          studentId: 0,
+          studentName: selectedChild.name,
+          studentPhotoUuid: null,
+          roomName: roomName,
+          isSignedIn: isSignedIn,
+          syncWithParentChildSelection: true,
+        ),
+      ));
     } catch (_) {
       if (!context.mounted) return;
       CoreUtils.showTopSnackBarFromSnackBar(
@@ -176,6 +209,26 @@ class AttendancePopupManager {
       );
     }
   }
+}
+
+/// A quick cross-fade instead of the platform's default slide-from-right —
+/// used where a pushed route conceptually stands in for a bottom-nav tab
+/// (see [AttendancePopupManager.openParentChildAttendance]'s call site) so it
+/// doesn't visually read as "a different page" the way a slide transition
+/// does.
+PageRouteBuilder<T> _fadeRoute<T>({
+  required WidgetBuilder builder,
+  RouteSettings? settings,
+}) {
+  return PageRouteBuilder<T>(
+    settings: settings,
+    transitionDuration: const Duration(milliseconds: 150),
+    reverseTransitionDuration: const Duration(milliseconds: 150),
+    pageBuilder: (context, animation, secondaryAnimation) =>
+        builder(context),
+    transitionsBuilder: (context, animation, secondaryAnimation, child) =>
+        FadeTransition(opacity: animation, child: child),
+  );
 }
 
 // ── Old parent-only tab code commented out ──────────────────────────────────

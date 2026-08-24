@@ -1,5 +1,10 @@
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/core/util/app_time.dart';
+import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/domain/features/communication/entities/conversation.dart'
+    show ConversationParticipant;
+import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart'
+    show ParticipantEntity;
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 
@@ -13,6 +18,19 @@ Message mapMessageEntityToMessage(
   MessageEntity entity,
   String currentUserCode, {
   int recipientCount = 0,
+
+  /// Which persona the CURRENT screen instance is showing — mirrors the v1
+  /// stack's `ThreadMessageTile.isGuardian`/`withRoleAwareOwnership`. Null
+  /// (the default) skips the role-aware narrowing below, preserving plain
+  /// userCode-only ownership.
+  ///
+  /// A single account can hold more than one persona in the SAME
+  /// conversation (e.g. an admin who is also the enrolled child's
+  /// guardian) — `entity.senderCode == currentUserCode` alone can't tell
+  /// those two personas apart, so a message sent under the account's OTHER
+  /// persona would otherwise render as "mine" here regardless of which
+  /// persona the viewer is currently looking at the thread as.
+  bool? viewingAsGuardian,
 }) {
   // Group read/delivered ticks (ALL-recipients): a group message counts as delivered/read only when
   // EVERY active recipient has delivered/read it. readReceipts only contains recipients already
@@ -23,8 +41,9 @@ Message mapMessageEntityToMessage(
   DateTime? aggregatedDeliveredAt;
   DateTime? aggregatedReadAt;
   if (recipientCount > 0) {
-    final deliveredCount =
-        entity.readReceipts.where((r) => r.deliveredAt != null).length;
+    final deliveredCount = entity.readReceipts
+        .where((r) => r.deliveredAt != null)
+        .length;
     final readCount = entity.readReceipts.where((r) => r.readAt != null).length;
     if (readCount >= recipientCount) {
       aggregatedReadAt = entity.sentAt;
@@ -33,11 +52,22 @@ Message mapMessageEntityToMessage(
       aggregatedDeliveredAt = entity.sentAt;
     }
   }
+  var isMine = entity.senderCode == currentUserCode;
+  if (isMine && viewingAsGuardian != null) {
+    final senderIsGuardianRole = entity.senderRole == ParticipantRole.parent;
+    if (senderIsGuardianRole != viewingAsGuardian) isMine = false;
+  }
+  AppLogger.d(
+    '[CHAT OWNERSHIP v2] code=${entity.code} '
+    'senderCode=${entity.senderCode} senderName=${entity.senderName} '
+    'senderRole=${entity.senderRole} currentUserCode=$currentUserCode '
+    'isMine=$isMine',
+  );
   return Message(
     id: entity.id,
     code: entity.code,
     text: entity.text,
-    isSentByMe: entity.senderCode == currentUserCode,
+    isSentByMe: isMine,
     time: entity.sentAt,
     deliveredAt: aggregatedDeliveredAt,
     readAt: aggregatedReadAt,
@@ -45,9 +75,23 @@ Message mapMessageEntityToMessage(
     reactions: entity.reactions,
     senderName: entity.senderName,
     senderUserCode: entity.senderCode,
+    // Without this, `Message.senderRole` is null on every v2-mapped message,
+    // which makes `MessageBubble._isMe`'s raw-userCode fallback (meant only
+    // for messages with NO role info at all) fire and silently re-derive
+    // "mine" from `senderUserCode == currentUserCode` — undoing the
+    // `viewingAsGuardian` narrowing above for a dual-role account's message
+    // sent under its other persona.
+    senderRole: entity.senderRole.toApiString(),
     quotedMessageId: entity.threadParentCode,
     isPrivate: entity.isPrivate,
     privateParentUserCode: entity.privateParentUserCode,
+    isFailed: entity.isFailed,
+    hasProcessingAttachments: entity.hasProcessingAttachments,
+    // In flight for the whole optimistic window — including the entire
+    // upload/wait-until-ready pipeline, which now blocks the send (see
+    // ChatAttachmentUploader.uploadAll) — until the server confirms or the
+    // send fails.
+    isSending: entity.status == MessageStatus.pending,
     attachments: entity.attachments
         .map(
           (a) => ChatAttachment(
@@ -94,5 +138,37 @@ AttachmentEntity mapChatAttachmentToAttachmentEntity(
     uploadedBy: uploadedBy,
     uploadedAt: AppTime.now(),
     attachmentId: attachment.attachmentId,
+  );
+}
+
+/// Converts a v2 [ParticipantEntity] into the legacy [ConversationParticipant]
+/// the shared [MessageBubble] widget expects for its `participants` list
+/// (sender avatar/staffCode lookup — see `MessageBubble._senderParticipant`).
+///
+/// `EntityMessageTile` previously never passed `participants` through at
+/// all, so `_senderParticipant()` always returned null and sender avatars
+/// never rendered in Admin Chat group threads even though the shared widget
+/// was already written to support it.
+ConversationParticipant mapParticipantEntityToConversationParticipant(
+  ParticipantEntity entity,
+) {
+  return ConversationParticipant(
+    id: entity.id,
+    conversationId: entity.conversationId,
+    userCode: entity.userCode,
+    userName: entity.userName,
+    role: entity.role.toApiString(),
+    joinedAt: entity.joinedAt,
+    leftAt: entity.leftAt,
+    lastReadAt: entity.lastReadAt,
+    muted: entity.muted,
+    notificationsEnabled: entity.notificationsEnabled,
+    createdAt: entity.createdAt,
+    updatedAt: entity.updatedAt,
+    avatarUrl: entity.avatarUrl,
+    staffCode: entity.staffCode,
+    unreadCount: entity.unreadCount,
+    active: entity.active,
+    staffStatus: entity.staffStatus,
   );
 }

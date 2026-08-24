@@ -12,6 +12,7 @@ import 'package:wowcare/presentation/features/communication/presentation/messagi
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/rich_text_toolbar.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 
 /// WhatsApp-style composable chat input bar.
 ///
@@ -54,6 +55,12 @@ class ChatInputBar extends StatefulWidget {
     /// When true a formatting toolbar (B/I/U/S/Bullet/Numbered) is shown
     /// above the keyboard whenever the text field has focus.
     this.showRichTextToolbar = true,
+
+    /// When false, the text field/attachment/emoji controls are replaced by
+    /// [disabledMessage] and the Send button is permanently disabled — e.g.
+    /// no active parent/guardian left in the conversation to send to.
+    this.enabled = true,
+    this.disabledMessage,
   });
 
   final TextEditingController controller;
@@ -71,6 +78,8 @@ class ChatInputBar extends StatefulWidget {
   final Message? editingMessage;
   final VoidCallback? onCancelEdit;
   final bool showRichTextToolbar;
+  final bool enabled;
+  final String? disabledMessage;
 
   @override
   State<ChatInputBar> createState() => _ChatInputBarState();
@@ -117,7 +126,14 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   void _onTextChanged() {
-    final hasText = widget.controller.text.trim().isNotEmpty;
+    if (!mounted) return;
+    // Raw text alone isn't enough — a formatting tag pair with nothing
+    // typed inside it (e.g. `<b></b>` left over from toggling Bold on then
+    // off without typing) is non-empty text but has no actual visible
+    // content, and must not enable Send.
+    final hasText = MessageContentProcessor.stripHtmlTags(
+      widget.controller.text,
+    ).trim().isNotEmpty;
     if (hasText != _hasText) setState(() => _hasText = hasText);
 
     // Debounce preview detection to avoid spamming on every keystroke.
@@ -141,6 +157,7 @@ class _ChatInputBarState extends State<ChatInputBar> {
   }
 
   void _onFocusChanged() {
+    if (!mounted) return;
     final focused = _effectiveFocusNode.hasFocus;
     if (focused == _hasFocus) return;
     setState(() {
@@ -189,89 +206,103 @@ class _ChatInputBarState extends State<ChatInputBar> {
 
   @override
   Widget build(BuildContext context) {
-    final screenSize = MediaQuery.of(context).size;
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    final safeAreaInset = MediaQuery.of(context).padding.bottom;
-
+    // final screenSize = MediaQuery.of(context).size;
+    // final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    // final safeAreaInset = MediaQuery.of(context).padding.bottom;
 
     return SafeArea(
       top: false,
-      child: AnimatedSize(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        alignment: Alignment.bottomCenter,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _QuotePreview(
-              message: widget.quotedMessage,
-              onCancel: widget.onCancelQuote,
-            ),
-            _EditPreview(
-              message: widget.editingMessage,
-              onCancel: widget.onCancelEdit,
-            ),
-            _AttachmentPreviewStrip(
-              attachments: widget.pendingAttachments,
-              onRemove: widget.onRemoveAttachment,
-            ),
-            // Composer preview strip — shown when a URL/email/phone is
-            // detected in the draft and the user has not dismissed it.
-            if (_detectedPreview != null && !_linkPreviewDismissed)
-              ComposerLinkPreview(
-                preview: _detectedPreview!,
-                onDismiss: () => setState(() => _linkPreviewDismissed = true),
-              ),
-            // Rich-text formatting toolbar — visible when field is focused or
-            // text already contains formatted content (indicated by _hasText).
-            if (widget.showRichTextToolbar && (_hasFocus || _hasText))
-              RichTextToolbar(controller: widget.controller),
-            _InputRow(
-              controller: widget.controller,
-              focusNode: _effectiveFocusNode,
-              hintText: widget.hintText,
-              maxLength: widget.maxLength,
-              showCharCounter: widget.showCharCounter,
-              isSending: widget.isSending,
-              // An attachment-only message is valid too — the send button must
-              // not stay disabled just because the text field is empty.
-              hasText: _hasText || widget.pendingAttachments.isNotEmpty,
-              emojiVisible: _emojiPickerVisible,
-              onEmojiToggle: _toggleEmojiPicker,
-              onAttachmentTap: widget.onAttachmentTap,
-              onSend: _handleSend,
-            ),
-            if (_emojiPickerVisible)
-              SizedBox(
-                height: (MediaQuery.of(context).size.height * 0.35).clamp(
-                  160.0,
-                  280.0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _QuotePreview(
+            message: widget.quotedMessage,
+            onCancel: widget.onCancelQuote,
+          ),
+          _EditPreview(
+            message: widget.editingMessage,
+            onCancel: widget.onCancelEdit,
+          ),
+          _AttachmentPreviewStrip(
+            attachments: widget.pendingAttachments,
+            onRemove: widget.onRemoveAttachment,
+          ),
+          // Composer preview strip — shown when a URL/email/phone is
+          // detected in the draft and the user has not dismissed it.
+          if (_detectedPreview != null && !_linkPreviewDismissed)
+            ComposerLinkPreview(
+              preview: _detectedPreview!,
+              onDismiss: () => setState(() => _linkPreviewDismissed = true),
+            )
+          else
+            const SizedBox.shrink(),
+
+          widget.enabled
+              ? _InputRow(
+                  key: const ValueKey('chat_input_row'),
+                  controller: widget.controller,
+                  focusNode: _effectiveFocusNode,
+                  hintText: widget.hintText,
+                  maxLength: widget.maxLength,
+                  showCharCounter: widget.showCharCounter,
+                  isSending: widget.isSending,
+                  // An attachment-only message is valid too — the send
+                  // button must not stay disabled just because the text
+                  // field is empty.
+                  hasText: _hasText || widget.pendingAttachments.isNotEmpty,
+                  emojiVisible: _emojiPickerVisible,
+                  onEmojiToggle: _toggleEmojiPicker,
+                  onAttachmentTap: widget.onAttachmentTap,
+                  onSend: _handleSend,
+                )
+              : _DisabledInputRow(
+                  key: const ValueKey('chat_input_row_disabled'),
+                  message:
+                      widget.disabledMessage ??
+                      'You can no longer send messages in this conversation.',
                 ),
-                child: EmojiPicker(
-                  onEmojiSelected: _onEmojiSelected,
-                  config: Config(
-                    checkPlatformCompatibility: true,
-                    emojiViewConfig: EmojiViewConfig(
-                      backgroundColor: const Color(0xFFF4F6FB),
-                      emojiSizeMax: 28,
-                    ),
-                    categoryViewConfig: const CategoryViewConfig(
-                      backgroundColor: Colors.white,
-                      indicatorColor: AppColors.primaryColor,
-                      iconColorSelected: AppColors.primaryColor,
-                      recentTabBehavior: RecentTabBehavior.RECENT,
-                    ),
-                    bottomActionBarConfig: const BottomActionBarConfig(
-                      enabled: false,
-                    ),
-                    searchViewConfig: const SearchViewConfig(
-                      backgroundColor: Colors.white,
-                    ),
+
+          // Rich-text formatting toolbar — visible when field is focused or
+          // text already contains formatted content (indicated by _hasText).
+          if (widget.enabled &&
+              widget.showRichTextToolbar &&
+              (_hasFocus || _hasText))
+            RichTextToolbar(controller: widget.controller)
+          else
+            const SizedBox.shrink(),
+
+          if (_emojiPickerVisible)
+            SizedBox(
+              height: (MediaQuery.of(context).size.height * 0.35).clamp(
+                160.0,
+                280.0,
+              ),
+              child: EmojiPicker(
+                onEmojiSelected: _onEmojiSelected,
+                config: Config(
+                  checkPlatformCompatibility: true,
+                  emojiViewConfig: EmojiViewConfig(
+                    backgroundColor: const Color(0xFFF4F6FB),
+                    emojiSizeMax: 28,
+                  ),
+                  categoryViewConfig: const CategoryViewConfig(
+                    backgroundColor: Colors.white,
+                    indicatorColor: AppColors.primaryColor,
+                    iconColorSelected: AppColors.primaryColor,
+                    recentTabBehavior: RecentTabBehavior.RECENT,
+                  ),
+                  bottomActionBarConfig: const BottomActionBarConfig(
+                    enabled: false,
+                  ),
+                  searchViewConfig: const SearchViewConfig(
+                    backgroundColor: Colors.white,
                   ),
                 ),
               ),
-          ],
-        ),
+            )
+          else
+            const SizedBox.shrink(),
+        ],
       ),
     );
   }
@@ -438,16 +469,17 @@ class _AttachmentPreviewStrip extends StatelessWidget {
               GestureDetector(
                 onTap: canPreview
                     ? () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => ShowFullScreenMediaView(
-                              imageFile:
-                                  att.isImage ? File(att.localPath!) : null,
-                              videoFile: isVideo ? File(att.localPath!) : null,
-                              title: att.name,
-                            ),
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => ShowFullScreenMediaView(
+                            imageFile: att.isImage
+                                ? File(att.localPath!)
+                                : null,
+                            videoFile: isVideo ? File(att.localPath!) : null,
+                            title: att.name,
                           ),
-                        )
+                        ),
+                      )
                     : null,
                 child: Stack(
                   alignment: Alignment.center,
@@ -568,8 +600,67 @@ class _SelectAllIntent extends Intent {
   const _SelectAllIntent();
 }
 
+/// Replaces the text field + Send button when [ChatInputBar.enabled] is
+/// false — e.g. no active parent/guardian left in the conversation. Shows
+/// [message] where the text field pill normally sits, with a permanently
+/// disabled Send button beside it (no emoji/attachment controls — nothing
+/// left to act on).
+class _DisabledInputRow extends StatelessWidget {
+  const _DisabledInputRow({super.key, required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primaryColor.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(26),
+                border: Border.all(
+                  color: AppColors.primaryColor.withValues(alpha: 0.15),
+                ),
+              ),
+              child: Text(
+                message,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontStyle: FontStyle.italic,
+                  fontFamily: 'Manrope',
+                  color: AppColors.primaryColor.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: AppColors.primaryColor.withValues(alpha: 0.12),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.send_rounded,
+              color: AppColors.primaryColor.withValues(alpha: 0.35),
+              size: 22,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _InputRow extends StatelessWidget {
   const _InputRow({
+    super.key,
     required this.controller,
     this.focusNode,
     required this.hintText,
@@ -617,6 +708,33 @@ class _InputRow extends StatelessWidget {
         minLines: 1,
         maxLines: null,
         maxLength: maxLength,
+        // The default counter counts `controller.text` raw, which includes
+        // the invisible `<b>`/`<i>`/`<u>`/`<s>` formatting markup the rich
+        // text toolbar inserts — so bolding a 4-character word showed
+        // "11/2000" instead of "4/2000". Count the stripped/visible text
+        // the user actually sees instead.
+        buildCounter:
+            (
+              context, {
+              required int currentLength,
+              required bool isFocused,
+              required int? maxLength,
+            }) {
+              if (!showCharCounter) return null;
+              final visibleLength = MessageContentProcessor.stripHtmlTags(
+                controller.text,
+              ).length;
+              return Text(
+                maxLength != null
+                    ? '$visibleLength/$maxLength'
+                    : '$visibleLength',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFFB2BEC3),
+                  fontFamily: 'Manrope',
+                ),
+              );
+            },
         textCapitalization: TextCapitalization.sentences,
         style: const TextStyle(
           fontSize: 15,
@@ -646,7 +764,6 @@ class _InputRow extends StatelessWidget {
             horizontal: 16,
             vertical: 12,
           ),
-          counterText: showCharCounter ? null : '',
         ),
       ),
     );
@@ -827,7 +944,8 @@ class _InputRow extends StatelessWidget {
                 child: isSending
                     ? const Padding(
                         padding: EdgeInsets.all(13),
-                        child: CircularProgressIndicator(
+                        child: PrimaryCircularLoader(
+                          size: 22,
                           strokeWidth: 2,
                           color: Colors.white,
                         ),

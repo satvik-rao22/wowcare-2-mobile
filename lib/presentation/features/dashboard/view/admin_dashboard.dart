@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
@@ -117,6 +118,15 @@ class _AdminDashboardState extends State<AdminDashboard> {
           AttentionGrid(
             onRatioCardTap: _scrollToRatioCard,
             onShiftsCardTap: _scrollToShiftsCard,
+            onIncidentCardTap: () {
+              // Navigate to the Custom Activities view with the Incident Type filter.
+              // Note: ActivityFeedScreen currently does not support these query
+              // parameters natively, so this sets the convention.
+              context.go(
+                '/activityFeed?tab=custom&activityType=Incident&classroom=All',
+                extra: <String, dynamic>{'timestamp': DateTime.now().millisecondsSinceEpoch},
+              );
+            },
           ),
           const SizedBox(height: 16),
         ],

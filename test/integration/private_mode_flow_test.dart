@@ -56,13 +56,19 @@ class _ControllableRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
-  }) async => const Right([]);
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
+  }) async =>
+      const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
@@ -167,6 +173,26 @@ class _ControllableRepo implements ConversationEntityRepository {
     // TODO: implement reconcileClassroomChat
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -180,6 +206,10 @@ PrivateModeToggleCubit _build(
   conversationCode: 'CONV-INT-001',
   viewerRole: () => viewerRole,
   initialEnabled: initialEnabled,
+  currentUserCode: () {
+    // TODO: implement currentUserCode
+    throw UnimplementedError();
+  },
 );
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -271,22 +301,16 @@ void main() {
       },
     );
 
-    test(
-      'staff/admin viewer cannot enable private mode end-to-end',
-      () async {
-        final repo = _ControllableRepo();
-        final cubit = _build(
-          repo,
-          viewerRole: RoomChatViewerRole.staffOrAdmin,
-        );
-        addTearDown(cubit.close);
+    test('staff/admin viewer cannot enable private mode end-to-end', () async {
+      final repo = _ControllableRepo();
+      final cubit = _build(repo, viewerRole: RoomChatViewerRole.staffOrAdmin);
+      addTearDown(cubit.close);
 
-        await cubit.toggle();
+      await cubit.toggle();
 
-        expect(repo.calls, isEmpty, reason: 'API must never be reached');
-        expect(cubit.state.isEnabled, isFalse);
-        expect(cubit.state.errorMessage, isNotNull);
-      },
-    );
+      expect(repo.calls, isEmpty, reason: 'API must never be reached');
+      expect(cubit.state.isEnabled, isFalse);
+      expect(cubit.state.errorMessage, isNotNull);
+    });
   });
 }

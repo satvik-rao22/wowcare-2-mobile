@@ -1,8 +1,12 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:wowcare/app/app.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/bootstrap/app_bootstrap.dart';
 import 'package:wowcare/core/auth/token_refresh_service.dart';
+import 'package:wowcare/core/firebase/firebase_auth_service.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
 
 Future<void> main() async {
@@ -10,35 +14,66 @@ Future<void> main() async {
 
   await AppBootstrap.initialize();
 
-  // Proactive token refresh — the piece the web client doesn't need. A browser
-  // tab stays alive; a phone can background for hours, so the access token is
-  // routinely stale on resume. Renewing here (with a skew, just BEFORE expiry)
-  // avoids eating a guaranteed 401 on the first request after resume.
-  WidgetsBinding.instance.addObserver(_TokenLifecycleObserver());
+  FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    return true;
+  };
 
-  // Hydrate school zone + sync authoritative server clock before first frame
-  // so date/time fields never flash device/UTC wall clock.
+  WidgetsBinding.instance.addObserver(_TokenLifecycleObserver()..start());
+
   await ServerTimeService.instance.hydrateSchoolTimeZoneFromStorage();
   unawaited(ServerTimeService.instance.sync());
 
   runApp(const MyApp());
 }
 
-/// Refreshes the access token whenever the app returns to the foreground, so the first request
-/// after a long background doesn't eat a guaranteed 401. [TokenRefreshService.ensureFreshToken]
-/// no-ops when the token is still comfortably valid (default 60s skew), so this is cheap on resume.
+/// Keeps the backend access token and the Firebase session fresh both on
+/// background→foreground resume AND while the app just sits open and idle.
 ///
-/// Also re-syncs the authoritative server clock on resume.
-///
-/// Restores the observer the "feature/activity-bug" merge dropped, which left a dangling
-/// `_TokenLifecycleObserver()` reference in main() and broke the mobile build on develop.
+/// The resume path alone leaves a real gap: a phone left open on a chat
+/// screen (screen on, app foregrounded, no lifecycle transition) never
+/// triggers a refresh — [TokenRefreshService.ensureFreshToken] and
+/// [FirebaseAuthService.signIn] were only ever called from
+/// [didChangeAppLifecycleState]'s `resumed` branch. Firestore listeners do
+/// have their own reactive retry-on-`permission-denied` path (see
+/// `MessageRealtimeDataSource._watchWithRetry` / `ConversationRealtimeDataSource
+/// .retryOrForward`), but that only fires once a listener actually errors —
+/// an idle-long-enough session can go stale silently in between. The
+/// periodic timer below proactively re-validates on an interval regardless
+/// of lifecycle state, so staleness gets caught before it causes a visible
+/// drop in realtime updates.
 class _TokenLifecycleObserver extends WidgetsBindingObserver {
+  static const _idleRefreshInterval = Duration(minutes: 15);
+
+  AppLifecycleState _lifecycleState = AppLifecycleState.resumed;
+
+  // Runs for the lifetime of the process — this observer is never removed/
+  // disposed (the app has no natural teardown point short of process
+  // death), so the timer is deliberately left uncancelled rather than
+  // stored in a field that would just sit unused.
+  void start() {
+    Timer.periodic(_idleRefreshInterval, (_) {
+      // Skip while backgrounded — nothing to keep alive for a UI that isn't
+      // visible, and [didChangeAppLifecycleState]'s own `resumed` branch
+      // already covers the moment it comes back.
+      if (_lifecycleState == AppLifecycleState.resumed) {
+        unawaited(_refreshAll());
+      }
+    });
+  }
+
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    _lifecycleState = state;
     if (state == AppLifecycleState.resumed) {
-      unawaited(TokenRefreshService.instance.ensureFreshToken());
-      // Re-align "now" with the server after time in the background.
-      unawaited(ServerTimeService.instance.sync());
+      unawaited(_refreshAll());
     }
+  }
+
+  Future<void> _refreshAll() async {
+    unawaited(TokenRefreshService.instance.ensureFreshToken());
+    unawaited(ServerTimeService.instance.sync());
+    unawaited(serviceLocator<FirebaseAuthService>().signIn());
   }
 }

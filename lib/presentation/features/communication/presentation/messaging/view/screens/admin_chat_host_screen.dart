@@ -1,26 +1,32 @@
 import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/util/school_switch_events.dart';
 import 'package:wowcare/app/theme/colors.dart';
+import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
+import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/student/entities/student.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/messaging_shimmer.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/conversation_list_state.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
 import 'package:wowcare/shared/common/views/filter_screen.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/parent_direct_messaging_screen.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -45,7 +51,8 @@ class AdminChatHostScreen extends StatefulWidget {
   State<AdminChatHostScreen> createState() => _AdminChatHostScreenState();
 }
 
-class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
+class _AdminChatHostScreenState extends State<AdminChatHostScreen>
+    with SchoolSwitchReloadMixin {
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _showUnreadOnly = false;
@@ -55,12 +62,22 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   // against each conversation's student (admin chats are student-scoped).
   Set<String> _selectedClassrooms = {};
   Set<String> _selectedTags = {};
-  String? _selectedStatus;
+  // Defaults to Active — the list only shows active students unless the
+  // user explicitly picks a different status via the filter sheet. Stored
+  // in the same Title Case as the filter sheet's own item strings (see
+  // _showFilterSheet's `items: const ['Active', 'Upcoming', 'Inactive']`)
+  // so this value round-trips correctly as the sheet's initialSelected.
+  String? _selectedStatus = 'Active';
 
   /// All tag names for the school (full list from the tags API) so the filter
   /// shows EVERY tag — not only those on the currently-loaded (paginated)
   /// students, which was dropping most tags from the Admin filter.
   List<String> _schoolTagNames = [];
+
+  /// Tag display name -> tag code, from the same school-tags fetch as
+  /// [_schoolTagNames]. The filter sheet works in display names (what the
+  /// user picks), but the backend's `tagCodes` query param needs codes.
+  Map<String, String> _tagNameToCode = {};
 
   /// Backs the "Start new chat" section shown when searching matches a
   /// student who has no admin-chat conversation yet.
@@ -105,7 +122,32 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     // Firestore stream auto-loads; no manual pagination needed.
   }
 
-  void _onSearchChanged() => setState(() {});
+  /// This screen (branch 3 / Communication) is kept alive in the shell's
+  /// IndexedStack across a persona switch (e.g. admin <-> guardian for the
+  /// same account/school) — it never re-mounts on its own, so [_cubit]'s
+  /// Firestore subscription, opened once in [initState], would otherwise
+  /// keep resolving unread counts under the persona active when this screen
+  /// was FIRST built rather than the one now active. Restarting it re-reads
+  /// the current persona (see ConversationEntityRepositoryImpl's
+  /// `_unreadRoleBucket`) so an ADMIN_CHAT conversation's unreadByRole-based
+  /// count updates for the persona actually looking at it now.
+  @override
+  void onSchoolSwitched() {
+    if (!mounted) return;
+    unawaited(_cubit.startWatching());
+  }
+
+  /// Rapid search: hits the student list API on every keystroke, mirroring
+  /// staff_messaging_tab.dart's Room Chat search — without this, `_studentCubit`
+  /// only ever held whatever page `loadInitial()` happened to load once at
+  /// mount, so "START NEW CHAT" silently found nothing for anyone outside
+  /// that first page and never actually queried the backend as you typed.
+  void _onSearchChanged() {
+    setState(() {});
+    final query = _searchController.text.trim();
+    _studentCubit.updateSearch(query);
+    unawaited(_studentCubit.refresh(ignoreRefreshingGuard: true));
+  }
 
   bool get _hasStudentFilters =>
       _selectedClassrooms.isNotEmpty ||
@@ -117,11 +159,23 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       _searchController.text.trim().isNotEmpty ||
       _hasStudentFilters;
 
+  /// Whether the user has manually diverged from the silent default
+  /// (Active status only) — used to decide whether to show the "a filter
+  /// is applied" indicator dot on the funnel icon. The default Active
+  /// status by itself doesn't count as a user-applied filter; only an
+  /// explicit classroom/tag pick, or picking a status OTHER than Active,
+  /// does.
+  bool get _hasVisibleFilters =>
+      _selectedClassrooms.isNotEmpty ||
+      _selectedTags.isNotEmpty ||
+      (_selectedStatus != null && _selectedStatus != 'Active');
+
   /// The display classroom label a student is filtered by (name preferred).
   String _classroomLabel(Student s) =>
-      (s.primaryClassroomName != null && s.primaryClassroomName!.trim().isNotEmpty)
-          ? s.primaryClassroomName!.trim()
-          : s.classroom.trim();
+      (s.primaryClassroomName != null &&
+          s.primaryClassroomName!.trim().isNotEmpty)
+      ? s.primaryClassroomName!.trim()
+      : s.classroom.trim();
 
   /// Distinct classroom labels across the loaded students, for the filter sheet.
   List<String> _classroomOptions() {
@@ -137,15 +191,66 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
   /// Load the FULL school tag-name list for the filter sheet (same source Room
   /// Chat uses) so every tag is selectable, not just tags on loaded students.
   Future<void> _loadSchoolTags() async {
-    final schoolCode = await serviceLocator<StorageService>()
-            .getString(StorageKeys.schoolCode) ??
+    final schoolCode =
+        await serviceLocator<StorageService>().getString(
+          StorageKeys.schoolCode,
+        ) ??
         '';
     if (schoolCode.isEmpty) return;
     final map = await serviceLocator<GetTagNameCodeMapForSchoolUseCase>()(
       schoolCode: schoolCode,
     );
     if (!mounted) return;
-    setState(() => _schoolTagNames = map.keys.toList());
+    setState(() {
+      _schoolTagNames = map.keys.toList();
+      _tagNameToCode = map;
+    });
+  }
+
+  /// Classroom display label -> classroom code, built from the currently
+  /// loaded students (same source as [_classroomOptions]). The filter sheet
+  /// works in display labels; the backend's `classroomCodes` query param
+  /// needs codes.
+  Map<String, String> _classroomLabelToCode() {
+    final map = <String, String>{};
+    for (final s in _studentCubit.state.items) {
+      final label = _classroomLabel(s);
+      if (label.isNotEmpty && s.classroomCode.isNotEmpty) {
+        map[label] = s.classroomCode;
+      }
+    }
+    return map;
+  }
+
+  /// Pushes the current classroom/tag/status selection to the server via
+  /// [_cubit] — this is what actually narrows the conversation list now,
+  /// replacing the old approach of fetching everything and cross-matching
+  /// client-side against a separately-filtered student roster (which never
+  /// touched the conversations endpoint's own query params).
+  Future<void> _applyServerFilters() async {
+    if (!_hasStudentFilters) {
+      await _cubit.clearFilters();
+      return;
+    }
+    final classroomCodes = _classroomLabelToCode();
+    final tagCodes = _tagNameToCode;
+    // Passed through as studentStatuses so ConversationListCubit.applyFilters
+    // can resolve the conversation-level `status` param from it — that
+    // method is also responsible for NOT forwarding ACTIVE/INACTIVE values
+    // as a separate studentStatuses query param (see its own doc for why).
+    await _cubit.applyFilters(
+      classroomCodes: _selectedClassrooms
+          .map((label) => classroomCodes[label])
+          .whereType<String>()
+          .toList(),
+      tagCodes: _selectedTags
+          .map((name) => tagCodes[name])
+          .whereType<String>()
+          .toList(),
+      studentStatuses: _selectedStatus != null
+          ? [_selectedStatus!.toUpperCase()]
+          : const [],
+    );
   }
 
   /// Tag names for the filter sheet — the full school tag list, unioned with any
@@ -159,38 +264,33 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     return list;
   }
 
-  bool _matchesStudentFilters(ConversationEntity c, Map<String, Student> byCode) {
-    final code = c.studentCode;
-    // Filtering is active but this conversation's student isn't loaded/known —
-    // exclude it (we can't confirm a match).
-    final s = (code == null || code.isEmpty) ? null : byCode[code];
-    if (s == null) return false;
-    if (_selectedStatus != null &&
-        s.status.toUpperCase() != _selectedStatus!.toUpperCase()) {
-      return false;
-    }
-    if (_selectedClassrooms.isNotEmpty) {
-      final label = _classroomLabel(s).toLowerCase();
-      if (!_selectedClassrooms.any((sel) => sel.toLowerCase() == label)) {
-        return false;
-      }
-    }
-    if (_selectedTags.isNotEmpty) {
-      if (!s.tags.any((t) => _selectedTags.contains(t))) return false;
-    }
-    return true;
-  }
-
+  /// Classroom/tag/status narrowing now happens server-side (see
+  /// [_applyServerFilters] — the conversations the cubit holds are already
+  /// filtered by the time they get here). This only applies the two
+  /// filters that stay client-side by nature: the unread toggle (cheap to
+  /// check on the already-loaded page) and the live search-as-you-type text.
   List<ConversationEntity> _filtered(List<ConversationEntity> all) {
     final q = _searchController.text.trim().toLowerCase();
-    final hasStudentFilters = _hasStudentFilters;
-    final Map<String, Student> byCode = hasStudentFilters
-        ? {for (final s in _studentCubit.state.items) s.code: s}
-        : const {};
+    final status = _selectedStatus?.trim().toUpperCase();
     return all.where((c) {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
-      if (hasStudentFilters && !_matchesStudentFilters(c, byCode)) return false;
+      // Enforced client-side rather than relying solely on the one-off
+      // server-side studentStatuses query in [_applyServerFilters] — this
+      // screen's Firestore subscription keeps pushing unfiltered updates
+      // on top of state.conversations, so without this the very next
+      // realtime snapshot would silently undo whichever status was
+      // picked. [_selectedStatus] defaults to 'ACTIVE'. Fails OPEN when
+      // studentStatus itself is missing — a conversation must never be
+      // hidden just because this field wasn't sent. (Admin Chat is
+      // student-scoped — the STAFF_DIRECT `status`-param fix doesn't
+      // apply here.)
+      final conversationStatus = c.studentStatus?.trim().toUpperCase();
+      if (status != null &&
+          conversationStatus != null &&
+          conversationStatus != status) {
+        return false;
+      }
       return true;
     }).toList();
   }
@@ -215,8 +315,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
               label: 'Status',
               hintText: 'Select status',
               items: const ['Active', 'Upcoming', 'Inactive'],
-              initialSelected:
-                  _selectedStatus != null ? [_selectedStatus!] : const [],
+              initialSelected: _selectedStatus != null
+                  ? [_selectedStatus!]
+                  : const [],
               isSingleSelect: true,
             ),
             FilerSection(
@@ -235,6 +336,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
               final status = filters['Status'] ?? const [];
               _selectedStatus = status.isEmpty ? null : status.first;
             });
+            unawaited(_applyServerFilters());
           },
         ),
       ),
@@ -279,11 +381,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     _startingConversationWith.add(code);
 
     final name = '${student.firstName} ${student.lastName}'.trim();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Creating conversation with $name…'),
-        duration: const Duration(seconds: 2),
-      ),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Creating conversation with $name…',
     );
 
     final storage = serviceLocator<StorageService>();
@@ -292,6 +392,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
       type: ConversationType.adminChat,
       studentCode: code,
+      classroomCode: student.classroomCode,
       participantCodes: adminCode.isNotEmpty ? [adminCode] : null,
       title: name,
       avatarUrl: student.profileImage ?? '',
@@ -301,13 +402,20 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
     if (!mounted) return;
     final conversation = result.fold((_) => null, (c) => c);
     if (conversation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not start a conversation with $name')),
+      final failureMessage = result.fold((f) => f.message, (_) => null);
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: (failureMessage != null && failureMessage.trim().isNotEmpty)
+            ? failureMessage
+            : 'Could not start a conversation with $name',
+        isError: true,
       );
       return;
     }
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Chat with $name created successfully')),
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message: 'Chat with $name created successfully',
+      isSuccess: true,
     );
     unawaited(_cubit.refresh());
     _openThread(conversation);
@@ -353,6 +461,12 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
       return const GlobalScaffold(
         hasBackButton: false,
         bodyPadding: EdgeInsets.fromLTRB(12, 8, 12, 8),
+        // This route (/admin-chat) is registered OUTSIDE the shell's
+        // StatefulShellRoute, so the nav bar's own route-derived resolution
+        // can't find a shell ancestor and would otherwise show nothing (or,
+        // before that fallback was fixed, incorrectly Dashboard) — force
+        // the correct Communication/Messages tab highlighted explicitly.
+        activeItemOverride: BottomNavigationItem.communication,
         body: ParentDirectMessagingScreen(
           conversationType: ConversationType.adminChat,
           notCreatedLabel: 'Start Conversation with Admin',
@@ -407,13 +521,78 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
+                            // Discoverable manual refresh — mirrors the pull-to-refresh
+                            // (ConversationListCubit.refresh) so users aren't limited to
+                            // the pull gesture, which isn't obvious and can't be
+                            // triggered on a short/empty list. Matches Staff/Parent
+                            // Messaging's search bar.
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(12),
+                                onTap: () {
+                                  context
+                                      .read<ConversationListCubit>()
+                                      .refresh();
+                                  CoreUtils.showTopSnackBar(
+                                    context: context,
+                                    message: 'Refreshing conversations…',
+                                    duration: const Duration(
+                                      milliseconds: 1200,
+                                    ),
+                                  );
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(10),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(12),
+                                    color: const Color(0x33B1AFE9),
+                                  ),
+                                  child: Icon(
+                                    Icons.refresh,
+                                    color: AppColors.primaryColor,
+                                    size: 22,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
                             // Non-parents only (the parent branch returns early above).
-                            FilterIndicator(
-                              hasActiveFilters: _hasStudentFilters,
-                              filterCount: (_selectedClassrooms.isNotEmpty ? 1 : 0) +
-                                  (_selectedTags.isNotEmpty ? 1 : 0) +
-                                  (_selectedStatus != null ? 1 : 0),
-                              onTap: _showFilterSheet,
+                            // Same SVG icon + active-filter dot used by Staff/Parent
+                            // Messaging's filter button, instead of FilterIndicator's
+                            // generic Icons.tune, which didn't match the rest of the
+                            // messaging tabs.
+                            Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                onTap: _showFilterSheet,
+                                borderRadius: BorderRadius.circular(100),
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8),
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      SvgPicture.asset(
+                                        MediaRes.filterIcon,
+                                        height: 20,
+                                      ),
+                                      if (_hasVisibleFilters)
+                                        Positioned(
+                                          top: -2,
+                                          right: -2,
+                                          child: Container(
+                                            width: 8,
+                                            height: 8,
+                                            decoration: const BoxDecoration(
+                                              color: Colors.red,
+                                              shape: BoxShape.circle,
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -434,13 +613,18 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                             const Spacer(),
                             CustomClearAllChip(
                               label: 'Clear All',
-                              onTap: () => setState(() {
-                                _showUnreadOnly = false;
-                                _searchController.clear();
-                                _selectedClassrooms = {};
-                                _selectedTags = {};
-                                _selectedStatus = null;
-                              }),
+                              onTap: () {
+                                setState(() {
+                                  _showUnreadOnly = false;
+                                  _searchController.clear();
+                                  _selectedClassrooms = {};
+                                  _selectedTags = {};
+                                  // Resets to Active rather than no filter
+                                  // at all — matches this screen's default.
+                                  _selectedStatus = 'Active';
+                                });
+                                unawaited(_applyServerFilters());
+                              },
                             ),
                           ],
                         ),
@@ -454,8 +638,7 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
 
                       // ── List / loading / empty ────────────────────────────────
                       Expanded(
-                        child: RefreshIndicator(
-                          color: AppColors.primaryColor,
+                        child: CustomRefreshIndicator(
                           onRefresh: () =>
                               context.read<ConversationListCubit>().refresh(),
                           child: CustomScrollView(
@@ -497,12 +680,27 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                               if (!state.isLoading &&
                                   !state.hasConversations &&
                                   state.errorMessage == null)
-                                SliverFillRemaining(
-                                  key: const ValueKey('empty_state'),
-                                  child: _EmptyState(
-                                    hasFilters: _hasActiveFilters,
-                                  ),
-                                ),
+                                // While actively searching, the "START NEW
+                                // CHAT" section (below) can still have
+                                // content even with zero conversation
+                                // matches — SliverFillRemaining would
+                                // stretch this empty state to fill the
+                                // whole viewport and shove that section
+                                // far off-screen. Only fill-remaining when
+                                // nothing else is going to follow.
+                                _searchController.text.trim().isNotEmpty
+                                    ? SliverToBoxAdapter(
+                                        key: const ValueKey('empty_state'),
+                                        child: _EmptyState(
+                                          hasFilters: _hasActiveFilters,
+                                        ),
+                                      )
+                                    : SliverFillRemaining(
+                                        key: const ValueKey('empty_state'),
+                                        child: _EmptyState(
+                                          hasFilters: _hasActiveFilters,
+                                        ),
+                                      ),
 
                               if (state.isLoading && state.hasConversations)
                                 const SliverToBoxAdapter(
@@ -510,12 +708,9 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
                                   child: Padding(
                                     padding: EdgeInsets.symmetric(vertical: 16),
                                     child: Center(
-                                      child: SizedBox(
-                                        width: 24,
-                                        height: 24,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                        ),
+                                      child: PrimaryCircularLoader(
+                                        size: 24,
+                                        strokeWidth: 2,
                                       ),
                                     ),
                                   ),
@@ -578,56 +773,78 @@ class _AdminChatHostScreenState extends State<AdminChatHostScreen> {
         delegate: SliverChildBuilderDelegate((context, index) {
           final student = contacts[index];
           final name = '${student.firstName} ${student.lastName}'.trim();
+          // A student with no guardian linked can't be messaged (no one to
+          // receive it) — disable the row, matching web.
+          final bool isDisabled = !student.hasGuardian;
           return InkWell(
             key: ValueKey('student_contact_${student.code}'),
-            onTap: () => _startConversationWithStudent(student),
-            child: Container(
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                border: Border(
-                  bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
-                ),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: Row(
-                children: [
-                  DocumentImageWidget(
-                    fileUuid: '',
-                    imageUrl: student.profileImage,
-                    studentCode: student.code,
-                    name: name,
-                    size: 44,
+            onTap: isDisabled
+                ? null
+                : () => _startConversationWithStudent(student),
+            child: Opacity(
+              opacity: isDisabled ? 0.5 : 1,
+              child: Container(
+                decoration: const BoxDecoration(
+                  color: Colors.white,
+                  border: Border(
+                    bottom: BorderSide(color: Color(0xFFF1F3F5), width: 1),
                   ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          name,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xff573353),
-                          ),
-                        ),
-                        if ((student.primaryClassroomName ?? '').isNotEmpty)
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    DocumentImageWidget(
+                      disableAttendanceStatusLookup: true,
+                      fileUuid: '',
+                      imageUrl: student.profileImage,
+                      studentCode: student.code,
+                      name: name,
+                      size: 44,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
-                            student.primaryClassroomName!,
+                            name,
                             style: const TextStyle(
-                              fontSize: 13,
-                              color: Color(0xFF636E72),
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xff573353),
                             ),
                           ),
-                      ],
+                          if (isDisabled)
+                            const Text(
+                              'No parent linked',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Color(0xFF636E72),
+                              ),
+                            )
+                          else if ((student.primaryClassroomName ?? '')
+                              .isNotEmpty)
+                            Text(
+                              student.primaryClassroomName!,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Color(0xFF636E72),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const Icon(
-                    Icons.edit_outlined,
-                    size: 18,
-                    color: Color(0xFF6C5CE7),
-                  ),
-                ],
+                    if (!isDisabled)
+                      const Icon(
+                        Icons.edit_outlined,
+                        size: 18,
+                        color: Color(0xFF6C5CE7),
+                      ),
+                  ],
+                ),
               ),
             ),
           );
@@ -753,14 +970,22 @@ class _ConversationTileContent extends StatelessWidget {
   /// exist on the full message entity inside a thread, not this list-level
   /// summary). `lastMessageAt` is what actually distinguishes "no messages
   /// yet" from "the last message just had no text".
+  ///
+  /// Prefixed with the sender's name (`SenderName: message`) to match the
+  /// web app's chat list — this was previously dropped entirely on mobile.
+  /// The backend doesn't actually send a dedicated sender-name field, so
+  /// `ConversationEntity.lastMessageSenderDisplayName` derives it from
+  /// `lastMessageBy` + `participants` instead. Only the "no messages yet"
+  /// placeholder stays sender-less, since there's no sender to attribute it
+  /// to.
   String _lastMessagePreviewText(ConversationEntity conversation) {
-    if (conversation.lastMessagePreview.isNotEmpty) {
-      return conversation.lastMessagePreview;
-    }
-    if (conversation.lastMessageAt != null) {
-      return '📎 Attachment';
-    }
-    return 'Start a new conversation';
+    final body = conversation.lastMessagePreview.isNotEmpty
+        ? conversation.lastMessagePreview
+        : (conversation.lastMessageAt != null ? '📎 Attachment' : null);
+    if (body == null) return 'Start a new conversation';
+    final senderName = conversation.lastMessageSenderDisplayName?.trim();
+    if (senderName == null || senderName.isEmpty) return body;
+    return '$senderName: $body';
   }
 
   @override
@@ -788,6 +1013,7 @@ class _ConversationTileContent extends StatelessWidget {
           // built-in attendance dot (real "signed in today" vs "absent"
           // vs nothing) is wired up properly instead.
           leading: DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             imageUrl: conversation.avatarUrl.startsWith('http')
                 ? conversation.avatarUrl
@@ -845,6 +1071,20 @@ class _ConversationTileContent extends StatelessWidget {
                     const SizedBox(height: 4),
                     Row(
                       children: [
+                        // Private Mode indicator — a parent (or the room)
+                        // currently has private mode on. Mirrors
+                        // MessagingListTile's lock icon (Room Chat list),
+                        // which this Admin Chat tile never had.
+                        // `hasActivePrivateMode` covers both the room-wide
+                        // flag and the per-parent state map.
+                        if (conversation.hasActivePrivateMode) ...[
+                          const Icon(
+                            Icons.lock,
+                            size: 12,
+                            color: Color(0xFF636E72),
+                          ),
+                          const SizedBox(width: 3),
+                        ],
                         const Icon(
                           Icons.admin_panel_settings_outlined,
                           size: 12,
@@ -852,7 +1092,12 @@ class _ConversationTileContent extends StatelessWidget {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          '${conversation.participantCount} participants',
+                          // The list endpoint sends participantCount as null
+                          // for ADMIN_CHAT (always parses to 0) even though
+                          // it embeds the full participants array correctly —
+                          // count active participants directly instead of
+                          // trusting that separate, unpopulated field.
+                          '${conversation.participants.where((p) => p.isActive).length} participants',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFB2BEC3),
@@ -876,7 +1121,9 @@ class _ConversationTileContent extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF00B894).withValues(alpha: 0.35),
+                          color: const Color(
+                            0xFF00B894,
+                          ).withValues(alpha: 0.35),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),

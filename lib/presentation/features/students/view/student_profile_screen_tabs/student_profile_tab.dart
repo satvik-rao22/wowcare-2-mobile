@@ -15,7 +15,6 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import '../student_profile_tab_cards/student_family_tab_card.dart';
 import '../student_profile_tab_cards/student_pickup_tab_card.dart';
 
-
 class StudentProfileTab extends StatefulWidget {
   const StudentProfileTab({
     super.key,
@@ -39,8 +38,6 @@ class StudentProfileTab extends StatefulWidget {
   final Map<String, dynamic> sibling;
   final String? studentCode;
   final ValueChanged<StudentProfileModel>? onProfileChanged;
-
-
 
   @override
   State<StudentProfileTab> createState() => _StudentProfileTabState();
@@ -86,13 +83,15 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     if (widget.studentCode != null && widget.studentCode!.isNotEmpty) {
       final future = _loadProfileCached(widget.studentCode!);
       _profileFuture = future;
-      future.then((profile) {
-        if (!mounted) return;
-        if (profile != null) widget.onProfileChanged?.call(profile);
-      }).catchError((Object error) {
-        // About tab renders the inline error; also surface it to the user.
-        _showProfileErrorBanner(error);
-      });
+      future
+          .then((profile) {
+            if (!mounted) return;
+            if (profile != null) widget.onProfileChanged?.call(profile);
+          })
+          .catchError((Object error) {
+            // About tab renders the inline error; also surface it to the user.
+            _showProfileErrorBanner(error);
+          });
     } else {
       _profileFuture = Future<StudentProfileModel?>.value(null);
     }
@@ -100,8 +99,9 @@ class _StudentProfileTabState extends State<StudentProfileTab>
 
   Future<void> _loadFallbackSchoolCode() async {
     try {
-      final code = await serviceLocator<StorageService>()
-          .getString(StorageKeys.schoolCode);
+      final code = await serviceLocator<StorageService>().getString(
+        StorageKeys.schoolCode,
+      );
       if (!mounted) return;
       if (code != null && code.trim().isNotEmpty) {
         setState(() => _fallbackSchoolCode = code.trim());
@@ -147,13 +147,22 @@ class _StudentProfileTabState extends State<StudentProfileTab>
       final payload = await _cacheManager.loadCache(cacheKey);
       if (payload != null) {
         final model = StudentProfileModel.fromJson(payload);
-        // Stale-while-revalidate. Cached data is already shown, so a failed
-        // background refresh only needs to surface its error to the user.
+        // Stale-while-revalidate: cached data is returned immediately below,
+        // but the background refresh's result was previously only used to
+        // show an error banner on failure — a successful fresh fetch was
+        // silently dropped, so anything only present in the fresh response
+        // (e.g. classroomCode, added to the cached shape after some
+        // profiles were already cached under the old format) would never
+        // reach the header/callers until the cache separately expired.
         // ignore: unawaited_futures
-        _loadProfileFresh(studentCode).catchError((Object error) {
-          _showProfileErrorBanner(error);
-          return null;
-        });
+        _loadProfileFresh(studentCode)
+            .then((refreshed) {
+              if (!mounted || refreshed == null) return;
+              widget.onProfileChanged?.call(refreshed);
+            })
+            .catchError((Object error) {
+              _showProfileErrorBanner(error);
+            });
         return model;
       }
     } catch (_) {
@@ -172,9 +181,6 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     return model;
   }
 
-
-
-
   @override
   void dispose() {
     _tabController.dispose();
@@ -184,139 +190,124 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     super.dispose();
   }
 
-  Tab _buildTab({
-    required String label,
-    required Color color,
-  }) {
+  Tab _buildTab({required String label, required Color color}) {
     return Tab(
       child: Container(
         margin: const EdgeInsets.all(1),
         decoration: BoxDecoration(
           color: color,
-          borderRadius: const BorderRadius.vertical(
-            top: Radius.circular(12),
-          ),
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
         ),
-        child: Center(
-          child: Text(
-            label,
-          ),
-        ),
+        child: Center(child: Text(label)),
       ),
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Column(
-        children: [
-          Transform.translate(
-            offset: const Offset(0, 0),
-            child: TabBar(
-              controller: _tabController,
-              dividerHeight: 0,
-              indicator: BoxDecoration(
-                borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(12),
-                ),
-                border: Border.all(
-                  color: AppColors.classroomStudentTabColor
-                      .withValues(alpha: 1),
-                ),
+      children: [
+        Transform.translate(
+          offset: const Offset(0, 0),
+          child: TabBar(
+            controller: _tabController,
+            dividerHeight: 0,
+            indicator: BoxDecoration(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(12),
               ),
-              labelStyle: TextTheme.of(context).titleSmall!.copyWith(
-                color: AppColors.primaryColor,
-                fontSize: 15,
+              border: Border.all(
+                color: AppColors.classroomStudentTabColor.withValues(alpha: 1),
               ),
-              unselectedLabelStyle: TextTheme.of(context)
-                  .titleSmall!
-                  .copyWith(
-                color: AppColors.primaryColor.withValues(alpha: 0.5),
-                fontSize: 15,
-              ),
-              labelPadding: const EdgeInsets.all(0),
-              indicatorPadding: _tabController.index == 0
-                  ? const EdgeInsets.only(right: 4)
-                  : _tabController.index == 1
-                  ? const EdgeInsets.symmetric(horizontal: 2)
-                  : const EdgeInsets.only(left: 4),
-              splashFactory: NoSplash.splashFactory,
-              tabs: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 4),
-                  child: _buildTab(
-                    label: 'About',
-                    color: AppColors.classroomStudentTabColor,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: _buildTab(
-                    label: 'Family',
-                    color: AppColors.classroomStaffTabColor,
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(left: 4),
-                  child: _buildTab(
-                    label: 'Pickup',
-                    color: AppColors.classroomNotesTabColor,
-                  ),
-                ),
-              ],
             ),
+            labelStyle: TextTheme.of(
+              context,
+            ).titleSmall!.copyWith(color: AppColors.primaryColor, fontSize: 15),
+            unselectedLabelStyle: TextTheme.of(context).titleSmall!.copyWith(
+              color: AppColors.primaryColor.withValues(alpha: 0.5),
+              fontSize: 15,
+            ),
+            labelPadding: const EdgeInsets.all(0),
+            indicatorPadding: _tabController.index == 0
+                ? const EdgeInsets.only(right: 4)
+                : _tabController.index == 1
+                ? const EdgeInsets.symmetric(horizontal: 2)
+                : const EdgeInsets.only(left: 4),
+            splashFactory: NoSplash.splashFactory,
+            tabs: [
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: _buildTab(
+                  label: 'About',
+                  color: AppColors.classroomStudentTabColor,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 2),
+                child: _buildTab(
+                  label: 'Family',
+                  color: AppColors.classroomStaffTabColor,
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.only(left: 4),
+                child: _buildTab(
+                  label: 'Pickup',
+                  color: AppColors.classroomNotesTabColor,
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: FutureBuilder<StudentProfileModel?>(
-              future: _profileFuture,
-              builder: (context, snapshot) {
-                final profile = snapshot.data;
-                final hasCode =
-                    widget.studentCode != null && widget.studentCode!.isNotEmpty;
-                final isWaiting = hasCode &&
-                    snapshot.connectionState == ConnectionState.waiting;
+        ),
+        Expanded(
+          child: FutureBuilder<StudentProfileModel?>(
+            future: _profileFuture,
+            builder: (context, snapshot) {
+              final profile = snapshot.data;
+              final hasCode =
+                  widget.studentCode != null && widget.studentCode!.isNotEmpty;
+              final isWaiting =
+                  hasCode &&
+                  snapshot.connectionState == ConnectionState.waiting;
 
-                // Only the About tab depends on the student profile model.
-                // Family and Pickup load their own data from studentCode, so a
-                // profile fetch failure (e.g. a 500) must NOT block them —
-                // build them unconditionally and let the About tab own its
-                // loading/error state.
-                final Widget aboutChild;
-                if (isWaiting) {
-                  aboutChild = CustomRefreshIndicator(
-                    onRefresh: _refreshProfile,
-                    child: ListView(
-                      physics: const AlwaysScrollableScrollPhysics(),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 16),
-                      children: const [StudentProfileInfoShimmer()],
+              // Only the About tab depends on the student profile model.
+              // Family and Pickup load their own data from studentCode, so a
+              // profile fetch failure (e.g. a 500) must NOT block them —
+              // build them unconditionally and let the About tab own its
+              // loading/error state.
+              final Widget aboutChild;
+              if (isWaiting) {
+                aboutChild = CustomRefreshIndicator(
+                  onRefresh: _refreshProfile,
+                  child: ListView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 16,
                     ),
-                  );
-                } else if (snapshot.hasError) {
-                  aboutChild = _buildAboutError(snapshot.error);
-                } else if (profile != null) {
-                  aboutChild = _buildAboutFromProfile(profile);
-                } else {
-                  aboutChild = _buildAboutFromWidget();
-                }
-
-                return TabBarView(
-                  controller: _tabController,
-                  children: [
-                    aboutChild,
-                    _buildFamilyTab(profile),
-                    _buildPickupTab(profile),
-                  ],
+                    children: const [StudentProfileInfoShimmer()],
+                  ),
                 );
-              },
-            ),
+              } else if (snapshot.hasError) {
+                aboutChild = _buildAboutError(snapshot.error);
+              } else if (profile != null) {
+                aboutChild = _buildAboutFromProfile(profile);
+              } else {
+                aboutChild = _buildAboutFromWidget();
+              }
+
+              return TabBarView(
+                controller: _tabController,
+                children: [
+                  aboutChild,
+                  _buildFamilyTab(profile),
+                  _buildPickupTab(profile),
+                ],
+              );
+            },
           ),
-        ],
-
-
-
-
+        ),
+      ],
     );
   }
 
@@ -472,4 +463,3 @@ class _StudentProfileTabState extends State<StudentProfileTab>
     );
   }
 }
-

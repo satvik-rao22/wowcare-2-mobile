@@ -7,12 +7,18 @@ import 'package:mime/mime.dart';
 import 'package:path/path.dart' as p;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/app_time.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/entities/message.dart';
+import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
+import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/cache_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/create_or_open_conversation_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 
 class SelectedAttachment extends Equatable {
   final File file;
@@ -59,7 +65,13 @@ class BulkMessagingCompositionState extends Equatable {
     this.failedRecipients = const [],
   });
 
-  int get charCount => messageText.length;
+  // `messageText` is the raw HTML-aware text (see HtmlAwareTextController),
+  // which includes the invisible <b>/<i>/<u>/<s> markup the rich text
+  // toolbar inserts — counting it raw would show e.g. "11/2000" for a bolded
+  // 4-character word. Count the stripped/visible text the user actually
+  // sees instead, matching ChatInputBar's counter.
+  int get charCount =>
+      MessageContentProcessor.stripHtmlTags(messageText).length;
   bool get canSend =>
       !isLoading &&
       !isBulkStarted &&
@@ -121,6 +133,26 @@ class BulkMessagingCompositionCubit
   final ChatAttachmentUploader _attachmentUploader;
   final StorageService _storageService;
 
+  /// STAFF_DIRECT recipients are viewed through the LEGACY
+  /// CommunicationCubit/StaffMessagingThread stack (its own Isar
+  /// [Message]/MessageCollection cache), which is entirely separate from
+  /// the [MessageEntity]/MessageEntityCollection cache [_sendMessageUseCase]
+  /// (always the v2 usecase, for every recipient type) writes to
+  /// internally. Without ALSO caching an optimistic draft into the legacy
+  /// store here, a bulk STAFF_DIRECT send is invisible in that recipient's
+  /// own thread for the whole upload window — the v2 draft it creates lives
+  /// in a cache that screen never reads.
+  final CacheMessageUseCase _cacheMessageUseCase;
+  final DiscardCachedMessageUseCase _discardCachedMessageUseCase;
+
+  /// ROOM_CHAT/ADMIN_CHAT recipients are viewed through
+  /// ConversationThreadCubit, which DOES read the same v2 cache
+  /// [_sendMessageUseCase] writes to — but only once [_sendMessageUseCase]
+  /// itself is called, which happens AFTER the (potentially multi-second)
+  /// attachment upload. Caching here too, before upload starts, closes that
+  /// same gap for this branch.
+  final CacheDraftMessageUseCase _cacheDraftMessageUseCase;
+
   BulkMessagingCompositionCubit({
     required List<Map<String, dynamic>> initialRecipients,
     required bool isStaff,
@@ -128,11 +160,17 @@ class BulkMessagingCompositionCubit
     required SendMessageEntityUseCase sendMessageUseCase,
     required ChatAttachmentUploader attachmentUploader,
     required StorageService storageService,
+    required CacheMessageUseCase cacheMessageUseCase,
+    required DiscardCachedMessageUseCase discardCachedMessageUseCase,
+    required CacheDraftMessageUseCase cacheDraftMessageUseCase,
     String conversationType = 'ROOM_CHAT',
   }) : _createOrOpenConversationUseCase = createOrOpenConversationUseCase,
        _sendMessageUseCase = sendMessageUseCase,
        _attachmentUploader = attachmentUploader,
        _storageService = storageService,
+       _cacheMessageUseCase = cacheMessageUseCase,
+       _discardCachedMessageUseCase = discardCachedMessageUseCase,
+       _cacheDraftMessageUseCase = cacheDraftMessageUseCase,
        super(
          BulkMessagingCompositionState(
            isStaff: isStaff,
@@ -158,6 +196,20 @@ class BulkMessagingCompositionCubit
         attachments: [
           ...state.attachments,
           SelectedAttachment.file(file, isImage: isImage),
+        ],
+      ),
+    );
+  }
+
+  /// Same as [addAttachment] but for a multi-select pick — appends all of
+  /// [files] in a single emit instead of one rebuild per file.
+  void addAttachments(List<File> files, {required bool isImage}) {
+    if (isClosed || files.isEmpty) return;
+    emit(
+      state.copyWith(
+        attachments: [
+          ...state.attachments,
+          ...files.map((f) => SelectedAttachment.file(f, isImage: isImage)),
         ],
       ),
     );
@@ -260,17 +312,19 @@ class BulkMessagingCompositionCubit
     if (isClosed || state.failedRecipients.isEmpty) return;
     final toRetry = List<Map<String, dynamic>>.from(state.failedRecipients);
     emit(state.copyWith(failedRecipients: const [], isBulkStarted: true));
-    unawaited(_runBulkJob(
-      orgCode: orgCode,
-      schoolCode: schoolCode,
-      senderUserCode: senderUserCode,
-      actualSenderCode: actualSenderCode,
-      recipients: toRetry,
-      messageText: state.messageText,
-      attachments: List<SelectedAttachment>.from(state.attachments),
-      isStaff: state.isStaff,
-      conversationType: state.conversationType,
-    ));
+    unawaited(
+      _runBulkJob(
+        orgCode: orgCode,
+        schoolCode: schoolCode,
+        senderUserCode: senderUserCode,
+        actualSenderCode: actualSenderCode,
+        recipients: toRetry,
+        messageText: state.messageText,
+        attachments: List<SelectedAttachment>.from(state.attachments),
+        isStaff: state.isStaff,
+        conversationType: state.conversationType,
+      ),
+    );
   }
 
   /// Convert the picker's [SelectedAttachment]s (local files) into unuploaded
@@ -295,24 +349,152 @@ class BulkMessagingCompositionCubit
     return result;
   }
 
+  /// Caches an optimistic "sending" preview of the message for
+  /// [conversationCode] BEFORE its upload/send starts, into whichever local
+  /// store that recipient's own thread screen actually reads from — see the
+  /// [_cacheMessageUseCase]/[_cacheDraftMessageUseCase] field docs. Without
+  /// this, opening that recipient's thread while their copy is still
+  /// uploading showed nothing at all until the whole background job
+  /// finished.
+  Future<void> _cacheOptimisticDraft({
+    required bool isStaff,
+    required String conversationCode,
+    required String tempCode,
+    required String text,
+    required String senderUserCode,
+    required List<ChatAttachment> durableAttachments,
+    required String orgCode,
+    required String schoolCode,
+  }) async {
+    final now = AppTime.nowUtc();
+    if (isStaff) {
+      await _cacheMessageUseCase(
+        conversationCode,
+        Message(
+          id: tempCode,
+          code: tempCode,
+          text: text,
+          isSentByMe: true,
+          senderUserCode: senderUserCode,
+          time: now,
+          attachments: durableAttachments,
+          isSending: true,
+        ),
+      );
+      return;
+    }
+    await _cacheDraftMessageUseCase(
+      MessageEntity(
+        id: tempCode,
+        code: tempCode,
+        conversationCode: conversationCode,
+        senderCode: senderUserCode,
+        senderName: '',
+        senderRole: ParticipantRole.staff,
+        text: text,
+        messageType: MessageType.text,
+        status: MessageStatus.pending,
+        sentAt: now,
+        organizationCode: orgCode,
+        schoolCode: schoolCode,
+        localTempCode: tempCode,
+        attachments: _toAttachmentEntities(
+          durableAttachments,
+          conversationCode: conversationCode,
+          messageCode: tempCode,
+          uploadedBy: senderUserCode,
+          uploadedAt: now,
+        ),
+      ),
+    );
+  }
+
+  /// Maps uploaded/local [ChatAttachment]s to the [AttachmentEntity] shape
+  /// [MessageEntity] carries. Used both for the pre-upload optimistic
+  /// draft's attachments AND the `attachments:` param passed to
+  /// [_sendMessageUseCase] — [MessageEntityRepositoryImpl.sendMessage]
+  /// unconditionally rebuilds and re-saves its own optimistic row from
+  /// whatever `attachments` it's given (empty by default), which would
+  /// otherwise clobber the richer draft just cached above with an
+  /// attachment-less one the instant the send call starts.
+  List<AttachmentEntity> _toAttachmentEntities(
+    List<ChatAttachment> attachments, {
+    required String conversationCode,
+    required String messageCode,
+    required String uploadedBy,
+    required DateTime uploadedAt,
+  }) {
+    return attachments
+        .map(
+          (a) => AttachmentEntity(
+            code: a.code ?? '',
+            messageCode: messageCode,
+            conversationCode: conversationCode,
+            fileName: a.name,
+            fileUrl: a.remoteUrl,
+            mimeType: a.mimeType,
+            fileSizeBytes: a.sizeBytes,
+            attachmentType: AttachmentType.fromMimeType(a.mimeType),
+            localFilePath: a.localPath,
+            uploadedBy: uploadedBy,
+            uploadedAt: uploadedAt,
+            attachmentId: a.attachmentId,
+          ),
+        )
+        .toList();
+  }
+
+  /// Resolves the legacy-store draft [_cacheOptimisticDraft] wrote for a
+  /// STAFF_DIRECT recipient once the send settles. The v2 branch needs no
+  /// equivalent call — [MessageEntityRepositoryImpl.sendMessage] already
+  /// resolves its OWN draft in place via the shared `localTempCode`. The
+  /// legacy store has no such mechanism (the confirmed write from
+  /// [_sendMessageUseCase] lands in the v2 cache, not this one), so the
+  /// draft row here is orphaned unless explicitly discarded (success) or
+  /// flipped to failed (failure).
+  Future<void> _resolveLegacyDraft({
+    required bool isStaff,
+    required String conversationCode,
+    required String tempCode,
+    required bool succeeded,
+    required String text,
+    required String senderUserCode,
+    required List<ChatAttachment> durableAttachments,
+  }) async {
+    if (!isStaff) return;
+    if (succeeded) {
+      await _discardCachedMessageUseCase(tempCode);
+      return;
+    }
+    await _cacheMessageUseCase(
+      conversationCode,
+      Message(
+        id: tempCode,
+        code: tempCode,
+        text: text,
+        isSentByMe: true,
+        senderUserCode: senderUserCode,
+        time: AppTime.nowUtc(),
+        attachments: durableAttachments,
+        isFailed: true,
+      ),
+    );
+  }
+
   /// Upload [base] into [conversationCode] (session → presign → S3 → complete →
   /// register, via the same uploader the chat thread uses) and return the
-  /// registered attachmentIds for sendMessage. Throws if any upload fails, so
-  /// the caller marks that recipient failed (all-or-nothing, no partial send).
-  Future<List<int>> _uploadAttachmentsFor(
+  /// uploaded attachments (real code/attachmentId/remoteUrl resolved) for
+  /// sendMessage. Throws if any upload fails, so the caller marks that
+  /// recipient failed (all-or-nothing, no partial send).
+  Future<List<ChatAttachment>> _uploadAttachmentsFor(
     String conversationCode,
     List<ChatAttachment> base,
   ) async {
     if (base.isEmpty) return const [];
-    final uploaded = await Future.wait(
-      base.map(
-        (att) => _attachmentUploader.upload(
-          conversationCode: conversationCode,
-          attachment: att,
-        ),
-      ),
+    return _attachmentUploader.uploadAll(
+      conversationCode: conversationCode,
+      attachments: base,
     );
-    return uploaded.map((a) => a.attachmentId).whereType<int>().toList();
   }
 
   Future<void> _runBulkJob({
@@ -329,8 +511,14 @@ class BulkMessagingCompositionCubit
     final failed = <Map<String, dynamic>>[];
     // Build the local ChatAttachment list once (picked files → attachments).
     // Each recipient's conversation uploads its own copy of these below —
-    // attachments are scoped per conversation.
-    final baseAttachments = await _baseAttachments(attachments);
+    // attachments are scoped per conversation. Copied into permanent app
+    // storage once (not per-recipient — every recipient's optimistic draft
+    // just reads the same file) so the local preview survives the composer
+    // screen having already been popped/disposed by the time any of this
+    // runs.
+    final baseAttachments = await PendingAttachmentStorage.persistLocally(
+      await _baseAttachments(attachments),
+    );
 
     try {
       if (isStaff) {
@@ -367,21 +555,68 @@ class BulkMessagingCompositionCubit
                   return;
                 }
                 final conversationCode = conv.code;
+                final tempCode =
+                    'bulk-${AppTime.nowUtc().microsecondsSinceEpoch}-$recipientCode';
+
+                // Visible immediately in this recipient's own thread (local
+                // preview + pending indicator) even while the upload below
+                // is still running.
+                await _cacheOptimisticDraft(
+                  isStaff: true,
+                  conversationCode: conversationCode,
+                  tempCode: tempCode,
+                  text: messageText,
+                  senderUserCode: senderUserCode,
+                  durableAttachments: baseAttachments,
+                  orgCode: orgCode,
+                  schoolCode: schoolCode,
+                );
 
                 // Upload this message's attachments into THIS conversation, then
                 // send text + attachmentIds. Without this the attachments picked
                 // in the composer were silently dropped (text-only send).
-                final attachmentIds = await _uploadAttachmentsFor(
+                final uploadedAttachments = await _uploadAttachmentsFor(
                   conversationCode,
                   baseAttachments,
                 );
+                final attachmentIds = uploadedAttachments
+                    .map((a) => a.attachmentId)
+                    .whereType<int>()
+                    .toList();
                 if (messageText.isNotEmpty || attachmentIds.isNotEmpty) {
                   final sendResult = await _sendMessageUseCase(
                     conversationCode: conversationCode,
                     text: messageText,
                     attachmentIds: attachmentIds,
+                    attachments: _toAttachmentEntities(
+                      uploadedAttachments,
+                      conversationCode: conversationCode,
+                      messageCode: tempCode,
+                      uploadedBy: senderUserCode,
+                      uploadedAt: AppTime.nowUtc(),
+                    ),
+                    localTempCode: tempCode,
+                  );
+                  await _resolveLegacyDraft(
+                    isStaff: true,
+                    conversationCode: conversationCode,
+                    tempCode: tempCode,
+                    succeeded: sendResult.isRight(),
+                    text: messageText,
+                    senderUserCode: senderUserCode,
+                    durableAttachments: baseAttachments,
                   );
                   sendResult.fold((_) => failed.add(recipient), (_) {});
+                } else {
+                  await _resolveLegacyDraft(
+                    isStaff: true,
+                    conversationCode: conversationCode,
+                    tempCode: tempCode,
+                    succeeded: true,
+                    text: messageText,
+                    senderUserCode: senderUserCode,
+                    durableAttachments: baseAttachments,
+                  );
                 }
               } catch (_) {
                 failed.add(recipient);
@@ -414,6 +649,8 @@ class BulkMessagingCompositionCubit
               final recipient = recipientByCode[recipientCode]!;
               final recipientName = (recipient['name'] ?? 'recipient')
                   .toString();
+              final recipientClassroomCode = (recipient['classroomCode'] ?? '')
+                  .toString();
 
               try {
                 final result = await _createOrOpenConversationUseCase(
@@ -421,6 +658,7 @@ class BulkMessagingCompositionCubit
                       ? ConversationType.adminChat
                       : ConversationType.roomChat,
                   studentCode: recipientCode,
+                  classroomCode: recipientClassroomCode,
                   participantCodes: [
                     if (senderUserCode.isNotEmpty) senderUserCode,
                   ],
@@ -432,16 +670,44 @@ class BulkMessagingCompositionCubit
                   failed.add(recipient);
                   return;
                 }
+                final tempCode =
+                    'bulk-${AppTime.nowUtc().microsecondsSinceEpoch}-$recipientCode';
 
-                final attachmentIds = await _uploadAttachmentsFor(
+                // Visible immediately in this recipient's own thread (local
+                // preview + pending indicator) even while the upload below
+                // is still running.
+                await _cacheOptimisticDraft(
+                  isStaff: false,
+                  conversationCode: conv.code,
+                  tempCode: tempCode,
+                  text: messageText,
+                  senderUserCode: senderUserCode,
+                  durableAttachments: baseAttachments,
+                  orgCode: orgCode,
+                  schoolCode: schoolCode,
+                );
+
+                final uploadedAttachments = await _uploadAttachmentsFor(
                   conv.code,
                   baseAttachments,
                 );
+                final attachmentIds = uploadedAttachments
+                    .map((a) => a.attachmentId)
+                    .whereType<int>()
+                    .toList();
                 if (messageText.isNotEmpty || attachmentIds.isNotEmpty) {
                   final sendResult = await _sendMessageUseCase(
                     conversationCode: conv.code,
                     text: messageText,
                     attachmentIds: attachmentIds,
+                    attachments: _toAttachmentEntities(
+                      uploadedAttachments,
+                      conversationCode: conv.code,
+                      messageCode: tempCode,
+                      uploadedBy: senderUserCode,
+                      uploadedAt: AppTime.nowUtc(),
+                    ),
+                    localTempCode: tempCode,
                   );
                   sendResult.fold((_) => failed.add(recipient), (_) {});
                 }
@@ -462,13 +728,15 @@ class BulkMessagingCompositionCubit
       );
 
       if (!isClosed) {
-        emit(state.copyWith(
-          isSuccess: failed.isEmpty,
-          failedRecipients: failed,
-          progressMessage: failed.isEmpty
-              ? ''
-              : '${failed.length} message(s) failed to send. Tap retry.',
-        ));
+        emit(
+          state.copyWith(
+            isSuccess: failed.isEmpty,
+            failedRecipients: failed,
+            progressMessage: failed.isEmpty
+                ? ''
+                : '${failed.length} message(s) failed to send. Tap retry.',
+          ),
+        );
       }
     } catch (_) {
       // Catastrophic failure — mark all recipients as failed so retry is offered.
@@ -476,10 +744,12 @@ class BulkMessagingCompositionCubit
         conversationType,
       );
       if (!isClosed) {
-        emit(state.copyWith(
-          failedRecipients: recipients,
-          progressMessage: 'Bulk send failed. Tap retry.',
-        ));
+        emit(
+          state.copyWith(
+            failedRecipients: recipients,
+            progressMessage: 'Bulk send failed. Tap retry.',
+          ),
+        );
       }
     }
   }

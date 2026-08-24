@@ -6,6 +6,7 @@ import 'package:wowcare/domain/features/communication/entities/conversation.dart
 import 'package:wowcare/domain/features/communication/entities/message.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/communication_state.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/role_aware_ownership.dart';
 import 'package:wowcare/presentation/features/communication/shared/widgets/message_bubble_widget.dart';
 
 /// Renders a single [MessageBubble] driven by its own [BlocSelector] over
@@ -38,10 +39,14 @@ class ThreadMessageTile extends StatelessWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onReactionsInfoTap,
+    this.onRetry,
     this.isParentMessaging = false,
     this.isInactive = false,
     this.senderIsOrgSide,
+    this.viewerIsOrgSide,
     this.participants,
+    this.isGuardian,
   });
 
   final String threadId;
@@ -51,6 +56,13 @@ class ThreadMessageTile extends StatelessWidget {
   final ReactionsController reactionsController;
   final String? currentUserCode;
   final List<ConversationParticipant>? participants;
+
+  /// Which persona the CURRENT screen instance is showing — see
+  /// `ParentMessagingThread.isGuardian` and [withRoleAwareOwnership]. Null
+  /// (the default, used by `StaffMessagingThread`'s always-1:1 threads,
+  /// where persona ambiguity can't arise) skips the role-aware correction
+  /// entirely, preserving the plain userCode-only ownership check.
+  final bool? isGuardian;
   final void Function(String quotedId)? onScrollToQuoted;
   final VoidCallback? onReply;
   final VoidCallback? onReplyFromMenu;
@@ -62,15 +74,28 @@ class ThreadMessageTile extends StatelessWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+  final VoidCallback? onReactionsInfoTap;
+
+  /// See [MessageBubble.onRetry]. Called with the failed/still-uploading
+  /// [Message] itself so the caller can invoke
+  /// `CommunicationCubit.retrySendMessage(threadId, message)`.
+  final void Function(Message message)? onRetry;
   final bool isParentMessaging;
   final bool isInactive;
 
   /// See [MessageBubble.senderIsOrgSide].
   final bool? senderIsOrgSide;
 
+  /// See [MessageBubble.viewerIsOrgSide].
+  final bool? viewerIsOrgSide;
+
   @override
   Widget build(BuildContext context) {
-    return BlocSelector<CommunicationCubit, CommunicationState, _BubbleSnapshot?>(
+    return BlocSelector<
+      CommunicationCubit,
+      CommunicationState,
+      _BubbleSnapshot?
+    >(
       selector: (state) {
         if (state is! CommunicationLoaded) return null;
         final thread = state.threads[threadId];
@@ -80,14 +105,47 @@ class ThreadMessageTile extends StatelessWidget {
         Message? quoted;
         for (final m in thread) {
           if (m.code == messageCode) message = m;
-          if (quotedMessageId != null && m.id == quotedMessageId) quoted = m;
+          // [quotedMessageId] is id-shaped when it came from the REST API's
+          // `replyToMessageId`, but code-shaped when it came from a live
+          // Firestore delta (`threadParentCode`/`parentMessageCode` — see
+          // MessageFirestoreItem.fromFirestore and _mergeRealtimeMessage).
+          // Matching only `m.id` silently never found the quoted message
+          // for a reply that arrived live, so the reply preview never
+          // rendered until a REST refresh replaced it with an id-shaped
+          // value — match both identifier schemes instead.
+          if (quotedMessageId != null &&
+              (m.id == quotedMessageId || m.code == quotedMessageId)) {
+            quoted = m;
+          }
         }
         if (message == null) return null;
+        final viewerPersona = isGuardian;
+        if (viewerPersona != null) {
+          message = withRoleAwareOwnership(
+            message,
+            viewingAsGuardian: viewerPersona,
+          );
+          if (quoted != null) {
+            quoted = withRoleAwareOwnership(
+              quoted,
+              viewingAsGuardian: viewerPersona,
+            );
+          }
+        }
         return _BubbleSnapshot(message, quoted);
       },
       builder: (context, snapshot) {
         if (snapshot == null) return const SizedBox.shrink();
         return MessageBubble(
+          // Forces a fresh element (not an in-place patch) whenever which
+          // side this bubble renders on changes for the same message code —
+          // e.g. a cached message re-aligning once a corrected isMine value
+          // arrives. Patching a mounted bubble's Row(textDirection: …)/Align
+          // in place for a structural side flip is what was triggering
+          // Flutter's semantics `parentDataDirty` assertion.
+          key: ValueKey(
+            '${snapshot.message.code}-${snapshot.message.isSentByMe}',
+          ),
           message: snapshot.message,
           isDeleted: snapshot.message.isDeleted,
           quotedMessage: snapshot.quoted,
@@ -105,10 +163,17 @@ class ThreadMessageTile extends StatelessWidget {
           onReactionAdded: onReactionAdded,
           onRemoveReaction: onRemoveReaction,
           onReactionTap: onReactionTap,
+          onReactionsInfoTap: onReactionsInfoTap,
+          onRetry:
+              (snapshot.message.isFailed ||
+                  snapshot.message.hasProcessingAttachments)
+              ? () => onRetry?.call(snapshot.message)
+              : null,
           isParentMessaging: isParentMessaging,
           isInactive: isInactive,
           isGrouped: isGrouped,
           senderIsOrgSide: senderIsOrgSide,
+          viewerIsOrgSide: viewerIsOrgSide,
         );
       },
     );

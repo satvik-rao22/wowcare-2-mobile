@@ -48,7 +48,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_filter_screen.dar
     show FilterData;
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/delete_confirmation_bottom_sheet.dart';
 import 'package:wowcare/presentation/features/attendance/view/daily_attendance_parent_refresh.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
@@ -127,6 +127,10 @@ class _StudentAttendanceDailyViewScreenState
   Map<String, String> _tagNameToCode = <String, String>{};
   bool _isLoadingTagMap = false;
   String? _loggedInUserName;
+
+  // Guards the filter icon against rapid double-taps pushing the filter
+  // screen more than once (stacking duplicate pages on the Navigator).
+  bool _isFilterScreenOpen = false;
 
   // Enrolled summary: same API as StudentScreen "Total Students" (active + upcoming headline).
   int enrolled = 0;
@@ -318,8 +322,8 @@ class _StudentAttendanceDailyViewScreenState
     try {
       final enabled =
           await AttendanceCrossClassResolver.isEnabledForCurrentSchool(
-        storage: serviceLocator<StorageService>(),
-      );
+            storage: serviceLocator<StorageService>(),
+          );
       if (!mounted || !enabled || _allowCrossClass) return;
       setState(() => _allowCrossClass = true);
       // Re-load the dropdown without staff scope now that we know it's allowed.
@@ -392,7 +396,6 @@ class _StudentAttendanceDailyViewScreenState
       });
     } catch (_) {}
   }
-
 
   @override
   void dispose() {
@@ -763,7 +766,12 @@ class _StudentAttendanceDailyViewScreenState
       signOutBy:
           _normalizeByName(item.signedOutBy) ??
           (transferSignOut ? _loggedInUserName : null) ??
-          (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null),
+          (_isKioskOrPinMethod(item.signedOutMethod) ? 'Kiosk' : null) ??
+          // Auto sign-out has no person: the API sends
+          // signedOutMethod=SYSTEM with an empty signedOutBy. Show
+          // "System" (web parity) instead of falling through to the
+          // card's own "Unknown" placeholder.
+          (_isSystemMethod(item.signedOutMethod) ? 'System' : null),
       // Map backend method codes (GPS, PIN, QR, APP, etc.) to UI enum.
       signInMethod: _resolveSignMethodForDisplay(
         method: item.signedInMethod,
@@ -788,6 +796,7 @@ class _StudentAttendanceDailyViewScreenState
       isTransferSignIn: transferSignIn,
       isTransferSignOut: transferSignOut,
       attendedTimeDisplay: attendedTimeDisplay,
+      notExpectedComment: item.notExpectedComment,
     );
   }
 
@@ -819,6 +828,11 @@ class _StudentAttendanceDailyViewScreenState
     return normalized == 'PIN' || normalized == 'KIOSK';
   }
 
+  bool _isSystemMethod(String? method) {
+    if (method == null) return false;
+    return method.trim().toUpperCase() == 'SYSTEM';
+  }
+
   SignMethod? _mapMethodStringToEnum(String? method) {
     if (method == null) return null;
     final normalized = method.trim().toUpperCase();
@@ -838,6 +852,8 @@ class _StudentAttendanceDailyViewScreenState
         return SignMethod.direct;
       case 'WEB':
         return SignMethod.web;
+      case 'SYSTEM':
+        return SignMethod.system;
       default:
         return null;
     }
@@ -914,7 +930,7 @@ class _StudentAttendanceDailyViewScreenState
   Widget _buildContent() {
     final responsive = ResponsiveHelper(context);
     final contentPadding = ResponsiveSizing.contentPadding(context);
-    
+
     // Staff never see the summary count cards — even when the school enables
     // cross-class attendance (that flag only relaxes classroom scope, not
     // exposure of school-wide enrollment/expected counts).
@@ -1613,53 +1629,64 @@ class _StudentAttendanceDailyViewScreenState
   }
 
   void _navigateToFilterScreen() async {
-    // Open the filter screen directly. StudentFilterScreen loads (and shows a
-    // shimmer for) its own classroom + tag data, so we must NOT block here with
-    // a manual loader dialog + `while (isLoading)` poll: if the classroom load
-    // ever stays in-flight (a hung/guarded request) that barrier-dismissible
-    // dialog gets stuck showing a spinner forever. The filter screen's own
-    // loading state is dismissible (back button) and self-recovers.
-    final result = await Navigator.push<Map<String, List<String>>>(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BlocProvider.value(
-          value: _classroomCubit,
-          child: StudentFilterScreen(
-            initialFilters: {
-              'Classroom': List<String>.from(_selectedClassroomNames),
-              'Tags': List<String>.from(_selectedTagNames),
-            },
-            sections: const [
-              StudentFilterSection.classroom,
-              StudentFilterSection.tags,
-            ],
-            allowCrossClassAttendance: _allowCrossClass,
+    // Guard against rapid double-taps: without this, tapping the filter icon
+    // twice in quick succession (e.g. while the first push is still
+    // animating in) pushes the filter screen twice, stacking duplicate pages
+    // that then each need their own back button to dismiss.
+    if (_isFilterScreenOpen) return;
+    _isFilterScreenOpen = true;
+
+    try {
+      // Open the filter screen directly. StudentFilterScreen loads (and shows a
+      // shimmer for) its own classroom + tag data, so we must NOT block here with
+      // a manual loader dialog + `while (isLoading)` poll: if the classroom load
+      // ever stays in-flight (a hung/guarded request) that barrier-dismissible
+      // dialog gets stuck showing a spinner forever. The filter screen's own
+      // loading state is dismissible (back button) and self-recovers.
+      final result = await Navigator.push<Map<String, List<String>>>(
+        context,
+        MaterialPageRoute(
+          builder: (_) => BlocProvider.value(
+            value: _classroomCubit,
+            child: StudentFilterScreen(
+              initialFilters: {
+                'Classroom': List<String>.from(_selectedClassroomNames),
+                'Tags': List<String>.from(_selectedTagNames),
+              },
+              sections: const [
+                StudentFilterSection.classroom,
+                StudentFilterSection.tags,
+              ],
+              allowCrossClassAttendance: _allowCrossClass,
+            ),
           ),
         ),
-      ),
-    );
-
-    if (!mounted || result == null) return;
-
-    setState(() {
-      _selectedClassroomNames = List<String>.from(
-        result['Classroom'] ?? const [],
       );
-      _selectedTagNames = List<String>.from(result['Tags'] ?? const []);
-    });
 
-    // The tag name→code map is needed to translate the selected tag names into
-    // codes for the attendance query. Load it now (after selection) rather than
-    // blocking the filter from opening.
-    if (_selectedTagNames.isNotEmpty &&
-        _tagNameToCode.isEmpty &&
-        !_isLoadingTagMap) {
-      await _loadTagNameCodeMap();
-      if (!mounted) return;
+      if (!mounted || result == null) return;
+
+      setState(() {
+        _selectedClassroomNames = List<String>.from(
+          result['Classroom'] ?? const [],
+        );
+        _selectedTagNames = List<String>.from(result['Tags'] ?? const []);
+      });
+
+      // The tag name→code map is needed to translate the selected tag names into
+      // codes for the attendance query. Load it now (after selection) rather than
+      // blocking the filter from opening.
+      if (_selectedTagNames.isNotEmpty &&
+          _tagNameToCode.isEmpty &&
+          !_isLoadingTagMap) {
+        await _loadTagNameCodeMap();
+        if (!mounted) return;
+      }
+
+      // Reload attendance data with new filters
+      _loadAttendanceData(reset: true);
+    } finally {
+      _isFilterScreenOpen = false;
     }
-
-    // Reload attendance data with new filters
-    _loadAttendanceData(reset: true);
   }
 
   void _openStudentListWithIncomingFilter(String status) {

@@ -9,19 +9,22 @@ import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
 import 'package:wowcare/shared/common/widgets/selection_list_item.dart';
 import 'package:wowcare/shared/common/widgets/messaging_filter_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import '../../../../../app/theme/colors.dart';
 import '../../../../../app/theme/media_res.dart';
 import '../../../../../core/storage/storage_service.dart';
+import '../../../../../core/util/attendance_classroom_scope.dart';
+import '../../../../../core/util/core_utils.dart';
 import '../../../../../core/util/safe_state_mixin.dart';
 import '../../../../../core/util/storage_keys.dart';
 import '../../../../../app/di/di.dart';
-import '../../../classrooom/views/filters/designation_display_utils.dart';
+import '../../../classroom/views/filters/designation_display_utils.dart';
 import '../../../../../shared/common/widgets/custom_checkbox.dart';
 import '../../../../../shared/common/widgets/custom_clear_all_chip.dart';
 import '../../../../../shared/common/widgets/custom_multi_select_dropdown.dart';
 import '../../../../../shared/common/widgets/custom_search_bar.dart';
-import '../../../student/cubit/student_cubit.dart';
+import '../../../students/cubit/student_cubit.dart';
 import '../widgets/selection_shimmer.dart';
 
 class StaffOrStudentSelectionBulkMessaging extends StatefulWidget {
@@ -183,8 +186,10 @@ class _StaffOrStudentSelectionBulkMessagingState
             'isFavorite': false,
             'unreadCount': 0,
             'classroom': s.primaryClassroomName ?? '',
+            'classroomCode': s.classroomCode,
             'status': s.status,
             'tags': s.tags,
+            'hasGuardian': s.hasGuardian,
           },
         )
         .toList();
@@ -360,59 +365,55 @@ class _StaffOrStudentSelectionBulkMessagingState
   void _updateSelectAllState() {
     if (_filteredList.isEmpty) {
       _selectAll = false;
+    } else if (widget.isStaffSelection) {
+      _selectAll = _filteredList.every(
+        (entry) => _selectedStaffCodes.contains(entry.value['code']),
+      );
     } else {
-      if (widget.isStaffSelection) {
-        _selectAll = _filteredList.every(
-          (entry) => _selectedStaffCodes.contains(entry.value['code']),
-        );
-      } else {
-        _selectAll = _filteredList.every(
-          (entry) => _selectedStudentCodes.contains(entry.value['code']),
-        );
-      }
+      // Students with no guardian linked are disabled and can never be
+      // selected — "Select All" only needs every SELECTABLE student picked
+      // to count as fully checked, or it could never show as checked at
+      // all whenever such a student is present in the filtered list.
+      final selectable = _filteredList.where(
+        (entry) => entry.value['hasGuardian'] as bool? ?? true,
+      );
+      _selectAll = selectable.isNotEmpty
+          ? selectable.every(
+              (entry) => _selectedStudentCodes.contains(entry.value['code']),
+            )
+          : false;
     }
   }
 
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      final snackBar = SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade50,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Colors.orange.shade100),
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     });
   }
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (mounted) {
         final classroomCubit = context.read<ClassroomCubit>();
         // Non-admin staff only see the classrooms they're allowed to
         // access when starting a new conversation; admins see all of them.
-        classroomCubit.loadActiveClassrooms(applyAttendanceStaffScope: true);
+        // Awaited (unlike before) so the primary-classroom default below can
+        // rely on the classroom list actually being loaded — [ClassroomCubit]
+        // is shared app-wide, so if another screen already populated it this
+        // call returns without emitting a new state, and the BlocListener
+        // above would otherwise never fire to apply the default.
+        await classroomCubit.loadActiveClassrooms(
+          applyAttendanceStaffScope: true,
+        );
+        if (!mounted) return;
+        unawaited(_applyDefaultClassroomSelectionIfNeeded());
         context.read<StudentCubit>().loadInitial();
         if (widget.isStaffSelection) {
           unawaited(
@@ -430,17 +431,51 @@ class _StaffOrStudentSelectionBulkMessagingState
         } else {
           unawaited(_loadTags());
         }
-
       }
     });
     _searchController.addListener(_applyFilters);
   }
 
-  /// No default classroom filter on the New Message screen: the picker opens with NO classroom
-  /// selected (all recipients) for every persona — staff, admin, and director alike. Only the
-  /// Status filter defaults ("Active"). Kept as a no-op so the classroom-list [BlocListener] below
-  /// has a stable call site.
-  void _applyDefaultClassroomSelectionIfNeeded() {}
+  /// Resolves at most once per screen instance — set before the actual
+  /// resolve call (not after it completes) so a second, near-simultaneous
+  /// [ClassroomCubit] emission can't race in and kick off a duplicate
+  /// resolve/apply while the first is still in flight.
+  bool _defaultClassroomResolveStarted = false;
+
+  /// Defaults the Classroom filter to the staff member's own primary
+  /// classroom — same "pre-select the home classroom" pattern the
+  /// attendance forms use (resolveStaffPrimaryClassroomCode), so this
+  /// picker opens already scoped to the classroom the staff member is
+  /// actually responsible for instead of the full school roster. Resolves
+  /// to null (no default applied) for admin/parent personas or a staff
+  /// member with no primary classroom set — same fail-open contract as
+  /// attendance. [widget.hideFilters] hides the Classroom UI entirely
+  /// (Parent/Guardian Admin Chat compose), so there's nothing to default
+  /// there.
+  Future<void> _applyDefaultClassroomSelectionIfNeeded() async {
+    if (_defaultClassroomResolveStarted || widget.hideFilters) return;
+    final classrooms = context.read<ClassroomCubit>().state.classrooms;
+    // Classroom list hasn't loaded yet — wait for a later emission so the
+    // code→name lookup below has something to match against.
+    if (classrooms.isEmpty) return;
+    _defaultClassroomResolveStarted = true;
+
+    final primaryCode = await resolveStaffPrimaryClassroomCode(
+      storage: serviceLocator<StorageService>(),
+    );
+    if (!mounted || (primaryCode ?? '').trim().isEmpty) return;
+    final primaryName = classrooms
+        .where((c) => c.code.trim() == primaryCode!.trim())
+        .map((c) => c.name)
+        .firstOrNull;
+    if (primaryName == null || primaryName.trim().isEmpty) return;
+
+    setState(() {
+      _selectedClassrooms = [primaryName];
+      _updateSelectAllState();
+    });
+    unawaited(_applyContactFiltersToCubit());
+  }
 
   void _applyFilters() {
     setState(() {});
@@ -465,7 +500,7 @@ class _StaffOrStudentSelectionBulkMessagingState
         onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
         child: BlocListener<ClassroomCubit, ClassroomState>(
           listener: (context, state) {
-            _applyDefaultClassroomSelectionIfNeeded();
+            unawaited(_applyDefaultClassroomSelectionIfNeeded());
           },
           child: BlocBuilder<ClassroomCubit, ClassroomState>(
             builder: (context, classroomState) {
@@ -741,12 +776,29 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                               ),
                                                             );
                                                           } else {
+                                                            // Skip students
+                                                            // with no
+                                                            // guardian linked
+                                                            // — they're
+                                                            // disabled/
+                                                            // unselectable
+                                                            // individually,
+                                                            // so "Select All"
+                                                            // must not select
+                                                            // them either.
                                                             _selectedStudentCodes.addAll(
-                                                              _filteredList.map(
-                                                                (e) =>
-                                                                    e.value['code']
-                                                                        as String,
-                                                              ),
+                                                              _filteredList
+                                                                  .where(
+                                                                    (e) =>
+                                                                        e.value['hasGuardian']
+                                                                            as bool? ??
+                                                                        true,
+                                                                  )
+                                                                  .map(
+                                                                    (e) =>
+                                                                        e.value['code']
+                                                                            as String,
+                                                                  ),
                                                             );
                                                           }
                                                         } else {
@@ -764,13 +816,9 @@ class _StaffOrStudentSelectionBulkMessagingState
                                             ),
                                             if (_isSelectingAll) ...[
                                               const SizedBox(width: 8),
-                                              const SizedBox(
-                                                width: 14,
-                                                height: 14,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      strokeWidth: 2,
-                                                    ),
+                                              const PrimaryCircularLoader(
+                                                size: 14,
+                                                strokeWidth: 2,
                                               ),
                                             ],
                                           ],
@@ -800,7 +848,7 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                           : 2,
                                                       crossAxisSpacing: 12,
                                                       mainAxisSpacing: 12,
-                                                      mainAxisExtent: 52,
+                                                      mainAxisExtent: 72,
                                                     ),
                                                 itemBuilder: (context, index) {
                                                   final entry =
@@ -818,6 +866,19 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                               person['code'],
                                                             );
 
+                                                  // A student with no
+                                                  // guardian linked can't be
+                                                  // messaged (no one to
+                                                  // receive it) — disable
+                                                  // selecting them, matching
+                                                  // web. Staff rows have no
+                                                  // such concept.
+                                                  final bool isEnabled =
+                                                      widget.isStaffSelection ||
+                                                      (person['hasGuardian']
+                                                              as bool? ??
+                                                          true);
+
                                                   return CommonSelectionItem(
                                                     key: ValueKey(
                                                       person['code'],
@@ -826,6 +887,10 @@ class _StaffOrStudentSelectionBulkMessagingState
                                                     avatarUuid:
                                                         person['avatar'] ?? '',
                                                     isSelected: isSelected,
+                                                    isEnabled: isEnabled,
+                                                    disabledReason: isEnabled
+                                                        ? null
+                                                        : 'No parent linked',
                                                     onSelectionChanged: (bool? selected) {
                                                       setState(() {
                                                         final code =

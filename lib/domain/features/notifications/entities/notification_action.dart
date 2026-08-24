@@ -67,9 +67,14 @@ class NotificationAction {
 
   // ── Activities ──────────────────────────────────────────────────────────
   static const String activityRecorded = 'ACTIVITY_RECORDED';
+  static const String activityEdited = 'ACTIVITY_EDITED';
+  static const String activityDeleted = 'ACTIVITY_DELETED';
+  static const String incidentRecorded = 'INCIDENT_RECORDED';
   static const String incidentApprovalPending = 'INCIDENT_APPROVAL_PENDING';
+  static const String incidentApproved = 'INCIDENT_APPROVED';
   static const String incidentAcknowledgementPending =
       'INCIDENT_ACKNOWLEDGEMENT_PENDING';
+  static const String incidentAcknowledged = 'INCIDENT_ACKNOWLEDGED';
   static const String napAlert = 'NAP_ALERT';
 
   // ── Availability (room movements) ───────────────────────────────────────
@@ -139,6 +144,14 @@ class NotificationAction {
     'MESSAGE_FROM_STAFF': messageToStaff,
     'MESSAGE_FROM_PARENT': messageToStudent,
     'NEWSLETTER_RECEIVED': newsletterSent,
+    // Activities/incidents — backend's actual event-type strings differ from
+    // this file's older constant spellings (e.g. NAP_REMINDER vs NAP_ALERT,
+    // INCIDENT_ACK_PENDING vs INCIDENT_ACKNOWLEDGEMENT_PENDING), so without
+    // these aliases those pushes fell through to the module fallback (or, for
+    // INCIDENT_RECORDED specifically, matched nothing at all) and the tap
+    // did nothing.
+    'NAP_REMINDER': napAlert,
+    'INCIDENT_ACK_PENDING': incidentAcknowledgementPending,
   };
 
   /// Normalises a raw backend action to its canonical constant.

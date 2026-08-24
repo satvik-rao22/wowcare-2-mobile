@@ -13,6 +13,7 @@ import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/domain/features/attendance/entities/student_attendance_absent_form.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_student_sign_in_form_list_usecase.dart';
@@ -130,6 +131,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
+  String _notExpectedComment = '';
   int _unexpectedGateToken = 0;
 
   @override
@@ -250,6 +252,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (result?.confirmed == true) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = result?.comment ?? '';
       });
     } else {
       Navigator.of(context).pop();
@@ -316,6 +319,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     if (!_hasUnexpectedAmongSelected()) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = '';
       });
     }
   }
@@ -492,7 +496,6 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
 
     // Staff (admin or regular) pick school-local date/time; parents/kiosk use "now" in the school's zone.
     final isStaffPersona = _isStaffPersona ?? await _resolveIsStaffPersona();
-    final nowUtc = ServerTimeService.instance.nowUtc();
 
     final DateTime occurredAt = isStaffPersona
         ? SchoolZoneDateTime.resolvePickedInstantUtc(
@@ -527,20 +530,16 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
         );
         return;
       }
-    } else if (isStaffPersona) {
-      // Staff cannot sign in for a future date/time
-      if (occurredAt.isAfter(nowUtc)) {
-        if (!mounted) return;
-        CoreUtils.showTopSnackBarFromSnackBar(
-          context: context,
-          snackBar: const SnackBar(
-            content: Text('You cannot sign in for future date/time.'),
-            backgroundColor: AppColors.warningColor,
-          ),
-        );
-        return;
-      }
     }
+    // Staff future-date/time was previously blocked here client-side, but
+    // `occurredAt` and `nowUtc` come from two separately-captured "now"
+    // reads a few statements apart — clock drift between them (or just the
+    // wall clock ticking forward between the reads) could make an
+    // unmodified, still-defaulted-to-now pick register as "after now" and
+    // false-positive this warning even though nothing was actually set to
+    // the future. The backend is the source of truth for this and already
+    // rejects an actually-future sign-in; no need to duplicate (and
+    // potentially misfire) that check here.
 
     final studentCodes = currentStudents
         .map((s) => s.studentCode.trim())
@@ -610,6 +609,9 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
     // Include QR token if this is a QR scan
     if (widget.isQrScan && widget.qrToken.isNotEmpty) {
       payload['qrToken'] = widget.qrToken;
+    }
+    if (_notExpectedComment.trim().isNotEmpty) {
+      payload['notExpectedComment'] = _notExpectedComment.trim();
     }
     if (isParent) {
       final guardianCode = (await resolveGuardianCodeForLoggedInUser()).trim();
@@ -717,6 +719,7 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
       );
 
       if (success) {
+        AttendanceEvents.notifyChanged();
         serviceLocator<ParentChildCubit>().forceRefresh();
         if (widget.popOnSuccess) {
           widget.refreshCallback();
@@ -730,6 +733,11 @@ class _StudentSignInFormState extends State<StudentSignInForm> {
           AppLogger.d('[Kiosk] Student sign-in success - reloading QR code');
           unawaited(context.read<KioskDashboardCubit>().loadQrCode());
           context.go('/kiosk');
+        } else if (widget.isQrScan || widget.qrToken.isNotEmpty) {
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).popUntil((route) => route.isFirst);
+          }
+          context.go('/dashboard');
         } else if (isParent) {
           final s = currentStudents.first;
           if (context.mounted) {

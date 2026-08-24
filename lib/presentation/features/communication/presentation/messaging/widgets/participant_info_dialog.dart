@@ -19,6 +19,7 @@ class ParticipantDisplayData {
   final String displayName;
   final String role;
   final String? avatarUrl;
+
   /// Role-specific staff code (STF_*) for loading staff profile photos.
   final String? staffCode;
 }
@@ -155,7 +156,7 @@ class ParticipantInfoDialog extends StatelessWidget {
 
                   // Staff
                   if (staff.isNotEmpty) ...[
-                    _SectionHeader(label: 'STAFFS', count: staff.length),
+                    _SectionHeader(label: 'STAFF', count: staff.length),
                     const Divider(height: 8, color: Color(0xFFE2E8F0)),
                     const SizedBox(height: 4),
                     ...staff.map((p) => _ParticipantTile(data: p)),
@@ -280,14 +281,13 @@ class _StudentCard extends StatelessWidget {
       child: Row(
         children: [
           DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             // `avatarUuid` is either a resolved URL or a raw media-asset
             // code depending on the caller — `fileUuid` is never actually
             // used to resolve an image (only `imageUrl`/`mediaAssetCode`
             // are), so route to whichever matches the value's shape.
-            imageUrl: (avatarUuid ?? '').startsWith('http')
-                ? avatarUuid
-                : null,
+            imageUrl: (avatarUuid ?? '').startsWith('http') ? avatarUuid : null,
             mediaAssetCode: (avatarUuid ?? '').startsWith('http')
                 ? null
                 : avatarUuid,
@@ -346,7 +346,15 @@ class _ParticipantTile extends StatelessWidget {
     final badgeBg = ParticipantInfoDialog._badgeBg(role);
     final badgeFg = ParticipantInfoDialog._badgeFg(role);
     final badgeLabel = ParticipantInfoDialog._badgeLabel(role);
-    const staffRoles = {'STAFF', 'TEACHER', 'ADMIN', 'DIRECTOR', 'PRINCIPAL', 'ASSISTANT_DIRECTOR', 'LEAD_TEACHER'};
+    const staffRoles = {
+      'STAFF',
+      'TEACHER',
+      'ADMIN',
+      'DIRECTOR',
+      'PRINCIPAL',
+      'ASSISTANT_DIRECTOR',
+      'LEAD_TEACHER',
+    };
     final isStaffPersona = staffRoles.contains(role);
 
     return Padding(
@@ -355,6 +363,7 @@ class _ParticipantTile extends StatelessWidget {
         children: [
           // Avatar
           DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             imageUrl: (data.avatarUrl ?? '').startsWith('http')
                 ? data.avatarUrl

@@ -13,6 +13,7 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/network/api_client.dart';
 import 'package:wowcare/domain/features/attendance/repositories/attendance_repository.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
@@ -85,23 +86,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
   Map<String, bool> _expectedTodayFromApi = {};
   bool _unexpectedGateLoading = true;
   bool _unexpectedSignInAcknowledged = false;
+  String _notExpectedComment = '';
   int _unexpectedGateToken = 0;
   String?
   _currentStaffCode; // Current user's staff code - for self-only validation
-
-  /// True when this form targets the logged-in user's own attendance record
-  /// (My Attendance) rather than another staff member's. Self attendance can
-  /// never have its date/time edited, even by an admin persona — only
-  /// admin-managed OTHER-staff attendance allows picking a date/time.
-  bool get _isSelfTarget {
-    if (widget.forceSelf || widget.isKiosk || widget.qrToken.isNotEmpty) {
-      return true;
-    }
-    final code = _currentStaffCode;
-    if (code == null || code.isEmpty) return false;
-    return _selectedStaff.length == 1 &&
-        (_selectedStaff.first.staffCode ?? '').trim() == code;
-  }
 
   @override
   void initState() {
@@ -341,6 +329,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     if (result?.confirmed == true) {
       setState(() {
         _unexpectedSignInAcknowledged = true;
+        _notExpectedComment = result?.comment ?? '';
       });
     } else {
       Navigator.of(context).pop();
@@ -504,7 +493,6 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       storage: serviceLocator<StorageService>(),
       apiClient: serviceLocator<ApiClient>(),
     );
-    final nowUtc = ServerTimeService.instance.nowUtc();
 
     // Teachers:
     // - can only sign in for themselves
@@ -512,17 +500,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     late final DateTime occurredAt;
     late final String attendanceDate;
 
-    // QR sign-in is always self (current moment); admin GPS sign-in can use the picker.
-    // Self sign-in (forceSelf) must also use "now" — the backend's /self endpoint
-    // always rejects backdated timestamps, so the stale picker value can't be sent.
+    // QR sign-in is always "now" — it's physical proof of presence at the
+    // scan moment, regardless of persona.
     final bool isQrForTime = widget.qrToken.isNotEmpty;
-    // An admin acting on their OWN record (e.g. via "My Attendance"/My Day,
-    // or a bulk form where they only selected themselves) must not be able
-    // to pick a date/time either — only admin-managed OTHER-staff attendance
-    // allows the picker.
-    final bool isSelfTarget =
-        targetStaffCodes.length == 1 && targetStaffCodes.first == staffCode;
-    if (!isStaffAdmin || isQrForTime || widget.forceSelf || isSelfTarget) {
+    if (!isStaffAdmin || isQrForTime) {
       if (!isStaffAdmin &&
           (targetStaffCodes.length != 1 ||
               targetStaffCodes.first != staffCode)) {
@@ -546,6 +527,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         schoolTimeZone,
       );
     } else {
+      // Admin persona: always honors the picker, including for their own
+      // record — that case is routed through the admin/bulk endpoint below
+      // so the backend accepts the custom occurredAt.
       occurredAt = SchoolZoneDateTime.resolvePickedInstantUtc(
         schoolTimeZone,
         selectedDate: selectedDate,
@@ -557,29 +541,13 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
     }
 
-    // Admin GPS (picker) cannot sign in for future date/time. QR and the
-    // dashboard's personal GPS sign-in (forceSelf) both use "now" — checking
-    // them here against a separately-captured nowUtc risked a false positive
-    // from clock drift between the two reads, so they're excluded.
-    if (isStaffAdmin &&
-        !isQrForTime &&
-        !widget.forceSelf &&
-        !isSelfTarget &&
-        occurredAt.isAfter(nowUtc)) {
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: const SnackBar(
-          content: Text('You cannot sign in for future date/time.'),
-          backgroundColor: AppColors.warningColor,
-        ),
-      );
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-      return;
-    }
+    // Admin GPS (picker) future-date/time was previously blocked here
+    // client-side by comparing `occurredAt` against a separately-captured
+    // `nowUtc` a few statements earlier — clock drift (or just the wall
+    // clock ticking forward) between those two reads could false-positive
+    // this warning even for an unmodified, still-defaulted-to-now pick. The
+    // backend already rejects an actually-future sign-in; no need to
+    // duplicate (and potentially misfire) that check here.
 
     Map<String, bool> expectedFromApi = <String, bool>{};
     try {
@@ -630,14 +598,19 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
     // 'APP'.
     final String signInMethod = isQrSignIn
         ? 'QR'
-        : (isStaffAdmin && !widget.forceSelf ? 'APP' : 'GPS');
+        : (isStaffAdmin && !widget.forceSelf ? 'PIN' : 'GPS');
 
-    // QR scan is always self sign-in — the person holding the phone is signing
-    // in themselves against the school kiosk QR. Admin bulk sign-in only happens
-    // via GPS flow where the admin selects other staff on the form.
+    // Whether this sign-in targets the current user's own record — drives
+    // post-submit UI (geofence status sync, navigating back vs to the daily
+    // view), independent of which endpoint actually handles the submission.
     final bool isSelfSignIn = !isStaffAdmin || isQrSignIn || widget.forceSelf;
+    // Which endpoint/payload shape to submit through. An admin persona acting
+    // on their own record (e.g. My Day's Sign-In) still routes through the
+    // admin/bulk endpoint so the picked date/time is honored — the /self
+    // endpoint always forces "now".
+    final bool useSelfEndpoint = !isStaffAdmin || isQrSignIn;
 
-    if (isSelfSignIn) {
+    if (useSelfEndpoint) {
       // Self sign-in: matches POST /staff-attendance-records/sign-in/self body.
       payload = <String, dynamic>{
         'staffCode': staffCode,
@@ -656,6 +629,9 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         payload['pin'] = widget.pin;
       } else if (isQrSignIn) {
         payload['qrToken'] = widget.qrToken;
+      }
+      if (_notExpectedComment.trim().isNotEmpty) {
+        payload['notExpectedComment'] = _notExpectedComment.trim();
       }
     } else {
       // Admin bulk sign-in: supports signing in other staff.
@@ -687,18 +663,24 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         'timeZone': schoolTimeZone,
         'occurredAt': occurredAt.toUtc().toIso8601String(),
       };
+      if (_notExpectedComment.trim().isNotEmpty) {
+        payload['notExpectedComment'] = _notExpectedComment.trim();
+      }
     }
 
     try {
       final result = await serviceLocator<AttendanceRepository>()
-          .submitStaffSignIn(payload: payload, isSelf: isSelfSignIn);
-      final success = result.success;
+          .submitStaffSignIn(payload: payload, isSelf: useSelfEndpoint);
+      final isAlreadySignedIn = !result.success &&
+          result.message.toLowerCase().contains('already signed');
+      final success = result.success || isAlreadySignedIn;
       var message = result.message;
 
       if (!mounted) return;
 
-      // Normalize success messages for better UX
-      if (success &&
+      if (isAlreadySignedIn) {
+        message = 'Already signed in for today';
+      } else if (success &&
           (message.toLowerCase().contains('sign in') ||
               message.toLowerCase().contains('sign-in') ||
               message.toLowerCase().contains('signed in'))) {
@@ -716,6 +698,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
       );
 
       if (success) {
+        AttendanceEvents.notifyChanged();
         if (widget.isKiosk) {
           // For kiosk: show success for 2 seconds then return to kiosk dashboard
           await Future.delayed(const Duration(seconds: 2));
@@ -728,35 +711,87 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
         } else {
           if (isSelfSignIn) {
             context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
           }
-          if (!isStaffAdmin) {
-            // Teacher/staff persona: no forced navigation — stay on
-            // whatever screen this action was started from.
-            Navigator.of(context).pop();
-          } else {
-            redirectToAttendanceDaily(
-              context,
-              StaffAttendanceTabbedView.routeName,
-            );
-          }
+          _navigateAfterSubmit(
+            isSelfSignIn: isSelfSignIn,
+            isStaffAdmin: isStaffAdmin,
+          );
         }
       }
     } catch (e) {
       if (!mounted) return;
       final errorMessage = ApiErrorHandler.extractErrorMessage(e);
-      CoreUtils.showTopSnackBarFromSnackBar(
-        context: context,
-        snackBar: SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: AppColors.errorColor,
-        ),
-      );
+      final isAlreadySignedIn =
+          errorMessage.toLowerCase().contains('already signed');
+      if (isAlreadySignedIn) {
+        AttendanceEvents.notifyChanged();
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: const SnackBar(
+            content: Text('Already signed in for today'),
+            backgroundColor: AppColors.successColor,
+          ),
+        );
+        if (widget.isKiosk) {
+          await Future.delayed(const Duration(seconds: 2));
+          if (mounted) {
+            unawaited(context.read<KioskDashboardCubit>().loadQrCode());
+            context.go('/kiosk');
+          }
+        } else {
+          if (isSelfSignIn) {
+            context.read<GeofenceCubit>().updateStaffSignInStatus(true);
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+          }
+          _navigateAfterSubmit(
+            isSelfSignIn: isSelfSignIn,
+            isStaffAdmin: isStaffAdmin,
+          );
+        }
+      } else {
+        CoreUtils.showTopSnackBarFromSnackBar(
+          context: context,
+          snackBar: SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: AppColors.errorColor,
+          ),
+        );
+      }
     } finally {
       if (mounted) {
         setState(() {
           _isSubmitting = false;
         });
       }
+    }
+  }
+
+  void _navigateAfterSubmit({
+    required bool isSelfSignIn,
+    required bool isStaffAdmin,
+  }) {
+    if (widget.qrToken.isNotEmpty) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).popUntil((route) => route.isFirst);
+      }
+      context.go('/dashboard');
+      return;
+    }
+
+    if (isSelfSignIn || !isStaffAdmin) {
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      } else if (context.canPop()) {
+        context.pop();
+      } else {
+        context.go('/dashboard');
+      }
+    } else {
+      redirectToAttendanceDaily(
+        context,
+        StaffAttendanceTabbedView.routeName,
+      );
     }
   }
 
@@ -812,8 +847,7 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                         isTime: false,
                         fetchInitialTime: false,
                         initialDate: selectedDate,
-                        isDisabled:
-                            _isStaffAdminPersona != true || _isSelfTarget,
+                        isDisabled: _isStaffAdminPersona != true,
                         onDateSelected: (date) {
                           setState(() {
                             final iana = _schoolIana;
@@ -847,9 +881,10 @@ class _StaffSignInFormState extends State<StaffSignInForm> {
                       const AppText.label('Time'),
                       const SizedBox(height: 8),
                       IgnorePointer(
-                        // Teachers, and anyone acting on their own record,
-                        // cannot modify time; submission will also force "now".
-                        ignoring: _isStaffAdminPersona != true || _isSelfTarget,
+                        // Teachers cannot modify time; submission will also
+                        // force "now" for them. Admin personas can edit the
+                        // time even for their own record.
+                        ignoring: _isStaffAdminPersona != true,
                         child: GradientTimePickerField(
                           time: selectedTime,
                           onTimeSelected: (t) {

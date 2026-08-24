@@ -67,9 +67,16 @@ class NotificationRouteResolver {
   /// open a different screen per persona (guardians → parent billing; staff /
   /// admins → the dashboard billing screen), which the action string alone can't
   /// express — so the caller passes the resolved persona in.
+  ///
+  /// [isAdminPersona] is true only for the `admin` persona bucket (not
+  /// `staff`/`parent`/`kiosk`). For the admin persona, a newsletter or a
+  /// pending-approval activity notification skips the generic list screen and
+  /// deep-links straight to that specific newsletter/activity using the code
+  /// carried in the payload.
   static NotificationDestination? resolve(
     PushNotification n, {
     bool isGuardian = false,
+    bool isAdminPersona = false,
   }) {
     final action = NotificationAction.canonical(n.action);
 
@@ -83,6 +90,11 @@ class NotificationRouteResolver {
         n,
         highlight: _kInvoice,
       );
+    }
+
+    if (isAdminPersona) {
+      final adminDestination = _adminNewsletterOrApprovalDestination(n, action);
+      if (adminDestination != null) return adminDestination;
     }
 
     final builder = _table[action];
@@ -135,6 +147,7 @@ class NotificationRouteResolver {
       case 'TRANSACTION':
         return _dest(isGuardian ? AppRoutes.parentBilling : _billing, n,
             highlight: _kInvoice);
+      case 'ACTIVITY':
       case 'ACTIVITIES':
       case 'DAILY_ACTIVITY':
         return _dest(AppRoutes.activityFeed, n,
@@ -193,6 +206,26 @@ class NotificationRouteResolver {
     return null;
   }
 
+  /// Some payloads (e.g. STUDENT_PHYSICAL_NOT_ADDED/DUE/OVERDUE) never send
+  /// the student code as a direct `studentCode` field — the only place it
+  /// appears is as a `targetCode` query parameter embedded inside a details
+  /// URL (e.g. `physicalExaminationDetailsLink: ".../physical-examination
+  /// ?targetCode=STD_...&type=STUDENT&..."`). Without this, [_firstCode]
+  /// finds nothing, the destination gets built with an empty `code`, and the
+  /// tap silently lands on a blank/errored profile — indistinguishable from
+  /// not navigating at all. Scan every string field for a URL carrying
+  /// [paramName] as a last-resort fallback.
+  static String? _codeFromEmbeddedLink(PushNotification n, String paramName) {
+    for (final value in n.data.values) {
+      if (!value.contains('?')) continue;
+      final uri = Uri.tryParse(value);
+      if (uri == null) continue;
+      final code = uri.queryParameters[paramName]?.trim();
+      if (code != null && code.isNotEmpty) return code;
+    }
+    return null;
+  }
+
   /// Build a destination, attaching `highlightCode` from the first matching
   /// payload key and merging any [params] the target route needs.
   static NotificationDestination _dest(
@@ -231,6 +264,44 @@ class NotificationRouteResolver {
     'activity_code',
   ];
   static const _kInvoice = ['invoiceCode', 'invoice_code'];
+  // Backend doesn't send a newsletter-identifying code yet (only
+  // organizationCode/schoolCode) — these are the keys to watch for once it
+  // does. Until then [_adminNewsletterOrApprovalDestination] falls back to the
+  // newsletter list, same as every other persona gets today.
+  static const _kNewsletter = ['newsletterCode', 'newsletter_code'];
+
+  /// Admin-persona deep-links for [NotificationAction.newsletterSent] and the
+  /// two activity "pending approval" actions: straight to that specific
+  /// newsletter/activity screen instead of the shared list/feed everyone else
+  /// lands on. Returns null (caller falls through to [_table]) when the action
+  /// isn't one of these, or the payload doesn't carry the code needed to
+  /// target a specific item.
+  static NotificationDestination? _adminNewsletterOrApprovalDestination(
+    PushNotification n,
+    String action,
+  ) {
+    if (action == NotificationAction.newsletterSent) {
+      final code = _firstCode(n, _kNewsletter);
+      if (code == null) return null;
+      return NotificationDestination(
+        path: AppRoutes.newsletterPreviewByCode,
+        queryParameters: {'code': code},
+      );
+    }
+    if (action == NotificationAction.incidentApprovalPending ||
+        action == NotificationAction.incidentAcknowledgementPending) {
+      final code = _firstCode(n, _kActivity);
+      if (code == null) return null;
+      final query = <String, String>{'code': code};
+      final student = _firstCode(n, _kStudent);
+      if (student != null) query['studentCode'] = student;
+      return NotificationDestination(
+        path: AppRoutes.activityApprovalByCode,
+        queryParameters: query,
+      );
+    }
+    return null;
+  }
 
   /// Billing actions are routed by the current user's persona in [resolve]
   /// (guardian → parent billing, staff/admin → dashboard billing) rather than by
@@ -351,7 +422,9 @@ class NotificationRouteResolver {
     String? healthSubTab, // 0 Health, 1 Physician, 2 Physical Dates, 3 Immun.
   }) {
     final params = <String, String>{
-      'code': _firstCode(n, _kStudent) ?? '',
+      'code': _firstCode(n, _kStudent) ??
+          _codeFromEmbeddedLink(n, 'targetCode') ??
+          '',
       'tab': tab,
     };
     if (profileSubTab != null) params['profileTab'] = profileSubTab;
@@ -514,10 +587,22 @@ class NotificationRouteResolver {
     // ── Activities (open the Activity Feed on the activity's date + flash it) ──
     NotificationAction.activityRecorded: (n) => _dest(AppRoutes.activityFeed, n,
         highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.activityEdited: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.activityDeleted: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentRecorded: (n) => _dest(AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentApprovalPending: (n) => _dest(
         AppRoutes.activityFeed, n,
         highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentApproved: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.incidentAcknowledgementPending: (n) => _dest(
+        AppRoutes.activityFeed, n,
+        highlight: _kActivity, params: _activityParams(n)),
+    NotificationAction.incidentAcknowledged: (n) => _dest(
         AppRoutes.activityFeed, n,
         highlight: _kActivity, params: _activityParams(n)),
     NotificationAction.napAlert: (n) => _dest(AppRoutes.activityFeed, n,

@@ -110,11 +110,15 @@ class StaffCubit extends Cubit<StaffState> {
       ),
     );
 
-    // Snapshot the status this refresh is fetching. If the filter changes while
-    // we're in flight (e.g. a deep-link resolves a deactivated staff and flips
-    // to INACTIVE while the route's default ACTIVE load is still running), the
-    // older result must NOT clobber the newer one — we drop it before emitting.
+    // Snapshot the status and search query this refresh is fetching. If
+    // either changes while we're in flight (e.g. a deep-link resolves a
+    // deactivated staff and flips to INACTIVE while the route's default
+    // ACTIVE load is still running — or [searchStaff]'s rapid-fire
+    // per-keystroke calls let requests race), an older, slower response
+    // must NOT clobber a newer one just because it happened to land last —
+    // we drop it before emitting instead.
     final requestedStatus = _effectiveStatusFilter();
+    final requestedSearch = state.searchQuery;
 
     try {
       final organizationCode = await _resolveOrganizationCode();
@@ -181,6 +185,7 @@ class StaffCubit extends Cubit<StaffState> {
       // Drop a stale result: the filter changed while this load was in flight,
       // so a newer refresh owns the list now.
       if (_effectiveStatusFilter() != requestedStatus) return;
+      if (state.searchQuery != requestedSearch) return;
       emit(
         state.copyWith(
           items: items,
@@ -282,7 +287,12 @@ class StaffCubit extends Cubit<StaffState> {
       );
     } catch (e) {
       if (isClosed) return;
-      emit(state.copyWith(isLoadingMore: false, errorMessage: ApiErrorHandler.extractErrorMessage(e)));
+      emit(
+        state.copyWith(
+          isLoadingMore: false,
+          errorMessage: ApiErrorHandler.extractErrorMessage(e),
+        ),
+      );
     }
   }
 

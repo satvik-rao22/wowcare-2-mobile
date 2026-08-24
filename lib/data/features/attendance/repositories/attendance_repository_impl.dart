@@ -1,6 +1,7 @@
 import '../../../../core/network/api_client.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/attendance_classroom_scope.dart';
+import '../../../../core/util/attendance_events.dart';
 import '../../../../core/util/cache_manager.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../domain/features/attendance/entities/attendance_action_result.dart';
@@ -329,6 +330,7 @@ class AttendanceRepositoryImpl
           : null,
       transferredBy: model.transferredBy,
       transferReason: model.transferReason,
+      notExpectedComment: model.notExpectedComment,
     );
   }
 
@@ -631,6 +633,7 @@ class AttendanceRepositoryImpl
           : null,
       transferredBy: model.transferredBy,
       transferReason: model.transferReason,
+      notExpectedComment: model.notExpectedComment,
     );
   }
 
@@ -1490,6 +1493,9 @@ class AttendanceRepositoryImpl
           ?.trim();
       primaryClassroomCode = (data['primaryClassroomCode'] as String?)
           ?.trim();
+    }
+    if (success) {
+      AttendanceEvents.notifyChanged();
     }
     return AttendanceActionResult(
       success: success,

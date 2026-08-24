@@ -5,14 +5,16 @@ import 'package:wowcare/core/util/logger_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/billing/widgets/transactions/transaction_details_screen.dart';
 import 'package:wowcare/domain/features/billing/entities/family_summary_entity.dart';
 import 'package:wowcare/domain/features/billing/usecases/get_family_summary_usecase.dart';
@@ -104,6 +106,12 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
   late Future<StudentHealthModel?> _healthFuture;
   late String _displayName;
   late String _displayClassroom;
+
+  /// The classroom's actual CODE — populated once the Profile tab's own
+  /// fetch (or the deep-link header fetch below) returns real API data.
+  /// See [Student.classroomCode] for why this can't be derived from
+  /// [_displayClassroom] (a display name) via a separate name→code lookup.
+  String _displayClassroomCode = '';
 
   /// Upper-case API status; set when profile loads (e.g. UPCOMING for yellow dot).
   String? _profileStatusUpper;
@@ -258,6 +266,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
       _displayClassroom = nextClassroom.isEmpty
           ? _displayClassroom
           : nextClassroom;
+      final nextClassroomCode = (profile.classroomCode ?? '').trim();
+      if (nextClassroomCode.isNotEmpty) {
+        _displayClassroomCode = nextClassroomCode;
+      }
       final nextStatus = profile.status.trim().toUpperCase();
       if (nextStatus.isNotEmpty) {
         _profileStatusUpper = nextStatus;
@@ -1150,13 +1162,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                     code: code,
                     name: _displayName,
                     isStaff: false,
+                    classroomCode: _displayClassroomCode,
                   ),
                 ],
               );
             },
           ),
-          // Billing is hidden for the staff persona; admins open the student's
-          // family billing profile, other personas see the info hint.
+          // Billing is hidden for the staff persona; admins open the
+          // student's family billing profile, parents/guardians land on
+          // their family billing tab.
           if (!role.isStaff)
             _buildActionIcon(
               context,
@@ -1195,12 +1209,15 @@ class _StudentProfileScreenState extends State<StudentProfileScreen>
                   _openStudentFamilyBilling(context, code);
                   return;
                 }
-                CoreUtils.showTopSnackBar(
-                  context: context,
-                  message:
-                      'Billing is available from the Transactions section.',
-                  isError: false,
-                );
+                // Parent/guardian persona: land on the bottom-nav Billing
+                // branch, same as the dashboard billing card.
+                if (role.isParent) {
+                  context.go(ParentBillingScreen.routeName);
+                  return;
+                }
+                // Any other persona reaching here (e.g. kiosk with module
+                // access somehow granted) has no billing destination.
+                ModuleAccess.showFeatureRestricted(context);
               },
             ),
         ],

@@ -494,12 +494,7 @@ class _AddStudentStep2ScreenState extends State<AddStudentStep2Screen> {
             final digits = rawPhone.replaceAll(RegExp(r'\D'), '');
 
             final relationLabel = (_selectedRelation ?? '').trim();
-            final relationOther = _relationOtherController.text.trim();
-            final relationToStudent =
-                (relationLabel == 'Other' && relationOther.isNotEmpty
-                        ? relationOther
-                        : relationLabel)
-                    .toUpperCase();
+            final relationToStudent = relationLabel.toUpperCase();
 
             final primaryContact = _isEmergencyContact;
             final legalCustody = _isChildCustody;

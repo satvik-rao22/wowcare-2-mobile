@@ -19,6 +19,7 @@ class GetStudentPageUseCase {
     String? search,
     int page = 0,
     int size = 10,
+    List<String>? allowedClassroomCodes,
   }) {
     return _repository.getStudentPage(
       schoolCode: schoolCode,
@@ -33,6 +34,7 @@ class GetStudentPageUseCase {
       search: search,
       page: page,
       size: size,
+      allowedClassroomCodes: allowedClassroomCodes,
     );
   }
 }

@@ -1,8 +1,8 @@
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
-import 'package:wowcare/domain/features/newsletters/usecases/get_student_newsletters_usecase.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
+import 'package:wowcare/domain/features/newsletter/usecases/get_student_newsletters_usecase.dart';
 
 part 'student_newsletters_state.dart';
 

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/fonts.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -165,7 +164,17 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
 
     final BottomNavigationItem? item;
     if (shell == null) {
-      item = BottomNavigationItem.dashboard;
+      // No _ShellScope ancestor — this screen is one of the top-level
+      // routes registered OUTSIDE the StatefulShellRoute (e.g. /admin-chat,
+      // openConversation, the notification-deep-link routes), rendered by
+      // the root navigator as a sibling of the shell rather than one of its
+      // branches. Defaulting to Dashboard here used to actively claim
+      // Dashboard was active while viewing a completely different screen —
+      // same mistake the branch-0 drill-down case below already avoids.
+      // Screens that DO conceptually belong to a tab (e.g. AdminChatHostScreen
+      // -> Communication) should pass activeItemOverride explicitly, same
+      // pattern as StudentAttendanceProfile does for Attendance.
+      item = null;
     } else if (shell.currentIndex == 0) {
       // Branch 0 (the Dashboard branch) also hosts every non-tab drill-down
       // (Billing, Scheduling, Staff, Reports, …). Those screens are NOT
@@ -173,9 +182,14 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       // Dashboard slot — on any drill-down we highlight nothing instead of
       // falsely marking Dashboard as active.
       final path = _currentLocationPath(context);
-      item = path == AppRoutes.dashboard ? BottomNavigationItem.dashboard : null;
+      item = path == AppRoutes.dashboard
+          ? BottomNavigationItem.dashboard
+          : null;
     } else {
-      item = itemForBranchIndex(isParent: isParent, branchIndex: shell.currentIndex);
+      item = itemForBranchIndex(
+        isParent: isParent,
+        branchIndex: shell.currentIndex,
+      );
     }
     cubit.syncFromRoute(item);
   }
@@ -216,7 +230,11 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
   /// layer's responsibility (a Cubit must not hold a BuildContext) — invoked
   /// by the `BlocListener` below whenever `BottomNavigationCubit.selectItem`
   /// records a new navigation intent.
-  void _performNavigation(BuildContext context, bool isParent, BottomNavigationItem item) {
+  void _performNavigation(
+    BuildContext context,
+    bool isParent,
+    BottomNavigationItem item,
+  ) {
     // The Attendance slot is a modal popup, not a route.
     if (item == BottomNavigationItem.attendance) {
       if (isParent) {
@@ -294,7 +312,7 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
       case BottomNavigationItem.activities:
         return 'Activities';
       case BottomNavigationItem.communication:
-        return isParent ? 'Communication' : 'Messages';
+        return 'Messages';
       case BottomNavigationItem.billing:
         return 'Billing';
     }
@@ -416,7 +434,11 @@ class _CustomNavigationBarState extends State<CustomNavigationBar> {
           current.pendingNavigationItem != null &&
           current.pendingNavigationSeq != previous.pendingNavigationSeq,
       listener: (context, state) {
-        _performNavigation(context, state.isParent, state.pendingNavigationItem!);
+        _performNavigation(
+          context,
+          state.isParent,
+          state.pendingNavigationItem!,
+        );
       },
       child: ClipRRect(
         borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),

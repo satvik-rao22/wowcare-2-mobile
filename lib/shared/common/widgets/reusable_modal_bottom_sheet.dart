@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 import '../../../app/theme/colors.dart';
-import '../../../presentation/features/classrooom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
+import '../../../presentation/features/classroom/views/classroom_tab_cards/classroom_notes_tab_card.dart';
 
 enum FieldType { text, dropdown, datePicker, fileUpload }
 

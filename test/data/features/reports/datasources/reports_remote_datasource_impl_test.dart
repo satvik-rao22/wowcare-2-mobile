@@ -5,9 +5,12 @@ import 'package:wowcare/data/features/reports/datasources/reports_remote_datasou
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 
 class FakeDio extends Fake implements Dio {
-  Map<String, dynamic>? Function(String path)? responseBuilder;
+  dynamic Function(String path)? responseBuilder;
   bool shouldThrow = false;
   DioException? exception;
+
+  @override
+  BaseOptions get options => BaseOptions();
 
   @override
   Future<Response<T>> post<T>(
@@ -28,7 +31,10 @@ class FakeDio extends Fake implements Dio {
             message: 'Network error',
           );
     }
-    final responseData = responseBuilder?.call(path);
+    var responseData = responseBuilder?.call(path);
+    if (responseData is Map) {
+      responseData = Map<String, dynamic>.from(responseData);
+    }
     return Response<T>(
       data: responseData as T?,
       statusCode: 200,
@@ -53,7 +59,10 @@ class FakeDio extends Fake implements Dio {
             message: 'Network error',
           );
     }
-    final responseData = responseBuilder?.call(path);
+    var responseData = responseBuilder?.call(path);
+    if (responseData is Map) {
+      responseData = Map<String, dynamic>.from(responseData);
+    }
     return Response<T>(
       data: responseData as T?,
       statusCode: 200,
@@ -528,6 +537,91 @@ void main() {
 
         expect(result, hasLength(2));
         expect(result, containsAll(['123', '456']));
+      });
+    });
+
+    group('getReportDownloadUrl', () {
+      test('returns deliveryUrl immediately when asset is READY', () async {
+        fakeDio.responseBuilder = (_) => {
+          'data': {
+            'assets': [
+              {
+                'assetCode': 'AST_123',
+                'status': 'READY',
+                'deliveryUrl': 'https://cdn.example.com/reports/report.pdf',
+              },
+            ],
+          },
+        };
+
+        final result = await dataSource.getReportDownloadUrl('AST_123');
+        expect(result, 'https://cdn.example.com/reports/report.pdf');
+      });
+
+      test('polls and returns URL when asset transitions to READY', () async {
+        int pollCount = 0;
+        fakeDio.responseBuilder = (_) {
+          pollCount++;
+          if (pollCount == 1) {
+            return {
+              'data': {
+                'assets': [
+                  {
+                    'assetCode': 'AST_123',
+                    'status': 'PROCESSING',
+                    'originalDownloadUrl':
+                        '/api/v1/media-assets/AST_123/artifacts/original',
+                  },
+                ],
+              },
+            };
+          }
+          return {
+            'data': {
+              'assets': [
+                {
+                  'assetCode': 'AST_123',
+                  'status': 'READY',
+                  'deliveryUrl': 'https://cdn.example.com/reports/report.pdf',
+                },
+              ],
+            },
+          };
+        };
+
+        final result = await dataSource.getReportDownloadUrl('AST_123');
+        expect(result, 'https://cdn.example.com/reports/report.pdf');
+        expect(pollCount, greaterThanOrEqualTo(2));
+      });
+
+      test('throws Exception when asset status is FAILED', () async {
+        fakeDio.responseBuilder = (_) => {
+          'data': {
+            'assets': [
+              {
+                'assetCode': 'AST_123',
+                'status': 'FAILED',
+              },
+            ],
+          },
+        };
+
+        expect(
+          () => dataSource.getReportDownloadUrl('AST_123'),
+          throwsA(isA<Exception>()),
+        );
+      });
+    });
+
+    group('downloadReportFile', () {
+      test('downloads bytes successfully', () async {
+        fakeDio.responseBuilder = (_) => [1, 2, 3, 4, 5];
+
+        final result = await dataSource.downloadReportFile(
+          'https://cdn.example.com/reports/report.pdf',
+        );
+
+        expect(result, [1, 2, 3, 4, 5]);
       });
     });
   });

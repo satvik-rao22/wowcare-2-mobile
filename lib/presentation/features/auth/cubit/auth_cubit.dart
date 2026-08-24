@@ -21,6 +21,7 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/core/util/logger_service.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/presentation/features/kiosk/utils/kiosk_access_control.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
@@ -255,6 +256,156 @@ class AuthCubit extends Cubit<AuthState> {
     }
   }
 
+  /// Verifies (via `/api/v1/users/details`, the backend's source of truth for
+  /// school approval status) that at least one school tied to this login's
+  /// roles is ACTIVE. Returns null when login may proceed; otherwise returns
+  /// the message to surface to the user.
+  ///
+  /// Roles with no schoolCode (e.g. org-level admins) are not school-scoped
+  /// and are skipped. A verification failure (network error, etc.) never
+  /// blocks login — it's treated the same as an unknown/missing status.
+  Future<String?> _pendingSchoolBlockMessage(
+    LoginResponseModel response,
+  ) async {
+    final schoolRoles = response.roles
+        .where(
+          (r) =>
+              r.organizationCode.trim().isNotEmpty &&
+              r.schoolCode.trim().isNotEmpty,
+        )
+        .toList();
+    if (schoolRoles.isEmpty) return null;
+
+    List<Map<String, dynamic>> userDetails;
+    try {
+      userDetails = await _remoteDataSource.getUserDetails(
+        accessToken: response.accessToken,
+      );
+    } catch (e) {
+      AppLogger.w(
+        '[AUTH] School status verification failed (non-fatal): $e',
+      );
+      return null;
+    }
+
+    final relevantStatuses = schoolRoles
+        .map(
+          (r) => schoolStatusFromUserDetails(
+            userDetails,
+            r.organizationCode,
+            r.schoolCode,
+          ),
+        )
+        .where((s) => s != null)
+        .cast<String>()
+        .toList();
+
+    // Only block when EVERY school tied to this login is explicitly
+    // non-active. An unknown/missing status is treated as active so a
+    // backend hiccup or unmapped school never locks a legitimate user out.
+    if (relevantStatuses.isNotEmpty &&
+        relevantStatuses.every((s) => s != 'ACTIVE')) {
+      if (relevantStatuses.contains('PENDING')) {
+        return 'Your school account is pending approval. Please contact your administrator.';
+      }
+      return 'Your school account is not active. Please contact your administrator.';
+    }
+    return null;
+  }
+
+  /// Verifies from the backend (`/api/v1/users/details`, live — not the
+  /// cached snapshot) that [schoolCode] under [organizationCode] is ACTIVE
+  /// before a school switch (drawer dropdown, org-switch flow, or a
+  /// notification-driven switch) is allowed to proceed. Returns the message
+  /// to surface and block on, or null when the switch may proceed.
+  ///
+  /// Fails open: a verification error (network, missing token, etc.) never
+  /// blocks the switch, matching the login-time check's policy.
+  Future<String?> verifySchoolActiveOrBlockMessage({
+    required String organizationCode,
+    required String schoolCode,
+  }) async {
+    final org = organizationCode.trim();
+    final school = schoolCode.trim();
+    if (org.isEmpty || school.isEmpty) return null;
+
+    final accessToken =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.accessToken,
+        ) ??
+        '').trim();
+    if (accessToken.isEmpty) return null;
+
+    List<Map<String, dynamic>> userDetails;
+    try {
+      userDetails = await _remoteDataSource.getUserDetails(
+        accessToken: accessToken,
+      );
+    } catch (e) {
+      AppLogger.w(
+        '[AUTH] School status verification failed (non-fatal): $e',
+      );
+      return null;
+    }
+
+    final status = schoolStatusFromUserDetails(userDetails, org, school);
+    if (status == null || status == 'ACTIVE') return null;
+    if (status == 'PENDING') {
+      return 'This school is pending approval. Please contact your administrator.';
+    }
+    return 'This school is not active. Please contact your administrator.';
+  }
+
+  /// Live (not cached) backend status per schoolCode for [organizationCode],
+  /// straight from `/api/v1/users/details`. Used to hide non-ACTIVE (e.g.
+  /// PENDING) schools from the org/school selection pickers during login —
+  /// at that point in the flow the `/users/details` cache RoleCubit
+  /// populates post-login may not exist yet, so the cached snapshot alone
+  /// isn't reliable here.
+  ///
+  /// Returns an empty map (fail open — nothing gets hidden) on any
+  /// verification error, so a backend hiccup never blocks org/school
+  /// selection outright.
+  Future<Map<String, String>> fetchSchoolStatusesForOrg(
+    String organizationCode,
+  ) async {
+    final org = organizationCode.trim();
+    if (org.isEmpty) return const <String, String>{};
+
+    final accessToken =
+        (await serviceLocator<StorageService>().getString(
+          StorageKeys.accessToken,
+        ) ??
+        '').trim();
+    if (accessToken.isEmpty) return const <String, String>{};
+
+    List<Map<String, dynamic>> userDetails;
+    try {
+      userDetails = await _remoteDataSource.getUserDetails(
+        accessToken: accessToken,
+      );
+    } catch (e) {
+      AppLogger.w('[AUTH] Fetching school statuses failed (non-fatal): $e');
+      return const <String, String>{};
+    }
+
+    final statuses = <String, String>{};
+    for (final user in userDetails) {
+      final uOrg = (user['organizationCode'] ?? '').toString().trim();
+      if (uOrg != org) continue;
+      final schools = user['schools'];
+      if (schools is! List) continue;
+      for (final s in schools) {
+        if (s is! Map) continue;
+        final code = (s['schoolCode'] ?? '').toString().trim();
+        if (code.isEmpty) continue;
+        final status = (s['status'] ?? '').toString().trim().toUpperCase();
+        if (status.isNotEmpty) statuses[code] = status;
+      }
+    }
+    return statuses;
+  }
+
   Future<void> login({
     required String username,
     required String password,
@@ -284,6 +435,15 @@ class AuthCubit extends Cubit<AuthState> {
               'Super Admin accounts can only be accessed through the web portal.',
             ),
           );
+          return;
+        }
+
+        // SCHOOL STATUS CHECK: block before anything is cached or persisted
+        // when every school tied to this login is not yet ACTIVE (e.g. still
+        // PENDING approval), so no mobile session is established.
+        final blockMessage = await _pendingSchoolBlockMessage(response);
+        if (blockMessage != null) {
+          emit(AuthError(blockMessage));
           return;
         }
 
@@ -861,7 +1021,9 @@ class AuthCubit extends Cubit<AuthState> {
       );
       var schoolList = result.dataWithCodes.isNotEmpty
           ? result.dataWithCodes
-          : result.data.map((n) => {'schoolCode': n, 'schoolName': n}).toList();
+          : result.data
+                .map((n) => {'schoolCode': n, 'schoolName': ''})
+                .toList();
 
       // If API returns empty (or unexpected payload), fallback to static catalog.
       if (schoolList.isEmpty && staticFallback.isNotEmpty) {
@@ -914,6 +1076,49 @@ class AuthCubit extends Cubit<AuthState> {
           redirectUrl: prev?.redirectUrl,
         ),
       );
+
+      // Persist fetched school names into the local organizations+schools
+      // cache so helpers (SchoolContextHelper) can resolve display names
+      // even after app restart. Merge into existing list while updating
+      // names for matching org+school entries.
+      try {
+        final existing = await _localDataSource.getOrganizationsAndSchools();
+        final merged = List<Map<String, String>>.from(existing);
+        for (final e in schoolList) {
+          final code = (e['schoolCode'] ?? '').toString().trim();
+          final name = (e['schoolName'] ?? '').toString().trim();
+          if (code.isEmpty) continue;
+          final entry = <String, String>{
+            'organizationCode': organizationCode,
+            'schoolCode': code,
+            'schoolName': name,
+          };
+          final idx = merged.indexWhere(
+            (m) =>
+                (m['organizationCode'] ?? '') == organizationCode &&
+                (m['schoolCode'] ?? '') == code,
+          );
+          if (idx != -1) {
+            final existingName = (merged[idx]['schoolName'] ?? '')
+                .toString()
+                .trim();
+            // Avoid overwriting an existing pretty name with an empty value
+            // or with a code. Only replace when the new name is non-empty
+            // and appears more informative.
+            if (name.isNotEmpty && name != code) {
+              merged[idx] = entry;
+            } else if (existingName.isEmpty) {
+              // existing had no name, accept whatever we have (even code)
+              merged[idx] = entry;
+            }
+          } else {
+            merged.insert(0, entry);
+          }
+        }
+        await _localDataSource.saveOrganizationsAndSchools(merged);
+      } catch (e) {
+        AppLogger.d('[AUTH] failed to persist organizationsAndSchools: $e');
+      }
     } catch (e) {
       // Fallback to static catalog when API fails so user can still continue.
       if (staticFallback.isNotEmpty) {

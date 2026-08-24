@@ -30,6 +30,15 @@ extension _DashboardAttentionStateX on DashboardAttentionState {
   bool get isError =>
       status == DashboardAttentionStatus.error ||
       status == DashboardAttentionStatus.partialFailure;
+
+  /// Whether this cubit should stop blocking the aggregate dashboard status.
+  /// Unlike [DashboardAttentionState.isLoaded], this also counts
+  /// `awaitingSchoolContext` (no school selected yet, e.g. an org-level
+  /// admin) — otherwise the overall dashboard would never leave `initial`/
+  /// `loading` while `isLoaded` intentionally stays false so a later [load]
+  /// call can still retry once a school code appears.
+  bool get countsTowardReady =>
+      isLoaded || status == DashboardAttentionStatus.awaitingSchoolContext;
 }
 
 class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
@@ -79,7 +88,6 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     await Future.wait([
       dashboardCubit.loadUserName(),
       classroomShiftsCubit.load(AppTime.now()),
-      attentionCubit.load(),
       myDayCubit.load(),
       _initSchoolDependentCubits(),
     ]);
@@ -92,6 +100,10 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     await Future.wait([
       movementsCubit.loadInitial(),
       availabilityCubit.load(date: AppTime.now(), isTwoShifts: true),
+      // Sequenced after `_resolveSchoolCode()` (rather than fired
+      // concurrently from `initialize()`) so it never races the school code
+      // being persisted right after login — see `DashboardAttentionCubit`.
+      attentionCubit.load(),
       if (schoolCode != null && schoolCode.isNotEmpty) ...[
         schoolStatusCubit.loadSchoolStatus(
           schoolCode: schoolCode,
@@ -139,7 +151,7 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
     final movementsLoaded = movementsCubit.state.isLoaded;
     final availabilityLoaded = availabilityCubit.state.isLoaded;
     final shiftsLoaded = classroomShiftsCubit.state.isLoaded;
-    final attentionLoaded = attentionCubit.state.isLoaded;
+    final attentionLoaded = attentionCubit.state.countsTowardReady;
     final myDayLoaded = myDayCubit.state.isLoaded;
 
     final isAnyLoading =
@@ -204,8 +216,9 @@ class AdminDashboardCoordinatorCubit extends Cubit<DashboardState> {
   Future<void> refresh() async {
     emit(state.copyWith(status: DashboardStatus.refreshing));
 
-    // Re-validate GPS position immediately on refresh
+    // Re-validate GPS position and staff sign-in status immediately on refresh
     unawaited(geofenceCubit.refreshSettings());
+    unawaited(geofenceCubit.checkStaffSignInStatus());
 
     final schoolCode = await _resolveSchoolCode();
     if (schoolCode != null && schoolCode.isNotEmpty) {

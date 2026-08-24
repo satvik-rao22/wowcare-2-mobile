@@ -1,12 +1,25 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/errors/failures.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/data/features/reports/datasources/reports_remote_datasource.dart';
 import 'package:wowcare/data/features/reports/models/recent_report_model.dart';
 import 'package:wowcare/data/features/reports/models/report_response_model.dart';
 import 'package:wowcare/data/features/reports/repositories/reports_repository_impl.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
+
+class _FakeAuthLocalDataSource implements AuthLocalDataSource {
+  @override
+  Future<List<Map<String, String>>> getOrganizationsAndSchools() async => [];
+
+  @override
+  Future<Map<String, dynamic>?> getLoginContext() async => null;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
 
 class FakeRemoteDataSource extends Fake implements ReportsRemoteDataSource {
   bool shouldThrow = false;
@@ -116,10 +129,17 @@ void main() {
   late FakeStorageService fakeStorageService;
   late ReportsRepositoryImpl repository;
 
-  setUp(() {
+  setUp(() async {
+    await serviceLocator.reset();
     fakeDataSource = FakeRemoteDataSource();
     fakeStorageService = FakeStorageService();
+    serviceLocator.registerSingleton<StorageService>(fakeStorageService);
+    serviceLocator.registerSingleton<AuthLocalDataSource>(_FakeAuthLocalDataSource());
     repository = ReportsRepositoryImpl(fakeDataSource, fakeStorageService);
+  });
+
+  tearDown(() async {
+    await serviceLocator.reset();
   });
 
   group('ReportsRepositoryImpl', () {

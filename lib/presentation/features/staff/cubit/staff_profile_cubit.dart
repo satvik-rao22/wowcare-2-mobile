@@ -56,8 +56,13 @@ class StaffProfileCubit extends Cubit<StaffProfileState> {
     );
 
     try {
+      // forceRefresh: true — without it, getStaffProfile() serves the same
+      // cache entry loadInitial()'s cache-first read just populated (5-minute
+      // TTL), so this "revalidate from API" step silently no-op'd instead of
+      // picking up a value just changed on the backend.
       final profile = await _getStaffProfileUseCase(
         staffCode: staffCode,
+        forceRefresh: true,
       );
 
       if (isClosed) return;

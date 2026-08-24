@@ -3,6 +3,7 @@ import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -17,8 +18,13 @@ import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.da
 import 'package:wowcare/presentation/features/geofencing/widgets/geofence_sign_in_sheet.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
+import 'package:wowcare/core/util/attendance_classroom_scope.dart';
+import 'package:wowcare/core/util/attendance_events.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_conversations_entity_usecase.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_transfer_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_mark_absent_form.dart';
 import 'package:wowcare/presentation/features/attendance/forms/staff_attendance_forms/staff_sign_in_form.dart';
@@ -30,10 +36,12 @@ import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/conversation_entity_display.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_conversations_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_cached_conversations_entity_usecase.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
+import 'package:wowcare/src/app_router.dart';
 import '../../../../../core/util/core_utils.dart';
 import 'package:wowcare/core/util/school_zone_datetime.dart';
 import 'package:wowcare/core/util/server_time_service.dart';
@@ -56,6 +64,9 @@ class MyDayCard extends StatefulWidget {
 }
 
 class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
+  // Token / generation counter to invalidate stale async operations on persona switch
+  int _profileGeneration = 0;
+
   // ---- collapse state ----
   bool _minimized = false;
 
@@ -69,6 +80,21 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   // Prevents didChangeDependencies from stacking multiple geofence-init
   // callbacks when ancestor InheritedWidgets rebuild.
   bool _geofenceInitScheduled = false;
+
+  void _resetForProfileSwitch() {
+    _profileGeneration++;
+    setState(() {
+      _signInStatusLoaded = false;
+      _staffIdentityLoaded = false;
+      _todayStatusRaw = null;
+      _isSignedIn = false;
+      _staffCode = '';
+      _userCode = '';
+      _staffDisplayName = '';
+      _staffDesignation = '';
+      _geofencePopupShownThisEntry = false;
+    });
+  }
 
   // ---- sign-in status ----
   bool _isSignedIn = false;
@@ -277,8 +303,19 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    AttendanceEvents.tick.addListener(_handleAttendanceChanged);
     unawaited(_loadClockPin());
     unawaited(_loadStaffIdentity());
+  }
+
+  void _handleAttendanceChanged() {
+    if (!mounted) return;
+    unawaited(_loadClockPin());
+    unawaited(_loadStaffIdentity());
+    try {
+      final myDayCubit = context.read<MyDayCubit>();
+      unawaited(myDayCubit.load());
+    } catch (_) {}
   }
 
   // Re-checks sign-in status the moment the app comes back to the
@@ -354,6 +391,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    AttendanceEvents.tick.removeListener(_handleAttendanceChanged);
     WidgetsBinding.instance.removeObserver(this);
     _ticker?.cancel();
     super.dispose();
@@ -389,15 +427,19 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   /// Loads staff identity and sign-in status in one pass so button taps
   /// never hit a timing window where storage hasn't resolved yet.
   Future<void> _loadStaffIdentity() async {
+    final generation = ++_profileGeneration;
     final storage = serviceLocator<StorageService>();
-    final code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    String code = await resolveStaffCodeForLoggedInUser();
+    if (code.isEmpty) {
+      code = (await storage.getString(StorageKeys.staffCode))?.trim() ?? '';
+    }
     final userCode =
         (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
     final name = (await storage.getString(StorageKeys.displayName) ?? '')
         .trim();
     final designation =
         (await storage.getString(StorageKeys.staffDesignation) ?? '').trim();
-    if (!mounted) return;
+    if (!mounted || generation != _profileGeneration) return;
     setState(() {
       _staffCode = code;
       _userCode = userCode;
@@ -407,22 +449,35 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
     });
     final effectiveCode = _effectiveStaffCode;
     if (effectiveCode.isEmpty) {
-      if (mounted) setState(() => _signInStatusLoaded = true);
+      if (mounted && generation == _profileGeneration) {
+        setState(() {
+          _todayStatusRaw = null;
+          _isSignedIn = false;
+          _signInStatusLoaded = true;
+        });
+      }
       return;
     }
     try {
       final useCase = serviceLocator<GetStaffTodaySignInStatusUseCase>();
       final status = await useCase(staffCode: effectiveCode);
-      if (!mounted) return;
+      if (!mounted || generation != _profileGeneration) return;
+      final signedIn = status?.toUpperCase() == 'SIGNED_IN';
       setState(() {
         _todayStatusRaw = status;
-        _isSignedIn = status?.toUpperCase() == 'SIGNED_IN';
+        _isSignedIn = signedIn;
         _signInStatusLoaded = true;
       });
+      unawaited(
+        context.read<GeofenceCubit>().updateStaffSignInStatus(signedIn),
+      );
     } catch (_) {
       // sign-in status check is best-effort
-      if (mounted) setState(() => _signInStatusLoaded = true);
+      if (mounted && generation == _profileGeneration) {
+        setState(() => _signInStatusLoaded = true);
+      }
     }
+    if (!mounted || generation != _profileGeneration) return;
     // Covers the race where the geofence-entry listener fired (and skipped
     // showing the sheet) while this fetch was still in flight — re-evaluate
     // now that the real sign-in status is known.
@@ -437,24 +492,25 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
   /// [_loadStaffIdentity]'s async status fetch resolves, so whichever of the
   /// two finishes last is the one that actually decides whether to show it.
   void _maybeShowSignInPopup() {
-    if (!mounted || !_signInStatusLoaded) return;
-    if (_geofencePopupShownThisEntry) return;
-    // TODO: Temporarily disabled Sign Out bottom sheet when signed in.
-    // Only show the sheet if user is signed out (needs to sign in).
+    if (!mounted) return;
+    if (!_signInStatusLoaded) return;
+    if (!_staffIdentityLoaded) return;
+    if (_effectiveStaffCode.isEmpty) return;
     if (_isSignedIn) return;
+    if (_todayStatusRaw?.toUpperCase() == 'SIGNED_IN') return;
+    if (_geofencePopupShownThisEntry) return;
+
     final geofenceState = context.read<GeofenceCubit>().state;
+    if (geofenceState.isSignInStatusLoading) return;
     if (geofenceState.status != GeofenceCubitStatus.withinRange) return;
+    if (geofenceState.isStaffSignedIn) return;
+
     _geofencePopupShownThisEntry = true;
-    // GeofenceCubit already fires the notification via
-    // _triggerNotificationIfNeeded — no need to do it here too.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      if (!_signInStatusLoaded || !_staffIdentityLoaded || _isSignedIn) return;
       unawaited(
-        GeofenceSignInSheet.show(
-          context,
-          role: 'staff',
-          isSignedIn: _isSignedIn,
-        ),
+        GeofenceSignInSheet.show(context, role: 'staff', isSignedIn: false),
       );
     });
   }
@@ -485,15 +541,17 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       ),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
   void _handleMarkAbsentDisabledTap() {
     final geofenceState = context.read<GeofenceCubit>().state;
     final message = _todayGate.isAbsentToday
-        ? 'Already marked absent for today.'
+        ? 'Absent can only be marked for Students/Staff not yet signed in'
         : (_disabledReasons(geofenceState)['Absent'] ??
               'Mark Absent is currently unavailable.');
     CoreUtils.showTopSnackBar(
@@ -518,8 +576,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       MaterialPageRoute(builder: (_) => StaffMarkAbsentForm(staff: staff)),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -551,12 +611,14 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       ),
     );
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      // Keep GeofenceCubit.isStaffSignedIn in sync immediately after sign-in —
-      // it now also drives suppressing the "you can now Sign In or Sign Out"
-      // notification, so leaving it stale here would let that notification
-      // wrongly fire again right after the user just signed in.
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        // Keep GeofenceCubit.isStaffSignedIn in sync immediately after sign-in —
+        // it now also drives suppressing the "you can now Sign In or Sign Out"
+        // notification, so leaving it stale here would let that notification
+        // wrongly fire again right after the user just signed in.
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -575,8 +637,10 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
       context,
     ).push(MaterialPageRoute(builder: (_) => StaffSignOutForm(staff: staff)));
     if (mounted) {
-      unawaited(_loadStaffIdentity());
-      unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      await _loadStaffIdentity();
+      if (mounted) {
+        unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+      }
     }
   }
 
@@ -954,23 +1018,40 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<GeofenceCubit, GeofenceState>(
-      listenWhen: (prev, curr) {
-        // Reset popup guard whenever we leave withinRange — covers both
-        // actual zone exit (→ outsideRange) and a dashboard refresh cycle
-        // (→ fetchingSchoolLocation → withinRange). Without this, the guard
-        // would stay true across a refresh and block the sheet from re-showing.
-        if (prev.status == GeofenceCubitStatus.withinRange &&
-            curr.status != GeofenceCubitStatus.withinRange) {
-          _geofencePopupShownThisEntry = false;
-        }
-        // Fire only on the transition INTO withinRange.
-        return prev.status != GeofenceCubitStatus.withinRange &&
-            curr.status == GeofenceCubitStatus.withinRange;
-      },
-      listener: (context, _) => _maybeShowSignInPopup(),
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<GeofenceCubit, GeofenceState>(
+          listenWhen: (prev, curr) {
+            // Reset popup guard whenever we leave withinRange — covers both
+            // actual zone exit (→ outsideRange) and a dashboard refresh cycle
+            // (→ fetchingSchoolLocation → withinRange). Without this, the guard
+            // would stay true across a refresh and block the sheet from re-showing.
+            if (prev.status == GeofenceCubitStatus.withinRange &&
+                curr.status != GeofenceCubitStatus.withinRange) {
+              _geofencePopupShownThisEntry = false;
+            }
+            // Fire when transitioning into withinRange OR when sign-in status finishes loading while withinRange
+            if (curr.status == GeofenceCubitStatus.withinRange) {
+              if (prev.status != GeofenceCubitStatus.withinRange) return true;
+              if (prev.isSignInStatusLoading && !curr.isSignInStatusLoading)
+                return true;
+            }
+            return false;
+          },
+          listener: (context, _) => _maybeShowSignInPopup(),
+        ),
+        BlocListener<RoleCubit, RoleState>(
+          listenWhen: (prev, curr) =>
+              prev.activeSchoolRoleRaw != curr.activeSchoolRoleRaw,
+          listener: (context, state) {
+            _resetForProfileSwitch();
+            unawaited(_loadStaffIdentity());
+            unawaited(context.read<GeofenceCubit>().checkStaffSignInStatus());
+          },
+        ),
+      ],
       child: BlocConsumer<MyDayCubit, MyDayState>(
-        // Re-compute countdown whenever schedule data changes or first loads.
+        // Re-compute countdown and re-sync identity whenever schedule data changes or first loads.
         listenWhen: (prev, curr) =>
             curr.isLoaded &&
             (!prev.isLoaded ||
@@ -980,7 +1061,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                 prev.schoolClosed != curr.schoolClosed ||
                 prev.allWorkSchedules != curr.allWorkSchedules ||
                 prev.allBreakSchedules != curr.allBreakSchedules ||
-                prev.schoolTimeZone != curr.schoolTimeZone),
+                prev.schoolTimeZone != curr.schoolTimeZone ||
+                prev.status != curr.status),
         listener: (context, state) {
           _computeCountdownFromSchedule(
             state.todaySchedule,
@@ -991,6 +1073,7 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
             allBreakSchedules: state.allBreakSchedules,
           );
           _startTicker();
+          unawaited(_loadStaffIdentity());
         },
         builder: (context, state) {
           return DashboardCardErrorOverlay(
@@ -1138,7 +1221,8 @@ class _MyDayCardState extends State<MyDayCard> with WidgetsBindingObserver {
                                             child: OutlinedButton.icon(
                                               onPressed:
                                                   (!_staffIdentityLoaded ||
-                                                      _effectiveStaffCode.isEmpty ||
+                                                      _effectiveStaffCode
+                                                          .isEmpty ||
                                                       !availability
                                                           .transferEnabled)
                                                   ? null
@@ -1569,9 +1653,21 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   StreamSubscription<List<ConversationEntity>>? _sub;
   List<ConversationEntity> _items = const [];
   bool _loading = true;
-  // Logged-in user's code — used to resolve viewer-relative 1:1 conversation
-  // titles (the other participant's name) instead of the frozen stored title.
   String _currentUserCode = '';
+  Timer? _timeout;
+
+  /// The staff member's own primary classroom — its Classroom Notes
+  /// conversation (if any) is always shown as the first row, regardless of
+  /// recency, so a staff member never has to go hunting for their own
+  /// classroom's Notes. Null for admin/unscoped personas or before this
+  /// resolves; see [resolveStaffPrimaryClassroomCode]'s own fail-open
+  /// contract.
+  String? _primaryClassroomCode;
+
+  /// Classroom code → name, resolved once so the primary classroom's Notes
+  /// row can show the classroom's actual name instead of the generic
+  /// "Classroom" fallback `displayTitle` uses for CLASSROOM_CHAT.
+  final Map<String, String> _classroomNames = <String, String>{};
 
   @override
   void initState() {
@@ -1582,59 +1678,234 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
   @override
   void dispose() {
     _sub?.cancel();
+    _timeout?.cancel();
     super.dispose();
   }
 
   /// Mirrors the messaging inbox: seed from the Isar cache for a fast first frame, then watch the
-  /// Firestore inbox in realtime. Uses type: null so ALL conversation types are included — the REST
+  /// Firestore inbox in realtime. Uses type: null so all conversation types are fetched — the REST
   /// `GET /conversations` list can come back empty for staff, but the Firestore inbox does not.
+  /// [_buildDisplayItems] pins the staff member's own primary classroom's Notes (if any) as the
+  /// first row and fills the rest with the most recent other conversation(s).
   Future<void> _init() async {
+    final storage = serviceLocator<StorageService>();
     _currentUserCode =
-        (await serviceLocator<StorageService>().getString(
-          StorageKeys.userCode,
-        ))?.trim() ??
-        '';
+        (await storage.getString(StorageKeys.userCode))?.trim() ?? '';
+
+    // Fire-and-forget: don't block the fast cache-first-frame path below.
+    // Re-applies _buildDisplayItems once either resolves so already-loaded
+    // items get retroactively re-ranked.
+    unawaited(
+      resolveStaffPrimaryClassroomCode(storage: storage)
+          .then((code) {
+            if (!mounted) return;
+            setState(() {
+              _primaryClassroomCode = code;
+              _items = _buildDisplayItems(_items);
+            });
+          })
+          .catchError((_) {}),
+    );
+    unawaited(
+      storage.getString(StorageKeys.schoolCode).then((schoolCode) async {
+        final trimmed = (schoolCode ?? '').trim();
+        if (trimmed.isEmpty) return;
+        try {
+          final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+            schoolCode: trimmed,
+            onlyTypeClassroom: false,
+          );
+          if (!mounted) return;
+          setState(() {
+            _classroomNames.addAll({
+              for (final c in classrooms) c.code: c.name,
+            });
+          });
+        } catch (_) {
+          // Best-effort — the Notes row falls back to "Classroom".
+        }
+      }),
+    );
+
+    _timeout = Timer(const Duration(seconds: 8), () {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    });
+
     try {
       final cached = await serviceLocator<GetCachedConversationsEntityUseCase>()
           .call();
       cached.fold((_) {}, (list) {
-        if (mounted && list.isNotEmpty) {
+        if (mounted) {
           setState(() {
-            _items = _top2(list);
+            _items = _buildDisplayItems(list);
             _loading = false;
           });
         }
       });
     } catch (_) {
-      // cache seed is best-effort
+      if (mounted) setState(() => _loading = false);
     }
+
+    // Fallback to REST API concurrently in case Firestore fails or is empty.
+    // includeRestUnreadCounts: false — unread counts are Firestore-only
+    // app-wide; these REST-sourced items would otherwise carry a stale/wrong
+    // unreadCount that _buildDisplayItems' merge (by most-recent timestamp,
+    // not by source) could pick over the live Firestore value.
+    unawaited(
+      serviceLocator<GetConversationsEntityUseCase>()
+          .call(includeRestUnreadCounts: false)
+          .then((result) {
+        if (!mounted) return;
+        result.fold((_) {}, (list) {
+          setState(() {
+            // If REST API found chats, merge them with current items to ensure
+            // we don't miss anything, and take the top 2 most recent.
+            if (list.isNotEmpty) {
+              _items = _buildDisplayItems([..._items, ...list]);
+              _loading = false;
+            }
+          });
+        });
+      }),
+    );
 
     _sub = serviceLocator<WatchConversationsUseCase>().call().listen(
       (list) {
         if (!mounted) return;
+        _timeout?.cancel();
         setState(() {
-          _items = _top2(list);
+          // If Firestore returns items, use them (merged to preserve names if needed).
+          // If it returns empty, only overwrite if we didn't get any from REST/Cache.
+          if (list.isNotEmpty) {
+            _items = _buildDisplayItems([..._items, ...list]);
+          }
           _loading = false;
         });
       },
       onError: (_) {
         if (!mounted) return;
+        _timeout?.cancel();
+        setState(() => _loading = false);
+      },
+      onDone: () {
+        if (!mounted) return;
+        _timeout?.cancel();
         setState(() => _loading = false);
       },
     );
   }
 
-  List<ConversationEntity> _top2(List<ConversationEntity> list) {
-    final sorted = [...list]
-      ..sort((a, b) {
-        final at = (a.lastMessageAt ?? a.updatedAt).millisecondsSinceEpoch;
-        final bt = (b.lastMessageAt ?? b.updatedAt).millisecondsSinceEpoch;
-        return bt.compareTo(at);
-      });
-    return sorted.take(2).toList(growable: false);
+  /// Ranks a conversation by its own last MESSAGE, never `updatedAt`.
+  /// `updatedAt` is a generic "last modified" stamp that background sync
+  /// (unread-count reconciliation, participant/read-receipt updates, a
+  /// Firestore re-sync of the per-user inbox) can bump with NO new message
+  /// at all — using it as a recency fallback let a conversation nobody had
+  /// actually messaged in briefly jump to the top the moment one of those
+  /// unrelated fields ticked, then fall back once the next snapshot arrived
+  /// — the exact "keeps changing, not actually the most recent chat"
+  /// symptom. A conversation with no messages yet (`lastMessageAt == null`)
+  /// ranks as the oldest possible instant instead, so it can never
+  /// out-rank one with real activity.
+  DateTime _rankTime(ConversationEntity conversation) =>
+      conversation.lastMessageAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Row 1: the staff member's own primary classroom's Notes conversation —
+  /// pinned regardless of recency, so it's always reachable from here
+  /// rather than only when it happens to be the most recently active
+  /// conversation. Row 2: the single most recent OTHER conversation
+  /// (Room Chat/Staff Direct/Admin Chat, or a different classroom's Notes).
+  /// Falls back to the two most recent conversations overall when this
+  /// staff member has no primary classroom (admin/unscoped persona) or its
+  /// Notes conversation isn't in [list] yet.
+  List<ConversationEntity> _buildDisplayItems(List<ConversationEntity> list) {
+    // Callers pass `[..._items, ...freshSnapshot]` — the OLD top-2 selection
+    // first, the fresh cache/REST/Firestore data second. Cache, REST, and
+    // the live Firestore watch all resolve independently and can arrive in
+    // ANY order (a slow REST fallback can land after Firestore already
+    // delivered a newer snapshot) — so dedup can't just trust arrival
+    // position either way: "keep the first copy seen" freezes a
+    // conversation at whatever it was the moment it first entered `_items`
+    // (later messages never surface); "keep the last copy seen" is just as
+    // wrong the moment a stale response resolves AFTER a fresher one,
+    // silently reverting back. Compare each duplicate's own timestamp
+    // instead and keep whichever is actually more recent — the only
+    // ordering that can't be defeated by network/cache timing.
+    final byCode = <String, ConversationEntity>{};
+    for (final item in list) {
+      final code = item.code.trim();
+      if (code.isEmpty) continue;
+      final existing = byCode[code];
+      if (existing == null || !_rankTime(item).isBefore(_rankTime(existing))) {
+        byCode[code] = item;
+      }
+    }
+    final unique = byCode.values.toList();
+    unique.sort((a, b) => _rankTime(b).compareTo(_rankTime(a)));
+
+    final primaryClassroom = _primaryClassroomCode?.trim();
+    ConversationEntity? primaryNotes;
+    if (primaryClassroom != null && primaryClassroom.isNotEmpty) {
+      for (final item in unique) {
+        if (item.type == ConversationType.classroomChat &&
+            item.classroomCode?.trim() == primaryClassroom) {
+          primaryNotes = item;
+          break;
+        }
+      }
+    }
+
+    if (primaryNotes == null) {
+      // No primary classroom, or its Notes conversation hasn't loaded into
+      // [list] yet — degrade to the two most recent conversations overall.
+      return unique.take(2).toList(growable: false);
+    }
+    final mostRecentOther = unique
+        .where((item) => item.code != primaryNotes!.code)
+        .firstOrNull;
+
+    return [
+      primaryNotes,
+      if (mostRecentOther != null) mostRecentOther,
+    ].take(2).toList(growable: false);
+  }
+
+  String _displayTitle(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat) {
+      final classroomCode = conversation.classroomCode?.trim() ?? '';
+      if (classroomCode.isNotEmpty) {
+        final classroomName = _classroomNames[classroomCode]?.trim();
+        if (classroomName != null && classroomName.isNotEmpty) {
+          return classroomName;
+        }
+      }
+      // _classroomNames is a separate, fire-and-forget fetch that races the
+      // conversation list — this row could render before it resolves (or if
+      // it fails, never gets it at all). The conversation's OWN stored
+      // title is set to the classroom's name at creation time
+      // (GetOrCreateClassroomChatUseCase) and doesn't depend on that second
+      // fetch succeeding, so try it before giving up to the generic
+      // "Classroom" label — displayTitle already does exactly this for
+      // every other conversation type below, CLASSROOM_CHAT just never
+      // reached it.
+      return conversation.displayTitle(_currentUserCode, fallback: 'Classroom');
+    }
+    return conversation.displayTitle(_currentUserCode);
   }
 
   void _openConversation(ConversationEntity conversation) {
+    if (conversation.type == ConversationType.classroomChat &&
+        (conversation.classroomCode ?? '').trim().isNotEmpty) {
+      // Classroom Notes lives on the Classroom screen's own Notes tab (tab
+      // index 2 — see AppRoutes.classroom's route definition), not as a
+      // standalone thread — matches how every other Notes entry point in
+      // the app (notifications, the Classrooms list) opens it.
+      context.go(
+        '${AppRoutes.classroom}?classroomCode=${conversation.classroomCode!.trim()}&tab=2',
+      );
+      return;
+    }
     Navigator.of(context).push<void>(
       MaterialPageRoute(
         builder: (_) => ConversationThreadScreen(conversation: conversation),
@@ -1721,6 +1992,7 @@ class _CommunicationRowWidgetState extends State<_CommunicationRowWidget> {
             timeLabel: _formatTime(_items[i].lastMessageAt),
             onTap: () => _openConversation(_items[i]),
             currentUserCode: _currentUserCode,
+            displayTitle: _displayTitle(_items[i]),
           ),
         ],
       ],
@@ -1734,12 +2006,14 @@ class _RecentChatRow extends StatelessWidget {
     required this.timeLabel,
     required this.onTap,
     required this.currentUserCode,
+    required this.displayTitle,
   });
 
   final ConversationEntity conversation;
   final String timeLabel;
   final VoidCallback onTap;
   final String currentUserCode;
+  final String displayTitle;
 
   @override
   Widget build(BuildContext context) {
@@ -1753,7 +2027,7 @@ class _RecentChatRow extends StatelessWidget {
           children: [
             DocumentImageWidget(
               fileUuid: conversation.avatarUrl,
-              name: conversation.displayTitle(currentUserCode),
+              name: displayTitle,
               size: 50,
               fontSize: 20,
               disableProfileLookupFallback: true,
@@ -1768,7 +2042,7 @@ class _RecentChatRow extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          conversation.displayTitle(currentUserCode),
+                          displayTitle,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: AppColors.primaryColor,

@@ -57,11 +57,11 @@ class DiscountCubit extends Cubit<DiscountState> {
   Future<void> _fetchPage({required int page, required bool reset}) async {
     try {
       final school = await _resolveSchoolCode();
+      // `name` is intentionally not sent — this endpoint's backend ignores
+      // it, so search is applied client-side instead (see
+      // DiscountState.filteredDiscounts).
       final result = await _getDiscountsUseCase(
         school: school,
-        name: state.searchQuery.trim().isEmpty
-            ? null
-            : state.searchQuery.trim(),
         status: state.statusFilter,
         page: page,
       );
@@ -92,11 +92,6 @@ class DiscountCubit extends Cubit<DiscountState> {
 
   void setSearchQuery(String query) =>
       emit(state.copyWith(searchQuery: query));
-
-  void applySearch() {
-    emit(state.copyWith(allDiscounts: [], currentPage: 0, hasMore: true));
-    unawaited(loadInitial());
-  }
 
   void setStatusFilter(String? status) {
     if (state.statusFilter == status) return;

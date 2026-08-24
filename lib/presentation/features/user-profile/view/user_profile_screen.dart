@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
+import 'package:wowcare/src/app_router.dart'
+    show goToDashboardRoot, popAllShellBranchNavigators;
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
@@ -11,7 +11,10 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 
 import '../../../../app/theme/colors.dart';
 import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/context_switch_cache_cleaner.dart';
 import '../../../../core/util/core_utils.dart';
+import '../../../../core/util/school_switch_events.dart';
 import '../../../../core/util/string_utils.dart';
 import '../../../../domain/features/staff/entities/staff_profile.dart';
 import '../../../../shared/common/widgets/profile_show_widget.dart';
@@ -24,6 +27,7 @@ import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/core/util/login_persona_util.dart';
+import 'package:wowcare/presentation/features/geofencing/cubit/geofence_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 
 class UserProfileScreen extends StatefulWidget {
@@ -175,6 +179,18 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       // APIs are done. Only show the button loader.
       await _cubit.persistPersonaSwitch(backendRole);
       if (!mounted) return;
+      // Wipe every cache layer (repository caches, Isar messaging data,
+      // in-memory invalidation gates) BEFORE the refetches below, same as a
+      // school switch — otherwise Messaging/Activity/etc, kept alive in the
+      // shell's IndexedStack, kept showing the previous persona's cached
+      // data (e.g. a guardian's own messages after switching to Staff)
+      // until a manual pull-to-refresh.
+      try {
+        await clearAllCachesForContextSwitch(serviceLocator<StorageService>());
+      } catch (_) {}
+      try {
+        context.read<GeofenceCubit>().handleProfileSwitch();
+      } catch (_) {}
       context.read<ParentChildCubit>().invalidate();
       // Preload guardian data BEFORE RoleCubit flips to parent so the global
       // dropdown doesn't show a loading state.
@@ -212,10 +228,34 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
       await _cubit.load(isParent: context.read<RoleCubit>().isParent);
       if (!mounted) return;
 
+      // "Switch Profile" can be reached with a route imperatively pushed on
+      // top of the root navigator OR a shell branch's own nested navigator
+      // (the parent Attendance profile onto dashboardBranchKey, a
+      // Communication-module sub-screen onto messagingBranchKey, etc.) —
+      // `context.go` alone doesn't know how to pop those, so the pushed
+      // screen just keeps covering Dashboard. Unwind every branch's
+      // navigator first — see popAllShellBranchNavigators's own doc.
+      popAllShellBranchNavigators(context);
+      if (!mounted) return;
+
       // Land on the new persona's dashboard. DashboardScreen branches on
       // RoleCubit, so this shows the correct (admin/staff/parent) dashboard and
       // rebuilds it fresh — otherwise a stale screen lingers after the switch.
-      context.go(DashboardScreen.routeName);
+      // goToDashboardRoot (not a bare context.go) is what actually switches
+      // the shell's active branch — see its own doc for why a plain `go`
+      // wasn't landing on Dashboard from another branch (e.g. Messaging).
+      goToDashboardRoot(context);
+
+      // Tell every kept-alive branch screen (Dashboard, Classroom, Activity,
+      // Messaging, Billing) to reload fresh for the new persona —
+      // deliberately AFTER navigating away, not before. A branch screen's
+      // own SchoolSwitchReloadMixin (e.g. MessagingScreen) reacts to this by
+      // re-keying the BlocProvider wrapping its GlobalScaffold, which would
+      // dispose this screen's own context mid-flight if fired while still
+      // on it and reached via that branch — see custom_app_bar.dart's
+      // identical fix for the concrete symptom this caused ("persona
+      // switches, but the screen never moves").
+      SchoolSwitchEvents.notifySwitched();
     } catch (e) {
       if (!mounted) return;
       CoreUtils.showTopSnackBar(
@@ -361,6 +401,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
           final isTablet = screenWidth > 600;
           final responsive = ResponsiveHelper(context);
           final isParentPersona = context.watch<RoleCubit>().isParent;
+          final isStaffPersona = context.watch<RoleCubit>().isStaff;
           final String displayName = _profile?.fullName.isNotEmpty == true
               ? _profile!.fullName
               : (_loginDisplayName.isNotEmpty ? _loginDisplayName : '-');
@@ -905,113 +946,116 @@ class _UserProfileScreenState extends State<UserProfileScreen> {
                                       //     letterSpacing: -0.03 * 16,
                                       //   ),
                                       // ),
-                                      GestureDetector(
-                                        onTap: () async {
-                                          // Prefer loaded profile data; fall back to login name/email.
-                                          final fullName =
-                                              (_profile?.fullName ?? '')
-                                                  .trim()
-                                                  .isNotEmpty
-                                              ? _profile!.fullName.trim()
-                                              : _loginDisplayName.trim();
-                                          final parts = fullName
-                                              .split(' ')
-                                              .where((p) => p.isNotEmpty)
-                                              .toList();
-                                          final initialFirstName =
-                                              parts.isNotEmpty
-                                              ? parts.first
-                                              : '';
-                                          final initialLastName =
-                                              parts.length > 1
-                                              ? parts.sublist(1).join(' ')
-                                              : '';
-                                          final initialEmail =
-                                              (_profile?.email ?? '')
-                                                  .trim()
-                                                  .isNotEmpty
-                                              ? _profile!.email.trim()
-                                              : _loginEmail;
-                                          final initialPhoneNo =
-                                              (_profile?.phoneNumber ?? '')
-                                                  .trim();
-                                          final address = _profile?.address;
-                                          final initialStreet =
-                                              (address?.street ?? '').trim();
-                                          final initialLine2 =
-                                              (address?.line2 ?? '').trim();
-                                          final initialCity =
-                                              (address?.city ?? '').trim();
-                                          final initialState =
-                                              (address?.state ?? '').trim();
-                                          final initialCountry =
-                                              (address?.country ?? '').trim();
-                                          final initialZip =
-                                              (address?.zipCode ?? '').trim();
-                                          final role = displayPersona;
-                                          final isParent = context
-                                              .read<RoleCubit>()
-                                              .isParent;
+                                      // Staff persona edits their own profile through HR/admin,
+                                      // not this screen — hide the edit action entirely rather
+                                      // than show a control that would just fail/be reverted.
+                                      if (!isStaffPersona)
+                                        GestureDetector(
+                                          onTap: () async {
+                                            // Prefer loaded profile data; fall back to login name/email.
+                                            final fullName =
+                                                (_profile?.fullName ?? '')
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _profile!.fullName.trim()
+                                                : _loginDisplayName.trim();
+                                            final parts = fullName
+                                                .split(' ')
+                                                .where((p) => p.isNotEmpty)
+                                                .toList();
+                                            final initialFirstName =
+                                                parts.isNotEmpty
+                                                ? parts.first
+                                                : '';
+                                            final initialLastName =
+                                                parts.length > 1
+                                                ? parts.sublist(1).join(' ')
+                                                : '';
+                                            final initialEmail =
+                                                (_profile?.email ?? '')
+                                                    .trim()
+                                                    .isNotEmpty
+                                                ? _profile!.email.trim()
+                                                : _loginEmail;
+                                            final initialPhoneNo =
+                                                (_profile?.phoneNumber ?? '')
+                                                    .trim();
+                                            final address = _profile?.address;
+                                            final initialStreet =
+                                                (address?.street ?? '').trim();
+                                            final initialLine2 =
+                                                (address?.line2 ?? '').trim();
+                                            final initialCity =
+                                                (address?.city ?? '').trim();
+                                            final initialState =
+                                                (address?.state ?? '').trim();
+                                            final initialCountry =
+                                                (address?.country ?? '').trim();
+                                            final initialZip =
+                                                (address?.zipCode ?? '').trim();
+                                            final role = displayPersona;
+                                            final isParent = context
+                                                .read<RoleCubit>()
+                                                .isParent;
 
-                                          final updated =
-                                              await Navigator.push<bool>(
-                                                context,
-                                                MaterialPageRoute(
-                                                  builder: (context) =>
-                                                      EditUserProfileScreen(
-                                                        initialFirstName:
-                                                            initialFirstName,
-                                                        initialLastName:
-                                                            initialLastName,
-                                                        initialEmail:
-                                                            initialEmail,
-                                                        initialPhoneNo:
-                                                            initialPhoneNo,
-                                                        initialAddressLine2:
-                                                            initialLine2,
-                                                        role: role,
-                                                        initialStreet:
-                                                            initialStreet,
-                                                        initialCity:
-                                                            initialCity,
-                                                        initialState:
-                                                            initialState,
-                                                        initialCountry:
-                                                            initialCountry,
-                                                        initialZipCode:
-                                                            initialZip,
-                                                        isParent: isParent,
-                                                      ),
-                                                ),
+                                            final updated =
+                                                await Navigator.push<bool>(
+                                                  context,
+                                                  MaterialPageRoute(
+                                                    builder: (context) =>
+                                                        EditUserProfileScreen(
+                                                          initialFirstName:
+                                                              initialFirstName,
+                                                          initialLastName:
+                                                              initialLastName,
+                                                          initialEmail:
+                                                              initialEmail,
+                                                          initialPhoneNo:
+                                                              initialPhoneNo,
+                                                          initialAddressLine2:
+                                                              initialLine2,
+                                                          role: role,
+                                                          initialStreet:
+                                                              initialStreet,
+                                                          initialCity:
+                                                              initialCity,
+                                                          initialState:
+                                                              initialState,
+                                                          initialCountry:
+                                                              initialCountry,
+                                                          initialZipCode:
+                                                              initialZip,
+                                                          isParent: isParent,
+                                                        ),
+                                                  ),
+                                                );
+                                            // If profile was updated, reload latest data so
+                                            // the multiline address and other fields reflect changes.
+                                            if (updated == true && mounted) {
+                                              await _cubit.load(
+                                                isParent: context
+                                                    .read<RoleCubit>()
+                                                    .isParent,
                                               );
-                                          // If profile was updated, reload latest data so
-                                          // the multiline address and other fields reflect changes.
-                                          if (updated == true && mounted) {
-                                            await _cubit.load(
-                                              isParent: context
-                                                  .read<RoleCubit>()
-                                                  .isParent,
-                                            );
-                                          }
-                                        },
-                                        child: Container(
-                                          width: 38,
-                                          height: 38,
-                                          decoration: BoxDecoration(
-                                            gradient:
-                                                AppColors.buildPrimaryGradient(),
-                                            borderRadius: BorderRadius.circular(
-                                              8,
+                                            }
+                                          },
+                                          child: Container(
+                                            width: 38,
+                                            height: 38,
+                                            decoration: BoxDecoration(
+                                              gradient:
+                                                  AppColors.buildPrimaryGradient(),
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            alignment: Alignment.center,
+                                            child: const Icon(
+                                              Icons.edit,
+                                              size: 22,
+                                              color: Colors.white,
                                             ),
                                           ),
-                                          alignment: Alignment.center,
-                                          child: const Icon(
-                                            Icons.edit,
-                                            size: 22,
-                                            color: Colors.white,
-                                          ),
                                         ),
-                                      ),
                                     ],
                                   ),
                                   const SizedBox(height: 16),

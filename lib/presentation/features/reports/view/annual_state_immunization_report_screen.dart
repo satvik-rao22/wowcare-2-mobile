@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/annual_state_immunization_report_params.dart';
@@ -28,7 +27,7 @@ class _AnnualStateImmunizationReportScreenState
     extends State<AnnualStateImmunizationReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
-  String _format = 'PDF';
+  String _format = 'XLSX';
 
   @override
   void initState() {
@@ -109,8 +108,12 @@ class _AnnualStateImmunizationReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // Pop (not context.go) — this screen was pushed via plain
+                  // Navigator.push, so only popping actually dismisses it;
+                  // the hub's own .then((success) => tab 0) callback reacts
+                  // to the pop(true) result.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }

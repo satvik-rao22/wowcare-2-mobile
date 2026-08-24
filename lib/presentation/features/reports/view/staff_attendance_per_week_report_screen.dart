@@ -1,17 +1,21 @@
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/presentation/features/reports/widgets/multi_select_filter_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../core/util/school_context_helper.dart';
 
 class StaffAttendancePerWeekReportScreen extends StatefulWidget {
@@ -43,13 +47,60 @@ class _StaffAttendancePerWeekReportScreenState
   late DateTime _periodMonth;
   List<String> _selectedStaff = <String>[];
   List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
+  List<String> _availableClassrooms = <String>[];
+  Map<String, String> _classroomNameToCode = <String, String>{};
+
+  List<String> _getAvailableStaff(BuildContext context) {
+    final cubitStaff = context.watch<ReportsCubit>().state.staffNames;
+    if (cubitStaff.isNotEmpty) return cubitStaff;
+    return widget.staff;
+  }
 
   @override
   void initState() {
     super.initState();
     final now = AppTime.now();
     _periodMonth = DateTime(now.year, now.month, 1);
+
+    _selectedStaff = List<String>.from(widget.staff);
+    _availableClassrooms = List<String>.from(widget.classrooms);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadAllStaffClassrooms();
+      }
+    });
+  }
+
+  Future<void> _loadAllStaffClassrooms() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isNotEmpty) {
+        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: false,
+        );
+        final nameToCodeMap = <String, String>{};
+        final names = <String>[];
+        for (final c in classrooms) {
+          names.add(c.name);
+          nameToCodeMap[c.name] = c.code;
+        }
+        if (mounted) {
+          setState(() {
+            _availableClassrooms = names;
+            _classroomNameToCode = nameToCodeMap;
+            _selectedClassrooms = <String>[];
+          });
+        }
+      }
+    } catch (e) {
+      AppLogger.e(
+        '[STAFF-ATTENDANCE-WEEKLY-UI] Failed to load staff classrooms: $e',
+      );
+    }
   }
 
   void _onGenerate() async {
@@ -67,11 +118,13 @@ class _StaffAttendancePerWeekReportScreenState
     final reportsState = cubit.state;
 
     // Convert staff names to codes
-    final staffCodes = _selectedStaff.isNotEmpty
-        ? _selectedStaff
-              .map((name) => reportsState.staffNameToCode[name] ?? name)
-              .toList()
-        : null;
+    final staffCodes = resolveReportCodes(
+      context: context,
+      names: _selectedStaff,
+      nameToCode: reportsState.staffNameToCode,
+      labelPlural: 'staff',
+    );
+    if (staffCodes == null) return;
     // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
@@ -86,18 +139,25 @@ class _StaffAttendancePerWeekReportScreenState
       return;
     }
     // Convert classroom names to codes
-    final classroomCodes = _selectedClassrooms.isNotEmpty
-        ? _selectedClassrooms
-              .map((name) => reportsState.classroomNameToCode[name] ?? name)
-              .toList()
-        : null;
+    final nameToCode = _classroomNameToCode.isNotEmpty
+        ? _classroomNameToCode
+        : reportsState.classroomNameToCode;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
+      nameToCode: nameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
 
     final params = ReportRequestParams(
       reportType: ReportType.staffAttendancePerStaff,
       startDate: _periodMonth,
       endDate: _periodMonth.add(const Duration(days: 30)),
       staffCodes: staffCodes,
-      classroomCodes: classroomCodes,
+      roomCodes: classroomCodes,
       format: _format,
       schoolName: schoolName,
     );
@@ -127,9 +187,24 @@ class _StaffAttendancePerWeekReportScreenState
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final classroomItems = _availableClassrooms.isNotEmpty
+        ? _availableClassrooms
+        : widget.classrooms;
+    final availableStaff = _getAvailableStaff(context);
 
     return MultiBlocListener(
       listeners: [
+        BlocListener<ReportsCubit, ReportsState>(
+          listenWhen: (previous, current) =>
+              previous.staffNames != current.staffNames,
+          listener: (context, state) {
+            if (_selectedStaff.isEmpty && state.staffNames.isNotEmpty) {
+              setState(() {
+                _selectedStaff = List<String>.from(state.staffNames);
+              });
+            }
+          },
+        ),
         BlocListener<ReportsCubit, ReportsState>(
           listenWhen: (previous, current) =>
               previous.generationError != current.generationError,
@@ -162,8 +237,16 @@ class _StaffAttendancePerWeekReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
+                  // This screen was pushed via a plain Navigator.push (see
+                  // ReportsScreen._openStaffReportForm), not a go_router
+                  // route — context.go() alone updates the hub's route
+                  // state but never dismisses this screen, so the user
+                  // never actually sees the tab switch. Popping (with a
+                  // `true` result) is what the hub's own
+                  // `.then((success) => _tabController.animateTo(0))`
+                  // callback is already waiting for.
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }
@@ -218,11 +301,12 @@ class _StaffAttendancePerWeekReportScreenState
                 MultiSelectFilterField<String>(
                   label: 'Staff',
                   hintText: 'Select Staff Members',
-                  items: widget.staff,
+                  items: availableStaff,
                   selectedItems: _selectedStaff,
                   onChanged: (s) => setState(() => _selectedStaff = s),
                   itemToString: (item) => item,
                   singularLabel: 'Staff Member',
+                  isRequired: true,
                   pluralLabel: 'Staff Members',
                   showSelectAll: true,
                   enableSearch: true,
@@ -232,10 +316,11 @@ class _StaffAttendancePerWeekReportScreenState
                 CustomMultiSelectDropdown(
                   label: 'Classroom',
                   hintText: 'Select Classroom',
-                  items: widget.classrooms,
+                  items: classroomItems,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
                   showSelectAll: true,
+                  isRequired: true,
                 ),
                 const ReportDefaultNote(
                   text: 'Note: All Classrooms will be selected by Default.',

@@ -15,7 +15,7 @@ import 'package:wowcare/presentation/features/staff/view/staff_screen.dart';
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
 import 'package:wowcare/presentation/features/billing/view/billing_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/attendance/view/student_attendance_tabbed_view.dart';
@@ -36,20 +36,18 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
-import 'package:wowcare/core/util/cache_manager.dart';
 import 'package:wowcare/core/util/school_switch_events.dart';
-import 'package:wowcare/core/util/activity_feed_invalidation.dart';
-import 'package:wowcare/core/cache/session_local_cache_wiper.dart';
-import 'package:wowcare/presentation/features/classrooom/views/classroom_tab_cards/classroom_students_tab_card.dart';
-import 'package:wowcare/presentation/features/scheduling/utils/scheduling_cache_gate.dart';
+import 'package:wowcare/core/util/context_switch_cache_cleaner.dart';
 import 'package:wowcare/core/util/staff_code_resolver.dart';
+import 'package:wowcare/core/util/user_details_school_roles.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/domain/features/staff/repositories/staff_repository.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
 import 'package:wowcare/presentation/features/availability/view/future_availability_screen.dart';
 import 'package:wowcare/presentation/features/availability/view/individual_movement_screen.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 class CustomDrawer extends StatefulWidget {
   const CustomDrawer({super.key});
@@ -156,6 +154,24 @@ class _CustomDrawerState extends State<CustomDrawer> {
             },
           )
           .toList();
+
+      // Hide schools that are not yet ACTIVE (e.g. still PENDING approval)
+      // from the switcher, using the cached `/users/details` snapshot. An
+      // unknown/missing status is treated as active so a stale snapshot
+      // never hides a school the user should be able to reach.
+      if (orgCode != null && orgCode.isNotEmpty) {
+        final cachedUsers = await readCachedUserAccessDetailsUsers(storage);
+        if (cachedUsers.isNotEmpty) {
+          schoolsForOrg = schoolsForOrg.where((e) {
+            final status = schoolStatusFromUserDetails(
+              cachedUsers,
+              orgCode,
+              e['schoolCode'] ?? '',
+            );
+            return status == null || status == 'ACTIVE';
+          }).toList();
+        }
+      }
 
       if (!mounted) return;
       setState(() {
@@ -360,6 +376,25 @@ class _CustomDrawerState extends State<CustomDrawer> {
     final authLocal = serviceLocator<AuthLocalDataSource>();
     final authCubit = context.read<AuthCubit>();
 
+    // Re-verify from the backend (not just the possibly-stale dropdown list)
+    // that the target school is still active before switching into it.
+    if (isSchoolChanged) {
+      final blockMessage = await authCubit.verifySchoolActiveOrBlockMessage(
+        organizationCode: _currentOrgCode!,
+        schoolCode: schoolCode,
+      );
+      if (blockMessage != null) {
+        if (!mounted) return;
+        setState(() => _isSchoolDropdownOpen = false);
+        CoreUtils.showTopSnackBar(
+          context: context,
+          message: blockMessage,
+          isError: true,
+        );
+        return;
+      }
+    }
+
     // Persist new selection locally (used by all APIs).
     await authLocal.setSelectedOrgAndSchool(
       organizationCode: _currentOrgCode!,
@@ -412,42 +447,13 @@ class _CustomDrawerState extends State<CustomDrawer> {
     _navigate(DashboardScreen.routeName);
   }
 
-  /// Clears every cache layer so a school switch starts from a clean slate:
-  ///  1. Persisted `*_cache_*` SharedPreferences entries (repository caches),
-  ///     keeping the auth/session login cache which is not school-scoped.
-  ///  2. Non-prefs caches — image cache, Isar messaging/conversation
-  ///     collections, in-flight staff request caches (via the session wiper).
-  ///  3. Process-wide in-memory caches / invalidation gates that open screens
-  ///     listen to (students attendance status, scheduling, activity feed).
-  ///
-  /// Each step is isolated so one failure never blocks the rest of the switch.
+  /// Clears every cache layer so a school switch starts from a clean slate —
+  /// see [clearAllCachesForContextSwitch] for exactly what's covered. Shared
+  /// with the persona-switch path (user_profile_screen.dart) and the
+  /// FCM-driven school switch (active_school_switcher.dart) so a cache added
+  /// to one module is covered for every switch kind automatically.
   Future<void> _clearAllCachesForSchoolSwitch() async {
-    final storage = serviceLocator<StorageService>();
-
-    try {
-      await CacheManager(storage).clearAllStandardCaches(
-        protectedKeys: <String>{
-          StorageKeys.loginCacheKey,
-          StorageKeys.loginCacheTimestamp,
-        },
-      );
-    } catch (_) {}
-
-    try {
-      await serviceLocator<SessionLocalCacheWiper>().wipe();
-    } catch (_) {}
-
-    try {
-      clearClassroomStudentsAttendanceCache();
-    } catch (_) {}
-
-    try {
-      SchedulingCacheGate.invalidate();
-    } catch (_) {}
-
-    try {
-      await ActivityFeedInvalidation.invalidate(storage);
-    } catch (_) {}
+    await clearAllCachesForContextSwitch(serviceLocator<StorageService>());
   }
 
   void _showSnackOnRoot(String message, {bool isError = false}) {
@@ -894,58 +900,53 @@ class _CustomDrawerState extends State<CustomDrawer> {
                                   expanded,
                                 ),
                             children: [
-                              if (showParentMessagingDrawer ||
-                                  showAdminChatDrawer)
-                                _NestedExpansionTile(
-                                  title: 'Parent Messaging',
-                                  icon: MediaRes.parentMessaging,
-                                  children: [
-                                    if (showParentMessagingDrawer)
-                                      DrawerListTile(
-                                        title: 'Room Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.classroom_drawer_icon,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
-                                        ),
-                                        trailing: _UnreadBadge(
-                                          count: unreadState.unreadFor(
-                                            ConversationType.roomChat,
-                                          ),
-                                        ),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          context.go(
-                                            MessagingScreen
-                                                .parentMessagingRoute,
-                                          );
-                                        },
-                                      ),
-                                    if (showAdminChatDrawer)
-                                      DrawerListTile(
-                                        title: 'Admin Chat',
-                                        leading: SvgPicture.asset(
-                                          MediaRes.parentMessaging,
-                                          colorFilter: const ColorFilter.mode(
-                                            AppColors.themeColor,
-                                            BlendMode.srcIn,
-                                          ),
-                                        ),
-                                        trailing: _UnreadBadge(
-                                          count: unreadState.unreadFor(
-                                            ConversationType.adminChat,
-                                          ),
-                                        ),
-                                        onTap: () {
-                                          Navigator.pop(context);
-                                          context.go(
-                                            AdminChatHostScreen.routeName,
-                                          );
-                                        },
-                                      ),
-                                  ],
+                              // Flattened directly under "Messages" (no
+                              // intermediate "Parent Messaging" nesting) —
+                              // Room Chat and Admin Chat are the two options
+                              // a parent needs, one tap away.
+                              if (showParentMessagingDrawer)
+                                DrawerListTile(
+                                  title: 'Room Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.classroom_drawer_icon,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.roomChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(
+                                      MessagingScreen.parentMessagingRoute,
+                                    );
+                                  },
+                                ),
+                              if (showAdminChatDrawer)
+                                DrawerListTile(
+                                  title: 'Admin Chat',
+                                  leading: SvgPicture.asset(
+                                    MediaRes.parentMessaging,
+                                    colorFilter: const ColorFilter.mode(
+                                      AppColors.themeColor,
+                                      BlendMode.srcIn,
+                                    ),
+                                  ),
+                                  trailing: _UnreadBadge(
+                                    count: unreadState.unreadFor(
+                                      ConversationType.adminChat,
+                                    ),
+                                  ),
+                                  onTap: () {
+                                    Navigator.pop(context);
+                                    context.go(
+                                      AdminChatHostScreen.routeName,
+                                    );
+                                  },
                                 ),
                               if (showParentNewsletterDrawer)
                                 DrawerListTile(
@@ -1339,10 +1340,18 @@ class _CustomDrawerState extends State<CustomDrawer> {
                         },
                       ),
                       const SizedBox(height: 15),
-                      const Text(
-                        "Version : 1.3.9",
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white),
+                      FutureBuilder<PackageInfo>(
+                        future: PackageInfo.fromPlatform(),
+                        builder: (context, snapshot) {
+                          final version = snapshot.hasData
+                              ? snapshot.data!.version
+                              : '';
+                          return Text(
+                            version.isNotEmpty ? "Version : $version" : "",
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(color: Colors.white),
+                          );
+                        },
                       ),
                     ],
                   ),

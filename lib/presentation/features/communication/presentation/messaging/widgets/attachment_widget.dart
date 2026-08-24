@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
-
 import 'dart:io';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:mime/mime.dart';
+import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/file_picker_utils.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
 import 'package:path/path.dart' as p;
-
 import '../../../../../../app/theme/colors.dart';
 import '../../../../../../domain/features/communication/entities/message.dart';
 
@@ -33,31 +31,11 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
   void _showWarningMessage(String message) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).removeCurrentSnackBar();
-      final snackBar = SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.warning, color: Colors.orange),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                message,
-                style: const TextStyle(
-                  color: Colors.orange,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.orange.shade50,
-        duration: const Duration(seconds: 2),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(10),
-          side: BorderSide(color: Colors.orange.shade100),
-        ),
+      CoreUtils.showTopSnackBar(
+        context: context,
+        message: message,
+        isWarning: true,
       );
-      ScaffoldMessenger.of(context).showSnackBar(snackBar);
     });
   }
 
@@ -261,11 +239,7 @@ class _AttachmentWidgetState extends State<AttachmentWidget> {
                     color: AppColors.primaryColor.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(
-                    icon,
-                    color: AppColors.primaryColor,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: AppColors.primaryColor, size: 24),
                 ),
                 const SizedBox(width: 16),
                 Expanded(

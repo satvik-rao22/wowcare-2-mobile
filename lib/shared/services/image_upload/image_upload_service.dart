@@ -201,6 +201,100 @@ class ImageUploadService {
     );
   }
 
+  /// Presigns every file in [assets] under one session in a single call to
+  /// the same `assets/presign/batch` endpoint [createAssetPresign] hits with
+  /// just one — sending N separate presign requests (and N separate upload
+  /// sessions, one per file, at the call site) is what the endpoint's own
+  /// name says it isn't meant for. Results come back in the same order as
+  /// [assets].
+  Future<List<AssetPresignResult>> createAssetPresignBatch({
+    required String sessionCode,
+    required String documentApiBasePath,
+    required List<AssetPresignRequest> assets,
+  }) async {
+    if (assets.isEmpty) return const [];
+
+    final origin = ApiConstants.documentMsBaseUrl.replaceAll(RegExp(r'/+$'), '');
+    final path = ApiPaths.documentAssetPresignPath(
+      documentApiBasePath: documentApiBasePath,
+      sessionCode: sessionCode,
+    );
+    final endpoint = '$origin$path';
+
+    final response = await _apiClient.client
+        .post<dynamic>(
+          endpoint,
+          data: <String, dynamic>{
+            'assets': assets
+                .map(
+                  (a) => <String, dynamic>{
+                    'fileName': a.fileName,
+                    'contentType': a.contentType,
+                    'contentLengthBytes': a.contentLengthBytes,
+                    if ((a.checksumSha256 ?? '').trim().isNotEmpty)
+                      'checksumSha256': a.checksumSha256!.trim(),
+                    'mediaType': a.mediaType,
+                    'ownerType': a.ownerType,
+                    'ownerCode': a.ownerCode,
+                  },
+                )
+                .toList(),
+          },
+        )
+        .catchError((error) {
+          if (error is DioException) {
+            throw Exception(_extractErrorMessageFromDio(error));
+          }
+          throw error;
+        });
+
+    final body = response.data;
+    if (body is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API response format');
+    }
+    if (body['success'] == false) {
+      final message = (body['message'] ?? '').toString().trim();
+      throw Exception(message.isNotEmpty ? message : 'Assets presign failed');
+    }
+
+    final data = body['data'];
+    if (data is! Map<String, dynamic>) {
+      throw Exception('Unexpected assets presign API data format');
+    }
+
+    final uploads = data['uploads'];
+    if (uploads is! List || uploads.length != assets.length) {
+      throw Exception('Unexpected assets presign uploads format');
+    }
+
+    return uploads.map((raw) {
+      if (raw is! Map) {
+        throw Exception('Unexpected assets presign upload item format');
+      }
+      final assetCode = (raw['assetCode'] ?? '').toString().trim();
+      final presignedPutUrl = (raw['presignedPutUrl'] ?? '').toString().trim();
+      if (assetCode.isEmpty || presignedPutUrl.isEmpty) {
+        throw Exception('Missing assetCode or presignedPutUrl in presign response');
+      }
+      final rawHeaders = raw['requiredHeaders'];
+      final requiredHeaders = <String, String>{};
+      if (rawHeaders is Map) {
+        rawHeaders.forEach((key, value) {
+          final k = key.toString().trim();
+          final v = value.toString().trim();
+          if (k.isNotEmpty && v.isNotEmpty) {
+            requiredHeaders[k] = v;
+          }
+        });
+      }
+      return AssetPresignResult(
+        assetCode: assetCode,
+        presignedPutUrl: presignedPutUrl,
+        requiredHeaders: requiredHeaders,
+      );
+    }).toList();
+  }
+
   String _extractErrorMessageFromDio(DioException error) {
     final data = error.response?.data;
     if (data is Map) {
@@ -267,45 +361,61 @@ class ImageUploadService {
       body: '<binary: ${bytes.length} bytes>',
     );
 
-    try {
-      final response = await uploadClient.putUri<dynamic>(
-        putUri,
-        data: bytes,
-        options: Options(
-          headers: headers,
-          responseType: ResponseType.plain,
-          validateStatus: (status) =>
-              status != null && status >= 200 && status < 300,
-        ),
-        onSendProgress: (sent, total) {
-          final effectiveTotal =
-              (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
-          if (effectiveTotal <= 0) return;
-          final fraction = sent / effectiveTotal;
-          final percent = (fraction * 100).clamp(0, 100).round();
-          onProgress?.call(sent, effectiveTotal, percent);
-        },
-      );
-      ApiLogger.logResponse(
-        url: logUrl,
-        method: 'PUT',
-        statusCode: response.statusCode,
-        data: response.data,
-      );
+    // The presigned URL is valid for an hour (see AssetPresignResult), so a
+    // couple of short retries on a transient DNS/connection blip (no HTTP
+    // response at all — e.g. "Failed host lookup" on flaky Wi-Fi/mobile
+    // data) is safe. A real HTTP error response (expired/invalid signature,
+    // S3-side rejection) is not retried — retrying that would just fail the
+    // same way three times slower.
+    const maxAttempts = 3;
+    for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        final response = await uploadClient.putUri<dynamic>(
+          putUri,
+          data: bytes,
+          options: Options(
+            headers: headers,
+            responseType: ResponseType.plain,
+            validateStatus: (status) =>
+                status != null && status >= 200 && status < 300,
+          ),
+          onSendProgress: (sent, total) {
+            final effectiveTotal =
+                (total > 0) ? total : (bytes.isNotEmpty ? bytes.length : 0);
+            if (effectiveTotal <= 0) return;
+            final fraction = sent / effectiveTotal;
+            final percent = (fraction * 100).clamp(0, 100).round();
+            onProgress?.call(sent, effectiveTotal, percent);
+          },
+        );
+        ApiLogger.logResponse(
+          url: logUrl,
+          method: 'PUT',
+          statusCode: response.statusCode,
+          data: response.data,
+        );
 
-      final status = response.statusCode ?? 0;
-      if (status < 200 || status >= 300) {
-        throw Exception('Failed to upload file to storage');
+        final status = response.statusCode ?? 0;
+        if (status < 200 || status >= 300) {
+          throw Exception('Failed to upload file to storage');
+        }
+        return;
+      } on DioException catch (e) {
+        ApiLogger.logError(
+          url: logUrl,
+          method: 'PUT',
+          message: e.message,
+          statusCode: e.response?.statusCode,
+          errorData: e.response?.data,
+        );
+        final isTransientNetworkError =
+            e.response == null &&
+            (e.type == DioExceptionType.connectionError ||
+                e.type == DioExceptionType.connectionTimeout ||
+                e.type == DioExceptionType.unknown);
+        if (!isTransientNetworkError || attempt == maxAttempts) rethrow;
+        await Future.delayed(Duration(seconds: attempt));
       }
-    } on DioException catch (e) {
-      ApiLogger.logError(
-        url: logUrl,
-        method: 'PUT',
-        message: e.message,
-        statusCode: e.response?.statusCode,
-        errorData: e.response?.data,
-      );
-      rethrow;
     }
   }
 
@@ -336,6 +446,110 @@ class ImageUploadService {
       }
       await Future.delayed(pollEvery);
     }
+  }
+
+  /// Backoff schedule for [waitUntilAssetsReadyBackoff]: check immediately,
+  /// then 4 quick re-checks 1.5s apart, then 12 slower re-checks 3s apart
+  /// (~42s total) — fast first checks catch the common "already done by the
+  /// time we ask" case without hammering the endpoint, easing off for
+  /// larger files that take longer to transcode.
+  static const List<Duration> _readyPollDelays = [
+    Duration.zero,
+    Duration(milliseconds: 1500),
+    Duration(milliseconds: 1500),
+    Duration(milliseconds: 1500),
+    Duration(milliseconds: 1500),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+  ];
+
+  static const Set<String> _terminalFailureStatuses = {
+    'FAILED',
+    'DELETED',
+    'ABANDONED',
+  };
+
+  /// Batch-resolves [assetCodes] against `POST .../media-assets/resolve` —
+  /// the same endpoint the reports download flow already uses. Returns each
+  /// resolved asset's status/deliveryUrl/thumbnailUrl, keyed by assetCode.
+  /// Codes missing from the response (not yet visible to the resolve
+  /// endpoint) are simply absent from the result.
+  Future<Map<String, ({String status, String deliveryUrl, String thumbnailUrl})>>
+  resolveMediaAssets(List<String> assetCodes) async {
+    final codes = assetCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
+    if (codes.isEmpty) return const {};
+
+    final response = await _apiClient.client.post<dynamic>(
+      ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
+      data: <String, dynamic>{'assetCodes': codes},
+    );
+
+    final body = response.data;
+    final result = <String, ({String status, String deliveryUrl, String thumbnailUrl})>{};
+    if (body is! Map) return result;
+    final data = body['data'];
+    if (data is! Map) return result;
+    final assets = data['assets'];
+    if (assets is! List) return result;
+
+    for (final item in assets) {
+      if (item is! Map) continue;
+      final assetCode = (item['assetCode'] ?? '').toString().trim();
+      if (assetCode.isEmpty) continue;
+      result[assetCode] = (
+        status: (item['status'] ?? '').toString().trim().toUpperCase(),
+        deliveryUrl: (item['deliveryUrl'] ?? '').toString().trim(),
+        thumbnailUrl: (item['thumbnailUrl'] ?? '').toString().trim(),
+      );
+    }
+    return result;
+  }
+
+  /// Blocks until every one of [assetCodes] is `READY` (has a delivery URL),
+  /// polling [resolveMediaAssets] on [_readyPollDelays]'s backoff schedule.
+  /// Throws immediately on a terminal failure status (`FAILED`/`DELETED`/
+  /// `ABANDONED`) for any asset, or once the schedule is exhausted without
+  /// every asset reaching READY. Returns `assetCode → deliveryUrl` on
+  /// success.
+  Future<Map<String, String>> waitUntilAssetsReadyBackoff({
+    required List<String> assetCodes,
+  }) async {
+    final pending = assetCodes.map((e) => e.trim()).where((e) => e.isNotEmpty).toSet();
+    if (pending.isEmpty) return const {};
+
+    final resolved = <String, String>{};
+    for (final delay in _readyPollDelays) {
+      if (delay > Duration.zero) await Future.delayed(delay);
+
+      final statuses = await resolveMediaAssets(pending.toList());
+      for (final code in pending.toList()) {
+        final info = statuses[code];
+        if (info == null) continue;
+        if (_terminalFailureStatuses.contains(info.status)) {
+          throw Exception('Attachment processing failed. Please retry.');
+        }
+        final url = info.deliveryUrl.isNotEmpty
+            ? info.deliveryUrl
+            : info.thumbnailUrl;
+        if (info.status == 'READY' && url.isNotEmpty) {
+          resolved[code] = url;
+          pending.remove(code);
+        }
+      }
+      if (pending.isEmpty) return resolved;
+    }
+
+    throw Exception('Attachment processing took too long. Please retry.');
   }
 
   Future<Map<String, String>> getUploadAssetStatuses({

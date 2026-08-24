@@ -29,7 +29,7 @@ import 'package:wowcare/presentation/features/reports/view/students_and_family_r
 import 'package:wowcare/presentation/features/reports/widgets/generated_reports_list.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_card.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
@@ -106,7 +106,10 @@ class _ReportsScreenState extends State<ReportsScreen>
         );
         break;
       case 'School Incident Report':
-        screen = StudentIncidentReportScreen(students: reports.studentNames);
+        screen = StudentIncidentReportScreen(
+          students: reports.studentNames,
+          classrooms: reports.classroomNames,
+        );
         break;
     }
 
@@ -213,6 +216,7 @@ class _ReportsScreenState extends State<ReportsScreen>
   }
 
   void _openBillingReportForm(BuildContext context, String name) {
+    final reports = context.read<ReportsCubit>().state;
     final cubit = context.read<ReportsCubit>();
     Widget? screen;
     switch (name) {
@@ -220,33 +224,43 @@ class _ReportsScreenState extends State<ReportsScreen>
         screen = const BillingTransactionReportScreen();
         break;
       case 'Invoice Report':
-        screen = const BillingReportFormScreen(
+        screen = BillingReportFormScreen(
           reportType: ReportType.billingInvoice,
           title: 'Invoice Report',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
         );
         break;
       case 'Payment Summary':
-        screen = const BillingReportFormScreen(
+        screen = BillingReportFormScreen(
           reportType: ReportType.billingPaymentSummary,
           title: 'Payment Summary',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
         );
         break;
       case 'Outstanding Report':
-        screen = const BillingReportFormScreen(
+        screen = BillingReportFormScreen(
           reportType: ReportType.billingOutstanding,
           title: 'Outstanding Report',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
         );
         break;
       case 'Refund Report':
-        screen = const BillingReportFormScreen(
+        screen = BillingReportFormScreen(
           reportType: ReportType.billingRefund,
           title: 'Refund Report',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
         );
         break;
       case 'Students & Billing Mapping':
-        screen = const BillingReportFormScreen(
+        screen = BillingReportFormScreen(
           reportType: ReportType.billingStudentMapping,
           title: 'Students & Billing Mapping',
+          classrooms: reports.classroomNames,
+          students: reports.studentNames,
         );
         break;
     }
@@ -416,7 +430,7 @@ class _ReportsScreenState extends State<ReportsScreen>
         BlocProvider<ClassroomCubit>(
           create: (_) =>
               serviceLocator<ClassroomCubit>()
-                ..loadActiveClassrooms(onlyTypeClassroom: true),
+                ..loadActiveClassrooms(force: true, onlyTypeClassroom: true),
         ),
         BlocProvider<StudentCubit>(
           create: (_) => serviceLocator<StudentCubit>()..loadInitial(),

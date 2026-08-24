@@ -9,8 +9,8 @@ abstract class ReportParams extends Equatable {
   /// The report type this params instance represents.
   ReportType get reportType;
 
-  /// Start date for the report period.
-  DateTime get startDate;
+  /// Start date for the report period (optional for reports that don't use date ranges).
+  DateTime? get startDate;
 
   /// Export format for the report (PDF or XLSX).
   String get format;

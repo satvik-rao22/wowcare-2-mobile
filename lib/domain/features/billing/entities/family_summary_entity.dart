@@ -32,6 +32,12 @@ class FamilySummaryEntity extends Equatable {
   final String lastPaymentMethod;
   final double openBalance;
 
+  /// True when this family has at least one invoice or payment on record.
+  /// Web's family-summary list only shows families that have been billed at
+  /// least once; mobile was showing every family regardless, so this is used
+  /// to filter the list client-side to match.
+  bool get hasTransactions => lastInvoiceDate != null || lastPaymentDate != null;
+
   @override
   List<Object?> get props => [
         ownerType,

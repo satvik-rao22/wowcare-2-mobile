@@ -21,6 +21,7 @@ class SelectedRecipient {
     this.userCode = '',
     this.avatar = '',
     this.designation = '',
+    this.classroomCode = '',
   });
 
   /// The primary identity code.
@@ -35,6 +36,13 @@ class SelectedRecipient {
   final String userCode;
   final String avatar;
   final String designation;
+
+  /// Room Chat's optional classroom scope — populated only by callers that
+  /// already know it (e.g. a classroom's own Students tab). Left blank for
+  /// screens like Student Directory that aren't scoped to one classroom;
+  /// the backend resolves the conversation from studentCode alone in that
+  /// case, same as it did before this field existed.
+  final String classroomCode;
 }
 
 /// Guards against a rapid double-tap on the Message button firing two
@@ -66,12 +74,11 @@ Future<void> openMessagingShortcut(
     // selection, and the bulk compose screen only supports one recipient
     // type at a time — decline gracefully rather than inventing a new,
     // unreviewed mixed-conversation flow.
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text(
+    CoreUtils.showTopSnackBar(
+      context: context,
+      message:
           'Messaging a mix of students and staff together is not supported yet.',
-        ),
-      ),
+      isWarning: true,
     );
     return;
   }
@@ -112,6 +119,7 @@ Future<void> _openSingleRecipientConversation(
   final result = await serviceLocator<CreateOrOpenConversationUseCase>()(
     type: type,
     studentCode: recipient.isStaff ? '' : recipient.code,
+    classroomCode: recipient.isStaff ? null : recipient.classroomCode,
     participantCodes: recipient.isStaff ? [staffParticipantCode] : const [],
     title: recipient.name,
     avatarUrl: recipient.avatar,
@@ -120,9 +128,15 @@ Future<void> _openSingleRecipientConversation(
   if (!context.mounted) return;
   final conversation = result.fold((_) => null, (c) => c);
   if (conversation == null) {
+    // Surface the backend's actual reason (e.g. "This student has no
+    // parent/guardian added...") instead of a generic message that hides
+    // why the conversation couldn't be opened.
+    final failureMessage = result.fold((f) => f.message, (_) => null);
     CoreUtils.showTopSnackBar(
       context: context,
-      message: 'Could not open a conversation with ${recipient.name}',
+      message: (failureMessage != null && failureMessage.trim().isNotEmpty)
+          ? failureMessage
+          : 'Could not open a conversation with ${recipient.name}',
       isWarning: true,
     );
     return;
@@ -137,10 +151,19 @@ Future<void> _openSingleRecipientConversation(
     final name = conversation.title.isNotEmpty
         ? conversation.title
         : recipient.name;
+    // Total active participants minus the viewer themselves (always one of
+    // them, having just created/opened this conversation) — seeded so the
+    // fresh per-thread CommunicationCubit's read/delivered-by-all tick
+    // aggregation has a recipient count to work with. See
+    // CommunicationCubit.seedRecipientCount's own doc for why this is
+    // required, not just an optimization.
+    final recipientCount =
+        conversation.participants.where((p) => p.isActive).length - 1;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => BlocProvider<CommunicationCubit>(
-          create: (context) => serviceLocator<CommunicationCubit>(),
+          create: (context) => serviceLocator<CommunicationCubit>()
+            ..seedRecipientCount(conversation.code, recipientCount),
           child: StaffMessagingThread(
             staffInfo: {
               'name': name,

@@ -4,6 +4,7 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/cache/cache_service.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/util/api_error_handler.dart';
+import '../../../../core/util/isar_utils.dart';
 import '../../../../core/storage/storage_service.dart';
 import '../../../../core/util/school_timezone_resolver.dart';
 import '../../../../core/util/school_zone_datetime.dart';
@@ -43,6 +44,38 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       (await storageService.getString(StorageKeys.schoolCode))?.trim() ?? '';
   Future<String> get _userCode async =>
       (await storageService.getString(StorageKeys.userCode))?.trim() ?? '';
+
+  /// The REST `/conversations/type/{TYPE}` list's own `unreadCount` field is
+  /// confirmed always empty — the backend doesn't compute it there. This
+  /// used to fall back to a separate REST call
+  /// (`/messages/unread-per-conversation`) to fill it in, but unread counts
+  /// must come from Firestore only — no API call of any kind (see
+  /// [ConversationListCubit]/`UnreadBadgeCubit`'s own "Firestore is the sole
+  /// source of truth" contract, and this endpoint was firing on every
+  /// conversation-list load/refresh across every legacy messaging screen,
+  /// intermittently flashing a stale REST count before Firestore's own
+  /// listener corrected it). Derives only from data already in hand — the
+  /// per-user participant field on each conversation (also currently always
+  /// empty, but read on the chance the backend starts populating it) — no
+  /// network call. Firestore (via the cubit's own watch/reconciliation)
+  /// remains the real source for unread counts.
+  Future<List<Conversation>> _resolveUnreadCounts(
+    List<Conversation> conversations,
+  ) async {
+    final userCode = await _userCode;
+    if (userCode.isEmpty) return conversations;
+    return conversations.map((c) {
+      ConversationParticipant? mine;
+      for (final p in c.participants) {
+        if (p.userCode == userCode) {
+          mine = p;
+          break;
+        }
+      }
+      if (mine == null) return c;
+      return c.copyWith(unreadCount: mine.unreadCount);
+    }).toList();
+  }
 
   @override
   Future<Either<Failure, List<Message>>> getMessages(
@@ -150,6 +183,16 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         MessageCollection.fromEntity(sentMessage, threadId),
       );
 
+      // The confirmed message is cached under its real server `code`, a
+      // different Isar row (isarId is hashed from code) than the draft row
+      // [cacheMessage] wrote under the client-side temp id passed in via
+      // `message.id`/`message.code` — without this, the draft row lingers
+      // as a stale duplicate every time an attachment message sends
+      // successfully.
+      if (message.id.isNotEmpty && message.id != sentMessage.code) {
+        await cacheService.delete<MessageCollection>(fastHash(message.id));
+      }
+
       return Right(sentMessage);
     } catch (e) {
       return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
@@ -225,6 +268,12 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     String status = 'ACTIVE',
     int page = 0,
     int size = 20,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
   }) async {
     try {
       // 1. Try to load from cache first
@@ -243,24 +292,40 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
         status: status,
         page: page,
         size: size,
+        classroomCodes: classroomCodes,
+        tagCodes: tagCodes,
+        designations: designations,
+        studentStatuses: studentStatuses,
+        staffStatuses: staffStatuses,
+        search: search,
       );
 
       if (response.success && response.data != null) {
-        final conversations = response.data!.content;
+        // The list response's `unreadCount` is confirmed always empty — null
+        // at the conversation level, 0 on every participant — the backend
+        // doesn't compute it here yet. `_resolveUnreadCounts` reads the
+        // per-user participant value on the chance the backend starts
+        // populating it, but until then this stays a no-op and Firestore
+        // (via the cubit's own reconciliation) remains the real source.
+        final conversations = await _resolveUnreadCounts(
+          response.data!.content,
+        );
 
         // 3. Update cache (for first page)
         if (page == 0) {
-          // Firestore is the source of truth for the live fields (unreadCount +
-          // lastMessagePreview). The REST list returns the conversation-level,
-          // shared-across-all-participants preview — which is the neutral
-          // "Private message" placeholder for private messages — whereas the
-          // per-user Firestore inbox carries the REAL last message for the
-          // parent/staff who may see it. So DON'T let this REST refresh clobber
-          // those fields on conversations we already have cached (that would make
+          // Firestore is the source of truth for the live fields (unreadCount
+          // + lastMessagePreview). The REST list returns the
+          // conversation-level, shared-across-all-participants preview —
+          // which is the neutral "Private message" placeholder for private
+          // messages, and an always-empty unreadCount — whereas the per-user
+          // Firestore inbox carries the REAL values for the parent/staff who
+          // may see them. So DON'T let this REST refresh clobber those
+          // fields on conversations we already have cached (that would make
           // a read private message revert from its real text to "Private
-          // message"). Preserve them from the existing row; refresh everything
-          // else from REST. New conversations take the REST value until the next
-          // Firestore snapshot fills in the real preview.
+          // message", or an accurate badge revert to 0). Preserve them from
+          // the existing row; refresh everything else from REST. New
+          // conversations take the REST value until the next Firestore
+          // snapshot fills in the real data.
           final existingByCode = {
             for (final c in await cacheService.getAll<ConversationCollection>())
               c.code: c,
@@ -273,10 +338,25 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
               col.unreadCount = prev.unreadCount;
               col.lastMessageAt = prev.lastMessageAt;
               col.lastMessageBy = prev.lastMessageBy;
+              col.lastMessageSenderName = prev.lastMessageSenderName;
             }
             return col;
           }).toList();
-          await cacheService.clear<ConversationCollection>();
+          // Only wipe the rows for THIS type — a bare `clear()` nukes every
+          // cached conversation of every type/status combination (e.g.
+          // fetching Staff Direct/INACTIVE was silently wiping out the
+          // already-loaded Room Chat list too), which then fed into the
+          // Firestore merge below finding no cached row for those other
+          // conversations and dropping them from the UI entirely.
+          if (type != null) {
+            final staleForType = await cacheService
+                .getByField<ConversationCollection>('type', type);
+            for (final stale in staleForType) {
+              await cacheService.delete<ConversationCollection>(stale.isarId);
+            }
+          } else {
+            await cacheService.clear<ConversationCollection>();
+          }
           await cacheService.putAll(toStore);
         }
 
@@ -312,6 +392,32 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
+  Future<Either<Failure, List<Conversation>>> searchConversations({
+    required String query,
+    String? type,
+    String status = 'ACTIVE',
+    int page = 0,
+    int size = 50,
+  }) async {
+    try {
+      final response = await remoteDataSource.searchConversations(
+        query: query,
+        type: type,
+        status: status,
+        page: page,
+        size: size,
+      );
+
+      if (response.success && response.data != null) {
+        return Right(response.data!.content);
+      }
+      return Left(ServerFailure(response.message));
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
   Future<Either<Failure, List<Conversation>>> loadCachedConversations() async {
     try {
       final cachedItems = await cacheService.getAll<ConversationCollection>();
@@ -341,6 +447,29 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
+  Future<Either<Failure, void>> cacheMessage(
+    String threadId,
+    Message message,
+  ) async {
+    try {
+      await cacheService.put(MessageCollection.fromEntity(message, threadId));
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> discardCachedMessage(String messageId) async {
+    try {
+      await cacheService.delete<MessageCollection>(fastHash(messageId));
+      return const Right(null);
+    } catch (e) {
+      return Left(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> addReaction(
     String threadId,
     String messageCode,
@@ -362,8 +491,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       // A user may hold multiple distinct emojis; only append this (me, emoji)
       // pair if it isn't already present — do NOT replace their other emojis.
       final list = List<MessageReactionCollection>.from(originalReactions);
-      final alreadyPresent =
-          list.any((r) => r.userId == 'me' && r.emoji == emoji);
+      final alreadyPresent = list.any(
+        (r) => r.userId == 'me' && r.emoji == emoji,
+      );
       if (!alreadyPresent) {
         list.add(
           MessageReactionCollection()
@@ -517,6 +647,33 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
   }
 
   @override
+  Future<Either<Failure, Map<String, int>>>
+  getUnreadCountsPerConversation() async {
+    try {
+      final map = await remoteDataSource.getUnreadCountsPerConversation();
+      return Right(map);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
+  Future<
+    Either<
+      Failure,
+      ({List<RecipientStatus> deliveredTo, List<RecipientStatus> readBy})
+    >
+  >
+  getMessageReceipts(String messageCode) async {
+    try {
+      final receipts = await remoteDataSource.getMessageReceipts(messageCode);
+      return Right(receipts);
+    } catch (e) {
+      return Left(ServerFailure(ApiErrorHandler.extractErrorMessage(e)));
+    }
+  }
+
+  @override
   Future<Either<Failure, Message>> editMessage(
     String messageCode,
     String content,
@@ -621,6 +778,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                 item.lastMessageAt ?? existing.lastMessageAt;
             existing.lastMessageBy =
                 item.lastMessageSenderCode ?? existing.lastMessageBy;
+            existing.lastMessageSenderName =
+                item.lastMessageSenderName ?? existing.lastMessageSenderName;
             // Take the inbox preview verbatim, including empty. The Firestore snapshot is a
             // full-document read, so an empty preview means the backend cleared it (every
             // message in the conversation was deleted) — not a partial update. The previous
@@ -644,7 +803,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
           if (toBackfill.isNotEmpty) {
             _refreshedConversationCodes.addAll(toBackfill);
             try {
-              await getConversations(type: type); // source of truth → persists to Isar
+              await getConversations(
+                type: type,
+              ); // source of truth → persists to Isar
             } catch (_) {
               // best-effort; a later snapshot / pull-to-refresh will retry
             }
@@ -679,11 +840,22 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
     final userCode = await _userCode;
     if (org.isEmpty || school.isEmpty || userCode.isEmpty) return;
 
-    final roleJson = (await storageService.getString(StorageKeys.roles) ?? '').toUpperCase();
-    final activeRole = (await storageService.getString(StorageKeys.activeSchoolRole) ?? '').toUpperCase();
-    
-    final isStaff = activeRole == 'STAFF' || activeRole == 'TEACHER' || (activeRole.isEmpty && (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
-    final isAdmin = activeRole.contains('ADMIN') || activeRole.contains('DIRECTOR') || (activeRole.isEmpty && (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
+    final roleJson = (await storageService.getString(StorageKeys.roles) ?? '')
+        .toUpperCase();
+    final activeRole =
+        (await storageService.getString(StorageKeys.activeSchoolRole) ?? '')
+            .toUpperCase();
+
+    final isStaff =
+        activeRole == 'STAFF' ||
+        activeRole == 'TEACHER' ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('STAFF') || roleJson.contains('TEACHER')));
+    final isAdmin =
+        activeRole.contains('ADMIN') ||
+        activeRole.contains('DIRECTOR') ||
+        (activeRole.isEmpty &&
+            (roleJson.contains('ADMIN') || roleJson.contains('DIRECTOR')));
 
     yield* messageRealtimeDataSource
         .watchMessages(
@@ -735,6 +907,22 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
       ..senderUserCode = entity.senderCode.isNotEmpty
           ? entity.senderCode
           : existing?.senderUserCode
+      // A message's sender role can never change after the fact — so once
+      // cached (from the initial REST load, pagination, or a prior realtime
+      // merge), always keep it. Firestore is only trusted for a message code
+      // seen here for the first time. This matters because older Firestore
+      // docs (written before the backend started stamping `senderRole` on
+      // writes) parse to a hardcoded 'PARENT' fallback (see
+      // MessageFirestoreItem.fromFirestore) — the realtime listener re-reads
+      // the WHOLE thread's docs on every snapshot event (new message,
+      // reaction, read receipt, anything), so without this guard that bad
+      // default would silently overwrite an already-correct cached value on
+      // the very next unrelated event, long after the message was first
+      // loaded — exactly the "alignment looks right, then breaks again"
+      // symptom this was fixed for.
+      ..senderRole = (existing?.senderRole?.isNotEmpty ?? false)
+          ? existing!.senderRole
+          : entity.senderRole.toApiString()
       ..time = existing?.time ?? entity.sentAt
       ..deliveredAt = existing?.deliveredAt
       ..readAt = existing?.readAt
@@ -766,7 +954,8 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                   (r) => RecipientStatusCollection()
                     ..name = r.userName
                     ..userId = r.userCode
-                    ..timestamp = r.deliveredAt,
+                    ..timestamp = r.deliveredAt
+                    ..role = r.role,
                 )
                 .toList()
           : existing?.deliveredTo
@@ -777,11 +966,41 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                   (r) => RecipientStatusCollection()
                     ..name = r.userName
                     ..userId = r.userCode
-                    ..timestamp = r.readAt,
+                    ..timestamp = r.readAt
+                    ..role = r.role,
                 )
                 .toList()
           : existing?.readBy
-      ..attachments = existing?.attachments
+      // Prefer the realtime payload's own attachments over whatever's
+      // cached: for a message never cached under THIS code before (exactly
+      // true for a message this device just sent — it was only ever cached
+      // under its temp code), `existing` is null, so unconditionally
+      // trusting `existing?.attachments` silently wrote `null` into Isar
+      // here on the very first delta for that message — permanently, since
+      // every later delta just copied that same null forward. The bubble
+      // would flash the correct image once (the optimistic/REST-confirmed
+      // emit), then lose it the instant this merge ran, with no way back
+      // short of a REST refetch. `entity.attachments` is trustworthy now —
+      // see MessageFirestoreItem._parseAttachments, which used to drop a
+      // still-processing attachment outright and now keeps it (with an
+      // empty fileUrl) instead. Only fall back to the cached value when
+      // Firestore genuinely has nothing (an unrelated delta for a message
+      // whose attachments were already correctly cached before).
+      ..attachments = entity.attachments.isNotEmpty
+          ? entity.attachments
+                .map(
+                  (a) => ChatAttachmentCollection()
+                    ..name = a.fileName
+                    ..type = a.isImage ? 'image' : 'file'
+                    ..sizeBytes = a.fileSizeBytes
+                    ..mimeType = a.mimeType
+                    ..remoteUrl = a.fileUrl
+                    ..localPath = a.localFilePath
+                    ..code = a.code.isEmpty ? null : a.code
+                    ..attachmentId = a.attachmentId,
+                )
+                .toList()
+          : existing?.attachments
       // Firestore's reactions map can lag behind a just-added local reaction
       // (eventual consistency) — only overwrite the cache when the realtime
       // payload actually carries reactions, otherwise keep what's cached so
@@ -792,7 +1011,9 @@ class CommunicationRepositoryImpl implements CommunicationRepository {
                 .map(
                   (r) => MessageReactionCollection()
                     ..userId = r.userCode
-                    ..emoji = r.emoji,
+                    ..emoji = r.emoji
+                    ..role = r.role
+                    ..userName = r.userName,
                 )
                 .toList()
           : existing?.reactions;

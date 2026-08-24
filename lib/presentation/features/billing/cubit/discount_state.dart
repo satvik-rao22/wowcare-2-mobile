@@ -33,6 +33,17 @@ class DiscountState extends Equatable {
 
   bool get hasError => errorMessage != null;
 
+  /// Client-side name search over whatever's currently loaded — the backend
+  /// `name` query param on this endpoint doesn't actually filter results, so
+  /// search is applied here instead of relying on the API.
+  List<DiscountAccountModel> get filteredDiscounts {
+    final q = searchQuery.trim().toLowerCase();
+    if (q.isEmpty) return allDiscounts;
+    return allDiscounts
+        .where((d) => d.name.toLowerCase().contains(q))
+        .toList();
+  }
+
   DiscountState copyWith({
     List<DiscountAccountModel>? allDiscounts,
     String? searchQuery,

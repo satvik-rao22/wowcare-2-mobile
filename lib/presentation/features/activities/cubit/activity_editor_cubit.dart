@@ -12,6 +12,7 @@ import 'package:wowcare/domain/features/activity/usecases/get_classroom_activity
 import 'package:wowcare/domain/features/activity/usecases/guardian_parent_signature_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/reject_activity_usecase.dart';
 import 'package:wowcare/domain/features/activity/usecases/update_activity_usecase.dart';
+import 'package:wowcare/domain/features/attendance/usecases/get_staff_today_sign_in_status_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_guardian_name_code_map_for_school_usecase.dart';
 
 /// Shared ViewModel (Cubit) for the activity create/edit/approve/reject forms.
@@ -35,6 +36,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required GuardianParentSignatureUseCase guardianParentSignatureUseCase,
     required GetGuardianNameCodeMapForSchoolUseCase
         getGuardianNameCodeMapForSchoolUseCase,
+    required GetStaffTodaySignInStatusUseCase getStaffTodaySignInStatusUseCase,
   })  : _getClassroomActivitySettingsUseCase = getClassroomActivitySettingsUseCase,
         _getActivityTypeDetailsUseCase = getActivityTypeDetailsUseCase,
         _createActivityUseCase = createActivityUseCase,
@@ -46,6 +48,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
         _guardianParentSignatureUseCase = guardianParentSignatureUseCase,
         _getGuardianNameCodeMapForSchoolUseCase =
             getGuardianNameCodeMapForSchoolUseCase,
+        _getStaffTodaySignInStatusUseCase = getStaffTodaySignInStatusUseCase,
         super(const ActivityEditorState());
 
   final GetClassroomActivitySettingsUseCase _getClassroomActivitySettingsUseCase;
@@ -59,6 +62,7 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
   final GuardianParentSignatureUseCase _guardianParentSignatureUseCase;
   final GetGuardianNameCodeMapForSchoolUseCase
       _getGuardianNameCodeMapForSchoolUseCase;
+  final GetStaffTodaySignInStatusUseCase _getStaffTodaySignInStatusUseCase;
 
   Future<List<ActivitySetting>> getClassroomActivitySettings({
     required String classroomCode,
@@ -86,6 +90,9 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String description,
     bool? napStart,
     bool? napEnd,
+    bool? napReminderEnabled,
+    String? napReminderUserCode,
+    String? napReminderRole,
     bool? requireAdminApproval,
     List<Map<String, dynamic>> parameterValues = const [],
     List<Map<String, dynamic>> attachments = const [],
@@ -101,6 +108,9 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
         description: description,
         napStart: napStart,
         napEnd: napEnd,
+        napReminderEnabled: napReminderEnabled,
+        napReminderUserCode: napReminderUserCode,
+        napReminderRole: napReminderRole,
         requireAdminApproval: requireAdminApproval,
         parameterValues: parameterValues,
         attachments: attachments,
@@ -181,6 +191,31 @@ class ActivityEditorCubit extends Cubit<ActivityEditorState> {
     required String schoolCode,
   }) =>
       _getGuardianNameCodeMapForSchoolUseCase(schoolCode: schoolCode);
+
+  /// True when it's safe to submit — either this isn't an admin-on-behalf-of
+  /// create at all, or the picked staff member is confirmed signed in today.
+  /// Admins are never gated on their OWN sign-in, only on who they're
+  /// attributing the activity to; a failed status check is best-effort and
+  /// doesn't block the admin (matches the original inline behaviour this
+  /// replaces across all 9 activity-type screens).
+  Future<bool> verifyPickedStaffSignedIn({
+    required bool isEdit,
+    required bool isAdminDesignation,
+    required String? pickedStaffCode,
+    required String? ownStaffCode,
+  }) async {
+    if (isEdit || !isAdminDesignation) return true;
+    final picked = (pickedStaffCode ?? '').trim();
+    final own = (ownStaffCode ?? '').trim();
+    if (picked.isEmpty || picked == own) return true;
+    try {
+      final status =
+          await _getStaffTodaySignInStatusUseCase(staffCode: picked);
+      return status?.toUpperCase() == 'SIGNED_IN';
+    } catch (_) {
+      return true;
+    }
+  }
 }
 
 /// Stateless marker state — this cubit is a data facade; the forms keep their

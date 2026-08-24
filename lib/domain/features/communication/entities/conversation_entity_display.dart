@@ -13,8 +13,8 @@ import 'package:wowcare/domain/features/communication/entities/enums.dart';
 /// thread header) derives the same title from a single rule.
 extension ConversationEntityDisplay on ConversationEntity {
   /// The other participant in a 1:1 conversation (userCode != [currentUserCode]),
-  /// preferring an active (`leftAt == null`), named one. Null when it can't be
-  /// resolved (not a direct chat, unknown current user, or empty roster).
+  /// preferring an active, named one. Null when it can't be resolved (not a
+  /// direct chat, unknown current user, or empty roster).
   ParticipantEntity? otherParticipant(String? currentUserCode) {
     if (type != ConversationType.staffDirect) return null;
     final me = currentUserCode?.trim() ?? '';
@@ -23,7 +23,7 @@ extension ConversationEntityDisplay on ConversationEntity {
     if (others.isEmpty) return null;
     // Prefer an active participant with a non-empty name (lower score = better).
     int score(ParticipantEntity p) =>
-        (p.leftAt == null ? 0 : 1) + (p.userName.trim().isEmpty ? 2 : 0);
+        (p.isActive ? 0 : 1) + (p.userName.trim().isEmpty ? 2 : 0);
     others.sort((a, b) => score(a).compareTo(score(b)));
     return others.first;
   }
@@ -31,7 +31,10 @@ extension ConversationEntityDisplay on ConversationEntity {
   /// Title to show for a conversation row / thread header. For 1:1 chats this is
   /// the other participant's name; otherwise the stored title. Falls back to
   /// [fallback] so the UI never renders an empty label.
-  String displayTitle(String? currentUserCode, {String fallback = 'Conversation'}) {
+  String displayTitle(
+    String? currentUserCode, {
+    String fallback = 'Conversation',
+  }) {
     final other = otherParticipant(currentUserCode);
     if (other != null && other.userName.trim().isNotEmpty) {
       return other.userName.trim();

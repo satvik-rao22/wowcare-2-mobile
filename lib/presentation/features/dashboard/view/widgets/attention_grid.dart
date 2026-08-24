@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/classroom_shifts_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_attention_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/ratio_monitoring_cubit.dart';
@@ -105,10 +105,12 @@ class AttentionGrid extends StatefulWidget {
     super.key,
     this.onRatioCardTap,
     this.onShiftsCardTap,
+    this.onIncidentCardTap,
   });
 
   final VoidCallback? onRatioCardTap;
   final VoidCallback? onShiftsCardTap;
+  final VoidCallback? onIncidentCardTap;
 
   @override
   State<AttentionGrid> createState() => _AttentionGridState();
@@ -182,7 +184,11 @@ class _AttentionGridState extends State<AttentionGrid> {
   void _handleCardTap(_AttentionCardRoute route) {
     switch (route) {
       case _AttentionCardRoute.incidentApproval:
-        context.go('/activityFeed');
+        if (widget.onIncidentCardTap != null) {
+          widget.onIncidentCardTap!();
+        } else {
+          context.go('/activityFeed');
+        }
 
       case _AttentionCardRoute.classroomRatio:
         if (widget.onRatioCardTap != null) {

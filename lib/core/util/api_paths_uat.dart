@@ -48,12 +48,14 @@ class ApiPathsUat {
       'student',
       'student-classroom',
       'student-documents',
+      'student-settings',
       'student-tags',
       'regular-schedules',
       'physicians',
       'tags',
       'guardian',
       'pickup',
+      'settings',
     },
     ApiMicroservices.attendance: {
       'student-attendance',
@@ -201,6 +203,9 @@ class ApiPathsUat {
       case 'payment':
       case 'time': // server clock endpoint lives on the accounts (billing) MS
         return ApiMicroservices.billing;
+      case 'media-assets':
+      case 'upload-sessions':
+        return ApiMicroservices.document;
       case 'reports':
         // Billing reports live on the accounts (billing) MS: /api/v1/reports/billing/...
         if (nextSeg == 'billing') return ApiMicroservices.billing;

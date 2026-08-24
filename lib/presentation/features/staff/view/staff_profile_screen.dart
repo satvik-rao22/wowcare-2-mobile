@@ -7,7 +7,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
@@ -18,7 +18,7 @@ import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
-import 'package:wowcare/presentation/features/attendance/view/student_attendance_profile.dart';
+import 'package:wowcare/presentation/features/attendance/view/staff_attendance_profile.dart';
 // import 'package:wowcare/presentation/features/attendance/widgets/attendance_popup.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_profile_tab.dart';
 import 'package:wowcare/presentation/features/staff/widgets/staff_dates_tab.dart';
@@ -213,8 +213,6 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   /// on failure editing stays disabled for staff.
   Future<void> _loadOwnStaffCodeIfStaff() async {
     try {
-      final role = context.read<RoleCubit>();
-      if (!role.isStaff) return;
       final code = await resolveStaffCodeForLoggedInUser();
       if (!mounted) return;
       setState(() => _ownStaffCode = code);
@@ -232,6 +230,13 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
       return own.isNotEmpty && own == widget.staffCode.trim();
     }
     return ModuleAccess.mayWrite(role, AppAccessModules.staff);
+  }
+
+  bool _canMessageStaff() {
+    final own = (_ownStaffCode ?? '').trim();
+    // Keep the action hidden until the identity lookup finishes. This avoids
+    // briefly offering a self-message action while the profile initializes.
+    return own.isNotEmpty && own != widget.staffCode.trim();
   }
 
   bool _looksLikeClassroomCode(String value) {
@@ -746,6 +751,7 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
   }
 
   Widget _buildStaffActionButtons(BuildContext context) {
+    final canMessageStaff = _canMessageStaff();
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -758,15 +764,28 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
           _buildActionIcon(
             MediaRes.calenderClockIcon,
             onTap: () {
+              final code = widget.staffCode.trim();
+              if (code.isEmpty) {
+                CoreUtils.showTopSnackBar(
+                  context: context,
+                  message: 'Staff code is required for attendance.',
+                  isError: true,
+                );
+                return;
+              }
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => StudentAttendanceProfile(
-                    studentCode: '',
-                    studentId: 0, // Staff profile - using placeholder ID
-                    studentName: widget.name,
-                    studentPhotoUuid: null,
-                    roomName: widget.classroom,
+                  settings: const RouteSettings(
+                    name: StaffAttendanceProfile.routeName,
+                  ),
+                  builder: (_) => StaffAttendanceProfile(
+                    staffCode: code,
+                    staffId: 0,
+                    staffName: _displayName,
+                    staffPhotoUuid: null,
+                    designationName: widget.designation,
+                    roomName: _displayClassroom,
                     isSignedIn: false,
                     isAbsent: false,
                     isExpectedToday: true,
@@ -791,25 +810,26 @@ class _StaffProfileScreenState extends State<StaffProfileScreen>
               );
             },
           ),
-          _buildActionIcon(
-            MediaRes.communicationIcon,
-            onTap: () {
-              final code = widget.staffCode.trim();
-              if (code.isEmpty) return;
-              openMessagingShortcut(
-                context,
-                recipients: [
-                  SelectedRecipient(
-                    code: code,
-                    name: widget.name,
-                    isStaff: true,
-                    userCode: _profileUserCode,
-                    designation: widget.designation,
-                  ),
-                ],
-              );
-            },
-          ),
+          if (canMessageStaff)
+            _buildActionIcon(
+              MediaRes.communicationIcon,
+              onTap: () {
+                final code = widget.staffCode.trim();
+                if (code.isEmpty) return;
+                openMessagingShortcut(
+                  context,
+                  recipients: [
+                    SelectedRecipient(
+                      code: code,
+                      name: widget.name,
+                      isStaff: true,
+                      userCode: _profileUserCode,
+                      designation: widget.designation,
+                    ),
+                  ],
+                );
+              },
+            ),
         ],
       ),
     );

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:bloc/bloc.dart';
 import 'package:wowcare/core/util/app_time.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter/widgets.dart' show WidgetsBinding, AppLifecycleState;
 import 'package:wowcare/core/communication/messaging_event_service.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
@@ -12,13 +13,18 @@ import 'package:wowcare/domain/features/communication/entities/message.dart'
 import 'package:wowcare/domain/features/communication/entities/message_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/reaction_entry.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/chat_attachment_uploader.dart';
+import 'package:wowcare/presentation/features/communication/shared/utils/pending_attachment_storage.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/util/message_entity_mapper.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_message_entity_receipts_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
@@ -45,10 +51,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required EditMessageEntityUseCase editMessageUseCase,
     required DeleteMessageEntityUseCase deleteMessageUseCase,
     required DeleteAttachmentEntityUseCase deleteAttachmentUseCase,
+    required GetMessageEntityReceiptsUseCase getMessageReceiptsUseCase,
     required AddReactionEntityUseCase addReactionUseCase,
     required RemoveReactionUseCase removeReactionUseCase,
     required MarkConversationReadUseCase markConversationReadUseCase,
     required ChatAttachmentUploader attachmentUploader,
+    required CacheDraftMessageUseCase cacheDraftMessageUseCase,
+    required MarkDraftMessageFailedUseCase markDraftMessageFailedUseCase,
+    required GetCachedMessagesEntityUseCase getCachedMessagesEntityUseCase,
     Duration markReadDebounceDuration = const Duration(seconds: 2),
     bool isDraft = false,
     Future<ConversationEntity?> Function()? onResolveConversation,
@@ -61,10 +71,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
        _editMessageUseCase = editMessageUseCase,
        _deleteMessageUseCase = deleteMessageUseCase,
        _deleteAttachmentUseCase = deleteAttachmentUseCase,
+       _getMessageReceiptsUseCase = getMessageReceiptsUseCase,
        _addReactionUseCase = addReactionUseCase,
        _removeReactionUseCase = removeReactionUseCase,
        _markConversationReadUseCase = markConversationReadUseCase,
        _attachmentUploader = attachmentUploader,
+       _cacheDraftMessageUseCase = cacheDraftMessageUseCase,
+       _markDraftMessageFailedUseCase = markDraftMessageFailedUseCase,
+       _getCachedMessagesEntityUseCase = getCachedMessagesEntityUseCase,
        _markReadDebounceDuration = markReadDebounceDuration,
        super(
          ConversationThreadState.initial(
@@ -97,16 +111,40 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   final EditMessageEntityUseCase _editMessageUseCase;
   final DeleteMessageEntityUseCase _deleteMessageUseCase;
   final DeleteAttachmentEntityUseCase _deleteAttachmentUseCase;
+  final GetMessageEntityReceiptsUseCase _getMessageReceiptsUseCase;
   final ChatAttachmentUploader _attachmentUploader;
   final AddReactionEntityUseCase _addReactionUseCase;
   final RemoveReactionUseCase _removeReactionUseCase;
   final MarkConversationReadUseCase _markConversationReadUseCase;
+  final CacheDraftMessageUseCase _cacheDraftMessageUseCase;
+  final MarkDraftMessageFailedUseCase _markDraftMessageFailedUseCase;
+  final GetCachedMessagesEntityUseCase _getCachedMessagesEntityUseCase;
 
   StreamSubscription<List<MessageEntity>>? _messagesSubscription;
   bool _firestoreActive = false;
 
   int _refreshRequestId = 0;
   static const int _pageSize = 50;
+
+  /// Messages with a field-level optimistic edit (reaction add/remove,
+  /// attachment delete, message edit/delete) still settling against the
+  /// backend — keyed by message code, valued by when the edit was made.
+  /// Mirrors `CommunicationCubit._recentLocalMutations` (the legacy/Room
+  /// Chat stack's equivalent guard).
+  ///
+  /// The realtime stream only reflects a change once it's round-tripped
+  /// through the backend → Firestore → local merge — seconds behind the
+  /// optimistic UI update. Without this guard, the very next realtime
+  /// emission for the thread (for any reason — it carries the *whole* known
+  /// message list) would wholesale-replace the message with its pre-edit
+  /// version, making the reaction/attachment/edit appear to revert itself a
+  /// moment after the user's action.
+  final Map<String, DateTime> _recentLocalMutations = {};
+  static const Duration _localMutationGuardWindow = Duration(seconds: 8);
+
+  void _markRecentlyMutated(String messageCode) {
+    _recentLocalMutations[messageCode] = AppTime.nowUtc();
+  }
 
   /// Debounces [_markRead] so a burst of Firestore snapshot emissions (e.g.
   /// several participants editing/reacting in quick succession) collapses
@@ -150,6 +188,30 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    // Fire-and-forget: seeds any locally-cached draft (a send interrupted by
+    // navigating away, or the app being killed, before the server confirmed
+    // it) back into the thread. Whichever emission (this seed, or the
+    // Firestore/REST load below) lands second still ends up with the draft —
+    // [_mergePendingMessages] preserves any `pending`/`failed` +
+    // `localTempCode` entry already in `state.messages` that the fresh
+    // batch doesn't confirm.
+    unawaited(_seedCachedLocalDrafts());
+
+    // Kick off a REST load in parallel with the Firestore subscribe below,
+    // rather than waiting for Firestore to fail first. The `onError` handler
+    // below is NOT a reliable trigger for this: a `permission-denied` (e.g.
+    // the Firebase custom-token sign-in — see FirebaseAuthService.signIn(),
+    // fired-and-forgotten from AuthCubit.completeLogin() — still being in
+    // flight right after login) gets silently retried inside
+    // MessageRealtimeDataSource._watchWithRetry with up to 30s+ of backoff
+    // and never reaches this listener's `onError` at all, so the REST
+    // fallback below was never actually running — the thread just sat empty
+    // until the user pulled-to-refresh (itself a plain REST call). Running
+    // both concurrently guarantees a fast first paint regardless of
+    // Firestore's connection/auth timing; whichever lands first is shown,
+    // and the other reconciles on top via the same merge logic.
+    unawaited(loadMessages());
+
     _messagesSubscription?.cancel();
     // Use this conversation's own org/school rather than the session's
     // currently-active one — a stale/mismatched active school (multi-school
@@ -166,7 +228,10 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             if (isClosed) return;
             _firestoreActive = true;
             final latest = fresh.isNotEmpty ? fresh.last : null;
-            final merged = _mergePendingMessages(_sortedOldestFirst(fresh));
+            final merged = _mergePendingMessages(
+              _sortedOldestFirst(fresh),
+              preserveMissingConfirmed: true,
+            );
             final int debugPrevCount = state.messages.length;
             emit(
               ConversationThreadState.loaded(
@@ -184,6 +249,35 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             if (!_firestoreActive) unawaited(loadMessages());
           },
         );
+  }
+
+  /// Merges any locally-cached, never-confirmed message (interrupted by
+  /// navigating away, closing the app, or losing connectivity mid-send —
+  /// including one still finishing an attachment upload) into
+  /// [state.messages], so it's visible again instead of silently vanishing
+  /// once this fresh cubit instance's in-memory state starts empty.
+  Future<void> _seedCachedLocalDrafts() async {
+    final result = await _getCachedMessagesEntityUseCase(
+      state.conversationCode,
+      currentUserCode: _currentUserCode,
+    );
+    if (isClosed) return;
+    result.fold((_) {}, (cached) {
+      final drafts = cached
+          .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
+          .toList();
+      if (drafts.isEmpty) return;
+      final existingCodes = state.messages.map((m) => m.code).toSet();
+      final newDrafts = drafts
+          .where((d) => !existingCodes.contains(d.code))
+          .toList();
+      if (newDrafts.isEmpty) return;
+      emit(
+        state.copyWith(
+          messages: _sortedOldestFirst([...state.messages, ...newDrafts]),
+        ),
+      );
+    });
   }
 
   /// Emits a loaded-but-empty state for a draft thread so the UI shows the
@@ -234,6 +328,20 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     return true;
   }
 
+  /// Updates the conversation this thread is bound to with fresher data
+  /// (e.g. a REST re-fetch after a new message arrives) — notably its
+  /// `participants` list, which read/delivered-by-all tick aggregation
+  /// (see `EntityMessageTile`'s `_activeRecipientCount`) depends on.
+  /// Without this, that count stayed frozen at whatever the conversation
+  /// looked like the instant the screen first mounted, for the entire
+  /// session: a snapshot mid-sync at that exact moment could under-count
+  /// the true participants and make a message look "read by everyone" the
+  /// moment just a couple of the real recipients had read it.
+  void updateConversation(ConversationEntity conversation) {
+    if (isClosed) return;
+    emit(state.copyWith(conversation: conversation));
+  }
+
   // ─── Load / Refresh ─────────────────────────────────────────────────────────
 
   /// Load messages from API. Used on first entry and as Firestore fallback.
@@ -259,17 +367,31 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         ),
       ),
       (messages) {
-        final sorted = _sortedOldestFirst(messages);
+        // This REST call runs unawaited, in parallel with the Firestore
+        // subscription (see startWatchingMessages) — whichever resolves
+        // first is shown, the other reconciles on top. Without going
+        // through the same preserveMissingConfirmed merge the Firestore
+        // listener uses, a REST response that happened to land AFTER
+        // Firestore had already delivered a fuller/merged picture (e.g.
+        // this specific fetch racing behind a slower connection) would
+        // wholesale-replace that correct state with its own — a message
+        // would flash into view via Firestore's merge, then disappear the
+        // instant this late REST response landed and stomped it.
+        final merged = _mergePendingMessages(
+          _sortedOldestFirst(messages),
+          preserveMissingConfirmed: true,
+        );
         emit(
           ConversationThreadState.loaded(
             conversationCode: state.conversationCode,
-            messages: sorted,
+            messages: merged,
             isFromCache: false,
             hasOlderMessages: messages.length >= _pageSize,
             conversation: state.conversation,
           ),
         );
         _scheduleMarkRead();
+        unawaited(_seedCachedLocalDrafts());
       },
     );
   }
@@ -298,7 +420,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         emit(
           ConversationThreadState.loaded(
             conversationCode: state.conversationCode,
-            messages: _mergePendingMessages(sorted),
+            // Pull-to-refresh must not make an already-visible message
+            // disappear just because this particular fetch's window didn't
+            // happen to include it — same reasoning as loadMessages above.
+            messages: _mergePendingMessages(
+              sorted,
+              preserveMissingConfirmed: true,
+            ),
             isFromCache: false,
             hasOlderMessages: messages.length >= _pageSize,
             conversation: state.conversation,
@@ -334,14 +462,30 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           errorMessage: failure.message ?? 'Failed to load older messages.',
         ),
       ),
-      (older) => emit(
-        state.copyWith(
-          messages: [..._sortedOldestFirst(older), ...state.messages],
-          isLoading: false,
-          hasOlderMessages: older.length >= _pageSize,
-          clearError: true,
-        ),
-      ),
+      (older) {
+        // The backend's `beforeMessageCode` cursor has been observed to
+        // hand back the reference message itself (and therefore the exact
+        // same page) instead of excluding it — without a dedupe, that both
+        // duplicates every message in `older` into the list AND, since the
+        // "oldest" boundary (`state.messages.first`) never actually
+        // changes, makes every subsequent scroll-triggered fetch refire
+        // the identical request forever. Filtering to genuinely-new codes
+        // fixes the duplicates, and falling back to `hasOlderMessages:
+        // false` when nothing new came back stops the loop even if the
+        // backend's cursor never advances.
+        final existingCodes = state.messages.map((m) => m.code).toSet();
+        final newOlder = _sortedOldestFirst(
+          older,
+        ).where((m) => !existingCodes.contains(m.code)).toList();
+        emit(
+          state.copyWith(
+            messages: [...newOlder, ...state.messages],
+            isLoading: false,
+            hasOlderMessages: newOlder.isNotEmpty && older.length >= _pageSize,
+            clearError: true,
+          ),
+        );
+      },
     );
   }
 
@@ -351,16 +495,23 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   ///
   /// Immediately inserts a [MessageStatus.pending] placeholder — including
   /// local attachment previews — so the bubble appears at the bottom without
-  /// waiting for upload or the backend round-trip. Replaces it with the
-  /// confirmed message on success, or marks it [MessageStatus.failed] so the
-  /// user can retry.
+  /// waiting for upload or the backend round-trip, AND persists that same
+  /// placeholder to Isar right away (via [_cacheDraftMessageUseCase]) so it
+  /// survives navigating away or the app being killed before the send
+  /// finishes — [_seedCachedLocalDrafts] brings it back on the next open.
   ///
-  /// [attachments] are uploaded here (session → presign → S3 → complete →
-  /// register, via the same [ChatAttachmentUploader] legacy messaging uses)
-  /// before the message is sent. All-or-nothing: if any attachment fails to
-  /// upload, the send is aborted entirely — no partial/text-only message is
-  /// sent, and the failure is surfaced via [ConversationThreadState.sendError]
-  /// so the caller can retry without losing the picked files.
+  /// [attachments] are uploaded here (session → presign(batch) → S3 PUT →
+  /// complete → register → wait-until-ready, via the same
+  /// [ChatAttachmentUploader.uploadAll] documents/activities use) and the
+  /// message is NOT sent until every attachment has a real delivery URL —
+  /// [ChatAttachmentUploader.uploadAll] blocks on that itself. A message is
+  /// never published with a still-processing attachment. If the
+  /// upload/registration/wait fails or times out, the send is aborted — no
+  /// partial/text-only message is sent — and the failure is surfaced via
+  /// [ConversationThreadState.sendError] so the caller can retry without
+  /// losing the picked files. [_reconcileAttachments] after a successful
+  /// send is then a pure safety net (see its doc comment) rather than the
+  /// primary path.
   Future<void> sendMessage({
     required String text,
     required String senderCode,
@@ -371,12 +522,49 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     List<ChatAttachment> attachments = const [],
     bool isPrivate = false,
     String? threadParentCode,
+
+    /// Which guardian this private message belongs to. Only meaningful when
+    /// [isPrivate] is true. Defaults to [senderCode] (a guardian composing
+    /// their own private message) when omitted — pass this explicitly when
+    /// STAFF/ADMIN is replying inside a specific guardian's private tab,
+    /// since the sender in that case isn't the private party themselves.
+    String? privateParentUserCode,
   }) async {
+    // Defense-in-depth: the composer UI already disables sending for an
+    // inactive staff member (see ConversationThreadScreen._currentUserInactive
+    // / StaffMessagingThread._staffInactive), but this guards the same rule
+    // here too — mirrors the ownership check in editMessage/deleteMessage.
+    ParticipantEntity? self;
+    for (final p in state.conversation?.participants ?? const []) {
+      if (p.userCode == _currentUserCode) {
+        self = p;
+        break;
+      }
+    }
+    if ((self?.staffStatus?.trim().toUpperCase()) == 'INACTIVE') {
+      emit(
+        state.copyWith(
+          errorMessage: const AuthorizationFailure(
+            'Your staff account is inactive. You can no longer send messages.',
+          ).message,
+        ),
+      );
+      return;
+    }
+
     // Draft thread: create the real conversation before sending (web parity).
     if (_isDraft) {
       final resolved = await _resolveDraftConversation();
       if (!resolved) return;
     }
+
+    // Copy picked files out of the OS's ephemeral temp dir into permanent
+    // app storage BEFORE anything else — the local preview needs to survive
+    // navigating away, the app backgrounding, or a restart, none of which a
+    // temp-dir path can promise (the OS is free to clear it at any time,
+    // which silently blanks the preview even though the message/attachment
+    // record itself is fine). See [PendingAttachmentStorage].
+    attachments = await PendingAttachmentStorage.persistLocally(attachments);
 
     final tempCode = 'temp-${AppTime.nowUtc().millisecondsSinceEpoch}';
 
@@ -406,7 +594,9 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       organizationCode: organizationCode,
       schoolCode: schoolCode,
       isPrivate: isPrivate,
-      privateParentUserCode: isPrivate ? senderCode : null,
+      privateParentUserCode: isPrivate
+          ? (privateParentUserCode ?? senderCode)
+          : null,
       threadParentCode: threadParentCode,
       localTempCode: tempCode,
       attachments: attachments.map(toOptimisticEntity).toList(),
@@ -420,23 +610,25 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
         clearSendError: true,
       ),
     );
+    // Persist right away too — before upload starts — so an interrupted
+    // send (navigation, app kill, lost connectivity) still has something to
+    // resume/retry from instead of vanishing outright.
+    await _cacheDraftMessageUseCase(optimistic);
 
-    // Upload any attachments that aren't already uploaded, mirroring
-    // CommunicationCubit.sendMessage's exact pipeline via the same shared
-    // uploader. Parallelised the same way legacy does (Future.wait); if any
-    // attachment fails, abort the send — no partial message is created.
+    // Upload any attachments that aren't already uploaded, via the shared
+    // uploader — one batched upload session/presign call for the whole
+    // selection, not one per file. Blocks until every attachment is READY
+    // (see [ChatAttachmentUploader.uploadAll]); if upload, registration, or
+    // the wait itself fails, abort the send — no partial message is created.
     List<ChatAttachment> uploadedAttachments = attachments;
     if (attachments.any((a) => !a.isUploaded)) {
       try {
-        uploadedAttachments = await Future.wait(
-          attachments.map(
-            (a) => _attachmentUploader.upload(
-              conversationCode: state.conversationCode,
-              attachment: a,
-            ),
-          ),
+        uploadedAttachments = await _attachmentUploader.uploadAll(
+          conversationCode: state.conversationCode,
+          attachments: attachments,
         );
       } catch (e) {
+        await _markDraftMessageFailedUseCase(tempCode);
         if (isClosed) return;
         final failed = _replaceMessage(
           state.messages,
@@ -466,8 +658,11 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       conversationCode: state.conversationCode,
       text: text,
       attachmentIds: attachmentIds,
+      attachments: uploadedOptimisticAttachments,
+      localTempCode: tempCode,
       isPrivate: isPrivate,
       threadParentCode: threadParentCode,
+      privateParentUserCode: optimistic.privateParentUserCode,
     );
 
     if (isClosed) return;
@@ -509,6 +704,193 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
             clearSendError: true,
           ),
         );
+        // Attachments are already READY by this point (uploadAll blocked on
+        // it) — this only does anything if the *server's own* echoed
+        // attachment objects lag behind with an empty fileUrl.
+        unawaited(_reconcileAttachments(finalMessage));
+      },
+    );
+  }
+
+  /// Converts an [AttachmentEntity] back into the [ChatAttachment] shape
+  /// [ChatAttachmentUploader] operates on — the inverse of
+  /// [mapChatAttachmentToAttachmentEntity].
+  ChatAttachment _toChatAttachment(AttachmentEntity a) => ChatAttachment(
+    name: a.fileName,
+    type: a.isImage ? 'image' : 'file',
+    sizeBytes: a.fileSizeBytes,
+    mimeType: a.mimeType,
+    remoteUrl: a.fileUrl,
+    localPath: a.localFilePath,
+    code: a.code.isEmpty ? null : a.code,
+    attachmentId: a.attachmentId,
+  );
+
+  /// Resolves the real delivery URL for any of [message]'s attachments still
+  /// showing a local preview (uploaded + registered, but the document
+  /// service hasn't finished processing them into a URL yet). Since
+  /// [ChatAttachmentUploader.uploadAll] already blocks a send until every
+  /// attachment is READY, this is a safety net for the cases that skip that
+  /// wait: a server-echoed attachment lagging behind with an empty fileUrl
+  /// right after send, or resuming a message that was interrupted (app
+  /// killed, navigation) mid-wait on a prior attempt. A single best-effort
+  /// poll, not a blocking wait — safe to call repeatedly; a no-op once
+  /// nothing is left processing.
+  Future<void> _reconcileAttachments(MessageEntity message) async {
+    if (!message.hasProcessingAttachments) return;
+    final resolved = await _attachmentUploader.resolveDeliveryUrls(
+      message.attachments.map(_toChatAttachment).toList(),
+    );
+
+    var changed = false;
+    final updatedAttachments = <AttachmentEntity>[];
+    for (var i = 0; i < message.attachments.length; i++) {
+      final original = message.attachments[i];
+      final r = resolved[i];
+      if (r.remoteUrl.isNotEmpty && r.remoteUrl != original.fileUrl) {
+        updatedAttachments.add(
+          original.copyWith(fileUrl: r.remoteUrl, clearLocalFilePath: true),
+        );
+        changed = true;
+        // The real delivery URL now renders fine — drop the durable local
+        // copy [PendingAttachmentStorage] made so it doesn't sit around
+        // forever. Fire-and-forget: never blocks showing the resolved image.
+        unawaited(PendingAttachmentStorage.delete(original.localFilePath));
+      } else {
+        updatedAttachments.add(original);
+      }
+    }
+    if (!changed) return;
+
+    final updatedMessage = message.copyWith(attachments: updatedAttachments);
+    await _cacheDraftMessageUseCase(updatedMessage);
+    if (isClosed) return;
+    // The conversation may have moved on (older message no longer in the
+    // loaded window) — only emit if it's still there to replace.
+    if (!state.messages.any((m) => m.code == message.code)) return;
+    final updated = _replaceMessage(
+      state.messages,
+      message.code,
+      updatedMessage,
+    );
+    emit(state.copyWith(messages: updated));
+  }
+
+  /// Retries a message that either never finished uploading its attachments
+  /// (picks up from [AttachmentEntity.localFilePath] — nothing needed if the
+  /// user closed the app before the file was even picked-and-persisted,
+  /// since that never got this far) or is fully sent but still has an
+  /// attachment stuck on "Processing" (just re-polls, no re-upload). When a
+  /// retry does re-run [ChatAttachmentUploader.uploadAll], its own 3-way
+  /// classification (ready / registered-but-not-uploaded / needs full
+  /// upload) makes sure nothing that already finished gets redone.
+  Future<void> retrySendMessage(MessageEntity message) async {
+    if (!message.isFailed && !message.hasUnuploadedAttachments) {
+      // Already sent — nothing failed, just poll again for the ones still
+      // processing.
+      unawaited(_reconcileAttachments(message));
+      return;
+    }
+
+    final tempCode = (message.localTempCode ?? '').isNotEmpty
+        ? message.localTempCode!
+        : message.code;
+    final targetCode = message.code;
+
+    final retrying = message.copyWith(status: MessageStatus.pending);
+    emit(
+      state.copyWith(
+        messages: _replaceMessage(state.messages, targetCode, retrying),
+        isSending: true,
+        clearSendError: true,
+      ),
+    );
+    await _cacheDraftMessageUseCase(retrying);
+
+    final asChatAttachments = message.attachments
+        .map(_toChatAttachment)
+        .toList();
+    List<ChatAttachment> uploaded = asChatAttachments;
+    if (asChatAttachments.any((a) => !a.isUploaded)) {
+      try {
+        uploaded = await _attachmentUploader.uploadAll(
+          conversationCode: state.conversationCode,
+          attachments: asChatAttachments,
+        );
+      } catch (e) {
+        await _markDraftMessageFailedUseCase(tempCode);
+        if (isClosed) return;
+        emit(
+          state.copyWith(
+            messages: _replaceMessage(
+              state.messages,
+              targetCode,
+              retrying.copyWith(status: MessageStatus.failed),
+            ),
+            isSending: false,
+            sendError: ApiErrorHandler.extractErrorMessage(e),
+          ),
+        );
+        return;
+      }
+    }
+
+    final attachmentIds = uploaded
+        .map((a) => a.attachmentId)
+        .whereType<int>()
+        .toList();
+    final entityAttachments = uploaded
+        .map(
+          (a) => mapChatAttachmentToAttachmentEntity(
+            a,
+            messageCode: tempCode,
+            conversationCode: state.conversationCode,
+            uploadedBy: message.senderCode,
+          ),
+        )
+        .toList();
+
+    final result = await _sendMessageUseCase(
+      conversationCode: state.conversationCode,
+      text: message.text,
+      attachmentIds: attachmentIds,
+      attachments: entityAttachments,
+      localTempCode: tempCode,
+      isPrivate: message.isPrivate,
+      threadParentCode: message.threadParentCode,
+    );
+
+    if (isClosed) return;
+
+    result.fold(
+      (failure) {
+        emit(
+          state.copyWith(
+            messages: _replaceMessage(
+              state.messages,
+              targetCode,
+              retrying.copyWith(
+                status: MessageStatus.failed,
+                attachments: entityAttachments,
+              ),
+            ),
+            isSending: false,
+            sendError: failure.message ?? 'Failed to send message.',
+          ),
+        );
+      },
+      (confirmed) {
+        final finalMessage = confirmed.attachments.isNotEmpty
+            ? confirmed
+            : confirmed.copyWith(attachments: entityAttachments);
+        emit(
+          state.copyWith(
+            messages: _replaceMessage(state.messages, targetCode, finalMessage),
+            isSending: false,
+            clearSendError: true,
+          ),
+        );
+        unawaited(_reconcileAttachments(finalMessage));
       },
     );
   }
@@ -534,12 +916,15 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    final originalMessages = state.messages;
+
     // Optimistic update
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
       return m.copyWithText(newText);
     }).toList();
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _editMessageUseCase(
       messageCode: messageCode,
@@ -550,13 +935,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     result.fold(
       (failure) {
-        // Roll back
+        // Roll back synchronously — matches deleteMessage/deleteAttachment
+        // below; a refetch would race with the mutation guard above.
         emit(
           state.copyWith(
+            messages: originalMessages,
             errorMessage: failure.message ?? 'Failed to edit message.',
           ),
         );
-        unawaited(refreshMessages());
       },
       (confirmed) {
         final updated = _replaceMessage(state.messages, messageCode, confirmed);
@@ -583,24 +969,32 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    final originalMessages = state.messages;
+
     // Optimistic: mark deleted locally
     final optimistic = state.messages.map((m) {
       if (m.code != messageCode) return m;
       return m.copyWithDeleted();
     }).toList();
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _deleteMessageUseCase(messageCode);
 
     if (isClosed) return;
 
+    // On failure, restore the exact pre-optimistic snapshot synchronously —
+    // relying on refreshMessages()'s refetch would race with
+    // _mergePendingMessages' "preserve deleted state" guard, which cannot
+    // tell a still-propagating delete apart from a failed one and would
+    // re-stamp isDeleted onto the (correctly non-deleted) refetched message.
     result.fold((failure) {
       emit(
         state.copyWith(
+          messages: originalMessages,
           errorMessage: failure.message ?? 'Failed to delete message.',
         ),
       );
-      unawaited(refreshMessages());
     }, (_) {});
   }
 
@@ -626,6 +1020,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       );
     }).toList();
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _deleteAttachmentUseCase(
       messageCode: messageCode,
@@ -644,6 +1039,17 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     }, (_) {});
   }
 
+  /// Fetches the full per-recipient-per-persona receipts for one message
+  /// on-demand — see [GetMessageEntityReceiptsUseCase]. Returns an empty
+  /// list on failure rather than surfacing an error state, since this
+  /// backs a dialog the user can simply close and retry.
+  Future<List<ReadReceiptEntity>> fetchMessageReceipts(
+    String messageCode,
+  ) async {
+    final result = await _getMessageReceiptsUseCase(messageCode);
+    return result.fold((_) => const [], (receipts) => receipts);
+  }
+
   // ─── Reactions ───────────────────────────────────────────────────────────────
 
   Future<void> addReaction({
@@ -651,6 +1057,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     required String emoji,
     required String currentUserCode,
   }) async {
+    final originalMessages = state.messages;
     final optimistic = _applyReaction(
       state.messages,
       messageCode,
@@ -658,6 +1065,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       emoji,
     );
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _addReactionUseCase(
       messageCode: messageCode,
@@ -668,12 +1076,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     result.fold(
       (failure) {
+        // Roll back synchronously — matches deleteMessage/deleteAttachment;
+        // a refetch would race with the mutation guard above.
         emit(
           state.copyWith(
+            messages: originalMessages,
             errorMessage: failure.message ?? 'Failed to add reaction.',
           ),
         );
-        unawaited(refreshMessages());
       },
       (_) {
         emit(
@@ -699,6 +1109,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       return;
     }
 
+    final originalMessages = state.messages;
     final optimistic = _removeReactionLocally(
       state.messages,
       messageCode,
@@ -706,6 +1117,7 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
       emoji,
     );
     emit(state.copyWith(messages: optimistic));
+    _markRecentlyMutated(messageCode);
 
     final result = await _removeReactionUseCase(
       messageCode: messageCode,
@@ -716,12 +1128,14 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
 
     result.fold(
       (failure) {
+        // Roll back synchronously — matches deleteMessage/deleteAttachment;
+        // a refetch would race with the mutation guard above.
         emit(
           state.copyWith(
+            messages: originalMessages,
             errorMessage: failure.message ?? 'Failed to remove reaction.',
           ),
         );
-        unawaited(refreshMessages());
       },
       (_) {
         emit(
@@ -762,16 +1176,24 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     final lifecycle = WidgetsBinding.instance.lifecycleState;
     if (lifecycle == AppLifecycleState.paused ||
         lifecycle == AppLifecycleState.detached) {
+      debugPrint(
+        '[UnreadDebug][markRead] SKIPPED conv=${state.conversationCode} '
+        '(lifecycle=$lifecycle)',
+      );
       return;
     }
     final result = await _markConversationReadUseCase(state.conversationCode);
     // Publish event so ConversationListCubit zeroes the badge immediately —
     // before Firestore confirms the read receipt.
     result.fold(
-      (_) {},
-      (_) => MessagingEventService.instance.notifyMarkedRead(
-        state.conversationCode,
+      (failure) => debugPrint(
+        '[UnreadDebug][markRead] FAILED conv=${state.conversationCode}: '
+        '$failure',
       ),
+      (_) {
+        debugPrint('[UnreadDebug][markRead] OK conv=${state.conversationCode}');
+        MessagingEventService.instance.notifyMarkedRead(state.conversationCode);
+      },
     );
   }
 
@@ -795,7 +1217,27 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
   }
 
   /// Retain any pending/failed optimistic messages not yet confirmed by the API.
-  List<MessageEntity> _mergePendingMessages(List<MessageEntity> fresh) {
+  List<MessageEntity> _mergePendingMessages(
+    List<MessageEntity> fresh, {
+    // True only for the Firestore realtime stream (see startWatchingMessages
+    // below): that per-conversation subcollection isn't guaranteed to be a
+    // complete mirror of every message the REST API/backend DB has — a
+    // message can be legitimately confirmed and already showing (loaded via
+    // REST, or an earlier Firestore batch) yet simply absent from THIS
+    // particular snapshot. Without this, every Firestore emission
+    // wholesale-replaced the list with only what that one snapshot
+    // happened to contain, silently dropping everything else — the same
+    // class of bug already fixed for the conversation list in
+    // CommunicationCubit.startWatchingConversations (merge by code, never
+    // replace). Plain REST loads (loadMessages/refreshMessages) must NOT
+    // set this: a REST page-0 fetch's window IS authoritative for that
+    // window, and preserving stale entries there would defeat normal
+    // "load older" pagination as history grows past the page size.
+    bool preserveMissingConfirmed = false,
+  }) {
+    final cutoff = AppTime.nowUtc().subtract(_localMutationGuardWindow);
+    _recentLocalMutations.removeWhere((_, t) => t.isBefore(cutoff));
+
     // Preserve `senderRole` if Firestore's realtime stream omitted it (forcing it to parent).
     // The local UI state knows the true role from the initial REST API load.
     final existingMessagesByCode = {
@@ -814,6 +1256,13 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
           existingMessagesByCode[m.id] ??
           existingMessagesById[m.code];
       if (old == null) return m;
+
+      // Mid-settling from a local reaction/attachment/edit/delete mutation —
+      // keep our in-memory version wholesale rather than reconciling
+      // field-by-field, matching CommunicationCubit's equivalent guard.
+      if (_recentLocalMutations.containsKey(old.code)) {
+        return old;
+      }
 
       MessageEntity result = m;
 
@@ -847,12 +1296,58 @@ class ConversationThreadCubit extends Cubit<ConversationThreadState> {
     final pending = state.messages
         .where((m) => m.localTempCode != null && (m.isPending || m.isFailed))
         .toList();
-    if (pending.isEmpty) return preservedFresh;
     final freshCodes = preservedFresh.map((m) => m.code).toSet();
-    final unconfirmed = pending
-        .where((m) => !freshCodes.contains(m.code))
-        .toList();
-    return [...preservedFresh, ...unconfirmed];
+    final unconfirmed = pending.isEmpty
+        ? const <MessageEntity>[]
+        : pending.where((m) {
+            if (freshCodes.contains(m.code)) return false;
+            // A still-pending optimistic message never carries the server's real
+            // code — the backend isn't even told about localTempCode (see
+            // MessageEntityRepositoryImpl.sendMessage's `_remote.sendMessage`
+            // call) — so exact-code matching alone can't catch it when Firestore
+            // delivers the confirmed message BEFORE this cubit's own
+            // sendMessage() REST response returns to swap it in via
+            // _replaceMessage. Without this, the optimistic and the
+            // Firestore-confirmed entry show side by side, and _replaceMessage
+            // later finds nothing left to replace (it matches by the temp code,
+            // which is no longer present once dropped here) — leaving a
+            // permanent visual duplicate. Close the gap with a tight
+            // content-match instead: same sender, same text, sent within a few
+            // seconds of each other. Failed messages are excluded — a failed
+            // send must never be silently hidden just because its text happens
+            // to match something else.
+            if (!m.isPending) return true;
+            final matchesFresh = preservedFresh.any(
+              (f) =>
+                  f.senderCode == m.senderCode &&
+                  f.text == m.text &&
+                  f.sentAt.difference(m.sentAt).abs() <
+                      const Duration(seconds: 30),
+            );
+            return !matchesFresh;
+          }).toList();
+
+    var result = [...preservedFresh, ...unconfirmed];
+
+    if (preserveMissingConfirmed) {
+      final resultCodes = result.map((m) => m.code).toSet();
+      final missingConfirmed = state.messages.where((m) {
+        if (m.code.isEmpty || resultCodes.contains(m.code)) return false;
+        // Already covered by `unconfirmed` above.
+        if (m.localTempCode != null && (m.isPending || m.isFailed)) {
+          return false;
+        }
+        return true;
+      });
+      result = [...result, ...missingConfirmed];
+      // missingConfirmed was appended at the end regardless of its actual
+      // timestamp — re-sort so a message Firestore didn't mirror doesn't
+      // render out of chronological order (e.g. yesterday's message
+      // appearing after today's).
+      result = _sortedOldestFirst(result);
+    }
+
+    return result;
   }
 
   List<MessageEntity> _replaceMessage(

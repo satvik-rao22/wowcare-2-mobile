@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:wowcare/app/theme/colors.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/core/util/date_utils.dart';
-import 'package:wowcare/domain/features/newsletters/entities/newsletter_entity.dart';
+import 'package:wowcare/domain/features/newsletter/entities/newsletter_entity.dart';
 import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';

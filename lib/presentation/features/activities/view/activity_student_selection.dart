@@ -134,6 +134,7 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
       'signedOutBy': student.signedOutBy,
       'signedOutTime': student.signedOutTime,
       'attendanceDate': _formatAttendanceDate(_selectedAttendanceDate),
+      'classroomCodeAmbiguousForDate': student.attendedMultipleClassroomsOnDate,
     };
   }
 
@@ -328,6 +329,15 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                         for (final student in filtered) {
                           final isNapping = state.nappingStudentCodes
                               .contains(student.studentCode);
+                          // A Set<Map> dedupes by object identity, not by
+                          // content — a student already present (selected
+                          // individually before "Select All" was tapped, or
+                          // appearing twice in `filtered`) would otherwise
+                          // get a second, distinct Map entry added for the
+                          // same studentCode, rendering as a duplicate name.
+                          _selectedStudents.removeWhere(
+                            (s) => s['studentCode'] == student.studentCode,
+                          );
                           _selectedStudents.add(
                             _buildSelectedStudentMap(
                               student,
@@ -439,6 +449,11 @@ class _ActivityStudentSelectionState extends State<ActivityStudentSelection> {
                                   .removeCurrentSnackBar();
                               setState(() {
                                 if (selected == true) {
+                                  // Same dedupe-by-studentCode guard as
+                                  // Select All — see its comment.
+                                  _selectedStudents.removeWhere(
+                                    (s) => s['studentCode'] == studentCode,
+                                  );
                                   _selectedStudents.add(
                                     _buildSelectedStudentMap(
                                       student,

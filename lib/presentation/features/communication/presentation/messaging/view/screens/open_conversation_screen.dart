@@ -8,6 +8,7 @@ import 'package:wowcare/domain/features/communication/repositories/conversation_
 import 'package:wowcare/presentation/features/communication/cubit/communication_cubit.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/conversation_thread_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/staff_messaging_thread.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/src/app_router.dart';
 
 /// Opens the conversation thread for a messaging PUSH-NOTIFICATION tap.
@@ -78,7 +79,7 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
         builder: (context, snapshot) {
           if (snapshot.connectionState != ConnectionState.done) {
             return const Scaffold(
-              body: Center(child: CircularProgressIndicator()),
+              body: Center(child: PrimaryCircularLoader()),
             );
           }
           final conversation = snapshot.data;
@@ -102,8 +103,16 @@ class _OpenConversationScreenState extends State<OpenConversationScreen> {
           if (conversation.type == ConversationType.staffDirect) {
             // STAFF_DIRECT renders through the dedicated staff thread screen,
             // exactly like staff_messaging_tab / the messaging shortcut do.
+            // Total active participants minus the viewer themselves — seeded
+            // so the fresh per-thread CommunicationCubit's read/delivered-
+            // by-all tick aggregation has a recipient count to work with.
+            // See CommunicationCubit.seedRecipientCount's own doc for why
+            // this is required, not just an optimization.
+            final recipientCount =
+                conversation.participants.where((p) => p.isActive).length - 1;
             return BlocProvider<CommunicationCubit>(
-              create: (_) => serviceLocator<CommunicationCubit>(),
+              create: (_) => serviceLocator<CommunicationCubit>()
+                ..seedRecipientCount(conversation.code, recipientCount),
               child: StaffMessagingThread(
                 staffInfo: {
                   'name': conversation.title,

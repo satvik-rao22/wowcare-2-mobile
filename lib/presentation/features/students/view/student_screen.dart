@@ -25,7 +25,7 @@ import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_f
 import 'package:wowcare/domain/features/student/usecases/get_student_counts_usecase.dart';
 import 'package:wowcare/domain/features/classroom/usecases/get_classroom_by_code_usecase.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_filter_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/edit_student_profile_details_screen.dart';
@@ -53,7 +53,7 @@ import 'package:wowcare/shared/common/widgets/custom_shimmer_loader.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
 import 'package:wowcare/shared/common/widgets/highlightable_card.dart';
 import 'package:wowcare/shared/utils/responsive_sizing.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import '../../../../shared/common/widgets/gradient_add_button.dart';
 import '../../../../shared/common/widgets/post_add_student_bottom_sheet.dart';
@@ -559,9 +559,9 @@ class _StudentScreenState extends State<StudentScreen> {
 
     // API expects underscored codes, e.g. attendanceStatus=SIGNED_IN&attendanceStatus=ABSENT.
     const labelToAttendanceCode = <String, String>{
-      'Sign In': 'SIGNED_IN',
-      'Sign Out': 'SIGNED_OUT',
-      'Not Marked': 'NOT_MARKED',
+      'Signed-In': 'SIGNED_IN',
+      'Signed-Out': 'SIGNED_OUT',
+      'Not-Marked': 'NOT_MARKED',
       'Absent': 'ABSENT',
     };
     final selectedAttendanceLabels =
@@ -743,6 +743,15 @@ class _StudentScreenState extends State<StudentScreen> {
     Student student, {
     required Map<String, String> classroomCodeByName,
   }) {
+    // The students-list API already returns the student's live/current
+    // classroom code directly (see [Student.classroomCode]) — always prefer
+    // it. A transferred student's current classroom can be outside this
+    // staff member's scoped [classroomCodeByName] list, so falling back to a
+    // name -> code lookup (or worse, the raw display name) for that case
+    // silently sends activities to the wrong classroom.
+    final liveCode = student.classroomCode.trim();
+    if (liveCode.isNotEmpty) return liveCode;
+
     final raw = student.classroom.trim();
     if (raw.isEmpty) return '';
     if (raw.toUpperCase().startsWith('CLS_')) return raw;
@@ -1270,6 +1279,10 @@ class _StudentScreenState extends State<StudentScreen> {
                                   // resolved URL in `profileImage`.
                                   avatar:
                                       students[i].profilePhotoAssetCode ?? '',
+                                  // Straight from the student list API's own
+                                  // `classroom.code` — see
+                                  // Student.classroomCode.
+                                  classroomCode: students[i].classroomCode,
                                 ),
                           ];
                           openMessagingShortcut(context, recipients: selected);

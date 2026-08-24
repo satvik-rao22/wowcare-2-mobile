@@ -15,9 +15,11 @@ import 'package:wowcare/presentation/features/communication/cubit/conversation_l
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_filter_sheet.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/conversation_tile.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/filter_indicator.dart';
+import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/common/widgets/custom_scaffold.dart';
 import 'package:wowcare/shared/common/widgets/custom_search_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:wowcare/shared/common/widgets/profile_show_widget.dart';
 import '../../../../../../../core/storage/storage_service.dart';
 import '../../../../../../../core/util/storage_keys.dart';
@@ -83,8 +85,8 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
   Future<void> _initRole() async {
     final storage = serviceLocator<StorageService>();
     final role = await storage.getString(StorageKeys.activeSchoolRole);
-    final userCode =
-        (await storage.getString(StorageKeys.userCode) ?? '').trim();
+    final userCode = (await storage.getString(StorageKeys.userCode) ?? '')
+        .trim();
     if (mounted) {
       setState(() {
         _isGuardian =
@@ -141,6 +143,15 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
     return all.where((c) {
       if (_showUnreadOnly && c.unreadCount == 0) return false;
       if (q.isNotEmpty && !c.title.toLowerCase().contains(q)) return false;
+      // Room Chat/Admin Chat are student-scoped — by default, hide
+      // conversations for withdrawn (INACTIVE) students. UPCOMING is a
+      // normal, not-yet-started enrollment state and stays visible.
+      // STAFF_DIRECT conversations have no studentStatus at all, so this
+      // is a no-op for them.
+      final studentStatus = c.studentStatus?.trim().toUpperCase();
+      if (studentStatus == 'INACTIVE') {
+        return false;
+      }
       return true;
     }).toList();
   }
@@ -156,8 +167,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
           return GlobalScaffold(
             hasBackButton: false,
 
-            body: RefreshIndicator(
-              color: AppColors.primaryColor,
+            body: CustomRefreshIndicator(
               onRefresh: () => context.read<ConversationListCubit>().refresh(),
               child: CustomScrollView(
                 controller: _scrollController,
@@ -215,11 +225,10 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                                           !_isGuardian))
                                     FilterIndicator(
                                       hasActiveFilters: state.hasActiveFilters,
-                                      filterCount: [
-                                        state.activeDesignation,
-                                        state.activeStaffStatus,
-                                        state.activeClassroom,
-                                      ].where((f) => f != null).length,
+                                      filterCount:
+                                          state.activeDesignations.length +
+                                          state.activeStaffStatuses.length +
+                                          state.activeClassroomCodes.length,
                                       onTap: () => _showFilterSheet(context),
                                     ),
                                   _TypeChip(type: state.conversationType),
@@ -234,46 +243,57 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                               child: Wrap(
                                 spacing: 6,
                                 children: [
-                                  if (state.activeDesignation != null)
+                                  for (final d in state.activeDesignations)
                                     _FilterChip(
-                                      label: state.activeDesignation!,
+                                      label: d,
                                       onRemove: () {
                                         context
                                             .read<ConversationListCubit>()
                                             .applyFilters(
-                                              designation: null,
-                                              staffStatus:
-                                                  state.activeStaffStatus,
-                                              classroom: state.activeClassroom,
+                                              designations: state
+                                                  .activeDesignations
+                                                  .where((x) => x != d)
+                                                  .toList(),
+                                              staffStatuses:
+                                                  state.activeStaffStatuses,
+                                              classroomCodes:
+                                                  state.activeClassroomCodes,
                                             );
                                       },
                                     ),
-                                  if (state.activeStaffStatus != null)
+                                  for (final s in state.activeStaffStatuses)
                                     _FilterChip(
-                                      label: state.activeStaffStatus!,
+                                      label: s,
                                       onRemove: () {
                                         context
                                             .read<ConversationListCubit>()
                                             .applyFilters(
-                                              designation:
-                                                  state.activeDesignation,
-                                              staffStatus: null,
-                                              classroom: state.activeClassroom,
+                                              designations:
+                                                  state.activeDesignations,
+                                              staffStatuses: state
+                                                  .activeStaffStatuses
+                                                  .where((x) => x != s)
+                                                  .toList(),
+                                              classroomCodes:
+                                                  state.activeClassroomCodes,
                                             );
                                       },
                                     ),
-                                  if (state.activeClassroom != null)
+                                  for (final c in state.activeClassroomCodes)
                                     _FilterChip(
-                                      label: state.activeClassroom!,
+                                      label: c,
                                       onRemove: () {
                                         context
                                             .read<ConversationListCubit>()
                                             .applyFilters(
-                                              designation:
-                                                  state.activeDesignation,
-                                              staffStatus:
-                                                  state.activeStaffStatus,
-                                              classroom: null,
+                                              designations:
+                                                  state.activeDesignations,
+                                              staffStatuses:
+                                                  state.activeStaffStatuses,
+                                              classroomCodes: state
+                                                  .activeClassroomCodes
+                                                  .where((x) => x != c)
+                                                  .toList(),
                                             );
                                       },
                                     ),
@@ -328,10 +348,9 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
                       child: Padding(
                         padding: EdgeInsets.symmetric(vertical: 16),
                         child: Center(
-                          child: SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(strokeWidth: 2),
+                          child: PrimaryCircularLoader(
+                            size: 24,
+                            strokeWidth: 2,
                           ),
                         ),
                       ),
@@ -451,13 +470,7 @@ class _ConversationListScreenState extends State<ConversationListScreen> {
       return const SliverToBoxAdapter(
         child: Padding(
           padding: EdgeInsets.symmetric(vertical: 12),
-          child: Center(
-            child: SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          ),
+          child: Center(child: PrimaryCircularLoader(size: 20, strokeWidth: 2)),
         ),
       );
     }
@@ -556,6 +569,7 @@ class _StaffDirectoryTile extends StatelessWidget {
             vertical: 10,
           ),
           leading: DocumentImageWidget(
+            disableAttendanceStatusLookup: true,
             fileUuid: '',
             mediaAssetCode: staff.avatarAssetCode,
             name: staff.name,
@@ -572,11 +586,7 @@ class _StaffDirectoryTile extends StatelessWidget {
             style: const TextStyle(fontSize: 12, color: Color(0xFF636E72)),
           ),
           trailing: isCreating
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
+              ? const PrimaryCircularLoader(size: 20, strokeWidth: 2)
               : Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -639,6 +649,7 @@ class _ConversationTileContent extends StatelessWidget {
           leading: Stack(
             children: [
               DocumentImageWidget(
+                disableAttendanceStatusLookup: true,
                 fileUuid: '',
                 // `avatar` is either a resolved URL or a raw media-asset code depending on which
                 // screen created the conversation — route to whichever matches the value's shape.
@@ -725,7 +736,10 @@ class _ConversationTileContent extends StatelessWidget {
                         ),
                         const SizedBox(width: 3),
                         Text(
-                          '${conversation.participantCount}',
+                          // participantCount comes back null/0 from the list
+                          // endpoint even when participants is fully
+                          // populated — count active participants directly.
+                          '${conversation.participants.where((p) => p.isActive).length}',
                           style: const TextStyle(
                             fontSize: 11,
                             color: Color(0xFFB2BEC3),

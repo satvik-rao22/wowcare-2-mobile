@@ -3,7 +3,6 @@ import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/app/theme/media_res.dart';
 import 'package:wowcare/domain/features/newsletter/entities/newsletter_component.dart';
 import 'package:wowcare/presentation/features/newsletter/util/newsletter_color_theme.dart';
-import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_float_image_text_layout.dart';
 import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_media_preview_overlay.dart';
 import 'package:wowcare/presentation/features/newsletter/view/widgets/newsletter_rich_html_text.dart';
 import 'package:wowcare/shared/services/image_upload/image_upload_service.dart';
@@ -74,17 +73,10 @@ class _NewsletterComponentTile extends StatelessWidget {
           theme: theme,
         );
       case 'TEXT_IMAGE':
-        return _SideBySideBlock(
-          textPart: _firstTextPart(parts),
-          imagePart: _firstImagePart(parts),
-          imageOnRight: true,
-          theme: theme,
-        );
       case 'IMAGE_TEXT':
         return _SideBySideBlock(
           textPart: _firstTextPart(parts),
           imagePart: _firstImagePart(parts),
-          imageOnRight: false,
           theme: theme,
         );
       case 'IMAGE_TOP_TEXT':
@@ -140,22 +132,16 @@ class _NewsletterComponentTile extends StatelessWidget {
     }
 
     if (imageParts.isNotEmpty && textParts.isNotEmpty) {
-      final int firstImageIndex = parts.indexWhere(
-        (NewsletterContentPart p) =>
-            p.type == NewsletterPartType.image && p.hasImage,
-      );
-      final int firstTextIndex = parts.indexWhere(
-        (NewsletterContentPart p) =>
-            p.type == NewsletterPartType.text && p.hasText,
-      );
       return _SideBySideBlock(
         textPart: textParts.first,
         imagePart: imageParts.first,
-        imageOnRight: firstImageIndex > firstTextIndex,
         theme: theme,
       );
     }
 
+    if (imageParts.length > 1) {
+      return _StackedImagesBlock(imageParts: imageParts);
+    }
     if (imageParts.isNotEmpty) {
       return _ImageBlock(part: imageParts.first);
     }
@@ -176,11 +162,16 @@ class _NewsletterComponentTile extends StatelessWidget {
     final bool secondIsImage =
         second != null && second.type == NewsletterPartType.image;
 
+    if (firstIsImage && secondIsImage) {
+      return _StackedImagesBlock(imageParts: <NewsletterContentPart>[
+        first,
+        second!,
+      ]);
+    }
     if (firstIsImage && second != null && !secondIsImage) {
       return _SideBySideBlock(
         textPart: second,
         imagePart: first,
-        imageOnRight: false,
         theme: theme,
       );
     }
@@ -188,7 +179,6 @@ class _NewsletterComponentTile extends StatelessWidget {
       return _SideBySideBlock(
         textPart: first,
         imagePart: second,
-        imageOnRight: true,
         theme: theme,
       );
     }
@@ -273,30 +263,51 @@ class _TextBlock extends StatelessWidget {
   }
 }
 
+/// Renders an image paired with text on mobile as a full-width image
+/// followed by the text below it, regardless of the backend's declared
+/// left/right placement — side-by-side columns aren't usable at phone
+/// widths.
 class _SideBySideBlock extends StatelessWidget {
   const _SideBySideBlock({
     required this.textPart,
     required this.imagePart,
-    required this.imageOnRight,
     required this.theme,
   });
 
   final NewsletterContentPart? textPart;
   final NewsletterContentPart? imagePart;
-  final bool imageOnRight;
   final NewsletterThemeColors theme;
 
   @override
   Widget build(BuildContext context) {
-    return NewsletterFloatImageTextLayout(
+    return _StackedBlock(
       textPart: textPart,
       imagePart: imagePart,
-      imageOnRight: imageOnRight,
+      imageOnTop: true,
       theme: theme,
-      imageBuilder: (double width) => _ImageBlock(
-        part: imagePart,
-        fixedWidth: width,
-      ),
+    );
+  }
+}
+
+/// Renders multiple images stacked full-width, in place of a side-by-side
+/// column layout that isn't usable at phone widths.
+class _StackedImagesBlock extends StatelessWidget {
+  const _StackedImagesBlock({required this.imageParts});
+
+  final List<NewsletterContentPart> imageParts;
+
+  @override
+  Widget build(BuildContext context) {
+    if (imageParts.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (int i = 0; i < imageParts.length; i++) ...[
+          if (i > 0) const SizedBox(height: 12),
+          _ImageBlock(part: imageParts[i]),
+        ],
+      ],
     );
   }
 }
@@ -398,19 +409,14 @@ class _DividerBlock extends StatelessWidget {
 }
 
 class _ImageBlock extends StatelessWidget {
-  const _ImageBlock({
-    required this.part,
-    this.fixedWidth,
-  });
+  const _ImageBlock({required this.part});
 
   final NewsletterContentPart? part;
-  final double? fixedWidth;
 
   @override
   Widget build(BuildContext context) {
-    final Widget content;
     if (part == null || !part!.hasImage) {
-      content = ClipRRect(
+      return ClipRRect(
         borderRadius: BorderRadius.circular(10),
         child: AspectRatio(
           aspectRatio: 16 / 9,
@@ -420,16 +426,12 @@ class _ImageBlock extends StatelessWidget {
           ),
         ),
       );
-    } else {
-      content = _NewsletterComponentImage(
-        imageUrl: part!.imageUrl,
-        assetCode: part!.assetCode,
-        alt: part!.alt,
-      );
     }
-
-    if (fixedWidth == null) return content;
-    return SizedBox(width: fixedWidth, child: content);
+    return _NewsletterComponentImage(
+      imageUrl: part!.imageUrl,
+      assetCode: part!.assetCode,
+      alt: part!.alt,
+    );
   }
 }
 

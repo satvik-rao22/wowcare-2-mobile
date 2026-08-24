@@ -139,6 +139,8 @@ class ParentTransactionCard extends StatelessWidget {
       description: transaction.description,
       studentName: transaction.studentName,
       classroom: '',
+      studentCode:
+          transaction.studentCode.isNotEmpty ? transaction.studentCode : null,
       paidAmount: transaction.paidAmount,
       refundedAmount: transaction.refundedAmount,
       invoiceCode: transaction.invoiceCode,
@@ -346,9 +348,12 @@ class ParentStatementCard extends StatelessWidget {
         ),
         const SizedBox(height: 16),
         StaffCardActions(
-          secondaryLabel: 'View',
+          // Both actions share the same fetch-in-flight flag, so the label
+          // stays generic rather than claiming "Downloading…" while a View
+          // fetch is actually what's in flight.
+          secondaryLabel: isDownloading ? 'Loading…' : 'View',
           onSecondary: isDownloading ? null : onView,
-          primaryLabel: isDownloading ? 'Downloading…' : 'Download',
+          primaryLabel: isDownloading ? 'Loading…' : 'Download',
           onPrimary: isDownloading ? null : onDownload,
         ),
       ],

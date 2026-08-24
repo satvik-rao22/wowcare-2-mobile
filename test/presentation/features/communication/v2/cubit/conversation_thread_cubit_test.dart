@@ -9,14 +9,19 @@ import 'package:wowcare/domain/features/communication/entities/message_entity.da
 import 'package:wowcare/domain/features/communication/entities/messaging_staff_result.dart';
 import 'package:wowcare/domain/features/communication/entities/sync_queue_entity.dart';
 import 'package:wowcare/domain/features/communication/entities/unread_entity.dart';
+import 'package:wowcare/domain/features/communication/repositories/communication_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/conversation_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/repositories/message_entity_repository.dart';
 import 'package:wowcare/domain/features/communication/usecases/add_reaction_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/cache_draft_message_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/delete_attachment_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/edit_message_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_cached_messages_entity_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/get_message_entity_receipts_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/get_messages_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/mark_conversation_read_usecase.dart';
+import 'package:wowcare/domain/features/communication/usecases/mark_draft_message_failed_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/remove_reaction_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/send_message_entity_usecase.dart';
 import 'package:wowcare/domain/features/communication/usecases/watch_messages_usecase.dart';
@@ -62,9 +67,11 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
     required String conversationCode,
     required String text,
     List<int> attachmentIds = const [],
+    List<AttachmentEntity> attachments = const [],
     bool isPrivate = false,
     String? privateParentUserCode,
     String? threadParentCode,
+    String? localTempCode,
   }) async {
     sendMessageCallCount++;
     lastSendAttachmentIds = attachmentIds;
@@ -164,6 +171,26 @@ class _FakeMessageEntityRepository implements MessageEntityRepository {
   void emit(List<MessageEntity> messages) => _messagesController.add(messages);
 
   Future<void> dispose() => _messagesController.close();
+
+  @override
+  Future<void> cacheDraftMessage(MessageEntity message) {
+    // TODO: implement cacheDraftMessage
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> markDraftMessageFailed(String localTempCode) {
+    // TODO: implement markDraftMessageFailed
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, List<ReadReceiptEntity>>> getMessageReceipts(
+    String messageCode,
+  ) {
+    // TODO: implement getMessageReceipts
+    throw UnimplementedError();
+  }
 }
 
 class _FakeConversationEntityRepository
@@ -197,12 +224,17 @@ class _FakeConversationEntityRepository
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
   }) async => const Right([]);
 
   @override
@@ -304,6 +336,26 @@ class _FakeConversationEntityRepository
     String? classroomName,
   }) {
     // TODO: implement reconcileClassroomChat
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsPerConversation() {
+    // TODO: implement getUnreadCountsPerConversation
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
     throw UnimplementedError();
   }
 }
@@ -424,6 +476,12 @@ void main() {
       attachmentUploader: attachmentUploader,
       // Short duration so the test doesn't wait 2 real seconds.
       markReadDebounceDuration: const Duration(milliseconds: 20),
+      cacheDraftMessageUseCase: CacheDraftMessageUseCase(messageRepo),
+      markDraftMessageFailedUseCase: MarkDraftMessageFailedUseCase(messageRepo),
+      getCachedMessagesEntityUseCase: GetCachedMessagesEntityUseCase(
+        messageRepo,
+      ),
+      getMessageReceiptsUseCase: GetMessageEntityReceiptsUseCase(messageRepo),
     );
   });
 

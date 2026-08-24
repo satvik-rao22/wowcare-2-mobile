@@ -16,6 +16,123 @@ bool roleStringIsKioskPersona(String role) {
   return u == 'KIOSK';
 }
 
+/// True for staff/teacher personas (not guardian/parent, not kiosk).
+bool roleStringIsStaffPersona(String role) {
+  final u = role.toUpperCase().trim();
+  return u.contains('STAFF') || u.contains('TEACHER');
+}
+
+/// Collapses any backend role string to the coarse persona the UI gates on.
+/// Mirrors `RoleCubit._personaFamily` — kept in sync so a persona resolved
+/// here (e.g. from [lastUsedPersonaFamily]) always lands in the same bucket
+/// the cubit itself would assign it.
+String personaFamilyForRole(String backendRole) {
+  final r = backendRole.trim().toLowerCase();
+  if (r.contains('kiosk')) return 'kiosk';
+  if (r.contains('guardian') || r.contains('parent')) return 'parent';
+  if (r.contains('staff') || r.contains('teacher')) return 'staff';
+  return 'admin';
+}
+
+/// The persona family a multi-persona account should reopen on for a fresh
+/// login, derived from the durable "last used persona" record — `null` when
+/// there's no usable record.
+///
+/// [lastUsedPersonaRoleJson] is the raw `{"userCode": ..., "role": ...}`
+/// value persisted at `StorageKeys.lastUsedPersonaRole` (survives logout,
+/// unlike `activeSchoolRole`). Returns `null` — so the caller falls through
+/// to the admin/staff-priority default — when: nothing is stored yet (fresh
+/// install / first-ever login), the record belongs to a different account
+/// (userCode mismatch, e.g. a different user on a shared device), or that
+/// persona family is no longer among [currentRolesJson] (the just-completed
+/// login's roles list).
+String? lastUsedPersonaFamily({
+  required String lastUsedPersonaRoleJson,
+  required String currentUserCode,
+  required String currentRolesJson,
+}) {
+  final raw = lastUsedPersonaRoleJson.trim();
+  final userCode = currentUserCode.trim();
+  if (raw.isEmpty || userCode.isEmpty) return null;
+
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map) return null;
+    final storedUserCode = (decoded['userCode'] ?? '').toString().trim();
+    final storedRole = (decoded['role'] ?? '').toString().trim();
+    if (storedUserCode.isEmpty ||
+        storedRole.isEmpty ||
+        storedUserCode != userCode) {
+      return null;
+    }
+
+    final family = personaFamilyForRole(storedRole);
+    final rolesRaw = currentRolesJson.trim();
+    if (rolesRaw.isEmpty) return null;
+    final rolesDecoded = jsonDecode(rolesRaw);
+    if (rolesDecoded is! List) return null;
+    final stillAvailable = rolesDecoded.any((r) {
+      if (r is! Map) return false;
+      final roleStr = (r['role'] ?? r['Role'] ?? '').toString();
+      return personaFamilyForRole(roleStr) == family;
+    });
+    return stillAvailable ? family : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Derives the coarse persona family (`kiosk` / `staff` / `admin` / `parent`)
+/// a multi-persona account should default into when no active persona has
+/// been resolved/persisted yet.
+///
+/// Priority is kiosk > staff > admin > parent: a dual-role account (e.g.
+/// SCHOOL_ADMIN + GUARDIAN) must default to the admin/staff persona instead
+/// of being silently downgraded to the parent experience just because a
+/// guardian role also appears somewhere in the payload.
+String derivePersonaFamilyFromRolesJson(String rolesJson) {
+  final raw = rolesJson.trim();
+  if (raw.isEmpty) return 'admin';
+
+  List<dynamic>? roles;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) roles = decoded;
+  } catch (_) {
+    // Fall through to legacy substring heuristics below.
+  }
+
+  if (roles != null) {
+    bool hasKiosk = false, hasStaff = false, hasAdmin = false, hasGuardian = false;
+    for (final r in roles) {
+      if (r is! Map) continue;
+      final roleStr = (r['role'] ?? r['Role'] ?? '').toString();
+      if (roleStringIsKioskPersona(roleStr)) {
+        hasKiosk = true;
+      } else if (roleStringIsStaffPersona(roleStr)) {
+        hasStaff = true;
+      } else if (roleStringIsGuardianPersona(roleStr)) {
+        hasGuardian = true;
+      } else if (roleStr.trim().isNotEmpty) {
+        hasAdmin = true;
+      }
+    }
+    if (hasKiosk) return 'kiosk';
+    if (hasStaff) return 'staff';
+    if (hasAdmin) return 'admin';
+    if (hasGuardian) return 'parent';
+    return 'admin';
+  }
+
+  // Legacy fallback: raw JSON couldn't be parsed as a list — scan the string
+  // directly, same priority order as above.
+  final u = raw.toUpperCase();
+  if (u.contains('KIOSK')) return 'kiosk';
+  if (u.contains('STAFF') || u.contains('TEACHER')) return 'staff';
+  if (u.contains('GUARDIAN') || u.contains('PARENT')) return 'parent';
+  return 'admin';
+}
+
 /// True when [rolesJson] is the login roles payload and includes a parent/guardian role.
 ///
 /// Handles the common `[{"role":"GUARDIAN",...}]` shape (not matched by naive

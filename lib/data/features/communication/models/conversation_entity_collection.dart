@@ -29,6 +29,7 @@ class ConversationEntityCollection {
   // Student / classroom context (null for STAFF_DIRECT)
   @Index()
   String? studentCode;
+  String? studentStatus;
   String? classroomCode;
 
   // Core metadata
@@ -87,6 +88,7 @@ class ConversationEntityCollection {
       ..code = entity.code
       ..type = entity.type.toApiString()
       ..studentCode = entity.studentCode
+      ..studentStatus = entity.studentStatus
       ..classroomCode = entity.classroomCode
       ..title = entity.title
       ..description = entity.description
@@ -124,9 +126,7 @@ class ConversationEntityCollection {
             );
   }
 
-  static Map<String, PrivateModeState> _decodePrivateModeStates(
-    String? json,
-  ) {
+  static Map<String, PrivateModeState> _decodePrivateModeStates(String? json) {
     if (json == null || json.isEmpty) return const {};
     final decoded = jsonDecode(json) as Map<String, dynamic>;
     return decoded.map((parentCode, value) {
@@ -149,6 +149,7 @@ class ConversationEntityCollection {
       code: code,
       type: ConversationType.fromApiString(type),
       studentCode: studentCode,
+      studentStatus: studentStatus,
       classroomCode: classroomCode,
       title: title,
       description: description,
@@ -193,6 +194,8 @@ class ParticipantEntityCollection {
   bool? notificationsEnabled;
   late DateTime createdAt;
   late DateTime updatedAt;
+  bool? active;
+  String? staffStatus;
 
   ParticipantEntityCollection();
 
@@ -211,7 +214,9 @@ class ParticipantEntityCollection {
       ..muted = entity.muted
       ..notificationsEnabled = entity.notificationsEnabled
       ..createdAt = entity.createdAt
-      ..updatedAt = entity.updatedAt;
+      ..updatedAt = entity.updatedAt
+      ..active = entity.active
+      ..staffStatus = entity.staffStatus;
   }
 
   ParticipantEntity toEntity() {
@@ -230,6 +235,8 @@ class ParticipantEntityCollection {
       notificationsEnabled: notificationsEnabled ?? true,
       createdAt: createdAt,
       updatedAt: updatedAt,
+      active: active ?? true,
+      staffStatus: staffStatus,
     );
   }
 }

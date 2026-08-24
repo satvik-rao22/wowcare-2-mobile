@@ -7,6 +7,8 @@ import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/shared/common/app/cubit/bottom_navigation_item.dart';
 import 'package:wowcare/presentation/features/activities/view/activity_feed_screen.dart';
+import 'package:wowcare/presentation/features/activities/view/activity_item.dart';
+import 'package:wowcare/presentation/features/activities/view/edit_create_activity_screens/incident_activity.dart';
 import 'package:wowcare/presentation/features/auth/view/forgot_password_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/org_selection_screen.dart';
 import 'package:wowcare/presentation/features/auth/view/school_selection_screen.dart';
@@ -30,12 +32,12 @@ import 'package:wowcare/presentation/features/billing/cubit/parent_billing_cubit
 import 'package:wowcare/presentation/features/billing/view/parent_billing_screen.dart';
 import 'package:wowcare/presentation/features/reports/view/reports_screen.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_info_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_screen.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_info_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/messaging_screen.dart';
 import 'package:wowcare/presentation/features/newsletter/view/parent_newsletter_screen.dart';
+import 'package:wowcare/presentation/features/newsletter/view/preview_newsletter_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/admin_chat_host_screen.dart';
-import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/messaging_entry_screen.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/view/screens/open_conversation_screen.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/student_newsletters_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/view/dashboard_screen.dart';
@@ -52,14 +54,21 @@ import 'package:wowcare/presentation/features/scheduling/view/scheduling_screen.
 import 'package:wowcare/presentation/features/scheduling/cubit/scheduling_staff_list_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/cubit/staff_scheduling_cubit.dart';
 import 'package:wowcare/presentation/features/scheduling/view/staff_scheduling_screen.dart';
-import 'package:wowcare/presentation/features/student/cubit/student_cubit.dart';
+import 'package:wowcare/presentation/features/students/cubit/student_cubit.dart';
 import 'package:wowcare/presentation/features/students/view/student_profile_screen.dart';
 import 'package:wowcare/presentation/features/students/view/student_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/notification_settings_screen.dart';
 import 'package:wowcare/presentation/features/user-profile/view/user_profile_screen.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
-import 'package:wowcare/shared/common/app/providers/splash_screen.dart';
-import 'package:wowcare/presentation/features/classrooom/views/screens/classroom_overview_screen.dart';
+import 'package:wowcare/shared/common/app/cubit/parent_child_cubit.dart';
+import 'package:wowcare/shared/common/app/user_persona.dart';
+import 'package:wowcare/presentation/features/splash/view/splash_screen.dart';
+import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
+import 'package:wowcare/presentation/features/splash/cubit/splash_cubit.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_local_datasource.dart';
+import 'package:wowcare/data/features/auth/datasources/auth_remote_datasource.dart';
+import 'package:wowcare/domain/features/notifications/usecases/register_device_fcm_token_usecase.dart';
+import 'package:wowcare/presentation/features/classroom/views/screens/classroom_overview_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/kiosk_dashboard_screen.dart';
 import 'package:wowcare/presentation/features/kiosk/view/logout/kiosk_logout_page.dart';
 import 'package:wowcare/presentation/features/kiosk/widgets/kiosk_sign_in_and_sign_out.dart';
@@ -83,9 +92,13 @@ class AppRoutes {
   static const String activityFeed = ActivityFeedScreen.routeName;
   static const String messaging = MessagingScreen.routeName;
   static const String adminChat = AdminChatHostScreen.routeName;
-  static const String messagingEntry = MessagingEntryScreen.routeName;
   static const String openConversation = OpenConversationScreen.routeName;
   static const String parentBilling = ParentBillingScreen.routeName;
+
+  // Notification deep-links for the admin persona: land straight on the
+  // specific newsletter / pending-approval activity, not a generic list.
+  static const String newsletterPreviewByCode = '/newsletter-preview-by-code';
+  static const String activityApprovalByCode = '/activity-approval-by-code';
 }
 
 /// Path lookups by branch index — used by the bottom nav when there is no
@@ -175,11 +188,64 @@ BottomNavigationItem itemForBranchIndex({
 /// list on every build gives each branch a new GlobalKey, which confuses
 /// Flutter's element lifecycle and triggers the
 /// "_elements.contains(element)" assertion.
-final _dashboardBranchKey = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
-final _classroomBranchKey = GlobalKey<NavigatorState>(debugLabel: 'classroom');
-final _activityBranchKey = GlobalKey<NavigatorState>(debugLabel: 'activity');
-final _messagingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'messaging');
-final _billingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'billing');
+/// Public (not `_`-prefixed like its sibling branch keys) because the
+/// Attendance popup (a modal, not a route) must push the parent's
+/// attendance profile onto THIS specific navigator, regardless of which
+/// branch's own `CustomNavigationBar` instance happened to handle the tap —
+/// see `AttendancePopupManager.openParentChildAttendance`'s doc for why an
+/// ambient `BuildContext` can't be trusted for this.
+/// Public (not `_`-prefixed) for the same reason as [dashboardBranchKey]:
+/// any branch can end up with a screen imperatively pushed onto its OWN
+/// nested navigator (a sub-screen, a dialog-as-route, the Attendance
+/// profile), which go_router's own `context.go` doesn't know how to pop —
+/// see [popAllShellBranchNavigators]'s doc for the concrete bug this fixes
+/// (e.g. "Switch Profile" not landing on Dashboard because the Attendance
+/// profile, or a Communication-module sub-screen, was still covering it).
+final dashboardBranchKey = GlobalKey<NavigatorState>(debugLabel: 'dashboard');
+final classroomBranchKey = GlobalKey<NavigatorState>(debugLabel: 'classroom');
+final activityBranchKey = GlobalKey<NavigatorState>(debugLabel: 'activity');
+final messagingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'messaging');
+final billingBranchKey = GlobalKey<NavigatorState>(debugLabel: 'billing');
+
+/// Every shell branch's own nested navigator, for callers that need to
+/// unwind ALL of them (not just one specific branch) — see
+/// [popAllShellBranchNavigators].
+final List<GlobalKey<NavigatorState>> _allShellBranchKeys = [
+  dashboardBranchKey,
+  classroomBranchKey,
+  activityBranchKey,
+  messagingBranchKey,
+  billingBranchKey,
+];
+
+/// Pops every pushed route off EVERY shell branch's own nested navigator,
+/// plus the app's root navigator, back down to each branch's root screen.
+///
+/// Needed before a plain `context.go(someRoute)` whenever the caller can't
+/// be sure nothing is imperatively pushed on top of whichever navigator is
+/// currently showing — `go()` only ever changes go_router's OWN declarative
+/// page list; it has no way to know about (or pop) a route pushed directly
+/// via `NavigatorState.push`/`Navigator.of(context).push` bypassing
+/// go_router, so that pushed screen just keeps covering the destination.
+/// Two concrete cases this fixes, both hit via the app bar's "Switch
+/// Profile": the parent Attendance profile (pushed onto
+/// [dashboardBranchKey] — see `AttendancePopupManager
+/// .openParentChildAttendance`) and Communication-module sub-screens
+/// (pushed onto [messagingBranchKey] from within `MessagingScreen`/
+/// `ParentMessagingThread`/etc.). Safe to call unconditionally — a branch
+/// with nothing pushed on it just no-ops (`canPop()` is false).
+void popAllShellBranchNavigators(BuildContext context) {
+  final rootNavigator = Navigator.of(context, rootNavigator: true);
+  while (rootNavigator.canPop()) {
+    rootNavigator.pop();
+  }
+  for (final key in _allShellBranchKeys) {
+    final navigator = key.currentState;
+    while (navigator != null && navigator.canPop()) {
+      navigator.pop();
+    }
+  }
+}
 
 /// Deep-link captured from a notification that cold-launched the app (killed
 /// state). On a killed-state tap the app starts at the splash, which runs an
@@ -287,7 +353,26 @@ final GoRouter appRouter = GoRouter(
   routes: [
     GoRoute(
       path: AppRoutes.splash,
-      builder: (context, state) => const SplashScreenWrapper(),
+      // RoleCubit/ParentChildCubit/AuthCubit are read from the ANCESTOR
+      // BlocProviders (app_providers.dart/app_bloc_providers.dart) rather
+      // than resolved via serviceLocator — SplashCubit needs to act on the
+      // SAME instances the rest of the app observes (e.g. it calls
+      // RoleCubit.refreshAccessFromServer so the dashboard sees the
+      // refreshed state), not a throwaway factory instance.
+      builder: (context, state) => BlocProvider(
+        create: (context) => SplashCubit(
+          storage: serviceLocator<StorageService>(),
+          authLocal: serviceLocator<AuthLocalDataSource>(),
+          authRemote: serviceLocator<AuthRemoteDataSource>(),
+          kioskAccessControl: serviceLocator<KioskAccessControl>(),
+          registerDeviceFcmTokenUseCase:
+              serviceLocator<RegisterDeviceFcmTokenUseCase>(),
+          roleCubit: context.read<RoleCubit>(),
+          parentChildCubit: context.read<ParentChildCubit>(),
+          authCubit: context.read<AuthCubit>(),
+        )..resolve(),
+        child: const SplashScreenWrapper(),
+      ),
     ),
     GoRoute(
       path: AppRoutes.firstScreen,
@@ -629,7 +714,7 @@ final GoRouter appRouter = GoRouter(
         // drill-down — e.g. Staff → Edit Profile — still use
         // `context.push(...)` and live as siblings here.)
         StatefulShellBranch(
-          navigatorKey: _dashboardBranchKey,
+          navigatorKey: dashboardBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.dashboard,
@@ -797,6 +882,7 @@ final GoRouter appRouter = GoRouter(
                     state,
                     IndividualMovementScreen(
                       highlightCode: state.uri.queryParameters['highlightCode'],
+                      studentCode: state.uri.queryParameters['studentCode'],
                     ),
                   ),
                 ),
@@ -1092,7 +1178,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 1 — Classrooms (staff/admin only).
         StatefulShellBranch(
-          navigatorKey: _classroomBranchKey,
+          navigatorKey: classroomBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.classroom,
@@ -1112,7 +1198,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 2 — Activities.
         StatefulShellBranch(
-          navigatorKey: _activityBranchKey,
+          navigatorKey: activityBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.activityFeed,
@@ -1121,6 +1207,7 @@ final GoRouter appRouter = GoRouter(
                 final highlight = (q['highlightCode'] ?? '').trim();
                 final date = q['date'] ?? '';
                 final room = q['classroomCode'] ?? '';
+                final extra = state.extra as Map<String, dynamic>?;
                 return ActivityFeedScreen(
                   // The Activities tab lives in an indexed-stack branch and its
                   // Daily tab is keep-alive, so a notification tap into an
@@ -1130,14 +1217,18 @@ final GoRouter appRouter = GoRouter(
                   // applies the notification's date, classroom and highlight.
                   // Normal tab navigation carries no highlightCode and keeps a
                   // null key, so ordinary browsing state is preserved.
-                  key: highlight.isEmpty
-                      ? null
-                      : ValueKey('activityFeed-$highlight-$date-$room'),
+                  key: highlight.isNotEmpty
+                      ? ValueKey('activityFeed-$highlight-$date-$room')
+                      : null,
                   highlightCode: q['highlightCode'],
                   highlightDate: DateTime.tryParse(date),
                   // The deep-linked activity's classroom, so the feed opens on
                   // the room that actually contains the card to highlight.
                   highlightClassroomCode: q['classroomCode'],
+                  initialTab: q['tab'] == 'custom' ? 1 : 0,
+                  initialActivityTypes: q['activityType'] != null ? [q['activityType']!] : null,
+                  initialClassrooms: q['classroom'] != null ? [q['classroom']!] : null,
+                  resetKey: extra?['timestamp']?.toString(),
                 );
               },
             ),
@@ -1148,7 +1239,7 @@ final GoRouter appRouter = GoRouter(
         // same branch serves both parent and staff/admin without having to
         // pass arguments through the URL.
         StatefulShellBranch(
-          navigatorKey: _messagingBranchKey,
+          navigatorKey: messagingBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.messaging,
@@ -1171,7 +1262,7 @@ final GoRouter appRouter = GoRouter(
 
         // Branch 4 — Parent billing (parent only).
         StatefulShellBranch(
-          navigatorKey: _billingBranchKey,
+          navigatorKey: billingBranchKey,
           routes: [
             GoRoute(
               path: AppRoutes.parentBilling,
@@ -1197,19 +1288,52 @@ final GoRouter appRouter = GoRouter(
       path: AppRoutes.adminChat,
       builder: (context, state) => const AdminChatHostScreen(),
     ),
-    GoRoute(
-      path: AppRoutes.messagingEntry,
-      builder: (context, state) => const MessagingEntryScreen(),
-    ),
     // Deep-link target for a tapped chat push notification: fetches the
     // conversation by code and shows the correct thread.
     GoRoute(
       path: AppRoutes.openConversation,
       builder: (context, state) => OpenConversationScreen(
-        conversationCode:
-            state.uri.queryParameters['conversationCode'] ?? '',
+        conversationCode: state.uri.queryParameters['conversationCode'] ?? '',
         conversationType: state.uri.queryParameters['conversationType'],
       ),
+    ),
+    // Notification deep-link (admin persona, NEWSLETTER_SENT): open the
+    // specific newsletter's preview screen. Self-loads by code.
+    GoRoute(
+      path: AppRoutes.newsletterPreviewByCode,
+      pageBuilder: (context, state) => _fastPage(
+        state,
+        PreviewNewsletterScreen(
+          newsletterCode: state.uri.queryParameters['code'] ?? '',
+        ),
+      ),
+    ),
+    // Notification deep-link (admin persona, INCIDENT_APPROVAL_PENDING /
+    // INCIDENT_ACKNOWLEDGEMENT_PENDING): open that specific incident directly
+    // in the admin approve/reject view. Only `activityCode` is real here — the
+    // rest of the placeholder is overwritten once the screen self-loads full
+    // detail via GET /api/v2/activities/{code} (same prefetch every edit-mode
+    // open already relies on).
+    GoRoute(
+      path: AppRoutes.activityApprovalByCode,
+      pageBuilder: (context, state) {
+        final q = state.uri.queryParameters;
+        return _fastPage(
+          state,
+          IncidentActivityScreen(
+            isEdit: true,
+            activityData: ActivityItem(
+              time: '',
+              date: '',
+              name: '',
+              studentList: const <String>[],
+              createdBy: '',
+              activityCode: q['code'],
+              studentCode: q['studentCode'],
+            ),
+          ),
+        );
+      },
     ),
   ],
 );
@@ -1428,3 +1552,24 @@ class _ShellScope extends InheritedWidget {
 /// Public accessor used by the bottom-nav widget.
 StatefulNavigationShell? appNavigationShell(BuildContext context) =>
     _ShellScope.maybeOf(context);
+
+/// Navigates to the Dashboard branch's root screen, the PROVEN way — see
+/// CustomNavigationBar._performNavigation, which switches branches via
+/// `shell.goBranch(branchIndex)`, never a bare `context.go(...)`. A plain
+/// `context.go(AppRoutes.dashboard)` while already inside the shell on a
+/// DIFFERENT branch (e.g. Communication/Messaging) does not reliably swap
+/// which branch the IndexedStack shows — the underlying GoRouterState/
+/// location updates, but StatefulNavigationShell's own active-index
+/// tracking is what CustomNavigationBar's tab-switching relies on
+/// `goBranch` for, not `go`. That's what made "Switch Profile" land back
+/// on Messages instead of Dashboard even after
+/// [popAllShellBranchNavigators] correctly cleared everything pushed on
+/// top of it.
+void goToDashboardRoot(BuildContext context) {
+  final shell = appNavigationShell(context);
+  if (shell != null && shell.currentIndex != 0) {
+    shell.goBranch(0);
+  } else {
+    GoRouter.of(context).go(AppRoutes.dashboard);
+  }
+}

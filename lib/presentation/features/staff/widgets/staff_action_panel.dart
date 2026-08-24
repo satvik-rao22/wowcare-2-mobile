@@ -20,6 +20,7 @@ class StaffActionPanel extends StatefulWidget {
     this.onSignOut,
     this.onTransfer,
     this.onAbsent,
+    this.showMessage = true,
     this.isProfileEnabled = false,
     this.activitiesEnabled = true,
     this.attendanceAvailability = StaffAttendanceActionAvailability.allEnabled,
@@ -35,6 +36,7 @@ class StaffActionPanel extends StatefulWidget {
   final VoidCallback? onSignOut;
   final VoidCallback? onTransfer;
   final VoidCallback? onAbsent;
+  final bool showMessage;
   final bool isProfileEnabled;
   final bool activitiesEnabled;
 
@@ -145,12 +147,14 @@ class _StaffActionPanelState extends State<StaffActionPanel> {
                         isSelected: _current == StaffPanelType.activities,
                       ),
                     ],
-                    const SizedBox(height: 20),
-                    _ActionButton(
-                      svgPath: MediaRes.message_panel_icon,
-                      label: 'Message',
-                      onTap: widget.onMessageTap,
-                    ),
+                    if (widget.showMessage) ...[
+                      const SizedBox(height: 20),
+                      _ActionButton(
+                        svgPath: MediaRes.message_panel_icon,
+                        label: 'Message',
+                        onTap: widget.onMessageTap,
+                      ),
+                    ],
                     const SizedBox(height: 20),
                     _ActionButton(
                       svgPath: MediaRes.profile_panel_icon,
@@ -229,7 +233,7 @@ class _AttendanceOptionsPanel extends StatelessWidget {
       case 'Transfer':
         return 'Transfer can only be done for Students/Staff already signed in.';
       case 'Absent':
-        return 'Already marked absent for today.Already marked absent for today.';
+        return 'Absent can only be marked for Students/Staff not yet signed in';
     }
     return '';
   }

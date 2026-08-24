@@ -10,6 +10,8 @@ class Student extends Equatable {
     this.profilePhotoAssetCode,
     this.primaryClassroomName,
     this.classroom = '',
+    this.classroomCode = '',
+    this.hasGuardian = true,
     this.dob = '',
     this.movementDate = '',
     this.tags = const <String>[],
@@ -25,11 +27,24 @@ class Student extends Equatable {
   final String? profilePhotoAssetCode;
   final String? primaryClassroomName;
   final String classroom;
+
+  /// The classroom's actual CODE (`CLS_...`) — see
+  /// [StudentListItemModel.classroomCode] for why this is kept separate
+  /// from [classroom] (the display name) instead of derived from it.
+  final String classroomCode;
+
+  /// Whether this student has at least one guardian linked — see
+  /// [StudentListItemModel.hasGuardian]. A student without one can't be
+  /// messaged (no one to receive it), so Room Chat/Admin Chat "New Message"
+  /// pickers disable selecting them, matching web.
+  final bool hasGuardian;
   final String dob;
   final String movementDate;
   final List<String> tags;
+
   /// Abbreviated weekdays for regular schedule, e.g. ["Mon", "Tue"].
   final List<String> schedule;
+
   /// Day-of-week (MONDAY, TUESDAY, ...) -> "start - end".
   final Map<String, String> scheduleByDay;
 
@@ -37,17 +52,19 @@ class Student extends Equatable {
 
   @override
   List<Object?> get props => [
-        code,
-        firstName,
-        lastName,
-        status,
-        classroom,
-        dob,
-        movementDate,
-        tags,
-        schedule,
-        scheduleByDay,
-      ];
+    code,
+    firstName,
+    lastName,
+    status,
+    classroom,
+    classroomCode,
+    hasGuardian,
+    dob,
+    movementDate,
+    tags,
+    schedule,
+    scheduleByDay,
+  ];
 }
 
 class StudentPage extends Equatable {
@@ -68,7 +85,12 @@ class StudentPage extends Equatable {
   final bool hasMore;
 
   @override
-  List<Object?> get props =>
-      [items, page, size, totalPages, totalElements, hasMore];
+  List<Object?> get props => [
+    items,
+    page,
+    size,
+    totalPages,
+    totalElements,
+    hasMore,
+  ];
 }
-

@@ -2,14 +2,17 @@ import 'dart:async';
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:wowcare/app/di/di.dart';
+import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/core_utils.dart';
+import 'package:wowcare/core/util/storage_keys.dart';
 import 'package:wowcare/domain/features/reports/entities/report_type.dart';
 import 'package:wowcare/domain/features/reports/usecases/school_immunization_report_params.dart';
+import 'package:wowcare/domain/features/student/usecases/get_immunization_settings_usecase.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:go_router/go_router.dart';
+import 'package:wowcare/presentation/features/reports/utils/report_code_resolver.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_checkbox.dart';
-import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
@@ -36,33 +39,23 @@ class StudentImmunizationReportScreen extends StatefulWidget {
 
 class _StudentImmunizationReportScreenState
     extends State<StudentImmunizationReportScreen> {
-  static const List<String> _vaccineOptions = <String>[
-    'All Vaccines',
-    'DTaP',
-    'Polio (IPV)',
-    'MMR',
-    'Varicella',
-    'Hepatitis B',
-    'Hepatitis A',
-    'Hib',
-    'Pneumococcal (PCV)',
-    'Rotavirus',
-    'Influenza',
-    'COVID-19',
-  ];
-
   static const List<String> _statusOptions = <String>[
     'Active',
     'Upcoming',
     'Inactive',
   ];
 
-  String _vaccine = 'All Vaccines';
+  // --- Vaccine state loaded from API ---
+  List<String> _availableVaccines = <String>[];
+  Map<String, String> _vaccineNameToCode = <String, String>{};
+  bool _isLoadingVaccines = false;
+
+  List<String> _selectedVaccines = <String>[];
   String _status = 'Active';
   List<String> _selectedClassrooms = <String>[];
   List<String> _selectedTags = <String>[];
   bool _showParentInfo = false;
-  String _format = 'PDF';
+  String _format = 'XLSX';
   late DateTime _startDate;
   late DateTime _endDate;
 
@@ -72,44 +65,65 @@ class _StudentImmunizationReportScreenState
     final now = AppTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadVaccines();
+    });
   }
 
-  // void _onGenerate() {
-  //   if (_startDate.isAfter(_endDate)) {
-  //     CoreUtils.showTopSnackBar(
-  //       context: context,
-  //       message: 'Start date must be on or before end date',
-  //       isError: true,
-  //     );
-  //     return;
-  //   }
+  /// Fetches available vaccines from the backend immunization settings API
+  /// and populates [_availableVaccines] and [_vaccineNameToCode].
+  Future<void> _loadVaccines() async {
+    if (!mounted) return;
+    setState(() => _isLoadingVaccines = true);
 
-  //   final cubit = context.read<ReportsCubit>();
-  //   final classroomNameToCode = cubit.state.classroomNameToCode;
-  //   final classroomCodes = _selectedClassrooms
-  //       .map((name) => classroomNameToCode[name] ?? name)
-  //       .toList();
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
 
-  //   // Map vaccine selection to backend codes
-  //   final vaccineCodes = _mapVaccineToCode(_vaccine);
+      if (schoolCode.isEmpty) {
+        AppLogger.w(
+          '[ImmunizationReport] schoolCode is empty – skipping vaccine load',
+        );
+        if (mounted) setState(() => _isLoadingVaccines = false);
+        return;
+      }
 
-  //   // Map status selection to backend codes
-  //   final statusFilters = _mapStatusToCode(_status);
+      final vaccines = await serviceLocator<GetImmunizationSettingsUseCase>()(
+        schoolCode: schoolCode,
+      );
 
-  //   final params = SchoolImmunizationReportParams(
-  //     reportType: ReportType.immunization,
-  //     startDate: _startDate,
-  //     endDate: _endDate,
-  //     vaccineCodes: vaccineCodes,
-  //     statusFilters: statusFilters,
-  //     includeParentName: _showParentInfo,
-  //     includeParentEmail: _showParentInfo,
-  //     classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
-  //     tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
-  //     format: _format,
-  //   );
-  //   unawaited(cubit.generateReport(params));
-  // }
+      AppLogger.d(
+        '[ImmunizationReport] Loaded ${vaccines.length} vaccines from API: $vaccines',
+      );
+
+      final nameToCode = <String, String>{};
+      final names = <String>[];
+
+      for (final v in vaccines) {
+        if (v.name.isNotEmpty && v.code.isNotEmpty) {
+          nameToCode[v.name] = v.code;
+          names.add(v.name);
+        }
+      }
+
+      AppLogger.d('[ImmunizationReport] vaccineNameToCode map: $nameToCode');
+
+      if (!mounted) return;
+      setState(() {
+        _availableVaccines = names;
+        _vaccineNameToCode = nameToCode;
+        // Pre-select all by default (mirrors web behaviour)
+        _selectedVaccines = List<String>.from(names);
+        _isLoadingVaccines = false;
+      });
+    } catch (e, st) {
+      AppLogger.e('[ImmunizationReport] Failed to load vaccines: $e\n$st');
+      if (mounted) setState(() => _isLoadingVaccines = false);
+    }
+  }
+
   void _onGenerate() async {
     if (_startDate.isAfter(_endDate)) {
       CoreUtils.showTopSnackBar(
@@ -121,17 +135,70 @@ class _StudentImmunizationReportScreenState
     }
 
     final cubit = context.read<ReportsCubit>();
+    final state = cubit.state;
 
-    final classroomNameToCode = cubit.state.classroomNameToCode;
+    // ── Classroom codes ──────────────────────────────────────────────────────
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
+      nameToCode: state.classroomNameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
 
-    final classroomCodes = _selectedClassrooms
-        .map((name) => classroomNameToCode[name] ?? name)
-        .toList();
+    // ── Vaccine codes ────────────────────────────────────────────────────────
+    // Map selected display names to backend VCC_* codes fetched from the API.
+    AppLogger.d(
+      '[ImmunizationReport] Selected vaccines (UI): $_selectedVaccines',
+    );
+    AppLogger.d(
+      '[ImmunizationReport] vaccineNameToCode map: $_vaccineNameToCode',
+    );
+
+    List<String>? vaccineCodes;
+    if (_selectedVaccines.isEmpty) {
+      // Nothing selected → send all available codes (= no filter on backend)
+      vaccineCodes = null;
+    } else {
+      vaccineCodes = _selectedVaccines
+          .map((name) => _vaccineNameToCode[name])
+          .where((code) => code != null && code.isNotEmpty)
+          .cast<String>()
+          .toList();
+    }
+
+    AppLogger.d(
+      '[ImmunizationReport] Final vaccineCodes payload: $vaccineCodes',
+    );
+
+    // ── Tag codes ────────────────────────────────────────────────────────────
+    final tagNameToCode = state.tagNameToCode;
+    AppLogger.d('[ImmunizationReport] Selected tags (UI): $_selectedTags');
+    AppLogger.d('[ImmunizationReport] tagNameToCode map: $tagNameToCode');
+
+    List<String>? tagCodes;
+    if (_selectedTags.isEmpty) {
+      tagCodes = null; // backend returns all tags when not filtered
+    } else {
+      tagCodes = _selectedTags
+          .map((name) => tagNameToCode[name])
+          .where((code) => code != null && code.isNotEmpty)
+          .cast<String>()
+          .toList();
+    }
+
+    AppLogger.d('[ImmunizationReport] Final tagCodes payload: $tagCodes');
+
+    // ── School name ──────────────────────────────────────────────────────────
     final schoolName = await SchoolContextHelper.getSchoolName();
-    AppLogger.d('[ImmunizationReport] resolvedSchoolName=$schoolName');
-    if (schoolName == null || schoolName.isEmpty) {
-      if (!mounted) return;
 
+    AppLogger.d('[ImmunizationReport] resolvedSchoolName=$schoolName');
+
+    if (!mounted) return;
+
+    if (schoolName == null || schoolName.isEmpty) {
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'Unable to resolve school name',
@@ -139,18 +206,17 @@ class _StudentImmunizationReportScreenState
       );
       return;
     }
-    // Use the existing vaccine selection until the vaccine API/code
-    // mapping is available.
-    final vaccineCodes = _mapVaccineToCode(_vaccine);
-    // School Name for the report. Use the first classroom's school name if available, otherwise default to an empty string.
 
     final params = SchoolImmunizationReportParams(
       reportType: ReportType.immunization,
       startDate: _startDate,
       endDate: _endDate,
-      vaccineCodes: vaccineCodes,
 
-      // API expects "Active", not "ACTIVE".
+      // Backend VCC_* codes resolved from the immunization settings API.
+      // Pass an empty list when nothing is selected (backend returns all).
+      vaccineCodes: vaccineCodes ?? const <String>[],
+
+      // API expects "Active" / "Upcoming" / "Inactive" (title-case).
       statusFilters: <String>[_status],
 
       includeParentName: _showParentInfo,
@@ -158,8 +224,7 @@ class _StudentImmunizationReportScreenState
 
       classroomCodes: classroomCodes.isEmpty ? null : classroomCodes,
 
-      // Keep existing values until tag name -> TAG_* mapping is available.
-      tagCodes: _selectedTags.isEmpty ? null : _selectedTags,
+      tagCodes: tagCodes,
 
       format: _format,
       schoolName: schoolName,
@@ -169,52 +234,6 @@ class _StudentImmunizationReportScreenState
 
     unawaited(cubit.generateReport(params));
   }
-
-  /// Map UI vaccine selection to backend vaccine codes.
-  List<String> _mapVaccineToCode(String vaccine) {
-    const vaccineMap = {
-      'All Vaccines': [
-        'DTaP',
-        'Polio',
-        'MMR',
-        'Varicella',
-        'Hepatitis_B',
-        'Hepatitis_A',
-        'Hib',
-        'Pneumococcal',
-        'Rotavirus',
-        'Influenza',
-        'COVID19',
-      ],
-      'DTaP': ['DTaP'],
-      'Polio (IPV)': ['Polio'],
-      'MMR': ['MMR'],
-      'Varicella': ['Varicella'],
-      'Hepatitis B': ['Hepatitis_B'],
-      'Hepatitis A': ['Hepatitis_A'],
-      'Hib': ['Hib'],
-      'Pneumococcal (PCV)': ['Pneumococcal'],
-      'Rotavirus': ['Rotavirus'],
-      'Influenza': ['Influenza'],
-      'COVID-19': ['COVID19'],
-    };
-
-    return vaccineMap[vaccine] ?? ['DTaP'];
-  }
-
-  /// Map UI status selection to backend status codes.
-  // List<String> _mapStatusToCode(String status) {
-  //   switch (status) {
-  //     case 'Active':
-  //       return ['ACTIVE'];
-  //     case 'Upcoming':
-  //       return ['UPCOMING'];
-  //     case 'Inactive':
-  //       return ['INACTIVE'];
-  //     default:
-  //       return ['ACTIVE'];
-  //   }
-  // }
 
   TextStyle _labelStyle(ResponsiveHelper r) => TextStyle(
     fontSize: r.labelFontSize,
@@ -260,8 +279,8 @@ class _StudentImmunizationReportScreenState
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  Navigator.of(context).pop(true);
                 });
               }
             }
@@ -273,63 +292,32 @@ class _StudentImmunizationReportScreenState
         builder: (context, isGenerating) {
           return ReportFormLayout(
             title: 'School Immunization Report',
-            onGenerate: isGenerating ? null : _onGenerate,
+            onGenerate: (isGenerating || _isLoadingVaccines)
+                ? null
+                : _onGenerate,
             isLoading: isGenerating,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const ReportFieldLabel(label: 'Start Date'),
-                          CustomDateTimeField(
-                            hasLabel: false,
-                            fetchInitialTime: false,
-                            initialDate: _startDate,
-                            lastDate: _endDate,
-                            onDateSelected: (d) =>
-                                setState(() => _startDate = d),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const ReportFieldLabel(label: 'End Date'),
-                          CustomDateTimeField(
-                            hasLabel: false,
-                            fetchInitialTime: false,
-                            initialDate: _endDate,
-                            firstDate: _startDate,
-                            onDateSelected: (d) => setState(() => _endDate = d),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+                // ── Vaccines ────────────────────────────────────────────────
+                if (_isLoadingVaccines)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else
+                  CustomMultiSelectDropdown(
+                    label: 'Vaccines',
+                    hintText: 'Select',
+                    isRequired: true,
+                    items: _availableVaccines,
+                    selectedItems: _selectedVaccines,
+                    onChanged: (s) => setState(() => _selectedVaccines = s),
+                    showSelectAll: true,
+                    labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                  ),
                 SizedBox(height: responsive.verticalSpacing),
-                CustomDropdown(
-                  label: 'Vaccines',
-                  hintText: 'Select',
-                  items: _vaccineOptions,
-                  selectedItem: _vaccine,
-                  labelStyle: _labelStyle(responsive),
-                  showAsterisk: true,
-                  labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                  onSelect: (val) {
-                    if (val == null) return;
-                    setState(() => _vaccine = val);
-                  },
-                ),
-                SizedBox(height: responsive.verticalSpacing),
+                // ── Status ──────────────────────────────────────────────────
                 CustomDropdown(
                   label: 'Status',
                   hintText: 'Select',
@@ -344,10 +332,12 @@ class _StudentImmunizationReportScreenState
                   },
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                // ── Classroom ───────────────────────────────────────────────
                 CustomMultiSelectDropdown(
                   label: 'Classroom',
                   hintText: 'Select Classroom',
                   items: widget.classrooms,
+                  isRequired: true,
                   selectedItems: _selectedClassrooms,
                   onChanged: (s) => setState(() => _selectedClassrooms = s),
                   showSelectAll: true,
@@ -356,10 +346,12 @@ class _StudentImmunizationReportScreenState
                   text: 'Note: All Classrooms will be selected by Default.',
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                // ── Tag ─────────────────────────────────────────────────────
                 CustomMultiSelectDropdown(
                   label: 'Tag',
                   hintText: 'Select Tag',
                   items: widget.tags,
+                  isRequired: true,
                   selectedItems: _selectedTags,
                   onChanged: (s) => setState(() => _selectedTags = s),
                   showSelectAll: true,
@@ -368,6 +360,7 @@ class _StudentImmunizationReportScreenState
                   text: 'Note: All Tags will be selected by Default.',
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                // ── Show parent info ─────────────────────────────────────────
                 Align(
                   alignment: Alignment.centerLeft,
                   child: CustomCheckbox(
@@ -378,6 +371,7 @@ class _StudentImmunizationReportScreenState
                   ),
                 ),
                 SizedBox(height: responsive.verticalSpacing),
+                // ── Export format ────────────────────────────────────────────
                 const ReportFieldLabel(label: 'Export Format'),
                 ReportFormatSelector(
                   selectedFormat: _format,

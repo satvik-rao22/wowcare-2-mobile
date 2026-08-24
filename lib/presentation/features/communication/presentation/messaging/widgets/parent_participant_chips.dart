@@ -22,14 +22,19 @@ class ParentParticipantChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Past Participants (left/deactivated) are never shown here — this is
+    // a "who's in the conversation right now" chip bar, not a history view.
+    final activeParticipants = participants.where((p) => p.isActive);
     // Filter participants based on private mode
     final filteredParticipants = privateModeEnabled
-        ? participants
-            .where((p) =>
-                p.role.toUpperCase() == 'PARENT' ||
-                p.role.toUpperCase() == 'GUARDIAN')
-            .toList()
-        : participants;
+        ? activeParticipants
+              .where(
+                (p) =>
+                    p.role.toUpperCase() == 'PARENT' ||
+                    p.role.toUpperCase() == 'GUARDIAN',
+              )
+              .toList()
+        : activeParticipants.toList();
 
     if (filteredParticipants.isEmpty) return const SizedBox.shrink();
 
@@ -45,7 +50,9 @@ class ParentParticipantChips extends StatelessWidget {
           }
           final p = filteredParticipants[index];
           final roleStr = _roleToDisplay(p.role);
-          final name = p.userName.isNotEmpty ? p.userName : _roleFallbackName(roleStr);
+          final name = p.userName.isNotEmpty
+              ? p.userName
+              : _roleFallbackName(roleStr);
           final color = _roleColor(roleStr);
           const staffRoles = {
             'STAFF',
@@ -69,6 +76,7 @@ class ParentParticipantChips extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DocumentImageWidget(
+                  disableAttendanceStatusLookup: true,
                   fileUuid: '',
                   imageUrl: (p.avatarUrl ?? '').startsWith('http')
                       ? p.avatarUrl
@@ -94,7 +102,10 @@ class ParentParticipantChips extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 1,
+                  ),
                   decoration: BoxDecoration(
                     color: color.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),

@@ -2,10 +2,7 @@ import 'package:better_player_plus/better_player_plus.dart';
 import 'package:flutter/material.dart';
 
 class HlsWebPlayer extends StatefulWidget {
-  const HlsWebPlayer({
-    super.key,
-    required this.videoUrl,
-  });
+  const HlsWebPlayer({super.key, required this.videoUrl});
 
   final String videoUrl;
 
@@ -13,9 +10,12 @@ class HlsWebPlayer extends StatefulWidget {
   State<HlsWebPlayer> createState() => _HlsWebPlayerState();
 }
 
-class _HlsWebPlayerState extends State<HlsWebPlayer> {
+class _HlsWebPlayerState extends State<HlsWebPlayer> with WidgetsBindingObserver {
   BetterPlayerController? _controller;
   final GlobalKey _playerKey = GlobalKey();
+  bool _isEnteringPip = false;
+  bool _isPipActive = false;
+  bool _wasPlayingBeforeBackground = false;
   static const List<String> _limitedTrackNames = <String>[
     'Auto',
     '360p',
@@ -25,7 +25,42 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _initPlayer();
+  }
+
+  // Mirrors YouTube's iOS behaviour: leaving the app while a video is
+  // playing shrinks it into the floating PiP window instead of pausing it.
+  // `paused` is Flutter's signal for applicationDidEnterBackground — the
+  // point Apple's docs say to call startPictureInPicture() from, which is
+  // also why the app enables the `audio` UIBackgroundMode and a `.playback`
+  // AVAudioSession category (see AppDelegate.swift): both are required for
+  // AVPictureInPictureController to keep running once the app is backgrounded.
+  //
+  // BetterPlayerConfiguration.handleLifecycle is intentionally off (see
+  // _initPlayer): its own AppLifecycleState handling pauses playback on
+  // every backgrounding with no regard for PiP, which would instantly
+  // freeze the floating window instead of letting it keep playing. We take
+  // over that pause/resume bookkeeping here so an active/about-to-start PiP
+  // session is exempted.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final controller = _controller;
+    if (controller == null) return;
+
+    if (state == AppLifecycleState.paused) {
+      if (_isPipActive) return;
+      final isPlaying = controller.isPlaying() ?? false;
+      _wasPlayingBeforeBackground = isPlaying;
+      if (isPlaying) {
+        _handleBackgrounding();
+      }
+    } else if (state == AppLifecycleState.resumed) {
+      if (!_isPipActive && _wasPlayingBeforeBackground) {
+        controller.play();
+      }
+      _wasPlayingBeforeBackground = false;
+    }
   }
 
   @override
@@ -45,7 +80,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     final config = BetterPlayerConfiguration(
       autoPlay: true,
       fit: BoxFit.contain,
-      handleLifecycle: true,
+      // Handled manually in didChangeAppLifecycleState so an active PiP
+      // session is exempted from the pause-on-background behaviour.
+      handleLifecycle: false,
       autoDetectFullscreenDeviceOrientation: true,
       autoDetectFullscreenAspectRatio: true,
       controlsConfiguration: BetterPlayerControlsConfiguration(
@@ -53,7 +90,10 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         iconsColor: Colors.white,
         textColor: Colors.white,
         enableFullscreen: true,
-        enablePip: true,
+        // Better Player's built-in PiP callback is not guarded and can issue
+        // overlapping native PiP requests. The dedicated control below routes
+        // every request through [_enterPipMode] instead.
+        enablePip: false,
         enableQualities: true,
         enableSubtitles: false,
         enablePlaybackSpeed: true,
@@ -67,7 +107,6 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         overflowMenuIcon: Icons.more_vert_rounded,
         qualitiesIcon: Icons.high_quality_rounded,
         playbackSpeedIcon: Icons.speed_rounded,
-        pipMenuIcon: Icons.picture_in_picture_alt_rounded,
         fullscreenEnableIcon: Icons.fullscreen_rounded,
         fullscreenDisableIcon: Icons.fullscreen_exit_rounded,
         playIcon: Icons.play_arrow_rounded,
@@ -75,13 +114,6 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
         overflowModalColor: Color(0xFF111827),
         overflowModalTextColor: Color(0xFFEAF2FF),
         overflowMenuIconsColor: Colors.white,
-        overflowMenuCustomItems: <BetterPlayerOverflowMenuItem>[
-          BetterPlayerOverflowMenuItem(
-            Icons.picture_in_picture_alt_rounded,
-            'Picture in Picture',
-            _enterPipMode,
-          ),
-        ],
       ),
       translations: [
         BetterPlayerTranslations(
@@ -111,30 +143,79 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   }
 
   void _onPlayerEvent(BetterPlayerEvent event) {
+    if (event.betterPlayerEventType == BetterPlayerEventType.pipStart) {
+      _isPipActive = true;
+    } else if (event.betterPlayerEventType == BetterPlayerEventType.pipStop) {
+      _isPipActive = false;
+    }
     if (event.betterPlayerEventType == BetterPlayerEventType.initialized) {
       final controller = _controller;
       if (controller == null) return;
+      // BetterPlayer locks the player box to a 16:9 AspectRatio unless told
+      // otherwise, which letterboxes/crops portrait videos. Match the box to
+      // the video's real ratio so vertical videos render at their native size.
+      final videoAspectRatio =
+          controller.videoPlayerController?.value.aspectRatio;
+      if (videoAspectRatio != null &&
+          videoAspectRatio > 0 &&
+          videoAspectRatio.isFinite) {
+        controller.setOverriddenAspectRatio(videoAspectRatio);
+      }
       // Keep content visible and avoid crop for tall portrait videos.
       controller.setOverriddenFit(BoxFit.contain);
     }
   }
 
-  Future<void> _enterPipMode() async {
+  /// Returns whether PiP was actually requested, so callers driven by
+  /// backgrounding (see [_handleBackgrounding]) know whether to fall back
+  /// to a plain pause instead of leaving the video playing off-screen.
+  Future<bool> _enterPipMode() async {
+    if (_isEnteringPip) return false;
     final controller = _controller;
-    if (controller == null) return;
-    final supported = await controller.isPictureInPictureSupported();
-    if (!mounted) return;
-    if (!supported) {
+    if (controller == null || _playerKey.currentContext == null) return false;
+
+    setState(() => _isEnteringPip = true);
+    try {
+      final supported = await controller.isPictureInPictureSupported();
+      if (!mounted) return false;
+      if (!supported) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('PiP is not supported on this device right now.'),
+          ),
+        );
+        return false;
+      }
+      await controller.enablePictureInPicture(_playerKey);
+      return true;
+    } catch (error, stackTrace) {
+      // The plugin delegates this to the platform activity. A lifecycle race
+      // (for example, entering PiP while the player is disposing) used to
+      // bubble up as an unhandled exception and terminate the screen/app.
+      debugPrint('Unable to enter picture-in-picture: $error\n$stackTrace');
+      if (!mounted) return false;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('PiP is not supported on this device right now.')),
+        const SnackBar(content: Text('Unable to start picture-in-picture.')),
       );
-      return;
+      return false;
+    } finally {
+      if (mounted) setState(() => _isEnteringPip = false);
     }
-    await controller.enablePictureInPicture(_playerKey);
+  }
+
+  // Falls back to a plain pause when auto-PiP can't be started (unsupported
+  // device, race with disposal, etc.) so the video doesn't keep playing
+  // silently off-screen with nothing showing it.
+  Future<void> _handleBackgrounding() async {
+    final started = await _enterPipMode();
+    if (!started) {
+      _controller?.pause();
+    }
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller?.removeEventsListener(_onPlayerEvent);
     _controller?.dispose();
     super.dispose();
@@ -143,7 +224,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
   @override
   Widget build(BuildContext context) {
     if (_controller == null) {
-      return const Center(child: CircularProgressIndicator(color: Colors.white));
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
     }
     return SizedBox.expand(
       child: Stack(
@@ -166,9 +249,9 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
                   iconTheme: const IconThemeData(color: Colors.white),
                   primaryIconTheme: const IconThemeData(color: Colors.white),
                   textTheme: Theme.of(context).textTheme.apply(
-                        bodyColor: Colors.white,
-                        displayColor: Colors.white,
-                      ),
+                    bodyColor: Colors.white,
+                    displayColor: Colors.white,
+                  ),
                 ),
                 child: BetterPlayer(controller: _controller!),
               ),
@@ -185,7 +268,7 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
               ),
               child: IconButton(
                 tooltip: 'PiP',
-                onPressed: _enterPipMode,
+                onPressed: _isEnteringPip ? null : _enterPipMode,
                 icon: const Icon(
                   Icons.picture_in_picture_alt_rounded,
                   color: Colors.white,
@@ -198,4 +281,3 @@ class _HlsWebPlayerState extends State<HlsWebPlayer> {
     );
   }
 }
-

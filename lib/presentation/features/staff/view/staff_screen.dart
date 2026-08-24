@@ -26,7 +26,7 @@ import 'package:wowcare/presentation/features/staff/widgets/staff_action_panel.d
 import 'package:wowcare/presentation/features/staff/view/staff_profile_screen.dart';
 import 'package:wowcare/presentation/features/communication/bulk_messaging/util/messaging_shortcut.dart';
 import 'package:wowcare/presentation/features/staff/cubit/staff_cubit.dart';
-import 'package:wowcare/presentation/features/student/module_access.dart';
+import 'package:wowcare/presentation/features/students/module_access.dart';
 import 'package:wowcare/shared/common/app/cubit/role_cubit.dart';
 import 'package:wowcare/presentation/features/classroom/cubit/classroom_cubit.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -50,6 +50,7 @@ import 'package:wowcare/shared/common/widgets/custom_refresh_indicator.dart';
 import 'package:wowcare/shared/services/image_upload/profile_photo_upload_events.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/core/util/api_error_handler.dart';
+import 'package:wowcare/core/util/staff_code_resolver.dart';
 
 class StaffScreen extends StatefulWidget {
   const StaffScreen({
@@ -82,6 +83,7 @@ class _StaffScreenState extends State<StaffScreen> {
   final Map<String, String> _attendanceStatusByStaffCode = <String, String>{};
   bool _attendanceStatusLoading = false;
   bool _attendanceStatusError = false;
+  String? _ownStaffCode;
 
   int _expectedStaffTotal = 0;
   int _expectedSignedIn = 0;
@@ -105,6 +107,7 @@ class _StaffScreenState extends State<StaffScreen> {
     super.initState();
     _highlightStaffCode = widget.incomingHighlightCode?.trim();
     _scrollController.addListener(_onScroll);
+    _loadOwnStaffCodeIfStaff();
     // Refresh the list when a background profile-photo upload finishes, so the
     // new photo shows — same refresh as after an add.
     ProfilePhotoUploadEvents.staffTick.addListener(_onProfilePhotoUploaded);
@@ -121,6 +124,17 @@ class _StaffScreenState extends State<StaffScreen> {
       _applyHighlightStatusFilter();
       _loadExpectedStaffSummary();
     });
+  }
+
+  Future<void> _loadOwnStaffCodeIfStaff() async {
+    try {
+      final code = await resolveStaffCodeForLoggedInUser();
+      if (!mounted) return;
+      setState(() => _ownStaffCode = code.trim());
+    } catch (_) {
+      // Leaving the value empty preserves existing behavior if it cannot be
+      // resolved; no staff-list data is blocked by this best-effort lookup.
+    }
   }
 
   /// When a notification deep-link highlights a staff member who may be
@@ -1159,8 +1173,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                           // so the green indicator reflects the
                                           // latest status for the new results.
                                           if (mounted) {
-                                            DocumentImageWidget
-                                                .refreshAttendanceStatusDots();
+                                            DocumentImageWidget.refreshAttendanceStatusDots();
                                           }
                                         }
                                       },
@@ -1352,8 +1365,7 @@ class _StaffScreenState extends State<StaffScreen> {
                                           if (!mounted) return;
                                           // Re-sync attendance dots for the
                                           // newly loaded (in)active list.
-                                          DocumentImageWidget
-                                              .refreshAttendanceStatusDots();
+                                          DocumentImageWidget.refreshAttendanceStatusDots();
                                           final err =
                                               staffCubit.state.errorMessage;
                                           if (err != null && err.isNotEmpty) {
@@ -1681,6 +1693,11 @@ class _StaffScreenState extends State<StaffScreen> {
                         }).toList();
                         openMessagingShortcut(context, recipients: recipients);
                       },
+                      showMessage:
+                          (_ownStaffCode ?? '').trim().isNotEmpty &&
+                          !_selectedStaffCodes.contains(
+                            (_ownStaffCode ?? '').trim(),
+                          ),
                       onProfileTap: selectedCount == 1
                           ? () {
                               final staffState = staffCubit.state;

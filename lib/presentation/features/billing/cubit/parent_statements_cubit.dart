@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:wowcare/presentation/features/billing/utils/billing_school_time.dart';
@@ -137,6 +139,33 @@ class ParentStatementsCubit extends Cubit<ParentStatementsState> {
       AppLogger.e('[ParentStatementsCubit] Download failed for $code: $e');
       if (isClosed) return null;
       return ApiErrorHandler.extractErrorMessage(e);
+    } finally {
+      if (!isClosed) {
+        final done = Set<String>.from(state.downloadingCodes)..remove(code);
+        emit(state.copyWith(downloadingCodes: done));
+      }
+    }
+  }
+
+  /// Fetches the statement PDF's raw bytes for an in-app preview — unlike
+  /// [downloadStatement], this never writes a file to disk or hands off to
+  /// an external viewer. Returns the bytes on success, or an error message
+  /// on failure.
+  Future<({Uint8List? bytes, String? error})> fetchStatementForPreview(
+    BillingStatementEntity statement,
+  ) async {
+    final code = statement.code;
+    if (code.isEmpty) return (bytes: null, error: 'Invalid statement code.');
+
+    final downloading = Set<String>.from(state.downloadingCodes)..add(code);
+    emit(state.copyWith(downloadingCodes: downloading));
+
+    try {
+      final bytes = await _repository.downloadStatement(statementCode: code);
+      return (bytes: bytes, error: null);
+    } catch (e) {
+      AppLogger.e('[ParentStatementsCubit] Preview fetch failed for $code: $e');
+      return (bytes: null, error: ApiErrorHandler.extractErrorMessage(e));
     } finally {
       if (!isClosed) {
         final done = Set<String>.from(state.downloadingCodes)..remove(code);

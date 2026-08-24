@@ -1,17 +1,20 @@
 import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_chat_reactions/flutter_chat_reactions.dart';
 import 'package:http/http.dart' as http;
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-import 'package:thumbnailer/thumbnailer.dart';
+import 'package:thumbnailer/thumbnailer.dart' show Thumbnailer;
+import 'package:wowcare/core/util/logger_service.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_open_helper.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/attachment_url_resolver.dart';
 import 'package:wowcare/presentation/features/communication/shared/utils/message_content_processor.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/link_preview_card.dart';
 import 'package:wowcare/presentation/features/communication/presentation/messaging/widgets/show_full_screen_media_view.dart';
 import 'package:wowcare/shared/common/widgets/custom_text_widget.dart';
+import 'package:wowcare/shared/common/widgets/primary_circular_loader.dart';
 import 'package:flutter_html/flutter_html.dart' as html;
 import 'package:wowcare/presentation/features/communication/shared/utils/messaging_time_formatter.dart';
 import 'package:wowcare/app/theme/colors.dart';
@@ -46,6 +49,16 @@ class MessageBubble extends StatefulWidget {
   final void Function(String emoji)? onReactionAdded;
   final void Function(String emoji)? onRemoveReaction;
   final VoidCallback? onReactionTap;
+
+  /// Long-press on the reaction badge — shows who reacted (grouped by
+  /// emoji), mirroring [onInfo]'s "Message Info" dialog.
+  final VoidCallback? onReactionsInfoTap;
+
+  /// Retries a message that failed to send, or (when it sent fine but an
+  /// attachment is still stuck on "Processing") re-polls for the resolved
+  /// delivery URL. Shown only for [Message.isSentByMe] messages that are
+  /// [Message.isFailed] or [Message.hasProcessingAttachments].
+  final VoidCallback? onRetry;
   final bool isParentMessaging;
   final bool isInactive;
   final bool isDeleted;
@@ -59,10 +72,22 @@ class MessageBubble extends StatefulWidget {
   /// Staff Direct (1:1), which intentionally keeps the legacy "my message
   /// vs. their message" two-tone look instead of the role-colored one (see
   /// docs/messaging/06-ui-standards.md §6.2). When non-null (Room Chat /
-  /// Admin Chat), it drives bubble *color* for messages that aren't mine —
-  /// it never drives alignment, which is always identity-based (see
-  /// [_alignRight]).
+  /// Admin Chat), it drives bubble *color* for messages that aren't mine,
+  /// AND (together with [viewerIsOrgSide]) which SIDE the bubble renders on
+  /// — see [_alignRight].
   final bool? senderIsOrgSide;
+
+  /// Whether the CURRENT VIEWER (not the sender) is staff/admin/teacher/
+  /// director (true) or guardian/parent (false). Null for Staff Direct
+  /// (matches [senderIsOrgSide]'s nullability). Used to tell "a guardian's
+  /// message, seen by the opposite role" (pink highlight) apart from "a
+  /// guardian's message, seen by a fellow guardian" (plain white) — see the
+  /// `isOppositeRoleGuardian` check in [_buildBubble] — and, together with
+  /// [senderIsOrgSide], which side the bubble renders on (see
+  /// [_alignRight]): a message from the viewer's own "team" (same org-side-
+  /// ness as the viewer) renders right, the opposite team's renders left,
+  /// regardless of whether the viewer personally sent it.
+  final bool? viewerIsOrgSide;
 
   const MessageBubble({
     required this.message,
@@ -81,11 +106,14 @@ class MessageBubble extends StatefulWidget {
     this.onReactionAdded,
     this.onRemoveReaction,
     this.onReactionTap,
+    this.onReactionsInfoTap,
+    this.onRetry,
     this.isParentMessaging = false,
     this.isInactive = false,
     this.isDeleted = false,
     this.isGrouped = false,
     this.senderIsOrgSide,
+    this.viewerIsOrgSide,
     super.key,
   });
 
@@ -218,26 +246,51 @@ class _MessageBubbleState extends State<MessageBubble>
 
   // ── Helpers ───────────────────────────────────────────────────────────────
 
-  bool get _isMe =>
-      widget.message.isSentByMe ||
-      (widget.currentUserCode != null &&
-          widget.currentUserCode == widget.message.senderUserCode);
+  /// [Message.isSentByMe] is already the fully-informed answer by the time
+  /// it reaches this widget: computed from raw code-matching upstream, AND
+  /// (for screens where persona ambiguity is possible — see
+  /// `ThreadMessageTile.isGuardian`/`withRoleAwareOwnership`) narrowed to
+  /// `false` when [Message.senderRole] says this specific message was sent
+  /// under a DIFFERENT persona of the same account. The raw
+  /// `currentUserCode == senderUserCode` fallback below must therefore only
+  /// fire when there's no [Message.senderRole] to have reasoned about at
+  /// all — otherwise it silently re-derives "mine" from the account code
+  /// alone and undoes that narrowing for a dual-role account's message sent
+  /// under its other persona (exactly the bug this getter was fixing before
+  /// senderRole existed: a message the client can verify is the current
+  /// user's own account always rendering on their side, regardless of a
+  /// separately-unreliable role signal — [senderIsOrgSide] here, which is
+  /// still trusted for bubble *colour* on messages that aren't mine, per
+  /// its own doc comment. `senderRole` is a different, per-message-accurate
+  /// field from that older `senderIsOrgSide` problem).
+  bool get _isMe {
+    if (widget.message.isSentByMe) return true;
+    final role = widget.message.senderRole;
+    if (role != null && role.isNotEmpty) return false;
+    return widget.currentUserCode != null &&
+        widget.currentUserCode == widget.message.senderUserCode;
+  }
 
-  /// Which side this bubble renders on. Role ([MessageBubble.senderIsOrgSide])
-  /// dictates alignment for Room Chat (org side on right, parent on left).
-  /// Falls back to identity (_isMe) for Staff Direct.
+  /// Which side this bubble renders on.
+  ///
+  /// Room Chat / Admin Chat (both [senderIsOrgSide] and [viewerIsOrgSide]
+  /// known): role-based, per the messaging PRD's AC11/AC12 — the message's
+  /// side depends on whether its SENDER is on the same "team" (guardian vs.
+  /// org-side) as the CURRENT VIEWER, not on whether the viewer personally
+  /// sent it. A guardian viewer sees every guardian's message (their own
+  /// included) on the right and every org-side message on the left; an
+  /// org-side viewer sees the mirror image. [_isMe] still gates identity-only
+  /// affordances (Edit/Delete/Info menu items, the "You" label) — those stay
+  /// tied to genuine authorship regardless of which side the bubble lands on.
+  ///
+  /// Staff Direct (both null): falls back to identity-based ([_isMe]) — this
+  /// 1:1 surface intentionally keeps the plain "my message vs. their
+  /// message" two-tone look instead of a team split.
   bool get _alignRight {
-    // If the current user is a guardian/parent (indicated by isParentMessaging)
-    if (widget.isParentMessaging) {
-      // Their own messages go right, all others (staff or other parents) go left.
-      return _isMe;
-    } else {
-      // For other user roles (e.g., staff, admin), the existing logic applies.
-      if (widget.senderIsOrgSide != null) {
-        return widget.senderIsOrgSide!;
-      }
-      return _isMe;
-    }
+    final sender = widget.senderIsOrgSide;
+    final viewer = widget.viewerIsOrgSide;
+    if (sender != null && viewer != null) return sender == viewer;
+    return _isMe;
   }
 
   ChatReactionsConfig _buildReactionsConfig(bool isMe) {
@@ -261,10 +314,12 @@ class _MessageBubbleState extends State<MessageBubble>
     if (widget.isInactive) {
       return ChatReactionsConfig(
         availableReactions: const ['👍', '❤️', '😂', '😮', '😢', '👏', '➕'],
-        menuItems: const [
-          MenuItem(label: 'Reply', icon: Icons.reply_rounded),
-          MenuItem(label: 'Copy', icon: Icons.copy_outlined),
-          MenuItem(label: 'Info', icon: Icons.info_outline),
+        menuItems: [
+          const MenuItem(label: 'Reply', icon: Icons.reply_rounded),
+          const MenuItem(label: 'Copy', icon: Icons.copy_outlined),
+          // Delivered/read info only makes sense for a message THIS user
+          // sent — never shown on a received (left-side) bubble.
+          if (isMe) const MenuItem(label: 'Info', icon: Icons.info_outline),
         ],
         enableLongPress: true,
         enableDoubleTap: true,
@@ -287,7 +342,9 @@ class _MessageBubbleState extends State<MessageBubble>
           ),
         const MenuItem(label: 'Reply', icon: Icons.reply_rounded),
         const MenuItem(label: 'Copy', icon: Icons.copy_outlined),
-        const MenuItem(label: 'Info', icon: Icons.info_outline),
+        // Delivered/read info only makes sense for a message THIS user sent
+        // — never shown on a received (left-side) bubble.
+        if (isMe) const MenuItem(label: 'Info', icon: Icons.info_outline),
       ],
       enableLongPress: true,
       enableDoubleTap: true,
@@ -331,19 +388,6 @@ class _MessageBubbleState extends State<MessageBubble>
   bool _iHaveReaction(String emoji) =>
       widget.message.userHasReaction(widget.currentUserCode ?? '', emoji);
 
-  /// Tapping a specific reaction chip toggles just THAT emoji for the current
-  /// user: remove it if I already reacted with it, otherwise join with it.
-  /// This satisfies "click on an existing reaction should get it deleted"
-  /// without disturbing the user's other emojis.
-  void _handleEmojiChipTap(String emoji) {
-    if (_iHaveReaction(emoji)) {
-      widget.onRemoveReaction?.call(emoji);
-    } else {
-      widget.onReactionAdded?.call(emoji);
-    }
-    HapticFeedback.selectionClick();
-  }
-
   void _handleDoubleTapReaction() {
     if (widget.isDeleted) return;
 
@@ -360,8 +404,8 @@ class _MessageBubbleState extends State<MessageBubble>
     HapticFeedback.mediumImpact();
   }
 
-  /// Tapping the existing reaction badge removes YOUR reaction (toggle off). If
-  /// you haven't reacted, fall back to the old behaviour (focus the input).
+  /// Long-pressing the reaction badge removes YOUR reaction (toggle off). If
+  /// you haven't reacted, opens the reaction line (see [onReactionTap]).
   void _handleExistingReactionTap() {
     final mine = _myReactionEmoji();
     if (mine != null) {
@@ -677,10 +721,18 @@ class _MessageBubbleState extends State<MessageBubble>
                         ? CrossAxisAlignment.end
                         : CrossAxisAlignment.start,
                     children: [
-                      // Sender header row (avatar + name) — hidden when grouped.
+                      // Sender header row (avatar + name). Grouping (consecutive
+                      // messages from the same sender within a few minutes) only
+                      // hides this for the VIEWER'S OWN messages — a repeated "You"
+                      // label is redundant. A received (left-side) message always
+                      // shows its sender's name, grouped or not: in a group chat
+                      // with many participants, the whole point of the identity-
+                      // based alignment fix is that different senders share the
+                      // left side, so suppressing the name there would make it
+                      // impossible to tell who sent what.
                       // Parent Messaging shows avatar + name side-by-side;
                       // Staff Direct shows name only (no avatar on the message).
-                      if (!widget.isGrouped)
+                      if (!widget.isGrouped || !isMe)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 4.0),
                           child: Row(
@@ -702,6 +754,16 @@ class _MessageBubbleState extends State<MessageBubble>
                                     final avatarUrl =
                                         sender?.avatarUrl?.trim() ?? '';
                                     return DocumentImageWidget(
+                                      disableAttendanceStatusLookup: true,
+                                      // Scoped to this specific message so a
+                                      // list rebuild (pagination merge,
+                                      // pull-to-refresh) can never let this
+                                      // element get reused for a different
+                                      // message's sender and momentarily
+                                      // show/keep the wrong person's avatar.
+                                      key: ValueKey(
+                                        'msg-sender-avatar-${widget.message.code}',
+                                      ),
                                       fileUuid: '',
                                       imageUrl: avatarUrl.startsWith('http')
                                           ? avatarUrl
@@ -786,27 +848,27 @@ class _MessageBubbleState extends State<MessageBubble>
                       // fire only for newly added/removed reactions.
                       // Deleted messages show no reaction pills.
                       if (!widget.isDeleted)
-                      AnimatedBuilder(
-                        animation: widget.reactionsController,
-                        builder: (context, _) {
-                          final messageId = widget.message.code.isNotEmpty
-                              ? widget.message.code
-                              : widget.message.id;
-                          final counts = widget.reactionsController
-                              .getReactionCounts(messageId);
-                          return Transform.translate(
-                            offset: const Offset(0, -6),
-                            child: _AnimatedReactionBadge(
-                              counts: counts,
-                              // Per-chip toggle: tapping a specific emoji
-                              // adds/removes just that emoji for the current
-                              // user. Whole-badge onTap kept as a fallback.
-                              onEmojiTap: _handleEmojiChipTap,
-                              onTap: _handleExistingReactionTap,
-                            ),
-                          );
-                        },
-                      ),
+                        AnimatedBuilder(
+                          animation: widget.reactionsController,
+                          builder: (context, _) {
+                            final messageId = widget.message.code.isNotEmpty
+                                ? widget.message.code
+                                : widget.message.id;
+                            final counts = widget.reactionsController
+                                .getReactionCounts(messageId);
+                            return Transform.translate(
+                              offset: const Offset(0, -6),
+                              child: _AnimatedReactionBadge(
+                                counts: counts,
+                                // WhatsApp-style: a single tap shows who
+                                // reacted; a long-press opens the reaction
+                                // line to add/change/remove your own.
+                                onTap: widget.onReactionsInfoTap,
+                                onLongPress: _handleExistingReactionTap,
+                              ),
+                            );
+                          },
+                        ),
                     ],
                   ),
                 ),
@@ -825,15 +887,21 @@ class _MessageBubbleState extends State<MessageBubble>
     final isDeleted = widget.isDeleted;
     final orgSide = widget.senderIsOrgSide;
     // Room/Admin Chat (orgSide non-null): "my" message always keeps the
-    // current sender gradient (light text) no matter which side of the
-    // conversation I'm on. A message that isn't mine is colored by the
-    // *sender's* role instead: an org-side (staff/admin/teacher/director)
-    // sender gets a flat white bubble with primary-colored text, a
-    // guardian sender keeps the pink gradient (light text). Staff Direct
-    // (orgSide null) keeps the legacy look: gradient (light text) only for
-    // the viewer's own messages, flat light background (dark text) for the
-    // other party's.
-    final useLightText = orgSide == null ? isMe : !(orgSide && !isMe);
+    // current sender gradient (light text). Staff Direct (orgSide null)
+    // keeps the legacy look: gradient (light text) only for the viewer's
+    // own messages, flat light background (dark text) for the other
+    // party's.
+    //
+    // AC11/AC12: pink is a highlight reserved for a guardian's message when
+    // read by the OPPOSITE role (staff/admin) — never for a fellow parent
+    // reading another parent's message (that's a same-role peer, plain
+    // white, per AC12's "other parent's messages ... white background").
+    final viewerOrg = widget.viewerIsOrgSide;
+    final isOppositeRoleGuardian =
+        orgSide == false && (viewerOrg == null || viewerOrg == true);
+    final useLightText = orgSide == null
+        ? isMe
+        : (isMe || isOppositeRoleGuardian);
 
     // Emoji-only analysis — skip for deleted / attached / quoted messages so
     // those always render through the normal bubble with full metadata.
@@ -860,10 +928,10 @@ class _MessageBubbleState extends State<MessageBubble>
       bubbleGradient = isMe ? AppColors.buildPrimaryGradient() : null;
     } else if (isMe) {
       bubbleGradient = AppColors.buildPrimaryGradient();
-    } else if (orgSide) {
-      bubbleColor = Colors.white;
-    } else {
+    } else if (isOppositeRoleGuardian) {
       bubbleGradient = AppColors.buildPinkGradient();
+    } else {
+      bubbleColor = Colors.white;
     }
 
     return Material(
@@ -1005,7 +1073,41 @@ class _MessageBubbleState extends State<MessageBubble>
                           // literal sender (isMe) sees their own message's
                           // delivery status, regardless of which side it
                           // renders on.
-                          if (isMe) ...[
+                          if (isMe && widget.message.isFailed) ...[
+                            const SizedBox(width: 6),
+                            _RetryAffordance(
+                              label: 'Failed · Retry',
+                              icon: Icons.error_outline,
+                              color: const Color(0xFFD63031),
+                              onTap: widget.onRetry,
+                            ),
+                          ] else if (isMe &&
+                              widget.message.hasProcessingAttachments) ...[
+                            const SizedBox(width: 6),
+                            _RetryAffordance(
+                              label: 'Processing',
+                              icon: Icons.sync,
+                              color: useLightText
+                                  ? Colors.white.withValues(alpha: 0.8)
+                                  : Colors.grey[600]!,
+                              onTap: widget.onRetry,
+                            ),
+                          ] else if (isMe && widget.message.isSending) ...[
+                            const SizedBox(width: 4),
+                            // WhatsApp-style "queued/sending, not yet
+                            // reached the server" clock — the local bubble
+                            // (with its local attachment preview) is already
+                            // visible while this shows; it just marks the
+                            // message as not-yet-confirmed, same as the
+                            // single/double tick marks confirmed states.
+                            Icon(
+                              Icons.access_time_rounded,
+                              size: 13,
+                              color: useLightText
+                                  ? Colors.white.withValues(alpha: 0.7)
+                                  : Colors.grey[600],
+                            ),
+                          ] else if (isMe) ...[
                             const SizedBox(width: 4),
                             Icon(
                               widget.message.isRead
@@ -1104,7 +1206,14 @@ class _MessageBubbleState extends State<MessageBubble>
                   ),
                 ),
               ],
-              if (isMe) ...[
+              if (isMe && message.isSending) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.access_time_rounded,
+                  size: 12,
+                  color: Colors.grey.withValues(alpha: 0.7),
+                ),
+              ] else if (isMe) ...[
                 const SizedBox(width: 4),
                 Icon(
                   widget.message.isRead
@@ -1268,13 +1377,58 @@ class _MessageBubbleState extends State<MessageBubble>
     for (var i = 0; i < attempts; i++) {
       try {
         final r = await http.get(Uri.parse(url));
-        if (r.statusCode == 200) return r.bodyBytes;
+        // A 200 status isn't proof the body is actually a decodable image —
+        // a still-propagating CDN edge, an auth/redirect landing page, or a
+        // body cut short mid-transfer can all come back as 200 with
+        // non-image bytes. Handing those to the Thumbnail widget threw
+        // "Invalid image data" from MemoryImage's async decode (visible in
+        // the console as an "IMAGE RESOURCE SERVICE" exception even though
+        // the widget itself falls back to its errorBuilder). Verify the
+        // bytes actually decode before accepting this attempt as a success
+        // — anything that doesn't decode is treated like a network failure
+        // and retried, same as a non-200 status.
+        if (r.statusCode == 200 && r.bodyBytes.isNotEmpty) {
+          try {
+            final codec = await ui.instantiateImageCodec(r.bodyBytes);
+            codec.dispose();
+            return r.bodyBytes;
+          } catch (_) {
+            // Falls through to retry below.
+          }
+        }
       } catch (_) {}
       if (i < attempts - 1) {
         await Future.delayed(Duration(milliseconds: 600 * (i + 1)));
       }
     }
     return Uint8List(0);
+  }
+
+  /// Reads and validates a LOCAL attachment file's bytes — the remote path
+  /// (above) already guards against undecodable bytes, but the local-file
+  /// path previously had no such guard at all (`File(src).readAsBytes()`
+  /// with no existence check, no empty check, no decode check), so a
+  /// truncated/corrupt/deleted local file threw uncaught or handed garbage
+  /// bytes straight to the renderer.
+  Future<Uint8List> _readLocalImageBytes(String path) async {
+    try {
+      final file = File(path);
+      if (!await file.exists()) return Uint8List(0);
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) return Uint8List(0);
+      final codec = await ui.instantiateImageCodec(bytes);
+      codec.dispose();
+      return bytes;
+    } catch (_) {
+      return Uint8List(0);
+    }
+  }
+
+  Future<Uint8List> _resolveBubbleImageBytes(String src) {
+    final isRemote = src.startsWith('http://') || src.startsWith('https://');
+    return isRemote
+        ? _fetchImageBytesWithRetry(src)
+        : _readLocalImageBytes(src);
   }
 
   Widget _buildAttachmentsPreview() {
@@ -1375,6 +1529,22 @@ class _MessageBubbleState extends State<MessageBubble>
                     ? displayImages.first.copyWith(remoteUrl: resolvedUrl)
                     : displayImages.first;
                 final hasSource = att.displaySource != null;
+                // Drive this off the MESSAGE's own send state, not the
+                // attachment's code/attachmentId presence — those can lag
+                // behind a message that's already fully confirmed (e.g. a
+                // just-arrived realtime delta that hasn't filled in
+                // attachmentId on this exact snapshot yet), which kept the
+                // spinner showing over an image that was already loaded and
+                // sent (checkmark visible) correctly.
+                final stillUploading = widget.message.isSending;
+                AppLogger.i(
+                  '[ATTACHMENT RENDER] msg=${widget.message.code} '
+                  'name=${att.name} localPath=${att.localPath} '
+                  'remoteUrl=${att.remoteUrl} code=${att.code} '
+                  'attachmentId=${att.attachmentId} hasSource=$hasSource '
+                  'stillUploading=$stillUploading isLoading=$isLoading '
+                  'isProcessing=$isProcessing resolvedUrl=$resolvedUrl',
+                );
                 return Stack(
                   clipBehavior: Clip.none,
                   children: [
@@ -1385,7 +1555,9 @@ class _MessageBubbleState extends State<MessageBubble>
                             context,
                             MaterialPageRoute(
                               builder: (_) => ShowFullScreenMediaView(
-                                imageUrl: att.remoteUrl,
+                                imageUrl: att.remoteUrl.isNotEmpty
+                                    ? att.remoteUrl
+                                    : null,
                                 imageFile: att.localPath != null
                                     ? File(att.localPath!)
                                     : null,
@@ -1398,51 +1570,22 @@ class _MessageBubbleState extends State<MessageBubble>
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: hasSource
-                            ? Thumbnail(
-                                mimeType: att.mimeType.isNotEmpty
-                                    ? att.mimeType
-                                    : 'image/jpeg',
-                                dataResolver: () async {
-                                  final src = att.displaySource!;
-                                  // `displaySource` prefers `localPath` over
-                                  // `remoteUrl` — checking `remoteUrl.isNotEmpty`
-                                  // here was wrong whenever both were set
-                                  // (e.g. right after upload), since it would
-                                  // then try to HTTP-fetch what is actually a
-                                  // local file path. Decide from `src` itself.
-                                  final isRemote =
-                                      src.startsWith('http://') ||
-                                      src.startsWith('https://');
-                                  if (isRemote) {
-                                    return _fetchImageBytesWithRetry(src);
-                                  }
-                                  return await File(src).readAsBytes();
-                                },
-                                widgetSize: singleImageWidth,
-                                decoration: WidgetDecoration(
-                                  backgroundColor: Colors.white,
-                                  iconColor: Colors.green,
+                            ? _BubbleImageThumbnail(
+                                key: ValueKey(att.displaySource),
+                                bytesResolver: () => _resolveBubbleImageBytes(
+                                  att.displaySource!,
                                 ),
-                                errorBuilder: (context, error) => Container(
-                                  color: Colors.grey[300],
-                                  child: const Icon(
-                                    Icons.image,
-                                    size: 80,
-                                    color: Colors.grey,
-                                  ),
-                                ),
+                                size: singleImageWidth,
+                                errorIconSize: 80,
                               )
                             : Container(
                                 height: singleImageWidth * 0.6,
                                 color: Colors.grey[300],
                                 child: Center(
                                   child: isLoading
-                                      ? const SizedBox(
-                                          width: 28,
-                                          height: 28,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2.5,
-                                          ),
+                                      ? const PrimaryCircularLoader(
+                                          size: 28,
+                                          strokeWidth: 2.5,
                                         )
                                       : isProcessing
                                       ? const _AttachmentProcessingPlaceholder()
@@ -1455,142 +1598,135 @@ class _MessageBubbleState extends State<MessageBubble>
                               ),
                       ),
                     ),
+                    if (hasSource && stillUploading)
+                      const Positioned.fill(
+                        child: IgnorePointer(child: _UploadingOverlay()),
+                      ),
                   ],
                 );
               },
             )
           else
-            GridView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                crossAxisSpacing: 8,
-                mainAxisSpacing: 8,
-                childAspectRatio: 1.0,
-              ),
-              itemCount: displayImages.length,
-              itemBuilder: (context, index) {
+            // Wrap (not GridView) — a message bubble is wrapped in
+            // IntrinsicWidth above to shrink-fit its content, and
+            // IntrinsicWidth cannot measure through a RenderViewport, which
+            // is what backs GridView/ListView even with shrinkWrap: true.
+            // That combination is exactly what threw Flutter's "does not
+            // support returning intrinsic dimensions" assertion (and the
+            // semantics-layer crash cascading from it) on every message with
+            // 2+ images. displayImages is capped at 4, so a Wrap of
+            // fixed-size tiles gives the identical 2-column look without a
+            // viewport ever entering the tree.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: List.generate(displayImages.length, (index) {
                 final rawAtt = displayImages[index];
                 final isLast = index == displayImages.length - 1;
                 final remaining = images.length - 4;
 
-                return AttachmentUrlResolver(
-                  attachment: rawAtt,
-                  builder: (context, resolvedUrl, isLoading, isProcessing) {
-                    final att = (resolvedUrl != null && resolvedUrl.isNotEmpty)
-                        ? rawAtt.copyWith(remoteUrl: resolvedUrl)
-                        : rawAtt;
-                    final hasSource = att.displaySource != null;
-                    return GestureDetector(
-                      onTap: () {
-                        if (hasMoreImages && isLast) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => FullAttachmentViewer(
-                                attachments: attachments,
-                              ),
-                            ),
-                          );
-                        } else if (hasSource) {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ShowFullScreenMediaView(
-                                imageUrl: att.remoteUrl,
-                                imageFile: att.localPath != null
-                                    ? File(att.localPath!)
-                                    : null,
-                                title: att.name,
-                              ),
-                            ),
-                          );
-                        }
-                      },
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(12),
-                            child: hasSource
-                                ? Thumbnail(
-                                    mimeType: att.mimeType.isNotEmpty
-                                        ? att.mimeType
-                                        : 'image/jpeg',
-                                    dataResolver: () async {
-                                      final src = att.displaySource!;
-                                      // See single-image branch above: decide
-                                      // remote-vs-local from `src` itself, not
-                                      // `remoteUrl.isNotEmpty` (wrong whenever
-                                      // localPath is also set, which is what
-                                      // `displaySource` actually returns).
-                                      final isRemote =
-                                          src.startsWith('http://') ||
-                                          src.startsWith('https://');
-                                      if (isRemote) {
-                                        return _fetchImageBytesWithRetry(src);
-                                      }
-                                      return await File(src).readAsBytes();
-                                    },
-                                    widgetSize: multiImageWidth,
-                                    decoration: WidgetDecoration(
-                                      backgroundColor: Colors.white,
-                                      iconColor: Colors.green,
-                                    ),
-                                    errorBuilder: (context, error) => Container(
-                                      color: Colors.grey[300],
-                                      child: const Icon(
-                                        Icons.image,
-                                        size: 50,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  )
-                                : Container(
-                                    color: Colors.grey[300],
-                                    child: Center(
-                                      child: isLoading
-                                          ? const SizedBox(
-                                              width: 22,
-                                              height: 22,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                              ),
-                                            )
-                                          : isProcessing
-                                          ? const _AttachmentProcessingPlaceholder(
-                                              compact: true,
-                                            )
-                                          : const Icon(
-                                              Icons.broken_image,
-                                              size: 50,
-                                              color: Colors.grey,
-                                            ),
-                                    ),
-                                  ),
-                          ),
-                          if (hasMoreImages && isLast)
-                            Container(
-                              decoration: BoxDecoration(
-                                color: Colors.black.withValues(alpha: 0.55),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Center(
-                                child: CustomTextWidget(
-                                  text: '+$remaining',
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  fontColor: Colors.white,
+                return SizedBox(
+                  width: multiImageWidth,
+                  height: multiImageWidth,
+                  child: AttachmentUrlResolver(
+                    attachment: rawAtt,
+                    builder: (context, resolvedUrl, isLoading, isProcessing) {
+                      final att =
+                          (resolvedUrl != null && resolvedUrl.isNotEmpty)
+                          ? rawAtt.copyWith(remoteUrl: resolvedUrl)
+                          : rawAtt;
+                      final hasSource = att.displaySource != null;
+                      // See the single-image branch's matching comment —
+                      // driven off the message's own send state now, not
+                      // the attachment's code/attachmentId presence.
+                      final stillUploading = widget.message.isSending;
+                      return GestureDetector(
+                        onTap: () {
+                          if (hasMoreImages && isLast) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => FullAttachmentViewer(
+                                  attachments: attachments,
                                 ),
                               ),
+                            );
+                          } else if (hasSource) {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ShowFullScreenMediaView(
+                                  imageUrl: att.remoteUrl.isNotEmpty
+                                      ? att.remoteUrl
+                                      : null,
+                                  imageFile: att.localPath != null
+                                      ? File(att.localPath!)
+                                      : null,
+                                  title: att.name,
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: hasSource
+                                  ? _BubbleImageThumbnail(
+                                      key: ValueKey(att.displaySource),
+                                      bytesResolver: () =>
+                                          _resolveBubbleImageBytes(
+                                            att.displaySource!,
+                                          ),
+                                      size: multiImageWidth,
+                                      errorIconSize: 50,
+                                    )
+                                  : Container(
+                                      color: Colors.grey[300],
+                                      child: Center(
+                                        child: isLoading
+                                            ? const PrimaryCircularLoader(
+                                                size: 22,
+                                                strokeWidth: 2,
+                                              )
+                                            : isProcessing
+                                            ? const _AttachmentProcessingPlaceholder(
+                                                compact: true,
+                                              )
+                                            : const Icon(
+                                                Icons.broken_image,
+                                                size: 50,
+                                                color: Colors.grey,
+                                              ),
+                                      ),
+                                    ),
                             ),
-                        ],
-                      ),
-                    );
-                  },
+                            if (hasMoreImages && isLast)
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withValues(alpha: 0.55),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Center(
+                                  child: CustomTextWidget(
+                                    text: '+$remaining',
+                                    fontSize: 28,
+                                    fontWeight: FontWeight.bold,
+                                    fontColor: Colors.white,
+                                  ),
+                                ),
+                              )
+                            else if (hasSource && stillUploading)
+                              const _UploadingOverlay(compact: true),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 );
-              },
+              }),
             ),
         ],
       ],
@@ -1602,10 +1738,104 @@ class _MessageBubbleState extends State<MessageBubble>
   String _formatTime(DateTime dt) => MessagingTimeFormatter.bubbleTime(dt);
 }
 
+/// Renders a chat-bubble image thumbnail directly (bypassing the
+/// `thumbnailer` package's `Thumbnail` widget, which has no error handling
+/// of its own): a resolver failure returned empty bytes as a "successful"
+/// result, which `Thumbnail` then handed to an internal `Image.memory` with
+/// no `errorBuilder`, throwing an uncaught "Invalid image data" exception
+/// and leaving the tile blank. Explicitly guards on empty bytes before ever
+/// calling [Image.memory], and gives that call its own `errorBuilder` too —
+/// mirrors [FullAttachmentViewer]'s `_ResilientImage`. Uses the app's
+/// standard [PrimaryCircularLoader] instead of `Thumbnail`'s raw
+/// `CircularProgressIndicator` while [bytesResolver] is in flight.
+class _BubbleImageThumbnail extends StatefulWidget {
+  const _BubbleImageThumbnail({
+    super.key,
+    required this.bytesResolver,
+    required this.size,
+    required this.errorIconSize,
+  });
+
+  final Future<Uint8List> Function() bytesResolver;
+  final double size;
+  final double errorIconSize;
+
+  @override
+  State<_BubbleImageThumbnail> createState() => _BubbleImageThumbnailState();
+}
+
+class _BubbleImageThumbnailState extends State<_BubbleImageThumbnail> {
+  late final Future<Uint8List> _bytesFuture = widget.bytesResolver();
+
+  Widget _broken() => Container(
+    color: Colors.grey[300],
+    child: Icon(Icons.image, size: widget.errorIconSize, color: Colors.grey),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List>(
+      future: _bytesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState != ConnectionState.done) {
+          return Container(
+            color: Colors.white,
+            child: Center(
+              child: PrimaryCircularLoader(
+                size: widget.size < 60 ? 22 : 28,
+                strokeWidth: widget.size < 60 ? 2 : 2.5,
+              ),
+            ),
+          );
+        }
+        final bytes = snapshot.data;
+        if (bytes == null || bytes.isEmpty) return _broken();
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: widget.size,
+          height: widget.size,
+          errorBuilder: (context, error, stackTrace) => _broken(),
+        );
+      },
+    );
+  }
+}
+
 /// Shown instead of the broken-image icon when the backend has reported the
 /// attachment's asset as still `PROCESSING` (no delivery URL yet) rather
 /// than an outright failure — tells the user it's still on its way instead
 /// of looking like a load error.
+/// Semi-transparent scrim + spinner drawn over an already-visible local
+/// image preview while the attachment hasn't finished uploading/registering
+/// yet (no delivery URL). Distinct from [_AttachmentProcessingPlaceholder],
+/// which replaces the whole tile when there's no local preview to show at
+/// all (a cached/history message with only a still-processing remote asset)
+/// — here the picked photo is already on screen, this just signals "still
+/// going" on top of it, the way a chat app overlays an in-flight send.
+class _UploadingOverlay extends StatelessWidget {
+  const _UploadingOverlay({this.compact = false});
+
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Center(
+        child: PrimaryCircularLoader(
+          size: compact ? 20 : 26,
+          strokeWidth: 2.5,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+}
+
 class _AttachmentProcessingPlaceholder extends StatelessWidget {
   const _AttachmentProcessingPlaceholder({this.compact = false});
 
@@ -1617,11 +1847,7 @@ class _AttachmentProcessingPlaceholder extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        SizedBox(
-          width: iconSize,
-          height: iconSize,
-          child: const CircularProgressIndicator(strokeWidth: 2.5),
-        ),
+        PrimaryCircularLoader(size: iconSize, strokeWidth: 2.5),
         SizedBox(height: compact ? 6 : 8),
         Text(
           'Processing…',
@@ -1631,6 +1857,50 @@ class _AttachmentProcessingPlaceholder extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Small tappable status shown next to a sent message's timestamp instead of
+/// the normal delivery tick — either "Failed · Retry" (the send itself
+/// errored: attachment upload or the API call) or "Processing" (sent fine,
+/// but an attachment is still waiting on the document service; tapping just
+/// re-polls, it does not re-send). No-op decoration (not a real button) when
+/// [onTap] is null, e.g. a cached/legacy message with no retry wired up.
+class _RetryAffordance extends StatelessWidget {
+  const _RetryAffordance({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
+
+  final String label;
+  final IconData icon;
+  final Color color;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 13, color: color),
+          const SizedBox(width: 3),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: color,
+              decoration: TextDecoration.none,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -1785,17 +2055,17 @@ class _AnimatedReactionBadge extends StatefulWidget {
   const _AnimatedReactionBadge({
     required this.counts,
     this.onTap,
-    this.onEmojiTap,
+    this.onLongPress,
   });
 
   final Map<String, int> counts;
 
-  /// Fallback tap on the whole badge (used only when [onEmojiTap] is null).
+  /// Tap anywhere on the badge — shows who reacted (WhatsApp-style).
   final VoidCallback? onTap;
 
-  /// Per-chip tap — called with the specific emoji whose chip was tapped so the
-  /// bubble can toggle just that emoji for the current user.
-  final ValueChanged<String>? onEmojiTap;
+  /// Long-press anywhere on the badge — opens the reaction line to
+  /// add/change/remove your own reaction.
+  final VoidCallback? onLongPress;
 
   @override
   State<_AnimatedReactionBadge> createState() => _AnimatedReactionBadgeState();
@@ -1886,10 +2156,6 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
   Widget build(BuildContext context) {
     if (_displayed.isEmpty) return const SizedBox.shrink();
 
-    // Prefer per-chip taps; fall back to the whole-badge tap only when no
-    // per-emoji handler is wired.
-    final perChip = widget.onEmojiTap != null;
-
     final badge = Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
       decoration: BoxDecoration(
@@ -1907,22 +2173,19 @@ class _AnimatedReactionBadgeState extends State<_AnimatedReactionBadge>
         mainAxisSize: MainAxisSize.min,
         children: [
           for (final entry in _displayed.entries.take(3)) ...[
-            perChip
-                ? GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => widget.onEmojiTap!(entry.key),
-                    child: _buildAnimatedEmoji(entry.key, entry.value),
-                  )
-                : _buildAnimatedEmoji(entry.key, entry.value),
+            _buildAnimatedEmoji(entry.key, entry.value),
             const SizedBox(width: 3),
           ],
         ],
       ),
     );
 
-    if (perChip) return badge;
-
-    return GestureDetector(onTap: widget.onTap, child: badge);
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.onTap,
+      onLongPress: widget.onLongPress,
+      child: badge,
+    );
   }
 
   Widget _buildAnimatedEmoji(String emoji, int count) {

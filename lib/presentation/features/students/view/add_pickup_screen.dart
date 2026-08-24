@@ -7,6 +7,7 @@ import 'package:wowcare/shared/common/widgets/custom_app_bar.dart';
 import 'package:wowcare/shared/common/widgets/custom_button_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_dropdown.dart';
 import 'package:wowcare/shared/common/widgets/custom_toggle.dart';
+import 'package:wowcare/shared/common/widgets/relation_selector.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
@@ -50,16 +51,6 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
   bool _selectFromExisting = true;
   String? _selectedCarer;
   String? _selectedRelation;
-
-  final List<String> _relationOptions = const [
-    'Mother',
-    'Father',
-    'Grandmother',
-    'Grandfather',
-    'Stepmother',
-    'Stepfather',
-    'Other',
-  ];
 
   final TextEditingController _firstNameController = TextEditingController();
   final TextEditingController _lastNameController = TextEditingController();
@@ -508,20 +499,10 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             }),
                           ),
                           SizedBox(height: responsive.verticalSpacing),
-                          CustomDropdown(
-                            label: "Relation",
-                            hintText: 'Select',
-                            items: _relationOptions,
-                            selectedItem: _selectedRelation,
-                            labelStyle: TextStyle(
-                              fontSize: responsive.labelFontSize,
-                              fontFamily: "Manrope",
-                              fontWeight: FontWeight.w400,
-                              color: const Color(0xff573353),
-                            ),
-                            showAsterisk: true,
+                          RelationSelector(
+                            initialRelation: widget.initialRelation,
                             labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
-                            onSelect: (val) {
+                            onChanged: (val) {
                               setState(() {
                                 _selectedRelation = val;
                                 _relationController.text = (val ?? '').trim();
@@ -592,20 +573,14 @@ class _AddPickupScreenState extends State<AddPickupScreen> {
                             ],
                           ),
                           SizedBox(height: responsive.verticalSpacing),
-                          _buildInputField(
-                            label: 'Relation',
-                            hint: 'E.g. Mother',
-                            controller: _relationController,
-                            isRequired: true,
-                            textCapitalization: TextCapitalization.words,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(
-                                RegExp(r"[A-Za-z\s'-]"),
-                              ),
-                              LengthLimitingTextInputFormatter(50),
-                              NameCapitalizationFormatter(),
-                              TrimFormatter(),
-                            ],
+                          RelationSelector(
+                            initialRelation: widget.initialRelation,
+                            labelBottomSpacing: responsive.isTablet ? 8.0 : 6.0,
+                            onChanged: (val) {
+                              setState(() {
+                                _relationController.text = (val ?? '').trim();
+                              });
+                            },
                           ),
                         ],
                         SizedBox(height: responsive.verticalSpacing),

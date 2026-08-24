@@ -462,7 +462,7 @@ class _DropdownMenuPanelState extends State<_DropdownMenuPanel> {
                 ? Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Text(
-                      'No matches',
+                      'No matches found',
                       style: TextStyle(
                         fontFamily: 'Manrope',
                         fontSize: 14,

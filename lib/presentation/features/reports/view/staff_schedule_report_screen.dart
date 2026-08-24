@@ -1,20 +1,22 @@
 import 'dart:async';
-
 import 'package:wowcare/core/util/app_time.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:wowcare/core/util/core_utils.dart';
 import 'package:wowcare/presentation/features/reports/cubit/reports_cubit.dart';
-import 'package:go_router/go_router.dart';
 import 'package:wowcare/presentation/features/reports/widgets/report_form_layout.dart';
 import 'package:wowcare/shared/common/widgets/custom_date_time_field.dart';
 import 'package:wowcare/shared/common/widgets/custom_multi_select_dropdown.dart';
 import 'package:wowcare/shared/utils/responsive_helper.dart';
-
+import '../../../../app/di/di.dart';
+import '../../../../core/storage/storage_service.dart';
+import '../../../../core/util/storage_keys.dart';
+import '../../../../domain/features/classroom/usecases/get_active_classrooms_usecase.dart';
 import '../../../../core/util/logger_service.dart';
 import '../../../../core/util/school_context_helper.dart';
 import '../../../../domain/features/reports/entities/report_type.dart';
 import '../../../../domain/features/reports/usecases/staff_scheduling_report_params.dart';
+import '../utils/report_code_resolver.dart';
 
 class StaffScheduleReportScreen extends StatefulWidget {
   const StaffScheduleReportScreen({super.key, required this.classrooms});
@@ -32,7 +34,9 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
   late DateTime _startDate;
   late DateTime _endDate;
   List<String> _selectedClassrooms = <String>[];
-  String _format = 'PDF';
+  String _format = 'XLSX';
+  List<String> _availableClassrooms = <String>[];
+  Map<String, String> _classroomNameToCode = <String, String>{};
 
   @override
   void initState() {
@@ -40,19 +44,51 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
     final now = AppTime.now();
     _startDate = now;
     _endDate = now.add(const Duration(days: 6));
+
+    _availableClassrooms = List<String>.from(widget.classrooms);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _loadAllStaffClassrooms();
+      }
+    });
   }
 
-  // void _onGenerate() {
-  //   const message =
-  //       'Staff Scheduling report is currently unavailable because backend endpoint does not exist.';
-  //   CoreUtils.showTopSnackBar(
-  //     context: context,
-  //     message: message,
-  //     isError: true,
-  //   );
-  // }
+  Future<void> _loadAllStaffClassrooms() async {
+    try {
+      final storageService = serviceLocator<StorageService>();
+      final schoolCode =
+          (await storageService.getString(StorageKeys.schoolCode) ?? '').trim();
+      if (schoolCode.isNotEmpty) {
+        final classrooms = await serviceLocator<GetActiveClassroomsUseCase>()(
+          schoolCode: schoolCode,
+          onlyTypeClassroom: false,
+        );
+        final nameToCodeMap = <String, String>{};
+        final names = <String>[];
+        for (final c in classrooms) {
+          names.add(c.name);
+          nameToCodeMap[c.name] = c.code;
+        }
+        if (mounted) {
+          setState(() {
+            _availableClassrooms = names;
+            _classroomNameToCode = nameToCodeMap;
+            _selectedClassrooms = <String>[];
+          });
+        }
+      }
+    } catch (e) {
+      AppLogger.e('[STAFF-SCHEDULE-UI] Failed to load staff classrooms: $e');
+    }
+  }
+
   Future<void> _onGenerate() async {
+    AppLogger.d('[STAFF-SCHEDULE-UI] Generate button tapped');
+
     if (_endDate.isBefore(_startDate)) {
+      AppLogger.w(
+        '[STAFF-SCHEDULE-UI] Generation blocked: End date before Start date',
+      );
       CoreUtils.showTopSnackBar(
         context: context,
         message: 'End date cannot be before Start date',
@@ -62,13 +98,25 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
     }
 
     final cubit = context.read<ReportsCubit>();
-    final classroomNameToCode = cubit.state.classroomNameToCode;
+    final nameToCode = _classroomNameToCode.isNotEmpty
+        ? _classroomNameToCode
+        : cubit.state.classroomNameToCode;
+    final classroomCodes = resolveReportCodes(
+      context: context,
+      names: _selectedClassrooms.isEmpty
+          ? widget.classrooms
+          : _selectedClassrooms,
+      nameToCode: nameToCode,
+      labelPlural: 'classrooms',
+    );
+    if (classroomCodes == null) return;
 
-    final classroomCodes = _selectedClassrooms
-        .map((name) => classroomNameToCode[name])
-        .whereType<String>()
-        .toList();
-// Retrieve the school name from storage
+    AppLogger.d(
+      '[STAFF-SCHEDULE-UI] Selected classrooms: $_selectedClassrooms',
+    );
+    AppLogger.d('[STAFF-SCHEDULE-UI] Resolved classroomCodes: $classroomCodes');
+
+    // Retrieve the school name from storage
     final schoolName = await SchoolContextHelper.getSchoolName();
     AppLogger.d('resolvedSchoolName=$schoolName');
     if (schoolName == null || schoolName.isEmpty) {
@@ -90,12 +138,16 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
       schoolName: schoolName,
     );
 
+    AppLogger.d('[STAFF-SCHEDULE-UI] Calling cubit.generateReport()');
     unawaited(cubit.generateReport(params));
   }
 
   @override
   Widget build(BuildContext context) {
     final responsive = ResponsiveHelper(context);
+    final classroomItems = _availableClassrooms.isNotEmpty
+        ? _availableClassrooms
+        : widget.classrooms;
 
     return MultiBlocListener(
       listeners: [
@@ -129,8 +181,10 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   if (!mounted) return;
 
-                  context.go('/dashboard/reports?tab=0');
                   context.read<ReportsCubit>().clearGeneratedReport();
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop(true);
+                  }
                 });
               }
             }
@@ -146,6 +200,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
             const ReportFieldLabel(label: 'Start Date'),
             CustomDateTimeField(
               hasLabel: false,
+              dateFormat: 'MM/dd/yyyy',
               fetchInitialTime: false,
               initialDate: _startDate,
               onDateSelected: (d) => setState(() => _startDate = d),
@@ -154,6 +209,7 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
             const ReportFieldLabel(label: 'End Date'),
             CustomDateTimeField(
               hasLabel: false,
+              dateFormat: 'MM/dd/yyyy',
               fetchInitialTime: false,
               initialDate: _endDate,
               onDateSelected: (d) => setState(() => _endDate = d),
@@ -162,7 +218,8 @@ class _StaffScheduleReportScreenState extends State<StaffScheduleReportScreen> {
             CustomMultiSelectDropdown(
               label: 'Classroom',
               hintText: 'Select Classroom',
-              items: widget.classrooms,
+              items: classroomItems,
+              isRequired: true,
               selectedItems: _selectedClassrooms,
               onChanged: (s) => setState(() => _selectedClassrooms = s),
               showSelectAll: true,

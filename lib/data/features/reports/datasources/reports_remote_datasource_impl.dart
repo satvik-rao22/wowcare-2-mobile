@@ -21,19 +21,42 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
     required Map<String, dynamic> requestBody,
   }) async {
     final endpoint = _generateEndpointFor(reportType);
+    final headers = Map<String, dynamic>.from(_dio.options.headers);
 
-    AppLogger.d(
-      '[REPORTS] Generating ${reportType.backendValue} -> $endpoint, payload: $requestBody',
-    );
+    AppLogger.d('========== REPORT REQUEST ==========');
+    AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+    AppLogger.d('Headers: $headers');
+    AppLogger.d('Payload: $requestBody');
+    AppLogger.d('====================================');
     _logPayloadFieldTypes(requestBody);
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiPaths.url(endpoint),
-      data: requestBody,
-    );
 
-    final responseData = response.data ?? {};
-    AppLogger.d('[REPORTS] Response from $endpoint: $responseData');
-    return ReportResponseModel.fromJson(responseData);
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        ApiPaths.url(endpoint),
+        data: requestBody,
+      );
+      final responseData = response.data ?? {};
+
+      AppLogger.d('========== REPORT RESPONSE ==========');
+      AppLogger.d('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.d('Status Code: ${response.statusCode}');
+      AppLogger.d('Response Body: $responseData');
+      AppLogger.d('=====================================');
+
+      return ReportResponseModel.fromJson(responseData);
+    } catch (error, stackTrace) {
+      AppLogger.e('========== REPORT ERROR ==========', error, stackTrace);
+      AppLogger.e('Endpoint: ${ApiPaths.url(endpoint)}');
+      AppLogger.e('Request Headers: $headers');
+      AppLogger.e('Request Payload: $requestBody');
+      if (error is DioException) {
+        AppLogger.e('DioException type: ${error.type}');
+        AppLogger.e('DioException response: ${error.response?.data}');
+        AppLogger.e('DioException statusCode: ${error.response?.statusCode}');
+      }
+      AppLogger.e('=====================================');
+      rethrow;
+    }
   }
 
   /// Logs the runtime type of every collection-shaped field in the outgoing
@@ -84,9 +107,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
         return ApiPaths.staffReportsGenerate;
       case ReportType.studentsAndFamily:
       case ReportType.emergencyContacts:
-      case ReportType.studentIncident:
       case ReportType.annualStateImmunization:
         return ApiPaths.studentManagementReportsGenerate;
+      case ReportType.studentIncident:
+        return ApiPaths.studentIncidentReportsGenerate;
       case ReportType.immunization:
         // TODO(backend-confirm): unverified whether this dedicated route is
         // still live, or whether immunization now goes through
@@ -191,51 +215,109 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
 
     final data = response.data ?? {};
     final tagsList = (data['tags'] as List?) ?? [];
-
     return tagsList.map((tag) => tag.toString()).toList();
   }
 
+  static const List<Duration> _readyPollDelays = [
+    Duration.zero,
+    Duration(milliseconds: 600),
+    Duration(milliseconds: 1200),
+    Duration(milliseconds: 2000),
+    Duration(milliseconds: 2500),
+    Duration(seconds: 3),
+    Duration(seconds: 3),
+  ];
+
+  static const Set<String> _terminalFailureStatuses = {
+    'FAILED',
+    'DELETED',
+    'ABANDONED',
+  };
+
   @override
   Future<String> getReportDownloadUrl(String assetCode) async {
-    AppLogger.d('Resolving asset code to get download URL: $assetCode');
+    final cleanCode = assetCode.trim();
+    AppLogger.d('Resolving asset code to get download URL: $cleanCode');
 
-    final response = await _dio.post<Map<String, dynamic>>(
-      ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
-      data: {
-        'assetCodes': [assetCode],
-      },
-    );
+    String? lastCandidateUrl;
 
-    final responseData = response.data ?? {};
-    final assets = responseData['data']?['assets'] as List?;
+    for (final delay in _readyPollDelays) {
+      if (delay > Duration.zero) {
+        await Future.delayed(delay);
+      }
 
-    if (assets == null || assets.isEmpty) {
-      throw Exception('Asset not found or resolve failed');
+      try {
+        final response = await _dio.post<Map<String, dynamic>>(
+          ApiPaths.url(ApiPaths.documentMediaAssetsResolve),
+          data: {
+            'assetCodes': [cleanCode],
+          },
+        );
+
+        final responseData = response.data ?? {};
+        final assets = responseData['data']?['assets'] as List?;
+
+        if (assets == null || assets.isEmpty) {
+          continue;
+        }
+
+        final asset = assets[0] as Map<String, dynamic>;
+        final status = (asset['status'] ?? '').toString().trim().toUpperCase();
+
+        if (_terminalFailureStatuses.contains(status)) {
+          throw Exception(
+            'Report processing failed on the server. Please try again.',
+          );
+        }
+
+        final downloadUrl = _extractAssetDownloadUrl(asset);
+        if (downloadUrl != null && downloadUrl.isNotEmpty) {
+          lastCandidateUrl = downloadUrl;
+
+          final hasProcessedVariant = _hasProcessedVariant(asset);
+          if (status == 'READY' || hasProcessedVariant) {
+            final normalized = _normalizeDownloadUrl(downloadUrl);
+            AppLogger.d(
+              'Asset resolved successfully (status=$status), download URL obtained: $normalized',
+            );
+            return normalized;
+          }
+        }
+      } catch (e) {
+        if (e is Exception &&
+            e.toString().contains('Report processing failed')) {
+          rethrow;
+        }
+        AppLogger.w('Transient error resolving report asset $cleanCode: $e');
+      }
     }
 
-    final asset = assets[0] as Map<String, dynamic>;
-    var downloadUrl = _extractAssetDownloadUrl(asset);
-
-    if (downloadUrl == null || downloadUrl.isEmpty) {
-      throw Exception('No download URL found in resolved asset');
-    }
-
-    // Replace template variable if present (fallback for originalDownloadUrl)
-    if (downloadUrl.contains('\${DOCUMENT_PUBLIC_BASE_URL}')) {
-      final baseUrl = _dio.options.baseUrl;
-      downloadUrl = downloadUrl.replaceAll(
-        '\${DOCUMENT_PUBLIC_BASE_URL}',
-        baseUrl,
+    if (lastCandidateUrl != null && lastCandidateUrl.isNotEmpty) {
+      final normalized = _normalizeDownloadUrl(lastCandidateUrl);
+      AppLogger.d(
+        'Asset polling completed, using candidate download URL: $normalized',
       );
-      AppLogger.d('Replaced DOCUMENT_PUBLIC_BASE_URL template with: $baseUrl');
+      return normalized;
     }
 
-    downloadUrl = _sanitizeDownloadUrlHost(downloadUrl);
-
-    AppLogger.d(
-      'Asset resolved successfully, download URL obtained: $downloadUrl',
+    throw Exception(
+      'Report is still processing. Please try again in a few moments.',
     );
-    return downloadUrl;
+  }
+
+  bool _hasProcessedVariant(Map<String, dynamic> asset) {
+    final direct = (asset['deliveryUrl'] ?? '').toString().trim();
+    if (direct.isNotEmpty) return true;
+
+    final variants = asset['variants'];
+    if (variants is List) {
+      for (final row in variants.whereType<Map>()) {
+        final delivery = (row['deliveryUrl'] ?? '').toString().trim();
+        final artifact = (row['artifactUrl'] ?? '').toString().trim();
+        if (delivery.isNotEmpty || artifact.isNotEmpty) return true;
+      }
+    }
+    return false;
   }
 
   /// Pulls the downloadable URL out of a resolved media-asset.
@@ -250,7 +332,6 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
         map['deliveryUrl'],
         map['artifactUrl'],
         map['url'],
-        map['originalDownloadUrl'],
       ];
       for (final raw in candidates) {
         final value = (raw ?? '').toString().trim();
@@ -259,9 +340,7 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
       return '';
     }
 
-    final direct = pickFromMap(asset);
-    if (direct.isNotEmpty) return direct;
-
+    // 1. Prioritize processed variants
     final variants = asset['variants'];
     if (variants is List) {
       for (final row in variants.whereType<Map>()) {
@@ -276,7 +355,57 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
         if (any.isNotEmpty) return any;
       }
     }
+
+    // 2. Direct fields on asset
+    final direct = pickFromMap(asset);
+    if (direct.isNotEmpty) return direct;
+
+    // 3. Fallback to original download URL if variants are not available
+    final original = (asset['originalDownloadUrl'] ?? '').toString().trim();
+    if (original.isNotEmpty) return original;
+
     return null;
+  }
+
+  String _normalizeDownloadUrl(String url) {
+    var downloadUrl = url.trim();
+    if (downloadUrl.isEmpty) return downloadUrl;
+
+    // Replace template variable if present (fallback for originalDownloadUrl)
+    if (downloadUrl.contains(r'${DOCUMENT_PUBLIC_BASE_URL}')) {
+      final baseUrl = _dio.options.baseUrl.isNotEmpty
+          ? _dio.options.baseUrl
+          : ApiConstants.documentMsBaseUrl;
+      downloadUrl = downloadUrl.replaceAll(
+        r'${DOCUMENT_PUBLIC_BASE_URL}',
+        baseUrl,
+      );
+      AppLogger.d('Replaced DOCUMENT_PUBLIC_BASE_URL template with: $baseUrl');
+    }
+
+    // In UAT, ensure /api/v1/media-assets/ has the /document/ prefix
+    if (ApiConstants.isUat) {
+      if (downloadUrl.startsWith('/api/v1/media-assets/')) {
+        downloadUrl = downloadUrl.replaceFirst(
+          '/api/v1/media-assets/',
+          '/api/v1/document/media-assets/',
+        );
+      } else if (downloadUrl.contains('://') &&
+          downloadUrl.contains('/api/v1/media-assets/')) {
+        downloadUrl = downloadUrl.replaceAll(
+          '/api/v1/media-assets/',
+          '/api/v1/document/media-assets/',
+        );
+      }
+    }
+
+    // If relative path, turn into full URL using ApiPaths.url
+    if (downloadUrl.startsWith('/')) {
+      downloadUrl = ApiPaths.url(downloadUrl);
+    }
+
+    downloadUrl = _sanitizeDownloadUrlHost(downloadUrl);
+    return downloadUrl;
   }
 
   /// The document microservice sometimes echoes back its own internal
@@ -313,8 +442,10 @@ class ReportsRemoteDataSourceImpl implements ReportsRemoteDataSource {
   Future<List<int>> downloadReportFile(String downloadUrl) async {
     AppLogger.d('Downloading report file from URL');
 
+    final normalizedUrl = _normalizeDownloadUrl(downloadUrl);
+
     final response = await _dio.get<List<int>>(
-      downloadUrl,
+      normalizedUrl,
       options: Options(responseType: ResponseType.bytes),
     );
 

@@ -35,7 +35,7 @@ class FamilySummaryCubit extends Cubit<FamilySummaryState> {
         school: school,
       );
       if (isClosed) return;
-      emit(state.copyWith(families: families, isLoading: false));
+      emit(state.copyWith(families: _dedupeByOwner(families), isLoading: false));
     } catch (e) {
       if (isClosed) return;
       emit(state.copyWith(
@@ -43,6 +43,23 @@ class FamilySummaryCubit extends Cubit<FamilySummaryState> {
         errorMessage: ApiErrorHandler.extractErrorMessage(e),
       ));
     }
+  }
+
+  /// The API has been observed returning the same family more than once
+  /// (same owner, repeated rows) — the same family/last-name showing up
+  /// several times in the list. Dedupe by owner identity (falling back to
+  /// family name only if the owner code is missing) so each family renders
+  /// once, keeping the first occurrence returned.
+  List<FamilySummaryEntity> _dedupeByOwner(List<FamilySummaryEntity> families) {
+    final seen = <String>{};
+    final result = <FamilySummaryEntity>[];
+    for (final f in families) {
+      final key = f.ownerCode.trim().isNotEmpty
+          ? '${f.ownerType.trim().toUpperCase()}:${f.ownerCode.trim()}'
+          : f.familyName.trim().toLowerCase();
+      if (seen.add(key)) result.add(f);
+    }
+    return result;
   }
 
   void setSearchQuery(String query) =>
