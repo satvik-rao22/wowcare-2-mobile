@@ -28,6 +28,7 @@ class _ActivityMediaPreviewState extends State<ActivityMediaPreview> {
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
   };

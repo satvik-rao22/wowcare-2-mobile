@@ -18,6 +18,7 @@ import 'edit_create_activity_screens/meal_activity.dart';
 import 'edit_create_activity_screens/medication_activity.dart';
 import 'edit_create_activity_screens/nap_activity.dart';
 import 'edit_create_activity_screens/notes_activity.dart';
+import 'edit_create_activity_screens/observation_activity.dart';
 import 'edit_create_activity_screens/outdoor_activity.dart';
 import 'edit_create_activity_screens/photo_activity.dart';
 
@@ -35,6 +36,7 @@ class ChooseActivity extends StatefulWidget {
     'Video': MediaRes.photoVideoActivityIcon,
     'Medication': MediaRes.medicationActivityIcon,
     'Notes': MediaRes.notesActivityIcon,
+    'Observation': MediaRes.observationActivityIcon,
     'Outdoor': MediaRes.outdoorActivityIcon,
     'Learning': MediaRes.learningActivityIcon,
   };
@@ -55,6 +57,8 @@ class ChooseActivity extends StatefulWidget {
     'Medication': (students) =>
         MedicationActivityScreen(selectedStudents: students),
     'Notes': (students) => NotesActivityScreen(selectedStudents: students),
+    'Observation': (students) =>
+        ObservationActivityScreen(selectedStudents: students),
     'Outdoor': (students) => OutdoorActivityScreen(selectedStudents: students),
     'Learning': (students) =>
         LearningActivityScreen(selectedStudents: students),
