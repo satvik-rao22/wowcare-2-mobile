@@ -14,6 +14,7 @@ import 'package:wowcare/domain/features/reports/usecases/generate_report_usecase
 import 'package:wowcare/domain/features/reports/usecases/get_recent_reports_usecase.dart';
 import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecase.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student_classroom/entities/student_classroom_item.dart';
 import 'package:wowcare/domain/features/student_classroom/repositories/student_classroom_repository.dart';
@@ -257,20 +258,19 @@ void main() {
     final mockStudentRepo = _FakeStudentRepository();
     reportsCubit = ReportsCubit(
       storageService: fakeStorage,
-      getTagNamesForSchoolUseCase: GetTagNamesForSchoolUseCase(mockStudentRepo),
       generateReportUseCase: GenerateReportUseCase(mockReportsRepo),
       getRecentReportsUseCase: GetRecentReportsUseCase(mockReportsRepo),
       getStudentTagsUseCase: GetStudentTagsUseCase(mockReportsRepo),
       downloadReportUseCase: DownloadReportUseCase(mockReportsRepo),
       fileDownloadRepository: _FakeFileDownloadRepository(),
+      getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(
+        mockStudentRepo,
+      ),
     );
 
     reportsCubit.setClassroomNames(
       ['Toddler Room A', 'Preschool Room B'],
-      nameToCodeMap: {
-        'Toddler Room A': 'ROOM-A',
-        'Preschool Room B': 'ROOM-B',
-      },
+      nameToCodeMap: {'Toddler Room A': 'ROOM-A', 'Preschool Room B': 'ROOM-B'},
     );
   });
 
@@ -309,12 +309,12 @@ void main() {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      final studentFieldFinder =
-          find.byType(MultiSelectFilterField<String>);
+      final studentFieldFinder = find.byType(MultiSelectFilterField<String>);
       expect(studentFieldFinder, findsOneWidget);
 
-      final studentField =
-          tester.widget<MultiSelectFilterField<String>>(studentFieldFinder);
+      final studentField = tester.widget<MultiSelectFilterField<String>>(
+        studentFieldFinder,
+      );
 
       expect(
         studentField.items,
@@ -323,36 +323,31 @@ void main() {
     },
   );
 
-  testWidgets(
-    'Changing selected classroom dynamically updates student list',
-    (tester) async {
-      await tester.pumpWidget(buildTestWidget());
-      await tester.pumpAndSettle();
+  testWidgets('Changing selected classroom dynamically updates student list', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildTestWidget());
+    await tester.pumpAndSettle();
 
-      // Find classroom dropdown and trigger selection change to only Toddler Room A
-      final classroomDropdownFinder =
-          find.byType(CustomMultiSelectDropdown);
-      expect(classroomDropdownFinder, findsOneWidget);
+    // Find classroom dropdown and trigger selection change to only Toddler Room A
+    final classroomDropdownFinder = find.byType(CustomMultiSelectDropdown);
+    expect(classroomDropdownFinder, findsOneWidget);
 
-      final classroomDropdown =
-          tester.widget<CustomMultiSelectDropdown>(classroomDropdownFinder);
+    final classroomDropdown = tester.widget<CustomMultiSelectDropdown>(
+      classroomDropdownFinder,
+    );
 
-      // Simulate user changing classroom selection to only 'Toddler Room A'
-      classroomDropdown.onChanged(['Toddler Room A']);
-      await tester.pumpAndSettle();
+    // Simulate user changing classroom selection to only 'Toddler Room A'
+    classroomDropdown.onChanged(['Toddler Room A']);
+    await tester.pumpAndSettle();
 
-      final studentField =
-          tester.widget<MultiSelectFilterField<String>>(
-            find.byType(MultiSelectFilterField<String>),
-          );
+    final studentField = tester.widget<MultiSelectFilterField<String>>(
+      find.byType(MultiSelectFilterField<String>),
+    );
 
-      expect(
-        studentField.items,
-        containsAll(['Alice Smith', 'Bob Jones']),
-      );
-      expect(studentField.items.contains('Charlie Brown'), isFalse);
-    },
-  );
+    expect(studentField.items, containsAll(['Alice Smith', 'Bob Jones']));
+    expect(studentField.items.contains('Charlie Brown'), isFalse);
+  });
 
   testWidgets(
     'Deselecting all classrooms empties the student list and shows prompt hint',
@@ -360,19 +355,17 @@ void main() {
       await tester.pumpWidget(buildTestWidget());
       await tester.pumpAndSettle();
 
-      final classroomDropdown =
-          tester.widget<CustomMultiSelectDropdown>(
-            find.byType(CustomMultiSelectDropdown),
-          );
+      final classroomDropdown = tester.widget<CustomMultiSelectDropdown>(
+        find.byType(CustomMultiSelectDropdown),
+      );
 
       // Simulate user deselecting all classrooms
       classroomDropdown.onChanged([]);
       await tester.pumpAndSettle();
 
-      final studentField =
-          tester.widget<MultiSelectFilterField<String>>(
-            find.byType(MultiSelectFilterField<String>),
-          );
+      final studentField = tester.widget<MultiSelectFilterField<String>>(
+        find.byType(MultiSelectFilterField<String>),
+      );
 
       expect(studentField.items, isEmpty);
       expect(studentField.hintText, equals('Select Classroom First'));

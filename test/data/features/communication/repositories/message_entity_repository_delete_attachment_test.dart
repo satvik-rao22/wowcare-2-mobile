@@ -149,6 +149,12 @@ class _FakeRemoteDataSource implements MessageEntityRemoteDataSource {
   @override
   Future<void> markMessageRead(String messageCode) async =>
       throw UnimplementedError();
+
+  @override
+  Future<List<ReadReceiptEntityDto>> getMessageReceipts(String messageCode) {
+    // TODO: implement getMessageReceipts
+    throw UnimplementedError();
+  }
 }
 
 class _FakeRealtimeDataSource implements MessageRealtimeDataSource {

@@ -3,6 +3,7 @@ import 'package:bloc/bloc.dart';
 import 'package:wowcare/app/di/di.dart';
 import 'package:wowcare/core/storage/storage_service.dart';
 import 'package:wowcare/core/util/storage_keys.dart';
+import 'package:wowcare/domain/features/communication/entities/enums.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/dashboard_coordinator_state.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/parent_dashboard_coordinator_cubit.dart';
 import 'package:wowcare/presentation/features/dashboard/cubit/staff_dashboard_coordinator_cubit.dart';
@@ -187,15 +188,52 @@ class MockCommunicationCubit extends MockCubit<CommunicationState>
   bool loadConversationsCalled = false;
   bool isClosedCalled = false;
 
-  @override
-  Future<void> loadConversations({
-    String? type,
-    String status = 'ACTIVE',
-    int page = 0,
-    int size = 20,
-  }) async {
-    loadConversationsCalled = true;
-  }
+  // @override
+  // Future<void> loadConversations({
+  //   String? type,
+  //   String status = 'ACTIVE',
+  //   int page = 0,
+  //   int size = 20,
+  //   String? designation,
+  //   String? staffStatus,
+  //   String? classroom,
+  //   bool forceRefresh = false,
+  //   bool background = false,
+  //   String? statusFilter,
+  //   String? sort,
+  //   String? sortDirection,
+  //   bool includePrivate = false,
+  //   bool searchAdminChats = false,
+  //   bool searchRoomChats = false,
+  //   String? search,
+  //   String? searchStudentCode,
+  //   String? searchClassroomCode,
+  //   bool? isPrivateModeOnly,
+  //   List<ConversationType>? types,
+  //   String? senderNameFilter,
+  //   String? senderTypeFilter,
+  //   List<String>? userCodesFilter,
+  //   DateTime? from,
+  //   DateTime? to,
+  //   int? beforeDayCount,
+  //   int? afterDayCount,
+  //   bool? includePrivateMode,
+  //   bool? includeArchived,
+  //   bool? isSentByCurrentUser,
+  //   bool? isSentByGuardians,
+  //   bool? isSentByStaff,
+  //   bool? isDeleted,
+  //   bool? isScheduled,
+  //   bool? isParent,
+  //   bool? isStaff,
+  //   bool? mustIncludeAllConversationTypes,
+  //   DateTime? date,
+  //   bool? isParentAdmin,
+  //   int? parentUnreadCount,
+  //   int? studentUnreadCount,
+  // }) async {
+  //   loadConversationsCalled = true;
+  // }
 
   @override
   Future<void> close() async {

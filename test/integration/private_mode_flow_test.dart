@@ -56,13 +56,19 @@ class _ControllableRepo implements ConversationEntityRepository {
   @override
   Future<Either<Failure, List<ConversationEntity>>> getConversations({
     ConversationType? type,
-    String status = 'ACTIVE',
+    String? status,
     int page = 0,
     int size = 20,
-    String? designation,
-    String? staffStatus,
-    String? classroom,
-  }) async => const Right([]);
+    List<String>? classroomCodes,
+    List<String>? tagCodes,
+    List<String>? designations,
+    List<String>? studentStatuses,
+    List<String>? staffStatuses,
+    String? search,
+    bool? unreadOnly,
+    bool includeRestUnreadCounts = true,
+  }) async =>
+      const Right([]);
 
   @override
   Future<Either<Failure, List<ConversationEntity>>> getCachedConversations({
@@ -173,6 +179,20 @@ class _ControllableRepo implements ConversationEntityRepository {
     // TODO: implement getUnreadCountsPerConversation
     throw UnimplementedError();
   }
+
+  @override
+  Future<Either<Failure, Set<String>>> getClassroomRosterPresentUserCodes(
+    String classroomCode,
+  ) {
+    // TODO: implement getClassroomRosterPresentUserCodes
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<Either<Failure, Map<String, int>>> getUnreadCountsByType() {
+    // TODO: implement getUnreadCountsByType
+    throw UnimplementedError();
+  }
 }
 
 // ── Helper ────────────────────────────────────────────────────────────────────
@@ -186,7 +206,10 @@ PrivateModeToggleCubit _build(
   conversationCode: 'CONV-INT-001',
   viewerRole: () => viewerRole,
   initialEnabled: initialEnabled,
-  currentUserCode: () {},
+  currentUserCode: () {
+    // TODO: implement currentUserCode
+    throw UnimplementedError();
+  },
 );
 
 // ── Tests ─────────────────────────────────────────────────────────────────────

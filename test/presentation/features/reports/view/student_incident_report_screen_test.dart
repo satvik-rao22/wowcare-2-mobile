@@ -15,6 +15,7 @@ import 'package:wowcare/domain/features/reports/usecases/get_student_tags_usecas
 import 'package:wowcare/domain/features/reports/usecases/report_params.dart';
 import 'package:wowcare/domain/features/reports/usecases/report_request_params.dart';
 import 'package:wowcare/domain/features/student/repositories/student_repository.dart';
+import 'package:wowcare/domain/features/student/usecases/get_tag_name_code_map_for_school_usecase.dart';
 import 'package:wowcare/domain/features/student/usecases/get_tag_names_for_school_usecase.dart';
 import 'package:wowcare/presentation/features/auth/cubit/auth_cubit.dart';
 import 'package:wowcare/presentation/features/communication/cubit/unread_badge_cubit.dart';
@@ -168,16 +169,21 @@ void main() {
     final mockStudentRepo = _FakeStudentRepository();
 
     serviceLocator.registerSingleton<StorageService>(fakeStorage);
-    serviceLocator.registerSingleton<AuthLocalDataSource>(_FakeAuthLocalDataSource());
+    serviceLocator.registerSingleton<AuthLocalDataSource>(
+      _FakeAuthLocalDataSource(),
+    );
 
     reportsCubit = ReportsCubit(
       storageService: fakeStorage,
-      getTagNamesForSchoolUseCase: GetTagNamesForSchoolUseCase(mockStudentRepo),
+
       generateReportUseCase: GenerateReportUseCase(fakeReportsRepo),
       getRecentReportsUseCase: GetRecentReportsUseCase(fakeReportsRepo),
       getStudentTagsUseCase: GetStudentTagsUseCase(fakeReportsRepo),
       downloadReportUseCase: DownloadReportUseCase(fakeReportsRepo),
       fileDownloadRepository: _FakeFileDownloadRepository(),
+      getTagNameCodeMapForSchoolUseCase: GetTagNameCodeMapForSchoolUseCase(
+        mockStudentRepo,
+      ),
     );
 
     reportsCubit.setStudentNames(
@@ -212,9 +218,7 @@ void main() {
         BlocProvider<ReportsCubit>.value(value: reportsCubit),
       ],
       child: MaterialApp(
-        home: StudentIncidentReportScreen(
-          students: testStudents,
-        ),
+        home: StudentIncidentReportScreen(students: testStudents),
       ),
     );
   }
@@ -226,12 +230,12 @@ void main() {
       await tester.pumpAndSettle();
 
       // Verify student multi-select filter field exists and has all students selected
-      final studentFieldFinder =
-          find.byType(MultiSelectFilterField<String>);
+      final studentFieldFinder = find.byType(MultiSelectFilterField<String>);
       expect(studentFieldFinder, findsOneWidget);
 
-      final studentField =
-          tester.widget<MultiSelectFilterField<String>>(studentFieldFinder);
+      final studentField = tester.widget<MultiSelectFilterField<String>>(
+        studentFieldFinder,
+      );
       expect(studentField.selectedItems, equals(testStudents));
 
       // Verify Classroom dropdown is not rendered
@@ -259,10 +263,7 @@ void main() {
       expect(fakeReportsRepo.lastGeneratedParams, isNotNull);
       final params = fakeReportsRepo.lastGeneratedParams as ReportRequestParams;
       expect(params.reportType, equals(ReportType.studentIncident));
-      expect(
-        params.studentCodes,
-        equals(['STU-001', 'STU-002', 'STU-003']),
-      );
+      expect(params.studentCodes, equals(['STU-001', 'STU-002', 'STU-003']));
       expect(params.roomCodes, isNull);
     },
   );
