@@ -2,7 +2,7 @@ name: wowcare
 description: "WowCare 2.O"
 
 publish_to: 'none'
-version: 1.0.0+4
+version: 1.0.0+7
 
 environment:
   sdk: ^3.9.2
@@ -131,9 +131,11 @@ dependency_overrides:
     path: stubs/ffmpeg_kit_flutter_new_https
 
 
+# flutter:
+#   config:
+#     enable-lldb-debugging: false
+#   uses-material-design: true
 flutter:
-  config:
-    enable-lldb-debugging: false
   uses-material-design: true
   assets:
     - assets/vectors/
